@@ -160,7 +160,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         // 7.9 rule 3, the tier half - resolved from the identity store rather than from the
         // caller. An invitation to somebody ineligible is a lie the panel would then render, and
         // one the foundation could not catch: a request row names no entity type, so nothing
-        // downstream can tell a Tag-Reviewers from a Link-Reviewers.
+        // downstream can tell a Tag-Reviewers holder from a Link-Reviewers one.
         private static void ValidateRequestedUserIsInTheReviewTier(
             IdentityUser requestedUser,
             string requestedUserId)

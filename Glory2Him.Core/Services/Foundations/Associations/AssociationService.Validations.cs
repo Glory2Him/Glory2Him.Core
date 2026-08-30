@@ -153,7 +153,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         // performs, so it is returned rather than recomputed - a second GetUserIdAsync would
         // be a wasted call and a second chance for the two answers to disagree.
         //
-        // Note what the carve-out is NOT gated on: write permission. A Reviewer passes the
+        // Note what the carve-out is NOT gated on: write permission. A reviewer passes the
         // check below and may amend content, and must still never move an approval status
         // (§8.6 HR-3).
         private async ValueTask<bool> ValidateUserCanModifyStorageAssociationAsync(
@@ -178,7 +178,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         }
 
         // Approved and Rejected are TERMINAL: a row in either state is immutable in place, to
-        // its owner, to a Publisher and to an Admin alike (§3.4 rules 7 and 16, §9.7.4, §12.3.1
+        // its owner, to a publisher and to an administrator alike (§3.4 rules 7 and 16, §9.7.4, §12.3.1
         // shared rule 9). Reviewers reached a verdict on that row, and a row that changes
         // underneath a verdict makes the verdict a record of nothing.
         //
@@ -186,7 +186,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         // refuses a CHANGE to ApprovalStatus, and its condition is guarded by
         // inputStatus != storageStatus — so a caller who echoes the stored status back unchanged
         // passes it. An association never forks, so refusing the write IS the enforcement, and
-        // the only way back is the Admin override on the approval transition (§8.6 HR-4).
+        // the only way back is the Administrators override on the approval transition (§8.6 HR-4).
         //
         // Reachable in principle and inert in practice, which is worth stating rather than
         // leaving for someone to rediscover: an association has NO caller-editable content —
@@ -211,7 +211,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         }
 
         // removing an association is a takedown, not a moderation step — the owner may
-        // remove their own association and an Admin may remove anyone's; Reviewers and
+        // remove their own association and an administrator may remove anyone's; Reviewers and
         // Publishers moderate through the approval workflow instead
         private async ValueTask ValidateUserCanRemoveStorageAssociationAsync(
             Association storageAssociation,
@@ -230,7 +230,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             }
         }
 
-        // a hard remove destroys the row and its audit trail — Admin only, and additionally
+        // a hard remove destroys the row and its audit trail — Administrators only, and additionally
         // subject to the endpoint veto once the row is known (applied by the caller)
         private static void ValidateUserCanHardRemoveAssociation(SecurityContext securityContext)
         {
@@ -527,7 +527,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         // review history across to a pair nobody reviewed. Type, KeyId and GroupId are
         // therefore pinned against storage on both endpoints. Scope is pinned here as well:
         // it may still change, but only through the set-scope operation (design §9.7.1
-        // rule 6), whose Publisher/Admin gate this modify would otherwise route around.
+        // rule 6), whose Publishers/Administrators gate this modify would otherwise route around.
         private static void ValidateAgainstStorageAssociationOnModify(
             Association inputAssociation,
             Association storageAssociation,
@@ -605,7 +605,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 //
                 // This matters more since authorization became endpoint-derived: the write
                 // gate now admits any scoped reviewer for EITHER endpoint, so without these
-                // pins a Tag-Reviewers could take someone else's pending association and
+                // pins a Tag-Reviewers holder could take someone else's pending association and
                 // publish it through the general modify — approving content nobody with
                 // authority over it ever looked at.
                 (Rule: IsNotAPermittedStatusChangeOnModify(
@@ -649,7 +649,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 // Sorting, confidence, scope and the reacting user are not content either, and
                 // each has its own gated operation. Leaving them writable here routes straight
                 // around those gates: an author could score their own association through
-                // modify, or widen its reach, without ever meeting the Publisher tier the
+                // modify, or widen its reach, without ever meeting the Publishers tier the
                 // dedicated operations require. Design §9.7.1 - modify is content only.
                 (Rule: IsNotSame(
                         first: inputAssociation.SortOrder,
@@ -950,7 +950,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         // The one carve-out on modify (design §9.2 rules 4-6): the owner may move the status
         // between Draft and Submitted, because submitting is inseparable from the edit that
         // made the work ready. Everything else about the status stays pinned, and the caller
-        // must have been found eligible for the carve-out before this is reached - a Reviewer
+        // must have been found eligible for the carve-out before this is reached - a reviewer
         // holds write permission on the row and must still never move the status (HR-3).
         private static dynamic IsNotAPermittedStatusChangeOnModify(
             ApprovalStatus inputStatus,

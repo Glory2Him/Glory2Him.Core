@@ -137,8 +137,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
         [Fact]
         public async Task ShouldRemoveLinkOnRemoveByIdIfActorIsAdminAsync()
         {
-            // given: removing content is a takedown, not a moderation step — an Admin may
-            // remove anyone's link, and a Reviewer or Publisher may not
+            // given: removing content is a takedown, not a moderation step — an administrator may
+            // remove anyone's link, and a reviewer or Publishers may not
             Guid inputLinkId = Guid.NewGuid();
             string inputDeletionReason = GetRandomString();
 

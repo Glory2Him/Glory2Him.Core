@@ -634,9 +634,9 @@ export function ReviewPanelDoc() {
                 title="Roles"
                 lead={
                     <>
-                        Composed per &sect;18.6, capability-last and singular. Voting takes the
-                        review tier &mdash; global <code>Reviewer</code>, <code>Publisher</code>,{' '}
-                        <code>Admin</code>, <code>Administrators</code>,{' '}
+                        Composed per &sect;18.6, capability-last and plural. Voting takes the
+                        review tier &mdash; global <code>Reviewers</code>,{' '}
+                        <code>Publishers</code>, <code>Administrators</code>,{' '}
                         <code>{'{EntityType}'}-Reviewers</code> / <code>-Publishers</code>, and for
                         ContentItem the narrow{' '}
                         <code>ContentItem-{'{ContentType}'}-Reviewers</code> /{' '}

@@ -1150,9 +1150,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
         public async Task ShouldThrowValidationExceptionOnModifyIfApprovalStatusChangedByNonPublisherAndLogItAsync()
         {
             // given
-            // a Reviewer holds write permission but is neither the owner nor in the Publisher
+            // a reviewer holds write permission but is neither the owner nor in the Publishers
             // tier, so mayTransitionApprovalStatus is false. The move is Draft -> Submitted — one
-            // the owner or a Publisher WOULD be allowed — so the refusal comes from the carve-out
+            // the owner or a publisher WOULD be allowed — so the refusal comes from the carve-out
             // gate, not from the status being a verdict.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
@@ -1744,7 +1744,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
         public async Task ShouldThrowValidationExceptionOnModifyIfStorageIsTerminalForPrivilegedRolesAndLogItAsync(
             string role)
         {
-            // given: terminal means terminal for EVERY role (§3.4 rules 7 and 16). An Admin in
+            // given: terminal means terminal for EVERY role (§3.4 rules 7 and 16). An administrator in
             // particular used to have an in-place carve-out here; it is withdrawn, because a state
             // one role can edit out of is not terminal. The override verb is the only route, and
             // it changes status without touching content.

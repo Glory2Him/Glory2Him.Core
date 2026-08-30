@@ -37,7 +37,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettings
     /// storage, and publishing the past-tense fact, so the two paths cannot diverge; the
     /// inbound envelope carries the original caller's <c>SecurityContext</c> and anchors the
     /// causation chain. Per design §14.6 the foundation enforces security itself — every
-    /// write is Admin only, and reads require an authenticated caller (any role), with
+    /// write is Administrators only, and reads require an authenticated caller (any role), with
     /// soft-deleted rows answering not-found and dropping out of collection reads — never
     /// assuming an upstream orchestration already gated the caller.
     /// </summary>

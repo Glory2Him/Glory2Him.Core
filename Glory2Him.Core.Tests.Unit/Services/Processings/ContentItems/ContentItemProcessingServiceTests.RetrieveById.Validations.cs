@@ -271,7 +271,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
         [Fact]
         public async Task ShouldThrowValidationExceptionOnRetrieveByIdIfContentItemIsRemovedAndLogItAsync()
         {
-            // given: a soft-deleted row is gone for every caller — even an Admin reads
+            // given: a soft-deleted row is gone for every caller — even an administrator reads
             // it as not found, before the clock or the caller's identity is ever
             // consulted
             Guid randomContentItemId = Guid.NewGuid();

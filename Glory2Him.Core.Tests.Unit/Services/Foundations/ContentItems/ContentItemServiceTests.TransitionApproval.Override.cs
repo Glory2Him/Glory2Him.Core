@@ -26,7 +26,7 @@ using Moq;
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 {
     /// <summary>
-    /// The three things the widened transition verb added: the <c>Admin</c> override out of a
+    /// The three things the widened transition verb added: the <c>Administrators</c> override out of a
     /// terminal state, the system identity as a second admissible actor, and the bypass pair
     /// carried as a request and written from the verdict.
     /// </summary>
@@ -39,7 +39,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             ApprovalStatus terminalStatus)
         {
             // given: the publisher tier decides a SUBMITTED row. Moving one back out of a
-            // terminal state is an override, and a state a Publisher could edit out of would not
+            // terminal state is an override, and a state a publisher could edit out of would not
             // be terminal at all (§3.4 rules 7 and 16, §8.6 HR-4).
             this.ambientSecurityContext =
                 CreateAuthenticatedSecurityContext(Roles.Publishers);
@@ -88,7 +88,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         public async Task ShouldThrowUnauthorizedOnTransitionIfANonPublisherOverridesATerminalRowAsync(
             string[] roles)
         {
-            // given: the owner and the Reviewer are refused the override too, and by the SAME
+            // given: the owner and the Reviewers are refused the override too, and by the SAME
             // gate — it runs before the publisher-tier check, so the message names the override
             // rather than the approve.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(roles);
@@ -234,7 +234,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         public async Task ShouldPermitASystemIdentityToOverrideATerminalRowAsync()
         {
             // given: the previously published sibling a newly approved version demotes is itself
-            // Approved, so no Publisher may touch it and no human is available to. The override
+            // Approved, so no Publishers may touch it and no human is available to. The override
             // is open to the workflow for exactly that write.
             this.ambientSecurityContext = CreateSystemSecurityContext();
 
@@ -298,7 +298,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // would most want — it re-opens and unpublishes a decided row. Admitted here only
             // because the envelope was verified; the sibling demotion that follows a new
             // version's approval is exactly this write, against a row that is itself Approved
-            // and therefore untouchable by any Publisher.
+            // and therefore untouchable by any Publishers.
             var requestEnvelope = new EventEnvelope<ContentItem>
             {
                 SecurityContext = CreateSystemSecurityContext(),
@@ -550,7 +550,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         [Fact]
         public async Task ShouldThrowUnauthorizedOnTransitionIfTheDecisionRefusesABypassForAnAdminAsync()
         {
-            // given: DoNotAllowBypassingSettings closes the route to EVERYONE, Admin included.
+            // given: DoNotAllowBypassingSettings closes the route to EVERYONE, Administrators included.
             // The setting lives on another entity, so the refusal comes back on the verdict —
             // which is the point of asking rather than deciding locally.
             this.ambientSecurityContext =

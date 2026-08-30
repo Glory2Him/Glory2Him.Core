@@ -990,7 +990,7 @@ namespace {Namespace}.Services.Foundations.{Entity}s
 
         // Replace with this entity's actual write posture. The shape below — authenticated
         // first, then the global ReadOnly ban, then the permission itself — is the order to
-        // keep: the ban precedes the role check so a banned Admin cannot reach past it.
+        // keep: the ban precedes the role check so a banned administrator cannot reach past it.
         private static void ValidateUserIsAllowedToWrite{Entity}(
             SecurityContext securityContext)
         {

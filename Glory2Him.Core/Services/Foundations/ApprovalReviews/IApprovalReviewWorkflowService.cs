@@ -57,7 +57,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
         /// is.</para>
         ///
         /// <para>The trigger is ANY row-writer's edit, not only the owner's — §9.7.4's rule is
-        /// "content changed, so the reviews are stale", and a Reviewer who may edit a submitted
+        /// "content changed, so the reviews are stale", and a reviewer who may edit a submitted
         /// row they do not own invalidates it exactly as its author would.</para>
         ///
         /// <para>The deciding human is still recorded — the system context keeps their

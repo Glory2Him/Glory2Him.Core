@@ -18,7 +18,7 @@ using Microsoft.AspNetCore.WebUtilities;
 namespace Glory2Him.WebApp.Infrastructure
 {
     // Cookie-authenticated JSON endpoints consumed by the React SPA
-    // (Glory2Him.WebApp.React). Mirrors exactly what the Blazor Admin/Users pages
+    // (Glory2Him.WebApp.React). Mirrors exactly what the Blazor Administrators/Users pages
     // do through IUsersViewService — no more, no less. The whole group is
     // Administrators-only; the view service adds its own guards on top (e.g. the
     // last administrator cannot be removed, disabled, or deleted).

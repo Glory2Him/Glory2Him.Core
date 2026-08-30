@@ -288,7 +288,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             string? actorRole)
         {
             // given: removing someone else's content is a takedown, reserved for the
-            // owner and an Admin — a Reviewer or Publisher moderates through the approval
+            // owner and an administrator — a reviewer or Publishers moderates through the approval
             // workflow instead and never removes the row
             Guid randomContentItemId = Guid.NewGuid();
             Guid inputContentItemId = randomContentItemId;

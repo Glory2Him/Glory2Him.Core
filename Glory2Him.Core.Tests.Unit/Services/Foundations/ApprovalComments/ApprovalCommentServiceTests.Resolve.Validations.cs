@@ -26,7 +26,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
     public partial class ApprovalCommentServiceTests
     {
         // The review roles read a comment thread without owning it, so none of them may declare
-        // someone else's comment settled. Admin is the GLOBAL role only — an entity-scoped
+        // someone else's comment settled. Administrators is the GLOBAL role only — an entity-scoped
         // "-Publishers" decides approvals, which is not the same as lifting the block
         // RequireReviewCommentResolutionBeforeApprovals holds shut.
         public static TheoryData<string[]> NonResolverRoleSets() =>

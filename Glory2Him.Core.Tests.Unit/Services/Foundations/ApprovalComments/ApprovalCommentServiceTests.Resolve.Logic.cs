@@ -134,7 +134,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
         [Fact]
         public async Task ShouldResolveOnBehalfOfTheAuthorWhenTheCallerIsAnAdminAsync()
         {
-            // given: the one comment operation an Admin may run against another person's row.
+            // given: the one comment operation an administrator may run against another person's row.
             // Resolving records that a comment is settled, which changes no words — amending
             // or withdrawing someone else's comment stays refused (§14.7 rule 5).
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
@@ -146,7 +146,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
                 broker.GetCurrentDateTimeOffsetAsync())
                     .ReturnsAsync(GetRandomDateTimeOffset());
 
-            // a DIFFERENT user from the comment's author — the Admin role is what carries this
+            // a DIFFERENT user from the comment's author — the Administrators role is what carries this
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
                     .ReturnsAsync(GetRandomString());

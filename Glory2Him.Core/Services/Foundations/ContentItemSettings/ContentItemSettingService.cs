@@ -38,7 +38,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
     /// inbound envelope carries the original caller's <c>SecurityContext</c> and anchors the
     /// causation chain. Per design §14.6 the foundation enforces security itself — content
     /// item settings are administrator-authored display configuration, so every write
-    /// (including hard removal) is Admin only, while reads are public: the settings drive
+    /// (including hard removal) is Administrators only, while reads are public: the settings drive
     /// anonymous page rendering, so every non-deleted row is readable by anyone and only a
     /// soft-deleted row answers not-found — never assuming an upstream orchestration
     /// already gated the caller.
@@ -181,7 +181,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
         // event path: a content item setting configures how a page renders for anonymous
         // visitors, so every non-deleted row is public and the posture takes no security
         // context at all — only a soft-deleted row is denied, and it answers not-found —
-        // never unauthorized — to everyone including an Admin, with the true denial reason
+        // never unauthorized — to everyone including an administrator, with the true denial reason
         // logged server-side only
         private async ValueTask<ContentItemSetting> DoRetrieveContentItemSettingByIdAsync(
             Guid contentItemSettingId,

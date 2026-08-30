@@ -51,11 +51,11 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
             }
         }
 
-        // Tier 1, row-local: the global Reviewer/Publisher/Admin roles, plus — by the §16.6
+        // Tier 1, row-local: the global Reviewers/Publishers/Administrators roles, plus — by the §16.6
         // convention — any entity-scoped "{Entity}-Reviewers"/"{Entity}-Publishers" role.
         //
         // This check only ever sees the caller, so it cannot know which entity type an approval
-        // targets: a Tag-Reviewers passes it for a Link's approval. Narrowing to the approval's
+        // targets: a Tag-Reviewers holder passes it for a Link's approval. Narrowing to the approval's
         // own entity type was once described as an orchestration concern. That is withdrawn: it
         // lives in the foundation, one tier down, through IAccessBroker — which can read the
         // entity behind the approval where this cannot. (§12.3.1 withdraws the orchestration for
@@ -144,7 +144,7 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
         }
 
         // removing an approval retracts the workflow record itself — the owner may
-        // withdraw their own and an Admin may remove anyone's; Reviewers and Publishers
+        // withdraw their own and an administrator may remove anyone's; Reviewers and Publishers
         // act through the approval's status instead
         private async ValueTask ValidateUserCanRemoveStorageApprovalAsync(
             Approval storageApproval,
@@ -173,7 +173,7 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
             }
         }
 
-        // a hard remove destroys the row and its audit trail — Admin only
+        // a hard remove destroys the row and its audit trail — Administrators only
         private static void ValidateUserCanHardRemoveApproval(SecurityContext securityContext)
         {
             if (securityContext is null || securityContext.IsAuthenticated is false)
@@ -456,7 +456,7 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
         // It lived inside the §8.6.1 decision function, which returns ApprovalNotOpenForReview
         // for any state but Submitted — so skipping that function for the workflow also skipped
         // this, and a Draft round reaching EvaluateApprovalAsync could be driven straight to
-        // Approved. No human can do that, Admin included.
+        // Approved. No human can do that, Administrators included.
         private static void ValidateStorageApprovalRoundIsOpenForOutcome(
             Approval inputApproval,
             Approval storageApproval)

@@ -41,7 +41,7 @@ namespace Glory2Him.WebApp.Controllers.ApprovalSettings
     /// rule 3 requires an exposer to bind to.</para>
     ///
     /// <para><b>Posture C (§14.7), and it differs from posture A in both directions.</b> All
-    /// writes including hard removal are <c>Admin</c> only — there is no owner branch, because
+    /// writes including hard removal are <c>Administrators</c> only — there is no owner branch, because
     /// only administrators author configuration — so unlike the content exposers the role list
     /// is expressible on every write and the attribute names it rather than deferring to the
     /// service. The service still re-decides it against the stored row (§14.6): the attribute is
@@ -287,7 +287,7 @@ namespace Glory2Him.WebApp.Controllers.ApprovalSettings
         }
 
         /// <summary>
-        /// Permanent removal. Design §14.6 restricts hard removal to <c>Admin</c>; the attribute
+        /// Permanent removal. Design §14.6 restricts hard removal to <c>Administrators</c>; the attribute
         /// below is the coarse half of that and the foundation re-decides it against the row.
         /// </summary>
         [HttpDelete("{approvalSettingId}/Hard")]

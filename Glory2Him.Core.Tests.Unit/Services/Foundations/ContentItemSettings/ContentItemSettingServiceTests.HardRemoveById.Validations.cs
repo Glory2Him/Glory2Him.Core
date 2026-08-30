@@ -205,7 +205,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
         [Fact]
         public async Task ShouldBlockHardRemoveWhenTheCallerIsGloballyReadOnlyAndLogItAsync()
         {
-            // given: the global ReadOnly ban outranks Admin, so a banned Admin is refused before
+            // given: the global ReadOnly ban outranks Administrators, so a banned administrator is refused before
             // the row is even read — the destructive surface is not an exception to the site-wide
             // contribution ban.
             this.ambientSecurityContext =

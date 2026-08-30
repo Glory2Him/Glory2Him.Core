@@ -31,7 +31,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         //
         // ContentItem is the only entity with three role tiers, because it is the only one
         // carrying a ContentType. The tiers widen from narrow to broad —
-        // ContentItem-Story-Reviewers ⊂ ContentItem-Reviewers ⊂ Reviewer — and rule 4 binds
+        // ContentItem-Story-Reviewers ⊂ ContentItem-Reviewers ⊂ Reviewers — and rule 4 binds
         // BOTH directions: holding any of them satisfies a check for that content type, and
         // the narrow role never satisfies a check for a different one. Every test below
         // pairs a "may" with a "may not" so neither half can rot.
@@ -309,7 +309,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         [Fact]
         public async Task ShouldWriteTheSubmissionStatusOnModifyWhenAContentTypePublisherMovesItAsync()
         {
-            // given: the §9.2 carve-out is gated on the Publisher TIER, and the narrow
+            // given: the §9.2 carve-out is gated on the Publishers TIER, and the narrow
             // content-type publisher is part of that tier for its own content type
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(
                 Roles.PublishersFor(EntityType.ContentItem, ContentType.Testimony));

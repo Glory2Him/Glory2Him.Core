@@ -33,7 +33,7 @@ namespace Glory2Him.WebApp.Data
         // rows. Referenced from Core rather than re-spelled here so the two cannot drift.
         //
         // "Administrators" IS ONE OF THESE NAMES NOW. It used to be the portal's own vocabulary,
-        // seeded here beside a separate Core "Admin" and satisfying none of Core's checks — the
+        // seeded here beside a separate Core "Administrators" and satisfying none of Core's checks — the
         // two-vocabulary split of issue #193, closed out by #368. One row now opens both
         // surfaces, which is why it is no longer minted separately below: CoreRoles carries it.
         //

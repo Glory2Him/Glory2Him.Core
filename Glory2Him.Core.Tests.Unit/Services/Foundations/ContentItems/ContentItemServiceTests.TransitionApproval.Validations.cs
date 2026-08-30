@@ -302,9 +302,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         {
             // given: a Draft has not been submitted and a Dismissed row is not in a round at all,
             // so neither can be decided. Approved and Rejected are absent because they ARE
-            // transitionable — by an Admin, through the override — and are covered there.
+            // transitionable — by an administrator, through the override — and are covered there.
             //
-            // The tier and the access decision pass first (global Publisher, permissive fixture),
+            // The tier and the access decision pass first (global Publishers, permissive fixture),
             // so this proves the state gate stands on its own.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
@@ -357,7 +357,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             {
                 new string[0],
 
-                // a Reviewer holds the review tier and MUST still never set an approval status
+                // a reviewer holds the review tier and MUST still never set an approval status
                 // (§8.6 HR-3) — the publisher tier deliberately excludes it
                 new[] { Roles.Reviewers },
                 new[] { Roles.ContentItemReviewers },
@@ -370,7 +370,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         {
             // given: the row-local publisher-tier check is what makes an unauthorised caller
             // cost one role comparison instead of a table read, and it is where HR-3 lands — a
-            // Reviewer is refused before the access decision is ever asked.
+            // Reviewers is refused before the access decision is ever asked.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(roles);
 
             ContentItem storageContentItem = CreateApprovableStorageContentItem();
@@ -415,7 +415,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         [Fact]
         public async Task ShouldThrowValidationExceptionOnApproveIfTheAccessBrokerRefusesAsync()
         {
-            // given: the caller holds the global Publisher role, so the row-local tier check
+            // given: the caller holds the global Publishers role, so the row-local tier check
             // passes and the cross-entity decision is the ONLY thing left that can refuse the
             // approve (HR-2 self-approval lives behind the access broker).
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);

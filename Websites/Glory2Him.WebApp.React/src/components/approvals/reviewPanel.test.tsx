@@ -958,7 +958,6 @@ describe('ReviewPanel', () => {
         it.each([
             ['Publishers'],
             ['Administrators'],
-            ['Administrators'],
             ['ContentItem-Publishers'],
             ['ContentItem-Blog-Publishers']
         ])('should show the set-approval-status dropdown to %s', (role: string) => {
@@ -1729,7 +1728,7 @@ describe('ReviewPanel', () => {
             // given: a second Enter on the trigger is the habitual response to a menu that opened
             // below the fold or was otherwise not noticed. Before #370, that Enter landed on the
             // first item and cast a vote nobody meant to cast.
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
             const onReviewStatusChanged = vi.fn();
 
             renderWithAuth(
@@ -1858,7 +1857,7 @@ describe('ReviewPanel', () => {
         // order) winning the focus regardless of which menu the user was actually in.
         it('should not allow two menus open at once when both are opened via the keyboard', async () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             renderWithAuth(
                 <ReviewPanel

@@ -48,8 +48,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
     /// <c>ReadOnly</c> scoped to <i>either</i> endpoint type. Review permission is a global
     /// elevated role <b>or</b> a scoped role matching <i>at least one</i> endpoint, each
     /// endpoint checked at both the coarse entity-type tier and the narrow content-type tier.
-    /// Write permission is the owner or a review role; removal is the owner or <c>Admin</c>,
-    /// hard removal <c>Admin</c> only — both additionally subject to the endpoint veto. The
+    /// Write permission is the owner or a review role; removal is the owner or <c>Administrators</c>,
+    /// hard removal <c>Administrators</c> only — both additionally subject to the endpoint veto. The
     /// veto is scoped to writes and never consulted on a read, so a moderator holding one
     /// scoped <c>ReadOnly</c> keeps their audit visibility. Reads otherwise follow the
     /// §14.1/§14.5 posture.</para>
@@ -617,7 +617,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             ValidateStorageAssociation(maybeAssociation, associationId);
 
             // the same endpoint veto the soft delete applies. Without it this surface is the
-            // one write an endpoint-blocked Admin can still perform — and it is the
+            // one write an endpoint-blocked Administrators can still perform — and it is the
             // destructive one, taking the audit trail with it. A block that stops the
             // reversible takedown but not the irreversible one is the wrong way round.
             ValidateUserIsNotBlockedFromEndpoints(

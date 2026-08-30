@@ -138,8 +138,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
         [Fact]
         public async Task ShouldRemoveContentItemOnRemoveByIdIfActorIsAdminAsync()
         {
-            // given: an Admin may take down anyone's content (§16.6) — the owner check
-            // fails but the Admin role carries the takedown on its own
+            // given: an administrator may take down anyone's content (§16.6) — the owner check
+            // fails but the Administrators role carries the takedown on its own
             Guid randomContentItemId = Guid.NewGuid();
             Guid inputContentItemId = randomContentItemId;
 

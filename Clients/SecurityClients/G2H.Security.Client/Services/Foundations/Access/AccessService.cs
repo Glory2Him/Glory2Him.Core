@@ -211,7 +211,7 @@ namespace G2H.Security.Client.Services.Foundations.Access
             return Permit("Actor is the author of the comment and the round is open.");
         }
 
-        // The one comment operation an Admin may perform on someone else's row, and deliberately
+        // The one comment operation an administrator may perform on someone else's row, and deliberately
         // the only one: resolving records that a comment is settled — that it no longer requires
         // anything before the approval can proceed — which changes no words.
         private static AccessVerdict DecideMayResolveApprovalComment(
@@ -581,7 +581,7 @@ namespace G2H.Security.Client.Services.Foundations.Access
                     RoleNames.PublishersFor));
 
         // The narrow tier widens into the coarse one: ContentItem-Blog-Reviewers ⊂
-        // ContentItem-Reviewers ⊂ Reviewer (§18.6 rule 4). Holding either spelling satisfies the
+        // ContentItem-Reviewers ⊂ Reviewers (§18.6 rule 4). Holding either spelling satisfies the
         // check for that content type; the narrow one never satisfies a check for a different one.
         private static bool HasScopedRole(
             AccessActor actor,

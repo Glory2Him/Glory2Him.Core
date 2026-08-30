@@ -72,7 +72,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalReviews
         [Fact]
         public async Task ShouldReturnUnauthorizedOnHardDeleteIfCallerIsNotAdminAsync()
         {
-            // given: a reviewer, and then a publisher — neither is Admin
+            // given: a reviewer, and then a publisher — neither is Administrators
             (Approval approval, ApprovalReview review) =
                 await PostRandomApprovalReviewOnOpenApprovalAsync();
 

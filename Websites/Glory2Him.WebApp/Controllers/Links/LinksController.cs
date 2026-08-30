@@ -76,7 +76,7 @@ namespace Glory2Him.WebApp.Controllers.Links
     /// (<c>ContentType</c>, <c>ContentHash</c>) and a link carries neither, because two links to
     /// the same URL are a legitimate pair — the same article cited from two stories, under two
     /// names. There is <b>no content-type role tier</b>: §18.6 rule 5 gives the narrow tier only
-    /// to <c>ContentItem</c>, so a <c>Link-Reviewers</c> covers every link there is and no per-row
+    /// to <c>ContentItem</c>, so <c>Link-Reviewers</c> covers every link there is and no per-row
     /// role question is asked. And there is <b>no <c>ContentType</c> immutability rule</b>,
     /// because there is nothing to reclassify.</para>
     ///
@@ -384,7 +384,7 @@ namespace Glory2Him.WebApp.Controllers.Links
         }
 
         /// <summary>
-        /// Permanent removal. Design §14.6 restricts hard removal to <c>Admin</c>; the attribute
+        /// Permanent removal. Design §14.6 restricts hard removal to <c>Administrators</c>; the attribute
         /// below is the coarse half of that and the foundation re-decides it against the row.
         /// </summary>
 

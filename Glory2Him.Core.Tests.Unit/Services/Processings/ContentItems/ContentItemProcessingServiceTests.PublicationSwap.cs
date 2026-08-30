@@ -712,7 +712,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
         [Fact]
         public async Task ShouldForwardInboundEnvelopeToUnpublishOnApprovingContentItemAsync()
         {
-            // given: the identity is CARRIED, never re-minted. The unpublish is gated to Admin
+            // given: the identity is CARRIED, never re-minted. The unpublish is gated to Administrators
             // or the workflow (§8.6 HR-4), and on an automatic approval the ambient caller is
             // the reviewer whose own review closed the round — neither. Minting a fresh
             // envelope inside the swap would read that caller and the demote would be refused
@@ -926,7 +926,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             ShouldThrowValidationExceptionOnApprovingContentItemIfIntegrityVerificationFailsAndLogItAsync()
         {
             // given: the swap acts on a system identity read straight off the envelope, and
-            // forwards that envelope to an Admin-gated unpublish. Without the signature check
+            // forwards that envelope to an administrator-gated unpublish. Without the signature check
             // anyone who can put a message on ContentItemProcessing-Approving declares
             // themselves the workflow and demotes any group's live row (§14.6 rule 4).
             Guid targetContentItemId = Guid.Parse("90909090-9090-9090-9090-909090909090");

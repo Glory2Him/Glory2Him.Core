@@ -332,7 +332,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         [Fact]
         public async Task ShouldThrowValidationExceptionOnModifyIfANonOwnerMovesTheSubmissionStatusAsync()
         {
-            // given: the other half of the carve-out. A Tag-Reviewers holds write permission on
+            // given: the other half of the carve-out. A Tag-Reviewers holder has write permission on
             // the row and may amend it, and must still never move the status (§8.6 HR-3) — so
             // the flag has to come from OWNERSHIP, not from passing the write gate.
             this.ambientSecurityContext =
@@ -746,7 +746,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         {
             // given: the endpoint-derived WRITE permission. Reverting
             // ValidateUserCanModifyStorageAssociationAsync to the old global-only check must
-            // turn this red — a Tag-Reviewers who is not the owner may edit the content of a
+            // turn this red — a Tag-Reviewers holder who is not the owner may edit the content of a
             // Tag association, which is the capability this PR exists to grant.
             this.ambientSecurityContext =
                 CreateAuthenticatedSecurityContext(Roles.TagReviewers);
@@ -771,7 +771,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             // nothing on the entity is altered, and that is not an oversight: every non-audit
             // field an Association carries now belongs to a narrow operation and is pinned
-            // against storage here. What this test asserts is the GATE — that a Tag-Reviewers
+            // against storage here. What this test asserts is the GATE — that a Tag-Reviewers holder
             // who is not the owner is admitted to the modify path at all.
             Association expectedAssociation = inputAssociation.DeepClone();
 

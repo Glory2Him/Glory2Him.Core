@@ -26,10 +26,10 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                 message: "Approval comment is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(approvalCommentId), Parameter: nameof(ApprovalComment.Id)));
 
-        // Owner or Admin, and deliberately no wider. The review roles read a comment thread
-        // (§14.1) without owning it, so a Reviewer who wants to respond to an outstanding comment
+        // Owner or Administrators, and deliberately no wider. The review roles read a comment thread
+        // (§14.1) without owning it, so a reviewer who wants to respond to an outstanding comment
         // writes one of their own — declaring somebody else's comment settled is the author's
-        // call, or an administrator's. Admin is the GLOBAL role only: an entity-scoped
+        // call, or an administrator's. Administrators is the GLOBAL role only: an entity-scoped
         // "-Publishers" is a workflow role, and lifting the block
         // RequireReviewCommentResolutionBeforeApprovals holds shut is an administrative
         // override rather than part of deciding the approval.

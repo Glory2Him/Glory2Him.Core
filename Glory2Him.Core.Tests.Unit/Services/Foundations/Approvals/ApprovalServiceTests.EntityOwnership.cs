@@ -318,7 +318,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                     GetRandomString(),
                     TestContext.Current.CancellationToken);
 
-            // then: admitted as the CONTENT's author, holding neither Admin nor any other role
+            // then: admitted as the CONTENT's author, holding neither Administrators nor any other role
             actualApproval.Should().NotBeNull();
 
             this.accessBrokerMock.Verify(broker =>

@@ -67,7 +67,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
 
         /// <summary>
         /// The subject comes from the approval's target, which is the point: the foundation's
-        /// row-local suffix match cannot tell a <c>Tag-Reviewers</c> from a reviewer for the
+        /// row-local suffix match cannot tell a <c>Tag-Reviewers</c> holder from a reviewer for the
         /// entity actually under approval, and this is the read that can.
         /// </summary>
         [Theory]

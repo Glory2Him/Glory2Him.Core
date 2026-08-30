@@ -90,8 +90,8 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
         }
 
         /// <summary>
-        /// A signed-in contributor is not an Admin. Design §14.7 posture A rule 3 restricts hard
-        /// removal to Admin, and the attribute must turn the caller away before the service is
+        /// A signed-in contributor is not an administrator. Design §14.7 posture A rule 3 restricts hard
+        /// removal to Administrators, and the attribute must turn the caller away before the service is
         /// reached — so the row is still there afterwards.
         /// </summary>
         [Fact]
@@ -211,7 +211,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
 
         /// <summary>
         /// The review tier is owner-OR-role, so a reviewer may write a tag they did not create.
-        /// Both tiers are exercised — the global <c>Reviewer</c> and the entity-scoped
+        /// Both tiers are exercised — the global <c>Reviewers</c> and the entity-scoped
         /// <c>Tag-Reviewers</c> — because the foundation tests for both and seeding only one
         /// would leave half the rule dead.
         /// </summary>
@@ -241,7 +241,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
         }
 
         /// <summary>
-        /// Removal is owner-or-Admin, deliberately narrower than modify: a Reviewer holds write
+        /// Removal is owner-or-Admin, deliberately narrower than modify: a reviewer holds write
         /// permission on someone else's tag but may not delete it.
         /// </summary>
         [Fact]
@@ -269,7 +269,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
         /// <summary>
         /// The block tier (design §18.6): "assigned to users who misbehave, takes precedence over
         /// every other role". Both the global and the tag-scoped block are refused, and the
-        /// refusal survives the caller also holding Admin — precedence is the whole point.
+        /// refusal survives the caller also holding Administrators — precedence is the whole point.
         /// </summary>
         [Theory]
         [InlineData(Roles.ReadOnly)]
@@ -305,7 +305,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
         }
 
         /// <summary>
-        /// Hard delete is the one write whose coarse gate is a role list, so a blocked Admin
+        /// Hard delete is the one write whose coarse gate is a role list, so a blocked administrator
         /// clears the attribute and is stopped by the foundation instead.
         /// </summary>
         [Fact]

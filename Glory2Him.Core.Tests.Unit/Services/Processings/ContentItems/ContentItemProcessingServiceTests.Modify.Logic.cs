@@ -555,7 +555,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             ApprovalStatus approvalStatus,
             string modifyingRole)
         {
-            // given: while an item is not yet decided, a Reviewer, Publisher or Admin
+            // given: while an item is not yet decided, a reviewer, Publishers or Administrators
             // (global or ContentItem-scoped) may modify it in place alongside the owner;
             // the item stays on the same row and their identity lands on UpdatedBy
             // downstream. A terminal item is deliberately absent — it belongs to its owner

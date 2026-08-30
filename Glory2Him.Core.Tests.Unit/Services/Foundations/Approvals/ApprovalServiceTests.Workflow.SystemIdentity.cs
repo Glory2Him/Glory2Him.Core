@@ -136,7 +136,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
         /// <c>EvaluateApprovalAsync</c>, whose only condition is that the approval conditions are
         /// met. A Draft's conditions can be met.</para>
         ///
-        /// <para>That is a transition NO human can make, <c>Admin</c> included, on the row §9.8
+        /// <para>That is a transition NO human can make, <c>Administrators</c> included, on the row §9.8
         /// calls the source of truth. The guard is therefore unconditional: "is this round open"
         /// is a fact about STORAGE, which is the same argument that justifies the workflow's
         /// unfiltered read.</para>
@@ -403,7 +403,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
         /// <remarks>
         /// <para><c>RecordApprovalDecisionAsync</c> relays a deliberate human decision through
         /// this same interface and sets <c>IsApprovedByBypass</c> from that decision's own
-        /// verdict — true whenever an <c>Admin</c> legitimately bypass-approves. A guard keyed on
+        /// verdict — true whenever an administrator legitimately bypass-approves. A guard keyed on
         /// the system identity would refuse exactly the case a bypass exists for.</para>
         ///
         /// <para>One was written and removed. This test exists so the next person who reasons
@@ -414,7 +414,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
         [Fact]
         public async Task ShouldCarryABypassThroughTheSeamOnWorkflowModifyAsync()
         {
-            // given: the shape RecordApprovalDecisionAsync produces for an Admin bypass —
+            // given: the shape RecordApprovalDecisionAsync produces for an administrator bypass —
             // an outcome applied to an open round, carrying a verdict-derived waiver
             string adminUserId = GetRandomString();
             this.ambientSecurityContext = CreateContributorSecurityContext(adminUserId);

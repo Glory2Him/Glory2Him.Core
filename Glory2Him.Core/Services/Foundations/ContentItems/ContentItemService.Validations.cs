@@ -77,7 +77,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
 
         // ContentItem is the one entity type with three role tiers rather than two, because
         // it is the only one carrying a ContentType (design §18.6 rule 5). The tiers widen
-        // from narrow to broad — ContentItem-Story-Reviewers ⊂ ContentItem-Reviewers ⊂ Reviewer
+        // from narrow to broad — ContentItem-Story-Reviewers ⊂ ContentItem-Reviewers ⊂ Reviewers
         // — and rule 4 binds both directions: holding ANY of them satisfies a check for that
         // content type, and the narrow role NEVER satisfies a check for a different one. Both
         // halves are load-bearing, so the checks below are always asked about a content type.
@@ -118,7 +118,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
 
         // the publisher tier: the roles the dedicated approve operation itself requires, and
         // the only ones besides the owner that may move a submission status through modify.
-        // Strictly narrower than the review tier — a Reviewer is absent by design (§8.6 HR-3).
+        // Strictly narrower than the review tier — a reviewer is absent by design (§8.6 HR-3).
         private static bool HasPublisherRole(
             SecurityContext securityContext,
             ContentType contentType) =>
@@ -138,7 +138,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         // performs, so it is returned rather than recomputed - a second GetUserIdAsync would
         // be a wasted call and a second chance for the two answers to disagree.
         //
-        // Note what the carve-out is NOT gated on: write permission. A Reviewer passes the
+        // Note what the carve-out is NOT gated on: write permission. A reviewer passes the
         // check below and may amend content, and must still never move an approval status
         // (§8.6 HR-3).
         private async ValueTask<bool> ValidateUserCanModifyStorageContentItemAsync(
@@ -163,7 +163,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         }
 
         // Approved and Rejected are TERMINAL: the content of a row in either state is immutable
-        // in place, to its owner, to a Publisher and to an Admin alike (§3.4 rules 7 and 16,
+        // in place, to its owner, to a publisher and to an administrator alike (§3.4 rules 7 and 16,
         // §9.7.4, §12.3.1 shared rule 9). Reviewers reached a verdict on that text, and text
         // that changes underneath a verdict makes the verdict a record of nothing.
         //
@@ -209,7 +209,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         }
 
         // removing content is a takedown, not a moderation step — the owner may remove
-        // their own item and an Admin may remove anyone's; Reviewers and Publishers
+        // their own item and an administrator may remove anyone's; Reviewers and Publishers
         // moderate through the approval workflow instead
         private async ValueTask ValidateUserCanRemoveStorageContentItemAsync(
             ContentItem storageContentItem,
@@ -228,7 +228,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             }
         }
 
-        // a hard remove destroys the row and its audit trail — Admin only
+        // a hard remove destroys the row and its audit trail — Administrators only
         private static void ValidateUserCanHardRemoveContentItem(SecurityContext securityContext)
         {
             if (securityContext is null || securityContext.IsAuthenticated is false)
@@ -657,7 +657,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         // The one carve-out on modify (design §9.2 rules 4-6): an eligible caller may move the
         // status between Draft and Submitted, because submitting is inseparable from the edit
         // that made the work ready. Everything else about the status stays pinned, and the
-        // caller must have been found eligible before this is reached — a Reviewer holds write
+        // caller must have been found eligible before this is reached — a reviewer holds write
         // permission on the row and must still never move the status (§8.6 HR-3).
         private static dynamic IsNotAPermittedStatusChangeOnModify(
             ApprovalStatus inputStatus,

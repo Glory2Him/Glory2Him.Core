@@ -129,16 +129,16 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis
         }
 
         [Fact]
-        public async Task ShouldGrantCoreAdministratorRoleToTheSeededAdministratorAsync()
+        public async Task ShouldGrantTheAdministratorsRoleToTheSeededAdministratorAsync()
         {
             // given, when
             IList<string> actualRoles = await this.apiBroker.GetSeededAdministratorRolesAsync();
 
             // then
             actualRoles.Should().Contain(Roles.Administrators,
-                because: "the portal's own 'Administrators' is a different vocabulary and "
-                    + "satisfies none of Core's gates, so an administrator holding only it "
-                    + "cannot approve or hard delete anything (#193)");
+                because: "'Administrators' is the one administrator role since #368 and it "
+                    + "opens both surfaces, so an administrator who does not hold it can "
+                    + "neither reach /api/admin nor approve or hard delete anything");
         }
     }
 }

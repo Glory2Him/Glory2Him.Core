@@ -160,7 +160,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         // what an ERROR may reveal to an unprivileged probe; this is a deliberate answer to the
         // party the policy is addressed to, and the tier gate is what keeps those distinct.
         //
-        // A Reviewer is admitted: they cannot decide (HR-3) but the verdict is how they see
+        // A reviewer is admitted: they cannot decide (HR-3) but the verdict is how they see
         // whether their own review completed the round, and they can already read the reviews
         // and comments individually.
         private static void ValidateUserMaySeeApprovalVerdict(SecurityContext securityContext)

@@ -153,7 +153,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             // Asked as a SEPARATE question rather than inferred from the refusal above. A
             // caller refused an ordinary approve may still be permitted a bypass, and the two
             // close for different reasons: DoNotAllowBypassingSettings shuts the route to
-            // everyone including Admin, while the tier check shuts it only to the untiered.
+            // everyone including Administrators, while the tier check shuts it only to the untiered.
             AccessVerdict bypassVerdict = await this.accessBroker.MayDecideApprovalByIdAsync(
                 approvalId: approvalMatch.Id,
                 decision: ApprovalDecision.Approve,

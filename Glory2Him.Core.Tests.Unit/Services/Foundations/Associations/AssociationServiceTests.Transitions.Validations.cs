@@ -186,7 +186,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         public async Task ShouldThrowValidationExceptionOnTransitionIfCallerIsGloballyReadOnlyAsync(
             string transitionName)
         {
-            // given: the global veto sits ABOVE every role, so even an Admin holding it is
+            // given: the global veto sits ABOVE every role, so even an administrator holding it is
             // refused — and refused before storage is read at all
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(
                 Roles.Administrators, Roles.Publishers, Roles.Reviewers, Roles.ReadOnly);
@@ -264,7 +264,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         {
             // given: this restriction is load-bearing, not policy. A scope change does not
             // re-open approval, and the stated reason it need not is that only the people who
-            // would be re-approving it can make one. A Reviewer is deliberately not enough.
+            // would be re-approving it can make one. A reviewer is deliberately not enough.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
 
             Association storageAssociation = CreateSubmittableStorageAssociation();

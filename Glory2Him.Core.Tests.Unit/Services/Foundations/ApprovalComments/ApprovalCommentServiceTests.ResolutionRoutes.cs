@@ -35,7 +35,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
         //
         //   Add     — the author, choosing whether their new comment is outstanding
         //   Modify  — the owner, on their own row
-        //   Resolve — the owner OR an Admin
+        //   Resolve — the owner OR an administrator
         //
         // What Resolve adds is the ADMIN route, not exclusivity over the field. Pinning
         // IsResolved against storage on modify would leave the owner unable to change something
@@ -142,8 +142,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
         [Fact]
         public async Task ShouldRefuseANonOwnerTheModifyRouteToIsResolvedAsync()
         {
-            // given: the Admin route to IsResolved is Resolve, and only Resolve. Modify stays
-            // owner-only for every field — an Admin who could reach it here would have the
+            // given: the Administrators route to IsResolved is Resolve, and only Resolve. Modify stays
+            // owner-only for every field — an administrator who could reach it here would have the
             // author's words as well, which is exactly what §14.7 rule 5 withdraws.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
@@ -161,7 +161,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
 
             storageApprovalComment.IsResolved = false;
 
-            // the acting Admin is NOT the comment's author
+            // the acting Administrators is NOT the comment's author
             storageApprovalComment.CreatedBy = GetRandomString();
 
             this.securityAuditBrokerMock.Setup(broker =>

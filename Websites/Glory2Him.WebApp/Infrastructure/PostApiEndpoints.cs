@@ -17,7 +17,7 @@ namespace Glory2Him.WebApp.Infrastructure
     // Cookie-authenticated JSON endpoints consumed by the React SPA
     // (Glory2Him.WebApp.React). Public reads mirror the Blazor blog pages
     // (home, categories, tag, search); the create/update/delete operations
-    // mirror the Admin/Posts pages and are Administrators-only — the server
+    // mirror the Administrators/Posts pages and are Administrators-only — the server
     // stays the authority, not the SPA.
     public static class PostApiEndpoints
     {

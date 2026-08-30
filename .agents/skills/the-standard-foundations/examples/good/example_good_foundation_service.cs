@@ -146,7 +146,7 @@ internal partial class StudentService
 internal partial class StudentService
 {
     // ✅ ts-foundations-010: authenticated → global ban → the permission itself.
-    //    The ban precedes the role check so a banned Admin cannot reach past it.
+    //    The ban precedes the role check so a banned administrator cannot reach past it.
     private static void ValidateUserIsAllowedToWriteStudent(SecurityContext securityContext)
     {
         if (securityContext is null || securityContext.IsAuthenticated is false)

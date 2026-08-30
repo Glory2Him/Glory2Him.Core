@@ -156,7 +156,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
 
         /// <summary>
         /// The REVIEW tier, not the publisher tier — §14.7 posture D rule 3 has reviewers move an
-        /// approval's status through this path, so a plain Reviewer must clear it. The publisher
+        /// approval's status through this path, so a plain reviewer must clear it. The publisher
         /// tier widens into the review tier, so the publisher spellings clear it too.
         /// </summary>
         [Theory]

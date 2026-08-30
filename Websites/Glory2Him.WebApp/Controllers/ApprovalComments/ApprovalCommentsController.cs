@@ -40,9 +40,9 @@ namespace Glory2Him.WebApp.Controllers.ApprovalComments
     /// <item>Add consults no role at all — any authenticated caller who is not blocked.</item>
     /// <item>Both reads are the row's author <b>or</b> a review-role holder, and the collection
     /// read degrades to the caller's own comments rather than refusing.</item>
-    /// <item>Modify and soft removal are the author and nobody else — not Publisher, not Admin.</item>
-    /// <item>Resolve is the author <b>or</b> an <c>Admin</c>. That widening is the operation's
-    /// reason to exist: an Admin cannot reach the flag through modify without also being handed
+    /// <item>Modify and soft removal are the author and nobody else — not Publishers, not Administrators.</item>
+    /// <item>Resolve is the author <b>or</b> an administrator. That widening is the operation's
+    /// reason to exist: an administrator cannot reach the flag through modify without also being handed
     /// the author's words (§14.7 rule 5).</item>
     /// </list>
     ///
@@ -302,7 +302,7 @@ namespace Glory2Him.WebApp.Controllers.ApprovalComments
 
         /// <summary>
         /// Permanent removal, and the one gate here with no owner branch: the foundation requires
-        /// the global <c>Admin</c> role and admits neither the author nor any review role, so the
+        /// the global <c>Administrators</c> role and admits neither the author nor any review role, so the
         /// set is closed and enumerable and belongs in the attribute.
         /// </summary>
         [HttpDelete("{approvalCommentId}/Hard")]

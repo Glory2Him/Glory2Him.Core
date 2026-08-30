@@ -97,7 +97,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
 
-        // Neither Admin nor the workflow. The empty set is the plain contributor; the review
+        // Neither Administrators nor the workflow. The empty set is the plain contributor; the review
         // tier is included because holding write permission on the row is not authority to
         // move an approved one.
         public static TheoryData<string[]> UnpublishRefusedRoleSets() =>
@@ -506,10 +506,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             string publisherRole)
         {
             // given: the sharp edge of this gate. The publisher tier decides approvals — but
-            // the row being unpublished is itself Approved, and §8.6 HR-4 bars a Publisher
+            // the row being unpublished is itself Approved, and §8.6 HR-4 bars a publisher
             // from moving an approved row, the same reason the status override is
-            // Admin-gated. Widening this verb to the publisher tier would hand a Publisher an
-            // indirect route to demote content an Admin approved.
+            // Admin-gated. Widening this verb to the publisher tier would hand a publisher an
+            // indirect route to demote content an administrator approved.
             this.ambientSecurityContext =
                 CreateAuthenticatedSecurityContext(publisherRole);
 
@@ -547,7 +547,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         public async Task ShouldThrowUnauthorizedOnUnpublishIfCallerHoldsNoPrivilegedRoleAsync(
             string[] roles)
         {
-            // given: a plain contributor and the review tier alike. Neither is Admin nor the
+            // given: a plain contributor and the review tier alike. Neither is Administrators nor the
             // workflow, and holding write permission on the row is not authority to move an
             // approved one (§8.6 HR-3, HR-4).
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(roles);
@@ -649,7 +649,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         {
             // given: the mirror of the test above, and what proves the identity is genuinely
             // taken FROM the envelope rather than merely surviving alongside an ambient one
-            // that would have passed anyway. The ambient caller is an Admin; the envelope
+            // that would have passed anyway. The ambient caller is an administrator; the envelope
             // carries a plain contributor. The envelope must lose.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
 

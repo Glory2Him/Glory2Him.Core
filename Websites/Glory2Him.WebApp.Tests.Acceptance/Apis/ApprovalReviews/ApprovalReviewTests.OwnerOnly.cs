@@ -23,7 +23,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalReviews
 {
     /// <summary>
     /// A verdict belongs to the reviewer who recorded it. Modify and soft removal are the owner
-    /// alone — not <c>Publisher</c>, not <c>Admin</c> (§14.7 rule 4) — and an Admin who needs past
+    /// alone — not <c>Publishers</c>, not <c>Administrators</c> (§14.7 rule 4) — and an administrator who needs past
     /// a standing rejection bypasses the block rather than editing the review out of the way,
     /// which keeps the record of what was actually said intact.
     ///

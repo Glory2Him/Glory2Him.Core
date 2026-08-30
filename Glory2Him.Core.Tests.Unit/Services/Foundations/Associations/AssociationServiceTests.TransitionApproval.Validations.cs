@@ -32,7 +32,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         [Fact]
         public async Task ShouldThrowValidationExceptionOnApproveIfTheAccessBrokerRefusesAsync()
         {
-            // given: the caller holds the global Publisher role, so the row-local tier check
+            // given: the caller holds the global Publishers role, so the row-local tier check
             // passes and the cross-entity decision is the ONLY thing left that can refuse the
             // approve. Without that the test would pass on the row-local check alone and prove
             // nothing about the wired gate.

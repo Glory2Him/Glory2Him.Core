@@ -87,7 +87,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviewRequests
         }
 
         /// <summary>
-        /// Hard removal destroys the row and its audit trail, so it is <c>Admin</c>-only —
+        /// Hard removal destroys the row and its audit trail, so it is <c>Administrators</c>-only —
         /// deliberately narrower than withdrawal, which the whole review tier may perform (§7.9
         /// rule 5). Withdrawal is reversible bookkeeping; this is not.
         /// </summary>

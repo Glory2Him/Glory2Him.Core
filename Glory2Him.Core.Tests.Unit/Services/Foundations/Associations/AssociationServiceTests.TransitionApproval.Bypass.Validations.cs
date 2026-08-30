@@ -30,7 +30,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         [Fact]
         public async Task ShouldThrowValidationExceptionOnBypassApproveIfTheAccessBrokerRefusesAsync()
         {
-            // given: the caller holds the global Publisher role, so the row-local tier check
+            // given: the caller holds the global Publishers role, so the row-local tier check
             // passes and the cross-entity decision is the ONLY thing left that can refuse. The
             // policy closed the bypass route entirely (DoNotAllowBypassingSettings), which the
             // client reports as BypassNotPermitted — the one refusal nobody outranks, publishers
@@ -542,7 +542,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // workflow is built around, and a Dismissed row is not in a round at all.
             //
             // Approved and Rejected are absent because they no longer fail HERE: they are
-            // transitionable by an Admin through the override, so a Publisher meeting one is
+            // transitionable by an administrator through the override, so a publisher meeting one is
             // refused earlier, at the override gate, and never reaches the access decision this
             // asserts was taken.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);

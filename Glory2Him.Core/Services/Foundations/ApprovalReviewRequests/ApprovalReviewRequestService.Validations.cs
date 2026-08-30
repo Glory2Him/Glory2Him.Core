@@ -66,13 +66,13 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviewRequests
             }
         }
 
-        // The review roles that may issue, withdraw and read invitations: the global Reviewer,
-        // Publisher and Admin roles plus — by the §16.6 naming convention — any entity-scoped
+        // The review roles that may issue, withdraw and read invitations: the global Reviewers,
+        // Publishers and Administrators roles plus — by the §16.6 naming convention — any entity-scoped
         // "%EntityType%-Reviewers"/"%EntityType%-Publishers" role, including the content-type-scoped
         // tier of §18.6 rule 5, which ends in the same suffix.
         //
-        // The request row names no entity type, so this cannot tell a Tag-Reviewers from a
-        // Link-Reviewers row-locally — the same limit its ApprovalReview sibling carries, and the
+        // The request row names no entity type, so this cannot tell a Tag-Reviewers holder from
+        // a Link-Reviewers one row-locally — the same limit its ApprovalReview sibling carries, and the
         // reason the orchestration re-asks the question against the entity behind the approval
         // (§16.7.4) before a request is ever written.
         private static bool HasReviewRole(SecurityContext securityContext) =>
@@ -93,7 +93,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviewRequests
                 && (approvalReviewRequest.CreatedBy == actorUserId
                     || approvalReviewRequest.RequestedUserId == actorUserId);
 
-        // a hard remove destroys the row and its audit trail — Admin only
+        // a hard remove destroys the row and its audit trail — Administrators only
         private static void ValidateUserCanHardRemoveApprovalReviewRequest(SecurityContext securityContext)
         {
             if (securityContext is null || securityContext.IsAuthenticated is false)

@@ -168,7 +168,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
         public async Task ShouldThrowValidationExceptionOnRemovingContentItemByIdEventIfActorIsNotPermittedAndLogItAsync()
         {
             // given: a replayed or forged request envelope cannot take down someone else's
-            // content — the owner/Admin rule is enforced on the event path too
+            // content — the owner/Administrators rule is enforced on the event path too
             Guid randomContentItemId = Guid.NewGuid();
 
             var removeRequest = new ContentItem

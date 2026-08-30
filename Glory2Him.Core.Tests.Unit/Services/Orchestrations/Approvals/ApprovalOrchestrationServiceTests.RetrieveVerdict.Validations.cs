@@ -27,7 +27,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
     public partial class ApprovalOrchestrationServiceTests
     {
         // Every caller the tier gate must turn away before it looks at roles at all. The third
-        // case is the one that matters: it carries Admin while UNAUTHENTICATED, so a gate that
+        // case is the one that matters: it carries Administrators while UNAUTHENTICATED, so a gate that
         // read only the role list — and took the presence of a name as proof of a signed-in
         // caller — would admit an anonymous request carrying a forged claim.
         public static TheoryData<SecurityContext> UnauthenticatedSecurityContexts() =>
@@ -302,14 +302,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         [Theory]
         [InlineData("Publisher-Backup")]
         [InlineData("Reviewer-Trainee")]
-        [InlineData("ContentItem-publisher")]
+        [InlineData("ContentItem-publishers")]
         public async Task ShouldThrowValidationExceptionOnRetrieveVerdictIfARoleOnlyResemblesAModerationRoleAndLogItAsync(
             string nearMissRole)
         {
             // given: names that a substring or case-insensitive match would wave through. The
-            // capability segment is singular and always LAST (§18.6) — `ContentItem-Publishers`,
-            // never `Publisher-Backup` — and the suffix test is Ordinal, so `-publisher` is a
-            // different role name, not the same one spelled loosely. A gate that matched
+            // capability segment is plural and always LAST (§18.6) — `ContentItem-Publishers`,
+            // never `Publisher-Backup` — and the suffix test is Ordinal, so `-publishers` is a
+            // different role name, not the same one spelled loosely. That third case differs
+            // from the real role by CASE ALONE, which is what makes it the Ordinal check's
+            // witness rather than just another near-miss. A gate that matched
             // otherwise would hand the moderation view to whoever could get a role minted with
             // the right word somewhere in it.
             this.ambientSecurityContext =
@@ -415,7 +417,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         [Fact]
         public async Task ShouldAdmitAReviewerWhoMayNotDecideRatherThanRefuseThemTheVerdictAsync()
         {
-            // given: a Reviewer, whom HR-3 bars from DECIDING — and the decision function says so
+            // given: a reviewer, whom HR-3 bars from DECIDING — and the decision function says so
             // on both questions. That is a different question from whether they may SEE the
             // verdict: the verdict is how a reviewer learns whether their own review completed
             // the round (§8.6 regardless-rule 1), and they can already read the reviews and

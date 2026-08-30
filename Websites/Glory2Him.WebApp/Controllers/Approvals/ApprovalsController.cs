@@ -44,14 +44,14 @@ namespace Glory2Him.WebApp.Controllers.Approvals
     /// <para><b>Neither action carries a role list, and that is the codebase rule rather than an
     /// omission.</b> <c>Roles = ...</c> is a <i>fixed</i> list, so it is the right coarse gate only
     /// where the admitted set is closed and enumerable — which is why <c>POST api/Tags/Approve</c>
-    /// can name <c>Admin,Publisher,Tag-Publishers</c> and why hard removal on the two sibling
-    /// approval exposers can name <c>Admin</c>. The set here is neither. §16.7.2 restricts the
-    /// verdict to the <b>moderation tier</b> — <c>Admin</c>, the <c>Publisher</c> tier and the
-    /// <c>Reviewer</c> tier — and each tier is matched by SUFFIX: global <c>Publisher</c> or
-    /// <c>Reviewer</c>, global <c>Admin</c>, or any role ending <c>-Publishers</c> or
+    /// can name <c>Administrators,Publishers,Tag-Publishers</c> and why hard removal on the two sibling
+    /// approval exposers can name <c>Administrators</c>. The set here is neither. §16.7.2 restricts the
+    /// verdict to the <b>moderation tier</b> — <c>Administrators</c>, the <c>Publishers</c> tier and the
+    /// <c>Reviewers</c> tier — and each tier is matched by SUFFIX: global <c>Publishers</c> or
+    /// <c>Reviewers</c>, global <c>Administrators</c>, or any role ending <c>-Publishers</c> or
     /// <c>-Reviewers</c>, including the content-type-scoped
     /// <c>ContentItem-Testimony-Publishers</c> tier of §18.6 rule 5. The two actions do not admit
-    /// the same set: a <c>Reviewer</c> may see the verdict but may never decide (§8.6 HR-3), and
+    /// the same set: a reviewer may see the verdict but may never decide (§8.6 HR-3), and
     /// refusing the decision is the orchestration's job rather than the attribute's. These routes
     /// are also generic over <c>EntityType</c>, so a fixed list would have to enumerate
     /// every entity type AND every content type, and would silently lock out every future one. The

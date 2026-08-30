@@ -65,7 +65,7 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
                     && currentContentItem.CreatedBy == actorUserId;
 
             // removing content is a takedown, not a moderation step — the owner may remove
-            // their own item and an Admin may remove anyone's; Reviewers and Publishers
+            // their own item and an administrator may remove anyone's; Reviewers and Publishers
             // moderate through the approval workflow instead
             bool isPermitted = isOwner || securityContext.Roles.Contains(Roles.Administrators);
 
@@ -98,8 +98,8 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
                 string.IsNullOrWhiteSpace(actorUserId) is false
                     && currentContentItem.CreatedBy == actorUserId;
 
-            // a not-yet-decided item may be corrected in place by a Reviewer, Publisher or
-            // Admin during review; a terminal one belongs to its owner alone, because the
+            // a not-yet-decided item may be corrected in place by a reviewer, Publishers or
+            // Administrators during review; a terminal one belongs to its owner alone, because the
             // only edit it admits is a fork onto a fresh version (§3.4 rule 16) and a
             // moderator forking someone else's decided row would author a version in
             // their name
@@ -157,7 +157,7 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
 
         // ContentItem is the one entity type with three role tiers rather than two, because
         // it is the only one carrying a ContentType (design §18.6 rule 5). The tiers widen
-        // from narrow to broad — ContentItem-Story-Reviewers ⊂ ContentItem-Reviewers ⊂ Reviewer
+        // from narrow to broad — ContentItem-Story-Reviewers ⊂ ContentItem-Reviewers ⊂ Reviewers
         // — and rule 4 binds both directions: holding ANY of them satisfies a check for that
         // content type, and the narrow role NEVER satisfies a check for a different one.
 
@@ -224,7 +224,7 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
 
         // Null-check first (a malformed event), then verify the integrity signature against the
         // event name this handler serves and the request direction. The processing service is an
-        // event receiver too: it front-loads the contribution / owner / Admin decision against the
+        // event receiver too: it front-loads the contribution / owner / Administrators decision against the
         // inbound envelope's SecurityContext, so without this check a caller who can put a message
         // on a ContentItemProcessing address states their own roles and is believed (design
         // §14.6 rule 4). Verification sits in the receiver, not the transport, because a handler is

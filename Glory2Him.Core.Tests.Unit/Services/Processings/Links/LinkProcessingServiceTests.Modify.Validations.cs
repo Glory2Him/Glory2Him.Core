@@ -413,7 +413,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
         {
             // given: a plain authenticated user never touches someone else's link, and a
             // terminal link — Approved or Rejected — belongs to its owner alone: no role
-            // (Reviewer, Publisher or Admin) may modify it on the owner's behalf, because
+            // (Reviewers, Publishers or Administrators) may modify it on the owner's behalf, because
             // the only edit a terminal row admits is a fork, and a moderator forking
             // someone else's decided row would author a version in their name
             Link randomLink = CreateRandomLink();

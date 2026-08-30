@@ -52,11 +52,12 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
             }
         }
 
-        // the review roles that may act on and read approval workflow records (Reviewer,
-        // Publisher, Admin). Approval comments carry no entity-scoped roles of their own, so
+        // the review roles that may act on and read approval workflow records (Reviewers,
+        // Publishers, Administrators). Approval comments carry no entity-scoped roles of their own, so
         // by the §16.6 convention any "{Entity}-Reviewers"/"{Entity}-Publishers" role counts:
         // the comment row alone does not say which entity type the approval targets, so the
-        // foundation cannot tell a Tag-Reviewers's comment thread from a Link-Reviewers's.
+        // foundation cannot tell a Tag-Reviewers holder's comment thread from a Link-Reviewers
+        // holder's.
         // This gates the two READ paths only. It reaches no write gate: add carries the
         // contribution gate, modify and remove are owner-only, resolve is owner-or-Admin, and
         // hard remove is Admin-only — none consults this.
@@ -160,7 +161,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
 
             // Owner only. This replaces "the author may edit their own comment and a review role
             // may write it too — reviewers flip IsResolved on a submitter's comment": that model is
-            // withdrawn (§14.7 rule 5). IsResolved now has its own operation, which an Admin may
+            // withdrawn (§14.7 rule 5). IsResolved now has its own operation, which an administrator may
             // use on someone else's row; the wording itself belongs to whoever wrote it.
             if (isOwner is false)
             {
@@ -180,7 +181,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                 string.IsNullOrWhiteSpace(actorUserId) is false
                     && storageApprovalComment.CreatedBy == actorUserId;
 
-            // Owner only, matching modify. An Admin who needs past an unresolved comment resolves
+            // Owner only, matching modify. An administrator who needs past an unresolved comment resolves
             // it or bypasses the block; withdrawing someone else's words is neither.
             if (isOwner is false)
             {
@@ -189,7 +190,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
             }
         }
 
-        // a hard remove destroys the row and its audit trail — Admin only
+        // a hard remove destroys the row and its audit trail — Administrators only
         private static void ValidateUserCanHardRemoveApprovalComment(SecurityContext securityContext)
         {
             if (securityContext is null || securityContext.IsAuthenticated is false)
@@ -362,7 +363,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                 // IsResolved is deliberately NOT pinned. Modify is owner-only, and the owner may
                 // settle (or re-open) their own comment here as readily as through the resolve
                 // transition — pinning it would leave them unable to change a field that is
-                // theirs. What Resolve adds is the Admin route (§14.7 rule 5), not exclusivity
+                // theirs. What Resolve adds is the Administrators route (§14.7 rule 5), not exclusivity
                 // over the field.
                 //
                 // The two paths publish different facts, and that costs nothing PROVIDED the

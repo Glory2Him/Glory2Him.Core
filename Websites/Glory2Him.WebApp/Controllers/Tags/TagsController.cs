@@ -266,7 +266,7 @@ namespace Glory2Him.WebApp.Controllers.Tags
         }
 
         /// <summary>
-        /// Permanent removal. Design §14.6 restricts hard removal to <c>Admin</c>; the attribute
+        /// Permanent removal. Design §14.6 restricts hard removal to <c>Administrators</c>; the attribute
         /// below is the coarse half of that and the foundation re-decides it against the row.
         /// </summary>
         [HttpDelete("{tagId}/Hard")]
@@ -382,7 +382,7 @@ namespace Glory2Him.WebApp.Controllers.Tags
         /// Moves a tag's approval state — Approved, Rejected, or back to Submitted (design
         /// §9.7.1, §8.6). The publisher tier is the coarse gate here because the design names it;
         /// the service still takes the real decision against the stored row, including the
-        /// no-self-approval rule (HR-2) and the <c>Admin</c>-only override that re-opens a
+        /// no-self-approval rule (HR-2) and the <c>Administrators</c>-only override that re-opens a
         /// terminal row (HR-4). The route keeps its name: the ordinary decision is what nearly
         /// every caller reaches it for.
         /// </summary>

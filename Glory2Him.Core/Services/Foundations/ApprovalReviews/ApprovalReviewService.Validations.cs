@@ -65,11 +65,11 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
             }
         }
 
-        // the review roles that may record and read verdicts: the global Reviewer,
-        // Publisher and Admin roles plus — by the §16.6 naming convention — any
+        // the review roles that may record and read verdicts: the global Reviewers,
+        // Publishers and Administrators roles plus — by the §16.6 naming convention — any
         // entity-scoped "%EntityType%-Reviewers"/"%EntityType%-Publishers" role. The
         // approval review row names no entity type, so the foundation cannot tell a
-        // Tag-Reviewers's verdict from a Link-Reviewers's one row-locally.
+        // Tag-Reviewers holder's verdict from a Link-Reviewers holder's one row-locally.
         //
         // Narrowing a reviewer to the entity type they actually review was once called an
         // orchestration concern; that is withdrawn (§12.3.1 leaves no orchestration to defer
@@ -97,6 +97,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
         //
         // It also narrows the role check above rather than repeating it: HasReviewRole matches
         // ANY "-Reviewers" suffix because the review row names no entity type, so a Tag-Reviewers
+        // holder
         // passes it for a Link's approval. The broker resolves the entity behind the approval, so
         // the tier is finally checked against the thing actually being reviewed.
         private async ValueTask ValidateUserMayRecordApprovalReviewAsync(
@@ -137,7 +138,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
                     && storageApprovalReview.CreatedBy == actorUserId;
 
             // Owner only. A verdict belongs to the reviewer who recorded it, and no role amends
-            // another person's — not Publisher, not Admin. An Admin who needs past a standing
+            // another person's — not Publishers, not Administrators. An administrator who needs past a standing
             // rejection bypasses the block (§8.6.1) rather than editing the review out of the way,
             // which keeps the record of what was actually said intact.
             if (isOwner is false)
@@ -148,7 +149,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
         }
 
         // withdrawing a review is the author's own retraction — only the owner may remove
-        // their verdict; no other role, reviewer or Admin, can erase a peer's
+        // their verdict; no other role, reviewer or Administrators, can erase a peer's
         private async ValueTask ValidateUserCanRemoveStorageApprovalReviewAsync(
             ApprovalReview storageApprovalReview,
             SecurityContext securityContext)
@@ -168,7 +169,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
             }
         }
 
-        // a hard remove destroys the row and its audit trail — Admin only
+        // a hard remove destroys the row and its audit trail — Administrators only
         private static void ValidateUserCanHardRemoveApprovalReview(SecurityContext securityContext)
         {
             if (securityContext is null || securityContext.IsAuthenticated is false)

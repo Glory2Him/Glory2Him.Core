@@ -472,7 +472,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             //
             // The caller here is the review's OWN author, so the ownership gate passes and the
             // dismissed-state bar is what refuses them — which is the point: the bar is on the
-            // row's state, not on who is asking. (This comment used to say an Admin "may
+            // row's state, not on who is asking. (This comment used to say an administrator "may
             // otherwise amend anyone's review"; that model is withdrawn — modify is owner-only.)
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
@@ -567,8 +567,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             // and correcting a verdict must not also move it onto a different approval — that
             // walks the row past the uniqueness rule that makes §7.7 rule 1 mean anything.
             //
-            // The caller is the review's own author. This used to arrange an Admin acting on
-            // someone else's review, on the reasoning that "an Admin may legitimately amend
+            // The caller is the review's own author. This used to arrange an administrator acting on
+            // someone else's review, on the reasoning that "an administrator may legitimately amend
             // anyone's review" — a model since withdrawn (§14.7 rule 5). The gate is owner-only
             // now, so a non-owner is refused before reaching these pins; the owner tampering
             // with the payload is the route that remains, and the one worth pinning.
@@ -1149,9 +1149,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
         {
             // given: a review is the reviewer's own verdict — a peer reviewer records their own
             // review instead of amending someone else's, and NO role widens that. This used to
-            // run only as a plain Reviewer, which is refused by the withdrawn owner-or-Admin
+            // run only as a plain reviewer, which is refused by the withdrawn owner-or-Admin
             // predicate just as it is by the owner-only one — so the narrowing that is the point
-            // of this branch was not pinned by anything. Admin is the member that matters here:
+            // of this branch was not pinned by anything. Administrators is the member that matters here:
             // restoring "|| Roles.Contains(Roles.Administrators)" now fails this theory.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(reviewRole);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();

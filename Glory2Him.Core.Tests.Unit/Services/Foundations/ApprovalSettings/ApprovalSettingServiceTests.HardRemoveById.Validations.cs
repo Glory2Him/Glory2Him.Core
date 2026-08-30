@@ -207,7 +207,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
         [Fact]
         public async Task ShouldBlockHardRemoveWhenTheCallerIsGloballyReadOnlyAndLogItAsync()
         {
-            // given: a banned caller who also holds Admin must be refused the irreversible hard
+            // given: a banned caller who also holds Administrators must be refused the irreversible hard
             // remove before the row is even read — blocking the reversible takedown but not the
             // destructive one would be the wrong way round.
             this.ambientSecurityContext =

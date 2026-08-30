@@ -123,7 +123,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
         [Fact]
         public async Task ShouldThrowValidationExceptionOnRetrieveByIdIfTagIsSoftDeletedAndLogItAsync()
         {
-            // given: even an Admin caller gets not-found for a soft-deleted row —
+            // given: even an administrator caller gets not-found for a soft-deleted row —
             // deleted beats privilege
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Tag storageTag = CreateRandomTag();
