@@ -127,7 +127,8 @@ describe('navMenuProvider.getSamplePagesSection', () => {
             'Association Panel',
             'Tag Association Panel',
             'Bible Reference Association Panel',
-            'Review Panel'
+            'Review Panel',
+            'Content Item Panel'
         ]);
     });
 
@@ -141,7 +142,8 @@ describe('navMenuProvider.getSamplePagesSection', () => {
             'SamplePages/Components/Association-Panel',
             'SamplePages/Components/Tag-Association-Panel',
             'SamplePages/Components/Bible-Reference-Association-Panel',
-            'SamplePages/Components/Review-Panel'
+            'SamplePages/Components/Review-Panel',
+            'SamplePages/Components/Content-Item-Panel'
         ]);
     });
 });
