@@ -204,5 +204,81 @@ namespace Glory2Him.WebApp.Tests.Unit.Services.Views.Profiles
             profile.ImageVersion.Should().NotBeNullOrEmpty();
             profile.ImageUrl.Should().Be($"Profile-Image/{user.Id}?v={profile.ImageVersion}");
         }
+
+        // The public contributor summary (GET /api/contributors/{id}) reads a name and an avatar
+        // together, and reads them from HERE — so the friendly name has to arrive on the view
+        // rather than sending that caller back to the row for a second query.
+        [Fact]
+        public async Task ShouldExposeTheFriendlyDisplayNameWhenRetrievingProfile()
+        {
+            // given
+            var user = new AppUser
+            {
+                Id = Guid.NewGuid(),
+                UserName = "l.ferguson",
+                Name = "Louis",
+                Surname = "Ferguson",
+            };
+
+            this.profileImageBrokerMock.Setup(broker =>
+                broker.SelectUserByIdAsync(user.Id))
+                    .ReturnsAsync(user);
+
+            // when
+            ProfileView profile =
+                await this.profileViewService.RetrieveProfileByIdAsync(user.Id);
+
+            // then
+            profile.DisplayName.Should().Be("Louis Ferguson");
+        }
+
+        // The preferred name outranks the given name, which is the whole point of AppUser
+        // composing this rather than the caller concatenating two columns itself.
+        [Fact]
+        public async Task ShouldPreferThePreferredNameWhenRetrievingProfile()
+        {
+            // given
+            var user = new AppUser
+            {
+                Id = Guid.NewGuid(),
+                UserName = "l.ferguson",
+                Name = "Louis",
+                Surname = "Ferguson",
+                PreferredName = "Lou",
+            };
+
+            this.profileImageBrokerMock.Setup(broker =>
+                broker.SelectUserByIdAsync(user.Id))
+                    .ReturnsAsync(user);
+
+            // when
+            ProfileView profile =
+                await this.profileViewService.RetrieveProfileByIdAsync(user.Id);
+
+            // then
+            profile.DisplayName.Should().Be("Lou");
+        }
+
+        // An id that matches no account answers with an EMPTY view rather than throwing, and the
+        // contributor endpoint reads the default Id as its "no such contributor" 404 — so an
+        // empty name here must not be mistaken for a real one.
+        [Fact]
+        public async Task ShouldLeaveTheDisplayNameEmptyWhenNoAccountMatches()
+        {
+            // given
+            Guid unknownUserId = Guid.NewGuid();
+
+            this.profileImageBrokerMock.Setup(broker =>
+                broker.SelectUserByIdAsync(unknownUserId))
+                    .ReturnsAsync((AppUser)null);
+
+            // when
+            ProfileView profile =
+                await this.profileViewService.RetrieveProfileByIdAsync(unknownUserId);
+
+            // then
+            profile.Id.Should().Be(Guid.Empty);
+            profile.DisplayName.Should().BeEmpty();
+        }
     }
 }

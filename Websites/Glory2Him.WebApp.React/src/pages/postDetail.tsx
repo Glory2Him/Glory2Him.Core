@@ -4,6 +4,8 @@ import { ContentItemPanel } from '../components/contentItems/contentItemPanel';
 import { Spinner } from '../components/coreUI/spinner';
 import { contentItemService } from '../services/foundations/contentItemService';
 import { contentItemSettingService } from '../services/foundations/contentItemSettingService';
+import { contributorService } from '../services/foundations/contributorService';
+import { readingTimeMinutesOf } from '../services/views/contentItems/readingTimeMinutesOf';
 import { toContentItemFormItem } from '../services/views/contentItems/toContentItemFormItem';
 
 import {
@@ -30,6 +32,16 @@ export function PostDetail() {
     // question from which types are open to contribution — so the defaults are read rather than
     // the contribution list.
     const { data: contentItemSettings } = contentItemSettingService.useGetDefaults();
+
+    // WHO SUBMITTED IT. The item carries CreatedBy — an account id — so the byline needs a second
+    // read to turn that into a name and a face. Anonymous, so a signed-out reader gets the byline
+    // too, and a 404 resolves to null rather than throwing: an account that has gone leaves the
+    // article intact and the byline absent, which is the right shape for both.
+    //
+    // The panel is rendered before this resolves, and deliberately: an article must not wait on
+    // its byline. The block simply appears when the name arrives.
+    const { data: contributor } = contributorService.useGetContributorById(
+        contentItem?.createdBy ?? '');
 
     // Memoized because the panel seeds its editor from the item's identity: a fresh projection
     // object on every render would be a fresh item as far as any consumer of it is concerned.
@@ -62,6 +74,27 @@ export function PostDetail() {
                 : contentTypeNameOf(
                     contentItemSettings ?? [], contentItem.contentType, contentItem.id);
 
+    // THE PANEL RENDERS THE VISIBLE HEADING, as an h1, because the design puts the title UNDER
+    // the type chip and a page cannot render a heading above a chip the panel owns.
+    //
+    // So this page states an h1 only in the case the panel will NOT — the same condition the
+    // panel's read surface applies, restated here rather than guessed at: a type whose effective
+    // setting has no title, or a row that simply carries none, leaves the panel nothing to head
+    // and the document would start at the article with no h1 at all.
+    //
+    // That heading is visually hidden, because what it would say is the type's name and the chip
+    // directly beneath it already says exactly that. Hidden rather than dropped: the outline is
+    // for a screen reader and a search engine, and neither of them is reading the chip.
+    const panelRendersHeading =
+        contentItem != null && showsTitle && (contentItem.title ?? '').length > 0;
+
+    const rendersOwnHeading = contentItem != null && panelRendersHeading === false;
+
+    // A pure function of the content, so it is computed here rather than stored or fetched. The
+    // three engagement counts are NOT passed: there is no comment, reaction or view client in
+    // this app yet, and a zero would assert an empty conversation rather than an absent one.
+    const readingTimeMinutes = readingTimeMinutesOf(contentItem?.content);
+
     useDocumentTitle(
         contentItem == null ? 'Glory 2 Him' : `${pageHeading} — Glory 2 Him`);
 
@@ -86,20 +119,22 @@ export function PostDetail() {
                             </>
                         ) : (
                             <>
-                                {/* The page's own heading, so the document has an h1 and does
-                                    not start its outline at the panel's h3. The panel is told not
-                                    to repeat the title underneath it. A type whose effective
-                                    setting carries no title falls back to that type's name, which
-                                    is never empty - contentTypeNameOf ends at the fixed enum
-                                    label. */}
-                                <h1 className="h2 mb-4">{pageHeading}</h1>
+                                {rendersOwnHeading && (
+                                    <h1 className="visually-hidden">{pageHeading}</h1>
+                                )}
 
                                 <div className="card card-body border p-4 p-lg-5">
                                     <ContentItemPanel
                                         ariaLabel="Contribution"
                                         contentItem={formItem}
-                                        showItemTitle={false}
-                                        contentItemSettingCollection={contentItemSettings ?? []} />
+                                        titleHeadingLevel="h1"
+                                        contentItemSettingCollection={contentItemSettings ?? []}
+                                        submittedByDisplayName={contributor?.displayName}
+                                        submittedByImageUrl={contributor?.imageUrl ?? undefined}
+                                        readingTimeMinutes={
+                                            readingTimeMinutes > 0
+                                                ? readingTimeMinutes
+                                                : undefined} />
                                 </div>
                             </>
                         )}

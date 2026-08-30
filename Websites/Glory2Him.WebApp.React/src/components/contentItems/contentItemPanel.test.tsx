@@ -9,6 +9,7 @@ import { ContentType } from '../../models/foundations/contentItemSettings/conten
 import {
     ApprovalStatus,
     ContentItemFormItem,
+    defaultShareabilityBasis,
     ShareabilityBasis
 } from '../../models/components/contentItems/contentItemFormItem';
 
@@ -92,7 +93,12 @@ const itemWith = (overrides: Partial<ContentItemFormItem> = {}): ContentItemForm
     title: 'He carried me',
     author: 'Anon',
     content: 'The whole story, as it happened.',
-    shareabilityBasis: ShareabilityBasis.Owned,
+
+    // NOT an owned basis, deliberately. An owned basis suppresses the Author field on its own
+    // (the submitter is the author), and most of the tests below are about the SETTING's hasAuthor
+    // — so a shared fixture that hid the field for the other reason would make them pass or fail
+    // for a question they are not asking. The ownership rule has its own describe block.
+    shareabilityBasis: ShareabilityBasis.PermissionGranted,
     sharePermission: '',
     createdBy: ViewerId,
     approvalStatus: ApprovalStatus.Draft,
@@ -210,9 +216,12 @@ describe('ContentItemPanel', () => {
             expect(onAdded).toHaveBeenCalledWith({
                 contentType: ContentType.Devotional,
                 title: 'Morning',
-                author: '',
+
+                // Untouched, and the form opens on an owned basis — so the field was showing the
+                // contributor's own name, and what it showed is what is filed.
+                author: 'Tester',
                 content: 'A word for today',
-                shareabilityBasis: ShareabilityBasis.Owned,
+                shareabilityBasis: defaultShareabilityBasis,
                 sharePermission: ''
             });
         });
@@ -222,6 +231,11 @@ describe('ContentItemPanel', () => {
             signInAs(authState);
             renderWithAuth(<ContentItemPanel contentItemSettingCollection={settings} />);
 
+            // when: a basis that rests on nobody's permission
+            await userEvent.selectOptions(
+                screen.getByLabelText(/How are you permitted to share this\?/),
+                String(ShareabilityBasis.PublicDomain));
+
             // then
             expect(screen.queryByLabelText('Permission details')).not.toBeInTheDocument();
 
@@ -229,6 +243,18 @@ describe('ContentItemPanel', () => {
             await userEvent.selectOptions(
                 screen.getByLabelText(/How are you permitted to share this\?/),
                 String(ShareabilityBasis.PermissionGranted));
+
+            // then
+            expect(screen.getByLabelText('Permission details')).toBeInTheDocument();
+        });
+
+        it('should ask for the permission detail when the contributor grants their own', async () => {
+            // given: an owned basis is still a PERMISSION basis when the contributor is the one
+            // granting it, so the detail field belongs to it too
+            signInAs(authState);
+
+            // when
+            renderWithAuth(<ContentItemPanel contentItemSettingCollection={settings} />);
 
             // then
             expect(screen.getByLabelText('Permission details')).toBeInTheDocument();
@@ -321,7 +347,8 @@ describe('ContentItemPanel', () => {
 
             // then
             expect(screen.getByRole('heading', { name: 'He carried me' })).toBeInTheDocument();
-            expect(screen.getByText('By Anon')).toBeInTheDocument();
+            expect(screen.getByText('Author')).toBeInTheDocument();
+            expect(screen.getByText('Anon')).toBeInTheDocument();
             expect(screen.getByText('The whole story, as it happened.')).toBeInTheDocument();
             expect(screen.queryByLabelText(/Title/)).not.toBeInTheDocument();
         });
@@ -919,7 +946,7 @@ describe('ContentItemPanel', () => {
 
             // then
             expect(screen.getByRole('heading', { name: 'He carried me' })).toBeInTheDocument();
-            expect(screen.getByText('By Anon')).toBeInTheDocument();
+            expect(screen.getByText('Anon')).toBeInTheDocument();
         });
 
         it('should let a resolved false beat what the item carries', () => {
@@ -1010,16 +1037,17 @@ describe('ContentItemPanel', () => {
 
             await userEvent.type(screen.getByLabelText(/^Story/), 'The story itself');
 
-            // when: they change their mind and claim it as their own
+            // when: they change their mind and release it as their own, which rests on nobody's
+            // permission at all
             await userEvent.selectOptions(
                 screen.getByLabelText(/How are you permitted to share this\?/),
-                String(ShareabilityBasis.Owned));
+                String(ShareabilityBasis.OwnedPublicDomain));
 
             await userEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
 
-            // then: a permission claim must not be filed against an Owned item
+            // then: a permission claim must not be filed against an item released outright
             expect(onAdded).toHaveBeenCalledWith(expect.objectContaining({
-                shareabilityBasis: ShareabilityBasis.Owned,
+                shareabilityBasis: ShareabilityBasis.OwnedPublicDomain,
                 sharePermission: ''
             }));
         });
@@ -1043,13 +1071,13 @@ describe('ContentItemPanel', () => {
             // when
             await userEvent.selectOptions(
                 screen.getByLabelText(/How are you permitted to share this\?/),
-                String(ShareabilityBasis.Owned));
+                String(ShareabilityBasis.OwnedPublicDomain));
 
             await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
             // then
             expect(onModified).toHaveBeenCalledWith(expect.objectContaining({
-                shareabilityBasis: ShareabilityBasis.Owned,
+                shareabilityBasis: ShareabilityBasis.OwnedPublicDomain,
                 sharePermission: ''
             }));
         });
@@ -1269,7 +1297,7 @@ describe('ContentItemPanel', () => {
 
             // then
             expect(screen.getByText('Blog Post')).toBeInTheDocument();
-            expect(screen.queryByText('By Anon')).not.toBeInTheDocument();
+            expect(screen.queryByText('Anon')).not.toBeInTheDocument();
         });
     });
 
@@ -1447,6 +1475,449 @@ describe('ContentItemPanel', () => {
             expect(screen.getByText('Loading…')).toBeInTheDocument();
             expect(screen.queryByRole('button', { name: 'Submit for review' }))
                 .not.toBeInTheDocument();
+        });
+
+        it('should render the item title at the heading level the consumer asked for', () => {
+            // given: a page whose whole subject is this one item heads the document with it,
+            // rather than duplicating the title above a chip the panel owns
+
+            // when
+            renderWithAuth(
+                <ContentItemPanel
+                    contentItem={itemWith()}
+                    titleHeadingLevel="h1"
+                    contentItemSettingCollection={settings} />);
+
+            // then
+            expect(screen.getByRole('heading', { name: 'He carried me', level: 1 }))
+                .toBeInTheDocument();
+        });
+
+        it('should head the item at h3 when the consumer says nothing', () => {
+            // when: a panel sitting among other content must not claim the document's h1
+            renderWithAuth(
+                <ContentItemPanel
+                    contentItem={itemWith()}
+                    contentItemSettingCollection={settings} />);
+
+            // then
+            expect(screen.getByRole('heading', { name: 'He carried me', level: 3 }))
+                .toBeInTheDocument();
+        });
+    });
+
+    // An owned basis says WHO wrote it but not what they want to be called for it, so it fills
+    // the Author field in rather than taking it away — a contributor may publish under a pen
+    // name, an initial, or a maiden name. The read surface then hides the column only when it
+    // would be printing that one person twice.
+    describe('an owned basis prefills the author', () => {
+        // signInAs mints displayName 'Tester'.
+        const ViewerName = 'Tester';
+
+        it('should put the contributor\'s own name in the field on an untouched form', async () => {
+            // given: the form opens on an owned basis
+            signInAs(authState);
+
+            // when
+            renderWithAuth(<ContentItemPanel contentItemSettingCollection={settings} />);
+
+            // then
+            expect(screen.getByLabelText(/Author/)).toHaveValue(ViewerName);
+        });
+
+        it('should leave the field empty for a basis that names somebody else', async () => {
+            // given
+            signInAs(authState);
+            renderWithAuth(<ContentItemPanel contentItemSettingCollection={settings} />);
+
+            // when
+            await userEvent.selectOptions(
+                screen.getByLabelText(/How are you permitted to share this\?/),
+                String(ShareabilityBasis.PublicDomain));
+
+            // then: the contributor is not the author here, so their name must not be sitting in
+            // the box waiting to be submitted by somebody who did not read it
+            expect(screen.getByLabelText(/Author/)).toHaveValue('');
+        });
+
+        it('should submit the prefilled name the contributor was shown and left alone', async () => {
+            // given
+            signInAs(authState);
+            const onAdded = vi.fn();
+
+            renderWithAuth(
+                <ContentItemPanel contentItemSettingCollection={settings} onAdded={onAdded} />);
+
+            // when
+            await userEvent.type(screen.getByLabelText(/Title/), 'He carried me');
+            await userEvent.type(screen.getByLabelText(/^Story/), 'The whole story.');
+            await userEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
+
+            // then: what the field showed is what gets filed
+            expect(onAdded).toHaveBeenCalledWith(expect.objectContaining({
+                author: ViewerName
+            }));
+        });
+
+        it('should let the contributor publish under another name', async () => {
+            // given
+            signInAs(authState);
+            const onAdded = vi.fn();
+
+            renderWithAuth(
+                <ContentItemPanel contentItemSettingCollection={settings} onAdded={onAdded} />);
+
+            // when
+            await userEvent.clear(screen.getByLabelText(/Author/));
+            await userEvent.type(screen.getByLabelText(/Author/), 'A. Pilgrim');
+            await userEvent.type(screen.getByLabelText(/^Story/), 'The whole story.');
+            await userEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
+
+            // then
+            expect(onAdded).toHaveBeenCalledWith(expect.objectContaining({
+                author: 'A. Pilgrim'
+            }));
+        });
+
+        it('should not overwrite a pen name when the basis changes', async () => {
+            // given
+            signInAs(authState);
+            renderWithAuth(<ContentItemPanel contentItemSettingCollection={settings} />);
+
+            await userEvent.clear(screen.getByLabelText(/Author/));
+            await userEvent.type(screen.getByLabelText(/Author/), 'A. Pilgrim');
+
+            // when: between the two owned options, both of which would prefill an empty field
+            await userEvent.selectOptions(
+                screen.getByLabelText(/How are you permitted to share this\?/),
+                String(ShareabilityBasis.OwnedPublicDomain));
+
+            // then
+            expect(screen.getByLabelText(/Author/)).toHaveValue('A. Pilgrim');
+        });
+
+        it('should respect a field the contributor deliberately emptied', async () => {
+            // given
+            signInAs(authState);
+            renderWithAuth(<ContentItemPanel contentItemSettingCollection={settings} />);
+
+            // when
+            await userEvent.clear(screen.getByLabelText(/Author/));
+
+            // then: refilling it here would be the form arguing with the person using it
+            expect(screen.getByLabelText(/Author/)).toHaveValue('');
+        });
+
+        it('should never overwrite an author already on the item', async () => {
+            // given: an owned item somebody else contributed, carrying its own author. The
+            // editor holds a role rather than being the owner — otherwise the panel refuses
+            // `edit` back to `read` and there is no field to assert on.
+            signInAs(authState, ['Administrators']);
+
+            // when
+            renderWithAuth(
+                <ContentItemPanel
+                    contentItem={itemWith({
+                        shareabilityBasis: ShareabilityBasis.OwnedPublicDomain,
+                        author: 'Grace Abara',
+                        createdBy: OtherId
+                    })}
+                    mode="edit"
+                    isEditingAllowed
+                    contentItemSettingCollection={settings} />);
+
+            // then: prefilling here would sign her work with whoever opened the editor
+            expect(screen.getByLabelText(/Author/)).toHaveValue('Grace Abara');
+        });
+
+        it('should prefill an amendment from the submitter, not from the editor', async () => {
+            // given: a publisher amending somebody else's owned contribution that carries no
+            // author yet
+            signInAs(authState, ['Administrators']);
+
+            // when
+            renderWithAuth(
+                <ContentItemPanel
+                    contentItem={itemWith({
+                        shareabilityBasis: ShareabilityBasis.OwnedPublicDomain,
+                        author: '',
+                        createdBy: OtherId
+                    })}
+                    mode="edit"
+                    isEditingAllowed
+                    submittedByDisplayName="Grace Abara"
+                    contentItemSettingCollection={settings} />);
+
+            // then
+            expect(screen.getByLabelText(/Author/)).toHaveValue('Grace Abara');
+        });
+    });
+
+    describe('the author column on the read surface', () => {
+        it('should say nothing twice when the author IS the submitter', () => {
+            // when
+            renderWithAuth(
+                <ContentItemPanel
+                    contentItem={itemWith({
+                        shareabilityBasis: ShareabilityBasis.OwnedPublicDomain,
+                        author: 'Louis Ferguson'
+                    })}
+                    submittedByDisplayName="Louis Ferguson"
+                    contentItemSettingCollection={settings} />);
+
+            // then
+            expect(screen.getByText('Submitted by')).toBeInTheDocument();
+            expect(screen.queryByText('Author')).not.toBeInTheDocument();
+            expect(screen.getAllByText('Louis Ferguson')).toHaveLength(1);
+        });
+
+        it('should treat a difference in case as the same person', () => {
+            // when
+            renderWithAuth(
+                <ContentItemPanel
+                    contentItem={itemWith({ author: 'louis ferguson' })}
+                    submittedByDisplayName="Louis Ferguson"
+                    contentItemSettingCollection={settings} />);
+
+            // then
+            expect(screen.queryByText('Author')).not.toBeInTheDocument();
+        });
+
+        it('should show the pen name the contributor chose', () => {
+            // when
+            renderWithAuth(
+                <ContentItemPanel
+                    contentItem={itemWith({
+                        shareabilityBasis: ShareabilityBasis.OwnedPublicDomain,
+                        author: 'A. Pilgrim'
+                    })}
+                    submittedByDisplayName="Louis Ferguson"
+                    contentItemSettingCollection={settings} />);
+
+            // then: it says something the submitter column does not
+            expect(screen.getByText('Author')).toBeInTheDocument();
+            expect(screen.getByText('A. Pilgrim')).toBeInTheDocument();
+            expect(screen.getByText('Louis Ferguson')).toBeInTheDocument();
+        });
+
+        it('should show the author while the submitter is still unresolved', () => {
+            // when: no submitter passed, so nothing is known to be duplicated
+            renderWithAuth(
+                <ContentItemPanel
+                    contentItem={itemWith({ author: 'Anon' })}
+                    contentItemSettingCollection={settings} />);
+
+            // then
+            expect(screen.getByText('Author')).toBeInTheDocument();
+            expect(screen.getByText('Anon')).toBeInTheDocument();
+        });
+    });
+
+    describe('the type chip', () => {
+        it('should key the chip on the enum member name, never the editable display name', () => {
+            // given: the administrator has renamed the type, which must not detach it from its
+            // colour — the stylesheet keys off the member name for exactly this reason
+            const renamed = settingFor(ContentType.Story, 'Testimonies of Grace');
+
+            // when
+            const { container } = renderWithAuth(
+                <ContentItemPanel
+                    contentItem={itemWith()}
+                    contentItemSettingCollection={[renamed]} />);
+
+            // then
+            const chip = container.querySelector('.g2h-content-item-chip');
+
+            expect(chip).toHaveAttribute('data-content-type', 'Story');
+            expect(chip).toHaveTextContent('Testimonies of Grace');
+        });
+
+        it('should re-key the chip when the type in play changes', async () => {
+            // given
+            const { container, rerender } = renderWithAuth(
+                <ContentItemPanel
+                    contentItem={itemWith()}
+                    contentItemSettingCollection={settings} />);
+
+            expect(container.querySelector('.g2h-content-item-chip'))
+                .toHaveAttribute('data-content-type', 'Story');
+
+            // when
+            rerender(wrapped(
+                <ContentItemPanel
+                    contentItem={itemWith({
+                        id: 'content-item-2',
+                        contentType: ContentType.Devotional
+                    })}
+                    contentItemSettingCollection={settings} />));
+
+            // then: nothing is wired between the type and the colour — the attribute IS the
+            // selector, so the cascade re-resolves on the next paint
+            expect(container.querySelector('.g2h-content-item-chip'))
+                .toHaveAttribute('data-content-type', 'Devotional');
+        });
+
+        it('should mark only the selected tile for the stylesheet to paint', async () => {
+            // given
+            signInAs(authState);
+
+            const { container } = renderWithAuth(
+                <ContentItemPanel contentItemSettingCollection={settings} />);
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: /Devotional/ }));
+
+            // then
+            const selected = Array.from(
+                container.querySelectorAll('.g2h-content-item-type-selected'));
+
+            expect(selected).toHaveLength(1);
+            expect(selected[0]).toHaveAttribute('data-content-type', 'Devotional');
+        });
+    });
+
+    describe('the read byline', () => {
+        it('should name and picture the contributor the consumer resolved', () => {
+            // when: the panel fetches nothing — CreatedBy is an account id, and the NAME behind it
+            // is the consumer's to look up
+            renderWithAuth(
+                <ContentItemPanel
+                    contentItem={itemWith()}
+                    submittedByDisplayName="Louis Ferguson"
+                    submittedByImageUrl="Profile-Image/abc?v=1234"
+                    contentItemSettingCollection={settings} />);
+
+            // then
+            expect(screen.getByText('Submitted by')).toBeInTheDocument();
+            expect(screen.getByText('Louis Ferguson')).toBeInTheDocument();
+
+            expect(screen.getByRole('img', { name: 'Louis Ferguson' }))
+                .toHaveAttribute('src', 'Profile-Image/abc?v=1234');
+        });
+
+        it('should show no contributor at all rather than a placeholder while one loads', () => {
+            // when
+            renderWithAuth(
+                <ContentItemPanel
+                    contentItem={itemWith()}
+                    contentItemSettingCollection={settings} />);
+
+            // then: a name that is still arriving must not flash somebody else's under a
+            // testimony
+            expect(screen.queryByText('Submitted by')).not.toBeInTheDocument();
+        });
+
+        it('should state the licence rather than repeat who wrote it', () => {
+            // when
+            renderWithAuth(
+                <ContentItemPanel
+                    contentItem={itemWith({
+                        shareabilityBasis: ShareabilityBasis.OwnedPublicDomain
+                    })}
+                    contentItemSettingCollection={settings} />);
+
+            // then: a reader wants to know what may be done with it; who wrote it is the two
+            // columns to the left
+            expect(screen.getByText('Shareability')).toBeInTheDocument();
+            expect(screen.getByText('Public Domain')).toBeInTheDocument();
+        });
+
+        it('should name the retired basis plainly rather than claiming a licence for it', () => {
+            // when: every item contributed before the basis was split carries this
+            renderWithAuth(
+                <ContentItemPanel
+                    contentItem={itemWith({ shareabilityBasis: ShareabilityBasis.Owned })}
+                    contentItemSettingCollection={settings} />);
+
+            // then
+            expect(screen.getByText('Own Work')).toBeInTheDocument();
+        });
+
+        it('should date the contribution from the row rather than from today', () => {
+            // when
+            renderWithAuth(
+                <ContentItemPanel
+                    contentItem={itemWith({ createdWhen: '2026-07-15T09:14:00+00:00' })}
+                    contentItemSettingCollection={settings} />);
+
+            // then
+            expect(screen.getByText('Jul 15, 2026')).toBeInTheDocument();
+        });
+
+        it('should ignore a date it cannot parse rather than printing Invalid Date', () => {
+            // when
+            renderWithAuth(
+                <ContentItemPanel
+                    contentItem={itemWith({ createdWhen: 'not a date' })}
+                    contentItemSettingCollection={settings} />);
+
+            // then
+            expect(screen.queryByText(/Invalid Date/)).not.toBeInTheDocument();
+        });
+    });
+
+    describe('the engagement figures', () => {
+        it('should read the figures the consumer gathered', () => {
+            // when
+            renderWithAuth(
+                <ContentItemPanel
+                    contentItem={itemWith()}
+                    readingTimeMinutes={5}
+                    reactionCount={257}
+                    commentCount={4}
+                    viewCount={2344}
+                    contentItemSettingCollection={settings} />);
+
+            // then
+            expect(screen.getByText(/5 min read/)).toBeInTheDocument();
+            expect(screen.getByText(/257 reactions/)).toBeInTheDocument();
+            expect(screen.getByText(/4 comments/)).toBeInTheDocument();
+            expect(screen.getByText(/2,344 Views/)).toBeInTheDocument();
+        });
+
+        it('should agree in number with the count it is reporting', () => {
+            // when
+            renderWithAuth(
+                <ContentItemPanel
+                    contentItem={itemWith()}
+                    reactionCount={1}
+                    commentCount={1}
+                    viewCount={1}
+                    contentItemSettingCollection={settings} />);
+
+            // then
+            expect(screen.getByText(/1 reaction$/)).toBeInTheDocument();
+            expect(screen.getByText(/1 comment$/)).toBeInTheDocument();
+            expect(screen.getByText(/1 View$/)).toBeInTheDocument();
+        });
+
+        it('should leave out a figure it was given none of rather than reporting a zero', () => {
+            // when: only one of the four is passed
+            renderWithAuth(
+                <ContentItemPanel
+                    contentItem={itemWith()}
+                    commentCount={3}
+                    contentItemSettingCollection={settings} />);
+
+            // then: "0 reactions" asserts that nobody responded, which is a different statement
+            // from a surface with nothing to report
+            expect(screen.getByText(/3 comments/)).toBeInTheDocument();
+            expect(screen.queryByText(/reaction/)).not.toBeInTheDocument();
+            expect(screen.queryByText(/View/)).not.toBeInTheDocument();
+            expect(screen.queryByText(/min read/)).not.toBeInTheDocument();
+        });
+
+        it('should report a genuine zero it was actually given', () => {
+            // when
+            renderWithAuth(
+                <ContentItemPanel
+                    contentItem={itemWith()}
+                    commentCount={0}
+                    contentItemSettingCollection={settings} />);
+
+            // then: undefined means "no figure", zero means "none yet" — and the two must not
+            // collapse into each other
+            expect(screen.getByText(/0 comments/)).toBeInTheDocument();
         });
     });
 });
