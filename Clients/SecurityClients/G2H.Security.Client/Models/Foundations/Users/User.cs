@@ -18,6 +18,7 @@ namespace G2H.Security.Client.Models.Foundations.Users
     {
         public User(
             string userId,
+            string userName,
             string givenName,
             string surname,
             string displayName,
@@ -27,6 +28,7 @@ namespace G2H.Security.Client.Models.Foundations.Users
             IEnumerable<Claim> claims)
         {
             UserId = userId;
+            UserName = userName;
             GivenName = givenName;
             Surname = surname;
             DisplayName = displayName;
@@ -37,6 +39,11 @@ namespace G2H.Security.Client.Models.Foundations.Users
         }
 
         public string UserId { get; private set; } = string.Empty;
+
+        // The account's login name, NOT its email. Kept apart from Email deliberately: this is
+        // the value that travels on an event envelope's security context, and an email there is
+        // copied into every stored event by anything that carries the context forward.
+        public string UserName { get; private set; } = string.Empty;
         public string GivenName { get; private set; } = string.Empty;
         public string Surname { get; private set; } = string.Empty;
         public string DisplayName { get; private set; } = string.Empty;

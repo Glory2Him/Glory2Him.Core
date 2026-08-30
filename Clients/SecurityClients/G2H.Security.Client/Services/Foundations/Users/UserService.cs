@@ -146,6 +146,11 @@ namespace G2H.Security.Client.Services.Foundations.Users
                 }
             }
 
+            // ClaimTypes.Name is the username and only the username. It is read here, into its
+            // own field, precisely so that nothing downstream has to reach for Email to name the
+            // caller — ASP.NET Core Identity puts the account's UserName here
+            // (IdentityOptions.ClaimsIdentity.UserNameClaimType).
+            var userName = claimsPrincipal.FindFirst(ClaimTypes.Name)?.Value;
             var givenName = claimsPrincipal.FindFirst(ClaimTypes.GivenName)?.Value;
             var surname = claimsPrincipal.FindFirst(ClaimTypes.Surname)?.Value;
             var displayName = claimsPrincipal.FindFirst("displayName")?.Value;
@@ -156,6 +161,7 @@ namespace G2H.Security.Client.Services.Foundations.Users
 
             return new User(
                 userId: userId!,
+                userName: userName!,
                 givenName: givenName!,
                 surname: surname!,
                 displayName: displayName!,

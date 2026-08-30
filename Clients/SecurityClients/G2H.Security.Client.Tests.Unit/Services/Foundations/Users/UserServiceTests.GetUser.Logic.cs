@@ -28,6 +28,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Users
 
             User expectedUser = new User(
                 userId: claimsPrincipal.FindFirst(ClaimTypes.NameIdentifier)?.Value!,
+                userName: claimsPrincipal.FindFirst(ClaimTypes.Name)?.Value!,
                 givenName: claimsPrincipal.FindFirst(ClaimTypes.GivenName)?.Value!,
                 surname: claimsPrincipal.FindFirst(ClaimTypes.Surname)?.Value!,
                 displayName: claimsPrincipal.FindFirst("displayName")?.Value!,
@@ -41,6 +42,35 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Users
 
             // Then
             actualUser.Should().BeEquivalentTo(expectedUser);
+        }
+
+        [Fact]
+        public async Task ShouldGetUserNameFromTheNameClaimAndNotTheEmailAsync()
+        {
+            // Given: an account whose username and email are properly distinct. UserName is read
+            // from ClaimTypes.Name so that callers naming the actor never reach for Email — an
+            // email put on an event envelope's security context is signed into every stored
+            // event that caller causes, and cannot be scrubbed afterwards.
+            string userName = GetRandomString();
+            string email = $"{GetRandomString()}@example.org";
+
+            var claimsPrincipal = new ClaimsPrincipal(
+                new ClaimsIdentity(
+                    new[]
+                    {
+                        new Claim(ClaimTypes.NameIdentifier, GetRandomString()),
+                        new Claim(ClaimTypes.Name, userName),
+                        new Claim(ClaimTypes.Email, email)
+                    },
+                    authenticationType: "Test"));
+
+            // When
+            User actualUser = await this.userService.GetUserAsync(claimsPrincipal);
+
+            // Then
+            actualUser.UserName.Should().Be(userName);
+            actualUser.UserName.Should().NotBe(email);
+            actualUser.Email.Should().Be(email);
         }
     }
 }

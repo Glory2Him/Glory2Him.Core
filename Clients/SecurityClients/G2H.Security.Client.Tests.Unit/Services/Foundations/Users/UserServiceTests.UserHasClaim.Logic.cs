@@ -31,6 +31,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Users
 
             User expectedUser = new User(
                 userId: claimsPrincipal.FindFirst(ClaimTypes.NameIdentifier)?.Value!,
+                userName: claimsPrincipal.FindFirst(ClaimTypes.Name)?.Value!,
                 givenName: claimsPrincipal.FindFirst(ClaimTypes.GivenName)?.Value!,
                 surname: claimsPrincipal.FindFirst(ClaimTypes.Surname)?.Value!,
                 displayName: claimsPrincipal.FindFirst("displayName")?.Value!,
@@ -58,6 +59,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Users
 
             User expectedUser = new User(
                 userId: claimsPrincipal.FindFirst(ClaimTypes.NameIdentifier)?.Value!,
+                userName: claimsPrincipal.FindFirst(ClaimTypes.Name)?.Value!,
                 givenName: claimsPrincipal.FindFirst(ClaimTypes.GivenName)?.Value!,
                 surname: claimsPrincipal.FindFirst(ClaimTypes.Surname)?.Value!,
                 displayName: claimsPrincipal.FindFirst("displayName")?.Value!,

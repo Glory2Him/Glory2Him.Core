@@ -73,6 +73,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Orchestrations.Audits
         {
             return new User(
                 userId: claimsPrincipal.FindFirst(ClaimTypes.NameIdentifier)?.Value!,
+                userName: claimsPrincipal.FindFirst(ClaimTypes.Name)?.Value!,
                 givenName: claimsPrincipal.FindFirst(ClaimTypes.GivenName)?.Value!,
                 surname: claimsPrincipal.FindFirst(ClaimTypes.Surname)?.Value!,
                 displayName: claimsPrincipal.FindFirst("displayName")?.Value!,
