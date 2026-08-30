@@ -73,6 +73,7 @@ namespace G2H.EventEnvelope.Client.Brokers.Securities
 
             return new EventUser(
                 userId: user.UserId,
+                userName: user.UserName,
                 givenName: user.GivenName,
                 surname: user.Surname,
                 displayName: user.DisplayName,
@@ -138,7 +139,7 @@ namespace G2H.EventEnvelope.Client.Brokers.Securities
             return new EventSecurityContext
             {
                 SubjectId = user.UserId,
-                Username = user.Email,
+                Username = user.UserName,
                 Roles = user.Roles?.ToList() ?? [],
                 IsAuthenticated = true,
                 AuthenticationType = AuthenticationType.User
