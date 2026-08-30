@@ -16,8 +16,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Glory2Him.WebApp.Data
 {
-    // Idempotent first-run seed for the per-ContentType default ContentItemSetting rows —
-    // the sibling of SeedData.cs, which does the same for roles and users.
+    // Idempotent seed for the per-ContentType default ContentItemSetting rows — the sibling of
+    // SeedData.cs, which does the same for roles and users. It runs on every startup rather than
+    // only the first: a content type whose live default has gone missing gets it back here.
     //
     // WRITTEN DIRECTLY THROUGH IStorageBroker, bypassing ContentItemSettingService. The
     // foundation enforces its own Administrators gate (design §14.6) by reading the SecurityContext
@@ -42,10 +43,23 @@ namespace Glory2Him.WebApp.Data
 
             foreach (ContentItemSetting defaultSetting in BuildDefaultContentItemSettings())
             {
+                // The IsDeleted term is what makes this a REPAIR rather than a first-run-only
+                // insert. Every content type must always have a LIVE default (design §12.5.2
+                // business rule 5), and a soft-deleted row is not a setting — §14.5 hides it from
+                // every caller and §6.6 excludes it from resolution — so counting one here left a
+                // content type that had lost its default never getting it back.
+                //
+                // ContentItemSettingService now refuses to remove a default by either path, so
+                // this should never fire through the API. It fires for the routes the service
+                // does not own: a direct write, a restore, a database seeded before that refusal
+                // existed. The insert is safe because UX_ContentItemSettings_DefaultPerType
+                // carries its own IsDeleted term (#326) — without it the scope would still be
+                // held by the dead row and this insert would take Core initialisation down.
                 bool alreadySeeded = await existingSettings.AnyAsync(
                     contentItemSetting =>
                         contentItemSetting.ContentType == defaultSetting.ContentType
-                        && contentItemSetting.ContentItemId == null);
+                        && contentItemSetting.ContentItemId == null
+                        && contentItemSetting.IsDeleted == false);
 
                 if (alreadySeeded is false)
                 {

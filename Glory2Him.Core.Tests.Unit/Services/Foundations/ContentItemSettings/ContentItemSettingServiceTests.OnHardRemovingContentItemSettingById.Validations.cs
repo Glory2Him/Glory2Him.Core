@@ -191,5 +191,79 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        /// <summary>
+        /// The hard path event twin. Both mechanisms and both entry paths refuse a default, so
+        /// no combination of the four leaves a content type without one.
+        /// </summary>
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnHardRemovingContentItemSettingByIdEventWhenContentItemSettingIsADefaultAsync()
+        {
+            // given
+            ContentItemSetting storageContentItemSetting = CreateRandomContentItemSetting();
+            storageContentItemSetting.ContentItemId = null;
+            Guid someContentItemSettingId = storageContentItemSetting.Id;
+
+            var requestEnvelope = new EventEnvelope<ContentItemSetting>
+            {
+                Content = new ContentItemSetting { Id = someContentItemSettingId },
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators),
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            var invalidContentItemSettingException = new InvalidContentItemSettingException(
+                message: "Content item setting is invalid, fix the errors and try again.");
+
+            invalidContentItemSettingException.UpsertDataList(
+                key: nameof(ContentItemSetting.ContentItemId),
+                value: "Default content item settings cannot be removed. " +
+                    "Every content type must always have a default.");
+
+            var expectedContentItemSettingValidationException = new ContentItemSettingValidationException(
+                message: "Content item setting validation error occurred, fix the errors and try again.",
+                innerException: invalidContentItemSettingException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectProcessedEventExistsAsync(
+                    requestEnvelope.Metadata.EventId,
+                    EventBrokerIdentifiers.ContentItemSettingOnHardRemovingContentItemSettingByIdSubscriptionName,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(false);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectContentItemSettingByIdAsync(
+                    someContentItemSettingId,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageContentItemSetting);
+
+            // when
+            ValueTask<EventEnvelope<ContentItemSetting>?> onHardRemovingTask =
+                this.contentItemSettingService.OnHardRemovingContentItemSettingByIdAsync(
+                    requestEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemSettingValidationException actualContentItemSettingValidationException =
+                await Assert.ThrowsAsync<ContentItemSettingValidationException>(
+                    onHardRemovingTask.AsTask);
+
+            // then
+            actualContentItemSettingValidationException.Should().BeEquivalentTo(
+                expectedContentItemSettingValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectContentItemSettingByIdAsync(
+                    someContentItemSettingId,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemSettingValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }

@@ -338,25 +338,24 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
         /// <summary>
         /// The INVERSE of the two conflict tests above, and the point of #326.
         ///
-        /// <para>Both indexes now carry an <c>IsDeleted</c> term, so removing a setting through
-        /// the API — a SOFT delete — genuinely releases its scope. Without the term the scope was
-        /// trapped: §14.5 hides the deleted row from every caller including
-        /// <c>Administrators</c>, so the
-        /// re-create answered 409 naming nothing anybody could see or move, and the ordinary way
-        /// to remove a setting was the way that destroyed the ability to have one.</para>
+        /// <para>Both indexes now carry an <c>IsDeleted</c> term, so a soft-deleted row genuinely
+        /// releases its scope. Without the term the scope was trapped: §14.5 hides the deleted row
+        /// from every caller including <c>Administrators</c>, so the re-create answered 409 naming
+        /// nothing anybody could see or move.</para>
         ///
-        /// <para>This is the default tier, so the incumbent has to be the seeded row — every
-        /// content type's default slot is taken at startup. It is lifted out physically and put
-        /// back byte-for-byte in the teardown: the seed is idempotent on "a row exists for this
-        /// content type" and counts soft-deleted ones, so a test that merely soft-deleted it would
-        /// leave the environment a default short and no restart would notice.</para>
+        /// <para><b>The predecessor is arranged BENEATH HTTP, and has to be.</b> #387 makes the
+        /// delete endpoint refuse a default outright — every content type must always have one
+        /// (§12.5.2 business rule 5) — so the API can no longer produce a soft-deleted default and
+        /// the row is written through the storage broker instead. The assertion stays worth
+        /// making for exactly that reason: the index term is the defence in depth behind the
+        /// service's refusal, and a soft-deleted default can still arrive by the routes the
+        /// service does not own — a direct write, a restore, a future bulk operation.</para>
         ///
-        /// <para>#387 changes both halves of that — a content type must always have a default, so
-        /// the default tier will refuse deletion and the seed will restore a missing one. This
-        /// test then has to arrange its soft-deleted predecessor beneath HTTP rather than through
-        /// the API's delete. The assertion stays worth making: a soft-deleted default can still
-        /// arrive by routes that are not the delete endpoint, and the index term is what holds
-        /// then.</para>
+        /// <para>This is the default tier, so the slot has to be freed before anything can be
+        /// written to it — every content type's default is taken at startup. The seeded row is
+        /// lifted out physically and put back byte-for-byte in the teardown; the seed now restores
+        /// a missing LIVE default on the next startup, but nothing restarts mid-suite, so the
+        /// teardown is what the following tests depend on.</para>
         /// </summary>
         [Fact]
         public async Task ShouldAllowPostWhenContentTypeDefaultIsHeldOnlyByASoftDeletedRowAsync()
@@ -365,27 +364,25 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
             CoreContentItemSetting seededDefault =
                 await this.apiBroker.GetCoreDefaultContentItemSettingAsync(ContentType.Topic);
 
-            ContentItemSetting ownDefault = CreateRandomContentItemSetting();
-            ownDefault.ContentType = ContentType.Topic;
-            ownDefault.ContentItemId = null;
+            CoreContentItemSetting softDeletedDefault =
+                CreateSoftDeletedCoreDefaultContentItemSetting(ContentType.Topic);
 
             ContentItemSetting reusedScopeContentItemSetting = CreateRandomContentItemSetting();
             reusedScopeContentItemSetting.ContentType = ContentType.Topic;
             reusedScopeContentItemSetting.ContentItemId = null;
 
-            // The seeded row leaves the slot on the LAST line before the try, so every call that
-            // could throw while the slot is empty is covered by the restore in the finally. The
-            // ids are minted by the filler rather than by the responses, so teardown reaches a row
-            // whose post never returned.
+            // The predecessor goes in while the seeded row still holds the slot, which is only
+            // safe because the index constrains live rows alone — the arrangement and the
+            // assertion rest on the same term, and if the term were missing this insert would be
+            // the line that failed. The seeded row then leaves the slot on the LAST line before
+            // the try, so every call that could throw while the slot is empty is covered by the
+            // restore in the finally. The ids are minted here rather than by the responses, so
+            // teardown reaches a row whose post never returned.
+            await this.apiBroker.InsertCoreContentItemSettingAsync(softDeletedDefault);
             await this.apiBroker.RemoveCoreContentItemSettingByIdAsync(seededDefault.Id);
 
             try
             {
-                ContentItemSetting removedDefault =
-                    await this.apiBroker.PostContentItemSettingAsync(ownDefault);
-
-                await this.apiBroker.DeleteContentItemSettingByIdAsync(removedDefault.Id);
-
                 // when
                 ContentItemSetting actualContentItemSetting = await this.apiBroker
                     .PostContentItemSettingAsync(reusedScopeContentItemSetting);
@@ -396,7 +393,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
             }
             finally
             {
-                await this.apiBroker.RemoveCoreContentItemSettingByIdAsync(ownDefault.Id);
+                await this.apiBroker.RemoveCoreContentItemSettingByIdAsync(softDeletedDefault.Id);
 
                 await this.apiBroker.RemoveCoreContentItemSettingByIdAsync(
                     reusedScopeContentItemSetting.Id);

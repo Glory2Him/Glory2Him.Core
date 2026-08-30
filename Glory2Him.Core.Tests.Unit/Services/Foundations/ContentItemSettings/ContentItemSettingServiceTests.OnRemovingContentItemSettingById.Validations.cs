@@ -191,5 +191,80 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        /// <summary>
+        /// The event path reaches the same shared do-work, so the default tier is refused there
+        /// too — a caller who can put a message on this address is no more able to leave a content
+        /// type without its default than one who calls the service directly.
+        /// </summary>
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnRemovingContentItemSettingByIdEventWhenContentItemSettingIsADefaultAsync()
+        {
+            // given
+            ContentItemSetting storageContentItemSetting = CreateRandomContentItemSetting();
+            storageContentItemSetting.ContentItemId = null;
+            Guid someContentItemSettingId = storageContentItemSetting.Id;
+
+            var requestEnvelope = new EventEnvelope<ContentItemSetting>
+            {
+                Content = new ContentItemSetting { Id = someContentItemSettingId },
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators),
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            var invalidContentItemSettingException = new InvalidContentItemSettingException(
+                message: "Content item setting is invalid, fix the errors and try again.");
+
+            invalidContentItemSettingException.UpsertDataList(
+                key: nameof(ContentItemSetting.ContentItemId),
+                value: "Default content item settings cannot be removed. " +
+                    "Every content type must always have a default.");
+
+            var expectedContentItemSettingValidationException = new ContentItemSettingValidationException(
+                message: "Content item setting validation error occurred, fix the errors and try again.",
+                innerException: invalidContentItemSettingException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectProcessedEventExistsAsync(
+                    requestEnvelope.Metadata.EventId,
+                    EventBrokerIdentifiers.ContentItemSettingOnRemovingContentItemSettingByIdSubscriptionName,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(false);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectContentItemSettingByIdAsync(
+                    someContentItemSettingId,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageContentItemSetting);
+
+            // when
+            ValueTask<EventEnvelope<ContentItemSetting>?> onRemovingTask =
+                this.contentItemSettingService.OnRemovingContentItemSettingByIdAsync(
+                    requestEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemSettingValidationException actualContentItemSettingValidationException =
+                await Assert.ThrowsAsync<ContentItemSettingValidationException>(
+                    onRemovingTask.AsTask);
+
+            // then
+            actualContentItemSettingValidationException.Should().BeEquivalentTo(
+                expectedContentItemSettingValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectContentItemSettingByIdAsync(
+                    someContentItemSettingId,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemSettingValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }

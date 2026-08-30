@@ -14,6 +14,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.WebApp.Tests.Acceptance.Models.ContentItemSettings;
+using Glory2Him.Core.Models.Enums;
+using RESTFulSense.Exceptions;
+using CoreContentItemSetting = Glory2Him.Core.Models.Foundations.ContentItemSettings.ContentItemSetting;
 
 namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
 {
@@ -43,6 +46,31 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
             {
                 await this.apiBroker.RemoveCoreContentItemSettingByIdAsync(inputContentItemSetting.Id);
             }
+        }
+
+        /// <summary>
+        /// The same refusal on the hard verb. The invariant is about the row EXISTING, so the
+        /// mechanism that removes it is irrelevant — a hard delete is not an escape hatch from
+        /// §12.5.2 business rule 5, and the seeded default is left exactly where it was.
+        /// </summary>
+        [Fact]
+        public async Task ShouldRefuseHardDeleteOfADefaultContentItemSettingAsync()
+        {
+            // given
+            CoreContentItemSetting seededDefault =
+                await this.apiBroker.GetCoreDefaultContentItemSettingAsync(ContentType.Story);
+
+            // when
+            var hardDeleteTask =
+                this.apiBroker.HardDeleteContentItemSettingByIdAsync(seededDefault.Id).AsTask();
+
+            // then
+            await Assert.ThrowsAsync<HttpResponseBadRequestException>(() => hardDeleteTask);
+
+            CoreContentItemSetting stillLiveDefault =
+                await this.apiBroker.GetCoreDefaultContentItemSettingAsync(ContentType.Story);
+
+            stillLiveDefault.Id.Should().Be(seededDefault.Id);
         }
     }
 }

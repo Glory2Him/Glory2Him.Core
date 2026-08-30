@@ -42,6 +42,11 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
     /// anonymous page rendering, so every non-deleted row is readable by anyone and only a
     /// soft-deleted row answers not-found — never assuming an upstream orchestration
     /// already gated the caller.
+    ///
+    /// <para>One row shape is exempt from removal entirely. Every content type must always have a
+    /// live default — the row where <c>ContentItemId</c> is null — so both removal paths refuse
+    /// one, soft and hard alike (design §12.5.2 business rule 5). Overrides stay freely
+    /// removable.</para>
     /// </summary>
     internal partial class ContentItemSettingService : IContentItemSettingService
     {
@@ -327,6 +332,10 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
 
             ValidateStorageContentItemSetting(maybeContentItemSetting, contentItemSettingId);
 
+            // the tier refusal comes before the idempotent short-circuit, so the caller is told
+            // the rule rather than handed a silent success on a row that may never be removed
+            ValidateStorageContentItemSettingIsNotADefault(maybeContentItemSetting);
+
             if (maybeContentItemSetting.IsDeleted)
                 return maybeContentItemSetting;
 
@@ -374,6 +383,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
                 await this.storageBroker.SelectContentItemSettingByIdAsync(contentItemSettingId, cancellationToken);
 
             ValidateStorageContentItemSetting(maybeContentItemSetting, contentItemSettingId);
+            ValidateStorageContentItemSettingIsNotADefault(maybeContentItemSetting);
 
             ContentItemSetting deletedContentItemSetting =
                 await this.storageBroker.DeleteContentItemSettingAsync(maybeContentItemSetting, cancellationToken);
