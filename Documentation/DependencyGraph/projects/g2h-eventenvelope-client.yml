@@ -68,29 +68,6 @@ components:
       - from: UserHasClaimAsync
         to: SC.UserClient
         method: UserHasClaimAsync
-  - id: EEC.SecurityAuditBroker
-    name: SecurityAuditBroker
-    layer: broker
-    col: 10
-    description: "Wraps G2H.Security.Client's AuditClient. Registered in the envelope client's DI but not yet called by EventEnvelopeService."
-    methods:
-      - ApplyAddAuditValuesAsync
-      - ApplyModifyAuditValuesAsync
-      - ApplyRemoveAuditValuesAsync
-      - GetUserIdAsync
-    calls:
-      - from: ApplyAddAuditValuesAsync
-        to: SC.AuditClient
-        method: ApplyAddAuditValuesAsync
-      - from: ApplyModifyAuditValuesAsync
-        to: SC.AuditClient
-        method: ApplyModifyAuditValuesAsync
-      - from: ApplyRemoveAuditValuesAsync
-        to: SC.AuditClient
-        method: ApplyRemoveAuditValuesAsync
-      - from: GetUserIdAsync
-        to: SC.AuditClient
-        method: GetUserIdAsync
   - id: EEC.DateTimeBroker
     name: DateTimeBroker
     layer: broker

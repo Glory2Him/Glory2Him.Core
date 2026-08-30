@@ -9,90 +9,42 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
-using System.Collections.Generic;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
 using System.Threading.Tasks;
 using G2H.Security.Client.Clients;
 using G2H.Security.Client.Models.Clients;
 using Glory2Him.Core.Models.Events;
-using Microsoft.AspNetCore.Http;
 
 namespace Glory2Him.Core.Brokers.Securities
 {
     /// <summary>
-    /// Provides security-related functionalities such as user authentication, claim verification, and role checks.
-    /// Supports both REST API (using <see cref="IHttpContextAccessor"/>) and Azure Functions (using access token).
+    /// Stamps audit metadata (CreatedBy/UpdatedBy/DeletedBy and their timestamps) on entities and
+    /// resolves the acting user id, from the actor carried on an event envelope's
+    /// <see cref="SecurityContext"/> rather than an ambient principal. Also guards those values
+    /// across a modify, which involves no actor at all.
     /// </summary>
     internal class SecurityAuditBroker : ISecurityAuditBroker
     {
-        private readonly ClaimsPrincipal claimsPrincipal;
         private readonly ISecurityClient securityClient;
         private readonly SecurityConfigurations securityConfigurations;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="SecurityAuditBroker"/> class 
-        /// using <see cref="IHttpContextAccessor"/>.
-        /// This constructor is intended for REST API usage.
+        /// Initializes a new instance of the <see cref="SecurityAuditBroker"/> class.
         /// </summary>
-        /// <param name="httpContextAccessor">Provides access to the current HTTP context.</param>
-        public SecurityAuditBroker(
-            IHttpContextAccessor httpContextAccessor,
-            SecurityConfigurations securityConfigurations)
-        {
-            claimsPrincipal = httpContextAccessor.HttpContext?.User ?? new ClaimsPrincipal();
-            this.securityClient = new SecurityClient();
-            this.securityConfigurations = securityConfigurations;
-        }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="SecurityAuditBroker"/> class using an access token.
-        /// This constructor is intended for Azure Function / non REST API usage.
-        /// </summary>
-        /// <param name="accessToken">A JWT access token containing user claims.</param>
         /// <param name="securityConfigurations">Contains information of the audit properties to target.</param>
-        public SecurityAuditBroker(string accessToken, SecurityConfigurations securityConfigurations)
+        public SecurityAuditBroker(SecurityConfigurations securityConfigurations)
         {
-            this.claimsPrincipal = GetClaimsPrincipalFromToken(accessToken);
             this.securityClient = new SecurityClient();
             this.securityConfigurations = securityConfigurations;
         }
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="SecurityAuditBroker"/> 
-        /// class using a <see cref="ClaimsPrincipal"/>.
-        /// This constructor is intended for Azure Functions or non-REST API usage.
-        /// </summary>
-        /// <param name="claimsPrincipal">A <see cref="ClaimsPrincipal"/> containing user claims.</param>
-        /// <param name="securityConfigurations">Contains information of the audit properties to target.</param>
-        public SecurityAuditBroker(ClaimsPrincipal claimsPrincipal, SecurityConfigurations securityConfigurations)
-        {
-            this.claimsPrincipal = claimsPrincipal;
-            this.securityConfigurations = securityConfigurations;
-            this.securityClient = new SecurityClient();
-        }
-
-        /// <summary>
-        /// Extracts a <see cref="ClaimsPrincipal"/> from a given JWT token.
-        /// </summary>
-        /// <param name="token">The JWT token.</param>
-        /// <returns>A <see cref="ClaimsPrincipal"/> containing claims from the token.</returns>
-        private static ClaimsPrincipal GetClaimsPrincipalFromToken(string token)
-        {
-            var handler = new JwtSecurityTokenHandler();
-            var jwtToken = handler.ReadJwtToken(token);
-            var identity = new ClaimsIdentity(jwtToken.Claims, "jwt");
-
-            return new ClaimsPrincipal(identity);
-        }
-
-        /// <summary>
-        /// Ensures that add audit values (e.g., created by/date) remain unchanged during modify operations.
+        /// Ensures that audit values (e.g., created by/date) other than the ones being modified
+        /// remain unchanged during modify operations.
         /// </summary>
         /// <typeparam name="T">The type of the entity.</typeparam>
         /// <param name="entity">The entity being modified.</param>
         /// <param name="storageEntity">The original stored entity used to preserve original audit values.</param>
-        /// <returns>The entity with original add audit values retained.</returns>
+        /// <returns>The entity with original other audit values retained.</returns>
         public ValueTask<T> EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync<T>(
             T entity,
             T storageEntity) =>
@@ -108,7 +60,7 @@ namespace Glory2Him.Core.Brokers.Securities
         public ValueTask<T> ApplyAddAuditValuesAsync<T>(T entity, SecurityContext securityContext) =>
             this.securityClient.Audits.ApplyAddAuditValuesAsync(
                 entity,
-                CreateClaimsPrincipal(securityContext),
+                SecurityContextPrincipalFactory.Create(securityContext),
                 securityConfigurations);
 
         /// <summary>
@@ -118,7 +70,7 @@ namespace Glory2Him.Core.Brokers.Securities
         public ValueTask<T> ApplyModifyAuditValuesAsync<T>(T entity, SecurityContext securityContext) =>
             this.securityClient.Audits.ApplyModifyAuditValuesAsync(
                 entity,
-                CreateClaimsPrincipal(securityContext),
+                SecurityContextPrincipalFactory.Create(securityContext),
                 securityConfigurations);
 
         /// <summary>
@@ -131,7 +83,7 @@ namespace Glory2Him.Core.Brokers.Securities
             string? deletionReason = null) =>
             this.securityClient.Audits.ApplyRemoveAuditValuesAsync(
                 entity,
-                CreateClaimsPrincipal(securityContext),
+                SecurityContextPrincipalFactory.Create(securityContext),
                 securityConfigurations,
                 deletionReason);
 
@@ -139,12 +91,7 @@ namespace Glory2Him.Core.Brokers.Securities
         /// Resolves the acting user id from an event envelope's <see cref="SecurityContext"/>,
         /// consistent with the id the context-aware audit methods stamp.
         /// </summary>
-        public async ValueTask<string> GetUserIdAsync(SecurityContext securityContext) =>
-            await securityClient.Audits.GetUserIdAsync(CreateClaimsPrincipal(securityContext));
-
-        // Shared with AccessBroker, which resolves the actor these audit values are later
-        // compared against. See SecurityContextPrincipalFactory for why there is only one.
-        private static ClaimsPrincipal CreateClaimsPrincipal(SecurityContext securityContext) =>
-            SecurityContextPrincipalFactory.Create(securityContext);
+        public ValueTask<string> GetUserIdAsync(SecurityContext securityContext) =>
+            securityClient.Audits.GetUserIdAsync(SecurityContextPrincipalFactory.Create(securityContext));
     }
 }

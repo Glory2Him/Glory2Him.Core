@@ -1153,7 +1153,7 @@ The answer is a **policy broker**, not a cross-entity read — and it extends th
    What the change does cost is the risk of an *ungathered* input, and that risk is real: a pure function cannot fetch what it was not given, so a missing list reads as **empty**, and empty is the permissive answer to every question asked of one. An ungathered comment list makes "all comments are resolved" vacuously true; an ungathered review list makes a rejection invisible. Both fail *open*, and both would pass any test written against them. This is closed structurally rather than by discipline: every section of every request is `required`, so a forgotten gather is a compile error at the call site.
 3. Foundation services reach it through an **`IAccessBroker`** in `Brokers/Securities/`, alongside `ISecurityBroker` and `ISecurityAuditBroker`. The service still calls one storage broker for its own entity; the policy broker is a dependency like any other, so the service stays single-entity.
 4. **The broker returns a verdict, not settings.** If it handed back an `ApprovalSetting`, the decision logic would be re-implemented in every foundation service and would drift. One question, one answer, one place.
-5. **The actor is passed in from the envelope's `SecurityContext`.** The client must not resolve identity itself through `IHttpContextAccessor`: there is no `HttpContext` on the event path, so an approval arriving through an event address would carry an empty principal, and two identity sources that disagree would disagree precisely on the unauthenticated path. `SecurityAuditBroker` already carries an access-token constructor for exactly this reason — the lesson is taken rather than repeated.
+5. **The actor is passed in from the envelope's `SecurityContext`.** The client must not resolve identity itself through `IHttpContextAccessor`: there is no `HttpContext` on the event path, so an approval arriving through an event address would carry an empty principal, and two identity sources that disagree would disagree precisely on the unauthenticated path. `SecurityAuditBroker` already takes the actor as an explicit `SecurityContext` argument wherever an actor applies, for exactly this reason — the lesson is taken rather than repeated.
 
    Note what this does *not* settle: it makes the envelope the single identity source, not an authenticated one. On the direct path that context is built from the real principal; on the event path it is deserialized and unverified (§14.6 rule 4). One source is still the right answer — two would disagree in the permissive direction — but the source is only as trustworthy as the path it arrived on.
 
@@ -3028,15 +3028,23 @@ The media surface carries its own security rules: upload constraints — refused
 ### 14.6.1 Dependency Lifetimes Are a Security Control
 
 Every rule in §14.6 is evaluated against a `SecurityContext` derived from the caller's
-`ClaimsPrincipal`, and every audit field is stamped from the same subject (§8.6.1). **The brokers
-that resolve that principal read it in their constructor, not per call.** Their registered
-lifetime therefore decides *whose* identity the rules run against, which makes DI lifetime a
-security control rather than a performance choice.
+`ClaimsPrincipal`, and every audit field is stamped from the same subject (§8.6.1). **One broker
+in that chain still resolves that principal in its constructor, not per call; the other now takes
+it as an explicit per-call argument.** Where a broker still captures it in its constructor, that
+broker's registered lifetime decides *whose* identity the rules run against, which makes DI
+lifetime a security control rather than a performance choice for it.
 
 Two brokers sit in that chain:
 
-1. `SecurityAuditBroker` assigns `httpContextAccessor.HttpContext?.User` to a field in its
-   constructor. It stamps `CreatedBy`, `UpdatedBy`, `DeletedBy` and their timestamps.
+1. `SecurityAuditBroker` takes the actor as an explicit `SecurityContext` argument on the calls
+   that need one (via `SecurityContextPrincipalFactory`) rather than capturing a principal in its
+   constructor — it stamps `CreatedBy`, `UpdatedBy`, `DeletedBy` and their timestamps that way. The
+   one member that needs no actor at all, `EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync`,
+   only copies fields between two entity instances. Its registration stays
+   `Scoped` regardless, as a deliberate security margin rather than a strict requirement: it holds
+   no per-request state today, but a future constructor addition that captured one would
+   reintroduce the hazard described below, and a `Scoped` lifetime keeps that margin in place
+   should that happen (`CoreRegistration.AddCoreServices`).
 
    **RULE — the audit columns name the actor, and the system is an actor.** They are resolved from
    `SecurityContext.SubjectId`, so whatever that holds is what the row says happened. An act the
@@ -3066,12 +3074,13 @@ Two brokers sit in that chain:
    principal it captured for the lifetime of the client. It supplies the `SecurityContext` on every envelope, which is what the foundation
    authorises against.
 
-**Registering either as a singleton freezes the first principal the process ever saw.** The
-failure is silent and total: the service keeps enforcing every rule correctly, but against the
-wrong subject. Every subsequent caller's row is authored by that first user; ownership checks,
-the §8.6.1 `actor == CreatedBy` comparisons, the no-self-approval rule (HR-2) and the whole audit
-trail are all decided for someone who is not the caller. Nothing throws, and no test that
-excludes the audit fields from its assertions will notice.
+**Registering a broker that still captures ambient identity in its constructor — `EventEnvelopeBroker`'s
+chain today — as a singleton freezes the first principal the process ever saw.** The failure is
+silent and total: the service keeps enforcing every rule correctly, but against the wrong subject.
+Every subsequent caller's row is authored by that first user; ownership checks, the §8.6.1
+`actor == CreatedBy` comparisons, the no-self-approval rule (HR-2) and the whole audit trail are
+all decided for someone who is not the caller. Nothing throws, and no test that excludes the audit
+fields from its assertions will notice.
 
 **The rule:** any broker in the identity chain — and any service that composes one — is `Scoped`
 or `Transient`, never `Singleton`. A longer-lived consumer of a scoped identity broker is the
@@ -3083,8 +3092,8 @@ the singleton `IEventBroker` as method groups. That trade is only sound in a hos
 wires those subscriptions. **A host that exposes a service over HTTP and wires no subscriptions
 must not use those helpers** — it registers the service and its request-bound brokers scoped
 itself, as `CoreRegistration.AddCoreServices` does. Only the genuinely stateless brokers
-(`IDateTimeBroker`, `IIdentifierBroker`, `IEnvelopeIntegrityBroker`, `IEventBroker`) stay
-singletons there.
+(`IDateTimeBroker`, `IIdentifierBroker`, `IHashBroker`, `IEnvelopeIntegrityBroker`,
+`IEventBroker`) stay singletons there.
 
 Because the failure is invisible to behavioural tests, **the guard is a registration test that
 asserts the lifetime directly** — see `CoreRegistrationTests.ShouldRegisterRequestBoundServicesAsScoped`.
