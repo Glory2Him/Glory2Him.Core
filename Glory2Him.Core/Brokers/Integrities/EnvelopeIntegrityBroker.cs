@@ -41,8 +41,12 @@ namespace Glory2Him.Core.Brokers.Integrities
         }
 
         // Three configuration mistakes a signature cannot survive, refused at the one point that
-        // sees every key at once. All fail at boot rather than at the first publish, because a
-        // host that cannot sign anything usable should not go on looking like a working one.
+        // sees every key at once. All fail at CONSTRUCTION rather than at the first publish,
+        // because a host that cannot sign anything usable should not go on looking like a working
+        // one. Construction is the first resolve of anything that signs, so on the portal that is
+        // the first Core request: the SPA still serves and every Core endpoint answers 500. Note
+        // that this is NOT a boot failure there — Program.InitializeCoreAsync catches and logs,
+        // so a misconfigured host starts and looks healthy from the outside (#392).
         private static void ValidateSigningKeys(
             IReadOnlyList<EventEnvelopeSigningKey> signingKeys)
         {

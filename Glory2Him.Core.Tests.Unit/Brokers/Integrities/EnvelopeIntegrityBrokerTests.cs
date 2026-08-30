@@ -365,7 +365,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Integrities
         }
 
         [Fact]
-        public void ShouldRefuseToStartWhenNoKeyIsConfiguredAtAll()
+        public void ShouldRefuseToConstructWhenNoKeyIsConfiguredAtAll()
         {
             // given: this used to assert the opposite, on the reasoning that an unconfigured host
             // fails closed at the point of signing and a boot crash would stop a site that
@@ -375,6 +375,11 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Integrities
             // duplicate probe then refuses every retry of that content forever (#392). And no
             // host publishes nothing: §14.6 requires a fact per completed write, so an
             // unconfigured host is one where every write is a landmine, not a read-only site.
+            //
+            // The throw lands at CONSTRUCTION, not at boot. Measured against the portal: it
+            // still starts and the SPA still serves, because InitializeCoreAsync logs the
+            // failure rather than halting — what changes is that every Core endpoint answers
+            // 500 on the first resolve of anything that signs, which is before any write.
             Action buildBroker = () => BrokerWith();
 
             // then
