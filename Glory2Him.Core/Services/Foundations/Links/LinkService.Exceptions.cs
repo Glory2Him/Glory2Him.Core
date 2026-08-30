@@ -416,7 +416,7 @@ namespace Glory2Him.Core.Services.Foundations.Links
 
                 var timeoutLinkException =
                     new TimeoutLinkException(
-                        message: "Failed approval timeout error occurred, contact support.",
+                        message: "Failed link timeout error occurred, contact support.",
                         innerException: timeoutException,
                         data: timeoutException.Data);
 
@@ -448,7 +448,7 @@ namespace Glory2Him.Core.Services.Foundations.Links
             {
                 var failedStorageLinkException =
                     new FailedStorageLinkException(
-                        message: "Failed approval storage error occurred, contact support.",
+                        message: "Failed link storage error occurred, contact support.",
                         innerException: sqlException,
                         data: sqlException.Data);
 
@@ -459,7 +459,7 @@ namespace Glory2Him.Core.Services.Foundations.Links
             {
                 var failedLinkServiceException =
                     new FailedLinkServiceException(
-                        message: "Failed approval service error occurred, contact support.",
+                        message: "Failed link service error occurred, contact support.",
                         innerException: exception,
                         data: exception.Data);
 
@@ -483,7 +483,7 @@ namespace Glory2Him.Core.Services.Foundations.Links
 
                 var timeoutLinkException =
                     new TimeoutLinkException(
-                        message: "Failed approval timeout error occurred, contact support.",
+                        message: "Failed link timeout error occurred, contact support.",
                         innerException: timeoutException,
                         data: timeoutException.Data);
 
@@ -508,7 +508,7 @@ namespace Glory2Him.Core.Services.Foundations.Links
             {
                 var failedStorageLinkException =
                     new FailedStorageLinkException(
-                        message: "Failed approval storage error occurred, contact support.",
+                        message: "Failed link storage error occurred, contact support.",
                         innerException: sqlException,
                         data: sqlException.Data);
 
@@ -519,7 +519,7 @@ namespace Glory2Him.Core.Services.Foundations.Links
             {
                 var failedLinkServiceException =
                     new FailedLinkServiceException(
-                        message: "Failed approval service error occurred, contact support.",
+                        message: "Failed link service error occurred, contact support.",
                         innerException: exception,
                         data: exception.Data);
 
