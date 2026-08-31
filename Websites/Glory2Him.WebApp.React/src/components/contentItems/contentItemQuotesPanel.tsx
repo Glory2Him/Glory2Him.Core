@@ -1,8 +1,8 @@
-import { ContentItemItemDefaultPanel } from './contentItemItemDefaultPanel';
+import { ContentItemDefaultPanel } from './contentItemDefaultPanel';
 
 import {
-    ContentItemItemTemplateProps
-} from '../../models/components/contentItems/contentItemItemTemplate';
+    ContentItemTemplateProps
+} from '../../models/components/contentItems/contentItemTemplate';
 
 import './contentItems.css';
 
@@ -10,7 +10,7 @@ import './contentItems.css';
 // engaging with it from the list fair — so the content block is the quote itself, standing large
 // as the card's own heading, the author inline after the em-dash.
 //
-// DERIVES FROM ContentItemItemDefaultPanel, in the React register of inheritance: it renders the
+// DERIVES FROM ContentItemDefaultPanel, in the React register of inheritance: it renders the
 // default template and replaces only its content slot. The meta row, the pills and the
 // engagement row are therefore the default's, identically — an override changes how the content
 // READS, never what the card offers.
@@ -19,7 +19,7 @@ import './contentItems.css';
 // dark hero where there is an image, and a quiet light block where there is not. Today nothing
 // supplies a quote image — the projection deliberately gives Quote no placeholder — so the light
 // block is what ships, and the hero face is already here for the day real images land (§4.9).
-export function ContentItemItemQuotesPanel(props: ContentItemItemTemplateProps) {
+export function ContentItemQuotesPanel(props: ContentItemTemplateProps) {
     const { contentItem, onTitleClick } = props;
 
     const hasImage = (contentItem.imageUrl ?? '').length > 0;
@@ -55,5 +55,5 @@ export function ContentItemItemQuotesPanel(props: ContentItemItemTemplateProps) 
         </div>
     );
 
-    return <ContentItemItemDefaultPanel {...props} contentSlot={quoteBlock} />;
+    return <ContentItemDefaultPanel {...props} contentSlot={quoteBlock} />;
 }

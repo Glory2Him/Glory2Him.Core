@@ -9,7 +9,7 @@ import {
     ShareabilityBasis
 } from './contentItemSearchItem';
 
-// The contract between ContentItemItemPanel and its templates. In a module of its own so the
+// The contract between ContentItemPanel and its templates. In a module of its own so the
 // templates can state it without importing the panel that dispatches to them — the panel imports
 // every template, and a template importing it back would be a cycle.
 
@@ -17,7 +17,7 @@ import {
 // rewrite the committed criteria); navigation hooks bubble through it to the page, which owns
 // the redirect — and stamps the origin into router state so the destination can offer a true
 // way back.
-export interface ContentItemItemEvents {
+export interface ContentItemEvents {
     // Toggles the Category criterion: set if clear, cleared if already this item's type.
     onContentTypeClick?: (item: ContentItemSearchItem) => void;
 
@@ -66,7 +66,7 @@ export interface ContentItemItemEvents {
 
 // The text every template renders from — threaded once so an override never drifts from the
 // default's wording.
-export interface ContentItemItemText {
+export interface ContentItemText {
     submittedByLabelText?: string;
     authorLabelText?: string;
     shareabilityLabelText?: string;
@@ -85,7 +85,7 @@ export interface ContentItemItemText {
 // Everything a template receives: the item, its RESOLVED policy, and the dispatching panel's
 // own state and toggles. Templates render from this and decide nothing — which is what lets an
 // override derive from the default by replacing only its content slot.
-export interface ContentItemItemTemplateProps extends ContentItemItemEvents, ContentItemItemText {
+export interface ContentItemTemplateProps extends ContentItemEvents, ContentItemText {
     contentItem: ContentItemSearchItem;
 
     // The item's OWN effective setting, resolved by the panel (§6.4 / §12.5.2 rules 1-2), so a

@@ -2,7 +2,7 @@ import { ReactElement } from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ContentItemItemPanel } from './contentItemItemPanel';
+import { ContentItemPanel } from './contentItemPanel';
 import { AuthProvider } from '../securitys/authProvider';
 import { createAuthState, signInAs, signOut } from '../../tests/testAuth';
 import { ContentItemSetting } from '../../models/foundations/contentItemSettings/contentItemSetting';
@@ -129,21 +129,21 @@ const reactionOptions: ReadonlyArray<ContentItemReactionOption> = [
     { label: 'Joy', glyph: '😄' }
 ];
 
-describe('ContentItemItemPanel', () => {
+describe('ContentItemPanel', () => {
     beforeEach(() => {
         signOut(authState);
     });
 
     describe('template dispatch', () => {
         it('should render a quote through the quotes override, whole', () => {
-            renderCard(<ContentItemItemPanel contentItem={quoteItem} />);
+            renderCard(<ContentItemPanel contentItem={quoteItem} />);
 
             expect(screen.getByText(new RegExp('coincidences happen'))).toBeInTheDocument();
             expect(screen.getByText(/— William Temple/)).toBeInTheDocument();
         });
 
         it('should render every other type through the default template, excerpted', () => {
-            renderCard(<ContentItemItemPanel contentItem={devotionalItem} />);
+            renderCard(<ContentItemPanel contentItem={devotionalItem} />);
 
             expect(screen.getByText('Walking daily in grace')).toBeInTheDocument();
             expect(screen.getByText(new RegExp('daily air'))).toBeInTheDocument();
@@ -154,7 +154,7 @@ describe('ContentItemItemPanel', () => {
         // reference, so the verses override renders it whole and appends nothing.
         it('should render a verse image through the verses override, appending nothing', () => {
             renderCard(
-                <ContentItemItemPanel
+                <ContentItemPanel
                     contentItem={{
                         id: 'verses-1',
                         contentType: ContentType.Verses,
@@ -177,7 +177,7 @@ describe('ContentItemItemPanel', () => {
         // The quotes override DERIVES from the default: only the content slot differs, so the
         // meta row is the default's own on both.
         it('should carry the default meta row under the quotes override', () => {
-            renderCard(<ContentItemItemPanel contentItem={quoteItem} />);
+            renderCard(<ContentItemPanel contentItem={quoteItem} />);
 
             expect(screen.getByText('Bryan')).toBeInTheDocument();
             expect(screen.getByText('Public Domain')).toBeInTheDocument();
@@ -187,14 +187,14 @@ describe('ContentItemItemPanel', () => {
 
     describe('the element governs its own card', () => {
         it('should name the card by its own setting rather than the enum member', () => {
-            renderCard(<ContentItemItemPanel contentItem={quoteItem} />);
+            renderCard(<ContentItemPanel contentItem={quoteItem} />);
 
             expect(screen.getByRole('button', { name: /Quotes/ })).toBeInTheDocument();
         });
 
         it('should fall back to the enum label when the element carries no setting', () => {
             renderCard(
-                <ContentItemItemPanel
+                <ContentItemPanel
                     contentItem={{ ...devotionalItem, contentItemSetting: undefined }} />);
 
             expect(screen.getByRole('button', { name: /Devotional/ })).toBeInTheDocument();
@@ -205,13 +205,13 @@ describe('ContentItemItemPanel', () => {
         it('should follow a swapped setting on its own element', () => {
             const taggedItem = { ...devotionalItem, tags: ['grace'] };
 
-            const rendered = renderCard(<ContentItemItemPanel contentItem={taggedItem} />);
+            const rendered = renderCard(<ContentItemPanel contentItem={taggedItem} />);
 
             expect(screen.getByText('#grace')).toBeInTheDocument();
 
             rendered.rerender(
                 <AuthProvider>
-                    <ContentItemItemPanel
+                    <ContentItemPanel
                         contentItem={withSetting(taggedItem, { showTags: false })} />
                 </AuthProvider>);
 
@@ -220,7 +220,7 @@ describe('ContentItemItemPanel', () => {
 
         it('should hide the tags and references where its setting says so', () => {
             renderCard(
-                <ContentItemItemPanel
+                <ContentItemPanel
                     contentItem={withSetting(
                         {
                             ...devotionalItem,
@@ -235,7 +235,7 @@ describe('ContentItemItemPanel', () => {
 
         it('should say nothing about comments where its setting hides them', () => {
             renderCard(
-                <ContentItemItemPanel
+                <ContentItemPanel
                     contentItem={withSetting(devotionalItem, { showComments: false })}
                     onCommentsClick={vi.fn()} />);
 
@@ -244,7 +244,7 @@ describe('ContentItemItemPanel', () => {
 
         it('should drop the author segment on a type whose setting carries none', () => {
             renderCard(
-                <ContentItemItemPanel
+                <ContentItemPanel
                     contentItem={withSetting(devotionalItem, { hasAuthor: false })}
                     onAuthorClick={vi.fn()} />);
 
@@ -253,7 +253,7 @@ describe('ContentItemItemPanel', () => {
 
         it('should hide the assigned reactions where its setting hides them', () => {
             renderCard(
-                <ContentItemItemPanel
+                <ContentItemPanel
                     contentItem={withSetting(quoteItem, { showReactions: false })} />);
 
             expect(screen.queryByText('142')).not.toBeInTheDocument();
@@ -263,7 +263,7 @@ describe('ContentItemItemPanel', () => {
     describe('status', () => {
         it('should wear its status while it is not yet public', () => {
             renderCard(
-                <ContentItemItemPanel
+                <ContentItemPanel
                     contentItem={{
                         ...devotionalItem,
                         approvalStatus: ApprovalStatus.Submitted
@@ -274,7 +274,7 @@ describe('ContentItemItemPanel', () => {
 
         it('should say nothing about an approved item, which is the ordinary case', () => {
             renderCard(
-                <ContentItemItemPanel
+                <ContentItemPanel
                     contentItem={{
                         ...devotionalItem,
                         approvalStatus: ApprovalStatus.Approved
@@ -286,7 +286,7 @@ describe('ContentItemItemPanel', () => {
 
         it('should wear no corner ribbon unless the surface opted in', () => {
             const { container } = renderCard(
-                <ContentItemItemPanel
+                <ContentItemPanel
                     contentItem={{
                         ...devotionalItem,
                         approvalStatus: ApprovalStatus.Approved
@@ -300,7 +300,7 @@ describe('ContentItemItemPanel', () => {
             // Draft, blue Submitted, green Approved, red Rejected — so the name IS the
             // colour contract, exactly as the type chip's palette works.
             const { container } = renderCard(
-                <ContentItemItemPanel
+                <ContentItemPanel
                     shouldShowRibbons
                     contentItem={{
                         ...devotionalItem,
@@ -315,7 +315,7 @@ describe('ContentItemItemPanel', () => {
 
         it('should ribbon the ordinary approved case too — that is what opting in means', () => {
             const { container } = renderCard(
-                <ContentItemItemPanel
+                <ContentItemPanel
                     shouldShowRibbons
                     contentItem={{
                         ...quoteItem,
@@ -335,7 +335,7 @@ describe('ContentItemItemPanel', () => {
             const onContentTypeClick = vi.fn();
 
             renderCard(
-                <ContentItemItemPanel
+                <ContentItemPanel
                     contentItem={devotionalItem}
                     onContentTypeClick={onContentTypeClick} />);
 
@@ -348,7 +348,7 @@ describe('ContentItemItemPanel', () => {
             const onTitleClick = vi.fn();
 
             renderCard(
-                <ContentItemItemPanel
+                <ContentItemPanel
                     contentItem={devotionalItem}
                     onTitleClick={onTitleClick} />);
 
@@ -363,7 +363,7 @@ describe('ContentItemItemPanel', () => {
             const onTitleClick = vi.fn();
 
             renderCard(
-                <ContentItemItemPanel contentItem={quoteItem} onTitleClick={onTitleClick} />);
+                <ContentItemPanel contentItem={quoteItem} onTitleClick={onTitleClick} />);
 
             await userEvent.click(
                 screen.getByRole('button', { name: new RegExp('coincidences happen') }));
@@ -376,7 +376,7 @@ describe('ContentItemItemPanel', () => {
             const onAuthorClick = vi.fn();
 
             renderCard(
-                <ContentItemItemPanel
+                <ContentItemPanel
                     contentItem={quoteItem}
                     onSubmittedByClick={onSubmittedByClick}
                     onAuthorClick={onAuthorClick} />);
@@ -393,7 +393,7 @@ describe('ContentItemItemPanel', () => {
             const onBibleReferenceClick = vi.fn();
 
             renderCard(
-                <ContentItemItemPanel
+                <ContentItemPanel
                     contentItem={quoteItem}
                     onTagClick={onTagClick}
                     onBibleReferenceClick={onBibleReferenceClick} />);
@@ -409,7 +409,7 @@ describe('ContentItemItemPanel', () => {
             const onCommentsClick = vi.fn();
 
             renderCard(
-                <ContentItemItemPanel
+                <ContentItemPanel
                     contentItem={quoteItem}
                     onCommentsClick={onCommentsClick} />);
 
@@ -422,7 +422,7 @@ describe('ContentItemItemPanel', () => {
             const onReadMoreClick = vi.fn();
 
             renderCard(
-                <ContentItemItemPanel
+                <ContentItemPanel
                     contentItem={devotionalItem}
                     onReadMoreClick={onReadMoreClick} />);
 
@@ -437,14 +437,14 @@ describe('ContentItemItemPanel', () => {
             const onShareClick = vi.fn();
 
             const rendered = renderCard(
-                <ContentItemItemPanel contentItem={devotionalItem} />);
+                <ContentItemPanel contentItem={devotionalItem} />);
 
             expect(screen.queryByRole('button', { name: /Share/ })).not.toBeInTheDocument();
             expect(screen.queryByRole('button', { name: /Save/ })).not.toBeInTheDocument();
 
             rendered.rerender(
                 <AuthProvider>
-                    <ContentItemItemPanel
+                    <ContentItemPanel
                         contentItem={devotionalItem}
                         onShareClick={onShareClick} />
                 </AuthProvider>);
@@ -464,7 +464,7 @@ describe('ContentItemItemPanel', () => {
             signInAs(authState, ['Users']);
 
             const rendered = renderCard(
-                <ContentItemItemPanel
+                <ContentItemPanel
                     contentItem={devotionalItem}
                     onEditClick={onEditClick} />);
 
@@ -473,7 +473,7 @@ describe('ContentItemItemPanel', () => {
 
             rendered.rerender(
                 <AuthProvider>
-                    <ContentItemItemPanel contentItem={ownItem} onEditClick={onEditClick} />
+                    <ContentItemPanel contentItem={ownItem} onEditClick={onEditClick} />
                 </AuthProvider>);
 
             await userEvent.click(screen.getByRole('button', { name: /Edit/ }));
@@ -483,7 +483,7 @@ describe('ContentItemItemPanel', () => {
 
         it('should offer Edit to no anonymous visitor', () => {
             renderCard(
-                <ContentItemItemPanel contentItem={ownItem} onEditClick={vi.fn()} />);
+                <ContentItemPanel contentItem={ownItem} onEditClick={vi.fn()} />);
 
             expect(screen.queryByRole('button', { name: /Edit/ })).not.toBeInTheDocument();
         });
@@ -501,7 +501,7 @@ describe('ContentItemItemPanel', () => {
             signInAs(authState, [role]);
 
             const rendered = renderCard(
-                <ContentItemItemPanel
+                <ContentItemPanel
                     contentItem={devotionalItem}
                     onModerateClick={onModerateClick} />);
 
@@ -517,7 +517,7 @@ describe('ContentItemItemPanel', () => {
             signInAs(authState, ['ContentItem-Story-Reviewers']);
 
             renderCard(
-                <ContentItemItemPanel
+                <ContentItemPanel
                     contentItem={devotionalItem}
                     onModerateClick={vi.fn()} />);
 
@@ -529,7 +529,7 @@ describe('ContentItemItemPanel', () => {
             signInAs(authState, ['Users']);
 
             renderCard(
-                <ContentItemItemPanel
+                <ContentItemPanel
                     contentItem={devotionalItem}
                     onModerateClick={vi.fn()} />);
 
@@ -543,7 +543,7 @@ describe('ContentItemItemPanel', () => {
             signInAs(authState, ['Administrators', 'ContentItem-Devotional-ReadOnly']);
 
             renderCard(
-                <ContentItemItemPanel
+                <ContentItemPanel
                     contentItem={ownItem}
                     onEditClick={vi.fn()}
                     onModerateClick={vi.fn()} />);
@@ -563,7 +563,7 @@ describe('ContentItemItemPanel', () => {
             signInAs(authState, ['Administrators']);
 
             const rendered = renderCard(
-                <ContentItemItemPanel
+                <ContentItemPanel
                     contentItem={ownItem}
                     isModeratedView
                     onEditClick={onEditClick}
@@ -585,7 +585,7 @@ describe('ContentItemItemPanel', () => {
             signInAs(authState, ['Administrators']);
 
             renderCard(
-                <ContentItemItemPanel
+                <ContentItemPanel
                     contentItem={ownItem}
                     onEditClick={vi.fn()}
                     onModerateClick={vi.fn()} />);
@@ -597,14 +597,14 @@ describe('ContentItemItemPanel', () => {
 
     describe('assigned reactions', () => {
         it('should show the compact cluster with the summed total', () => {
-            renderCard(<ContentItemItemPanel contentItem={quoteItem} />);
+            renderCard(<ContentItemPanel contentItem={quoteItem} />);
 
             expect(screen.getByText('142')).toBeInTheDocument();
             expect(screen.queryByText('All 142')).not.toBeInTheDocument();
         });
 
         it('should toggle to the per-reaction counts and back', async () => {
-            renderCard(<ContentItemItemPanel contentItem={quoteItem} />);
+            renderCard(<ContentItemPanel contentItem={quoteItem} />);
 
             await userEvent.click(screen.getByRole('button', { name: 'Reaction counts' }));
 
@@ -618,7 +618,7 @@ describe('ContentItemItemPanel', () => {
         });
 
         it('should show no cluster on a card given no summary', () => {
-            renderCard(<ContentItemItemPanel contentItem={devotionalItem} />);
+            renderCard(<ContentItemPanel contentItem={devotionalItem} />);
 
             expect(screen.queryByRole('button', { name: 'Reaction counts' }))
                 .not.toBeInTheDocument();
@@ -630,7 +630,7 @@ describe('ContentItemItemPanel', () => {
             const onReactionSelected = vi.fn();
 
             renderCard(
-                <ContentItemItemPanel
+                <ContentItemPanel
                     contentItem={quoteItem}
                     reactionOptions={reactionOptions}
                     onReactionSelected={onReactionSelected} />);
@@ -649,7 +649,7 @@ describe('ContentItemItemPanel', () => {
 
         it('should mark the reaction this reader already gave', async () => {
             renderCard(
-                <ContentItemItemPanel
+                <ContentItemPanel
                     contentItem={{ ...quoteItem, viewerReactionLabel: 'Love' }}
                     reactionOptions={reactionOptions}
                     onReactionSelected={vi.fn()} />);
@@ -665,7 +665,7 @@ describe('ContentItemItemPanel', () => {
 
         it('should offer no Like when nobody is listening', () => {
             renderCard(
-                <ContentItemItemPanel
+                <ContentItemPanel
                     contentItem={quoteItem}
                     reactionOptions={reactionOptions} />);
 
@@ -674,7 +674,7 @@ describe('ContentItemItemPanel', () => {
 
         it('should offer no Like when its setting does not accept reactions', () => {
             renderCard(
-                <ContentItemItemPanel
+                <ContentItemPanel
                     contentItem={withSetting(quoteItem, { reactionsAllowed: false })}
                     reactionOptions={reactionOptions}
                     onReactionSelected={vi.fn()} />);
@@ -684,7 +684,7 @@ describe('ContentItemItemPanel', () => {
 
         it('should keep only the love option where its setting limits to it', async () => {
             renderCard(
-                <ContentItemItemPanel
+                <ContentItemPanel
                     contentItem={withSetting(quoteItem, { limitReactionsToLoveOnly: true })}
                     reactionOptions={reactionOptions}
                     onReactionSelected={vi.fn()} />);
@@ -702,7 +702,7 @@ describe('ContentItemItemPanel', () => {
         // and renders regardless, uncounted.
         it('should offer the comments control uncounted when no count was given', () => {
             renderCard(
-                <ContentItemItemPanel
+                <ContentItemPanel
                     contentItem={{ ...devotionalItem, commentCount: undefined }}
                     onCommentsClick={vi.fn()} />);
 
@@ -712,7 +712,7 @@ describe('ContentItemItemPanel', () => {
 
         it('should fall back to the content when no excerpt was written', () => {
             renderCard(
-                <ContentItemItemPanel
+                <ContentItemPanel
                     contentItem={{ ...devotionalItem, excerpt: undefined }} />);
 
             expect(screen.getByText(new RegExp('far too long'))).toBeInTheDocument();

@@ -1,18 +1,18 @@
 import { ComponentType, useState } from 'react';
 import { useAuth } from '../securitys/authProvider';
-import { ContentItemItemDefaultPanel } from './contentItemItemDefaultPanel';
-import { ContentItemItemQuotesPanel } from './contentItemItemQuotesPanel';
-import { ContentItemItemVersesPanel } from './contentItemItemVersesPanel';
+import { ContentItemDefaultPanel } from './contentItemDefaultPanel';
+import { ContentItemQuotesPanel } from './contentItemQuotesPanel';
+import { ContentItemVersesPanel } from './contentItemVersesPanel';
 import {
     ContentType,
     contentTypeLabels
 } from '../../models/foundations/contentItemSettings/contentType';
 
 import {
-    ContentItemItemEvents,
-    ContentItemItemTemplateProps,
-    ContentItemItemText
-} from '../../models/components/contentItems/contentItemItemTemplate';
+    ContentItemEvents,
+    ContentItemTemplateProps,
+    ContentItemText
+} from '../../models/components/contentItems/contentItemTemplate';
 
 import {
     ContentItemReactionOption,
@@ -29,7 +29,7 @@ import './contentItems.css';
 // A pure presentation component, like everything in this family: props in, events out, no
 // fetching, no mutation. Every On{X} either adjusts what is RENDERED (the two toggles it keeps
 // for itself) or bubbles to the consumer, which owns filters, redirects and persistence.
-export interface ContentItemItemPanelProps extends ContentItemItemEvents, ContentItemItemText {
+export interface ContentItemPanelProps extends ContentItemEvents, ContentItemText {
     // SELF-CONTAINED: the element carries the item AND its winning setting, resolved by the
     // projection (§6.4). This panel consults no collection — every gate below reads the one
     // row that governs this item, so a mixed page is safe by construction and updating one
@@ -57,12 +57,12 @@ export interface ContentItemItemPanelProps extends ContentItemItemEvents, Conten
 // default renders otherwise. Adding one is exactly this one line — Verses arrived that way
 // when ContentType.Verses landed, seeds and all.
 const templateOverrides:
-    Partial<Record<ContentType, ComponentType<ContentItemItemTemplateProps>>> = {
-    [ContentType.Quote]: ContentItemItemQuotesPanel,
-    [ContentType.Verses]: ContentItemItemVersesPanel
+    Partial<Record<ContentType, ComponentType<ContentItemTemplateProps>>> = {
+    [ContentType.Quote]: ContentItemQuotesPanel,
+    [ContentType.Verses]: ContentItemVersesPanel
 };
 
-export function ContentItemItemPanel({
+export function ContentItemPanel({
     contentItem,
     reactionOptions = [],
     isModeratedView = false,
@@ -71,7 +71,7 @@ export function ContentItemItemPanel({
     onEditClick,
     onModerateClick,
     ...eventsAndText
-}: ContentItemItemPanelProps) {
+}: ContentItemPanelProps) {
     const { isAuthenticated, user, userRoles } = useAuth();
     // The two per-card render toggles. Local state is right even in a presentation component:
     // which face of a cluster is showing is nothing the consumer persists.
@@ -150,7 +150,7 @@ export function ContentItemItemPanel({
     const showsModerateButton = viewerModerates && onModerateClick != null;
 
     const Template =
-        templateOverrides[contentItem.contentType] ?? ContentItemItemDefaultPanel;
+        templateOverrides[contentItem.contentType] ?? ContentItemDefaultPanel;
 
     return (
         <Template

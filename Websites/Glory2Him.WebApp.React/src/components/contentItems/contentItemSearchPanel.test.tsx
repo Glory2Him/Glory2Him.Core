@@ -11,7 +11,7 @@ import {
 } from '../../models/components/contentItems/contentItemSearchItem';
 
 // The composition: the bar, the results and the filter semantics of the card hooks. The card's
-// own rendering is contentItemItemPanel.test.tsx's subject; here the cards matter only as the
+// own rendering is contentItemPanel.test.tsx's subject; here the cards matter only as the
 // places the filter clicks come from. No router — the family navigates nowhere itself.
 const settingFor = (
     contentType: ContentType,

@@ -15,7 +15,7 @@ import {
 import {
     approvalStatusMemberNames,
     approvalStatusRibbonLabels
-} from '../../models/components/contentItems/contentItemItemTemplate';
+} from '../../models/components/contentItems/contentItemTemplate';
 
 import {
     ApprovalStatus,

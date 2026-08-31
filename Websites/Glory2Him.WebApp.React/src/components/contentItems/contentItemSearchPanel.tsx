@@ -4,9 +4,9 @@ import { ContentItemSearchBarPanel } from './contentItemSearchBarPanel';
 import { ContentItemSetting } from '../../models/foundations/contentItemSettings/contentItemSetting';
 
 import {
-    ContentItemItemEvents,
-    ContentItemItemText
-} from '../../models/components/contentItems/contentItemItemTemplate';
+    ContentItemEvents,
+    ContentItemText
+} from '../../models/components/contentItems/contentItemTemplate';
 
 import {
     ContentItemReactionOption,
@@ -22,9 +22,9 @@ import './contentItems.css';
 //   ContentItemSearchPanel
 //   ├── ContentItemSearchBarPanel     the search bar and its advanced fold-out
 //   └── ContentItemResultsPanel       the results, infinite scroll
-//       └── ContentItemItemPanel      one result, dispatched to a template by content type
-//           ├── ContentItemItemDefaultPanel
-//           └── ContentItemItemQuotesPanel (and future ContentItemItem{ContentType}Panel overrides)
+//       └── ContentItemPanel      one result, dispatched to a template by content type
+//           ├── ContentItemDefaultPanel
+//           └── ContentItemQuotesPanel (and future ContentItem{ContentType}Panel overrides)
 //
 // EVERY COMPONENT IN THE FAMILY IS PRESENTATION ONLY: props in, events out, no fetching, no
 // mutation, no sockets — the contract ContentItemDetailPanel, AssociationPanel and ReviewPanel
@@ -38,7 +38,7 @@ import './contentItems.css';
 // signal however the reader asked. The navigation hooks (title, read-more, comments, bible
 // reference, edit) pass straight through: where they lead is the page's decision, and the page
 // stamps the origin into router state so the destination can offer a true way back.
-export interface ContentItemSearchPanelProps extends ContentItemItemEvents, ContentItemItemText {
+export interface ContentItemSearchPanelProps extends ContentItemEvents, ContentItemText {
     // ── Subject ───────────────────────────────────────────────────────────────
     // The ACCUMULATED results — the consumer's infinite query keeps the pages. Each element
     // is SELF-CONTAINED: it carries the item and its winning setting, resolved by the

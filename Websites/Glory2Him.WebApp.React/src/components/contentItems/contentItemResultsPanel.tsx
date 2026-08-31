@@ -1,11 +1,11 @@
 import { useEffect, useRef } from 'react';
-import { ContentItemItemPanel } from './contentItemItemPanel';
+import { ContentItemPanel } from './contentItemPanel';
 import { Spinner } from '../coreUI/spinner';
 
 import {
-    ContentItemItemEvents,
-    ContentItemItemText
-} from '../../models/components/contentItems/contentItemItemTemplate';
+    ContentItemEvents,
+    ContentItemText
+} from '../../models/components/contentItems/contentItemTemplate';
 
 import {
     ContentItemReactionOption,
@@ -14,11 +14,11 @@ import {
 
 import './contentItems.css';
 
-// THE ORANGE BLOCK: every result that matched, one ContentItemItemPanel each, scrolled rather
+// THE ORANGE BLOCK: every result that matched, one ContentItemPanel each, scrolled rather
 // than paged. A pure presentation component — the collection arrives ACCUMULATED (react-query
 // keeps the pages; this panel appends nothing of its own), and the panel's whole contribution
 // to paging is noticing that its foot came into view and saying so.
-export interface ContentItemResultsPanelProps extends ContentItemItemEvents, ContentItemItemText {
+export interface ContentItemResultsPanelProps extends ContentItemEvents, ContentItemText {
     // The accumulated results as they stand — each element SELF-CONTAINED, carrying its item
     // and its winning setting, so a card consults nothing beyond its own element.
     contentItemCollection?: ReadonlyArray<ContentItemSearchItem>;
@@ -26,7 +26,7 @@ export interface ContentItemResultsPanelProps extends ContentItemItemEvents, Con
     // The reaction choices behind every card's Like control.
     reactionOptions?: ReadonlyArray<ContentItemReactionOption>;
 
-    // Threaded to every card — see ContentItemItemPanel, which owns what it means.
+    // Threaded to every card — see ContentItemPanel, which owns what it means.
     isModeratedView?: boolean;
     shouldShowRibbons?: boolean;
 
@@ -124,7 +124,7 @@ export function ContentItemResultsPanel({
     return (
         <>
             {contentItemCollection.map((contentItem) => (
-                <ContentItemItemPanel
+                <ContentItemPanel
                     key={contentItem.id}
                     contentItem={contentItem}
                     reactionOptions={reactionOptions}

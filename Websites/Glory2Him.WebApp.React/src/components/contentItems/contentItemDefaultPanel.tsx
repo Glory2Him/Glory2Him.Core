@@ -9,9 +9,9 @@ import {
     approvalStatusBadgeLabels,
     approvalStatusMemberNames,
     approvalStatusRibbonLabels,
-    ContentItemItemTemplateProps,
+    ContentItemTemplateProps,
     defaultShareabilityBasisLabels
-} from '../../models/components/contentItems/contentItemItemTemplate';
+} from '../../models/components/contentItems/contentItemTemplate';
 
 import {
     ApprovalStatus,
@@ -26,19 +26,19 @@ import './contentItems.css';
 //
 // AN OVERRIDE DERIVES FROM THIS TEMPLATE by rendering it with `contentSlot` replaced — the React
 // register of inheritance — so the meta row, the pills and the engagement row are written once
-// and every ContentItemItem{ContentType}Panel carries them identically. What an override may
+// and every ContentItem{ContentType}Panel carries them identically. What an override may
 // change is how the CONTENT reads; what it may not change is what the card offers.
 //
 // Every affordance here is an event, not a link: which surface a title, a comment count or a
 // reference leads to is the PAGE's decision — the same card serves the public feed, "my posts"
 // and the moderation queue — and a filter click is the criteria's business, not the router's.
-export interface ContentItemItemDefaultPanelProps extends ContentItemItemTemplateProps {
+export interface ContentItemDefaultPanelProps extends ContentItemTemplateProps {
     // The derivation point. Absent, the default content block renders: thumbnail, title,
     // excerpt, read-more.
     contentSlot?: ReactNode;
 }
 
-export function ContentItemItemDefaultPanel({
+export function ContentItemDefaultPanel({
     contentItem,
     contentItemSetting,
     contentTypeName,
@@ -79,7 +79,7 @@ export function ContentItemItemDefaultPanel({
     readMoreText = 'read more…',
     allReactionsText = 'All',
     shareabilityBasisLabels = defaultShareabilityBasisLabels
-}: ContentItemItemDefaultPanelProps) {
+}: ContentItemDefaultPanelProps) {
     const showsTitle =
         contentItemSetting?.hasTitle !== false && (contentItem.title ?? '').length > 0;
 
@@ -410,7 +410,7 @@ export function ContentItemItemDefaultPanel({
                 )}
 
                 {/* The actions on the right — Edit for the item's own submitter, Moderate
-                    for the moderation tier, both DECIDED in ContentItemItemPanel and only
+                    for the moderation tier, both DECIDED in ContentItemPanel and only
                     rendered here. On a moderated surface Moderate arrives alone, wearing
                     Edit's icon and label. */}
                 {(showsEditButton || showsModerateButton) && (

@@ -90,7 +90,7 @@ export function Posts() {
         useContentItemEngagement();
 
     // Edit renders only for the item's own submitter and Moderate only for the moderation
-    // tier — ContentItemItemPanel decides both from the signed-in identity, so this page
+    // tier — ContentItemPanel decides both from the signed-in identity, so this page
     // just says where each leads. The moderation detail surface is #350's work; until it
     // exists Moderate leads to the item with the intent in state, as Edit does.
     const editContentItem = (item: { id: string }) =>

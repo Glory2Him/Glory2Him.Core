@@ -31,12 +31,12 @@ const structureSample = `
 ContentItemSearchPanel                     composes the two below
 ├── ContentItemSearchBarPanel              search bar + advanced options + filter chips
 └── ContentItemResultsPanel                the results, infinite scroll
-    └── ContentItemItemPanel               ONE result — resolves the item's own effective
+    └── ContentItemPanel               ONE result — resolves the item's own effective
         │                                  ContentItemSetting, then dispatches to a template
-        ├── ContentItemItemDefaultPanel    the template most types use
-        └── ContentItemItem{ContentType}Panel   overrides, by ContentType:
-              ContentItemItemQuotesPanel        (derives from the default template)
-              ContentItemItemVersesPanel        (the verse whole — purple chip)
+        ├── ContentItemDefaultPanel    the template most types use
+        └── ContentItem{ContentType}Panel   overrides, by ContentType:
+              ContentItemQuotesPanel        (derives from the default template)
+              ContentItemVersesPanel        (the verse whole — purple chip)
 `;
 
 const wiringSample = `
@@ -414,10 +414,10 @@ export function ContentItemSearchPanelDoc() {
                     <>
                         Templates are resolved by <code>ContentType</code>: an override renders
                         where one is registered, the default otherwise, and an override{' '}
-                        <strong>derives from</strong> <code>ContentItemItemDefaultPanel</code> by
+                        <strong>derives from</strong> <code>ContentItemDefaultPanel</code> by
                         rendering it with only the content slot replaced — the meta row, the
                         pills and the engagement row are written once.{' '}
-                        <code>ContentItemItemVerseImagePanel</code> is designed but blocked:
+                        <code>ContentItemVerseImagePanel</code> is designed but blocked:
                         there is no <code>ContentType.VerseImage</code> member yet, and the enum
                         is append-only (&sect;3.6) with three seeds riding on it.
                     </>

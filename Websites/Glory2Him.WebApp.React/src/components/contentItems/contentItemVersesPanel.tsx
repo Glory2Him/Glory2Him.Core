@@ -1,25 +1,25 @@
-import { ContentItemItemDefaultPanel } from './contentItemItemDefaultPanel';
+import { ContentItemDefaultPanel } from './contentItemDefaultPanel';
 
 import {
-    ContentItemItemTemplateProps
-} from '../../models/components/contentItems/contentItemItemTemplate';
+    ContentItemTemplateProps
+} from '../../models/components/contentItems/contentItemTemplate';
 
 import './contentItems.css';
 
-// The Verse Image override — the ContentItemItem{ContentType}Panel the redesign sketched, landed
+// The Verse Image override — the ContentItem{ContentType}Panel the redesign sketched, landed
 // now that ContentType.Verses exists. A verse card IS its verse: the content arrives whole, with
 // its own quotation marks, reference and translation ("…" — John 3:16 ESV), so the block renders
 // it exactly as written and appends NOTHING — unlike the quotes template, which adds the author
 // after an em-dash, because a verse's content already ends in one.
 //
-// DERIVES FROM ContentItemItemDefaultPanel, exactly as the quotes override does: the default is
+// DERIVES FROM ContentItemDefaultPanel, exactly as the quotes override does: the default is
 // rendered with only the content slot replaced, so the meta row (where "Author The Bible" shows),
 // the pills and the engagement row stay the default's own.
 //
 // Two faces, decided by the imagery the consumer supplied: the verse VERTICALLY CENTRED over a
 // dark hero where there is an image — the face the design's mock draws — and the quiet light
 // block where there is not, which is what ships until real header images land (§4.9).
-export function ContentItemItemVersesPanel(props: ContentItemItemTemplateProps) {
+export function ContentItemVersesPanel(props: ContentItemTemplateProps) {
     const { contentItem, onTitleClick } = props;
 
     const hasImage = (contentItem.imageUrl ?? '').length > 0;
@@ -54,5 +54,5 @@ export function ContentItemItemVersesPanel(props: ContentItemItemTemplateProps) 
         </div>
     );
 
-    return <ContentItemItemDefaultPanel {...props} contentSlot={verseBlock} />;
+    return <ContentItemDefaultPanel {...props} contentSlot={verseBlock} />;
 }
