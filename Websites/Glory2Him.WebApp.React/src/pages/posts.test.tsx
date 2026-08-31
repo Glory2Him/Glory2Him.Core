@@ -280,7 +280,7 @@ describe('Posts', () => {
 
     // The clicked filters commit into the URL — id and name both — so a narrowed list is
     // shareable and the back button un-narrows it.
-    it('should read a clicked submitted-by filter back off the url', () => {
+    it('should read a clicked submitted-by filter back off the url', async () => {
         // when
         renderPosts('/posts?by=account-1&byName=Joan');
 
@@ -290,8 +290,11 @@ describe('Posts', () => {
                 submittedBy: { id: 'account-1', name: 'Joan' }
             }));
 
-        expect(screen.getByRole('button', { name: /Submitted by Joan/ }))
-            .toBeInTheDocument();
+        // The filter lands in its box — the advanced options are where a filter shows now.
+        await userEvent.click(
+            screen.getByRole('button', { name: 'Advanced search options' }));
+
+        expect(screen.getByLabelText('Submitted by')).toHaveValue('Joan');
     });
 
     it('should ignore a content type the url does not actually name', () => {

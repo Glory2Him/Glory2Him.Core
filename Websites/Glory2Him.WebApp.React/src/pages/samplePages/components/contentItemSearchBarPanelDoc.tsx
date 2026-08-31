@@ -35,8 +35,8 @@ const barProps: ReadonlyArray<ComponentPropRow> = [
         type: 'ContentItemSearchCriteria?',
         description: 'As last committed. Seeds the boxes and RESEEDS them when it changes, so '
             + 'a page landing from ?q= shows what it searched for and a pill-click upstream '
-            + 'is reflected here. Chips render for a submittedBy or tag criterion, each with '
-            + 'its own remove control.'
+            + 'lands in its box — every filter in play is visible in the advanced options, '
+            + 'removable where it stands.'
     },
     {
         name: 'onSearch',
@@ -64,20 +64,19 @@ const barProps: ReadonlyArray<ComponentPropRow> = [
     }
 ];
 
+const demoTag = 'Faith';
+const demoBibleReference = 'John 3:16';
+
 export function ContentItemSearchBarPanelDoc() {
     useDocumentTitle('Content Item Search Bar Panel — Components — Glory 2 Him');
 
-    const [withSubmittedByChip, setWithSubmittedByChip] = useState(false);
-    const [withTagChip, setWithTagChip] = useState(false);
-    const [lastSearch, setLastSearch] = useState('');
+    // CONTROLLED, the way a real page drives it: onSearch commits back into the criteria,
+    // and the criteria reseed the boxes — so the switches below both READ the committed
+    // state and WRITE it, exactly what a pill-click on a card does upstream.
+    const [criteria, setCriteria] =
+        useState<ContentItemSearchCriteria>(emptyContentItemSearchCriteria);
 
-    const criteria: ContentItemSearchCriteria = {
-        ...emptyContentItemSearchCriteria,
-        submittedBy: withSubmittedByChip
-            ? { id: 'demo-user', name: 'Grace Abara' }
-            : null,
-        tags: withTagChip ? ['providence'] : []
-    };
+    const [lastSearch, setLastSearch] = useState('');
 
     return (
         <ComponentDoc
@@ -105,23 +104,32 @@ export function ContentItemSearchBarPanelDoc() {
                 title="Live"
                 lead={
                     <>
-                        Flip a chip on and the bar reseeds from the criteria — exactly what a
-                        pill-click on a card does upstream. The last committed search this page
-                        received: <code>{lastSearch.length > 0 ? lastSearch : '(none yet)'}</code>
+                        The switches drive the COMMITTED criteria — each one adds its filter
+                        (a <code>#{demoTag}</code> tag, a <code>{demoBibleReference}</code>{' '}
+                        reference) and reads back on when the criteria carry one, however it
+                        got there. What is typed into the boxes commits on Search, and the
+                        switches light up to match. Last committed search:{' '}
+                        <code>{lastSearch.length > 0 ? lastSearch : '(none yet)'}</code>
                     </>
                 }>
                 <DemoControls toggles={[
                     {
-                        name: 'submitted-by-chip',
-                        label: 'Criteria carry a Submitted-by filter',
-                        value: withSubmittedByChip,
-                        onChange: setWithSubmittedByChip
+                        name: 'tag-filter',
+                        label: 'Criteria carry a Tag filter',
+                        value: criteria.tags.length > 0,
+                        onChange: (isOn) => setCriteria({
+                            ...criteria,
+                            tags: isOn ? [demoTag] : []
+                        })
                     },
                     {
-                        name: 'tag-chip',
-                        label: 'Criteria carry a Tag filter',
-                        value: withTagChip,
-                        onChange: setWithTagChip
+                        name: 'bible-reference-filter',
+                        label: 'Criteria carry a Bible Reference filter',
+                        value: criteria.bibleReferences.length > 0,
+                        onChange: (isOn) => setCriteria({
+                            ...criteria,
+                            bibleReferences: isOn ? [demoBibleReference] : []
+                        })
                     }
                 ]} />
 
@@ -129,17 +137,21 @@ export function ContentItemSearchBarPanelDoc() {
                     <ContentItemSearchBarPanel
                         criteria={criteria}
                         contentItemSettingCollection={demoSettings}
-                        onSearch={(committed) => setLastSearch(JSON.stringify({
-                            query: committed.query,
-                            contentType: committed.contentType,
-                            author: committed.author,
-                            submittedBy: committed.submittedBy?.name ?? null,
-                            tags: committed.tags,
-                            tagMatchMode: committed.tagMatchMode,
-                            bibleReferences: committed.bibleReferences,
-                            bibleReferenceMatchMode: committed.bibleReferenceMatchMode,
-                            shareabilityBasis: committed.shareabilityBasis
-                        }))} />
+                        onSearch={(committed) => {
+                            setCriteria(committed);
+
+                            setLastSearch(JSON.stringify({
+                                query: committed.query,
+                                contentType: committed.contentType,
+                                author: committed.author,
+                                submittedBy: committed.submittedBy?.name ?? null,
+                                tags: committed.tags,
+                                tagMatchMode: committed.tagMatchMode,
+                                bibleReferences: committed.bibleReferences,
+                                bibleReferenceMatchMode: committed.bibleReferenceMatchMode,
+                                shareabilityBasis: committed.shareabilityBasis
+                            }));
+                        }} />
                 </LiveDemo>
             </DocSection>
 

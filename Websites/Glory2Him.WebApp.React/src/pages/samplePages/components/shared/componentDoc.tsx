@@ -1,6 +1,5 @@
 import { ReactNode } from 'react';
 import { Breadcrumb } from '../../../../components/coreUI/breadcrumb';
-import { Card } from '../../../../components/coreUI/card';
 import { BreadcrumbItem } from '../../../../models/coreUI/breadcrumbItem';
 
 // Shared chrome for the component reference pages. These are documentation rather than layout
@@ -90,17 +89,18 @@ export interface LiveDemoProps {
     children?: ReactNode;
 }
 
+// NOT the shared Card: the theme pads a card body generously, and a demo living inside one
+// loses real estate on both sides — the component under demonstration should get the width
+// the page has.
 export function LiveDemo({ title = 'Live', children }: LiveDemoProps) {
     return (
-        <Card
-            cssClass="mb-3"
-            headerContent={
-                <span className="d-flex align-items-center">
-                    <i className="bi bi-play-circle me-2"></i>{title}
-                </span>
-            }>
+        <div className="mb-3">
+            <p className="small fw-semibold text-body-secondary mb-2">
+                <i className="bi bi-play-circle me-2"></i>{title}
+            </p>
+
             {children}
-        </Card>
+        </div>
     );
 }
 

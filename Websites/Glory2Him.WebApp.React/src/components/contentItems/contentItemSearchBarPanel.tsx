@@ -21,12 +21,11 @@ import './contentItems.css';
 // A pure presentation component — it holds the half-typed drafts and raises onSearch with the
 // committed criteria; what a search MEANS is the consumer's decision.
 //
-// Two kinds of criterion live here, and they behave differently on purpose. The TYPED
-// criteria (query, Category, Author, Submitted by, Shareability, the Tags list) commit only
-// when Search is pressed, matching the search page this bar came from. The CLICKED criteria
-// arrive already committed from the pill hooks upstream — a submitted-by pill carries the
-// account id a typed name never can — and the committed filters wear removable chips below
-// the bar, so a narrowed list always says why on screen.
+// Every criterion has a box, and every box commits on Search — the one register the search
+// page this bar came from keeps. The CLICKED criteria (a pill on a card) arrive already
+// committed from the hooks upstream and RESEED the boxes — a submitted-by pill carries the
+// account id a typed name never can — so opening the advanced options shows every filter
+// in play, each removable where it stands and recommitted by Search.
 export interface ContentItemSearchBarPanelProps {
     // As last committed. Seeds the boxes and RESEEDS them when it changes, so a page landing from
     // ?q= shows what it searched for and a pill-click upstream is reflected here.
@@ -57,9 +56,6 @@ export interface ContentItemSearchBarPanelProps {
     tagMatchAllText?: string;
     bibleReferencesLabelText?: string;
     bibleReferencePlaceholderText?: string;
-    submittedByChipText?: string;
-    tagChipText?: string;
-    removeFilterText?: string;
 }
 
 export function ContentItemSearchBarPanel({
@@ -82,9 +78,6 @@ export function ContentItemSearchBarPanel({
     bibleReferencesLabelText = 'Bible references',
     bibleReferencePlaceholderText =
     'Type a bible reference and press Enter (e.g. John 3:16)',
-    submittedByChipText = 'Submitted by',
-    tagChipText = 'Tag',
-    removeFilterText = 'Remove this filter'
 }: ContentItemSearchBarPanelProps) {
     const fieldId = useId();
 
@@ -171,26 +164,6 @@ export function ContentItemSearchBarPanel({
 
     const search = () => onSearch?.(committed());
 
-    const clearSubmittedBy = () => {
-        setDraftSubmittedByName('');
-        onSearch?.({ ...committed(), submittedBy: null });
-    };
-
-    const removeTag = (tag: string) => {
-        const remaining = (criteria?.tags ?? []).filter((listed) => listed !== tag);
-
-        setDraftTags(remaining);
-        onSearch?.({ ...committed(), tags: remaining });
-    };
-
-    const removeBibleReference = (bibleReference: string) => {
-        const remaining = (criteria?.bibleReferences ?? [])
-            .filter((listed) => listed !== bibleReference);
-
-        setDraftBibleReferences(remaining);
-        onSearch?.({ ...committed(), bibleReferences: remaining });
-    };
-
     const onCategoryChanged = (event: ChangeEvent<HTMLSelectElement>) =>
         setDraftContentType(
             event.target.value.length === 0 ? null : Number(event.target.value) as ContentType);
@@ -206,9 +179,6 @@ export function ContentItemSearchBarPanel({
         .filter((setting) => setting.isDeleted !== true && setting.contentItemId == null)
         .sort((first, second) => first.sortOrder - second.sortOrder);
 
-    const submittedBy = criteria?.submittedBy ?? null;
-    const committedTags = criteria?.tags ?? [];
-    const committedBibleReferences = criteria?.bibleReferences ?? [];
 
     return (
         <div className="g2h-content-item-search-bar">
@@ -393,50 +363,6 @@ export function ContentItemSearchBarPanel({
                     </div>
                 } />
 
-            {/* The clicked criteria, worn where the reader can see and remove them. Without this
-                row a pill-click filter would be invisible state — a narrowed list with nothing on
-                screen saying why. */}
-            {(submittedBy != null
-                || committedTags.length > 0
-                || committedBibleReferences.length > 0) && (
-                <div className="d-flex flex-wrap align-items-center gap-2 mt-3">
-                    {submittedBy != null && (
-                        <button
-                            type="button"
-                            className="btn btn-xs btn-primary-soft mb-0"
-                            onClick={clearSubmittedBy}
-                            title={removeFilterText}>
-                            {submittedByChipText} {submittedBy.name}
-                            <i className="bi bi-x ms-1" aria-hidden="true"></i>
-                        </button>
-                    )}
-
-                    {committedTags.map((committedTag) => (
-                        <button
-                            key={committedTag}
-                            type="button"
-                            className="btn btn-xs btn-success-soft mb-0"
-                            onClick={() => removeTag(committedTag)}
-                            title={removeFilterText}>
-                            {tagChipText} #{committedTag}
-                            <i className="bi bi-x ms-1" aria-hidden="true"></i>
-                        </button>
-                    ))}
-
-                    {committedBibleReferences.map((committedReference) => (
-                        <button
-                            key={committedReference}
-                            type="button"
-                            className="btn btn-xs btn-primary-soft mb-0"
-                            onClick={() => removeBibleReference(committedReference)}
-                            title={removeFilterText}>
-                            <i className="bi bi-book me-1" aria-hidden="true"></i>
-                            {committedReference}
-                            <i className="bi bi-x ms-1" aria-hidden="true"></i>
-                        </button>
-                    ))}
-                </div>
-            )}
         </div>
     );
 }

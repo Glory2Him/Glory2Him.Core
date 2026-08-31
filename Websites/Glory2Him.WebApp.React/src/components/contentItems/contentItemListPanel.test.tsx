@@ -409,9 +409,10 @@ describe('ContentItemListPanel', () => {
                 expect.objectContaining({ tags: ['grace'] }));
         });
 
-        // Invisible state is the failure mode: a narrowed list with nothing on screen saying
-        // why. The clicked criteria wear chips, and the chips take them off again.
-        it('should wear the clicked criteria as chips and clear them from there', async () => {
+        // Every filter in play lands in its box: a clicked criterion reseeds the drafts, so
+        // opening the advanced options shows it, removable where it stands — there is no
+        // separate chip row to keep in sync any more.
+        it('should seed the clicked criteria into their boxes', async () => {
             const onSearch = vi.fn();
 
             render(
@@ -425,16 +426,17 @@ describe('ContentItemListPanel', () => {
                     }}
                     onSearch={onSearch} />);
 
-            // By its remove affordance, because the card's own byline reads the same words —
-            // the chip is the one that offers to take the filter off.
-            const chips = screen.getAllByTitle('Remove this filter');
+            await userEvent.click(
+                screen.getByRole('button', { name: 'Advanced search options' }));
 
-            expect(chips.map((chip) => chip.textContent)).toEqual([
-                'Submitted by Joan',
-                'Tag #grace'
-            ]);
+            expect(screen.getByLabelText('Submitted by')).toHaveValue('Joan');
+            // The box's own pill, scoped: a card on the page wears the same tag
+            expect(document.querySelector('.g2h-tag-pill')).toHaveTextContent('#grace');
 
-            await userEvent.click(screen.getByRole('button', { name: /Tag #grace/ }));
+            // Taking the tag pill off is a draft edit; Search commits it, keeping the
+            // submitted-by — and its account id, which the untouched box preserves.
+            await userEvent.click(screen.getByRole('button', { name: 'Remove grace' }));
+            await userEvent.click(screen.getByRole('button', { name: /Search/ }));
 
             expect(onSearch).toHaveBeenCalledWith(
                 expect.objectContaining({
