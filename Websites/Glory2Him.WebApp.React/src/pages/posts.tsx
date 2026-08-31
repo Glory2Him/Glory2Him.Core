@@ -78,8 +78,8 @@ export function Posts() {
     return (
         <section className="pt-4 pb-5">
             <div className="container">
-                <div className="row justify-content-center">
-                    <div className="col-xl-9">
+                <div className="row">
+                    <div className="col-12">
                         <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
                             <h1 className="h2 mb-0">The journal</h1>
 

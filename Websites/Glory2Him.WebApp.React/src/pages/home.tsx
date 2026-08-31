@@ -77,8 +77,8 @@ export const Home = () => {
 
             <section className="pt-4 pb-5">
                 <div className="container">
-                    <div className="row justify-content-center">
-                        <div className="col-xl-9">
+                    <div className="row">
+                        <div className="col-12">
                             <div className="d-flex flex-wrap justify-content-end align-items-center gap-2 mb-4">
                                 <Link to="/posts/contribute" className="btn btn-primary mb-0">
                                     <i className="bi bi-pencil-square me-1" aria-hidden="true"></i>
