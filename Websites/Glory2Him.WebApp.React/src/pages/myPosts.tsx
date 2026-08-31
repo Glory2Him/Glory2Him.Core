@@ -75,7 +75,11 @@ export function MyPosts() {
     const search = (searched: ContentItemSearchCriteria) =>
         setSearchParams(toContentItemSearchParams(searched));
 
-    const feedNavigation = buildContentItemFeedNavigation(navigate, location);
+    // Every way into an item from THIS surface stays on it: titles, read-more, comments and
+    // Edit all address /myposts/{id} — the original hook contract's rule that a my-content
+    // page leads to the my-content detail.
+    const feedNavigation = buildContentItemFeedNavigation(
+        navigate, location, (item) => `/myposts/${item.id}`);
 
     const { reactionOptions, onReactionSelected, onShareClick, onSaveClick, withViewerReactions } =
         useContentItemEngagement();
@@ -85,7 +89,7 @@ export function MyPosts() {
     // Moderate (a moderator reading their own posts still moderates) leads the same way
     // until #350 builds the moderation detail.
     const editContentItem = (item: { id: string }) =>
-        navigate(`/posts/${item.id}`, {
+        navigate(`/myposts/${item.id}`, {
             state: { from: `${location.pathname}${location.search}`, edit: true }
         });
 
