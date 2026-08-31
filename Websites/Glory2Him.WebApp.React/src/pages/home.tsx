@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { ContentItemSearchPanel } from '../components/contentItems/contentItemSearchPanel';
 import { SharingPanel } from '../components/contentItems/sharingPanel';
 import { VerseOfTheDay } from '../components/coreUI/verseOfTheDay';
+import { useAuth } from '../components/securitys/authProvider';
 import { useContentItemEngagement } from '../hooks/useContentItemEngagement';
 
 import {
@@ -76,6 +77,16 @@ export const Home = () => {
     const { reactionOptions, onReactionSelected, onShareClick, onSaveClick, withViewerReactions } =
         useContentItemEngagement();
 
+    // Edit renders only for a signed-in reader — an anonymous visitor has nothing to edit —
+    // and leads to the item with the intent in state. WHO may actually edit it is the
+    // server's decision against the stored row; the button is a courtesy, never a boundary.
+    const { isAuthenticated } = useAuth();
+
+    const editContentItem = (item: { id: string }) =>
+        navigate(`/posts/${item.id}`, {
+            state: { from: `${location.pathname}${location.search}`, edit: true }
+        });
+
     return (
         <>
             <VerseOfTheDay verse={verseOfTheDay} href="/BibleReferences" />
@@ -112,6 +123,7 @@ export const Home = () => {
                                     onReactionSelected={onReactionSelected}
                                     onShareClick={onShareClick}
                                     onSaveClick={onSaveClick}
+                                    onEditClick={isAuthenticated ? editContentItem : undefined}
                                     emptyText={
                                         'Nothing matched that search. Try clearing the advanced '
                                         + 'options.'}

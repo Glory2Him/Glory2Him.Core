@@ -118,6 +118,24 @@ describe('The content item feed pages', () => {
             expect(searchedOptions).toEqual(expect.objectContaining({ scope: 'public' }));
         });
 
+        // The button is a courtesy, never a boundary — the server re-decides against the stored
+        // row — but a visitor with no account has nothing to edit, so they get no button.
+        it('should offer Edit to a signed-in reader and not to a visitor', () => {
+            // given / when: a visitor
+            const rendered = renderPage(<Home />);
+
+            // then
+            expect(screen.queryByRole('button', { name: /Edit/ })).not.toBeInTheDocument();
+
+            // given / when: signed in
+            rendered.unmount();
+            signInAs(authState, ['Users']);
+            renderPage(<Home />);
+
+            // then
+            expect(screen.getByRole('button', { name: /Edit/ })).toBeInTheDocument();
+        });
+
         it('should keep the verse of the day above the feed', () => {
             // when
             renderPage(<Home />);

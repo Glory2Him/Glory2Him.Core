@@ -123,9 +123,28 @@ export function ContentItemItemDefaultPanel({
         );
     };
 
-    // The default content block: thumbnail beside the title when there is an image, the excerpt
-    // beneath, and the way in at the end of it. The clamp is visual (CSS), so the read-more
-    // affordance renders whenever a longer body stands behind the excerpt.
+    // The type badge is the type FILTER — set if clear, cleared if already this type — and the
+    // status badge beside it never leaves a draft looking published. WHERE the pair stands
+    // depends on the template face: an override (the quote) wears it above its content block,
+    // while the default block stands it beside the thumbnail, over the title.
+    const badgeRow = (
+        <div className="d-flex align-items-center mb-2">
+            <button
+                type="button"
+                className={`badge ${contentTypeBadgeCssClasses[contentItem.contentType]} border-0`}
+                onClick={() => onContentTypeClick?.(contentItem)}>
+                <i className="fas fa-circle me-2 small" aria-hidden="true"></i>
+                {contentTypeName}
+            </button>
+
+            {renderStatusBadge(contentItem)}
+        </div>
+    );
+
+    // The default content block: the thumbnail on the left with the badge and the title stacked
+    // BESIDE it — the chip belongs to the title column, not to a row of its own above the image —
+    // then the excerpt beneath, and the way in at the end of it. The clamp is visual (CSS), so
+    // the read-more affordance renders whenever a longer body stands behind the excerpt.
     const defaultContentSlot = (
         <>
             <div className="d-flex align-items-start gap-3">
@@ -136,18 +155,20 @@ export function ContentItemItemDefaultPanel({
                         alt="" />
                 )}
 
-                {showsTitle && (
-                    <h3 className="h5 mb-0 align-self-center">
-                        <button
-                            type="button"
-                            className="btn btn-link text-reset fw-bold p-0 mb-0 text-start"
-                            onClick={() => onTitleClick?.(contentItem)}>
-                            {contentItem.title}
-                        </button>
+                <div className="align-self-center">
+                    {badgeRow}
 
-                        {renderStatusBadge(contentItem)}
-                    </h3>
-                )}
+                    {showsTitle && (
+                        <h3 className="h5 mb-0">
+                            <button
+                                type="button"
+                                className="btn btn-link text-reset fw-bold p-0 mb-0 text-start"
+                                onClick={() => onTitleClick?.(contentItem)}>
+                                {contentItem.title}
+                            </button>
+                        </h3>
+                    )}
+                </div>
             </div>
 
             <p className="card-text g2h-content-item-excerpt mt-2 mb-0">
@@ -167,21 +188,12 @@ export function ContentItemItemDefaultPanel({
 
     return (
         <article className="card border p-3 mb-3 g2h-content-item-card">
-            {/* The type badge is the type FILTER — set if clear, cleared if already this type —
-                and the status badge beside it never leaves a draft looking published. */}
-            <div className="d-flex align-items-center mb-2">
-                <button
-                    type="button"
-                    className={`badge ${contentTypeBadgeCssClasses[contentItem.contentType]} border-0`}
-                    onClick={() => onContentTypeClick?.(contentItem)}>
-                    <i className="fas fa-circle me-2 small" aria-hidden="true"></i>
-                    {contentTypeName}
-                </button>
-
-                {contentSlot != null && renderStatusBadge(contentItem)}
-            </div>
-
-            {contentSlot ?? defaultContentSlot}
+            {contentSlot != null ? (
+                <>
+                    {badgeRow}
+                    {contentSlot}
+                </>
+            ) : defaultContentSlot}
 
             {/* The meta row. Each segment renders only when its member is present, and the two
                 PEOPLE are two different filters: the submitter contributed the row, the author
