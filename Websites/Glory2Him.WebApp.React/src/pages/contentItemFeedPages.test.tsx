@@ -192,8 +192,12 @@ describe('The content item feed pages', () => {
             // when
             renderPage(<MyPosts />, '/myposts');
 
-            // then
-            expect(screen.getByText('Draft')).toBeInTheDocument();
+            // then: the badge AND the corner ribbon — /myposts opts into ribbons, so the
+            // status arrives twice, each through its own affordance.
+            expect(screen.getAllByText('Draft')).toHaveLength(2);
+
+            expect(document.querySelector('.g2h-approval-ribbon'))
+                .toHaveAttribute('data-approval-status', 'Draft');
         });
     });
 

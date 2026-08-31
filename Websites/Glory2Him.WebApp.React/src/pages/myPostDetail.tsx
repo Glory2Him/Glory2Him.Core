@@ -117,6 +117,7 @@ export function MyPostDetail() {
                                     contentItem={formItem}
                                     showItemTitle={false}
                                     isEditingAllowed
+                                    shouldShowRibbons
                                     onModified={saveChanges}
                                     contentItemSettingCollection={contentItemSettings ?? []} />
                             </div>
