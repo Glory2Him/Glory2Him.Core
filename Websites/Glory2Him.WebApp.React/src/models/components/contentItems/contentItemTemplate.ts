@@ -85,7 +85,23 @@ export interface ContentItemText {
 // Everything a template receives: the item, its RESOLVED policy, and the dispatching panel's
 // own state and toggles. Templates render from this and decide nothing — which is what lets an
 // override derive from the default by replacing only its content slot.
-export interface ContentItemTemplateProps extends ContentItemEvents, ContentItemText {
+// SECTION SWITCHES, separate from what the ContentItemSettings allow: the setting says what
+// this item's TYPE shows, these say what this SURFACE has room for — a page standing tags
+// and bible references in side panels turns the in-card sections off, so the same facts are
+// never shown twice on one screen. All default TRUE, so the setting on the projection stays
+// the deciding factor unless a surface specifically overrides it: a section renders only
+// when BOTH agree.
+export interface ContentItemSectionToggles {
+    showTagSection?: boolean;
+    showBibleReferenceSection?: boolean;
+    showReactionSection?: boolean;
+    showCommentsSection?: boolean;
+    showShareSection?: boolean;
+    showSaveSection?: boolean;
+}
+
+export interface ContentItemTemplateProps
+    extends ContentItemEvents, ContentItemText, ContentItemSectionToggles {
     contentItem: ContentItemSearchItem;
 
     // The item's OWN effective setting, resolved by the panel (§6.4 / §12.5.2 rules 1-2), so a

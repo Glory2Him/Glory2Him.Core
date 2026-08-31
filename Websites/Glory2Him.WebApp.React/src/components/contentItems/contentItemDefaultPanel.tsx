@@ -66,6 +66,12 @@ export function ContentItemDefaultPanel({
     moderateButtonLabel,
     contentSlot,
     shouldShowRibbons,
+    showTagSection = true,
+    showBibleReferenceSection = true,
+    showReactionSection = true,
+    showCommentsSection = true,
+    showShareSection = true,
+    showSaveSection = true,
     submittedByLabelText = 'Submitted by',
     authorLabelText = 'Author',
     shareabilityLabelText = 'Shareability',
@@ -86,23 +92,33 @@ export function ContentItemDefaultPanel({
     const showsAuthor =
         contentItemSetting?.hasAuthor !== false && (contentItem.author ?? '').length > 0;
 
+    // Every section asks BOTH questions: the surface switch (this page's room) AND the
+    // setting on the projection (this type's policy). Both default open, so the setting
+    // stays the deciding factor unless a surface specifically overrides it.
     const showsTags =
-        contentItemSetting?.showTags !== false && (contentItem.tags?.length ?? 0) > 0;
+        showTagSection
+        && contentItemSetting?.showTags !== false
+        && (contentItem.tags?.length ?? 0) > 0;
 
     const showsBibleReferences =
-        contentItemSetting?.showBibleReferences !== false
+        showBibleReferenceSection
+        && contentItemSetting?.showBibleReferences !== false
         && (contentItem.bibleReferences?.length ?? 0) > 0;
 
     const reactionSummary = contentItem.reactionSummary ?? [];
 
     const showsAssignedReactions =
-        contentItemSetting?.showReactions !== false && reactionSummary.length > 0;
+        showReactionSection
+        && contentItemSetting?.showReactions !== false
+        && reactionSummary.length > 0;
 
     // The count is optional — the comment reads have no exposer yet (#318) — but the way INTO
     // the comments is not: the control renders whenever the surface shows comments and somebody
     // is listening, counted or not.
     const showsComments =
-        contentItemSetting?.showComments !== false && onCommentsClick != null;
+        showCommentsSection
+        && contentItemSetting?.showComments !== false
+        && onCommentsClick != null;
 
     const totalReactions =
         reactionSummary.reduce((total, reaction) => total + reaction.count, 0);
@@ -110,12 +126,15 @@ export function ContentItemDefaultPanel({
     // Whether the engagement row has anything to say. Today's shipped pages often have nothing —
     // no summaries or counts until #318, no wired Edit — and an empty flex row still spends its
     // margin, which reads as dead space at the foot of every card.
+    const showsShare = showShareSection && onShareClick != null;
+    const showsSave = showSaveSection && onSaveClick != null;
+
     const showsEngagementRow =
         showsAssignedReactions
         || offeredReactions.length > 0
         || showsComments
-        || onShareClick != null
-        || onSaveClick != null
+        || showsShare
+        || showsSave
         || showsEditButton
         || showsModerateButton;
 
@@ -182,30 +201,47 @@ export function ContentItemDefaultPanel({
                 <div className="align-self-center">
                     {badgeRow}
 
+                    {/* A control only where somebody is listening: on a detail surface the
+                        title leads nowhere, so it stands as plain heading text. */}
                     {showsTitle && (
                         <h3 className="h5 mb-0">
-                            <button
-                                type="button"
-                                className="btn btn-link text-reset fw-bold p-0 mb-0 text-start"
-                                onClick={() => onTitleClick?.(contentItem)}>
-                                {contentItem.title}
-                            </button>
+                            {onTitleClick != null ? (
+                                <button
+                                    type="button"
+                                    className="btn btn-link text-reset fw-bold p-0 mb-0 text-start"
+                                    onClick={() => onTitleClick(contentItem)}>
+                                    {contentItem.title}
+                                </button>
+                            ) : contentItem.title}
                         </h3>
                     )}
                 </div>
             </div>
 
-            <p className="card-text g2h-content-item-excerpt mt-2 mb-0">
+            {/* The clamp travels WITH the excerpt: an element that carries one is a list
+                card and clamps to three lines; an element without one is a detail surface
+                showing the full content, which no stylesheet may cut short. */}
+            <p
+                className={`card-text mt-2 mb-0${(contentItem.excerpt ?? '').length > 0
+                    ? ' g2h-content-item-excerpt'
+                    : ''}`}>
                 {(contentItem.excerpt ?? '').length > 0
                     ? contentItem.excerpt
                     : contentItem.content}
-                {' '}
-                <button
-                    type="button"
-                    className="btn btn-link fw-bold p-0 mb-0 align-baseline"
-                    onClick={() => onReadMoreClick?.(contentItem)}>
-                    {readMoreText}
-                </button>
+
+                {/* The way in renders only where a page is listening — a detail surface
+                    already IS the way in, and shows the full content with no clamp. */}
+                {onReadMoreClick != null && (
+                    <>
+                        {' '}
+                        <button
+                            type="button"
+                            className="btn btn-link fw-bold p-0 mb-0 align-baseline"
+                            onClick={() => onReadMoreClick(contentItem)}>
+                            {readMoreText}
+                        </button>
+                    </>
+                )}
             </p>
         </>
     );
@@ -391,7 +427,7 @@ export function ContentItemDefaultPanel({
                     </button>
                 )}
 
-                {onShareClick != null && (
+                {showsShare && (
                     <button
                         type="button"
                         className="btn btn-link text-reset p-0 mb-0"
@@ -400,7 +436,7 @@ export function ContentItemDefaultPanel({
                     </button>
                 )}
 
-                {onSaveClick != null && (
+                {showsSave && (
                     <button
                         type="button"
                         className="btn btn-link text-reset p-0 mb-0"
