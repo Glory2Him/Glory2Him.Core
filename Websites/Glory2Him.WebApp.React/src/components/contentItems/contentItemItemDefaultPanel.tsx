@@ -96,6 +96,17 @@ export function ContentItemItemDefaultPanel({
     const totalReactions =
         reactionSummary.reduce((total, reaction) => total + reaction.count, 0);
 
+    // Whether the engagement row has anything to say. Today's shipped pages often have nothing —
+    // no summaries or counts until #318, no wired Edit — and an empty flex row still spends its
+    // margin, which reads as dead space at the foot of every card.
+    const showsEngagementRow =
+        showsAssignedReactions
+        || offeredReactions.length > 0
+        || showsComments
+        || onShareClick != null
+        || onSaveClick != null
+        || onEditClick != null;
+
     const renderStatusBadge = (item: ContentItemSearchItem) => {
         const status = item.approvalStatus;
 
@@ -153,7 +164,7 @@ export function ContentItemItemDefaultPanel({
     );
 
     return (
-        <article className="card border p-3 p-lg-4 mb-4 g2h-content-item-card">
+        <article className="card border p-3 mb-3 g2h-content-item-card">
             {/* The type badge is the type FILTER — set if clear, cleared if already this type —
                 and the status badge beside it never leaves a draft looking published. */}
             <div className="d-flex align-items-center mb-2">
@@ -243,7 +254,8 @@ export function ContentItemItemDefaultPanel({
                 </div>
             )}
 
-            {/* The engagement row. */}
+            {/* The engagement row — only when it has anything to offer. */}
+            {showsEngagementRow && (
             <div className="d-flex flex-wrap align-items-center gap-3 mt-3">
                 {showsAssignedReactions && (
                     <button
@@ -356,6 +368,7 @@ export function ContentItemItemDefaultPanel({
                     </button>
                 )}
             </div>
+            )}
         </article>
     );
 }
