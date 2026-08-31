@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ContentItemBroker from './apiBroker.contentItems';
+import { ApprovalStatus } from '../models/components/associations/associationItem';
 import { ContentItem } from '../models/foundations/contentItems/contentItem';
 import { ContentType } from '../models/foundations/contentItemSettings/contentType';
 
@@ -16,6 +17,9 @@ vi.mock('axios');
 const getAsync = vi.mocked(axios.get);
 
 const queryFor = (overrides: Partial<ContentItemSearchQuery> = {}): ContentItemSearchQuery => ({
+    scope: 'caller',
+    submittedById: null,
+    approvalStatuses: null,
     searchTerm: '',
     contentType: null,
     author: '',
@@ -48,6 +52,47 @@ describe('ContentItemBroker.SearchContentItemsAsync', () => {
         // then: /Public is caller-INDEPENDENT, so it would hide the caller's own drafts and
         // everything a review role covers.
         expect(requestedUrl().split('?')[0]).toBe('/api/contentitems');
+    });
+
+    // §14.1 by construction: the public route is caller-independent, so a surface built on it
+    // cannot be widened by anybody's roles.
+    it('should read the public route when the page scoped itself public', async () => {
+        // when
+        await new ContentItemBroker().SearchContentItemsAsync(queryFor({ scope: 'public' }));
+
+        // then
+        expect(requestedUrl().split('?')[0]).toBe('/api/contentitems/Public');
+    });
+
+    // Exact, not contains: an account id is an identity, and half of one identifies nobody.
+    it('should match the submitter exactly by account id', async () => {
+        // when
+        await new ContentItemBroker().SearchContentItemsAsync(
+            queryFor({ submittedById: 'account-1' }));
+
+        // then
+        expect(parameterOf('$filter')).toBe("createdBy eq 'account-1'");
+    });
+
+    // The member NAMES, or-chained — the same wire split ContentType has: $filter parses names,
+    // JSON bodies carry numbers.
+    it('should name the moderation statuses by their members', async () => {
+        // when
+        await new ContentItemBroker().SearchContentItemsAsync(
+            queryFor({ approvalStatuses: [ApprovalStatus.Draft, ApprovalStatus.Submitted] }));
+
+        // then
+        expect(parameterOf('$filter')).toBe(
+            "(approvalStatus eq 'Draft' or approvalStatus eq 'Submitted')");
+    });
+
+    it('should leave the statuses to the read when none were pinned', async () => {
+        // when
+        await new ContentItemBroker().SearchContentItemsAsync(
+            queryFor({ approvalStatuses: [] }));
+
+        // then
+        expect(parameterOf('$filter')).toBeNull();
     });
 
     it('should ask for no filter at all when nothing was searched for', async () => {

@@ -11,6 +11,7 @@ import {
 } from '../../models/foundations/contentItems/contentItemSearchQuery';
 
 import {
+    ApprovalStatus,
     ContentItemSearchCriteria
 } from '../../models/components/contentItems/contentItemSearchItem';
 
@@ -38,27 +39,52 @@ export const contentItemService = {
     // The CRITERIA ARE THE KEY, so changing the search starts a fresh scroll from page zero
     // rather than appending to the last one — a list that grew by adding new results to old ones
     // would be a list nobody could read.
+    // The options are what make three surfaces of one hook: the page names its read (`scope`),
+    // and pins the narrowing its surface is FOR — "my posts" pins submittedById to the signed-in
+    // account, the moderation queue pins the Draft + Submitted statuses. The criteria are the
+    // reader's half; the options are the page's, which is why they are separate parameters.
     useSearchContentItems: (
         criteria: ContentItemSearchCriteria,
-        pageSize = contentItemSearchPageSize) => {
+        options: {
+            scope?: 'public' | 'caller';
+            submittedById?: string | null;
+            approvalStatuses?: ReadonlyArray<ApprovalStatus> | null;
+            pageSize?: number;
+            enabled?: boolean;
+        } = {}) => {
         const contentItemBroker = new ContentItemBroker();
+
+        const scope = options.scope ?? 'caller';
+        const pageSize = options.pageSize ?? contentItemSearchPageSize;
+
+        // The reader's clicked submitted-by filter narrows within whatever the page pinned; a
+        // page that pinned its own (my posts) wins, because that pin is what the surface IS.
+        const submittedById =
+            options.submittedById ?? criteria.submittedBy?.id ?? null;
 
         return useInfiniteQuery<ContentItemPage>({
             queryKey: [
                 'ContentItemsSearch',
+                scope,
                 criteria.query,
                 criteria.contentType,
                 criteria.author,
+                submittedById,
+                options.approvalStatuses ?? null,
                 pageSize
             ],
 
+            enabled: options.enabled ?? true,
             initialPageParam: 0,
 
             queryFn: async ({ pageParam }) =>
                 await contentItemBroker.SearchContentItemsAsync({
+                    scope,
                     searchTerm: criteria.query,
                     contentType: criteria.contentType,
                     author: criteria.author,
+                    submittedById,
+                    approvalStatuses: options.approvalStatuses ?? null,
                     pageIndex: pageParam as number,
                     pageSize
                 }),

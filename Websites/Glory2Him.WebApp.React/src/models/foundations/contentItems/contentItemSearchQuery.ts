@@ -1,3 +1,4 @@
+import { ApprovalStatus } from '../../components/associations/associationItem';
 import { ContentItem } from './contentItem';
 import { ContentType } from '../contentItemSettings/contentType';
 
@@ -9,6 +10,13 @@ import { ContentType } from '../contentItemSettings/contentType';
 // and drops it: the extra row is the only thing that separates a full last page from a page with
 // more behind it.
 export type ContentItemSearchQuery = {
+    // WHICH read serves the page, and it is the page's decision. 'public' is
+    // GET api/ContentItems/Public — caller-INDEPENDENT, exactly the §14.1 canonical set, so no
+    // role change elsewhere can leak a draft onto a surface built on it. 'caller' is
+    // GET api/ContentItems, which widens with whoever is asking: their own rows, and everything
+    // a review role covers.
+    scope: 'public' | 'caller';
+
     // Free text, matched server-side against the title, the content and the author.
     searchTerm: string;
 
@@ -18,6 +26,15 @@ export type ContentItemSearchQuery = {
     // The author of the WORDS, matched as a substring — a surname or a first name has to be
     // enough to find someone.
     author: string;
+
+    // The submitter — CreatedBy, matched exactly: it is an account id, and ids are not searched
+    // by fragment. Null asks for everybody's.
+    submittedById: string | null;
+
+    // Narrows to these statuses — the moderation queue's Draft + Submitted. Null or empty leaves
+    // the read's own visibility rules to decide alone. The names travel as MEMBER NAMES in
+    // $filter while JSON bodies carry the numbers, the same split ContentType has.
+    approvalStatuses: ReadonlyArray<ApprovalStatus> | null;
 
     // Zero-based, because it is the react-query page param and arithmetic on it reads better
     // from zero. ContentItemSettingQuery counts from one because an admin table shows the number.

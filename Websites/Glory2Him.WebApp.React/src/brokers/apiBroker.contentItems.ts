@@ -8,8 +8,20 @@ import {
     ContentItemSearchQuery
 } from '../models/foundations/contentItems/contentItemSearchQuery';
 
+import { ApprovalStatus } from '../models/components/associations/associationItem';
 import { ContentType } from '../models/foundations/contentItemSettings/contentType';
 import ApiBroker from './apiBroker';
+
+// ApprovalStatus is a const object rather than an enum, so it has no reverse mapping the way
+// ContentType does — the member names $filter parses are stated here instead. This is a wire
+// contract: OData parses the NAME while the JSON body carries the number.
+const approvalStatusMemberNames: Readonly<Record<number, string>> = {
+    [ApprovalStatus.Draft]: 'Draft',
+    [ApprovalStatus.Submitted]: 'Submitted',
+    [ApprovalStatus.Approved]: 'Approved',
+    [ApprovalStatus.Rejected]: 'Rejected',
+    [ApprovalStatus.Dismissed]: 'Dismissed'
+};
 
 // OData string literals are single-quoted, and a single quote inside one is escaped by doubling
 // it. Search terms come from a free-text box, so this is the difference between a working filter
@@ -43,11 +55,12 @@ class ContentItemBroker {
     // [EnableQuery]. The host caps a collection read at OData:PageSize, so a client that paged in
     // memory would silently stop at that cap once the table outgrew it.
     //
-    // THE CALLER-SCOPED READ, not /Public: it is [AllowAnonymous] and widens with the caller — the
-    // canonically visible set for a visitor, plus their own rows when signed in, plus everything a
-    // review role covers. One read serves the public feed, "my contributions" and a moderation
-    // queue, and the foundation decides which of those the caller actually gets against the
-    // stored row. Filtering that here would be deciding it twice, and badly.
+    // WHICH ROUTE answers is the query's `scope`, because it is the PAGE's decision what a
+    // surface shows. 'public' is caller-independent by construction (§14.1 canonical set only) —
+    // the home feed builds on it so no role change elsewhere can leak a draft there. 'caller'
+    // widens with whoever asks — their own rows, everything a review role covers — which is what
+    // "my posts" and the moderation queue are made of. Either way the FOUNDATION decides
+    // visibility against the stored row; the filters below only ever narrow within it.
     //
     // One row beyond the page is asked for and then dropped — see ContentItemSearchQuery.
     async SearchContentItemsAsync(query: ContentItemSearchQuery): Promise<ContentItemPage> {
@@ -74,6 +87,22 @@ class ContentItemBroker {
             filters.push(`contains(tolower(author),${toODataLiteral(author.toLowerCase())})`);
         }
 
+        // Exact, not contains: an account id is an identity, and half of one identifies nobody.
+        if (query.submittedById != null && query.submittedById.trim().length > 0) {
+            filters.push(`createdBy eq ${toODataLiteral(query.submittedById.trim())}`);
+        }
+
+        // An or-chain of member names rather than `in`, so the clause stays inside the OData
+        // grammar every version of the host's parser accepts. This only ever NARROWS: asking the
+        // public route for drafts intersects to nothing rather than leaking anything.
+        if (query.approvalStatuses != null && query.approvalStatuses.length > 0) {
+            const statusClauses = query.approvalStatuses
+                .map((status) => `approvalStatus eq '${approvalStatusMemberNames[status]}'`)
+                .join(' or ');
+
+            filters.push(`(${statusClauses})`);
+        }
+
         const parameters = new URLSearchParams();
 
         if (filters.length > 0) {
@@ -87,7 +116,12 @@ class ContentItemBroker {
         parameters.set('$skip', String(query.pageIndex * query.pageSize));
         parameters.set('$top', String(query.pageSize + 1));
 
-        const url = `${this.relativeContentItemsUrl}?${parameters.toString()}`;
+        // The route the scope names — see the note above.
+        const routeUrl = query.scope === 'public'
+            ? `${this.relativeContentItemsUrl}/Public`
+            : this.relativeContentItemsUrl;
+
+        const url = `${routeUrl}?${parameters.toString()}`;
         const result = await this.apiBroker.GetAsync(url);
         const rows = result.data as ContentItem[];
 
