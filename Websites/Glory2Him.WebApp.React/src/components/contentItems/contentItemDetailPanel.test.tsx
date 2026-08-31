@@ -191,6 +191,8 @@ describe('ContentItemDetailPanel', () => {
                 <ContentItemDetailPanel contentItemSettingCollection={settings} onAdded={onAdded} />);
 
             await userEvent.type(screen.getByLabelText(/Devotional/), 'A word for today');
+            await userEvent.type(
+                screen.getByLabelText(/Permission details/), 'By email from the author');
             await userEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
 
             // then
@@ -210,6 +212,8 @@ describe('ContentItemDetailPanel', () => {
             await userEvent.click(screen.getByRole('button', { name: /Devotional/ }));
             await userEvent.type(screen.getByLabelText(/Title/), 'Morning');
             await userEvent.type(screen.getByLabelText(/Devotional/), 'A word for today');
+            await userEvent.type(
+                screen.getByLabelText(/Permission details/), 'By email from the author');
             await userEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
 
             // then
@@ -222,7 +226,9 @@ describe('ContentItemDetailPanel', () => {
                 author: 'Tester',
                 content: 'A word for today',
                 shareabilityBasis: defaultShareabilityBasis,
-                sharePermission: ''
+
+                // Mandatory under the permission default the form opens on.
+                sharePermission: 'By email from the author'
             });
         });
 
@@ -237,7 +243,7 @@ describe('ContentItemDetailPanel', () => {
                 String(ShareabilityBasis.PublicDomain));
 
             // then
-            expect(screen.queryByLabelText('Permission details')).not.toBeInTheDocument();
+            expect(screen.queryByLabelText(/Permission details/)).not.toBeInTheDocument();
 
             // when
             await userEvent.selectOptions(
@@ -245,7 +251,7 @@ describe('ContentItemDetailPanel', () => {
                 String(ShareabilityBasis.PermissionGranted));
 
             // then
-            expect(screen.getByLabelText('Permission details')).toBeInTheDocument();
+            expect(screen.getByLabelText(/Permission details/)).toBeInTheDocument();
         });
 
         it('should ask for the permission detail when the contributor grants their own', async () => {
@@ -257,7 +263,7 @@ describe('ContentItemDetailPanel', () => {
             renderWithAuth(<ContentItemDetailPanel contentItemSettingCollection={settings} />);
 
             // then
-            expect(screen.getByLabelText('Permission details')).toBeInTheDocument();
+            expect(screen.getByLabelText(/Permission details/)).toBeInTheDocument();
         });
 
         it('should shape the fields from the chosen type settings', async () => {
@@ -579,6 +585,129 @@ describe('ContentItemDetailPanel', () => {
         });
     });
 
+    describe('the mandatory permission detail', () => {
+        // The one client-side rule the panel decides itself: a permission basis with no
+        // permission named is refused here rather than posted. Everything else stays the
+        // server's to judge.
+        it('should refuse to submit a permission basis with no detail and say why', async () => {
+            // given: the form opens on the permission default
+            signInAs(authState);
+            const onAdded = vi.fn();
+
+            renderWithAuth(
+                <ContentItemDetailPanel contentItemSettingCollection={settings} onAdded={onAdded} />);
+
+            await userEvent.type(screen.getByLabelText(/^Story/), 'The whole story.');
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
+
+            // then
+            expect(onAdded).not.toHaveBeenCalled();
+
+            expect(screen.getByText(new RegExp('required for this sharing basis')))
+                .toBeInTheDocument();
+
+            expect(screen.getByLabelText(/Permission details/))
+                .toHaveAttribute('aria-invalid', 'true');
+        });
+
+        it('should clear the refusal the moment the reader answers', async () => {
+            // given
+            signInAs(authState);
+            const onAdded = vi.fn();
+
+            renderWithAuth(
+                <ContentItemDetailPanel contentItemSettingCollection={settings} onAdded={onAdded} />);
+
+            await userEvent.type(screen.getByLabelText(/^Story/), 'The whole story.');
+            await userEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
+
+            // when
+            await userEvent.type(
+                screen.getByLabelText(/Permission details/), 'By email from the author');
+
+            // then: the message is gone before any resubmit
+            expect(screen.queryByText(new RegExp('required for this sharing basis')))
+                .not.toBeInTheDocument();
+
+            // and the same submit now goes through
+            await userEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
+
+            expect(onAdded).toHaveBeenCalledWith(expect.objectContaining({
+                sharePermission: 'By email from the author'
+            }));
+        });
+
+        it('should hold both permission members to the rule', async () => {
+            // given: the OTHER permission member — somebody else's permission
+            signInAs(authState);
+            const onAdded = vi.fn();
+
+            renderWithAuth(
+                <ContentItemDetailPanel contentItemSettingCollection={settings} onAdded={onAdded} />);
+
+            await userEvent.type(screen.getByLabelText(/^Story/), 'The whole story.');
+
+            await userEvent.selectOptions(
+                screen.getByLabelText(/How are you permitted to share this\?/),
+                String(ShareabilityBasis.PermissionGranted));
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
+
+            // then
+            expect(onAdded).not.toHaveBeenCalled();
+        });
+
+        it('should ask nothing extra of a public domain basis', async () => {
+            // given
+            signInAs(authState);
+            const onAdded = vi.fn();
+
+            renderWithAuth(
+                <ContentItemDetailPanel contentItemSettingCollection={settings} onAdded={onAdded} />);
+
+            await userEvent.type(screen.getByLabelText(/^Story/), 'The whole story.');
+
+            await userEvent.selectOptions(
+                screen.getByLabelText(/How are you permitted to share this\?/),
+                String(ShareabilityBasis.PublicDomain));
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
+
+            // then: no detail exists to demand — the field is not even rendered
+            expect(onAdded).toHaveBeenCalledWith(expect.objectContaining({
+                shareabilityBasis: ShareabilityBasis.PublicDomain,
+                sharePermission: ''
+            }));
+        });
+
+        it('should hold an edit to the same rule as an add', async () => {
+            // given: a stored row on a permission basis whose note is empty
+            signInAs(authState);
+            const onModified = vi.fn();
+
+            renderWithAuth(
+                <ContentItemDetailPanel
+                    contentItem={itemWith()}
+                    mode="edit"
+                    isEditingAllowed
+                    onModified={onModified}
+                    contentItemSettingCollection={settings} />);
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+            // then
+            expect(onModified).not.toHaveBeenCalled();
+
+            expect(screen.getByText(new RegExp('required for this sharing basis')))
+                .toBeInTheDocument();
+        });
+    });
+
     describe('edit mode', () => {
         it('should open the editor on Edit and announce the mode', async () => {
             // given
@@ -635,6 +764,8 @@ describe('ContentItemDetailPanel', () => {
             // when
             await userEvent.clear(screen.getByLabelText(/Title/));
             await userEvent.type(screen.getByLabelText(/Title/), 'He carried me still');
+            await userEvent.type(
+                screen.getByLabelText(/Permission details/), 'By email from the author');
             await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
             // then
@@ -929,6 +1060,8 @@ describe('ContentItemDetailPanel', () => {
             // when
             await userEvent.clear(screen.getByLabelText(/Quote/));
             await userEvent.type(screen.getByLabelText(/Quote/), 'Amended words');
+            await userEvent.type(
+                screen.getByLabelText(/Permission details/), 'By email from the author');
             await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
             // then
@@ -987,6 +1120,8 @@ describe('ContentItemDetailPanel', () => {
             // when
             await userEvent.click(screen.getByRole('button', { name: /Quote/ }));
             await userEvent.type(screen.getByLabelText(/Quote/), 'The quote itself');
+            await userEvent.type(
+                screen.getByLabelText(/Permission details/), 'By email from the author');
             await userEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
 
             // then: the reader cannot see them, the type is create-only, and the read surface
@@ -1033,7 +1168,7 @@ describe('ContentItemDetailPanel', () => {
                 String(ShareabilityBasis.PermissionGranted));
 
             await userEvent.type(
-                screen.getByLabelText('Permission details'), 'Emailed by the author');
+                screen.getByLabelText(/Permission details/), 'Emailed by the author');
 
             await userEvent.type(screen.getByLabelText(/^Story/), 'The story itself');
 
@@ -1097,7 +1232,7 @@ describe('ContentItemDetailPanel', () => {
                 String(ShareabilityBasis.PermissionGranted));
 
             await userEvent.type(
-                screen.getByLabelText('Permission details'), 'Emailed by the author');
+                screen.getByLabelText(/Permission details/), 'Emailed by the author');
 
             await userEvent.type(screen.getByLabelText(/^Story/), 'The story itself');
 
@@ -1131,6 +1266,8 @@ describe('ContentItemDetailPanel', () => {
             // when
             await userEvent.clear(screen.getByLabelText(/Quote/));
             await userEvent.type(screen.getByLabelText(/Quote/), 'Amended');
+            await userEvent.type(
+                screen.getByLabelText(/Permission details/), 'By email from the author');
             await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
             // then
@@ -1551,6 +1688,8 @@ describe('ContentItemDetailPanel', () => {
             // when
             await userEvent.type(screen.getByLabelText(/Title/), 'He carried me');
             await userEvent.type(screen.getByLabelText(/^Story/), 'The whole story.');
+            await userEvent.type(
+                screen.getByLabelText(/Permission details/), 'By email from the author');
             await userEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
 
             // then: what the field showed is what gets filed
@@ -1571,6 +1710,8 @@ describe('ContentItemDetailPanel', () => {
             await userEvent.clear(screen.getByLabelText(/Author/));
             await userEvent.type(screen.getByLabelText(/Author/), 'A. Pilgrim');
             await userEvent.type(screen.getByLabelText(/^Story/), 'The whole story.');
+            await userEvent.type(
+                screen.getByLabelText(/Permission details/), 'By email from the author');
             await userEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
 
             // then

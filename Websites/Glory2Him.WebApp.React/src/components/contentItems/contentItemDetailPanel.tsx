@@ -155,7 +155,10 @@ export interface ContentItemDetailPanelProps {
     // What the API said was wrong, keyed by ITS parameter names. Matched case-insensitively
     // against the rendered fields; anything the panel cannot place renders in a summary above the
     // form rather than being dropped. The panel validates nothing itself — the server is the
-    // authority on what a content item must carry, and a second opinion here would drift from it.
+    // authority on what a content item must carry, and a second opinion here would drift from it
+    // — WITH ONE RULED EXCEPTION: a permission basis makes the Permission details box mandatory
+    // here, because a claim of permission with no permission named is not a submission the
+    // product accepts, and the panel is the surface that knows which basis is selected.
     validationIssues?: ContentItemValidationIssues;
 
     // ── Actions ───────────────────────────────────────────────────────────────
@@ -226,6 +229,7 @@ export interface ContentItemDetailPanelProps {
     shareabilityReadLabelText?: string;
     sharePermissionLabelText?: string;
     sharePermissionPlaceholderText?: string;
+    sharePermissionRequiredText?: string;
     submitButtonText?: string;
     saveButtonText?: string;
     cancelButtonText?: string;
@@ -366,6 +370,8 @@ export function ContentItemDetailPanel({
     shareabilityLabelText = 'How are you permitted to share this?',
     shareabilityReadLabelText = 'Shareability',
     sharePermissionLabelText = 'Permission details',
+    sharePermissionRequiredText =
+    'Please say what permission you have — it is required for this sharing basis.',
     sharePermissionPlaceholderText =
     'e.g. Permission granted by the author by email, 12 Jan 2026',
     submitButtonText = 'Submit for review',
@@ -406,6 +412,11 @@ export function ContentItemDetailPanel({
     const [draft, setDraft] = useState<ContentItemDraft>(() => draftFromItem(contentItem));
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
+    // The one client-side mandatory rule (see validationIssues above): raised on a refused
+    // submit, cleared the moment the reader answers — by typing a detail, or implicitly by
+    // moving the basis off a permission one, which unrenders the field and its message.
+    const [isSharePermissionMissing, setIsSharePermissionMissing] = useState(false);
+
     // Whether the contributor has had their hands on the Author field. Once they have, the
     // prefill above stops second-guessing them — including when they deliberately empty it.
     const [isAuthorTouched, setIsAuthorTouched] = useState(false);
@@ -424,6 +435,7 @@ export function ContentItemDetailPanel({
         setRequestedMode(null);
         setIsConfirmingDelete(false);
         setIsAuthorTouched(false);
+        setIsSharePermissionMissing(false);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [contentItemId, mode]);
 
@@ -579,9 +591,17 @@ export function ContentItemDetailPanel({
     const issueEntries = Object.entries(validationIssues ?? {});
 
     const issuesFor = (fieldName: string): ReadonlyArray<string> =>
-        issueEntries
-            .filter(([key]) => key.toLowerCase() === fieldName.toLowerCase())
-            .flatMap(([, messages]) => messages);
+        [
+            ...issueEntries
+                .filter(([key]) => key.toLowerCase() === fieldName.toLowerCase())
+                .flatMap(([, messages]) => messages),
+
+            // The mandatory-permission rule speaks through the same channel the server's
+            // messages use, so the field lights up and is announced identically either way.
+            ...(fieldName.toLowerCase() === 'sharepermission' && isSharePermissionMissing
+                ? [sharePermissionRequiredText]
+                : [])
+        ];
 
     const invalidCssClass = (fieldName: string): string =>
         issuesFor(fieldName).length > 0 ? ' is-invalid' : '';
@@ -647,14 +667,26 @@ export function ContentItemDetailPanel({
         sharePermission: hasSharePermissionField ? draft.sharePermission : ''
     });
 
+    // The mandatory-permission gate, asked by BOTH submits: a permission basis with no
+    // permission named is refused here rather than posted — the one rule this panel decides
+    // itself (see validationIssues above).
+    const holdsRequiredSharePermission = (): boolean => {
+        if (hasSharePermissionField && draft.sharePermission.trim().length === 0) {
+            setIsSharePermissionMissing(true);
+            return false;
+        }
+
+        return true;
+    };
+
     const submitAdd = () => {
-        if (selectedContentType != null) {
+        if (selectedContentType != null && holdsRequiredSharePermission()) {
             onAdded?.(toFormItem(selectedContentType));
         }
     };
 
     const submitModify = () => {
-        if (contentItem != null) {
+        if (contentItem != null && holdsRequiredSharePermission()) {
             onModified?.(toFormItem(contentItem.contentType));
         }
     };
@@ -958,23 +990,30 @@ export function ContentItemDetailPanel({
                 {renderFieldIssues('ShareabilityBasis')}
             </div>
 
+            {/* The field only renders under a permission basis, and under one it is
+                MANDATORY — the asterisk is unconditional because the two arrive together. */}
             {hasSharePermissionField && (
                 <div className="mb-4">
                     <label className="form-label" htmlFor={`${fieldId}-share-permission`}>
-                        {sharePermissionLabelText}
+                        {sharePermissionLabelText}{' '}
+                        <span className="text-danger" aria-hidden="true">*</span>
                     </label>
 
                     <input
                         type="text"
                         className={`form-control${invalidCssClass('SharePermission')}`}
                         id={`${fieldId}-share-permission`}
+                        aria-required="true"
                         {...fieldIssueAttributes('SharePermission')}
                         maxLength={500}
                         value={draft.sharePermission}
                         placeholder={sharePermissionPlaceholderText}
-                        onChange={(event) =>
+                        onChange={(event) => {
+                            setIsSharePermissionMissing(false);
+
                             setDraft((current) =>
-                                ({ ...current, sharePermission: event.target.value }))} />
+                                ({ ...current, sharePermission: event.target.value }));
+                        }} />
 
                     {renderFieldIssues('SharePermission')}
                 </div>
