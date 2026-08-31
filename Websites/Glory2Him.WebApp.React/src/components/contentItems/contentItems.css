@@ -374,3 +374,48 @@ section.g2h-content-item-search-panel {
     }
 }
 
+/* ── Approval-status corner ribbon ────────────────────────────────────────── */
+
+/* THE COLOUR LIVES HERE AND NOWHERE ELSE, keyed by data-approval-status carrying the enum
+   member NAME — the same contract the type chip's palette keeps. The strip is a rotated band
+   pinned across the card's top-right corner; the host clips it to the corner triangle, which
+   is why opting in also puts g2h-has-approval-ribbon on the host. pointer-events off: the
+   ribbon announces, it never intercepts the controls beneath it. */
+.g2h-has-approval-ribbon {
+    position: relative;
+    overflow: hidden;
+}
+
+.g2h-approval-ribbon {
+    position: absolute;
+    top: 1.1rem;
+    right: -2.6rem;
+    z-index: 3;
+    width: 9.5rem;
+    transform: rotate(45deg);
+    padding: 0.3rem 0;
+    text-align: center;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #fff;
+    box-shadow: 0 0.125rem 0.375rem rgba(0, 0, 0, 0.3);
+    pointer-events: none;
+}
+
+.g2h-approval-ribbon[data-approval-status="Draft"] {
+    background-color: #6c757d;
+}
+
+.g2h-approval-ribbon[data-approval-status="Submitted"] {
+    background-color: #1976d2;
+}
+
+.g2h-approval-ribbon[data-approval-status="Approved"] {
+    background-color: #56990f;
+}
+
+.g2h-approval-ribbon[data-approval-status="Rejected"] {
+    background-color: #c62828;
+}

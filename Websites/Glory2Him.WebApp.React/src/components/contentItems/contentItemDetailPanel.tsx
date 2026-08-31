@@ -13,6 +13,11 @@ import {
 } from '../../services/views/contentItems/resolveContentItemSetting';
 
 import {
+    approvalStatusMemberNames,
+    approvalStatusRibbonLabels
+} from '../../models/components/contentItems/contentItemItemTemplate';
+
+import {
     ApprovalStatus,
     ContentItemFormItem,
     ContentItemDetailPanelMode,
@@ -169,6 +174,12 @@ export interface ContentItemDetailPanelProps {
     // qualifying role, still shows nothing. Add mode is not its concern — a consumer that does
     // not want an add surface does not render one.
     isEditingAllowed?: boolean;
+
+    // Whether the panel wears a corner ribbon naming the item's approval status: grey
+    // Draft, blue Submitted, green Approved, red Rejected — the colours in
+    // contentItems.css, keyed by data-approval-status. Off by default, and moot in add
+    // mode: an item that does not exist yet has no status to wear.
+    shouldShowRibbons?: boolean;
 
     // ── Events ────────────────────────────────────────────────────────────────
     // The panel mutates nothing and fetches nothing. The CONSUMER owns persistence: it decides
@@ -345,6 +356,7 @@ export function ContentItemDetailPanel({
     isSubmitting = false,
     validationIssues,
     isEditingAllowed = false,
+    shouldShowRibbons = false,
     onAdded,
     onModified,
     onRemoved,
@@ -1300,17 +1312,36 @@ export function ContentItemDetailPanel({
         );
     };
 
+    // The corner ribbon: the item's status member name is what the stylesheet colours,
+    // the same contract the card template keeps. An item without a status — or one whose
+    // status has no ribbon entry (Dismissed) — wears none.
+    const ribbonLabel =
+        shouldShowRibbons && contentItem?.approvalStatus != null
+            ? approvalStatusRibbonLabels[contentItem.approvalStatus]
+            : undefined;
+
     const panelCssClass = showBorder
         ? `g2h-content-item-panel border rounded-3 p-3 p-lg-4 ${cssClass}`
         : `g2h-content-item-panel ${cssClass}`;
+
+    const ribbonedPanelCssClass =
+        ribbonLabel != null ? `${panelCssClass} g2h-has-approval-ribbon` : panelCssClass;
 
     const hasHeading = titleText.length > 0;
 
     return (
         <section
-            className={panelCssClass}
+            className={ribbonedPanelCssClass}
             aria-labelledby={hasHeading ? headingId : undefined}
             aria-label={hasHeading ? undefined : ariaLabel}>
+
+            {ribbonLabel != null && (
+                <span
+                    className="g2h-approval-ribbon"
+                    data-approval-status={approvalStatusMemberNames[contentItem!.approvalStatus!]}>
+                    {ribbonLabel}
+                </span>
+            )}
 
             {hasHeading && <h4 className="mb-3" id={headingId}>{titleText}</h4>}
 

@@ -283,6 +283,51 @@ describe('ContentItemItemPanel', () => {
             expect(screen.queryByText('In review')).not.toBeInTheDocument();
             expect(screen.queryByText('Draft')).not.toBeInTheDocument();
         });
+
+        it('should wear no corner ribbon unless the surface opted in', () => {
+            const { container } = renderCard(
+                <ContentItemItemPanel
+                    contentItem={{
+                        ...devotionalItem,
+                        approvalStatus: ApprovalStatus.Approved
+                    }} />);
+
+            expect(container.querySelector('.g2h-approval-ribbon')).toBeNull();
+        });
+
+        it('should wear a corner ribbon carrying the status member name when asked', () => {
+            // The stylesheet colours off the member NAME in data-approval-status — grey
+            // Draft, blue Submitted, green Approved, red Rejected — so the name IS the
+            // colour contract, exactly as the type chip's palette works.
+            const { container } = renderCard(
+                <ContentItemItemPanel
+                    shouldShowRibbons
+                    contentItem={{
+                        ...devotionalItem,
+                        approvalStatus: ApprovalStatus.Rejected
+                    }} />);
+
+            const ribbon = container.querySelector('.g2h-approval-ribbon');
+            expect(ribbon).not.toBeNull();
+            expect(ribbon!.getAttribute('data-approval-status')).toBe('Rejected');
+            expect(ribbon!.textContent).toBe('Rejected');
+        });
+
+        it('should ribbon the ordinary approved case too — that is what opting in means', () => {
+            const { container } = renderCard(
+                <ContentItemItemPanel
+                    shouldShowRibbons
+                    contentItem={{
+                        ...quoteItem,
+                        approvalStatus: ApprovalStatus.Approved
+                    }} />);
+
+            // On the QUOTE template — the ribbon renders on the card root, so a derived
+            // template wears it without writing a line.
+            const ribbon = container.querySelector('.g2h-approval-ribbon');
+            expect(ribbon).not.toBeNull();
+            expect(ribbon!.getAttribute('data-approval-status')).toBe('Approved');
+        });
     });
 
     describe('event hooks', () => {

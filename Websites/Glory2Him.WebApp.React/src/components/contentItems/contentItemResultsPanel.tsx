@@ -28,6 +28,7 @@ export interface ContentItemResultsPanelProps extends ContentItemItemEvents, Con
 
     // Threaded to every card — see ContentItemItemPanel, which owns what it means.
     isModeratedView?: boolean;
+    shouldShowRibbons?: boolean;
 
     // The FIRST page. While it is on, the list is replaced by a spinner rather than being
     // emptied, so a re-search does not flash "nothing found" on its way to results.
@@ -55,6 +56,7 @@ export function ContentItemResultsPanel({
     contentItemCollection = [],
     reactionOptions = [],
     isModeratedView = false,
+    shouldShowRibbons = false,
     isLoading = false,
     isLoadingMore = false,
     hasMore = false,
@@ -127,6 +129,7 @@ export function ContentItemResultsPanel({
                     contentItem={contentItem}
                     reactionOptions={reactionOptions}
                     isModeratedView={isModeratedView}
+                    shouldShowRibbons={shouldShowRibbons}
                     {...itemEventsAndText} />
             ))}
 

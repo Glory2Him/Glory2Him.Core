@@ -108,6 +108,10 @@ export interface ContentItemItemTemplateProps extends ContentItemItemEvents, Con
     moderateButtonIconCss: string;
     moderateButtonLabel: string;
 
+    // Whether the card wears its approval-status corner ribbon — the surface's opt-in,
+    // threaded down from ContentItemSearchPanel.
+    shouldShowRibbons: boolean;
+
     // The two render toggles the dispatching panel owns.
     areReactionCountsExpanded: boolean;
     onAssignedReactionsClick: () => void;
@@ -135,6 +139,31 @@ export const approvalStatusBadgeCssClasses: Readonly<Record<number, string>> = {
     [ApprovalStatus.Submitted]: 'text-bg-warning',
     [ApprovalStatus.Rejected]: 'text-bg-danger',
     [ApprovalStatus.Dismissed]: 'text-bg-secondary'
+};
+
+// THE CORNER RIBBON'S vocabulary, rendered only where a surface opted in with
+// shouldShowRibbons. Unlike the badge, Approved IS present: a surface that asks for ribbons
+// is asking for the status on every card, the ordinary case included. Dismissed stays
+// absent — no shipped surface lists dismissed rows, and a colour for a state nobody shows
+// would be dead vocabulary. The colours live in contentItems.css keyed by
+// data-approval-status — the member NAME — exactly as the type chip's palette does.
+//
+// The member NAMES ride in their own map: ApprovalStatus here is a const object, not a
+// TypeScript enum, so there is no reverse mapping to lean on the way the type chip leans
+// on ContentType[value].
+export const approvalStatusMemberNames: Readonly<Record<number, string>> = {
+    [ApprovalStatus.Draft]: 'Draft',
+    [ApprovalStatus.Submitted]: 'Submitted',
+    [ApprovalStatus.Approved]: 'Approved',
+    [ApprovalStatus.Rejected]: 'Rejected',
+    [ApprovalStatus.Dismissed]: 'Dismissed'
+};
+
+export const approvalStatusRibbonLabels: Readonly<Record<number, string>> = {
+    [ApprovalStatus.Draft]: 'Draft',
+    [ApprovalStatus.Submitted]: 'Submitted',
+    [ApprovalStatus.Approved]: 'Approved',
+    [ApprovalStatus.Rejected]: 'Rejected'
 };
 
 // How each basis reads on the meta row: the READ labels the shareability split defined — a

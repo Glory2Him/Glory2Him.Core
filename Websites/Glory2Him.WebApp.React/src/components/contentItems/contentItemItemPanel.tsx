@@ -46,6 +46,11 @@ export interface ContentItemItemPanelProps extends ContentItemItemEvents, Conten
     // side by side. On, only Moderate renders, wearing Edit's pencil and label: on a surface
     // that IS moderation, the moderation action is simply what editing means.
     isModeratedView?: boolean;
+
+    // Whether the card wears a corner ribbon naming its approval status — coloured by the
+    // stylesheet off data-approval-status. Off by default: the public feed already says
+    // approved by existing.
+    shouldShowRibbons?: boolean;
 }
 
 // THE TEMPLATE REGISTRY. An override renders when one is registered for the item's type; the
@@ -61,6 +66,7 @@ export function ContentItemItemPanel({
     contentItem,
     reactionOptions = [],
     isModeratedView = false,
+    shouldShowRibbons = false,
     onReactionSelected,
     onEditClick,
     onModerateClick,
@@ -156,6 +162,7 @@ export function ContentItemItemPanel({
             showsModerateButton={showsModerateButton}
             moderateButtonIconCss={isModeratedView ? 'bi bi-pencil' : 'bi bi-shield'}
             moderateButtonLabel={isModeratedView ? 'Edit' : 'Moderate'}
+            shouldShowRibbons={shouldShowRibbons}
             onEditClick={onEditClick}
             onModerateClick={onModerateClick}
             areReactionCountsExpanded={areReactionCountsExpanded}

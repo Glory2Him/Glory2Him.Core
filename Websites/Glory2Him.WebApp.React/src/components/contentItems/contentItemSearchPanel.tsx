@@ -72,6 +72,11 @@ export interface ContentItemSearchPanelProps extends ContentItemItemEvents, Cont
     // On, Moderate stands alone on every card, wearing Edit's pencil and label.
     isModeratedView?: boolean;
 
+    // Whether every card wears a corner ribbon naming its approval status: grey Draft,
+    // blue Submitted, green Approved, red Rejected — the colours in contentItems.css,
+    // keyed by data-approval-status. Off by default.
+    shouldShowRibbons?: boolean;
+
     // ── Presentation ──────────────────────────────────────────────────────────
     cssClass?: string;
     ariaLabel?: string;
@@ -101,6 +106,7 @@ export function ContentItemSearchPanel({
     onLoadMore,
     reactionOptions = [],
     isModeratedView = false,
+    shouldShowRibbons = false,
     cssClass = '',
     ariaLabel = 'Content items',
     titleText = '',
@@ -192,6 +198,7 @@ export function ContentItemSearchPanel({
                 contentItemCollection={contentItemCollection}
                 reactionOptions={reactionOptions}
                 isModeratedView={isModeratedView}
+                shouldShowRibbons={shouldShowRibbons}
                 isLoading={isLoading}
                 isLoadingMore={isLoadingMore}
                 hasMore={hasMore}

@@ -7,6 +7,8 @@ import { ContentType } from '../../models/foundations/contentItemSettings/conten
 import {
     approvalStatusBadgeCssClasses,
     approvalStatusBadgeLabels,
+    approvalStatusMemberNames,
+    approvalStatusRibbonLabels,
     ContentItemItemTemplateProps,
     defaultShareabilityBasisLabels
 } from '../../models/components/contentItems/contentItemItemTemplate';
@@ -63,6 +65,7 @@ export function ContentItemItemDefaultPanel({
     moderateButtonIconCss,
     moderateButtonLabel,
     contentSlot,
+    shouldShowRibbons,
     submittedByLabelText = 'Submitted by',
     authorLabelText = 'Author',
     shareabilityLabelText = 'Shareability',
@@ -115,6 +118,15 @@ export function ContentItemItemDefaultPanel({
         || onSaveClick != null
         || showsEditButton
         || showsModerateButton;
+
+    // The corner ribbon: rendered on the card ROOT so every derived template wears it
+    // identically, coloured by the stylesheet off the status member NAME — the same
+    // colour-lives-in-CSS contract the type chip keeps. Dismissed has no ribbon entry, so
+    // an unmapped status simply renders none rather than an unlabelled strip.
+    const ribbonLabel =
+        shouldShowRibbons && contentItem.approvalStatus != null
+            ? approvalStatusRibbonLabels[contentItem.approvalStatus]
+            : undefined;
 
     const renderStatusBadge = (item: ContentItemSearchItem) => {
         const status = item.approvalStatus;
@@ -199,7 +211,17 @@ export function ContentItemItemDefaultPanel({
     );
 
     return (
-        <article className="card border p-3 mb-3 g2h-content-item-card">
+        <article
+            className={`card border p-3 mb-3 g2h-content-item-card${
+                ribbonLabel != null ? ' g2h-has-approval-ribbon' : ''}`}>
+            {ribbonLabel != null && (
+                <span
+                    className="g2h-approval-ribbon"
+                    data-approval-status={approvalStatusMemberNames[contentItem.approvalStatus!]}>
+                    {ribbonLabel}
+                </span>
+            )}
+
             {contentSlot != null ? (
                 <>
                     {badgeRow}

@@ -710,6 +710,45 @@ describe('ContentItemDetailPanel', () => {
         });
     });
 
+    describe('the approval-status ribbon', () => {
+        it('should wear no ribbon unless the surface opted in', () => {
+            signInAs(authState);
+
+            const { container } = renderWithAuth(
+                <ContentItemDetailPanel
+                    contentItem={itemWith({ approvalStatus: ApprovalStatus.Submitted })}
+                    contentItemSettingCollection={settings} />);
+
+            expect(container.querySelector('.g2h-approval-ribbon')).toBeNull();
+        });
+
+        it('should wear the status member name for the stylesheet to colour', () => {
+            signInAs(authState);
+
+            const { container } = renderWithAuth(
+                <ContentItemDetailPanel
+                    shouldShowRibbons
+                    contentItem={itemWith({ approvalStatus: ApprovalStatus.Submitted })}
+                    contentItemSettingCollection={settings} />);
+
+            const ribbon = container.querySelector('.g2h-approval-ribbon');
+            expect(ribbon).not.toBeNull();
+            expect(ribbon!.getAttribute('data-approval-status')).toBe('Submitted');
+            expect(ribbon!.textContent).toBe('Submitted');
+        });
+
+        it('should wear none in add mode — no item, no status', () => {
+            signInAs(authState);
+
+            const { container } = renderWithAuth(
+                <ContentItemDetailPanel
+                    shouldShowRibbons
+                    contentItemSettingCollection={settings} />);
+
+            expect(container.querySelector('.g2h-approval-ribbon')).toBeNull();
+        });
+    });
+
     describe('the self-contained projection', () => {
         // A list surface hands its element over WITH its winning setting; re-resolving
         // from a collection that may not hold the override would silently un-override it.

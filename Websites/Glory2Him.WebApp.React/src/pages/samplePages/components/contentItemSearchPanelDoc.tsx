@@ -340,6 +340,17 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
             + 'moderation, the moderation action is simply what editing means there.'
     },
     {
+        name: 'shouldShowRibbons',
+        type: 'boolean',
+        defaultValue: 'false',
+        description: 'Every card wears a corner ribbon naming its approval status — grey '
+            + 'Draft, blue Submitted, green Approved, red Rejected. The colours live in '
+            + 'contentItems.css keyed by data-approval-status (the member name), the same '
+            + 'colour-lives-in-CSS contract the type chip keeps. Approved IS ribboned: a '
+            + 'surface that opts in is asking for the status on every card. Dismissed has '
+            + 'no ribbon entry.'
+    },
+    {
         name: 'onContentTypeClick / onSubmittedByClick / onAuthorClick / onTagClick',
         type: '(item, …) => void',
         description: 'The filter hooks. The family rewrites the criteria itself; a same-named '
@@ -531,11 +542,21 @@ export function ContentItemSearchPanelDoc() {
                         appears. /MyPosts and the moderation queue set it, because a draft that
                         looks published is the one thing a contributor must never be shown.{' '}
                         <code>Approved</code> shows nothing — it is the ordinary case.
+                        With <code>shouldShowRibbons</code> the status also arrives as a
+                        corner ribbon — and there Approved IS shown, because a surface that
+                        opts in is asking for the status on every card.
                     </>
                 }>
                 <LiveDemo title="Live — draft, in review, approved">
                     <ContentItemSearchPanel
                         contentItemCollection={statusItems}
+                        showSearchBar={false} />
+                </LiveDemo>
+
+                <LiveDemo title="Live — the same rows wearing ribbons">
+                    <ContentItemSearchPanel
+                        contentItemCollection={statusItems}
+                        shouldShowRibbons
                         showSearchBar={false} />
                 </LiveDemo>
             </DocSection>

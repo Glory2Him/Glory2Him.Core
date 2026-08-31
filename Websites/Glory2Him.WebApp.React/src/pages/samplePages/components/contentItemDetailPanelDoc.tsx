@@ -364,6 +364,15 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
             + 'subtracts.'
     },
     {
+        name: 'shouldShowRibbons',
+        type: 'boolean',
+        defaultValue: 'false',
+        description: 'The panel wears a corner ribbon naming the item’s approval status — '
+            + 'grey Draft, blue Submitted, green Approved, red Rejected — coloured by '
+            + 'contentItems.css off data-approval-status. Moot in add mode: an item that '
+            + 'does not exist yet has no status to wear.'
+    },
+    {
         name: 'validationIssues',
         type: 'Record<string, string[]>?',
         description: 'What the API said was wrong, keyed by ITS parameter names. Matched '
