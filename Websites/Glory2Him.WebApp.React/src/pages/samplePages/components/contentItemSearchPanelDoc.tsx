@@ -45,7 +45,7 @@ import { ContentItemSearchPanel } from '../../components/contentItems/contentIte
 // A feed page. The PAGE owns the read, the paging, the redirects and the persistence.
 <ContentItemSearchPanel
     contentItemCollection={items}
-    contentItemSettingCollection={defaultSettings}
+    categorySettingCollection={defaultSettings}
     criteria={criteria}
     onSearch={setCriteria}
     isLoading={isLoading}
@@ -60,9 +60,9 @@ import { ContentItemSearchPanel } from '../../components/contentItems/contentIte
     onBibleReferenceClick={(item, ref) => navigate(bibleReferenceHref(ref), { state: { from } })} />
 
 // A surface that has already decided what it shows turns the bar off and keeps the list.
+// …and needs no settings at all: each element already carries its own.
 <ContentItemSearchPanel
     contentItemCollection={myContributions}
-    contentItemSettingCollection={defaultSettings}
     showSearchBar={false} />
 `;
 
@@ -141,9 +141,10 @@ const demoSettings: ReadonlyArray<ContentItemSetting> = [
     settingFor(ContentType.BibleStudy, 'Bible Study', 'bi-book')
 ];
 
-// A love-only override for ONE item, so the §6.4 per-card resolution is demonstrated rather
-// than described.
-const loveOnlyOverride: ContentItemSetting = settingFor(
+// A love-only setting for ONE element: each item CARRIES its winning row, so making one
+// quote love-only is nothing but handing that one element a different setting — the
+// one-element-swap the projection model is built for.
+const loveOnlySetting: ContentItemSetting = settingFor(
     ContentType.Quote, 'Quotes', 'bi-quote', {
     id: 'setting-quote-override',
     contentItemId: 'quote-2',
@@ -261,14 +262,14 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
             + 'pages; the family appends nothing of its own.'
     },
     {
-        name: 'contentItemSettingCollection',
+        name: 'categorySettingCollection',
         type: 'ContentItemSetting[]',
         defaultValue: '[]',
-        description: 'Each ContentItemItemPanel resolves ITS OWN effective row (§6.4, §12.5.2 '
-            + 'rules 1–2, soft-deleted rows out §6.6), so a mixed collection is safe and every '
-            + 'card gates its features individually: ShowTags, ShowBibleReferences, '
-            + 'ShowReactions/ReactionsAllowed, LimitReactionsToLoveOnly, ShowComments, HasTitle, '
-            + 'HasAuthor. The Category box is built from the defaults among them.'
+        description: 'FOR THE CATEGORY BOX ALONE: the per-type default rows the bar offers '
+            + 'as choices. The cards never read it — each element carries its own winning '
+            + 'setting, resolved by the projection (§6.4: the item’s override beats its '
+            + 'type default), so updating one item is one element swapped by the consumer, '
+            + 'never a refetch of the list.'
     },
     {
         name: 'showSearchBar',
@@ -370,6 +371,7 @@ export function ContentItemSearchPanelDoc() {
         {
             ...demoItems[0],
             id: 'quote-2',
+            contentItemSetting: loveOnlySetting,
             author: 'George Müller',
             content:
                 'The beginning of anxiety is the end of faith, and the beginning of true '
@@ -442,7 +444,6 @@ export function ContentItemSearchPanelDoc() {
                 <LiveDemo title="Live — a mixed page">
                     <ContentItemSearchPanel
                         contentItemCollection={demoItems}
-                        contentItemSettingCollection={demoSettings}
                         showSearchBar={false}
                         onTitleClick={(item) => setLastEvent(`onTitleClick(${item.id})`)}
                         onReadMoreClick={(item) => setLastEvent(`onReadMoreClick(${item.id})`)}
@@ -479,16 +480,15 @@ export function ContentItemSearchPanelDoc() {
                         <code>GET api/Reactions</code>, approved rows only, supplied by the page
                         — and choosing raises <code>onReactionSelected</code>; this demo
                         persists it into page state, exactly the shape of a real consumer.{' '}
-                        <strong>The second quote carries an item-level override</strong> with{' '}
-                        <code>limitReactionsToLoveOnly</code>, so it offers one choice where the
-                        first offers four: the &sect;6.4 resolution running per card, on one
-                        collection.
+                        <strong>The second quote’s ELEMENT carries a love-only setting</strong>{' '}
+                        (<code>limitReactionsToLoveOnly</code>), so it offers one choice where
+                        the first offers four — each element is self-contained, and making one
+                        card differ is nothing but swapping that one element.
                     </>
                 }>
                 <LiveDemo title="Live — react without leaving the list">
                     <ContentItemSearchPanel
                         contentItemCollection={quoteItems}
-                        contentItemSettingCollection={[...demoSettings, loveOnlyOverride]}
                         showSearchBar={false}
                         reactionOptions={reactionOptions}
                         onReactionSelected={(item, reaction) => {
@@ -514,7 +514,7 @@ export function ContentItemSearchPanelDoc() {
                 <LiveDemo title="Live — click a badge, a byline or a pill">
                     <ContentItemSearchPanel
                         contentItemCollection={demoItems}
-                        contentItemSettingCollection={demoSettings}
+                        categorySettingCollection={demoSettings}
                         criteria={criteria}
                         onSearch={(searched) => {
                             setCriteria(searched);
@@ -536,7 +536,6 @@ export function ContentItemSearchPanelDoc() {
                 <LiveDemo title="Live — draft, in review, approved">
                     <ContentItemSearchPanel
                         contentItemCollection={statusItems}
-                        contentItemSettingCollection={demoSettings}
                         showSearchBar={false} />
                 </LiveDemo>
             </DocSection>

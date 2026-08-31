@@ -1,5 +1,6 @@
 import { ApprovalStatus } from '../associations/associationItem';
 import { ShareabilityBasis } from './contentItemFormItem';
+import { ContentItemSetting } from '../../foundations/contentItemSettings/contentItemSetting';
 import { ContentType } from '../../foundations/contentItemSettings/contentType';
 
 export { ApprovalStatus, ShareabilityBasis };
@@ -11,14 +12,27 @@ export { ApprovalStatus, ShareabilityBasis };
 //
 // A page projects whatever it holds down to this shape, so the ContentItemSearchPanel family
 // never depends on the wire entity — the same split AssociationItem and ApprovalReviewItem take.
+//
+// EACH ELEMENT IS SELF-CONTAINED: it carries the item AND its winning setting (and, as the
+// association reads arrive, its tags, references and counts), so a card renders from its one
+// element and consults nothing else. That is what makes an update CHEAP — a reaction given, a
+// tag approved, a setting changed — the page swaps that ONE element in the collection and only
+// that card re-renders; nothing is refetched wholesale.
 export type ContentItemSearchItem = {
     // The template's React key, and what the page routes its detail redirects on.
     id: string;
 
     // Decides WHICH template renders the item — an override where one is registered, the default
-    // otherwise — and which effective ContentItemSetting is resolved for it. The numeric member,
-    // never a display name, exactly as ContentItemFormItem carries it.
+    // otherwise. The numeric member, never a display name, exactly as ContentItemFormItem
+    // carries it.
     contentType: ContentType;
+
+    // THE WINNING SETTING, resolved by the PROJECTION (§6.4 / §12.5.2 rules 1-2: this item's
+    // own override beats its type default, soft-deleted rows excluded §6.6) — so the card
+    // gates every feature (ShowTags, ShowReactions, LimitReactionsToLoveOnly, ShowComments,
+    // HasTitle, HasAuthor) off the one row that actually governs THIS item. Absent, the card
+    // shapes itself from what the item carries, exactly as the detail panel falls back.
+    contentItemSetting?: ContentItemSetting;
 
     // Absent on a type whose effective setting carries no title (a quote). The templates do not
     // invent one: a card with no title leads with its content instead.

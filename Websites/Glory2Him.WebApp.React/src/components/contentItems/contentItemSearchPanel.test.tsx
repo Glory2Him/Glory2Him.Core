@@ -60,6 +60,7 @@ const defaultSettings: ReadonlyArray<ContentItemSetting> = [
 const devotionalItem: ContentItemSearchItem = {
     id: 'devotional-1',
     contentType: ContentType.Devotional,
+    contentItemSetting: settingFor(ContentType.Devotional, 'Devotional'),
     title: 'Walking daily in grace',
     author: 'Miriam Vale',
     content: 'Grace is the daily air.',
@@ -73,6 +74,7 @@ const devotionalItem: ContentItemSearchItem = {
 const quoteItem: ContentItemSearchItem = {
     id: 'quote-1',
     contentType: ContentType.Quote,
+    contentItemSetting: settingFor(ContentType.Quote, 'Quote'),
     author: 'D. L. Moody',
     content: 'Character is what you are in the dark.',
     publishedDate: new Date(2026, 6, 18)
@@ -125,7 +127,7 @@ describe('ContentItemSearchPanel', () => {
             render(
                 <ContentItemSearchPanel
                     contentItemCollection={[quoteItem]}
-                    contentItemSettingCollection={defaultSettings}
+                    categorySettingCollection={defaultSettings}
                     onSearch={onSearch} />);
 
             await userEvent.type(
@@ -154,7 +156,7 @@ describe('ContentItemSearchPanel', () => {
             render(
                 <ContentItemSearchPanel
                     contentItemCollection={[]}
-                    contentItemSettingCollection={[
+                    categorySettingCollection={[
                         settingFor(ContentType.BibleStudy, 'Bible Study', { sortOrder: 9 }),
                         settingFor(ContentType.Quote, 'Quote', { sortOrder: 1 }),
                         settingFor(ContentType.Devotional, 'Devotional', { sortOrder: 5 })
@@ -176,7 +178,7 @@ describe('ContentItemSearchPanel', () => {
             render(
                 <ContentItemSearchPanel
                     contentItemCollection={[]}
-                    contentItemSettingCollection={[
+                    categorySettingCollection={[
                         settingFor(ContentType.BlogPost, 'Blog Post', {
                             isAvailableAsGeneralUserContribution: false
                         }),
@@ -204,7 +206,7 @@ describe('ContentItemSearchPanel', () => {
             render(
                 <ContentItemSearchPanel
                     contentItemCollection={[]}
-                    contentItemSettingCollection={defaultSettings} />);
+                    categorySettingCollection={defaultSettings} />);
 
             await userEvent.click(
                 screen.getByRole('button', { name: 'Advanced search options' }));
@@ -216,7 +218,7 @@ describe('ContentItemSearchPanel', () => {
             render(
                 <ContentItemSearchPanel
                     contentItemCollection={[]}
-                    contentItemSettingCollection={defaultSettings}
+                    categorySettingCollection={defaultSettings}
                     criteria={{
                         ...emptyContentItemSearchCriteria,
                         query: 'moody',
@@ -237,13 +239,13 @@ describe('ContentItemSearchPanel', () => {
             const rendered = render(
                 <ContentItemSearchPanel
                     contentItemCollection={[]}
-                    contentItemSettingCollection={defaultSettings}
+                    categorySettingCollection={defaultSettings}
                     criteria={{ ...emptyContentItemSearchCriteria, query: 'grace' }} />);
 
             rendered.rerender(
                 <ContentItemSearchPanel
                     contentItemCollection={[]}
-                    contentItemSettingCollection={defaultSettings}
+                    categorySettingCollection={defaultSettings}
                     criteria={{ ...emptyContentItemSearchCriteria, query: 'mercy' }} />);
 
             expect(screen.getByRole('searchbox')).toHaveValue('mercy');
@@ -253,7 +255,7 @@ describe('ContentItemSearchPanel', () => {
             render(
                 <ContentItemSearchPanel
                     contentItemCollection={[quoteItem]}
-                    contentItemSettingCollection={defaultSettings}
+                    categorySettingCollection={defaultSettings}
                     showSearchBar={false} />);
 
             expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();
@@ -270,7 +272,7 @@ describe('ContentItemSearchPanel', () => {
             render(
                 <ContentItemSearchPanel
                     contentItemCollection={[devotionalItem]}
-                    contentItemSettingCollection={defaultSettings}
+                    categorySettingCollection={defaultSettings}
                     criteria={emptyContentItemSearchCriteria}
                     onSearch={onSearch} />);
 
@@ -286,7 +288,7 @@ describe('ContentItemSearchPanel', () => {
             render(
                 <ContentItemSearchPanel
                     contentItemCollection={[devotionalItem]}
-                    contentItemSettingCollection={defaultSettings}
+                    categorySettingCollection={defaultSettings}
                     criteria={{
                         ...emptyContentItemSearchCriteria,
                         contentType: ContentType.Devotional
@@ -305,7 +307,7 @@ describe('ContentItemSearchPanel', () => {
             render(
                 <ContentItemSearchPanel
                     contentItemCollection={[devotionalItem]}
-                    contentItemSettingCollection={defaultSettings}
+                    categorySettingCollection={defaultSettings}
                     criteria={emptyContentItemSearchCriteria}
                     onSearch={onSearch} />);
 
@@ -323,7 +325,7 @@ describe('ContentItemSearchPanel', () => {
             render(
                 <ContentItemSearchPanel
                     contentItemCollection={[devotionalItem]}
-                    contentItemSettingCollection={defaultSettings}
+                    categorySettingCollection={defaultSettings}
                     criteria={emptyContentItemSearchCriteria}
                     onSearch={onSearch} />);
 
@@ -339,7 +341,7 @@ describe('ContentItemSearchPanel', () => {
             render(
                 <ContentItemSearchPanel
                     contentItemCollection={[devotionalItem]}
-                    contentItemSettingCollection={defaultSettings}
+                    categorySettingCollection={defaultSettings}
                     criteria={emptyContentItemSearchCriteria}
                     onSearch={onSearch} />);
 
@@ -357,7 +359,7 @@ describe('ContentItemSearchPanel', () => {
             render(
                 <ContentItemSearchPanel
                     contentItemCollection={[devotionalItem]}
-                    contentItemSettingCollection={defaultSettings}
+                    categorySettingCollection={defaultSettings}
                     criteria={{
                         ...emptyContentItemSearchCriteria,
                         submittedBy: { id: 'account-joan', name: 'Joan' },
@@ -390,7 +392,7 @@ describe('ContentItemSearchPanel', () => {
             render(
                 <ContentItemSearchPanel
                     contentItemCollection={[]}
-                    contentItemSettingCollection={defaultSettings}
+                    categorySettingCollection={defaultSettings}
                     isLoading />);
 
             expect(screen.getByText('Loading…')).toBeInTheDocument();
@@ -401,7 +403,7 @@ describe('ContentItemSearchPanel', () => {
             render(
                 <ContentItemSearchPanel
                     contentItemCollection={[]}
-                    contentItemSettingCollection={defaultSettings} />);
+                    categorySettingCollection={defaultSettings} />);
 
             expect(screen.getByText('Nothing matched that search.')).toBeInTheDocument();
         });
@@ -415,7 +417,7 @@ describe('ContentItemSearchPanel', () => {
             render(
                 <ContentItemSearchPanel
                     contentItemCollection={[quoteItem, devotionalItem]}
-                    contentItemSettingCollection={defaultSettings}
+                    categorySettingCollection={defaultSettings}
                     hasMore
                     onLoadMore={onLoadMore} />);
 
@@ -431,7 +433,7 @@ describe('ContentItemSearchPanel', () => {
             render(
                 <ContentItemSearchPanel
                     contentItemCollection={[quoteItem]}
-                    contentItemSettingCollection={defaultSettings}
+                    categorySettingCollection={defaultSettings}
                     hasMore={false}
                     onLoadMore={onLoadMore} />);
 
@@ -448,7 +450,7 @@ describe('ContentItemSearchPanel', () => {
             render(
                 <ContentItemSearchPanel
                     contentItemCollection={[quoteItem]}
-                    contentItemSettingCollection={defaultSettings}
+                    categorySettingCollection={defaultSettings}
                     hasMore
                     isLoadingMore
                     onLoadMore={onLoadMore} />);
@@ -466,7 +468,7 @@ describe('ContentItemSearchPanel', () => {
             render(
                 <ContentItemSearchPanel
                     contentItemCollection={[quoteItem]}
-                    contentItemSettingCollection={defaultSettings}
+                    categorySettingCollection={defaultSettings}
                     hasMore
                     onLoadMore={onLoadMore} />);
 
@@ -481,7 +483,7 @@ describe('ContentItemSearchPanel', () => {
             render(
                 <ContentItemSearchPanel
                     contentItemCollection={[quoteItem]}
-                    contentItemSettingCollection={defaultSettings}
+                    categorySettingCollection={defaultSettings}
                     hasMore
                     onLoadMore={vi.fn()} />);
 

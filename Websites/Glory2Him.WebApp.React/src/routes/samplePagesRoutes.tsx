@@ -7,10 +7,37 @@ import securityPoints from '../securityMatrix';
 
 // The demos are admin-only reference pages, so they are code-split out of the main
 // bundle: each page loads on first visit (React.lazy), keeping the public bundle lean.
+//
+// A FAILED CHUNK FETCH RELOADS THE PAGE, ONCE. The chunks carry content hashes, so every
+// redeploy renames them — and a browser still running the previous build asks for a chunk that
+// no longer exists the first time it opens one of these pages after a deploy. That is not a
+// bug in the page; the app underneath it is simply stale, and a reload picks up the fresh
+// index and its chunk names. Guarded through sessionStorage so a chunk that GENUINELY cannot
+// load (a broken build, no network) surfaces as the error page rather than a reload loop.
+const reloadGuardKey = 'g2h-chunk-reload';
+
 const lazyNamed = <T extends Record<string, ComponentType>, K extends keyof T & string>(
     loader: () => Promise<T>,
     exportName: K) =>
-    lazy(async () => ({ default: (await loader())[exportName] }));
+    lazy(async () => {
+        try {
+            const module = await loader();
+            sessionStorage.removeItem(reloadGuardKey);
+
+            return { default: module[exportName] };
+        } catch (loadError) {
+            if (sessionStorage.getItem(reloadGuardKey) == null) {
+                sessionStorage.setItem(reloadGuardKey, 'reloading');
+                window.location.reload();
+
+                // Unresolved on purpose: the page is reloading, and rendering anything now
+                // would flash the error boundary on its way out.
+                return await new Promise<never>(() => { });
+            }
+
+            throw loadError;
+        }
+    });
 
 const AssociationPanelDoc = lazyNamed(() => import('../pages/samplePages/components/associationPanelDoc'), 'AssociationPanelDoc');
 const BibleReferenceAssociationPanelDoc = lazyNamed(() => import('../pages/samplePages/components/bibleReferenceAssociationPanelDoc'), 'BibleReferenceAssociationPanelDoc');

@@ -60,18 +60,23 @@ export const Home = () => {
         fetchNextPage
     } = contentItemService.useSearchContentItems(criteria, { scope: 'public' });
 
-    const contentItems = useMemo(
-        () => (data?.pages ?? [])
-            .flatMap((page) => page.items)
-            .map(toContentItemSearchItem),
+    const loadedContentItems = useMemo(
+        () => (data?.pages ?? []).flatMap((page) => page.items),
         [data]);
 
-    // Defaults PLUS the overrides of exactly the items on screen, so the panel's per-item
-    // resolution has the specific rows to prefer — a quote whose comments are switched off
-    // by its own override row renders that way here, not just on its detail page.
+    // Defaults PLUS the overrides of exactly the items on screen — the rows the PROJECTION
+    // resolves each item's winner from, so a quote whose comments are switched off by its own
+    // override row renders that way here, not just on its detail page.
     const { data: contentItemSettings } =
         contentItemSettingService.useGetEffectiveSettingsFor(
-            contentItems.map((item) => item.id));
+            loadedContentItems.map((item) => item.id));
+
+    // Each element leaves here SELF-CONTAINED — the item and its winning setting together —
+    // so the panels consult no collection, and updating one item is one element swapped.
+    const contentItems = useMemo(
+        () => loadedContentItems.map(
+            (item) => toContentItemSearchItem(item, contentItemSettings ?? [])),
+        [loadedContentItems, contentItemSettings]);
 
     const search = (searched: ContentItemSearchCriteria) =>
         setSearchParams(toContentItemSearchParams(searched));
@@ -120,7 +125,7 @@ export const Home = () => {
                                 <ContentItemSearchPanel
                                     ariaLabel="The journal"
                                     contentItemCollection={withViewerReactions(contentItems)}
-                                    contentItemSettingCollection={contentItemSettings ?? []}
+                                    categorySettingCollection={contentItemSettings ?? []}
                                     criteria={criteria}
                                     onSearch={search}
                                     isLoading={isLoading}

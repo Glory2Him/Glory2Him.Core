@@ -1,5 +1,7 @@
 import { ContentItem } from '../../../models/foundations/contentItems/contentItem';
+import { ContentItemSetting } from '../../../models/foundations/contentItemSettings/contentItemSetting';
 import { ContentType } from '../../../models/foundations/contentItemSettings/contentType';
+import { resolveContentItemSetting } from './resolveContentItemSetting';
 
 import {
     ContentItemSearchItem
@@ -50,9 +52,19 @@ const placeholderImageUrls: Partial<Readonly<Record<ContentType, string>>> = {
 export const placeholderImageUrlFor = (contentType: ContentType): string | undefined =>
     placeholderImageUrls[contentType];
 
-export const toContentItemSearchItem = (contentItem: ContentItem): ContentItemSearchItem => ({
+// THE RESOLUTION HAPPENS HERE, at projection time: the shared §6.4 resolver picks THIS item's
+// winner from whatever rows the page holds — its own override first, its type default behind
+// it — and the element carries that one row from then on. The panels consult no collection;
+// each card renders from its self-contained element, and a settings change means swapping ONE
+// element rather than refetching a list.
+export const toContentItemSearchItem = (
+    contentItem: ContentItem,
+    contentItemSettingCollection: ReadonlyArray<ContentItemSetting> = []): ContentItemSearchItem => ({
     id: contentItem.id,
     contentType: contentItem.contentType,
+
+    contentItemSetting: resolveContentItemSetting(
+        contentItemSettingCollection, contentItem.contentType, contentItem.id),
     title: contentItem.title ?? undefined,
     author: contentItem.author ?? undefined,
     content: contentItem.content,

@@ -40,12 +40,15 @@ import './contentItems.css';
 // stamps the origin into router state so the destination can offer a true way back.
 export interface ContentItemSearchPanelProps extends ContentItemItemEvents, ContentItemItemText {
     // ── Subject ───────────────────────────────────────────────────────────────
-    // The ACCUMULATED results — the consumer's infinite query keeps the pages.
+    // The ACCUMULATED results — the consumer's infinite query keeps the pages. Each element
+    // is SELF-CONTAINED: it carries the item and its winning setting, resolved by the
+    // projection, so a card consults nothing beyond its own element — and updating one item
+    // is one element swapped by the consumer, never a refetch of the list.
     contentItemCollection?: ReadonlyArray<ContentItemSearchItem>;
 
-    // The rows every card resolves its OWN effective setting from (§6.4 / §12.5.2), and the
-    // Category box is built from the defaults among them.
-    contentItemSettingCollection?: ReadonlyArray<ContentItemSetting>;
+    // FOR THE CATEGORY BOX ALONE: the per-type default rows the bar offers as choices. The
+    // cards never read this — their settings ride on their own elements.
+    categorySettingCollection?: ReadonlyArray<ContentItemSetting>;
 
     // ── Search ────────────────────────────────────────────────────────────────
     // Off leaves the list alone — right for a surface that has already decided what it shows.
@@ -88,7 +91,7 @@ export interface ContentItemSearchPanelProps extends ContentItemItemEvents, Cont
 
 export function ContentItemSearchPanel({
     contentItemCollection = [],
-    contentItemSettingCollection = [],
+    categorySettingCollection = [],
     showSearchBar = true,
     criteria,
     onSearch,
@@ -176,7 +179,7 @@ export function ContentItemSearchPanel({
                     <ContentItemSearchBarPanel
                         criteria={committedCriteria}
                         onSearch={onSearch}
-                        contentItemSettingCollection={contentItemSettingCollection}
+                        contentItemSettingCollection={categorySettingCollection}
                         placeholderText={searchPlaceholderText}
                         categoryLabelText={categoryLabelText}
                         anyCategoryText={anyCategoryText}
@@ -187,7 +190,6 @@ export function ContentItemSearchPanel({
 
             <ContentItemResultsPanel
                 contentItemCollection={contentItemCollection}
-                contentItemSettingCollection={contentItemSettingCollection}
                 reactionOptions={reactionOptions}
                 isModeratedView={isModeratedView}
                 isLoading={isLoading}

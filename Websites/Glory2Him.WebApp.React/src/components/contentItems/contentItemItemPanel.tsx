@@ -3,13 +3,10 @@ import { useAuth } from '../securitys/authProvider';
 import { ContentItemItemDefaultPanel } from './contentItemItemDefaultPanel';
 import { ContentItemItemQuotesPanel } from './contentItemItemQuotesPanel';
 import { ContentItemItemVersesPanel } from './contentItemItemVersesPanel';
-import { ContentItemSetting } from '../../models/foundations/contentItemSettings/contentItemSetting';
-import { ContentType } from '../../models/foundations/contentItemSettings/contentType';
-
 import {
-    contentTypeNameOf,
-    resolveContentItemSetting
-} from '../../services/views/contentItems/resolveContentItemSetting';
+    ContentType,
+    contentTypeLabels
+} from '../../models/foundations/contentItemSettings/contentType';
 
 import {
     ContentItemItemEvents,
@@ -33,14 +30,11 @@ import './contentItems.css';
 // fetching, no mutation. Every On{X} either adjusts what is RENDERED (the two toggles it keeps
 // for itself) or bubbles to the consumer, which owns filters, redirects and persistence.
 export interface ContentItemItemPanelProps extends ContentItemItemEvents, ContentItemItemText {
+    // SELF-CONTAINED: the element carries the item AND its winning setting, resolved by the
+    // projection (§6.4). This panel consults no collection — every gate below reads the one
+    // row that governs this item, so a mixed page is safe by construction and updating one
+    // item is one element swapped by the consumer.
     contentItem: ContentItemSearchItem;
-
-    // The rows the consumer holds. THIS panel resolves the item's OWN effective row (§6.4,
-    // §12.5.2 rules 1-2: item override beats type default, soft-deleted rows excluded §6.6), so
-    // a mixed collection is safe and every card gates its features individually — ShowTags,
-    // ShowBibleReferences, ShowReactions, LimitReactionsToLoveOnly, ShowComments, HasTitle,
-    // HasAuthor.
-    contentItemSettingCollection?: ReadonlyArray<ContentItemSetting>;
 
     // The reaction choices behind the Like control — pulled by the page from GET api/Reactions
     // (approved rows only) and handed over. Empty means no card offers one, whatever the
@@ -65,7 +59,6 @@ const templateOverrides:
 
 export function ContentItemItemPanel({
     contentItem,
-    contentItemSettingCollection = [],
     reactionOptions = [],
     isModeratedView = false,
     onReactionSelected,
@@ -79,11 +72,14 @@ export function ContentItemItemPanel({
     const [areReactionCountsExpanded, setAreReactionCountsExpanded] = useState(false);
     const [isReactionPickerOpen, setIsReactionPickerOpen] = useState(false);
 
-    const contentItemSetting = resolveContentItemSetting(
-        contentItemSettingCollection, contentItem.contentType, contentItem.id);
+    // The winner rode in on the element. The name falls back to the fixed enum label, which
+    // exists for every member and so is never empty — the same rule contentTypeNameOf keeps.
+    const contentItemSetting = contentItem.contentItemSetting;
 
-    const contentTypeName = contentTypeNameOf(
-        contentItemSettingCollection, contentItem.contentType, contentItem.id);
+    const contentTypeName =
+        contentItemSetting?.contentTypeName
+        ?? contentTypeLabels[contentItem.contentType]
+        ?? '';
 
     // What this card may OFFER, decided against its own effective row. Both halves of the §6.5
     // pair are asked — ReactionsAllowed says the type accepts them, ShowReactions says this

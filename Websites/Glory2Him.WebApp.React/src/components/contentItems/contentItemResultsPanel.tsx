@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { ContentItemItemPanel } from './contentItemItemPanel';
 import { Spinner } from '../coreUI/spinner';
-import { ContentItemSetting } from '../../models/foundations/contentItemSettings/contentItemSetting';
 
 import {
     ContentItemItemEvents,
@@ -20,12 +19,9 @@ import './contentItems.css';
 // keeps the pages; this panel appends nothing of its own), and the panel's whole contribution
 // to paging is noticing that its foot came into view and saying so.
 export interface ContentItemResultsPanelProps extends ContentItemItemEvents, ContentItemItemText {
-    // The accumulated results as they stand.
+    // The accumulated results as they stand — each element SELF-CONTAINED, carrying its item
+    // and its winning setting, so a card consults nothing beyond its own element.
     contentItemCollection?: ReadonlyArray<ContentItemSearchItem>;
-
-    // Passed through to each item panel, which resolves its item's OWN effective row — the
-    // per-card settings awareness lives there, not here.
-    contentItemSettingCollection?: ReadonlyArray<ContentItemSetting>;
 
     // The reaction choices behind every card's Like control.
     reactionOptions?: ReadonlyArray<ContentItemReactionOption>;
@@ -57,7 +53,6 @@ export interface ContentItemResultsPanelProps extends ContentItemItemEvents, Con
 
 export function ContentItemResultsPanel({
     contentItemCollection = [],
-    contentItemSettingCollection = [],
     reactionOptions = [],
     isModeratedView = false,
     isLoading = false,
@@ -130,7 +125,6 @@ export function ContentItemResultsPanel({
                 <ContentItemItemPanel
                     key={contentItem.id}
                     contentItem={contentItem}
-                    contentItemSettingCollection={contentItemSettingCollection}
                     reactionOptions={reactionOptions}
                     isModeratedView={isModeratedView}
                     {...itemEventsAndText} />
