@@ -6,8 +6,8 @@ import { ContentType } from '../../models/foundations/contentItemSettings/conten
 
 import {
     ShareabilityBasis,
-    shareabilityBasisMembers,
-    shareabilityBasisReadLabels
+    shareabilityBasisLabels,
+    shareabilityBasisMembers
 } from '../../models/components/contentItems/contentItemFormItem';
 
 import {
@@ -248,8 +248,10 @@ export function ContentItemSearchBarPanel({
                                     setDraftSubmittedByName(event.target.value)} />
                         </div>
 
-                        {/* The basis is a small closed set, so it is a list — the READ labels,
-                            which is how a basis is described to a reader everywhere else. */}
+                        {/* The basis is a small closed set, so it is a list — the PICKER
+                            labels rather than the read ones, because the read labels collapse
+                            the owned and non-owned members into the same words and a filter
+                            whose options repeat is a filter nobody can use. */}
                         <div className="col-sm-6">
                             <label className="form-label" htmlFor={`${fieldId}-shareability`}>
                                 {shareabilityLabelText}
@@ -267,7 +269,7 @@ export function ContentItemSearchBarPanel({
 
                                 {shareabilityBasisMembers.map((basis) => (
                                     <option key={basis} value={String(basis)}>
-                                        {shareabilityBasisReadLabels[basis]}
+                                        {shareabilityBasisLabels[basis]}
                                     </option>
                                 ))}
                             </select>
