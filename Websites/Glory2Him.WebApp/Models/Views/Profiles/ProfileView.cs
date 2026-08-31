@@ -18,6 +18,11 @@ namespace Glory2Him.WebApp.Models.Views.Profiles
         public string Email { get; set; } = string.Empty;
         public bool HasProfileImage { get; set; }
 
+        // The friendly name AppUser composes (preferred name, else "Name Surname", else the
+        // username). Carried here so a caller that needs a person's name and avatar together
+        // reads the row once — the public contributor summary is exactly that caller.
+        public string DisplayName { get; set; } = string.Empty;
+
         // Short content hash used to bust the browser cache when the image changes.
         public string? ImageVersion { get; set; }
 

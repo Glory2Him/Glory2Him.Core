@@ -215,12 +215,12 @@ describe('Component reference pages', () => {
             const demoBody = (title: string): HTMLElement =>
                 screen.getByText(title).closest('.card')?.querySelector('.card-body') as HTMLElement;
 
-            expect(within(demoBody('Live — default only')).getByText('By Grace Abara'))
+            expect(within(demoBody('Live — default only')).getByText('Grace Abara'))
                 .toBeInTheDocument();
 
             expect(within(demoBody(
                 'Live — the same item, with its override in the collection'))
-                .queryByText('By Grace Abara')).not.toBeInTheDocument();
+                .queryByText('Grace Abara')).not.toBeInTheDocument();
         });
 
         it('should show the actions only where isEditingAllowed lets the roles decide', () => {

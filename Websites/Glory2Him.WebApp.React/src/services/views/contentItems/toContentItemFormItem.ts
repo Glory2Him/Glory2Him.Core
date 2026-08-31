@@ -21,6 +21,7 @@ export const toContentItemFormItem = (contentItem: ContentItem): ContentItemForm
     shareabilityBasis: contentItem.shareabilityBasis,
     sharePermission: contentItem.sharePermission ?? '',
     createdBy: contentItem.createdBy,
+    createdWhen: contentItem.createdWhen,
     approvalStatus: contentItem.approvalStatus,
     isDeleted: contentItem.isDeleted
 });

@@ -166,7 +166,28 @@ const storyByAnother: ContentItemFormItem = {
     shareabilityBasis: ShareabilityBasis.PermissionGranted,
     sharePermission: 'Permission granted by the author by email, 12 Jan 2026',
     createdBy: 'another-user',
+    createdWhen: '2026-07-15T09:14:00+00:00',
     approvalStatus: ApprovalStatus.Submitted
+};
+
+// The same contribution, told by the person it happened to, and signed with the name the form
+// prefilled for her. The Author column disappears on the read surface — not because an owned basis
+// removes it, but because it would be printing "Grace Abara" twice.
+const storyReleasedByItsAuthor: ContentItemFormItem = {
+    ...storyByAnother,
+    id: 'content-item-3',
+    author: 'Grace Abara',
+    shareabilityBasis: ShareabilityBasis.OwnedPublicDomain,
+    sharePermission: '',
+    createdWhen: '2026-07-15T09:14:00+00:00'
+};
+
+// The same again, published under a pen name. Now the Author column has something to say that
+// "Submitted by" does not, so it comes back.
+const storyUnderAPenName: ContentItemFormItem = {
+    ...storyReleasedByItsAuthor,
+    id: 'content-item-4',
+    author: 'A. Pilgrim'
 };
 
 const approvedStory: ContentItemFormItem = {
@@ -211,9 +232,38 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
         name: 'showItemTitle',
         type: 'boolean',
         defaultValue: 'true',
-        description: 'Whether the read surface renders the item\u2019s own title. A page whose whole '
-            + 'subject is this one item states it in its own h1 and turns this off, so the '
-            + 'heading is not said twice \u2014 /posts/{id} does exactly that.'
+        description: 'Whether the read surface renders the item\u2019s own title. Off for a '
+            + 'consumer that has already stated the title itself, so the heading is not said '
+            + 'twice.'
+    },
+    {
+        name: 'titleHeadingLevel',
+        type: "'h1' | 'h2' | 'h3' | 'h4'",
+        defaultValue: "'h3'",
+        description: 'Which heading the read surface renders the title as. h3 suits a panel '
+            + 'sitting among other content; a page whose whole subject is this item raises it to '
+            + 'h1 and keeps the title where the design puts it \u2014 under the type chip \u2014 rather '
+            + 'than duplicating it above the panel to get the outline right. /posts/{id} does '
+            + 'exactly that.'
+    },
+    {
+        name: 'submittedByDisplayName / submittedByImageUrl / submittedByHref',
+        type: 'string?',
+        description: 'The byline identity. The item carries only createdBy \u2014 an ACCOUNT ID, '
+            + 'because two accounts can share a name \u2014 so the consumer resolves it '
+            + '(GET /api/contributors/{id}) and hands it over; the panel fetches nothing. Absent, '
+            + 'the block is omitted rather than showing a placeholder under somebody\u2019s '
+            + 'testimony. No image url falls back to the initials avatar; no href renders the '
+            + 'name as plain text.'
+    },
+    {
+        name: 'readingTimeMinutes / reactionCount / commentCount / viewCount',
+        type: 'number?',
+        description: 'The figures reading under the byline. Each is INDEPENDENTLY optional and '
+            + 'undefined leaves it out rather than rendering a zero \u2014 \u201c0 comments\u201d asserts '
+            + 'that the conversation is empty, which is not the same as a surface with nothing to '
+            + 'report. None of them are computed here: reading time is a function of the content '
+            + '(readingTimeMinutesOf), and the counts are separate reads the consumer gathers.'
     },
     {
         name: 'isLoading',
@@ -269,6 +319,37 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
         type: 'string',
         description: 'submitButtonCssClass, editButtonCssClass, deleteButtonCssClass \u2014 CSS '
             + 'classes rather than colours, so every control follows the light/dark theme.'
+    },
+    {
+        name: 'the type chip\u2019s colour',
+        type: '\u2014',
+        description: 'Not a prop. The chip carries the type\u2019s enum MEMBER NAME in '
+            + 'data-content-type and sets no colour at all; contentItems.css keys the palette off '
+            + 'that attribute. So recolouring a type is a stylesheet edit, a type nobody has '
+            + 'chosen a colour for arrives neutral rather than borrowing another\u2019s, and the '
+            + 'picker is live \u2014 the attribute IS the selector, so moving the selection '
+            + 're-resolves the cascade with nothing wired between them. The member name rather '
+            + 'than the editable contentTypeName, so a rename cannot detach a type from its '
+            + 'colour.'
+    },
+    {
+        name: 'the author field, under an owned basis',
+        type: '\u2014',
+        description: 'Not a prop either. An owned basis PREFILLS this field with the '
+            + 'contributor\u2019s display name rather than removing it \u2014 the basis says who wrote '
+            + 'it, not what they want to be called for it. It fills an empty field only, and only '
+            + 'until the contributor touches it, so an author already on the item is never '
+            + 'overwritten and a pen name is never reverted; on an amendment the name comes from '
+            + 'the submitter, not the editor. The type\u2019s own hasAuthor still decides whether '
+            + 'the field exists at all.'
+    },
+    {
+        name: 'the author column, on the read surface',
+        type: '\u2014',
+        description: 'Rendered unless it would print ONE PERSON TWICE \u2014 the author and the '
+            + 'submitter being the same name, compared case- and accent-insensitively. A pen name '
+            + 'says something \u201cSubmitted by\u201d does not, so it shows; and while the submitter is '
+            + 'still unresolved nothing is known to be duplicated, so it shows then too.'
     },
     {
         name: 'isEditingAllowed',
@@ -462,6 +543,78 @@ export function ContentItemDetailPanelDoc() {
                             Title: ['Text is required'],
                             ContentHash: ['A content item already exists with the same content.']
                         }} />
+                </LiveDemo>
+            </DocSection>
+
+            <DocSection
+                title="The read surface, whole"
+                lead={
+                    <>
+                        The type&rsquo;s chip, the title at the heading level the page asked for,
+                        and the byline: who contributed it, who wrote it, and what may be done
+                        with it, with the article&rsquo;s figures reading underneath.
+                        {' '}
+                        <strong>None of it is fetched here.</strong> The item carries only{' '}
+                        <code>createdBy</code>, an account id — the consumer resolves that against{' '}
+                        <code>/api/contributors/{'{id}'}</code> and hands over the name and the
+                        avatar, and the counts are its to gather too.
+                        {' '}
+                        Every part is optional: hand over nothing and the block disappears rather
+                        than showing a placeholder under somebody&rsquo;s testimony.
+                    </>
+                }>
+                <LiveDemo>
+                    <ContentItemPanel
+                        contentItem={storyByAnother}
+                        contentItemSettingCollection={demoSettings}
+                        titleHeadingLevel="h2"
+                        submittedByDisplayName="Louis Ferguson"
+                        readingTimeMinutes={5}
+                        reactionCount={257}
+                        commentCount={4}
+                        viewCount={2344} />
+                </LiveDemo>
+            </DocSection>
+
+            <DocSection
+                title="An owned basis prefills the author, it does not remove it"
+                lead={
+                    <>
+                        Choosing one of the <em>It&rsquo;s my own</em> options puts the
+                        contributor&rsquo;s own display name in the Author field —{' '}
+                        <strong>the field stays</strong>, because the basis says who wrote it but
+                        not what they want to be called for it, and a contributor may publish
+                        under a pen name, an initial, or a maiden name.
+                        {' '}
+                        The prefill fills an <em>empty</em> field and only until they touch it, so
+                        opening an existing contribution never overwrites the author already on
+                        it, and a name they typed is never reverted. On an amendment the name
+                        comes from the <em>submitter</em>, not from whoever opened the editor.
+                        {' '}
+                        Try the add demo at the top of this page: the Author box arrives filled
+                        in, and switching to <em>It&rsquo;s public domain</em> empties it again.
+                    </>
+                }>
+                <LiveDemo title="Read — the author IS the submitter, so it is said once">
+                    <ContentItemPanel
+                        contentItem={storyReleasedByItsAuthor}
+                        contentItemSettingCollection={demoSettings}
+                        titleHeadingLevel="h2"
+                        submittedByDisplayName="Grace Abara"
+                        readingTimeMinutes={5}
+                        reactionCount={1}
+                        commentCount={0} />
+                </LiveDemo>
+
+                <LiveDemo title="Read — a pen name, which the submitter column does not say">
+                    <ContentItemPanel
+                        contentItem={storyUnderAPenName}
+                        contentItemSettingCollection={demoSettings}
+                        titleHeadingLevel="h2"
+                        submittedByDisplayName="Grace Abara"
+                        readingTimeMinutes={5}
+                        reactionCount={1}
+                        commentCount={0} />
                 </LiveDemo>
             </DocSection>
 

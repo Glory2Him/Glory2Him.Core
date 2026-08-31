@@ -121,6 +121,7 @@ app.MapUserAdminApiEndpoints();
 app.MapProfileApiEndpoints();
 app.MapManageAccountApiEndpoints();
 app.MapFrontendConfigurationApiEndpoints();
+app.MapContributorApiEndpoints();
 
 // Serves a user's stored profile avatar (or 404 → the UI falls back to an initials avatar).
 // The URL carries a content-hash version (?v=), so the image is safely long-cached and busts

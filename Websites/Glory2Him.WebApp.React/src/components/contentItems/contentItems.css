@@ -18,10 +18,195 @@ section.g2h-content-item-panel {
     overflow-wrap: break-word;
 }
 
+/* The item's own title on the read surface. The element is the CONSUMER's choice — h3 among other
+   content, h1 on a page whose whole subject is this item (titleHeadingLevel) — so the size is
+   pinned here rather than left to whichever heading was picked. A title that grew or shrank
+   because a page needed a different outline would be the tag leaking into the design.
+
+   clamp keeps it from overwhelming a narrow column while still reading as the page's subject on a
+   wide one. */
+.g2h-content-item-title {
+    font-size: clamp(1.75rem, 1.2rem + 2.2vw, 2.75rem);
+    line-height: 1.2;
+    overflow-wrap: break-word;
+}
+
+/* ── The type chip ────────────────────────────────────────────────────────── */
+
+/* THE COLOUR OF A CONTENT TYPE LIVES IN THIS FILE AND NOWHERE ELSE.
+
+   The panel renders the type's enum MEMBER NAME into data-content-type and sets no colour at all;
+   every rule below keys off that attribute. Three things follow, and all three are the point:
+
+     1. Recolouring a type is a stylesheet edit. No component changes, no setting column, no
+        deployment of TypeScript to make a testimony amber.
+     2. The selection drives the colour with nothing wired between them. In `add` the attribute is
+        rendered from whichever type the picker is currently on, so moving the picker changes the
+        selector the cascade matches and the chip repaints — there is no state, no effect and no
+        class-name arithmetic in between.
+     3. A type nobody has chosen a colour for gets the neutral default below rather than
+        inheriting one meant for a different type. Seeding a new ContentType therefore cannot make
+        an existing type's colour wrong; it just arrives grey until somebody picks.
+
+   The member name is the key rather than the setting's ContentTypeName because an administrator
+   may rename a type at any time, and a rename must not silently detach a type from its colour. */
+
+.g2h-content-item-chip {
+    /* The neutral default, and the fallback for any type without a rule of its own. Both are
+       theme tokens, so an uncoloured chip follows light and dark mode on its own. */
+    --g2h-chip-bg: var(--bs-secondary-bg);
+    --g2h-chip-fg: var(--bs-body-color);
+
+    display: inline-flex;
+    align-items: center;
+    padding: 0.4rem 0.85rem;
+    border-radius: 999px;
+    background-color: var(--g2h-chip-bg);
+    color: var(--g2h-chip-fg);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: 0.01em;
+}
+
+/* THE PALETTE, declared once per type and read by BOTH the chip and the selected picker tile.
+   One block, two selectors: when the values lived in two separate lists, the same type could be
+   given two different colours in two places, and two DIFFERENT types could quietly be given the
+   same one. Adding a content type means adding one block here, and nothing else needs to know.
+
+   Literal colours rather than theme tokens: the chip is a solid block of its own colour in both
+   light and dark mode, so it must not follow the page's background — a token that flipped
+   underneath it would take the foreground's contrast with it.
+
+   THE VALUES ARE MEASURED, NOT PICKED BY EYE. Every pair of fills is at least 23 CIEDE2000 apart
+   — comfortably past the ~10 where two colours stop being confusable, and well past the 13.5 that
+   an earlier indigo Quote and blue Devotional sat at, which read on the page as the same colour.
+   Every fill also clears WCAG AA against its own foreground, the tightest being Series at 4.93:1.
+
+   Eight saturated hues crowd at the warm and the cool end, so Topic — the one fill with no hue to
+   carry it — is measured against the PAGE as well: a neutral is the only colour here that can
+   collide with the background rather than with another type.
+
+   Re-measure before changing one. A colour that looks distinct on its own can still be
+   indistinguishable from the type two rows down, which is exactly how the first pair went wrong. */
+.g2h-content-item-chip[data-content-type="Quote"],
+.g2h-content-item-type-selected[data-content-type="Quote"] {
+    --g2h-chip-bg: #ba5cf2;
+    --g2h-chip-fg: #14171c;
+}
+
+.g2h-content-item-chip[data-content-type="Story"],
+.g2h-content-item-type-selected[data-content-type="Story"] {
+    --g2h-chip-bg: #12b76a;
+    --g2h-chip-fg: #14171c;
+}
+
+.g2h-content-item-chip[data-content-type="Testimony"],
+.g2h-content-item-type-selected[data-content-type="Testimony"] {
+    --g2h-chip-bg: #f7c32e;
+    --g2h-chip-fg: #14171c;
+}
+
+.g2h-content-item-chip[data-content-type="Devotional"],
+.g2h-content-item-type-selected[data-content-type="Devotional"] {
+    --g2h-chip-bg: #1668dc;
+    --g2h-chip-fg: #ffffff;
+}
+
+.g2h-content-item-chip[data-content-type="BibleStudy"],
+.g2h-content-item-type-selected[data-content-type="BibleStudy"] {
+    --g2h-chip-bg: #00a7c4;
+    --g2h-chip-fg: #14171c;
+}
+
+.g2h-content-item-chip[data-content-type="BlogPost"],
+.g2h-content-item-type-selected[data-content-type="BlogPost"] {
+    --g2h-chip-bg: #ef6820;
+    --g2h-chip-fg: #14171c;
+}
+
+.g2h-content-item-chip[data-content-type="Series"],
+.g2h-content-item-type-selected[data-content-type="Series"] {
+    --g2h-chip-bg: #d61f69;
+    --g2h-chip-fg: #ffffff;
+}
+
+.g2h-content-item-chip[data-content-type="Topic"],
+.g2h-content-item-type-selected[data-content-type="Topic"] {
+    /* A WARM neutral, not a slate one. Topic is the only fill with no hue to carry it, so it is
+       the only one that can collide with the page rather than with another type — a dark slate
+       measured 11 against the dark theme's background and read as no chip at all, just white text
+       floating where a pill should be. Warm and mid-toned puts it clear of both backgrounds. */
+    --g2h-chip-bg: #78716c;
+    --g2h-chip-fg: #ffffff;
+}
+
+/* ── The read byline ──────────────────────────────────────────────────────── */
+
+/* Submitted by / Author / Shareability, reading across as labelled columns with a hairline
+   between them. Wrapping rather than scrolling: on a narrow screen the columns stack, and the
+   rule below drops off whichever column starts a new line. */
+.g2h-content-item-facts {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1.5rem;
+}
+
+.g2h-content-item-fact {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+/* The divider belongs to the column on its left, so it never appears before the first one. Using
+   a border rather than a separate element keeps it out of the accessibility tree — it is
+   punctuation, not content.
+
+   :not(:first-child) rather than a padding on every sibling, so a column that wraps onto the next
+   line still sits flush with the margin. */
+.g2h-content-item-fact:not(:first-child) {
+    padding-left: 1.5rem;
+    border-left: 1px solid var(--bs-border-color);
+}
+
+/* The caption reads quieter and smaller than the value it names — the value is the answer, the
+   caption only says what the question was. */
+.g2h-content-item-fact-label {
+    color: var(--bs-secondary-color);
+    font-size: 0.8125rem;
+    line-height: 1.3;
+}
+
+.g2h-content-item-fact-value {
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+/* ── The type picker ──────────────────────────────────────────────────────── */
+
 /* One tile in the type picker. A button rather than a radio because the whole card is the target;
    aria-pressed carries the selected state that a radio's checked would have. */
 .g2h-content-item-type {
     cursor: pointer;
+}
+
+/* The SELECTED tile wears the type's own colour out of the very same declaration the chip reads:
+   the tile carries the same data-content-type attribute and is named in the same rule above, so
+   the two cannot disagree about what a Testimony looks like. Unselected tiles stay neutral, so
+   the picker reads as one set of options rather than a paintbox.
+
+   The panel puts the marker class on only when the type is selected AND not blocked, so a tile
+   the reader may not choose can never light up. */
+.g2h-content-item-type-selected {
+    --g2h-chip-bg: var(--bs-primary);
+    border-color: var(--g2h-chip-bg) !important;
+    box-shadow: inset 0 0 0 1px var(--g2h-chip-bg);
+
+    /* A wash of the type's own colour rather than a flat theme tint, so the selected tile reads
+       as the same colour the chip will be. color-mix keeps the alpha out of the palette itself,
+       which is what lets one pair of values serve both the solid chip and this wash. */
+    background-color: color-mix(in srgb, var(--g2h-chip-bg) 12%, transparent);
 }
 
 /* A type the reader is blocked from contributing (§18.6 ContentItem-{ContentType}-ReadOnly). It

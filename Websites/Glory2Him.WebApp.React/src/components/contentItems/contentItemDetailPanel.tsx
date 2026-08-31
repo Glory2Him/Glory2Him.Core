@@ -1,6 +1,8 @@
 import { ReactNode, useEffect, useId, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { Avatar } from '../coreUI/avatar';
 import { ConfirmDialog } from '../coreUI/confirmDialog';
+import { formatDate } from '../coreUI/dateFormats';
 import { useAuth } from '../securitys/authProvider';
 import { ContentItemSetting } from '../../models/foundations/contentItemSettings/contentItemSetting';
 import { ContentType } from '../../models/foundations/contentItemSettings/contentType';
@@ -15,9 +17,13 @@ import {
     ContentItemFormItem,
     ContentItemDetailPanelMode,
     ContentItemValidationIssues,
+    defaultShareabilityBasis,
+    isOwnedShareabilityBasis,
+    isPermissionShareabilityBasis,
     ShareabilityBasis,
     shareabilityBasisLabels,
-    shareabilityBasisMembers
+    shareabilityBasisMembers,
+    shareabilityBasisReadLabels
 } from '../../models/components/contentItems/contentItemFormItem';
 
 import './contentItems.css';
@@ -104,6 +110,42 @@ export interface ContentItemDetailPanelProps {
     // title in its own <h1> instead and turns this off, so the heading is not said twice.
     showItemTitle?: boolean;
 
+    // WHICH HEADING the read surface renders that title as. h3 by default, which is right for a
+    // panel sitting among other content; a page whose whole subject is this one item raises it to
+    // h1 and keeps the title where the design puts it — under the type chip — rather than
+    // duplicating it above the panel to get the outline right.
+    titleHeadingLevel?: 'h1' | 'h2' | 'h3' | 'h4';
+
+    // ── Byline ────────────────────────────────────────────────────────────────
+    // WHO CONTRIBUTED IT, resolved. The item itself carries only CreatedBy, an account id, so the
+    // name and face are PASSED IN by the consumer that looked them up (GET /api/contributors/{id})
+    // — this panel fetches nothing. Absent, the read surface simply omits the block: a byline that
+    // is still loading must not flash a placeholder name under somebody's testimony.
+    //
+    // The image url is optional independently of the name: Avatar draws a deterministic initials
+    // circle when there is no picture, which is the same fallback the rest of the site uses.
+    submittedByDisplayName?: string;
+    submittedByImageUrl?: string;
+
+    // Where the contributor's name links to, when it should link at all. Absent, the name is
+    // rendered as plain text — the correct default, because there is no public contributor page
+    // yet and a link to nowhere is worse than no link.
+    submittedByHref?: string;
+
+    // ── Engagement ────────────────────────────────────────────────────────────
+    // The figures that read along the bottom of the byline. Each is INDEPENDENTLY OPTIONAL and
+    // undefined leaves it out rather than rendering a zero — the same contract AuthorByline takes.
+    // That matters: "0 comments" is a claim that the conversation is empty, whereas a surface
+    // whose comments are switched off (§6.5 ShowComments) has no claim to make at all.
+    //
+    // NONE OF THEM ARE COMPUTED HERE. Reading time is a function of the content, and the three
+    // counts are separate reads against the comment, reaction and view surfaces — all of them the
+    // consumer's to gather, because this panel is pure presentation.
+    readingTimeMinutes?: number;
+    reactionCount?: number;
+    commentCount?: number;
+    viewCount?: number;
+
     isLoading?: boolean;
 
     // Freezes the buttons while the consumer is persisting, so one click is one write.
@@ -178,6 +220,7 @@ export interface ContentItemDetailPanelProps {
     titlePlaceholderText?: string;
     authorLabelText?: string;
     authorPlaceholderText?: string;
+    authorPrefilledHintText?: string;
     contentLabelText?: string;
     shareabilityLabelText?: string;
     shareabilityReadLabelText?: string;
@@ -197,7 +240,18 @@ export interface ContentItemDetailPanelProps {
     deleteConfirmTitleText?: string;
     deleteConfirmMessageText?: string;
     deleteConfirmButtonText?: string;
-    authorByText?: string;
+    submittedByLabelText?: string;
+    readingTimeLabelText?: string;
+
+    // Singular and plural are separate props rather than one string with an 's' appended, because
+    // "1 reactions" under a contribution is the sort of small wrongness a reader notices and a
+    // translator cannot fix.
+    reactionLabelText?: string;
+    reactionsLabelText?: string;
+    commentLabelText?: string;
+    commentsLabelText?: string;
+    viewLabelText?: string;
+    viewsLabelText?: string;
 
     // ── Theme classes ─────────────────────────────────────────────────────────
     submitButtonCssClass?: string;
@@ -211,9 +265,39 @@ const parseRoles = (roles: string): ReadonlyArray<string> =>
         .map((role) => role.trim())
         .filter((role) => role.length > 0);
 
-// The enum MEMBER name, which is what a role name is composed from (§18.6) — never the setting's
-// ContentTypeName, which is editable per row and is what visitors read.
-const roleSegmentOf = (contentType: ContentType): string => ContentType[contentType] ?? '';
+// The enum MEMBER name. It does two jobs: it is what a content-type-scoped role name is composed
+// from (§18.6), and it is the key contentItems.css hangs the type's chip colour on. Never the
+// setting's ContentTypeName, which an administrator may edit at any time — a renamed type must
+// not silently shed either its role names or its colour.
+const contentTypeKeyOf = (contentType: ContentType): string => ContentType[contentType] ?? '';
+
+// WHETHER TWO NAMES NAME THE SAME PERSON, for the one decision that turns on it: whether the
+// read surface would be printing the author and the submitter as two separate facts when they are
+// one. Compared case- and accent-insensitively because "normal user" and "Normal User" are the
+// same person typed twice, and an empty name matches nothing — an unresolved submitter is not
+// evidence of a duplicate.
+//
+// It is deliberately a NAME comparison and never an identity one: the panel has no account id for
+// whoever the Author field names, and cannot get one. Two different people who share a display
+// name will collapse into one column here, which is the right trade for a byline — the alternative
+// prints the same name twice under most contributions on the site.
+const isSameName = (first: string, second: string): boolean =>
+    first.length > 0
+    && second.length > 0
+    && first.localeCompare(second, undefined, { sensitivity: 'accent' }) === 0;
+
+// The wire carries createdWhen as an ISO string, and a projection is free to leave it out. A
+// value that will not parse is dropped rather than printed as "Invalid Date" under somebody's
+// contribution.
+const toRenderableDate = (value: string | undefined): Date | null => {
+    if (value == null || value.length === 0) {
+        return null;
+    }
+
+    const parsedDate = new Date(value);
+
+    return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
+};
 
 // What the editor holds while it is being filled in. Separate from ContentItemFormItem because a
 // half-typed form has no content type yet in `add`, and every text field is a string here even
@@ -232,7 +316,7 @@ const draftFromItem = (contentItem: ContentItemFormItem | undefined): ContentIte
     title: contentItem?.title ?? '',
     author: contentItem?.author ?? '',
     content: contentItem?.content ?? '',
-    shareabilityBasis: contentItem?.shareabilityBasis ?? ShareabilityBasis.Owned,
+    shareabilityBasis: contentItem?.shareabilityBasis ?? defaultShareabilityBasis,
     sharePermission: contentItem?.sharePermission ?? ''
 });
 
@@ -245,6 +329,14 @@ export function ContentItemDetailPanel({
     titleText = '',
     ariaLabel = 'Content item',
     showItemTitle = true,
+    titleHeadingLevel = 'h3',
+    submittedByDisplayName,
+    submittedByImageUrl,
+    submittedByHref,
+    readingTimeMinutes,
+    reactionCount,
+    commentCount,
+    viewCount,
     isLoading = false,
     isSubmitting = false,
     validationIssues,
@@ -267,7 +359,9 @@ export function ContentItemDetailPanel({
     titleLabelText = 'Title',
     titlePlaceholderText = '',
     authorLabelText = 'Author',
-    authorPlaceholderText = "e.g. Dwight L. Moody — leave blank if it's your own",
+    // No longer "leave blank if it's your own": an owned basis FILLS this field rather than
+    // wanting it empty, so the old instruction contradicted what the form now does.
+    authorPlaceholderText = 'e.g. Dwight L. Moody',
     contentLabelText = '',
     shareabilityLabelText = 'How are you permitted to share this?',
     shareabilityReadLabelText = 'Shareability',
@@ -289,7 +383,16 @@ export function ContentItemDetailPanel({
     deleteConfirmMessageText =
     'This removes the contribution. It cannot be undone from here.',
     deleteConfirmButtonText = 'Delete',
-    authorByText = 'By',
+    authorPrefilledHintText =
+    'Your display name. Change it if you write under a different one.',
+    submittedByLabelText = 'Submitted by',
+    readingTimeLabelText = 'min read',
+    reactionLabelText = 'reaction',
+    reactionsLabelText = 'reactions',
+    commentLabelText = 'comment',
+    commentsLabelText = 'comments',
+    viewLabelText = 'View',
+    viewsLabelText = 'Views',
     submitButtonCssClass = 'btn-primary',
     editButtonCssClass = 'btn-outline-primary',
     deleteButtonCssClass = 'btn-outline-danger'
@@ -302,6 +405,10 @@ export function ContentItemDetailPanel({
     const [requestedMode, setRequestedMode] = useState<ContentItemDetailPanelMode | null>(null);
     const [draft, setDraft] = useState<ContentItemDraft>(() => draftFromItem(contentItem));
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+
+    // Whether the contributor has had their hands on the Author field. Once they have, the
+    // prefill above stops second-guessing them — including when they deliberately empty it.
+    const [isAuthorTouched, setIsAuthorTouched] = useState(false);
 
     const contentItemId = contentItem?.id;
 
@@ -316,6 +423,7 @@ export function ContentItemDetailPanel({
         setDraft(draftFromItem(contentItem));
         setRequestedMode(null);
         setIsConfirmingDelete(false);
+        setIsAuthorTouched(false);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [contentItemId, mode]);
 
@@ -341,7 +449,7 @@ export function ContentItemDetailPanel({
     const resolveRoles = (
         roles: ReadonlyArray<string>,
         contentType: ContentType | null): ReadonlyArray<string> => {
-        const segment = contentType == null ? '' : roleSegmentOf(contentType);
+        const segment = contentType == null ? '' : contentTypeKeyOf(contentType);
 
         return roles
             .map((role) => role.includes(ContentTypeToken) === false
@@ -515,6 +623,13 @@ export function ContentItemDetailPanel({
     //             is a rendering rule and never a destructive one (§20.6.2), so the fallback is
     //             the stored value.
     //
+    // THE EXCEPTION IS A FIELD HIDDEN BY THE READER'S OWN ANSWER rather than by policy, which
+    // drops to empty in BOTH directions instead of falling back to the stored value.
+    // SharePermission under a non-permission basis is the one: a note saying "permission granted
+    // by the author" against an item whose basis no longer rests on anybody's permission is a
+    // claim the contributor withdrew, and the server correlates nothing (it length-checks and no
+    // more), so keeping it would file a contradiction no read surface ever shows again.
+    //
     // The type is taken as an argument rather than read off the draft, so the create-only rule
     // (§12.4.1 rule 7a) is enforced by the call rather than by remembering to check: an existing
     // item keeps the type it was validated under, whatever the picker last held.
@@ -522,16 +637,13 @@ export function ContentItemDetailPanel({
         ...contentItem,
         contentType,
         title: hasTitleField ? draft.title : contentItem?.title ?? '',
-        author: hasAuthorField ? draft.author : contentItem?.author ?? '',
+
+        // effectiveAuthor, not draft.author: a prefilled name the contributor left alone is the
+        // answer they gave, and what the field showed them is what gets filed.
+        author: hasAuthorField ? effectiveAuthor : contentItem?.author ?? '',
+
         content: draft.content,
         shareabilityBasis: draft.shareabilityBasis,
-
-        // SharePermission is hidden by the reader's OWN answer rather than by policy, which is
-        // why it drops to empty in both directions instead of falling back to the stored value.
-        // A note saying "permission granted by the author" stored against an item the contributor
-        // has just declared Owned is a provenance claim they withdrew - the server correlates
-        // nothing (it length-checks and no more), so keeping it would file a contradiction that
-        // no read surface ever shows again.
         sharePermission: hasSharePermissionField ? draft.sharePermission : ''
     });
 
@@ -561,14 +673,53 @@ export function ContentItemDetailPanel({
         }
     };
 
-    const hasTitleField = activeSetting?.hasTitle ?? (contentItem?.title ?? '').length > 0;
-    const hasAuthorField = activeSetting?.hasAuthor ?? (contentItem?.author ?? '').length > 0;
+    // THE BASIS IN PLAY. The item's own on the read surface, whatever the reader has selected on
+    // the two editing surfaces — so a field that comes and goes with the basis moves the moment
+    // the dropdown does, and what a reader is shown never depends on an editor's draft.
+    const effectiveShareabilityBasis =
+        activeMode === 'read' && contentItem != null
+            ? contentItem.shareabilityBasis
+            : draft.shareabilityBasis;
 
-    // Not a setting-driven flag like the two above: this one follows the basis the reader has
-    // selected right now, and it drives the field, the placement of its messages and what is
-    // submitted, so all three agree by construction.
+    const isOwnedBasis = isOwnedShareabilityBasis(effectiveShareabilityBasis);
+
+    const hasTitleField = activeSetting?.hasTitle ?? (contentItem?.title ?? '').length > 0;
+
+    // Governed by the type's own hasAuthor and nothing else. An owned basis does NOT remove this
+    // field: "it's my own" says who wrote it, but not what they want to be called for it, and a
+    // contributor may well publish under a pen name, an initial, or a maiden name. So the basis
+    // fills the field in rather than taking it away — see contributorDisplayName below.
+    const hasAuthorField =
+        activeSetting?.hasAuthor ?? (contentItem?.author ?? '').length > 0;
+
+    // WHOSE NAME AN OWNED BASIS PUTS IN THE AUTHOR FIELD. The submitter's where the consumer has
+    // resolved one — an amendment to somebody else's contribution must not be signed with the
+    // editor's name — otherwise the signed-in reader's, who in `add` is the contributor.
+    const contributorDisplayName = (submittedByDisplayName ?? user?.displayName ?? '').trim();
+
+    // WHAT THE AUTHOR FIELD ACTUALLY HOLDS, derived rather than stored.
+    //
+    // Derived, because the reader's own name can arrive after the first paint (auth resolves
+    // asynchronously) and an effect writing it into the draft would be racing a field they may
+    // already be typing in. Deriving it means a late name simply appears.
+    //
+    // It fills only an EMPTY field, and only until the contributor touches it. Both conditions
+    // matter: without the first, opening an existing item whose author is "Grace Abara" under an
+    // owned basis would overwrite her with whoever is looking at it; without the second, a pen
+    // name would be reverted the moment anything else on the form changed.
+    const isAuthorPrefilled =
+        isAuthorTouched === false
+        && isOwnedBasis
+        && draft.author.length === 0
+        && contributorDisplayName.length > 0;
+
+    const effectiveAuthor = isAuthorPrefilled ? contributorDisplayName : draft.author;
+
+    // Neither this nor the author rule above is setting-driven the way hasTitle is: both follow
+    // the basis the reader has selected right now, and each drives its field, the placement of its
+    // messages and what is submitted, so all three agree by construction.
     const hasSharePermissionField =
-        draft.shareabilityBasis === ShareabilityBasis.PermissionGranted;
+        isPermissionShareabilityBasis(effectiveShareabilityBasis);
     const selectedTypeName = typeNameOf(selectedContentType);
 
     const contentLabel = contentLabelText.length > 0
@@ -619,8 +770,12 @@ export function ContentItemDetailPanel({
                     const isSelected = setting.contentType === selectedContentType;
                     const isTypeBlocked = isBlockedFor(setting.contentType);
 
+                    // No colour class here. The tile carries aria-pressed and its type key, and
+                    // contentItems.css paints the selection from the SAME palette the chip reads
+                    // — so a selected Testimony tile and a Testimony chip cannot disagree, and a
+                    // recolour is one stylesheet edit rather than two.
                     const selectionCssClass = isSelected && isTypeBlocked === false
-                        ? 'border-primary bg-primary bg-opacity-10'
+                        ? 'g2h-content-item-type-selected'
                         : '';
 
                     return (
@@ -628,6 +783,7 @@ export function ContentItemDetailPanel({
                             <button
                                 type="button"
                                 className={`card h-100 w-100 text-center border p-3 g2h-content-item-type ${selectionCssClass}`}
+                                data-content-type={contentTypeKeyOf(setting.contentType)}
                                 aria-pressed={isSelected && isTypeBlocked === false}
                                 disabled={isTypeBlocked}
                                 title={isTypeBlocked ? typeBlockedText : undefined}
@@ -659,20 +815,42 @@ export function ContentItemDetailPanel({
         </fieldset>
     );
 
+    // THE TYPE CHIP, and the only place a type's colour is decided — except that no colour is
+    // decided HERE. The chip carries the type's enum member name as a data attribute and
+    // contentItems.css keys the palette off it, so a type is recoloured by editing a stylesheet
+    // and a newly seeded type wears a neutral chip until somebody chooses one, rather than
+    // inheriting a colour meant for a different type.
+    //
+    // That indirection is also what makes the picker live: the attribute is rendered from
+    // whatever type is IN PLAY, so moving the selection in `add` re-resolves the cascade on the
+    // next paint. Nothing is wired between the dropdown and the colour — the selection simply is
+    // the selector.
+    const renderTypeChip = (): ReactNode => {
+        if (selectedContentType == null) {
+            return null;
+        }
+
+        const iconCssClass = activeSetting?.contentTypeIconCssClass ?? '';
+
+        return (
+            <span
+                className="badge g2h-content-item-chip"
+                data-content-type={contentTypeKeyOf(selectedContentType)}>
+                {iconCssClass.length > 0 && (
+                    <i className={`bi ${iconCssClass} me-2`} aria-hidden="true"></i>
+                )}
+
+                {selectedTypeName}
+            </span>
+        );
+    };
+
     // The type is create-only, so `edit` states it rather than offering it.
     const renderFrozenType = (): ReactNode => (
         <div className="mb-3">
             <span className="form-label d-block">{typeLabelText}</span>
 
-            <p className="form-control-plaintext mb-0">
-                {activeSetting != null && (
-                    <i
-                        className={`bi ${activeSetting.contentTypeIconCssClass} text-primary me-2`}
-                        aria-hidden="true"></i>
-                )}
-
-                {selectedTypeName}
-            </p>
+            <p className="form-control-plaintext mb-0">{renderTypeChip()}</p>
         </div>
     );
 
@@ -712,10 +890,24 @@ export function ContentItemDetailPanel({
                         className={`form-control${invalidCssClass('Author')}`}
                         id={`${fieldId}-author`}
                         {...fieldIssueAttributes('Author')}
-                        value={draft.author}
+                        aria-describedby={isAuthorPrefilled ? `${fieldId}-author-hint` : undefined}
+                        value={effectiveAuthor}
                         placeholder={authorPlaceholderText}
-                        onChange={(event) =>
-                            setDraft((current) => ({ ...current, author: event.target.value }))} />
+                        onChange={(event) => {
+                            setIsAuthorTouched(true);
+
+                            setDraft((current) =>
+                                ({ ...current, author: event.target.value }));
+                        }} />
+
+                    {/* Only while the panel is the one supplying the name. Once the contributor
+                        has typed their own it is theirs, and a note explaining where it came
+                        from would be describing something that is no longer true. */}
+                    {isAuthorPrefilled && (
+                        <div className="form-text" id={`${fieldId}-author-hint`}>
+                            {authorPrefilledHintText}
+                        </div>
+                    )}
 
                     {renderFieldIssues('Author')}
                 </div>
@@ -864,40 +1056,161 @@ export function ContentItemDetailPanel({
         </>
     );
 
+    // One labelled column of the byline's top row: a quiet caption over the value it names.
+    const renderBylineFact = (
+        factKey: string,
+        labelText: string,
+        value: ReactNode,
+        leading?: ReactNode): ReactNode => (
+        <div className="g2h-content-item-fact" key={factKey}>
+            {leading}
+
+            <span>
+                <span className="g2h-content-item-fact-label d-block">{labelText}</span>
+                <span className="g2h-content-item-fact-value d-block">{value}</span>
+            </span>
+        </div>
+    );
+
+    // A count and the noun it counts, agreeing in number. Undefined is left OUT rather than
+    // rendered as a zero: "0 comments" asserts that the conversation is empty, which is a
+    // different statement from a surface that has no comments to report (§6.5 ShowComments).
+    const renderCountFigure = (
+        figureKey: string,
+        count: number | undefined,
+        iconCssClass: string,
+        singularText: string,
+        pluralText: string): ReactNode =>
+        count == null ? null : (
+            <li className="nav-item" key={figureKey}>
+                <i className={`${iconCssClass} me-1`} aria-hidden="true"></i>
+                {count.toLocaleString()} {count === 1 ? singularText : pluralText}
+            </li>
+        );
+
+    // WHO CONTRIBUTED IT, WHO WROTE IT, AND WHAT MAY BE DONE WITH IT — the three answers a reader
+    // wants before the first paragraph — with the article's own figures reading underneath.
+    //
+    // Every part is conditional and the whole block disappears when none of them can be answered,
+    // so a panel handed nothing but an item renders no empty scaffolding. The shareability column
+    // is the one constant: every item has a basis, and a reader is always entitled to know it.
+    const renderByline = (item: ContentItemFormItem): ReactNode => {
+        // The RESOLVED submitter and nothing else — never contributorDisplayName, which falls
+        // back to the signed-in reader. Falling back here would compare the author against
+        // whoever happens to be looking and hide the column for a stranger's benefit.
+        const submittedByName = (submittedByDisplayName ?? '').trim();
+        const authorName = (item.author ?? '').trim();
+        const submittedOn = toRenderableDate(item.createdWhen);
+
+        // The name links only where the consumer gave it somewhere to go. There is no public
+        // contributor page yet, and a link to nowhere reads as a broken one.
+        const submittedByValue = submittedByHref == null || submittedByHref.length === 0
+            ? submittedByName
+            : <Link className="text-reset" to={submittedByHref}>{submittedByName}</Link>;
+
+        const facts = [
+            submittedByName.length === 0
+                ? null
+                : renderBylineFact(
+                    'submitted-by',
+                    submittedByLabelText,
+                    submittedByValue,
+                    <Avatar
+                        name={submittedByName}
+                        imageUrl={submittedByImageUrl}
+                        sizePx={44} />),
+
+            // Suppressed only when it would print ONE PERSON TWICE — the author and the
+            // submitter being the same name, which is what an untouched owned basis produces.
+            // A contributor who publishes under another name has said something the submitter
+            // column does not, so it is shown; and where no submitter has been resolved there is
+            // nothing to be duplicating, so it is shown then too.
+            hasAuthorField === false
+                || authorName.length === 0
+                || isSameName(authorName, submittedByName)
+                ? null
+                : renderBylineFact('author', authorLabelText, authorName),
+
+            renderBylineFact(
+                'shareability',
+                shareabilityReadLabelText,
+                shareabilityBasisReadLabels[item.shareabilityBasis])
+        ].filter((fact) => fact != null);
+
+        const figures = [
+            submittedOn == null
+                ? null
+                : <li className="nav-item" key="submitted-on">{formatDate(submittedOn)}</li>,
+
+            readingTimeMinutes == null
+                ? null
+                : (
+                    <li className="nav-item" key="reading-time">
+                        <i className="bi bi-clock-fill me-1" aria-hidden="true"></i>
+                        {readingTimeMinutes} {readingTimeLabelText}
+                    </li>
+                ),
+
+            renderCountFigure(
+                'reactions', reactionCount, 'far fa-heart',
+                reactionLabelText, reactionsLabelText),
+
+            renderCountFigure(
+                'comments', commentCount, 'far fa-comment',
+                commentLabelText, commentsLabelText),
+
+            renderCountFigure(
+                'views', viewCount, 'far fa-eye',
+                viewLabelText, viewsLabelText)
+        ].filter((figure) => figure != null);
+
+        if (facts.length === 0 && figures.length === 0) {
+            return null;
+        }
+
+        return (
+            <div className="g2h-content-item-byline mb-4">
+                {facts.length > 0 && (
+                    <div className="g2h-content-item-facts">{facts}</div>
+                )}
+
+                {figures.length > 0 && (
+                    <ul className="nav nav-divider align-items-center small mb-0 mt-3">
+                        {figures}
+                    </ul>
+                )}
+            </div>
+        );
+    };
+
     const renderRead = (): ReactNode => {
         if (contentItem == null) {
             return <p className="small text-muted mb-0">{emptyText}</p>;
         }
 
-        const shareability = shareabilityBasisLabels[contentItem.shareabilityBasis];
+        // The heading level is the CONSUMER's call (see titleHeadingLevel): a panel among other
+        // content is an h3, a page whose whole subject is this item is an h1. Capitalised because
+        // JSX reads a lowercase tag name as a literal element and an uppercase one as a value.
+        const TitleHeading = titleHeadingLevel;
+
+        const showsTitle =
+            showItemTitle && hasTitleField && (contentItem.title ?? '').length > 0;
 
         return (
             <article>
-                <p className="small text-uppercase fw-bold text-primary mb-2">
-                    {activeSetting != null && (
-                        <i
-                            className={`bi ${activeSetting.contentTypeIconCssClass} me-1`}
-                            aria-hidden="true"></i>
-                    )}
+                <p className="mb-2">{renderTypeChip()}</p>
 
-                    {selectedTypeName}
-                </p>
-
-                {showItemTitle && hasTitleField && (contentItem.title ?? '').length > 0 && (
-                    <h3 className="mb-2">{contentItem.title}</h3>
+                {showsTitle && (
+                    <TitleHeading className="g2h-content-item-title mb-3">
+                        {contentItem.title}
+                    </TitleHeading>
                 )}
 
-                {hasAuthorField && (contentItem.author ?? '').length > 0 && (
-                    <p className="text-muted mb-3">{authorByText} {contentItem.author}</p>
-                )}
+                {renderByline(contentItem)}
 
                 <div className="g2h-content-item-body mb-3">{contentItem.content}</div>
 
-                <p className="small text-muted mb-1">
-                    {shareabilityReadLabelText}: {shareability}
-                </p>
-
-                {contentItem.shareabilityBasis === ShareabilityBasis.PermissionGranted
+                {hasSharePermissionField
                     && (contentItem.sharePermission ?? '').length > 0 && (
                         <p className="small text-muted mb-1">
                             {sharePermissionLabelText}: {contentItem.sharePermission}
