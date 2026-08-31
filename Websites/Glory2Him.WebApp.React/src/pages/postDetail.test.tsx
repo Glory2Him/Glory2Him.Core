@@ -85,7 +85,9 @@ let contentItemSettings: ContentItemSetting[] = [];
 
 vi.mock('../services/foundations/contentItemSettingService', () => ({
     contentItemSettingService: {
-        useGetDefaults: () => ({ data: contentItemSettings, isLoading: false, isError: false })
+        useGetDefaults: () => ({ data: contentItemSettings, isLoading: false, isError: false }),
+        useGetEffectiveSettingsFor: () =>
+            ({ data: contentItemSettings, isLoading: false, isError: false })
     }
 }));
 

@@ -62,14 +62,19 @@ export function Posts() {
     // Rendering an item needs its type's name, icon and facet pairs, which is a different
     // question from which types are open to contribution — so the defaults are read, the same
     // way /posts/{id} reads them.
-    const { data: contentItemSettings } = contentItemSettingService.useGetDefaults();
-
     // The ACCUMULATED list — react-query keeps the pages.
     const contentItems = useMemo(
         () => (data?.pages ?? [])
             .flatMap((page) => page.items)
             .map(toContentItemSearchItem),
         [data]);
+
+    // Defaults PLUS the overrides of exactly the items on screen, so the panel's per-item
+    // resolution has the specific rows to prefer — a quote whose comments are switched off
+    // by its own override row renders that way here, not just on its detail page.
+    const { data: contentItemSettings } =
+        contentItemSettingService.useGetEffectiveSettingsFor(
+            contentItems.map((item) => item.id));
 
     const search = (searched: ContentItemSearchCriteria) =>
         setSearchParams(toContentItemSearchParams(searched));

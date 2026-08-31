@@ -60,13 +60,18 @@ export const Home = () => {
         fetchNextPage
     } = contentItemService.useSearchContentItems(criteria, { scope: 'public' });
 
-    const { data: contentItemSettings } = contentItemSettingService.useGetDefaults();
-
     const contentItems = useMemo(
         () => (data?.pages ?? [])
             .flatMap((page) => page.items)
             .map(toContentItemSearchItem),
         [data]);
+
+    // Defaults PLUS the overrides of exactly the items on screen, so the panel's per-item
+    // resolution has the specific rows to prefer — a quote whose comments are switched off
+    // by its own override row renders that way here, not just on its detail page.
+    const { data: contentItemSettings } =
+        contentItemSettingService.useGetEffectiveSettingsFor(
+            contentItems.map((item) => item.id));
 
     const search = (searched: ContentItemSearchCriteria) =>
         setSearchParams(toContentItemSearchParams(searched));

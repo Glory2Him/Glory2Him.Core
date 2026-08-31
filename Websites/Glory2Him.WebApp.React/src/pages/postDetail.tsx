@@ -31,7 +31,11 @@ export function PostDetail() {
     // Rendering an item needs its type's name, icon and field shaping, which is a different
     // question from which types are open to contribution — so the defaults are read rather than
     // the contribution list.
-    const { data: contentItemSettings } = contentItemSettingService.useGetDefaults();
+    // Defaults plus THIS item's own override, when one exists — the §6.4 resolution needs
+    // the specific row in hand to prefer it.
+    const { data: contentItemSettings } =
+        contentItemSettingService.useGetEffectiveSettingsFor(
+            contentItemId.length > 0 ? [contentItemId] : []);
 
     // WHO SUBMITTED IT. The item carries CreatedBy — an account id — so the byline needs a second
     // read to turn that into a name and a face. Anonymous, so a signed-out reader gets the byline

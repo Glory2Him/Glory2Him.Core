@@ -63,7 +63,8 @@ vi.mock('../services/foundations/reactionService', () => ({
 
 vi.mock('../services/foundations/contentItemSettingService', () => ({
     contentItemSettingService: {
-        useGetDefaults: () => ({ data: [] })
+        useGetDefaults: () => ({ data: [] }),
+        useGetEffectiveSettingsFor: () => ({ data: [] })
     }
 }));
 

@@ -37,7 +37,11 @@ export function MyPostDetail() {
     const { data: contentItem, isLoading, isError } =
         contentItemService.useGetContentItemById(contentItemId, contentItemId.length > 0);
 
-    const { data: contentItemSettings } = contentItemSettingService.useGetDefaults();
+    // Defaults plus THIS item's own override, when one exists — the §6.4 resolution needs
+    // the specific row in hand to prefer it.
+    const { data: contentItemSettings } =
+        contentItemSettingService.useGetEffectiveSettingsFor(
+            contentItemId.length > 0 ? [contentItemId] : []);
 
     const formItem = useMemo(
         () => contentItem == null ? undefined : toContentItemFormItem(contentItem),
