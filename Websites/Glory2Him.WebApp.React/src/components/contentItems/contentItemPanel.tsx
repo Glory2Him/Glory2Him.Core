@@ -1,8 +1,12 @@
-import { ComponentType, useState } from 'react';
+import { ComponentType, useEffect, useState } from 'react';
 import { useAuth } from '../securitys/authProvider';
+import { ContentItemAddPanel } from './contentItemAddPanel';
 import { ContentItemDefaultPanel } from './contentItemDefaultPanel';
+import { ContentItemEditPanel } from './contentItemEditPanel';
 import { ContentItemQuotesPanel } from './contentItemQuotesPanel';
 import { ContentItemVersesPanel } from './contentItemVersesPanel';
+import { ContentItemSetting } from '../../models/foundations/contentItemSettings/contentItemSetting';
+
 import {
     ContentType,
     contentTypeLabels
@@ -10,9 +14,17 @@ import {
 
 import {
     ContentItemEvents,
+    ContentItemSectionToggles,
     ContentItemTemplateProps,
     ContentItemText
 } from '../../models/components/contentItems/contentItemTemplate';
+
+import {
+    ContentItemFormItem,
+    ContentItemPanelMode,
+    ContentItemValidationIssues,
+    defaultShareabilityBasis
+} from '../../models/components/contentItems/contentItemFormItem';
 
 import {
     ContentItemReactionOption,
@@ -21,20 +33,46 @@ import {
 
 import './contentItems.css';
 
-// THE BLUE BLOCK: one result, rendered through a TEMPLATE chosen by its content type. This panel
-// owns everything that is the same for every template — the effective-setting resolution, the
-// per-card UI state, the reaction gating — and hands the template a fully decided bundle, so an
-// override renders differently without ever deciding differently.
+// THE BLUE BLOCK: one content item, on whichever face the moment asks for. This panel owns
+// everything that is the same for every face — the effective-setting reads, the per-card UI
+// state, the reaction gating, the ownership and role gates — and DISPATCHES:
+//
+//   no item                          → ContentItemAddPanel   (the picker and a blank form)
+//   the editor, taken or asked for   → ContentItemEditPanel  (the frozen type, the seeded form)
+//   otherwise                        → a VIEW template by content type:
+//                                      ContentItemDefaultPanel, or a registered override
+//                                      (ContentItemQuotesPanel, ContentItemVersesPanel)
+//
+// One family, one tree: ContentItemSearchPanel renders this same panel for every result, and a
+// details page renders it for its one item — there is no second component to keep in sync.
 //
 // A pure presentation component, like everything in this family: props in, events out, no
-// fetching, no mutation. Every On{X} either adjusts what is RENDERED (the two toggles it keeps
-// for itself) or bubbles to the consumer, which owns filters, redirects and persistence.
-export interface ContentItemPanelProps extends ContentItemEvents, ContentItemText {
+// fetching, no mutation. The CONSUMER owns persistence — onAdded/onModified/onRemoved say what
+// the reader decided, and whether that is a POST, a PUT or a fork is the page's business.
+// The six section switches ride along too (ContentItemSectionToggles): all default true, so
+// the projection's setting decides unless this surface overrides — see the model for why.
+export interface ContentItemPanelProps
+    extends ContentItemEvents, ContentItemText, ContentItemSectionToggles {
     // SELF-CONTAINED: the element carries the item AND its winning setting, resolved by the
-    // projection (§6.4). This panel consults no collection — every gate below reads the one
-    // row that governs this item, so a mixed page is safe by construction and updating one
-    // item is one element swapped by the consumer.
-    contentItem: ContentItemSearchItem;
+    // projection (§6.4). The view faces consult no collection — every gate reads the one row
+    // that governs this item, so a mixed page is safe by construction and updating one item
+    // is one element swapped by the consumer.
+    //
+    // ABSENT, THE PANEL IS THE ADD SURFACE — hand over contentItemSettingCollection and the
+    // picker offers its contributable types. ContentItemSearchPanel always has an item, so a
+    // card in a list can never fall into `add`.
+    contentItem?: ContentItemSearchItem;
+
+    // THE ADD-MODE SIGNAL, and the editor's tile/fallback rows: the content type DEFAULTS the
+    // consumer holds. Populated with no contentItem, the panel renders the add face from these
+    // rows (ContentItemSearchPanel never populates this prop). With an item it is simply the
+    // fallback behind the element's own embedded winner.
+    contentItemSettingCollection?: ReadonlyArray<ContentItemSetting>;
+
+    // Lands the panel straight on a surface — 'edit' opens the editor without the reader
+    // taking Edit first (still subject to isEditingAllowed). Absent, the item decides: no
+    // item is 'add', an item reads until Edit is taken.
+    mode?: ContentItemPanelMode;
 
     // The reaction choices behind the Like control — pulled by the page from GET api/Reactions
     // (approved rows only) and handed over. Empty means no card offers one, whatever the
@@ -51,6 +89,36 @@ export interface ContentItemPanelProps extends ContentItemEvents, ContentItemTex
     // stylesheet off data-approval-status. Off by default: the public feed already says
     // approved by existing.
     shouldShowRibbons?: boolean;
+
+    // THE SURFACE SWITCH for the edit face, ahead of every role check — off by default, so a
+    // list card whose page wired onModified for element swaps can still never become an
+    // editor by accident. On, the owner's Edit affordance opens ContentItemEditPanel IN PLACE
+    // when the page listens on onModified/onRemoved; pages that route to a separate edit
+    // surface keep wiring onEditClick instead.
+    isEditingAllowed?: boolean;
+
+    // ── The form faces (add and edit) ─────────────────────────────────────────
+    isLoading?: boolean;
+
+    // Freezes the form buttons while the consumer is persisting, so one click is one write.
+    isSubmitting?: boolean;
+
+    // What the API said was wrong, keyed by ITS parameter names — see ContentItemFormPanel,
+    // which owns how they land on fields.
+    validationIssues?: ContentItemValidationIssues;
+
+    // Whose name an owned basis prefills into the Author field — the resolved submitter where
+    // the consumer has one, the signed-in reader otherwise.
+    submittedByDisplayName?: string;
+
+    ariaLabel?: string;
+    titleText?: string;
+    showBorder?: boolean;
+
+    onAdded?: (item: ContentItemFormItem) => void;
+    onModified?: (item: ContentItemFormItem) => void;
+    onRemoved?: (item: ContentItemFormItem) => void;
+    onCancelled?: () => void;
 }
 
 // THE TEMPLATE REGISTRY. An override renders when one is registered for the item's type; the
@@ -62,21 +130,82 @@ const templateOverrides:
     [ContentType.Verses]: ContentItemVersesPanel
 };
 
+// Element → editor seed. The search element and the form item are the same facts in two
+// registers — the one rename is submittedById back to createdBy, the audit name the form's
+// [OWNER] gate decides on.
+const toFormItem = (contentItem: ContentItemSearchItem): ContentItemFormItem => ({
+    id: contentItem.id,
+    contentType: contentItem.contentType,
+    contentItemSetting: contentItem.contentItemSetting,
+    title: contentItem.title ?? '',
+    author: contentItem.author ?? '',
+    content: contentItem.content,
+    shareabilityBasis: contentItem.shareabilityBasis ?? defaultShareabilityBasis,
+    sharePermission: contentItem.sharePermission ?? '',
+    createdBy: contentItem.submittedById,
+    approvalStatus: contentItem.approvalStatus
+});
+
 export function ContentItemPanel({
     contentItem,
+    contentItemSettingCollection = [],
+    mode,
     reactionOptions = [],
     isModeratedView = false,
     shouldShowRibbons = false,
+    isEditingAllowed = false,
+    isLoading = false,
+    isSubmitting = false,
+    validationIssues,
+    submittedByDisplayName,
+    ariaLabel,
+    titleText,
+    showBorder,
+    onAdded,
+    onModified,
+    onRemoved,
+    onCancelled,
+    showReactionSection = true,
     onReactionSelected,
     onEditClick,
     onModerateClick,
     ...eventsAndText
 }: ContentItemPanelProps) {
     const { isAuthenticated, user, userRoles } = useAuth();
-    // The two per-card render toggles. Local state is right even in a presentation component:
-    // which face of a cluster is showing is nothing the consumer persists.
+
+    // The per-card render toggles, and whether the reader has taken Edit in place. Local state
+    // is right even in a presentation component: which face is showing is nothing the consumer
+    // persists.
     const [areReactionCountsExpanded, setAreReactionCountsExpanded] = useState(false);
     const [isReactionPickerOpen, setIsReactionPickerOpen] = useState(false);
+    const [isEditorTaken, setIsEditorTaken] = useState(false);
+
+    // A different item is a different surface, and a changed mode prop overrules an Edit the
+    // reader took earlier — the same identity-keyed reset the form engine keeps for its draft.
+    const contentItemId = contentItem?.id;
+
+    useEffect(() => {
+        setIsEditorTaken(false);
+    }, [contentItemId, mode]);
+
+    // ── The add face ──────────────────────────────────────────────────────────
+    // No item: the panel IS the contribution form, shaped from the settings collection. Every
+    // hook above has already run, so the early return is safe.
+    if (contentItem == null) {
+        return (
+            <ContentItemAddPanel
+                contentItemSettingCollection={contentItemSettingCollection}
+                isLoading={isLoading}
+                isSubmitting={isSubmitting}
+                validationIssues={validationIssues}
+                submittedByDisplayName={submittedByDisplayName}
+                ariaLabel={ariaLabel}
+                titleText={titleText}
+                showBorder={showBorder}
+                onAdded={onAdded}
+                onCancelled={onCancelled} />
+        );
+    }
 
     // The winner rode in on the element. The name falls back to the fixed enum label, which
     // exists for every member and so is never empty — the same rule contentTypeNameOf keeps.
@@ -92,7 +221,8 @@ export function ContentItemPanel({
     // surface renders them — plus the panel's own condition that somebody is listening, because
     // a control whose event goes nowhere is worse than no control.
     const offeredReactions = (() => {
-        if (onReactionSelected == null
+        if (showReactionSection === false
+            || onReactionSelected == null
             || reactionOptions.length === 0
             || contentItemSetting?.reactionsAllowed === false
             || contentItemSetting?.showReactions === false) {
@@ -104,8 +234,8 @@ export function ContentItemPanel({
             : reactionOptions;
     })();
 
-    // WHO SUBMITTED IT is an account-id comparison, exactly the [OWNER] rule
-    // ContentItemDetailPanel decides on — never a display name, which two accounts can share.
+    // WHO SUBMITTED IT is an account-id comparison, exactly the [OWNER] rule the form engine
+    // decides on — never a display name, which two accounts can share.
     const viewerOwnsItem =
         isAuthenticated
         && (contentItem.submittedById ?? '').length > 0
@@ -138,6 +268,37 @@ export function ContentItemPanel({
             `ContentItem-${contentTypeSegment}-Publishers`
         ]);
 
+    // ── The edit face ─────────────────────────────────────────────────────────
+    // WHERE EDIT GOES is the page's wiring: a page listening on onModified/onRemoved gets the
+    // editor IN PLACE (this face); a page that wired onEditClick alone is routing to its own
+    // edit surface and gets the event, exactly as before the merge.
+    const opensEditorInPlace =
+        isEditingAllowed && (onModified != null || onRemoved != null);
+
+    if ((mode === 'edit' || isEditorTaken) && opensEditorInPlace) {
+        return (
+            <ContentItemEditPanel
+                contentItem={toFormItem(contentItem)}
+                contentItemSettingCollection={contentItemSettingCollection}
+                isEditingAllowed={isEditingAllowed}
+                isLoading={isLoading}
+                isSubmitting={isSubmitting}
+                validationIssues={validationIssues}
+                submittedByDisplayName={submittedByDisplayName}
+                shouldShowRibbons={shouldShowRibbons}
+                ariaLabel={ariaLabel}
+                titleText={titleText}
+                showBorder={showBorder}
+                onModified={onModified}
+                onRemoved={onRemoved}
+                onCancelled={() => {
+                    setIsEditorTaken(false);
+                    onCancelled?.();
+                }} />
+        );
+    }
+
+    // ── The view face ─────────────────────────────────────────────────────────
     // The isModeratedView matrix: an ordinary surface offers both, each to its own people; a
     // moderated surface offers Moderate alone, wearing Edit's pencil and label — on a surface
     // that IS moderation, the moderation action is simply what editing means there.
@@ -145,7 +306,7 @@ export function ContentItemPanel({
         isModeratedView === false
         && viewerOwnsItem
         && isBlocked === false
-        && onEditClick != null;
+        && (opensEditorInPlace || onEditClick != null);
 
     const showsModerateButton = viewerModerates && onModerateClick != null;
 
@@ -163,7 +324,9 @@ export function ContentItemPanel({
             moderateButtonIconCss={isModeratedView ? 'bi bi-pencil' : 'bi bi-shield'}
             moderateButtonLabel={isModeratedView ? 'Edit' : 'Moderate'}
             shouldShowRibbons={shouldShowRibbons}
-            onEditClick={onEditClick}
+            showReactionSection={showReactionSection}
+            onEditClick={(item) =>
+                opensEditorInPlace ? setIsEditorTaken(true) : onEditClick?.(item)}
             onModerateClick={onModerateClick}
             areReactionCountsExpanded={areReactionCountsExpanded}
             onAssignedReactionsClick={

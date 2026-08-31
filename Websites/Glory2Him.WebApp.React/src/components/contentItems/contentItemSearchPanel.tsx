@@ -27,7 +27,7 @@ import './contentItems.css';
 //           └── ContentItemQuotesPanel (and future ContentItem{ContentType}Panel overrides)
 //
 // EVERY COMPONENT IN THE FAMILY IS PRESENTATION ONLY: props in, events out, no fetching, no
-// mutation, no sockets — the contract ContentItemDetailPanel, AssociationPanel and ReviewPanel
+// mutation, no sockets — the contract ContentItemFormPanel, AssociationPanel and ReviewPanel
 // already share. The panel does not know what read is behind the collection it renders, and must
 // not: the same family serves the public feed, "my posts" and the moderation queue, and the
 // server decides what each caller may see against the stored row.

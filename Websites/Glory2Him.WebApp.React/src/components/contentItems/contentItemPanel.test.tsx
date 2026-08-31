@@ -1,5 +1,6 @@
 import { ReactElement } from 'react';
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ContentItemPanel } from './contentItemPanel';
@@ -33,7 +34,10 @@ vi.mock('../../services/foundations/accountService', () => ({
 }));
 
 const renderCard = (ui: ReactElement) =>
-    render(<AuthProvider>{ui}</AuthProvider>);
+    render(
+        <MemoryRouter initialEntries={['/myposts/devotional-1']}>
+            <AuthProvider>{ui}</AuthProvider>
+        </MemoryRouter>);
 
 const settingFor = (
     contentType: ContentType,
@@ -716,6 +720,180 @@ describe('ContentItemPanel', () => {
                     contentItem={{ ...devotionalItem, excerpt: undefined }} />);
 
             expect(screen.getByText(new RegExp('far too long'))).toBeInTheDocument();
+        });
+    });
+
+    describe('the section switches', () => {
+        // Separate from what the settings allow: the setting says what the TYPE shows,
+        // the switch says what this SURFACE has room for. A section renders only when
+        // BOTH agree, and every switch defaults true — so the projection's setting stays
+        // the deciding factor unless the surface specifically overrides it.
+        it('should hide the tags a setting would show when the surface has them elsewhere', () => {
+            const taggedItem = { ...devotionalItem, tags: ['grace'] };
+
+            renderCard(
+                <ContentItemPanel
+                    contentItem={taggedItem}
+                    showTagSection={false} />);
+
+            expect(screen.queryByText('#grace')).not.toBeInTheDocument();
+        });
+
+        it('should hide the bible references the same way', () => {
+            const referencedItem = {
+                ...devotionalItem,
+                bibleReferences: ['Romans 8:28']
+            };
+
+            renderCard(
+                <ContentItemPanel
+                    contentItem={referencedItem}
+                    showBibleReferenceSection={false} />);
+
+            expect(screen.queryByText('Romans 8:28')).not.toBeInTheDocument();
+        });
+
+        it('should hide the whole reaction cluster when the surface says so', () => {
+            signInAs(authState);
+
+            renderCard(
+                <ContentItemPanel
+                    contentItem={quoteItem}
+                    reactionOptions={reactionOptions}
+                    showReactionSection={false}
+                    onReactionSelected={vi.fn()} />);
+
+            expect(screen.queryByRole('button', { name: 'Like' })).not.toBeInTheDocument();
+        });
+
+        it('should hide comments, share and save on their switches', () => {
+            renderCard(
+                <ContentItemPanel
+                    contentItem={quoteItem}
+                    showCommentsSection={false}
+                    showShareSection={false}
+                    showSaveSection={false}
+                    onCommentsClick={vi.fn()}
+                    onShareClick={vi.fn()}
+                    onSaveClick={vi.fn()} />);
+
+            expect(screen.queryByRole('button', { name: /comment/i }))
+                .not.toBeInTheDocument();
+
+            expect(screen.queryByRole('button', { name: 'Share' })).not.toBeInTheDocument();
+            expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+        });
+
+        it('should still let the setting decide when the surface says nothing', () => {
+            // given: switches untouched, setting shows tags
+            const taggedItem = { ...devotionalItem, tags: ['grace'] };
+
+            renderCard(<ContentItemPanel contentItem={taggedItem} />);
+
+            // then: default true — the projection's setting is the deciding factor
+            expect(screen.getByText('#grace')).toBeInTheDocument();
+        });
+    });
+
+    describe('the merged faces', () => {
+        // The merge: no separate detail component. A settings collection and no item is
+        // the ADD surface; an owner taking Edit on a page that listens on onModified gets
+        // the editor IN PLACE; a page that wired onEditClick alone still gets its event.
+        const ownItem: ContentItemSearchItem = {
+            ...devotionalItem,
+            submittedById: 'user-1',
+            sharePermission: ''
+        };
+
+        it('should render the add face when handed settings and no item', () => {
+            // given
+            signInAs(authState);
+
+            // when
+            renderCard(
+                <ContentItemPanel
+                    contentItemSettingCollection={[devotionalSetting]} />);
+
+            // then: the picker and the submit pair — the contribution form, right here
+            expect(screen.getByText('What are you sharing?')).toBeInTheDocument();
+
+            expect(screen.getByRole('button', { name: 'Submit for review' }))
+                .toBeInTheDocument();
+        });
+
+        it('should open the editor in place when the page listens on onModified', async () => {
+            // given: the owner, on a surface that allows editing and owns persistence
+            signInAs(authState);
+            const onModified = vi.fn();
+
+            renderCard(
+                <ContentItemPanel
+                    contentItem={ownItem}
+                    isEditingAllowed
+                    onModified={onModified} />);
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
+
+            // then: the card became the editor, seeded from the element
+            expect(screen.getByLabelText(/Title/)).toHaveValue('Walking daily in grace');
+            expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
+
+            // when: the editor is abandoned
+            await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+            // then: the view face is back
+            expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+            expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
+        });
+
+        it('should land straight on the editor when the page asks with mode', () => {
+            // given
+            signInAs(authState);
+
+            // when
+            renderCard(
+                <ContentItemPanel
+                    contentItem={ownItem}
+                    mode="edit"
+                    isEditingAllowed
+                    onModified={vi.fn()} />);
+
+            // then
+            expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
+        });
+
+        it('should keep routing Edit to the page when only onEditClick is wired', async () => {
+            // given: a feed page that routes to its own edit surface
+            signInAs(authState);
+            const onEditClick = vi.fn();
+
+            renderCard(
+                <ContentItemPanel
+                    contentItem={ownItem}
+                    onEditClick={onEditClick} />);
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
+
+            // then: the event fired and no editor opened here
+            expect(onEditClick).toHaveBeenCalledWith(ownItem);
+            expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+        });
+
+        it('should never fall into add from a list — an item always renders its card', () => {
+            // given: a card handed BOTH an element and a collection (a detail page does)
+            signInAs(authState);
+
+            // when
+            renderCard(
+                <ContentItemPanel
+                    contentItem={ownItem}
+                    contentItemSettingCollection={[devotionalSetting]} />);
+
+            // then
+            expect(screen.queryByText('What are you sharing?')).not.toBeInTheDocument();
+            expect(screen.getByText('Walking daily in grace')).toBeInTheDocument();
         });
     });
 });

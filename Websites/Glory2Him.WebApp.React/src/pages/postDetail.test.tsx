@@ -170,30 +170,33 @@ describe('PostDetail', () => {
         expect(requestedId).toBe('content-item-1');
     });
 
-    it('should render the item in the read surface', () => {
+    it('should render the item through the view face, full and unclamped', () => {
         // when
         renderPage();
 
-        // then
-        expect(screen.getByRole('heading', { name: 'He kept me through the night shift' }))
-            .toBeInTheDocument();
+        // then: the same card the feeds show, carrying the FULL content — the page left
+        // the excerpt off, so nothing clamps the reading surface
+        expect(screen.getByRole('heading',
+            { name: 'He kept me through the night shift', level: 3 })).toBeInTheDocument();
 
         expect(screen.getByText('The whole testimony, as it happened.')).toBeInTheDocument();
         expect(screen.getByText('Testimony')).toBeInTheDocument();
         expect(screen.queryByLabelText(/Title/)).not.toBeInTheDocument();
     });
 
-    it('should head the document with the item, exactly once', () => {
+    it('should head the document once, out of sight, and let the card carry the title', () => {
         // when
         renderPage();
 
-        // then: the PANEL renders it, as an h1, so the title sits under the type chip where the
-        // design puts it - and the page adds nothing of its own on top of it
-        expect(screen.getByRole('heading',
-            { name: 'He kept me through the night shift', level: 1 })).toBeInTheDocument();
+        // then: the outline gets its h1 (visually hidden — the card says it in view), and
+        // the visible title is the card's own h3, same as everywhere else in the family
+        const pageHeading = screen.getByRole('heading',
+            { name: 'He kept me through the night shift', level: 1 });
 
-        expect(screen.getAllByRole('heading', { name: 'He kept me through the night shift' }))
-            .toHaveLength(1);
+        expect(pageHeading).toHaveClass('visually-hidden');
+
+        expect(screen.getByRole('heading',
+            { name: 'He kept me through the night shift', level: 3 })).toBeInTheDocument();
     });
 
     it('should name the contributor the item records, not the reader looking at it', () => {
@@ -208,20 +211,6 @@ describe('PostDetail', () => {
         expect(requestedContributorId).toBe('somebody-else');
         expect(screen.getByText('Submitted by')).toBeInTheDocument();
         expect(screen.getByText('Louis Ferguson')).toBeInTheDocument();
-    });
-
-    it('should say how long the contribution takes to read', () => {
-        // given: 400 words, at the 200-per-minute the reading time is computed against
-        contentItem = {
-            ...ownedItem,
-            content: Array.from({ length: 400 }, () => 'word').join(' ')
-        };
-
-        // when
-        renderPage();
-
-        // then
-        expect(screen.getByText(/2 min read/)).toBeInTheDocument();
     });
 
     it('should claim no engagement figures it has no source for', () => {

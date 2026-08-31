@@ -68,6 +68,11 @@ export type ContentItemSearchItem = {
     // How the contributor is permitted to share it, for the meta row's Shareability segment.
     shareabilityBasis?: ShareabilityBasis;
 
+    // The permission note behind a permission basis. A card never renders it, but the element
+    // seeds ContentItemPanel's edit face, and an editor opened without it would silently drop
+    // the note on the first save.
+    sharePermission?: string;
+
     publishedDate?: Date;
 
     // Tags and bible references as the pills read them. Supplied by the consumer, which today has

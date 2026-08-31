@@ -3,12 +3,12 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toastSuccess } from '../brokers/toastBroker.success';
 import { BibleReferenceAssociationPanel } from '../components/associations/bibleReferenceAssociationPanel';
 import { TagAssociationPanel } from '../components/associations/tagAssociationPanel';
-import { ContentItemDetailPanel } from '../components/contentItems/contentItemDetailPanel';
+import { ContentItemPanel } from '../components/contentItems/contentItemPanel';
 import { SharingPanel } from '../components/contentItems/sharingPanel';
 import { Spinner } from '../components/coreUI/spinner';
 import { contentItemService } from '../services/foundations/contentItemService';
 import { contentItemSettingService } from '../services/foundations/contentItemSettingService';
-import { toContentItemFormItem } from '../services/views/contentItems/toContentItemFormItem';
+import { toContentItemSearchItem } from '../services/views/contentItems/toContentItemSearchItem';
 
 import {
     contentTypeNameOf,
@@ -43,10 +43,16 @@ export function MyPostDetail() {
         contentItemSettingService.useGetEffectiveSettingsFor(
             contentItemId.length > 0 ? [contentItemId] : []);
 
-    const formItem = useMemo(
+    // The SAME self-contained element a list surface would carry — one projection for the
+    // whole family — except the excerpt is left off: this page is the reading surface for
+    // the full item, and a clamp with a read-more that leads here would point at itself.
+    const searchItem = useMemo(
         () => contentItem == null
             ? undefined
-            : toContentItemFormItem(contentItem, contentItemSettings ?? []),
+            : {
+                ...toContentItemSearchItem(contentItem, contentItemSettings ?? []),
+                excerpt: undefined
+            },
         [contentItem, contentItemSettings]);
 
     // The same resolver and hasTitle rule the panel applies — see postDetail, which this page
@@ -101,7 +107,7 @@ export function MyPostDetail() {
 
                 {isLoading ? (
                     <div className="text-center py-5"><Spinner /></div>
-                ) : isError || formItem == null ? (
+                ) : isError || searchItem == null ? (
                     <div className="alert alert-danger" role="alert">
                         We could not load this contribution right now. It may have been removed,
                         or it may not be yours to read.
@@ -109,18 +115,22 @@ export function MyPostDetail() {
                 ) : (
                     <div className="row g-4">
                         <div className="col-lg-7">
-                            <h1 className="h2 mb-4">{pageHeading}</h1>
+                            {/* The card carries the visible title now — the same face the
+                                list shows — so the page states its heading for the outline
+                                alone rather than printing it twice. */}
+                            <h1 className="visually-hidden">{pageHeading}</h1>
 
-                            <div className="card card-body border p-4">
-                                <ContentItemDetailPanel
-                                    ariaLabel="My contribution"
-                                    contentItem={formItem}
-                                    showItemTitle={false}
-                                    isEditingAllowed
-                                    shouldShowRibbons
-                                    onModified={saveChanges}
-                                    contentItemSettingCollection={contentItemSettings ?? []} />
-                            </div>
+                            {/* Tags and bible references stand in the side panels on the
+                                right, so the in-card sections are switched off — the same
+                                facts must not appear twice on one screen. */}
+                            <ContentItemPanel
+                                contentItem={searchItem}
+                                isEditingAllowed
+                                shouldShowRibbons
+                                showTagSection={false}
+                                showBibleReferenceSection={false}
+                                onModified={saveChanges}
+                                contentItemSettingCollection={contentItemSettings ?? []} />
                         </div>
 
                         <div className="col-lg-5">

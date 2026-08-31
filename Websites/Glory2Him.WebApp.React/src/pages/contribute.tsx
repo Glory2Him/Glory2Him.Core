@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toastError } from '../brokers/toastBroker.error';
-import { ContentItemDetailPanel } from '../components/contentItems/contentItemDetailPanel';
+import { ContentItemPanel } from '../components/contentItems/contentItemPanel';
 import { Spinner } from '../components/coreUI/spinner';
 
 import {
@@ -12,10 +12,10 @@ import {
 import { contentItemService } from '../services/foundations/contentItemService';
 import { contentItemSettingService } from '../services/foundations/contentItemSettingService';
 import { toContentItemApiFailure } from '../services/views/contentItems/toContentItemApiFailure';
-import { toContentItemAddRequest } from '../services/views/contentItems/toContentItemFormItem';
+import { toContentItemAddRequest } from '../services/views/contentItems/toContentItemAddRequest';
 import { useDocumentTitle } from './useDocumentTitle';
 
-// The contribution page. The form itself is ContentItemDetailPanel in its `add` surface — the bespoke
+// The contribution page. The form itself is ContentItemPanel on its add face — the bespoke
 // markup that used to live here (its own field layout, its own type picker, a dead submit button)
 // is gone, and with it the tag and bible-reference boxes: those belong to the association panels,
 // which need an item to associate to and therefore cannot render before one exists (design
@@ -84,7 +84,7 @@ export function Contribute() {
                             </div>
                         ) : (
                             <div className="card card-body border p-4 p-lg-5">
-                                <ContentItemDetailPanel
+                                <ContentItemPanel
                                     ariaLabel="Share what He has done"
                                     contentItemSettingCollection={contentTypeSettings ?? []}
                                     validationIssues={validationIssues}

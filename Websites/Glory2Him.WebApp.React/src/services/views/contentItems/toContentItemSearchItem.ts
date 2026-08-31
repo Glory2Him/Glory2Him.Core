@@ -7,8 +7,9 @@ import {
     ContentItemSearchItem
 } from '../../../models/components/contentItems/contentItemSearchItem';
 
-// The projection between the wire entity and the shape ContentItemSearchPanel renders — the
-// sibling of toContentItemFormItem, which does the same for the detail panel.
+// THE ONE PROJECTION for the whole ContentItemPanel family: the wire entity down to the
+// self-contained element every face renders from — the list card, the detail view, and the
+// editor seed ContentItemPanel derives when Edit is taken.
 
 // How much of a body a row shows before the panel's own clamp takes over. Cut on a word boundary
 // so an excerpt never ends mid-word, and only when there is enough over the limit to be worth
@@ -71,6 +72,7 @@ export const toContentItemSearchItem = (
     excerpt: toExcerpt(contentItem.content),
     imageUrl: placeholderImageUrlFor(contentItem.contentType),
     shareabilityBasis: contentItem.shareabilityBasis,
+    sharePermission: contentItem.sharePermission ?? '',
 
     // PublishDate where the row has one, CreatedWhen otherwise. A draft has no publish date and
     // a card with no date at all reads as broken, so the honest fallback is when it was written.

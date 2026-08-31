@@ -1,8 +1,6 @@
 import { ReactNode, useEffect, useId, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Avatar } from '../coreUI/avatar';
 import { ConfirmDialog } from '../coreUI/confirmDialog';
-import { formatDate } from '../coreUI/dateFormats';
 import { useAuth } from '../securitys/authProvider';
 import { ContentItemSetting } from '../../models/foundations/contentItemSettings/contentItemSetting';
 import { ContentType } from '../../models/foundations/contentItemSettings/contentType';
@@ -20,15 +18,13 @@ import {
 import {
     ApprovalStatus,
     ContentItemFormItem,
-    ContentItemDetailPanelMode,
     ContentItemValidationIssues,
     defaultShareabilityBasis,
     isOwnedShareabilityBasis,
     isPermissionShareabilityBasis,
     ShareabilityBasis,
     shareabilityBasisLabels,
-    shareabilityBasisMembers,
-    shareabilityBasisReadLabels
+    shareabilityBasisMembers
 } from '../../models/components/contentItems/contentItemFormItem';
 
 import './contentItems.css';
@@ -45,8 +41,12 @@ export const OwnerRole = '[OWNER]';
 // no content type is in play rather than composed into a name nobody holds.
 export const ContentTypeToken = '{ContentType}';
 
-// One content item, in the three states it has: contributed (`add`), read (`read`), and amended
-// (`edit`). The ContentForm named in the design §20.6 table, built the way ReviewPanel and
+// THE FORM ENGINE behind ContentItemAddPanel and ContentItemEditPanel — the two writing faces
+// of ContentItemPanel. One surface, two entries: no item is `add` (the picker and a blank
+// form), an item is `edit` (the frozen type and the seeded form). READING is not here at all:
+// the view templates (ContentItemDefaultPanel and its per-type overrides) are the one read
+// surface the family has, which is the point of the merge — one component tree to keep true.
+// The ContentForm named in the design §20.6 table, built the way ReviewPanel and
 // AssociationPanel were.
 //
 // SECURITY POSTURE. Every gate below decides what to RENDER and nothing more. The foundation and
@@ -67,19 +67,14 @@ export const ContentTypeToken = '{ContentType}';
 //
 // THEMING. Styling is expressed as CSS CLASSES rather than colours, so every control follows the
 // light/dark theme. Pass btn-primary, btn-danger or any theme class — never a literal colour.
-export interface ContentItemDetailPanelProps {
+export interface ContentItemFormPanelProps {
     // ── Subject ───────────────────────────────────────────────────────────────
-    // Absent puts the panel in `add`. Present, `read` is the default surface.
+    // Absent puts the panel in `add`. Present, the panel IS the editor for it.
     //
     // Hand over a STABLE object — a fetched row, or a projection memoized by the consumer. The
     // editor is seeded from it whenever its identity changes, so a fresh object literal built on
     // every render would reseed the fields mid-keystroke.
     contentItem?: ContentItemFormItem;
-
-    // Overrides the mode derived from `contentItem`, so a consumer can land straight on an edit
-    // surface without faking a click. `edit` is refused back to `read` when isEditingAllowed is
-    // off, or when the roles do not allow it.
-    mode?: ContentItemDetailPanelMode;
 
     // Which fields exist is per content type and is PASSED IN, never fetched: the ContentItemSetting
     // rows the consumer already holds (hasTitle, hasAuthor, contentTypeName, contentTypeIconCssClass).
@@ -110,46 +105,12 @@ export interface ContentItemDetailPanelProps {
     // Named for a screen reader when no visible title is rendered.
     ariaLabel?: string;
 
-    // Whether the READ surface renders the item's own title. On by default, which is right for a
-    // panel sitting among other content. A page whose whole subject is this one item states the
-    // title in its own <h1> instead and turns this off, so the heading is not said twice.
-    showItemTitle?: boolean;
-
-    // WHICH HEADING the read surface renders that title as. h3 by default, which is right for a
-    // panel sitting among other content; a page whose whole subject is this one item raises it to
-    // h1 and keeps the title where the design puts it — under the type chip — rather than
-    // duplicating it above the panel to get the outline right.
-    titleHeadingLevel?: 'h1' | 'h2' | 'h3' | 'h4';
-
-    // ── Byline ────────────────────────────────────────────────────────────────
-    // WHO CONTRIBUTED IT, resolved. The item itself carries only CreatedBy, an account id, so the
-    // name and face are PASSED IN by the consumer that looked them up (GET /api/contributors/{id})
-    // — this panel fetches nothing. Absent, the read surface simply omits the block: a byline that
-    // is still loading must not flash a placeholder name under somebody's testimony.
-    //
-    // The image url is optional independently of the name: Avatar draws a deterministic initials
-    // circle when there is no picture, which is the same fallback the rest of the site uses.
+    // ── Contributor ───────────────────────────────────────────────────────────
+    // WHOSE NAME AN OWNED BASIS PREFILLS INTO THE AUTHOR FIELD when the consumer has resolved
+    // one — an amendment to somebody else's contribution must not be signed with the editor's
+    // name. Absent, the signed-in reader's own display name serves, who in `add` IS the
+    // contributor.
     submittedByDisplayName?: string;
-    submittedByImageUrl?: string;
-
-    // Where the contributor's name links to, when it should link at all. Absent, the name is
-    // rendered as plain text — the correct default, because there is no public contributor page
-    // yet and a link to nowhere is worse than no link.
-    submittedByHref?: string;
-
-    // ── Engagement ────────────────────────────────────────────────────────────
-    // The figures that read along the bottom of the byline. Each is INDEPENDENTLY OPTIONAL and
-    // undefined leaves it out rather than rendering a zero — the same contract AuthorByline takes.
-    // That matters: "0 comments" is a claim that the conversation is empty, whereas a surface
-    // whose comments are switched off (§6.5 ShowComments) has no claim to make at all.
-    //
-    // NONE OF THEM ARE COMPUTED HERE. Reading time is a function of the content, and the three
-    // counts are separate reads against the comment, reaction and view surfaces — all of them the
-    // consumer's to gather, because this panel is pure presentation.
-    readingTimeMinutes?: number;
-    reactionCount?: number;
-    commentCount?: number;
-    viewCount?: number;
 
     isLoading?: boolean;
 
@@ -188,7 +149,6 @@ export interface ContentItemDetailPanelProps {
     onModified?: (item: ContentItemFormItem) => void;
     onRemoved?: (item: ContentItemFormItem) => void;
     onCancelled?: () => void;
-    onModeChanged?: (mode: ContentItemDetailPanelMode) => void;
 
     // ── Roles ─────────────────────────────────────────────────────────────────
     // Names the entity so the role names can be composed per §18.6 (capability LAST, and plural —
@@ -237,40 +197,23 @@ export interface ContentItemDetailPanelProps {
     authorPrefilledHintText?: string;
     contentLabelText?: string;
     shareabilityLabelText?: string;
-    shareabilityReadLabelText?: string;
     sharePermissionLabelText?: string;
     sharePermissionPlaceholderText?: string;
     sharePermissionRequiredText?: string;
     submitButtonText?: string;
     saveButtonText?: string;
     cancelButtonText?: string;
-    editButtonText?: string;
     deleteButtonText?: string;
     validationSummaryText?: string;
     blockedText?: string;
     typeBlockedText?: string;
     noTypesText?: string;
     loadingText?: string;
-    emptyText?: string;
     deleteConfirmTitleText?: string;
     deleteConfirmMessageText?: string;
     deleteConfirmButtonText?: string;
-    submittedByLabelText?: string;
-    readingTimeLabelText?: string;
-
-    // Singular and plural are separate props rather than one string with an 's' appended, because
-    // "1 reactions" under a contribution is the sort of small wrongness a reader notices and a
-    // translator cannot fix.
-    reactionLabelText?: string;
-    reactionsLabelText?: string;
-    commentLabelText?: string;
-    commentsLabelText?: string;
-    viewLabelText?: string;
-    viewsLabelText?: string;
-
     // ── Theme classes ─────────────────────────────────────────────────────────
     submitButtonCssClass?: string;
-    editButtonCssClass?: string;
     deleteButtonCssClass?: string;
 }
 
@@ -285,34 +228,6 @@ const parseRoles = (roles: string): ReadonlyArray<string> =>
 // setting's ContentTypeName, which an administrator may edit at any time — a renamed type must
 // not silently shed either its role names or its colour.
 const contentTypeKeyOf = (contentType: ContentType): string => ContentType[contentType] ?? '';
-
-// WHETHER TWO NAMES NAME THE SAME PERSON, for the one decision that turns on it: whether the
-// read surface would be printing the author and the submitter as two separate facts when they are
-// one. Compared case- and accent-insensitively because "normal user" and "Normal User" are the
-// same person typed twice, and an empty name matches nothing — an unresolved submitter is not
-// evidence of a duplicate.
-//
-// It is deliberately a NAME comparison and never an identity one: the panel has no account id for
-// whoever the Author field names, and cannot get one. Two different people who share a display
-// name will collapse into one column here, which is the right trade for a byline — the alternative
-// prints the same name twice under most contributions on the site.
-const isSameName = (first: string, second: string): boolean =>
-    first.length > 0
-    && second.length > 0
-    && first.localeCompare(second, undefined, { sensitivity: 'accent' }) === 0;
-
-// The wire carries createdWhen as an ISO string, and a projection is free to leave it out. A
-// value that will not parse is dropped rather than printed as "Invalid Date" under somebody's
-// contribution.
-const toRenderableDate = (value: string | undefined): Date | null => {
-    if (value == null || value.length === 0) {
-        return null;
-    }
-
-    const parsedDate = new Date(value);
-
-    return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
-};
 
 // What the editor holds while it is being filled in. Separate from ContentItemFormItem because a
 // half-typed form has no content type yet in `add`, and every text field is a string here even
@@ -335,23 +250,14 @@ const draftFromItem = (contentItem: ContentItemFormItem | undefined): ContentIte
     sharePermission: contentItem?.sharePermission ?? ''
 });
 
-export function ContentItemDetailPanel({
+export function ContentItemFormPanel({
     contentItem,
-    mode,
     contentItemSettingCollection = [],
     showBorder = false,
     cssClass = '',
     titleText = '',
     ariaLabel = 'Content item',
-    showItemTitle = true,
-    titleHeadingLevel = 'h3',
     submittedByDisplayName,
-    submittedByImageUrl,
-    submittedByHref,
-    readingTimeMinutes,
-    reactionCount,
-    commentCount,
-    viewCount,
     isLoading = false,
     isSubmitting = false,
     validationIssues,
@@ -361,7 +267,6 @@ export function ContentItemDetailPanel({
     onModified,
     onRemoved,
     onCancelled,
-    onModeChanged,
     entityType = 'ContentItem',
     blockRoles,
     addRoles = '',
@@ -380,7 +285,6 @@ export function ContentItemDetailPanel({
     authorPlaceholderText = 'e.g. Dwight L. Moody',
     contentLabelText = '',
     shareabilityLabelText = 'How are you permitted to share this?',
-    shareabilityReadLabelText = 'Shareability',
     sharePermissionLabelText = 'Permission details',
     sharePermissionRequiredText =
     'Please say what permission you have — it is required for this sharing basis.',
@@ -389,38 +293,26 @@ export function ContentItemDetailPanel({
     submitButtonText = 'Submit for review',
     saveButtonText = 'Save',
     cancelButtonText = 'Cancel',
-    editButtonText = 'Edit',
     deleteButtonText = 'Delete',
     validationSummaryText = 'Please fix the following and try again:',
     blockedText = 'Contributions are not open to this account.',
     typeBlockedText = 'Not open to this account',
     noTypesText = 'Contributions are not open for any content type right now.',
     loadingText = 'Loading…',
-    emptyText = 'There is nothing to show.',
     deleteConfirmTitleText = 'Are you sure?',
     deleteConfirmMessageText =
     'This removes the contribution. It cannot be undone from here.',
     deleteConfirmButtonText = 'Delete',
     authorPrefilledHintText =
     'Your display name. Change it if you write under a different one.',
-    submittedByLabelText = 'Submitted by',
-    readingTimeLabelText = 'min read',
-    reactionLabelText = 'reaction',
-    reactionsLabelText = 'reactions',
-    commentLabelText = 'comment',
-    commentsLabelText = 'comments',
-    viewLabelText = 'View',
-    viewsLabelText = 'Views',
     submitButtonCssClass = 'btn-primary',
-    editButtonCssClass = 'btn-outline-primary',
     deleteButtonCssClass = 'btn-outline-danger'
-}: ContentItemDetailPanelProps) {
+}: ContentItemFormPanelProps) {
     const { isAuthenticated, user, userRoles } = useAuth();
     const location = useLocation();
     const headingId = useId();
     const fieldId = useId();
 
-    const [requestedMode, setRequestedMode] = useState<ContentItemDetailPanelMode | null>(null);
     const [draft, setDraft] = useState<ContentItemDraft>(() => draftFromItem(contentItem));
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
@@ -437,19 +329,13 @@ export function ContentItemDetailPanel({
 
     // A different item is a different editor. Keyed on the identity rather than the object so a
     // consumer re-rendering with an equivalent row does not wipe what is being typed.
-    //
-    // `mode` is a dependency too, so a CHANGE to the prop overrules a surface the reader asked
-    // for earlier. Without it the reader's first Edit or Cancel would shadow the prop for the
-    // rest of the item's life, and a consumer driving the panel from its own state could neither
-    // close the editor after a save nor reopen it.
     useEffect(() => {
         setDraft(draftFromItem(contentItem));
-        setRequestedMode(null);
         setIsConfirmingDelete(false);
         setIsAuthorTouched(false);
         setIsSharePermissionMissing(false);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [contentItemId, mode]);
+    }, [contentItemId]);
 
     const resolvedLoginHref =
         loginHref ?? `/Account/Login?returnUrl=${encodeURIComponent(location.pathname)}`;
@@ -595,20 +481,10 @@ export function ContentItemDetailPanel({
         && contributableSettings.length > 0
         && (resolvedAddRoleList.length === 0 || holdsAnyRole(resolvedAddRoleList));
 
-    const derivedMode: ContentItemDetailPanelMode =
-        mode ?? (contentItem == null ? 'add' : 'read');
-
-    const resolvedMode = requestedMode ?? derivedMode;
-
-    // isEditingAllowed and the role gates both subtract, and both apply to a mode passed in as a
-    // prop exactly as they do to one the reader asked for.
-    const activeMode: ContentItemDetailPanelMode =
-        resolvedMode === 'edit' && mayEdit === false ? 'read' : resolvedMode;
-
-    const changeMode = (nextMode: ContentItemDetailPanelMode) => {
-        setRequestedMode(nextMode);
-        onModeChanged?.(nextMode);
-    };
+    // The item IS the mode: no item is `add`, an item is `edit`. Whether editing is actually
+    // open to this reader is mayEdit's answer, rendered as a refusal rather than silently
+    // becoming a different surface — the read face belongs to the view templates now.
+    const activeMode: 'add' | 'edit' = contentItem == null ? 'add' : 'edit';
 
     const issueEntries = Object.entries(validationIssues ?? {});
 
@@ -720,7 +596,6 @@ export function ContentItemDetailPanel({
 
     const cancelEdit = () => {
         setDraft(draftFromItem(contentItem));
-        changeMode('read');
         onCancelled?.();
     };
 
@@ -732,13 +607,9 @@ export function ContentItemDetailPanel({
         }
     };
 
-    // THE BASIS IN PLAY. The item's own on the read surface, whatever the reader has selected on
-    // the two editing surfaces — so a field that comes and goes with the basis moves the moment
-    // the dropdown does, and what a reader is shown never depends on an editor's draft.
-    const effectiveShareabilityBasis =
-        activeMode === 'read' && contentItem != null
-            ? contentItem.shareabilityBasis
-            : draft.shareabilityBasis;
+    // THE BASIS IN PLAY: whatever the reader has selected — so a field that comes and goes
+    // with the basis moves the moment the dropdown does.
+    const effectiveShareabilityBasis = draft.shareabilityBasis;
 
     const isOwnedBasis = isOwnedShareabilityBasis(effectiveShareabilityBasis);
 
@@ -1096,219 +967,50 @@ export function ContentItemDetailPanel({
         );
     };
 
-    const renderEdit = (): ReactNode => (
-        <>
-            {renderValidationSummary()}
-            {renderFrozenType()}
-            {renderEditableFields()}
-
-            <div className="d-flex align-items-center gap-3">
-                <button
-                    type="button"
-                    className={`btn ${submitButtonCssClass} mb-0`}
-                    disabled={isSubmitting}
-                    onClick={submitModify}>
-                    {saveButtonText}
-                </button>
-
-                <button
-                    type="button"
-                    className="btn btn-link text-body p-0 mb-0"
-                    disabled={isSubmitting}
-                    onClick={cancelEdit}>
-                    {cancelButtonText}
-                </button>
-            </div>
-        </>
-    );
-
-    // One labelled column of the byline's top row: a quiet caption over the value it names.
-    const renderBylineFact = (
-        factKey: string,
-        labelText: string,
-        value: ReactNode,
-        leading?: ReactNode): ReactNode => (
-        <div className="g2h-content-item-fact" key={factKey}>
-            {leading}
-
-            <span>
-                <span className="g2h-content-item-fact-label d-block">{labelText}</span>
-                <span className="g2h-content-item-fact-value d-block">{value}</span>
-            </span>
-        </div>
-    );
-
-    // A count and the noun it counts, agreeing in number. Undefined is left OUT rather than
-    // rendered as a zero: "0 comments" asserts that the conversation is empty, which is a
-    // different statement from a surface that has no comments to report (§6.5 ShowComments).
-    const renderCountFigure = (
-        figureKey: string,
-        count: number | undefined,
-        iconCssClass: string,
-        singularText: string,
-        pluralText: string): ReactNode =>
-        count == null ? null : (
-            <li className="nav-item" key={figureKey}>
-                <i className={`${iconCssClass} me-1`} aria-hidden="true"></i>
-                {count.toLocaleString()} {count === 1 ? singularText : pluralText}
-            </li>
-        );
-
-    // WHO CONTRIBUTED IT, WHO WROTE IT, AND WHAT MAY BE DONE WITH IT — the three answers a reader
-    // wants before the first paragraph — with the article's own figures reading underneath.
-    //
-    // Every part is conditional and the whole block disappears when none of them can be answered,
-    // so a panel handed nothing but an item renders no empty scaffolding. The shareability column
-    // is the one constant: every item has a basis, and a reader is always entitled to know it.
-    const renderByline = (item: ContentItemFormItem): ReactNode => {
-        // The RESOLVED submitter and nothing else — never contributorDisplayName, which falls
-        // back to the signed-in reader. Falling back here would compare the author against
-        // whoever happens to be looking and hide the column for a stranger's benefit.
-        const submittedByName = (submittedByDisplayName ?? '').trim();
-        const authorName = (item.author ?? '').trim();
-        const submittedOn = toRenderableDate(item.createdWhen);
-
-        // The name links only where the consumer gave it somewhere to go. There is no public
-        // contributor page yet, and a link to nowhere reads as a broken one.
-        const submittedByValue = submittedByHref == null || submittedByHref.length === 0
-            ? submittedByName
-            : <Link className="text-reset" to={submittedByHref}>{submittedByName}</Link>;
-
-        const facts = [
-            submittedByName.length === 0
-                ? null
-                : renderBylineFact(
-                    'submitted-by',
-                    submittedByLabelText,
-                    submittedByValue,
-                    <Avatar
-                        name={submittedByName}
-                        imageUrl={submittedByImageUrl}
-                        sizePx={44} />),
-
-            // Suppressed only when it would print ONE PERSON TWICE — the author and the
-            // submitter being the same name, which is what an untouched owned basis produces.
-            // A contributor who publishes under another name has said something the submitter
-            // column does not, so it is shown; and where no submitter has been resolved there is
-            // nothing to be duplicating, so it is shown then too.
-            hasAuthorField === false
-                || authorName.length === 0
-                || isSameName(authorName, submittedByName)
-                ? null
-                : renderBylineFact('author', authorLabelText, authorName),
-
-            renderBylineFact(
-                'shareability',
-                shareabilityReadLabelText,
-                shareabilityBasisReadLabels[item.shareabilityBasis])
-        ].filter((fact) => fact != null);
-
-        const figures = [
-            submittedOn == null
-                ? null
-                : <li className="nav-item" key="submitted-on">{formatDate(submittedOn)}</li>,
-
-            readingTimeMinutes == null
-                ? null
-                : (
-                    <li className="nav-item" key="reading-time">
-                        <i className="bi bi-clock-fill me-1" aria-hidden="true"></i>
-                        {readingTimeMinutes} {readingTimeLabelText}
-                    </li>
-                ),
-
-            renderCountFigure(
-                'reactions', reactionCount, 'far fa-heart',
-                reactionLabelText, reactionsLabelText),
-
-            renderCountFigure(
-                'comments', commentCount, 'far fa-comment',
-                commentLabelText, commentsLabelText),
-
-            renderCountFigure(
-                'views', viewCount, 'far fa-eye',
-                viewLabelText, viewsLabelText)
-        ].filter((figure) => figure != null);
-
-        if (facts.length === 0 && figures.length === 0) {
-            return null;
+    // The editor refuses rather than downgrades: with no read face here, a reader the gates
+    // turn away is told so — the same posture the add face takes for a blocked account.
+    const renderEdit = (): ReactNode => {
+        if (mayEdit === false) {
+            return <div className="alert alert-warning" role="alert">{blockedText}</div>;
         }
 
         return (
-            <div className="g2h-content-item-byline mb-4">
-                {facts.length > 0 && (
-                    <div className="g2h-content-item-facts">{facts}</div>
-                )}
+            <>
+                {renderValidationSummary()}
+                {renderFrozenType()}
+                {renderEditableFields()}
 
-                {figures.length > 0 && (
-                    <ul className="nav nav-divider align-items-center small mb-0 mt-3">
-                        {figures}
-                    </ul>
-                )}
-            </div>
-        );
-    };
+                <div className="d-flex align-items-center gap-3">
+                    <button
+                        type="button"
+                        className={`btn ${submitButtonCssClass} mb-0`}
+                        disabled={isSubmitting}
+                        onClick={submitModify}>
+                        {saveButtonText}
+                    </button>
 
-    const renderRead = (): ReactNode => {
-        if (contentItem == null) {
-            return <p className="small text-muted mb-0">{emptyText}</p>;
-        }
+                    <button
+                        type="button"
+                        className="btn btn-link text-body p-0 mb-0"
+                        disabled={isSubmitting}
+                        onClick={cancelEdit}>
+                        {cancelButtonText}
+                    </button>
 
-        // The heading level is the CONSUMER's call (see titleHeadingLevel): a panel among other
-        // content is an h3, a page whose whole subject is this item is an h1. Capitalised because
-        // JSX reads a lowercase tag name as a literal element and an uppercase one as a value.
-        const TitleHeading = titleHeadingLevel;
-
-        const showsTitle =
-            showItemTitle && hasTitleField && (contentItem.title ?? '').length > 0;
-
-        return (
-            <article>
-                <p className="mb-2">{renderTypeChip()}</p>
-
-                {showsTitle && (
-                    <TitleHeading className="g2h-content-item-title mb-3">
-                        {contentItem.title}
-                    </TitleHeading>
-                )}
-
-                {renderByline(contentItem)}
-
-                <div className="g2h-content-item-body mb-3">{contentItem.content}</div>
-
-                {hasSharePermissionField
-                    && (contentItem.sharePermission ?? '').length > 0 && (
-                        <p className="small text-muted mb-1">
-                            {sharePermissionLabelText}: {contentItem.sharePermission}
-                        </p>
+                    {/* Removal rides on the editor now that there is no read face to carry
+                        it. Right-aligned: it is the one control here that destroys. */}
+                    {mayDelete && (
+                        <button
+                            type="button"
+                            className={`btn btn-sm ${deleteButtonCssClass} ms-auto mb-0`}
+                            disabled={isSubmitting}
+                            onClick={() => setIsConfirmingDelete(true)}>
+                            <i className="bi bi-trash me-1" aria-hidden="true"></i>
+                            {deleteButtonText}
+                        </button>
                     )}
-
-                {(mayEdit || mayDelete) && (
-                    <div className="d-flex align-items-center gap-2 mt-3">
-                        {mayEdit && (
-                            <button
-                                type="button"
-                                className={`btn btn-sm ${editButtonCssClass} mb-0`}
-                                disabled={isSubmitting}
-                                onClick={() => changeMode('edit')}>
-                                <i className="bi bi-pencil me-1" aria-hidden="true"></i>
-                                {editButtonText}
-                            </button>
-                        )}
-
-                        {mayDelete && (
-                            <button
-                                type="button"
-                                className={`btn btn-sm ${deleteButtonCssClass} mb-0`}
-                                disabled={isSubmitting}
-                                onClick={() => setIsConfirmingDelete(true)}>
-                                <i className="bi bi-trash me-1" aria-hidden="true"></i>
-                                {deleteButtonText}
-                            </button>
-                        )}
-                    </div>
-                )}
-            </article>
+                </div>
+            </>
         );
     };
 
@@ -1349,10 +1051,8 @@ export function ContentItemDetailPanel({
                 <p className="small text-muted mb-0">{loadingText}</p>
             ) : activeMode === 'add' ? (
                 renderAdd()
-            ) : activeMode === 'edit' ? (
-                renderEdit()
             ) : (
-                renderRead()
+                renderEdit()
             )}
 
             <ConfirmDialog

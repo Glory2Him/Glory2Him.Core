@@ -91,9 +91,10 @@ export const isPermissionShareabilityBasis = (basis: ShareabilityBasis): boolean
 
 // The three surfaces of one content item. `add` has no item behind it yet; `read` renders the
 // item; `edit` renders the same fields the add surface does, over an item that already exists.
-export type ContentItemDetailPanelMode = 'add' | 'read' | 'edit';
+export type ContentItemPanelMode = 'add' | 'read' | 'edit';
 
-// The minimum a ContentItemDetailPanel needs to render one content item and decide who may act on it.
+// The minimum the ContentItemPanel form faces need to render one content item and decide who
+// may act on it.
 // A page projects whatever it holds — a ContentItem row off the wire, a draft it is composing —
 // down to this shape, so the panel never depends on the wire entity (the same split
 // AssociationItem and ApprovalReviewItem take).

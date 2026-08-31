@@ -102,7 +102,7 @@ const samplePagesSection: NavItem = {
                     "SamplePages/Components/Bible-Reference-Association-Panel"),
 
                 sample("Review Panel", "SamplePages/Components/Review-Panel"),
-                sample("Content Item Detail Panel", "SamplePages/Components/Content-Item-Detail-Panel"),
+                sample("Content Item Panel", "SamplePages/Components/Content-Item-Panel"),
                 sample("Content Item Search Panel", "SamplePages/Components/Content-Item-Search-Panel"),
                 sample("Sharing Panel", "SamplePages/Components/Sharing-Panel"),
             ]

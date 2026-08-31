@@ -132,7 +132,9 @@ describe('MyPostDetail', () => {
         // when
         renderPage();
 
-        // then: a quote leads with its content, and the page's own heading names the type
-        expect(screen.getByText('Character is what you are in the dark.')).toBeInTheDocument();
+        // then: a quote leads with its content — the hero face may append the author, so
+        // the match is a fragment rather than the whole line
+        expect(screen.getByText(/Character is what you are in the dark\./))
+            .toBeInTheDocument();
     });
 });

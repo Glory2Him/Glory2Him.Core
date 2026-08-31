@@ -574,7 +574,7 @@ export function ContentItemSearchPanelDoc() {
                         (#318, &sect;16.7.4); cards claim no figure they were not given.{' '}
                         <strong>Approval controls</strong> belong to <code>ReviewPanel</code>,
                         and <strong>the item itself</strong> to{' '}
-                        <code>ContentItemDetailPanel</code>. There is no <code>useQuery</code>,
+                        <code>ContentItemPanel</code>. There is no <code>useQuery</code>,
                         no <code>useMutation</code> and no broker call anywhere inside.
                     </>
                 } />

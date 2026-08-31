@@ -13,7 +13,7 @@ import {
 // collection must not have one item's override applied to another's — which is also why a surface
 // with no item yet can only ever resolve a default.
 //
-// SHARED rather than written twice. ContentItemDetailPanel resolves this to shape its fields, and the
+// SHARED rather than written twice. ContentItemFormPanel resolves this to shape its fields, and the
 // page above it resolves the same row to name itself; when the page had its own copy it drifted
 // immediately — it lost the soft-delete filter, could not see an override at all, and fell back
 // to a literal instead of the type's name.

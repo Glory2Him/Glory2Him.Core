@@ -2,7 +2,7 @@ import { ReactElement, ReactNode } from 'react';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ContentItemDetailPanel } from './contentItemDetailPanel';
+import { ContentItemFormPanel } from './contentItemFormPanel';
 import { ContentItemSetting } from '../../models/foundations/contentItemSettings/contentItemSetting';
 import { ContentType } from '../../models/foundations/contentItemSettings/contentType';
 
@@ -105,7 +105,7 @@ const itemWith = (overrides: Partial<ContentItemFormItem> = {}): ContentItemForm
     ...overrides
 });
 
-describe('ContentItemDetailPanel', () => {
+describe('ContentItemFormPanel', () => {
     beforeEach(() => {
         signOut(authState);
     });
@@ -116,7 +116,7 @@ describe('ContentItemDetailPanel', () => {
             signInAs(authState);
 
             // when
-            renderWithAuth(<ContentItemDetailPanel contentItemSettingCollection={settings} />);
+            renderWithAuth(<ContentItemFormPanel contentItemSettingCollection={settings} />);
 
             // then
             expect(screen.getByText('What are you sharing?')).toBeInTheDocument();
@@ -130,7 +130,7 @@ describe('ContentItemDetailPanel', () => {
 
         it('should offer a way in rather than a form when nobody is signed in', () => {
             // when
-            renderWithAuth(<ContentItemDetailPanel contentItemSettingCollection={settings} />);
+            renderWithAuth(<ContentItemFormPanel contentItemSettingCollection={settings} />);
 
             // then
             expect(screen.getByRole('link', { name: /Login to contribute/ }))
@@ -145,7 +145,7 @@ describe('ContentItemDetailPanel', () => {
             signInAs(authState, ['ReadOnly']);
 
             // when
-            renderWithAuth(<ContentItemDetailPanel contentItemSettingCollection={settings} />);
+            renderWithAuth(<ContentItemFormPanel contentItemSettingCollection={settings} />);
 
             // then
             expect(screen.getByText('Contributions are not open to this account.'))
@@ -160,7 +160,7 @@ describe('ContentItemDetailPanel', () => {
             signInAs(authState, ['ContentItem-ReadOnly']);
 
             // when
-            renderWithAuth(<ContentItemDetailPanel contentItemSettingCollection={settings} />);
+            renderWithAuth(<ContentItemFormPanel contentItemSettingCollection={settings} />);
 
             // then
             expect(screen.getByText('Contributions are not open to this account.'))
@@ -172,7 +172,7 @@ describe('ContentItemDetailPanel', () => {
             signInAs(authState, ['ContentItem-Devotional-ReadOnly']);
 
             // when
-            renderWithAuth(<ContentItemDetailPanel contentItemSettingCollection={settings} />);
+            renderWithAuth(<ContentItemFormPanel contentItemSettingCollection={settings} />);
 
             // then
             expect(screen.getByRole('button', { name: /Devotional/ })).toBeDisabled();
@@ -188,7 +188,7 @@ describe('ContentItemDetailPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemDetailPanel contentItemSettingCollection={settings} onAdded={onAdded} />);
+                <ContentItemFormPanel contentItemSettingCollection={settings} onAdded={onAdded} />);
 
             await userEvent.type(screen.getByLabelText(/Devotional/), 'A word for today');
             await userEvent.type(
@@ -206,7 +206,7 @@ describe('ContentItemDetailPanel', () => {
             const onAdded = vi.fn();
 
             renderWithAuth(
-                <ContentItemDetailPanel contentItemSettingCollection={settings} onAdded={onAdded} />);
+                <ContentItemFormPanel contentItemSettingCollection={settings} onAdded={onAdded} />);
 
             // when
             await userEvent.click(screen.getByRole('button', { name: /Devotional/ }));
@@ -237,7 +237,7 @@ describe('ContentItemDetailPanel', () => {
         it('should ask for the permission detail only once permission is the basis', async () => {
             // given
             signInAs(authState);
-            renderWithAuth(<ContentItemDetailPanel contentItemSettingCollection={settings} />);
+            renderWithAuth(<ContentItemFormPanel contentItemSettingCollection={settings} />);
 
             // when: a basis that rests on nobody's permission
             await userEvent.selectOptions(
@@ -262,7 +262,7 @@ describe('ContentItemDetailPanel', () => {
             signInAs(authState);
 
             // when
-            renderWithAuth(<ContentItemDetailPanel contentItemSettingCollection={settings} />);
+            renderWithAuth(<ContentItemFormPanel contentItemSettingCollection={settings} />);
 
             // then
             expect(screen.getByLabelText(/Permission details/)).toBeInTheDocument();
@@ -278,7 +278,7 @@ describe('ContentItemDetailPanel', () => {
             });
 
             renderWithAuth(
-                <ContentItemDetailPanel contentItemSettingCollection={[storySetting, quoteSetting]} />);
+                <ContentItemFormPanel contentItemSettingCollection={[storySetting, quoteSetting]} />);
 
             // when
             await userEvent.click(screen.getByRole('button', { name: /Quote/ }));
@@ -299,7 +299,7 @@ describe('ContentItemDetailPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItemSettingCollection={[testimony, story, quote]} />);
 
             // then
@@ -320,7 +320,7 @@ describe('ContentItemDetailPanel', () => {
             signInAs(authState);
 
             // when
-            renderWithAuth(<ContentItemDetailPanel contentItemSettingCollection={[]} />);
+            renderWithAuth(<ContentItemFormPanel contentItemSettingCollection={[]} />);
 
             // then
             expect(screen.getByText('Contributions are not open for any content type right now.'))
@@ -333,7 +333,7 @@ describe('ContentItemDetailPanel', () => {
             const onCancelled = vi.fn();
 
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItemSettingCollection={settings}
                     onCancelled={onCancelled} />);
 
@@ -345,83 +345,55 @@ describe('ContentItemDetailPanel', () => {
         });
     });
 
-    describe('read mode', () => {
-        it('should default to read and render the item for anyone, anonymous included', () => {
-            // when
-            renderWithAuth(
-                <ContentItemDetailPanel
-                    contentItem={itemWith()}
-                    contentItemSettingCollection={settings} />);
-
-            // then
-            expect(screen.getByRole('heading', { name: 'He carried me' })).toBeInTheDocument();
-            expect(screen.getByText('Author')).toBeInTheDocument();
-            expect(screen.getByText('Anon')).toBeInTheDocument();
-            expect(screen.getByText('The whole story, as it happened.')).toBeInTheDocument();
-            expect(screen.queryByLabelText(/Title/)).not.toBeInTheDocument();
-        });
-
-        it('should show no action at all while isEditingAllowed is off, roles regardless', () => {
+    describe('the edit face and its gates', () => {
+        // The read face left with the merge — the view templates own it — so an item IS
+        // the editor here, and every old read-surface action gate is now the gate on the
+        // editor itself: who may hold it (Save), and who may destroy from it (Delete).
+        it('should refuse the editor while isEditingAllowed is off, roles regardless', () => {
             // given: the owner, who is also an administrator — every gate below would pass
             signInAs(authState, ['Administrators']);
 
             // when
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItem={itemWith()}
                     contentItemSettingCollection={settings} />);
 
-            // then
-            expect(screen.queryByRole('button', { name: /Edit/ })).not.toBeInTheDocument();
-            expect(screen.queryByRole('button', { name: /Delete/ })).not.toBeInTheDocument();
-        });
-
-        it('should refuse a mode of edit back to read while isEditingAllowed is off', () => {
-            // given
-            signInAs(authState, ['Administrators']);
-
-            // when
-            renderWithAuth(
-                <ContentItemDetailPanel
-                    contentItem={itemWith()}
-                    mode="edit"
-                    contentItemSettingCollection={settings} />);
-
-            // then
+            // then: no editor, and a refusal rather than a silent different surface
             expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
-            expect(screen.getByText('The whole story, as it happened.')).toBeInTheDocument();
+            expect(screen.getByRole('alert')).toBeInTheDocument();
         });
 
-        it('should give the owner both actions on their own item', () => {
+        it('should give the owner the editor and the takedown on their own item', () => {
             // given
             signInAs(authState);
 
             // when
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItem={itemWith()}
                     isEditingAllowed
                     contentItemSettingCollection={settings} />);
 
             // then
-            expect(screen.getByRole('button', { name: /Edit/ })).toBeInTheDocument();
+            expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
             expect(screen.getByRole('button', { name: /Delete/ })).toBeInTheDocument();
         });
 
         it('should keep the owner editing their own item after it is decided', () => {
-            // given: amending a terminal item forks a new version (§3.4 rule 16) — the CONSUMER
-            // decides that, but the affordance stays
+            // given: amending a terminal item forks a new version (§3.4 rule 16) — the
+            // CONSUMER decides that, but the affordance stays
             signInAs(authState);
 
             // when
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItem={itemWith({ approvalStatus: ApprovalStatus.Approved })}
                     isEditingAllowed
                     contentItemSettingCollection={settings} />);
 
             // then
-            expect(screen.getByRole('button', { name: /Edit/ })).toBeInTheDocument();
+            expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
         });
 
         it('should offer the publisher tier an edit on a live item and none on a decided one', () => {
@@ -430,7 +402,7 @@ describe('ContentItemDetailPanel', () => {
 
             // when
             const submitted = renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItem={itemWith({
                         createdBy: OtherId,
                         approvalStatus: ApprovalStatus.Submitted
@@ -439,12 +411,12 @@ describe('ContentItemDetailPanel', () => {
                     contentItemSettingCollection={settings} />);
 
             // then
-            expect(screen.getByRole('button', { name: /Edit/ })).toBeInTheDocument();
+            expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
             submitted.unmount();
 
             // when
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItem={itemWith({
                         createdBy: OtherId,
                         approvalStatus: ApprovalStatus.Approved
@@ -453,23 +425,23 @@ describe('ContentItemDetailPanel', () => {
                     contentItemSettingCollection={settings} />);
 
             // then
-            expect(screen.queryByRole('button', { name: /Edit/ })).not.toBeInTheDocument();
+            expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
         });
 
-        it('should never offer the reviewer tier an edit — a reviewer reviews', () => {
+        it('should never offer the reviewer tier the editor — a reviewer reviews', () => {
             // given
             signInAs(authState, ['Reviewers', 'ContentItem-Reviewers',
                 'ContentItem-Story-Reviewers']);
 
             // when
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItem={itemWith({ createdBy: OtherId })}
                     isEditingAllowed
                     contentItemSettingCollection={settings} />);
 
             // then
-            expect(screen.queryByRole('button', { name: /Edit/ })).not.toBeInTheDocument();
+            expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
             expect(screen.queryByRole('button', { name: /Delete/ })).not.toBeInTheDocument();
         });
 
@@ -479,13 +451,13 @@ describe('ContentItemDetailPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItem={itemWith({ createdBy: OtherId })}
                     isEditingAllowed
                     contentItemSettingCollection={settings} />);
 
             // then
-            expect(screen.getByRole('button', { name: /Edit/ })).toBeInTheDocument();
+            expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
             expect(screen.queryByRole('button', { name: /Delete/ })).not.toBeInTheDocument();
         });
 
@@ -495,7 +467,7 @@ describe('ContentItemDetailPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItem={itemWith({ createdBy: OtherId })}
                     isEditingAllowed
                     contentItemSettingCollection={settings} />);
@@ -504,35 +476,35 @@ describe('ContentItemDetailPanel', () => {
             expect(screen.getByRole('button', { name: /Delete/ })).toBeInTheDocument();
         });
 
-        it('should leave a plain reader with neither action', () => {
+        it('should leave a plain reader with no editor at all', () => {
             // given
             signInAs(authState);
 
             // when
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItem={itemWith({ createdBy: OtherId })}
                     isEditingAllowed
                     contentItemSettingCollection={settings} />);
 
             // then
-            expect(screen.queryByRole('button', { name: /Edit/ })).not.toBeInTheDocument();
+            expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
             expect(screen.queryByRole('button', { name: /Delete/ })).not.toBeInTheDocument();
         });
 
-        it('should strip both actions from an owner blocked for that content type', () => {
+        it('should strip the editor from an owner blocked for that content type', () => {
             // given: the block outranks [OWNER] (#366)
             signInAs(authState, ['ContentItem-Story-ReadOnly']);
 
             // when
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItem={itemWith()}
                     isEditingAllowed
                     contentItemSettingCollection={settings} />);
 
             // then
-            expect(screen.queryByRole('button', { name: /Edit/ })).not.toBeInTheDocument();
+            expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
             expect(screen.queryByRole('button', { name: /Delete/ })).not.toBeInTheDocument();
         });
 
@@ -543,7 +515,7 @@ describe('ContentItemDetailPanel', () => {
             const contentItem = itemWith();
 
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItem={contentItem}
                     isEditingAllowed
                     onRemoved={onRemoved}
@@ -570,7 +542,7 @@ describe('ContentItemDetailPanel', () => {
             const onRemoved = vi.fn();
 
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItem={itemWith()}
                     isEditingAllowed
                     onRemoved={onRemoved}
@@ -597,7 +569,7 @@ describe('ContentItemDetailPanel', () => {
             const onAdded = vi.fn();
 
             renderWithAuth(
-                <ContentItemDetailPanel contentItemSettingCollection={settings} onAdded={onAdded} />);
+                <ContentItemFormPanel contentItemSettingCollection={settings} onAdded={onAdded} />);
 
             await userEvent.type(screen.getByLabelText(/^Story/), 'The whole story.');
 
@@ -620,7 +592,7 @@ describe('ContentItemDetailPanel', () => {
             const onAdded = vi.fn();
 
             renderWithAuth(
-                <ContentItemDetailPanel contentItemSettingCollection={settings} onAdded={onAdded} />);
+                <ContentItemFormPanel contentItemSettingCollection={settings} onAdded={onAdded} />);
 
             await userEvent.type(screen.getByLabelText(/^Story/), 'The whole story.');
             await userEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
@@ -647,7 +619,7 @@ describe('ContentItemDetailPanel', () => {
             const onAdded = vi.fn();
 
             renderWithAuth(
-                <ContentItemDetailPanel contentItemSettingCollection={settings} onAdded={onAdded} />);
+                <ContentItemFormPanel contentItemSettingCollection={settings} onAdded={onAdded} />);
 
             await userEvent.type(screen.getByLabelText(/^Story/), 'The whole story.');
 
@@ -668,7 +640,7 @@ describe('ContentItemDetailPanel', () => {
             const onAdded = vi.fn();
 
             renderWithAuth(
-                <ContentItemDetailPanel contentItemSettingCollection={settings} onAdded={onAdded} />);
+                <ContentItemFormPanel contentItemSettingCollection={settings} onAdded={onAdded} />);
 
             await userEvent.type(screen.getByLabelText(/^Story/), 'The whole story.');
 
@@ -692,9 +664,8 @@ describe('ContentItemDetailPanel', () => {
             const onModified = vi.fn();
 
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItem={itemWith()}
-                    mode="edit"
                     isEditingAllowed
                     onModified={onModified}
                     contentItemSettingCollection={settings} />);
@@ -715,7 +686,7 @@ describe('ContentItemDetailPanel', () => {
             signInAs(authState);
 
             const { container } = renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItem={itemWith({ approvalStatus: ApprovalStatus.Submitted })}
                     contentItemSettingCollection={settings} />);
 
@@ -726,7 +697,7 @@ describe('ContentItemDetailPanel', () => {
             signInAs(authState);
 
             const { container } = renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     shouldShowRibbons
                     contentItem={itemWith({ approvalStatus: ApprovalStatus.Submitted })}
                     contentItemSettingCollection={settings} />);
@@ -741,7 +712,7 @@ describe('ContentItemDetailPanel', () => {
             signInAs(authState);
 
             const { container } = renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     shouldShowRibbons
                     contentItemSettingCollection={settings} />);
 
@@ -756,9 +727,9 @@ describe('ContentItemDetailPanel', () => {
             signInAs(authState);
 
             // The collection's Story default says hasTitle; the element's own winner says
-            // not — the element wins, so no title heading renders.
+            // not — the element wins, so the editor offers no Title field.
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItem={itemWith({
                         contentItemSetting: settingFor(ContentType.Story, 'Story override', {
                             id: 'override-row',
@@ -766,10 +737,11 @@ describe('ContentItemDetailPanel', () => {
                             hasTitle: false
                         })
                     })}
+                    isEditingAllowed
                     contentItemSettingCollection={settings} />);
 
-            expect(screen.queryByRole('heading', { name: 'He carried me' }))
-                .not.toBeInTheDocument();
+            expect(screen.queryByLabelText(/Title/)).not.toBeInTheDocument();
+            expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
         });
 
         it('should emit a projection carrying the winner it was shaped with', async () => {
@@ -777,7 +749,7 @@ describe('ContentItemDetailPanel', () => {
             const onAdded = vi.fn();
 
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItemSettingCollection={settings}
                     onAdded={onAdded} />);
 
@@ -799,23 +771,19 @@ describe('ContentItemDetailPanel', () => {
     });
 
     describe('edit mode', () => {
-        it('should open the editor on Edit and announce the mode', async () => {
+        it('should seed the editor from the item', () => {
             // given
             signInAs(authState);
-            const onModeChanged = vi.fn();
 
+            // when: an item IS the editor — there is no Edit affordance to take here, that
+            // is ContentItemPanel's view face
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItem={itemWith()}
                     isEditingAllowed
-                    onModeChanged={onModeChanged}
                     contentItemSettingCollection={settings} />);
 
-            // when
-            await userEvent.click(screen.getByRole('button', { name: /Edit/ }));
-
             // then
-            expect(onModeChanged).toHaveBeenCalledWith('edit');
             expect(screen.getByLabelText(/Title/)).toHaveValue('He carried me');
             expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
         });
@@ -826,9 +794,8 @@ describe('ContentItemDetailPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItem={itemWith()}
-                    mode="edit"
                     isEditingAllowed
                     contentItemSettingCollection={settings} />);
 
@@ -844,9 +811,8 @@ describe('ContentItemDetailPanel', () => {
             const onModified = vi.fn();
 
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItem={itemWith()}
-                    mode="edit"
                     isEditingAllowed
                     onModified={onModified}
                     contentItemSettingCollection={settings} />);
@@ -867,33 +833,26 @@ describe('ContentItemDetailPanel', () => {
             }));
         });
 
-        it('should return to read with the original values on Cancel', async () => {
+        it('should reseed the original values and tell the page on Cancel', async () => {
             // given
             signInAs(authState);
             const onCancelled = vi.fn();
 
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItem={itemWith()}
                     isEditingAllowed
                     onCancelled={onCancelled}
                     contentItemSettingCollection={settings} />);
 
-            await userEvent.click(screen.getByRole('button', { name: /Edit/ }));
             await userEvent.clear(screen.getByLabelText(/Title/));
             await userEvent.type(screen.getByLabelText(/Title/), 'Something else');
 
             // when
             await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
-            // then
+            // then: the abandoned edit is gone, and the PAGE decides which face comes next
             expect(onCancelled).toHaveBeenCalledTimes(1);
-            expect(screen.getByRole('heading', { name: 'He carried me' })).toBeInTheDocument();
-
-            // when: back into the editor
-            await userEvent.click(screen.getByRole('button', { name: /Edit/ }));
-
-            // then: the abandoned edit is gone
             expect(screen.getByLabelText(/Title/)).toHaveValue('He carried me');
         });
     });
@@ -905,7 +864,7 @@ describe('ContentItemDetailPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItemSettingCollection={settings}
                     validationIssues={{
                         Content: ['Text is required'],
@@ -924,7 +883,7 @@ describe('ContentItemDetailPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItemSettingCollection={settings}
                     validationIssues={{ content: ['Text is required'] }} />);
 
@@ -938,7 +897,7 @@ describe('ContentItemDetailPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItemSettingCollection={settings}
                     validationIssues={{
                         ContentHash: ['A content item already exists with the same content.']
@@ -959,9 +918,8 @@ describe('ContentItemDetailPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItem={itemWith()}
-                    mode="edit"
                     isEditingAllowed
                     contentItemSettingCollection={settings}
                     validationIssues={{ ContentType: ['Value is invalid'] }} />);
@@ -979,7 +937,7 @@ describe('ContentItemDetailPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItemSettingCollection={settings}
                     validationIssues={{ ContentType: ['Value is invalid'] }} />);
 
@@ -998,7 +956,7 @@ describe('ContentItemDetailPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItemSettingCollection={[quoteSetting]}
                     validationIssues={{ Title: ['Text is required'] }} />);
 
@@ -1015,7 +973,7 @@ describe('ContentItemDetailPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItemSettingCollection={settings}
                     validationIssues={{ Content: ['Text is required'] }} />);
 
@@ -1033,7 +991,7 @@ describe('ContentItemDetailPanel', () => {
             signInAs(authState);
 
             // when
-            renderWithAuth(<ContentItemDetailPanel contentItemSettingCollection={settings} />);
+            renderWithAuth(<ContentItemFormPanel contentItemSettingCollection={settings} />);
 
             // then
             expect(screen.getByLabelText(/^Story/)).not.toHaveAttribute('aria-invalid');
@@ -1054,7 +1012,7 @@ describe('ContentItemDetailPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItemSettingCollection={[quoteSetting]}
                     validationIssues={{
                         Title: ['Text is required'],
@@ -1076,9 +1034,8 @@ describe('ContentItemDetailPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItem={itemWith()}
-                    mode="edit"
                     isEditingAllowed
                     contentItemSettingCollection={settings}
                     validationIssues={{ Content: ['Text is required'] }} />);
@@ -1100,30 +1057,14 @@ describe('ContentItemDetailPanel', () => {
             author: 'An author the type no longer has'
         });
 
-        it('should hide both fields in the read surface when the setting says the type has neither', () => {
-            // when
-            renderWithAuth(
-                <ContentItemDetailPanel
-                    contentItem={quoteCarryingBoth}
-                    contentItemSettingCollection={[quoteSetting]} />);
-
-            // then: the values are still on the row - the setting decides what RENDERS
-            expect(screen.queryByRole('heading', { name: /A title the type no longer has/ }))
-                .not.toBeInTheDocument();
-
-            expect(screen.queryByText(/An author the type no longer has/)).not.toBeInTheDocument();
-            expect(screen.getByText('The whole story, as it happened.')).toBeInTheDocument();
-        });
-
         it('should hide both fields in the editor for the same setting', () => {
             // given
             signInAs(authState);
 
             // when
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItem={quoteCarryingBoth}
-                    mode="edit"
                     isEditingAllowed
                     contentItemSettingCollection={[quoteSetting]} />);
 
@@ -1140,9 +1081,8 @@ describe('ContentItemDetailPanel', () => {
             const onModified = vi.fn();
 
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItem={quoteCarryingBoth}
-                    mode="edit"
                     isEditingAllowed
                     onModified={onModified}
                     contentItemSettingCollection={[quoteSetting]} />);
@@ -1163,24 +1103,35 @@ describe('ContentItemDetailPanel', () => {
         });
 
         it('should fall back to what the item carries when no setting resolves at all', () => {
-            // when: no row for this content type, so there is no flag to obey
+            // given: no row for this content type, so there is no flag to obey — the fields
+            // the row carries values for render
+            signInAs(authState);
+
+            // when
             renderWithAuth(
-                <ContentItemDetailPanel contentItem={itemWith()} contentItemSettingCollection={[]} />);
+                <ContentItemFormPanel
+                    contentItem={itemWith()}
+                    isEditingAllowed
+                    contentItemSettingCollection={[]} />);
 
             // then
-            expect(screen.getByRole('heading', { name: 'He carried me' })).toBeInTheDocument();
-            expect(screen.getByText('Anon')).toBeInTheDocument();
+            expect(screen.getByLabelText(/Title/)).toHaveValue('He carried me');
+            expect(screen.getByLabelText(/Author/)).toHaveValue('Anon');
         });
 
         it('should let a resolved false beat what the item carries', () => {
-            // when: the flag is present, so presence is not consulted
+            // given: the flag is present, so presence is not consulted
+            signInAs(authState);
+
+            // when
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItem={quoteCarryingBoth}
+                    isEditingAllowed
                     contentItemSettingCollection={[quoteSetting]} />);
 
             // then
-            expect(screen.queryByText(/An author the type no longer has/)).not.toBeInTheDocument();
+            expect(screen.queryByLabelText(/Author/)).not.toBeInTheDocument();
         });
     });
 
@@ -1200,7 +1151,7 @@ describe('ContentItemDetailPanel', () => {
             const onAdded = vi.fn();
 
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItemSettingCollection={[storySetting, quoteSetting]}
                     onAdded={onAdded} />);
 
@@ -1229,7 +1180,7 @@ describe('ContentItemDetailPanel', () => {
             signInAs(authState);
 
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItemSettingCollection={[storySetting, quoteSetting]} />);
 
             await userEvent.type(screen.getByLabelText(/Title/), 'A story title');
@@ -1249,7 +1200,7 @@ describe('ContentItemDetailPanel', () => {
             const onAdded = vi.fn();
 
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItemSettingCollection={settings}
                     onAdded={onAdded} />);
 
@@ -1283,12 +1234,11 @@ describe('ContentItemDetailPanel', () => {
             const onModified = vi.fn();
 
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItem={itemWith({
                         shareabilityBasis: ShareabilityBasis.PermissionGranted,
                         sharePermission: 'Emailed by the author'
                     })}
-                    mode="edit"
                     isEditingAllowed
                     onModified={onModified}
                     contentItemSettingCollection={settings} />);
@@ -1313,7 +1263,7 @@ describe('ContentItemDetailPanel', () => {
             const onAdded = vi.fn();
 
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItemSettingCollection={settings}
                     onAdded={onAdded} />);
 
@@ -1343,12 +1293,11 @@ describe('ContentItemDetailPanel', () => {
             const onModified = vi.fn();
 
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItem={itemWith({
                         contentType: ContentType.Quote,
                         title: 'A title the type no longer has'
                     })}
-                    mode="edit"
                     isEditingAllowed
                     onModified={onModified}
                     contentItemSettingCollection={[quoteSetting]} />);
@@ -1387,9 +1336,8 @@ describe('ContentItemDetailPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItem={itemWith()}
-                    mode="edit"
                     isEditingAllowed
                     contentItemSettingCollection={[storySetting, override]} />);
 
@@ -1405,9 +1353,8 @@ describe('ContentItemDetailPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItem={itemWith()}
-                    mode="edit"
                     isEditingAllowed
                     contentItemSettingCollection={[override, storySetting]} />);
 
@@ -1422,9 +1369,8 @@ describe('ContentItemDetailPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItem={itemWith()}
-                    mode="edit"
                     isEditingAllowed
                     contentItemSettingCollection={[storySetting, override]} />);
 
@@ -1439,9 +1385,8 @@ describe('ContentItemDetailPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItem={itemWith()}
-                    mode="edit"
                     isEditingAllowed
                     contentItemSettingCollection={[storySetting, override]} />);
 
@@ -1450,14 +1395,20 @@ describe('ContentItemDetailPanel', () => {
         });
 
         it('should fall back to the default when no override matches', () => {
+            // given
+            signInAs(authState);
+
             // when
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItem={itemWith()}
+                    isEditingAllowed
                     contentItemSettingCollection={[storySetting]} />);
 
-            // then: the default's own name, not the enum label
-            expect(screen.getByText('Story')).toBeInTheDocument();
+            // then: the default's own name on the frozen-type chip, not the enum label —
+            // scoped to the chip, because the content label says the same word
+            expect(document.querySelector('.g2h-content-item-chip'))
+                .toHaveTextContent('Story');
         });
 
         it('should offer the defaults alone in the picker, never an override', () => {
@@ -1467,7 +1418,7 @@ describe('ContentItemDetailPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemDetailPanel contentItemSettingCollection={[storySetting, override]} />);
+                <ContentItemFormPanel contentItemSettingCollection={[storySetting, override]} />);
 
             // then: an override belongs to one existing item and is never a contributable type
             expect(screen.getAllByRole('button', { name: /Story/ })).toHaveLength(1);
@@ -1486,7 +1437,7 @@ describe('ContentItemDetailPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemDetailPanel contentItemSettingCollection={[storySetting, adminOnly]} />);
+                <ContentItemFormPanel contentItemSettingCollection={[storySetting, adminOnly]} />);
 
             // then
             expect(screen.getByRole('button', { name: /Story/ })).toBeInTheDocument();
@@ -1502,15 +1453,17 @@ describe('ContentItemDetailPanel', () => {
             });
 
             // when
-            renderWithAuth(<ContentItemDetailPanel contentItemSettingCollection={[adminOnly]} />);
+            renderWithAuth(<ContentItemFormPanel contentItemSettingCollection={[adminOnly]} />);
 
             // then
             expect(screen.getByText('Contributions are not open for any content type right now.'))
                 .toBeInTheDocument();
         });
 
-        it('should still shape the read surface from a row the picker would not offer', () => {
-            // given: a blog post is not a general contribution, but it still renders
+        it('should still shape the editor from a row the picker would not offer', () => {
+            // given: a blog post is not a general contribution, but its row still shapes
+            signInAs(authState);
+
             const blogSetting = settingFor(ContentType.BlogPost, 'Blog Post', {
                 isAvailableAsGeneralUserContribution: false,
                 hasAuthor: false
@@ -1518,64 +1471,30 @@ describe('ContentItemDetailPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItem={itemWith({ contentType: ContentType.BlogPost })}
+                    isEditingAllowed
                     contentItemSettingCollection={[blogSetting]} />);
 
             // then
-            expect(screen.getByText('Blog Post')).toBeInTheDocument();
-            expect(screen.queryByText('Anon')).not.toBeInTheDocument();
+            expect(document.querySelector('.g2h-content-item-chip'))
+                .toHaveTextContent('Blog Post');
+
+            expect(screen.queryByLabelText(/Author/)).not.toBeInTheDocument();
         });
     });
 
     describe('surface control by the consumer', () => {
-        it('should let a change to the mode prop overrule the surface the reader chose', async () => {
-            // given: the pattern onModeChanged invites - the page tracks the mode and hands it
-            // back. Without this, the reader's first click shadows the prop for the item's life.
-            signInAs(authState);
-            const contentItem = itemWith();
-
-            const view = renderWithAuth(
-                <ContentItemDetailPanel
-                    contentItem={contentItem}
-                    mode="read"
-                    isEditingAllowed
-                    contentItemSettingCollection={settings} />);
-
-            await userEvent.click(screen.getByRole('button', { name: /Edit/ }));
-            expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
-
-            // when: the page catches up with the reader, then later closes the editor itself
-            view.rerender(wrapped(
-                <ContentItemDetailPanel
-                    contentItem={contentItem}
-                    mode="edit"
-                    isEditingAllowed
-                    contentItemSettingCollection={settings} />));
-
-            expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
-
-            view.rerender(wrapped(
-                <ContentItemDetailPanel
-                    contentItem={contentItem}
-                    mode="read"
-                    isEditingAllowed
-                    contentItemSettingCollection={settings} />));
-
-            // then
-            expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
-            expect(screen.getByText('The whole story, as it happened.')).toBeInTheDocument();
-        });
-
+        // The mode prop and the in-place Edit entry belong to ContentItemPanel now — see
+        // contentItemPanel.test.tsx, which pins that dispatch.
         it('should reseed the editor when a different item arrives', async () => {
             // given: React Router reuses one element across /posts/a and /posts/b, so the panel
             // must not carry one item's half-typed edit onto the next
             signInAs(authState);
 
             const view = renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItem={itemWith()}
-                    mode="edit"
                     isEditingAllowed
                     contentItemSettingCollection={settings} />);
 
@@ -1584,12 +1503,11 @@ describe('ContentItemDetailPanel', () => {
 
             // when
             view.rerender(wrapped(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItem={itemWith({
                         id: 'content-item-2',
                         content: 'A different story entirely.'
                     })}
-                    mode="edit"
                     isEditingAllowed
                     contentItemSettingCollection={settings} />));
 
@@ -1605,7 +1523,7 @@ describe('ContentItemDetailPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     addRoles="Editors"
                     contentItemSettingCollection={settings} />);
 
@@ -1623,7 +1541,7 @@ describe('ContentItemDetailPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     addRoles="Editors, Administrators"
                     contentItemSettingCollection={settings} />);
 
@@ -1637,7 +1555,7 @@ describe('ContentItemDetailPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     addRoles="Editors"
                     contentItemSettingCollection={settings} />);
 
@@ -1648,28 +1566,13 @@ describe('ContentItemDetailPanel', () => {
     });
 
     describe('presentation', () => {
-        it('should let a page suppress the item title it states itself', () => {
-            // when
-            renderWithAuth(
-                <ContentItemDetailPanel
-                    contentItem={itemWith()}
-                    showItemTitle={false}
-                    contentItemSettingCollection={settings} />);
-
-            // then: the body still renders - only the duplicated heading is gone
-            expect(screen.queryByRole('heading', { name: 'He carried me' }))
-                .not.toBeInTheDocument();
-
-            expect(screen.getByText('The whole story, as it happened.')).toBeInTheDocument();
-        });
-
         it('should not leave a bare section for the theme to pad', () => {
             // given
             signInAs(authState);
 
             // when
             const { container } = renderWithAuth(
-                <ContentItemDetailPanel contentItemSettingCollection={settings} />);
+                <ContentItemFormPanel contentItemSettingCollection={settings} />);
 
             // then: the theme pads every bare <section> by 3.5rem/2.8rem, which the panel's own
             // class neutralises
@@ -1685,7 +1588,7 @@ describe('ContentItemDetailPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemDetailPanel contentItemSettingCollection={settings} isSubmitting />);
+                <ContentItemFormPanel contentItemSettingCollection={settings} isSubmitting />);
 
             // then
             expect(screen.getByRole('button', { name: 'Submit for review' })).toBeDisabled();
@@ -1696,7 +1599,7 @@ describe('ContentItemDetailPanel', () => {
             signInAs(authState);
 
             // when
-            renderWithAuth(<ContentItemDetailPanel isLoading />);
+            renderWithAuth(<ContentItemFormPanel isLoading />);
 
             // then
             expect(screen.getByText('Loading…')).toBeInTheDocument();
@@ -1704,33 +1607,6 @@ describe('ContentItemDetailPanel', () => {
                 .not.toBeInTheDocument();
         });
 
-        it('should render the item title at the heading level the consumer asked for', () => {
-            // given: a page whose whole subject is this one item heads the document with it,
-            // rather than duplicating the title above a chip the panel owns
-
-            // when
-            renderWithAuth(
-                <ContentItemDetailPanel
-                    contentItem={itemWith()}
-                    titleHeadingLevel="h1"
-                    contentItemSettingCollection={settings} />);
-
-            // then
-            expect(screen.getByRole('heading', { name: 'He carried me', level: 1 }))
-                .toBeInTheDocument();
-        });
-
-        it('should head the item at h3 when the consumer says nothing', () => {
-            // when: a panel sitting among other content must not claim the document's h1
-            renderWithAuth(
-                <ContentItemDetailPanel
-                    contentItem={itemWith()}
-                    contentItemSettingCollection={settings} />);
-
-            // then
-            expect(screen.getByRole('heading', { name: 'He carried me', level: 3 }))
-                .toBeInTheDocument();
-        });
     });
 
     // An owned basis says WHO wrote it but not what they want to be called for it, so it fills
@@ -1746,7 +1622,7 @@ describe('ContentItemDetailPanel', () => {
             signInAs(authState);
 
             // when
-            renderWithAuth(<ContentItemDetailPanel contentItemSettingCollection={settings} />);
+            renderWithAuth(<ContentItemFormPanel contentItemSettingCollection={settings} />);
 
             // then
             expect(screen.getByLabelText(/Author/)).toHaveValue(ViewerName);
@@ -1755,7 +1631,7 @@ describe('ContentItemDetailPanel', () => {
         it('should leave the field empty for a basis that names somebody else', async () => {
             // given
             signInAs(authState);
-            renderWithAuth(<ContentItemDetailPanel contentItemSettingCollection={settings} />);
+            renderWithAuth(<ContentItemFormPanel contentItemSettingCollection={settings} />);
 
             // when
             await userEvent.selectOptions(
@@ -1773,7 +1649,7 @@ describe('ContentItemDetailPanel', () => {
             const onAdded = vi.fn();
 
             renderWithAuth(
-                <ContentItemDetailPanel contentItemSettingCollection={settings} onAdded={onAdded} />);
+                <ContentItemFormPanel contentItemSettingCollection={settings} onAdded={onAdded} />);
 
             // when
             await userEvent.type(screen.getByLabelText(/Title/), 'He carried me');
@@ -1794,7 +1670,7 @@ describe('ContentItemDetailPanel', () => {
             const onAdded = vi.fn();
 
             renderWithAuth(
-                <ContentItemDetailPanel contentItemSettingCollection={settings} onAdded={onAdded} />);
+                <ContentItemFormPanel contentItemSettingCollection={settings} onAdded={onAdded} />);
 
             // when
             await userEvent.clear(screen.getByLabelText(/Author/));
@@ -1813,7 +1689,7 @@ describe('ContentItemDetailPanel', () => {
         it('should not overwrite a pen name when the basis changes', async () => {
             // given
             signInAs(authState);
-            renderWithAuth(<ContentItemDetailPanel contentItemSettingCollection={settings} />);
+            renderWithAuth(<ContentItemFormPanel contentItemSettingCollection={settings} />);
 
             await userEvent.clear(screen.getByLabelText(/Author/));
             await userEvent.type(screen.getByLabelText(/Author/), 'A. Pilgrim');
@@ -1830,7 +1706,7 @@ describe('ContentItemDetailPanel', () => {
         it('should respect a field the contributor deliberately emptied', async () => {
             // given
             signInAs(authState);
-            renderWithAuth(<ContentItemDetailPanel contentItemSettingCollection={settings} />);
+            renderWithAuth(<ContentItemFormPanel contentItemSettingCollection={settings} />);
 
             // when
             await userEvent.clear(screen.getByLabelText(/Author/));
@@ -1847,13 +1723,12 @@ describe('ContentItemDetailPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItem={itemWith({
                         shareabilityBasis: ShareabilityBasis.OwnedPublicDomain,
                         author: 'Grace Abara',
                         createdBy: OtherId
                     })}
-                    mode="edit"
                     isEditingAllowed
                     contentItemSettingCollection={settings} />);
 
@@ -1868,13 +1743,12 @@ describe('ContentItemDetailPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItem={itemWith({
                         shareabilityBasis: ShareabilityBasis.OwnedPublicDomain,
                         author: '',
                         createdBy: OtherId
                     })}
-                    mode="edit"
                     isEditingAllowed
                     submittedByDisplayName="Grace Abara"
                     contentItemSettingCollection={settings} />);
@@ -1884,76 +1758,18 @@ describe('ContentItemDetailPanel', () => {
         });
     });
 
-    describe('the author column on the read surface', () => {
-        it('should say nothing twice when the author IS the submitter', () => {
-            // when
-            renderWithAuth(
-                <ContentItemDetailPanel
-                    contentItem={itemWith({
-                        shareabilityBasis: ShareabilityBasis.OwnedPublicDomain,
-                        author: 'Louis Ferguson'
-                    })}
-                    submittedByDisplayName="Louis Ferguson"
-                    contentItemSettingCollection={settings} />);
-
-            // then
-            expect(screen.getByText('Submitted by')).toBeInTheDocument();
-            expect(screen.queryByText('Author')).not.toBeInTheDocument();
-            expect(screen.getAllByText('Louis Ferguson')).toHaveLength(1);
-        });
-
-        it('should treat a difference in case as the same person', () => {
-            // when
-            renderWithAuth(
-                <ContentItemDetailPanel
-                    contentItem={itemWith({ author: 'louis ferguson' })}
-                    submittedByDisplayName="Louis Ferguson"
-                    contentItemSettingCollection={settings} />);
-
-            // then
-            expect(screen.queryByText('Author')).not.toBeInTheDocument();
-        });
-
-        it('should show the pen name the contributor chose', () => {
-            // when
-            renderWithAuth(
-                <ContentItemDetailPanel
-                    contentItem={itemWith({
-                        shareabilityBasis: ShareabilityBasis.OwnedPublicDomain,
-                        author: 'A. Pilgrim'
-                    })}
-                    submittedByDisplayName="Louis Ferguson"
-                    contentItemSettingCollection={settings} />);
-
-            // then: it says something the submitter column does not
-            expect(screen.getByText('Author')).toBeInTheDocument();
-            expect(screen.getByText('A. Pilgrim')).toBeInTheDocument();
-            expect(screen.getByText('Louis Ferguson')).toBeInTheDocument();
-        });
-
-        it('should show the author while the submitter is still unresolved', () => {
-            // when: no submitter passed, so nothing is known to be duplicated
-            renderWithAuth(
-                <ContentItemDetailPanel
-                    contentItem={itemWith({ author: 'Anon' })}
-                    contentItemSettingCollection={settings} />);
-
-            // then
-            expect(screen.getByText('Author')).toBeInTheDocument();
-            expect(screen.getByText('Anon')).toBeInTheDocument();
-        });
-    });
-
     describe('the type chip', () => {
         it('should key the chip on the enum member name, never the editable display name', () => {
             // given: the administrator has renamed the type, which must not detach it from its
             // colour — the stylesheet keys off the member name for exactly this reason
+            signInAs(authState);
             const renamed = settingFor(ContentType.Story, 'Testimonies of Grace');
 
-            // when
+            // when: the frozen-type chip in the editor
             const { container } = renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItem={itemWith()}
+                    isEditingAllowed
                     contentItemSettingCollection={[renamed]} />);
 
             // then
@@ -1965,9 +1781,12 @@ describe('ContentItemDetailPanel', () => {
 
         it('should re-key the chip when the type in play changes', async () => {
             // given
+            signInAs(authState);
+
             const { container, rerender } = renderWithAuth(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItem={itemWith()}
+                    isEditingAllowed
                     contentItemSettingCollection={settings} />);
 
             expect(container.querySelector('.g2h-content-item-chip'))
@@ -1975,11 +1794,12 @@ describe('ContentItemDetailPanel', () => {
 
             // when
             rerender(wrapped(
-                <ContentItemDetailPanel
+                <ContentItemFormPanel
                     contentItem={itemWith({
                         id: 'content-item-2',
                         contentType: ContentType.Devotional
                     })}
+                    isEditingAllowed
                     contentItemSettingCollection={settings} />));
 
             // then: nothing is wired between the type and the colour — the attribute IS the
@@ -1993,7 +1813,7 @@ describe('ContentItemDetailPanel', () => {
             signInAs(authState);
 
             const { container } = renderWithAuth(
-                <ContentItemDetailPanel contentItemSettingCollection={settings} />);
+                <ContentItemFormPanel contentItemSettingCollection={settings} />);
 
             // when
             await userEvent.click(screen.getByRole('button', { name: /Devotional/ }));
@@ -2004,151 +1824,6 @@ describe('ContentItemDetailPanel', () => {
 
             expect(selected).toHaveLength(1);
             expect(selected[0]).toHaveAttribute('data-content-type', 'Devotional');
-        });
-    });
-
-    describe('the read byline', () => {
-        it('should name and picture the contributor the consumer resolved', () => {
-            // when: the panel fetches nothing — CreatedBy is an account id, and the NAME behind it
-            // is the consumer's to look up
-            renderWithAuth(
-                <ContentItemDetailPanel
-                    contentItem={itemWith()}
-                    submittedByDisplayName="Louis Ferguson"
-                    submittedByImageUrl="Profile-Image/abc?v=1234"
-                    contentItemSettingCollection={settings} />);
-
-            // then
-            expect(screen.getByText('Submitted by')).toBeInTheDocument();
-            expect(screen.getByText('Louis Ferguson')).toBeInTheDocument();
-
-            expect(screen.getByRole('img', { name: 'Louis Ferguson' }))
-                .toHaveAttribute('src', 'Profile-Image/abc?v=1234');
-        });
-
-        it('should show no contributor at all rather than a placeholder while one loads', () => {
-            // when
-            renderWithAuth(
-                <ContentItemDetailPanel
-                    contentItem={itemWith()}
-                    contentItemSettingCollection={settings} />);
-
-            // then: a name that is still arriving must not flash somebody else's under a
-            // testimony
-            expect(screen.queryByText('Submitted by')).not.toBeInTheDocument();
-        });
-
-        it('should state the licence rather than repeat who wrote it', () => {
-            // when
-            renderWithAuth(
-                <ContentItemDetailPanel
-                    contentItem={itemWith({
-                        shareabilityBasis: ShareabilityBasis.OwnedPublicDomain
-                    })}
-                    contentItemSettingCollection={settings} />);
-
-            // then: a reader wants to know what may be done with it; who wrote it is the two
-            // columns to the left
-            expect(screen.getByText('Shareability')).toBeInTheDocument();
-            expect(screen.getByText('Public Domain')).toBeInTheDocument();
-        });
-
-        it('should name the retired basis plainly rather than claiming a licence for it', () => {
-            // when: every item contributed before the basis was split carries this
-            renderWithAuth(
-                <ContentItemDetailPanel
-                    contentItem={itemWith({ shareabilityBasis: ShareabilityBasis.Owned })}
-                    contentItemSettingCollection={settings} />);
-
-            // then
-            expect(screen.getByText('Own Work')).toBeInTheDocument();
-        });
-
-        it('should date the contribution from the row rather than from today', () => {
-            // when
-            renderWithAuth(
-                <ContentItemDetailPanel
-                    contentItem={itemWith({ createdWhen: '2026-07-15T09:14:00+00:00' })}
-                    contentItemSettingCollection={settings} />);
-
-            // then
-            expect(screen.getByText('Jul 15, 2026')).toBeInTheDocument();
-        });
-
-        it('should ignore a date it cannot parse rather than printing Invalid Date', () => {
-            // when
-            renderWithAuth(
-                <ContentItemDetailPanel
-                    contentItem={itemWith({ createdWhen: 'not a date' })}
-                    contentItemSettingCollection={settings} />);
-
-            // then
-            expect(screen.queryByText(/Invalid Date/)).not.toBeInTheDocument();
-        });
-    });
-
-    describe('the engagement figures', () => {
-        it('should read the figures the consumer gathered', () => {
-            // when
-            renderWithAuth(
-                <ContentItemDetailPanel
-                    contentItem={itemWith()}
-                    readingTimeMinutes={5}
-                    reactionCount={257}
-                    commentCount={4}
-                    viewCount={2344}
-                    contentItemSettingCollection={settings} />);
-
-            // then
-            expect(screen.getByText(/5 min read/)).toBeInTheDocument();
-            expect(screen.getByText(/257 reactions/)).toBeInTheDocument();
-            expect(screen.getByText(/4 comments/)).toBeInTheDocument();
-            expect(screen.getByText(/2,344 Views/)).toBeInTheDocument();
-        });
-
-        it('should agree in number with the count it is reporting', () => {
-            // when
-            renderWithAuth(
-                <ContentItemDetailPanel
-                    contentItem={itemWith()}
-                    reactionCount={1}
-                    commentCount={1}
-                    viewCount={1}
-                    contentItemSettingCollection={settings} />);
-
-            // then
-            expect(screen.getByText(/1 reaction$/)).toBeInTheDocument();
-            expect(screen.getByText(/1 comment$/)).toBeInTheDocument();
-            expect(screen.getByText(/1 View$/)).toBeInTheDocument();
-        });
-
-        it('should leave out a figure it was given none of rather than reporting a zero', () => {
-            // when: only one of the four is passed
-            renderWithAuth(
-                <ContentItemDetailPanel
-                    contentItem={itemWith()}
-                    commentCount={3}
-                    contentItemSettingCollection={settings} />);
-
-            // then: "0 reactions" asserts that nobody responded, which is a different statement
-            // from a surface with nothing to report
-            expect(screen.getByText(/3 comments/)).toBeInTheDocument();
-            expect(screen.queryByText(/reaction/)).not.toBeInTheDocument();
-            expect(screen.queryByText(/View/)).not.toBeInTheDocument();
-            expect(screen.queryByText(/min read/)).not.toBeInTheDocument();
-        });
-
-        it('should report a genuine zero it was actually given', () => {
-            // when
-            renderWithAuth(
-                <ContentItemDetailPanel
-                    contentItem={itemWith()}
-                    commentCount={0}
-                    contentItemSettingCollection={settings} />);
-
-            // then: undefined means "no figure", zero means "none yet" — and the two must not
-            // collapse into each other
-            expect(screen.getByText(/0 comments/)).toBeInTheDocument();
         });
     });
 });
