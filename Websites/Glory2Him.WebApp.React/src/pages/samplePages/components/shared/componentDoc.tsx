@@ -118,12 +118,18 @@ export interface PropsTableProps {
 export function PropsTable({ rows }: PropsTableProps) {
     return (
         <div className="table-responsive">
-            <table className="table table-sm align-middle">
+            {/* FIXED layout, or the browser hands the width to whichever column carries
+                the longest unbreakable token and the description ends up in a sliver —
+                tall rows and a table wider than the page. The description keeps the
+                width; names and types may break mid-token when they must. */}
+            <table
+                className="table table-sm align-middle"
+                style={{ tableLayout: 'fixed' }}>
                 <thead>
                     <tr>
-                        <th scope="col">Prop</th>
-                        <th scope="col">Type</th>
-                        <th scope="col">Default</th>
+                        <th scope="col" style={{ width: '22%' }}>Prop</th>
+                        <th scope="col" style={{ width: '20%' }}>Type</th>
+                        <th scope="col" style={{ width: '9%' }}>Default</th>
                         <th scope="col">Description</th>
                     </tr>
                 </thead>
@@ -133,10 +139,10 @@ export function PropsTable({ rows }: PropsTableProps) {
                         and stretches every row — the exact opposite of a reference table. */}
                     {rows.map((row) => (
                         <tr key={row.name}>
-                            <td className="w-25"><code>{row.name}</code></td>
-                            <td><small>{row.type}</small></td>
+                            <td className="text-break"><code>{row.name}</code></td>
+                            <td className="text-break"><small>{row.type}</small></td>
                             <td><small>{row.defaultValue ?? '—'}</small></td>
-                            <td className="w-50">{row.description}</td>
+                            <td>{row.description}</td>
                         </tr>
                     ))}
                 </tbody>
