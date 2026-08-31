@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toastSuccess } from '../brokers/toastBroker.success';
 import { BibleReferenceAssociationPanel } from '../components/associations/bibleReferenceAssociationPanel';
@@ -9,6 +9,10 @@ import { Spinner } from '../components/coreUI/spinner';
 import { contentItemService } from '../services/foundations/contentItemService';
 import { contentItemSettingService } from '../services/foundations/contentItemSettingService';
 import { toContentItemSearchItem } from '../services/views/contentItems/toContentItemSearchItem';
+
+import {
+    ContentItemFormItem
+} from '../models/components/contentItems/contentItemFormItem';
 
 import {
     contentTypeNameOf,
@@ -46,14 +50,37 @@ export function MyPostDetail() {
     // The SAME self-contained element a list surface would carry — one projection for the
     // whole family — except the excerpt is left off: this page is the reading surface for
     // the full item, and a clamp with a read-more that leads here would point at itself.
+    // THE ONE-ELEMENT SWAP, done locally: a save closes the editor and the card shows the
+    // amendments because this page swapped its element. The modify WRITE lands with its own
+    // service — until then the toast says plainly that the changes live on this page only.
+    const [amendedItem, setAmendedItem] = useState<ContentItemFormItem | null>(null);
+
+    const saveChanges = (item: ContentItemFormItem) => {
+        setAmendedItem(item);
+
+        toastSuccess(
+            'Your changes show here for now — saving to the server is coming soon.');
+    };
+
     const searchItem = useMemo(
         () => contentItem == null
             ? undefined
             : {
                 ...toContentItemSearchItem(contentItem, contentItemSettings ?? []),
-                excerpt: undefined
+                excerpt: undefined,
+
+                // The swapped-in amendments, where a save made some.
+                ...(amendedItem == null
+                    ? {}
+                    : {
+                        title: amendedItem.title,
+                        author: amendedItem.author,
+                        content: amendedItem.content,
+                        shareabilityBasis: amendedItem.shareabilityBasis,
+                        sharePermission: amendedItem.sharePermission
+                    })
             },
-        [contentItem, contentItemSettings]);
+        [contentItem, contentItemSettings, amendedItem]);
 
     // The same resolver and hasTitle rule the panel applies — see postDetail, which this page
     // mirrors: an earlier hand-rolled copy of this logic drifted immediately.
@@ -90,10 +117,6 @@ export function MyPostDetail() {
 
     const suggestBibleReference = () =>
         toastSuccess('Suggesting bible references is coming soon.');
-
-    // The modify write lands with its own service; until then the save answers honestly
-    // rather than pretending it stuck.
-    const saveChanges = () => toastSuccess('Saving changes is coming soon.');
 
     return (
         <section className="pt-4 pb-5">

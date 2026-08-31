@@ -294,7 +294,15 @@ export function ContentItemPanel({
                 ariaLabel={ariaLabel}
                 titleText={titleText}
                 showBorder={showBorder}
-                onModified={onModified}
+                onModified={(item) => {
+                    // A committed save CLOSES the editor the way Cancel does — back to the
+                    // view face. What the card then shows is the CONSUMER's element: the
+                    // page persists and swaps it (the one-element swap), so the amendments
+                    // appear; a page that has not swapped yet honestly shows the stored
+                    // row.
+                    setIsEditorTaken(false);
+                    onModified?.(item);
+                }}
                 onRemoved={onRemoved}
                 onCancelled={() => {
                     setIsEditorTaken(false);

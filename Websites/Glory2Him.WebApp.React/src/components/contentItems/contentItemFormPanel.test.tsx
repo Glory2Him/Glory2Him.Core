@@ -788,7 +788,7 @@ describe('ContentItemFormPanel', () => {
             expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
         });
 
-        it('should freeze the content type rather than offering the picker', () => {
+        it('should freeze the type tiles rather than offering the picker', () => {
             // given
             signInAs(authState);
 
@@ -799,10 +799,17 @@ describe('ContentItemFormPanel', () => {
                     isEditingAllowed
                     contentItemSettingCollection={settings} />);
 
-            // then: create-only (§12.4.1 rule 7a)
+            // then: the edit face wears the SAME tile layout the add face does, but the
+            // type is create-only (§12.4.1 rule 7a) — every tile disabled, the item's own
+            // still selected, and the question replaced by the plain Type label
             expect(screen.queryByText('What are you sharing?')).not.toBeInTheDocument();
-            expect(screen.queryByRole('button', { name: /Devotional/ })).not.toBeInTheDocument();
             expect(screen.getByText('Type')).toBeInTheDocument();
+
+            expect(screen.getByRole('button', { name: /Devotional/ })).toBeDisabled();
+            expect(screen.getByRole('button', { name: /Story/ })).toBeDisabled();
+
+            expect(screen.getByRole('button', { name: /Story/ }))
+                .toHaveAttribute('aria-pressed', 'true');
         });
 
         it('should raise onModified with the amendments over the original identity', async () => {
@@ -1405,9 +1412,8 @@ describe('ContentItemFormPanel', () => {
                     isEditingAllowed
                     contentItemSettingCollection={[storySetting]} />);
 
-            // then: the default's own name on the frozen-type chip, not the enum label —
-            // scoped to the chip, because the content label says the same word
-            expect(document.querySelector('.g2h-content-item-chip'))
+            // then: the default's own name on the frozen selected tile, not the enum label
+            expect(document.querySelector('.g2h-content-item-type-selected'))
                 .toHaveTextContent('Story');
         });
 
@@ -1476,8 +1482,9 @@ describe('ContentItemFormPanel', () => {
                     isEditingAllowed
                     contentItemSettingCollection={[blogSetting]} />);
 
-            // then
-            expect(document.querySelector('.g2h-content-item-chip'))
+            // then: not a contributable tile, but the item's own setting joins the frozen
+            // row so its type still shows selected
+            expect(document.querySelector('.g2h-content-item-type-selected'))
                 .toHaveTextContent('Blog Post');
 
             expect(screen.queryByLabelText(/Author/)).not.toBeInTheDocument();
@@ -1758,14 +1765,14 @@ describe('ContentItemFormPanel', () => {
         });
     });
 
-    describe('the type chip', () => {
-        it('should key the chip on the enum member name, never the editable display name', () => {
+    describe('the frozen type tiles', () => {
+        it('should key the tile on the enum member name, never the editable display name', () => {
             // given: the administrator has renamed the type, which must not detach it from its
             // colour — the stylesheet keys off the member name for exactly this reason
             signInAs(authState);
             const renamed = settingFor(ContentType.Story, 'Testimonies of Grace');
 
-            // when: the frozen-type chip in the editor
+            // when: the frozen tiles in the editor
             const { container } = renderWithAuth(
                 <ContentItemFormPanel
                     contentItem={itemWith()}
@@ -1773,13 +1780,13 @@ describe('ContentItemFormPanel', () => {
                     contentItemSettingCollection={[renamed]} />);
 
             // then
-            const chip = container.querySelector('.g2h-content-item-chip');
+            const tile = container.querySelector('.g2h-content-item-type-selected');
 
-            expect(chip).toHaveAttribute('data-content-type', 'Story');
-            expect(chip).toHaveTextContent('Testimonies of Grace');
+            expect(tile).toHaveAttribute('data-content-type', 'Story');
+            expect(tile).toHaveTextContent('Testimonies of Grace');
         });
 
-        it('should re-key the chip when the type in play changes', async () => {
+        it('should re-key the selected tile when the type in play changes', async () => {
             // given
             signInAs(authState);
 
@@ -1789,7 +1796,7 @@ describe('ContentItemFormPanel', () => {
                     isEditingAllowed
                     contentItemSettingCollection={settings} />);
 
-            expect(container.querySelector('.g2h-content-item-chip'))
+            expect(container.querySelector('.g2h-content-item-type-selected'))
                 .toHaveAttribute('data-content-type', 'Story');
 
             // when
@@ -1804,7 +1811,7 @@ describe('ContentItemFormPanel', () => {
 
             // then: nothing is wired between the type and the colour — the attribute IS the
             // selector, so the cascade re-resolves on the next paint
-            expect(container.querySelector('.g2h-content-item-chip'))
+            expect(container.querySelector('.g2h-content-item-type-selected'))
                 .toHaveAttribute('data-content-type', 'Devotional');
         });
 

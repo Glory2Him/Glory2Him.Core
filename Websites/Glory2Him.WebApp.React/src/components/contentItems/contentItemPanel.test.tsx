@@ -861,6 +861,56 @@ describe('ContentItemPanel', () => {
             expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
         });
 
+        it('should close the editor on Save and hand the amendments to the page', async () => {
+            // given: an owned item on an owned basis (no permission note to demand)
+            signInAs(authState);
+            const onModified = vi.fn();
+
+            renderCard(
+                <ContentItemPanel
+                    contentItem={ownItem}
+                    isEditingAllowed
+                    onModified={onModified} />);
+
+            await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
+            await userEvent.clear(screen.getByLabelText(/Title/));
+            await userEvent.type(screen.getByLabelText(/Title/), 'Walking hourly in grace');
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+            // then: the editor closed like Cancel does, and the amendments went UP —
+            // the page persists and swaps the element, which is what the card shows
+            expect(screen.queryByLabelText(/Title/)).not.toBeInTheDocument();
+            expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
+
+            expect(onModified).toHaveBeenCalledWith(expect.objectContaining({
+                title: 'Walking hourly in grace'
+            }));
+        });
+
+        it('should discard the draft on Cancel — reopening shows the original', async () => {
+            // given
+            signInAs(authState);
+
+            renderCard(
+                <ContentItemPanel
+                    contentItem={ownItem}
+                    isEditingAllowed
+                    onModified={vi.fn()} />);
+
+            await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
+            await userEvent.clear(screen.getByLabelText(/Title/));
+            await userEvent.type(screen.getByLabelText(/Title/), 'Abandoned words');
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+            await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
+
+            // then
+            expect(screen.getByLabelText(/Title/)).toHaveValue('Walking daily in grace');
+        });
+
         it('should land straight on the editor when the page asks with mode', () => {
             // given
             signInAs(authState);

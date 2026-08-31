@@ -691,14 +691,26 @@ export function ContentItemFormPanel({
             </div>
         );
 
-    const renderTypePicker = (): ReactNode => (
+    // FROZEN, the tiles still stand: the edit face wears the SAME layout the add face does
+    // — one look for both writing surfaces — but the type is create-only (§12.4.1 rule 7a),
+    // so every tile is disabled and the item's own stays selected. An item whose type is
+    // not a contributable tile (a blog post) still shows: its own setting joins the row.
+    const frozenPickerSettings =
+        offerableSettings.some((setting) => setting.contentType === selectedContentType)
+            || activeSetting == null
+            ? offerableSettings
+            : [...offerableSettings, activeSetting];
+
+    const renderTypePicker = (isFrozen: boolean): ReactNode => (
         <fieldset className="mb-4">
-            <legend className="form-label fw-bold fs-6">{typePickerTitleText}</legend>
+            <legend className="form-label fw-bold fs-6">
+                {isFrozen ? typeLabelText : typePickerTitleText}
+            </legend>
 
             <div className="row g-3 row-cols-2 row-cols-md-3 row-cols-lg-5">
-                {offerableSettings.map((setting) => {
+                {(isFrozen ? frozenPickerSettings : offerableSettings).map((setting) => {
                     const isSelected = setting.contentType === selectedContentType;
-                    const isTypeBlocked = isBlockedFor(setting.contentType);
+                    const isTypeBlocked = isFrozen === false && isBlockedFor(setting.contentType);
 
                     // No colour class here. The tile carries aria-pressed and its type key, and
                     // contentItems.css paints the selection from the SAME palette the chip reads
@@ -715,11 +727,16 @@ export function ContentItemFormPanel({
                                 className={`card h-100 w-100 text-center border p-3 g2h-content-item-type ${selectionCssClass}`}
                                 data-content-type={contentTypeKeyOf(setting.contentType)}
                                 aria-pressed={isSelected && isTypeBlocked === false}
-                                disabled={isTypeBlocked}
+                                disabled={isTypeBlocked || isFrozen}
                                 title={isTypeBlocked ? typeBlockedText : undefined}
-                                onClick={() =>
-                                    setDraft((current) =>
-                                        ({ ...current, contentType: setting.contentType }))}>
+                                onClick={() => {
+                                    if (isFrozen === false) {
+                                        setDraft((current) => ({
+                                            ...current,
+                                            contentType: setting.contentType
+                                        }));
+                                    }
+                                }}>
                                 <i
                                     className={`bi ${setting.contentTypeIconCssClass} text-primary fs-4 mx-auto`}
                                     aria-hidden="true"></i>
@@ -739,7 +756,9 @@ export function ContentItemFormPanel({
                 })}
             </div>
 
-            {issuesFor('ContentType').map((message) => (
+            {/* In edit there is no picker to answer for, so a ContentType message reaches
+                the summary instead (see placedFieldNames). */}
+            {isFrozen === false && issuesFor('ContentType').map((message) => (
                 <div key={message} className="small text-danger mt-2">{message}</div>
             ))}
         </fieldset>
@@ -943,7 +962,7 @@ export function ContentItemFormPanel({
         return (
             <>
                 {renderValidationSummary()}
-                {renderTypePicker()}
+                {renderTypePicker(false)}
                 {renderEditableFields()}
 
                 <div className="d-flex align-items-center gap-3">
@@ -977,7 +996,14 @@ export function ContentItemFormPanel({
         return (
             <>
                 {renderValidationSummary()}
-                {renderFrozenType()}
+
+                {/* The same tiles the add face shows, frozen — with the chip as the
+                    fallback when the consumer handed over no default rows to stand as
+                    tiles. */}
+                {frozenPickerSettings.length > 0
+                    ? renderTypePicker(true)
+                    : renderFrozenType()}
+
                 {renderEditableFields()}
 
                 <div className="d-flex align-items-center gap-3">
