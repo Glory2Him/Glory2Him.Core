@@ -577,7 +577,11 @@ export function ContentItemListPanelDoc() {
                     <>
                         Every switch is one of this panel&rsquo;s own props — flip one and
                         the panel re-renders with it changed, so what a prop does is seen
-                        rather than read about.
+                        rather than read about. The rows here carry approval statuses (so
+                        the ribbons have something to wear), and the moderation hook is
+                        wired — the gates are real, so the Moderate control renders for
+                        your admin session and <code>isModeratedView</code> restyles it
+                        into Edit&rsquo;s pencil, standing alone.
                     </>
                 }>
                 <DemoControls toggles={[
@@ -602,12 +606,20 @@ export function ContentItemListPanelDoc() {
                 ]} />
 
                 <LiveDemo title="Live — the playground">
+                    {/* statusItems, not demoItems: a ribbon needs a status to wear, and
+                        the public-feed fixtures deliberately carry none. The two action
+                        hooks are wired because a control renders only where somebody
+                        listens — without them isModeratedView would have no button to
+                        restyle and the switch would look dead. */}
                     <ContentItemListPanel
-                        contentItemCollection={demoItems}
+                        contentItemCollection={statusItems}
                         categorySettingCollection={demoSettings}
                         showSearchBar={playgroundShowsSearchBar}
                         isModeratedView={playgroundIsModeratedView}
-                        shouldShowRibbons={playgroundShowsRibbons} />
+                        shouldShowRibbons={playgroundShowsRibbons}
+                        onEditClick={(item) => setLastEvent(`onEditClick(${item.id})`)}
+                        onModerateClick={(item) =>
+                            setLastEvent(`onModerateClick(${item.id})`)} />
                 </LiveDemo>
             </DocSection>
 
