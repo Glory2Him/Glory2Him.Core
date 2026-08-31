@@ -211,13 +211,25 @@ describe('Component reference pages', () => {
             expect(ribbon!.getAttribute('data-approval-status')).toBe('Draft');
         });
 
-        it('should keep the edit affordance to the demo item\u2019s own submitter', () => {
-            // when: the signed-in doc reader is not doc-demo-user
+        it('should stamp the view demo as the reader\u2019s own and edit in place', async () => {
+            // given: the demo item carries the signed-in account id, so the real
+            // ownership gate opens for whoever reads the page
             renderWithAuth(<ContentItemPanelDoc />);
 
-            // then: the ownership gate is real, so no Edit renders on the view demo
-            expect(screen.queryByRole('button', { name: 'Edit' }))
-                .not.toBeInTheDocument();
+            // when: Edit is taken on the view demo
+            await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
+
+            // then: the card became the editor — anchored on the seeded Title field,
+            // because the view card carries a bookmark control also named Save
+            expect(screen.getByLabelText(/Title/)).toHaveValue('He carried me through');
+
+            // The add demo above carries a Cancel of its own; the editor's is the last.
+            const cancels = screen.getAllByRole('button', { name: 'Cancel' });
+            await userEvent.click(cancels[cancels.length - 1]);
+
+            // and Cancel brings the card back
+            expect(screen.queryByLabelText(/Title/)).not.toBeInTheDocument();
+            expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
         });
     });
 

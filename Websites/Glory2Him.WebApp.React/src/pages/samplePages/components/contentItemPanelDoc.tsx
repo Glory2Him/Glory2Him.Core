@@ -251,9 +251,22 @@ const panelProps: ReadonlyArray<ComponentPropRow> = [
 
 export function ContentItemPanelDoc() {
     useDocumentTitle('Content Item Panel — Components — Glory 2 Him');
-    const { isAuthenticated } = useAuth();
+    const { isAuthenticated, user } = useAuth();
 
     const [lastEvent, setLastEvent] = useState('');
+
+    // The add face's own switches — the form-lifecycle props the view face has no use for.
+    const [isAddLoading, setIsAddLoading] = useState(false);
+    const [isAddSubmitting, setIsAddSubmitting] = useState(false);
+    const [showsAddApiIssues, setShowsAddApiIssues] = useState(false);
+
+    // THE GATES ARE REAL, so the demo item is stamped as YOURS: the ownership gate compares
+    // submittedById against the signed-in account, and only the submitter is offered Edit —
+    // which is also the only way into the edit face here, exactly as on a page.
+    const ownedDemoItem = {
+        ...demoItem,
+        submittedById: user?.userId ?? demoItem.submittedById
+    };
 
     // The playground's switches — each one of this panel's own props.
     const [shouldShowRibbons, setShouldShowRibbons] = useState(true);
@@ -313,15 +326,46 @@ export function ContentItemPanelDoc() {
                     <>
                         A settings collection and no item: the picker offers the contributable
                         types and the fields shape themselves from the chosen type&rsquo;s
-                        effective setting. Signed out, it offers the way in instead.
+                        effective setting. The switches are the form-lifecycle props this
+                        face answers to. Signed out, it offers the way in instead.
                         {isAuthenticated === false && (
                             <strong> Sign in to see the form here.</strong>
                         )}
                     </>
                 }>
+                <DemoControls toggles={[
+                    {
+                        name: 'add-is-loading',
+                        label: 'isLoading (settings still arriving)',
+                        value: isAddLoading,
+                        onChange: setIsAddLoading
+                    },
+                    {
+                        name: 'add-is-submitting',
+                        label: 'isSubmitting (a write in flight)',
+                        value: isAddSubmitting,
+                        onChange: setIsAddSubmitting
+                    },
+                    {
+                        name: 'add-api-issues',
+                        label: 'validationIssues (an API readback)',
+                        value: showsAddApiIssues,
+                        onChange: setShowsAddApiIssues
+                    }
+                ]} />
+
                 <LiveDemo title="Live — add">
                     <ContentItemPanel
                         contentItemSettingCollection={demoSettings}
+                        isLoading={isAddLoading}
+                        isSubmitting={isAddSubmitting}
+                        validationIssues={showsAddApiIssues
+                            ? {
+                                Content: ['Text is required'],
+                                ContentHash:
+                                    ['A content item already exists with the same content.']
+                            }
+                            : undefined}
                         onAdded={(item) =>
                             setLastEvent(`onAdded(${ContentType[item.contentType]})`)}
                         onCancelled={() => setLastEvent('onCancelled()')} />
@@ -332,11 +376,14 @@ export function ContentItemPanelDoc() {
                 title="The view face, and Edit in place"
                 lead={
                     <>
-                        The same card every feed shows — and because{' '}
-                        <code>isEditingAllowed</code> is on and <code>onModified</code> is
-                        wired here, the submitter&rsquo;s Edit control swaps the card for the
-                        editor right here. This demo item was submitted by a demo account, so
-                        the Edit affordance appears only for that owner; the gates are real.
+                        The same card every feed shows — stamped as YOUR submission, because
+                        the ownership gate is real. With <code>isEditingAllowed</code> on and{' '}
+                        <code>onModified</code> wired, <strong>your Edit control swaps the
+                        card for the editor right here</strong> (Cancel brings the card
+                        back); flip <code>isEditingAllowed</code> off and Edit disappears.
+                        The moderation hook is wired too, so your admin session sees the
+                        shield — and <code>isModeratedView</code> restyles it into
+                        Edit&rsquo;s pencil, standing alone.
                     </>
                 }>
                 <DemoControls toggles={[
@@ -398,7 +445,7 @@ export function ContentItemPanelDoc() {
 
                 <LiveDemo title="Live — view">
                     <ContentItemPanel
-                        contentItem={demoItem}
+                        contentItem={ownedDemoItem}
                         shouldShowRibbons={shouldShowRibbons}
                         isEditingAllowed={isEditingAllowed}
                         isModeratedView={isModeratedView}
@@ -417,7 +464,9 @@ export function ContentItemPanelDoc() {
                         onModified={(item) =>
                             setLastEvent(`onModified(${item.id})`)}
                         onRemoved={(item) =>
-                            setLastEvent(`onRemoved(${item.id})`)} />
+                            setLastEvent(`onRemoved(${item.id})`)}
+                        onModerateClick={(item) =>
+                            setLastEvent(`onModerateClick(${item.id})`)} />
                 </LiveDemo>
             </DocSection>
         </ComponentDoc>
