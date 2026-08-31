@@ -144,6 +144,10 @@ section.g2h-content-item-search-panel {
     font-weight: inherit;
     line-height: inherit;
     font-family: inherit;
+
+    /* The theme's .btn is nowrap — right for a button, wrong for a verse standing as a
+       heading, which must wrap like the prose it is instead of running off the card. */
+    white-space: normal;
 }
 
 /* ── SharingPanel ───────────────────────────────────────────────────────────── */
