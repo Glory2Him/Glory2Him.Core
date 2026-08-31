@@ -134,7 +134,8 @@ export function MyPosts() {
                                 criteria={criteria}
                                 onSearch={search}
                                 isLoading={isLoading || userId.length === 0}
-                                shouldShowRibbons
+                                showApprovalStatusRibbon
+                                showApprovalStatus
                                 isLoadingMore={isFetchingNextPage}
                                 hasMore={hasNextPage}
                                 onLoadMore={fetchNextPage}

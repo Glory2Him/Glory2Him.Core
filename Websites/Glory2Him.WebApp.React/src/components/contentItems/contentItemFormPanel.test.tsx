@@ -698,7 +698,7 @@ describe('ContentItemFormPanel', () => {
 
             const { container } = renderWithAuth(
                 <ContentItemFormPanel
-                    shouldShowRibbons
+                    showApprovalStatusRibbon
                     contentItem={itemWith({ approvalStatus: ApprovalStatus.Submitted })}
                     contentItemSettingCollection={settings} />);
 
@@ -713,7 +713,7 @@ describe('ContentItemFormPanel', () => {
 
             const { container } = renderWithAuth(
                 <ContentItemFormPanel
-                    shouldShowRibbons
+                    showApprovalStatusRibbon
                     contentItemSettingCollection={settings} />);
 
             expect(container.querySelector('.g2h-approval-ribbon')).toBeNull();

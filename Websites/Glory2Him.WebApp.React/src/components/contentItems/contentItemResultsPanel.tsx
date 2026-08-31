@@ -20,7 +20,7 @@ import './contentItems.css';
 // keeps the pages; this panel appends nothing of its own), and the panel's whole contribution
 // to paging is noticing that its foot came into view and saying so.
 // The six SECTION SWITCHES thread through too (ContentItemSectionToggles) — like
-// isModeratedView and shouldShowRibbons they are per-SURFACE decisions a page makes
+// isModeratedView and showApprovalStatusRibbon they are per-SURFACE decisions a page makes
 // once for every card, and ContentItemPanel owns what each means. The form-face props
 // (isEditingAllowed, onModified, validationIssues…) are deliberately NOT here: they
 // carry ONE item's write lifecycle, which no single list-level value can express — a
@@ -36,7 +36,8 @@ export interface ContentItemResultsPanelProps
 
     // Threaded to every card — see ContentItemPanel, which owns what it means.
     isModeratedView?: boolean;
-    shouldShowRibbons?: boolean;
+    showApprovalStatusRibbon?: boolean;
+    showApprovalStatus?: boolean;
 
     // The FIRST page. While it is on, the list is replaced by a spinner rather than being
     // emptied, so a re-search does not flash "nothing found" on its way to results.
@@ -64,7 +65,8 @@ export function ContentItemResultsPanel({
     contentItemCollection = [],
     reactionOptions = [],
     isModeratedView = false,
-    shouldShowRibbons = false,
+    showApprovalStatusRibbon = false,
+    showApprovalStatus = false,
     isLoading = false,
     isLoadingMore = false,
     hasMore = false,
@@ -137,7 +139,8 @@ export function ContentItemResultsPanel({
                     contentItem={contentItem}
                     reactionOptions={reactionOptions}
                     isModeratedView={isModeratedView}
-                    shouldShowRibbons={shouldShowRibbons}
+                    showApprovalStatusRibbon={showApprovalStatusRibbon}
+                    showApprovalStatus={showApprovalStatus}
                     {...itemEventsAndText} />
             ))}
 

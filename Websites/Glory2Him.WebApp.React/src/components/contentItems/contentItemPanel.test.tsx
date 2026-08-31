@@ -265,7 +265,9 @@ describe('ContentItemPanel', () => {
     });
 
     describe('status', () => {
-        it('should wear its status while it is not yet public', () => {
+        // The pill is the surface's opt-in, like the ribbon — and where a surface opted
+        // in, EVERY status wears one, the ordinary Approved included.
+        it('should wear no status pill unless the surface opted in', () => {
             renderCard(
                 <ContentItemPanel
                     contentItem={{
@@ -273,19 +275,31 @@ describe('ContentItemPanel', () => {
                         approvalStatus: ApprovalStatus.Submitted
                     }} />);
 
-            expect(screen.getByText('In review')).toBeInTheDocument();
+            expect(screen.queryByText('In review')).not.toBeInTheDocument();
         });
 
-        it('should say nothing about an approved item, which is the ordinary case', () => {
+        it('should wear its status pill when asked, whatever the status', () => {
+            const submitted = renderCard(
+                <ContentItemPanel
+                    showApprovalStatus
+                    contentItem={{
+                        ...devotionalItem,
+                        approvalStatus: ApprovalStatus.Submitted
+                    }} />);
+
+            expect(screen.getByText('In review')).toBeInTheDocument();
+            submitted.unmount();
+
             renderCard(
                 <ContentItemPanel
+                    showApprovalStatus
                     contentItem={{
                         ...devotionalItem,
                         approvalStatus: ApprovalStatus.Approved
                     }} />);
 
-            expect(screen.queryByText('In review')).not.toBeInTheDocument();
-            expect(screen.queryByText('Draft')).not.toBeInTheDocument();
+            // Approved is pilled too — opting in means asking for every status
+            expect(screen.getByText('Approved')).toBeInTheDocument();
         });
 
         it('should wear no corner ribbon unless the surface opted in', () => {
@@ -301,11 +315,11 @@ describe('ContentItemPanel', () => {
 
         it('should wear a corner ribbon carrying the status member name when asked', () => {
             // The stylesheet colours off the member NAME in data-approval-status — grey
-            // Draft, blue Submitted, green Approved, red Rejected — so the name IS the
+            // Draft, yellow Submitted, green Approved, red Rejected — so the name IS the
             // colour contract, exactly as the type chip's palette works.
             const { container } = renderCard(
                 <ContentItemPanel
-                    shouldShowRibbons
+                    showApprovalStatusRibbon
                     contentItem={{
                         ...devotionalItem,
                         approvalStatus: ApprovalStatus.Rejected
@@ -320,7 +334,7 @@ describe('ContentItemPanel', () => {
         it('should ribbon the ordinary approved case too — that is what opting in means', () => {
             const { container } = renderCard(
                 <ContentItemPanel
-                    shouldShowRibbons
+                    showApprovalStatusRibbon
                     contentItem={{
                         ...quoteItem,
                         approvalStatus: ApprovalStatus.Approved

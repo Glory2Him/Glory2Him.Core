@@ -40,7 +40,7 @@ import './contentItems.css';
 // reference, edit) pass straight through: where they lead is the page's decision, and the page
 // stamps the origin into router state so the destination can offer a true way back.
 // The six SECTION SWITCHES thread through too (ContentItemSectionToggles) — like
-// isModeratedView and shouldShowRibbons they are per-SURFACE decisions a page makes
+// isModeratedView and showApprovalStatusRibbon they are per-SURFACE decisions a page makes
 // once for every card, and ContentItemPanel owns what each means. The form-face props
 // (isEditingAllowed, onModified, validationIssues…) are deliberately NOT here: they
 // carry ONE item's write lifecycle, which no single list-level value can express — a
@@ -81,9 +81,13 @@ export interface ContentItemListPanelProps
     isModeratedView?: boolean;
 
     // Whether every card wears a corner ribbon naming its approval status: grey Draft,
-    // blue Submitted, green Approved, red Rejected — the colours in contentItems.css,
+    // yellow Submitted, green Approved, red Rejected — the colours in contentItems.css,
     // keyed by data-approval-status. Off by default.
-    shouldShowRibbons?: boolean;
+    showApprovalStatusRibbon?: boolean;
+
+    // The ribbon's sibling, threaded the same way: whether every card wears its
+    // approval-status PILL beside the type chip. Off by default; on, every status shows.
+    showApprovalStatus?: boolean;
 
     // ── Presentation ──────────────────────────────────────────────────────────
     cssClass?: string;
@@ -114,7 +118,8 @@ export function ContentItemListPanel({
     onLoadMore,
     reactionOptions = [],
     isModeratedView = false,
-    shouldShowRibbons = false,
+    showApprovalStatusRibbon = false,
+    showApprovalStatus = false,
     cssClass = '',
     ariaLabel = 'Content items',
     titleText = '',
@@ -234,7 +239,8 @@ export function ContentItemListPanel({
                 contentItemCollection={contentItemCollection}
                 reactionOptions={reactionOptions}
                 isModeratedView={isModeratedView}
-                shouldShowRibbons={shouldShowRibbons}
+                showApprovalStatusRibbon={showApprovalStatusRibbon}
+                showApprovalStatus={showApprovalStatus}
                 isLoading={isLoading}
                 isLoadingMore={isLoadingMore}
                 hasMore={hasMore}

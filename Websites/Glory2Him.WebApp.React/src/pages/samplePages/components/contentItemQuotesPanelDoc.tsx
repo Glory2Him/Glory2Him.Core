@@ -59,7 +59,7 @@ const quoteProps: ReadonlyArray<ComponentPropRow> = [
 export function ContentItemQuotesPanelDoc() {
     useDocumentTitle('Content Item Quotes Panel — Components — Glory 2 Him');
 
-    const [shouldShowRibbons, setShouldShowRibbons] = useState(false);
+    const [showApprovalStatusRibbon, setShowApprovalStatusRibbon] = useState(false);
     const [showReactionSection, setShowReactionSection] = useState(true);
     const [showShareSection, setShowShareSection] = useState(true);
     const [isReactionPickerOpen, setIsReactionPickerOpen] = useState(false);
@@ -103,9 +103,9 @@ export function ContentItemQuotesPanelDoc() {
                 <DemoControls toggles={[
                     {
                         name: 'quote-ribbons',
-                        label: 'shouldShowRibbons (status corner ribbon)',
-                        value: shouldShowRibbons,
-                        onChange: setShouldShowRibbons
+                        label: 'showApprovalStatusRibbon (status corner ribbon)',
+                        value: showApprovalStatusRibbon,
+                        onChange: setShowApprovalStatusRibbon
                     },
                     {
                         name: 'quote-reaction-section',
@@ -137,7 +137,7 @@ export function ContentItemQuotesPanelDoc() {
                         showsModerateButton={false}
                         moderateButtonIconCss="bi bi-shield"
                         moderateButtonLabel="Moderate"
-                        shouldShowRibbons={shouldShowRibbons}
+                        showApprovalStatusRibbon={showApprovalStatusRibbon}
                         showReactionSection={showReactionSection}
                         showShareSection={showShareSection}
                         areReactionCountsExpanded={false}

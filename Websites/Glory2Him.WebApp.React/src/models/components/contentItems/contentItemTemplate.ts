@@ -126,7 +126,13 @@ export interface ContentItemTemplateProps
 
     // Whether the card wears its approval-status corner ribbon — the surface's opt-in,
     // threaded down from ContentItemListPanel.
-    shouldShowRibbons: boolean;
+    showApprovalStatusRibbon: boolean;
+
+    // Whether the card wears its approval-status PILL beside the type chip — the ribbon's
+    // sibling opt-in, threaded the same way. Off (the default) shows no pill at all; on
+    // shows the status on EVERY row, the ordinary Approved included, because a surface that
+    // asks for statuses is asking for all of them.
+    showApprovalStatus?: boolean;
 
     // The two render toggles the dispatching panel owns.
     areReactionCountsExpanded: boolean;
@@ -141,11 +147,14 @@ export interface ContentItemTemplateProps
 // contentItemChipPalette.test.ts. A second table in TypeScript is exactly the drift that
 // rule exists to prevent.
 
-// A row that is not yet public wears its status; the colour says which kind of not-yet. Approved
-// is absent on purpose — it is the ordinary case, and a badge on every card would say nothing.
+// The status PILL's vocabulary, rendered only where a surface opted in with
+// showApprovalStatus — and there EVERY status has an entry, Approved included: a surface
+// that asks for statuses is asking for all of them. The Submitted pill and the Submitted
+// ribbon say the same thing, so they wear the same warning yellow.
 export const approvalStatusBadgeLabels: Readonly<Record<number, string>> = {
     [ApprovalStatus.Draft]: 'Draft',
     [ApprovalStatus.Submitted]: 'In review',
+    [ApprovalStatus.Approved]: 'Approved',
     [ApprovalStatus.Rejected]: 'Rejected',
     [ApprovalStatus.Dismissed]: 'Dismissed'
 };
@@ -153,12 +162,13 @@ export const approvalStatusBadgeLabels: Readonly<Record<number, string>> = {
 export const approvalStatusBadgeCssClasses: Readonly<Record<number, string>> = {
     [ApprovalStatus.Draft]: 'text-bg-secondary',
     [ApprovalStatus.Submitted]: 'text-bg-warning',
+    [ApprovalStatus.Approved]: 'text-bg-success',
     [ApprovalStatus.Rejected]: 'text-bg-danger',
     [ApprovalStatus.Dismissed]: 'text-bg-secondary'
 };
 
 // THE CORNER RIBBON'S vocabulary, rendered only where a surface opted in with
-// shouldShowRibbons. Unlike the badge, Approved IS present: a surface that asks for ribbons
+// showApprovalStatusRibbon. Unlike the badge, Approved IS present: a surface that asks for ribbons
 // is asking for the status on every card, the ordinary case included. Dismissed stays
 // absent — no shipped surface lists dismissed rows, and a colour for a state nobody shows
 // would be dead vocabulary. The colours live in contentItems.css keyed by

@@ -55,7 +55,7 @@ const templateProps: ReadonlyArray<ComponentPropRow> = [
             + 'and whether the Like picker stands open.'
     },
     {
-        name: 'shouldShowRibbons',
+        name: 'showApprovalStatusRibbon',
         type: 'boolean',
         description: 'The status corner ribbon, rendered on the card ROOT so every derived '
             + 'template wears it identically.'
@@ -86,7 +86,7 @@ export function ContentItemDefaultPanelDoc() {
     const [showsModerateButton, setShowsModerateButton] = useState(false);
     const [areReactionCountsExpanded, setAreReactionCountsExpanded] = useState(false);
     const [isReactionPickerOpen, setIsReactionPickerOpen] = useState(false);
-    const [shouldShowRibbons, setShouldShowRibbons] = useState(false);
+    const [showApprovalStatusRibbon, setShowApprovalStatusRibbon] = useState(false);
     const [showTagSection, setShowTagSection] = useState(true);
     const [showBibleReferenceSection, setShowBibleReferenceSection] = useState(true);
     const [showReactionSection, setShowReactionSection] = useState(true);
@@ -157,9 +157,9 @@ export function ContentItemDefaultPanelDoc() {
                     },
                     {
                         name: 'ribbons',
-                        label: 'shouldShowRibbons (status corner ribbon)',
-                        value: shouldShowRibbons,
-                        onChange: setShouldShowRibbons
+                        label: 'showApprovalStatusRibbon (status corner ribbon)',
+                        value: showApprovalStatusRibbon,
+                        onChange: setShowApprovalStatusRibbon
                     },
                     {
                         name: 'tag-section',
@@ -209,7 +209,7 @@ export function ContentItemDefaultPanelDoc() {
                         showsModerateButton={showsModerateButton}
                         moderateButtonIconCss="bi bi-shield"
                         moderateButtonLabel="Moderate"
-                        shouldShowRibbons={shouldShowRibbons}
+                        showApprovalStatusRibbon={showApprovalStatusRibbon}
                         showTagSection={showTagSection}
                         showBibleReferenceSection={showBibleReferenceSection}
                         showReactionSection={showReactionSection}

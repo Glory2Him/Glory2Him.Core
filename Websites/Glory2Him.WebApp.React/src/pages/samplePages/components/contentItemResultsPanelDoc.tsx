@@ -49,7 +49,7 @@ const resultsProps: ReadonlyArray<ComponentPropRow> = [
             + 'more button as the fallback where IntersectionObserver is unavailable.'
     },
     {
-        name: 'isModeratedView / shouldShowRibbons',
+        name: 'isModeratedView / showApprovalStatusRibbon',
         type: 'boolean',
         defaultValue: 'false',
         description: 'Threaded to every card — ContentItemPanel owns what each means.'
@@ -68,7 +68,7 @@ export function ContentItemResultsPanelDoc() {
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [hasMore, setHasMore] = useState(false);
     const [isModeratedView, setIsModeratedView] = useState(false);
-    const [shouldShowRibbons, setShouldShowRibbons] = useState(false);
+    const [showApprovalStatusRibbon, setShowApprovalStatusRibbon] = useState(false);
     const [loadMoreCount, setLoadMoreCount] = useState(0);
 
     return (
@@ -131,10 +131,10 @@ export function ContentItemResultsPanelDoc() {
                         onChange: setIsModeratedView
                     },
                     {
-                        name: 'should-show-ribbons',
-                        label: 'shouldShowRibbons (status corner ribbons)',
-                        value: shouldShowRibbons,
-                        onChange: setShouldShowRibbons
+                        name: 'show-approval-status-ribbon',
+                        label: 'showApprovalStatusRibbon (status corner ribbons)',
+                        value: showApprovalStatusRibbon,
+                        onChange: setShowApprovalStatusRibbon
                     }
                 ]} />
 
@@ -145,7 +145,7 @@ export function ContentItemResultsPanelDoc() {
                         isLoadingMore={isLoadingMore}
                         hasMore={hasMore}
                         isModeratedView={isModeratedView}
-                        shouldShowRibbons={shouldShowRibbons}
+                        showApprovalStatusRibbon={showApprovalStatusRibbon}
                         onLoadMore={() => setLoadMoreCount((count) => count + 1)} />
                 </LiveDemo>
             </DocSection>

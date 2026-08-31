@@ -357,11 +357,18 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
             + 'what the type shows, and a section renders only when both agree.'
     },
     {
-        name: 'shouldShowRibbons',
+        name: 'showApprovalStatus',
+        type: 'boolean',
+        defaultValue: 'false',
+        description: 'Threaded to every card: the approval-status PILL beside the type '
+            + 'chip. On, every status shows — the ordinary Approved included.'
+    },
+    {
+        name: 'showApprovalStatusRibbon',
         type: 'boolean',
         defaultValue: 'false',
         description: 'Every card wears a corner ribbon naming its approval status — grey '
-            + 'Draft, blue Submitted, green Approved, red Rejected. The colours live in '
+            + 'Draft, yellow Submitted, green Approved, red Rejected. The colours live in '
             + 'contentItems.css keyed by data-approval-status (the member name), the same '
             + 'colour-lives-in-CSS contract the type chip keeps. Approved IS ribboned: a '
             + 'surface that opts in is asking for the status on every card. Dismissed has '
@@ -400,6 +407,7 @@ export function ContentItemListPanelDoc() {
         useState(securityContextOptions[0]);
     const [playgroundIsModeratedView, setPlaygroundIsModeratedView] = useState(false);
     const [playgroundShowsRibbons, setPlaygroundShowsRibbons] = useState(false);
+    const [playgroundShowsStatus, setPlaygroundShowsStatus] = useState(true);
 
     const quoteItems: ReadonlyArray<ContentItemSearchItem> = [
         demoItems[0],
@@ -563,28 +571,30 @@ export function ContentItemListPanelDoc() {
             </DocSection>
 
             <DocSection
-                title="A row that is not yet public wears its status"
+                title="The status pair: the pill and the ribbon"
                 lead={
                     <>
-                        A public feed leaves <code>approvalStatus</code> unset and no badge
-                        appears. /MyPosts and the moderation queue set it, because a draft that
-                        looks published is the one thing a contributor must never be shown.{' '}
-                        <code>Approved</code> shows nothing — it is the ordinary case.
-                        With <code>shouldShowRibbons</code> the status also arrives as a
-                        corner ribbon — and there Approved IS shown, because a surface that
-                        opts in is asking for the status on every card.
+                        Both are the SURFACE&rsquo;s opt-in, threaded to every card, and both
+                        show every status once asked — the ordinary Approved included.{' '}
+                        <code>showApprovalStatus</code> is the pill beside the type chip;{' '}
+                        <code>showApprovalStatusRibbon</code> is the corner ribbon in the
+                        same colours (grey Draft, yellow In review, green Approved, red
+                        Rejected). A public feed asks for neither — approved already says
+                        so by existing — while /myposts and the moderation queue wear both.
                     </>
                 }>
-                <LiveDemo title="Live — draft, in review, approved">
+                <LiveDemo title="Live — the pills">
                     <ContentItemListPanel
                         contentItemCollection={statusItems}
+                        showApprovalStatus
                         showSearchBar={false} />
                 </LiveDemo>
 
-                <LiveDemo title="Live — the same rows wearing ribbons">
+                <LiveDemo title="Live — the same rows wearing both">
                     <ContentItemListPanel
                         contentItemCollection={statusItems}
-                        shouldShowRibbons
+                        showApprovalStatus
+                        showApprovalStatusRibbon
                         showSearchBar={false} />
                 </LiveDemo>
             </DocSection>
@@ -621,9 +631,15 @@ export function ContentItemListPanelDoc() {
                     },
                     {
                         name: 'search-ribbons',
-                        label: 'shouldShowRibbons (status corner ribbons)',
+                        label: 'showApprovalStatusRibbon (status corner ribbons)',
                         value: playgroundShowsRibbons,
                         onChange: setPlaygroundShowsRibbons
+                    },
+                    {
+                        name: 'search-status-pill',
+                        label: 'showApprovalStatus (status pills)',
+                        value: playgroundShowsStatus,
+                        onChange: setPlaygroundShowsStatus
                     }
                 ]} />
 
@@ -643,7 +659,8 @@ export function ContentItemListPanelDoc() {
                             categorySettingCollection={demoSettings}
                             showSearchBar={playgroundShowsSearchBar}
                             isModeratedView={playgroundIsModeratedView}
-                            shouldShowRibbons={playgroundShowsRibbons}
+                            showApprovalStatusRibbon={playgroundShowsRibbons}
+                            showApprovalStatus={playgroundShowsStatus}
                             onEditClick={(item) => setLastEvent(`onEditClick(${item.id})`)}
                             onModerateClick={(item) =>
                                 setLastEvent(`onModerateClick(${item.id})`)} />

@@ -47,7 +47,7 @@ const versesProps: ReadonlyArray<ComponentPropRow> = [
 export function ContentItemVersesPanelDoc() {
     useDocumentTitle('Content Item Verses Panel — Components — Glory 2 Him');
 
-    const [shouldShowRibbons, setShouldShowRibbons] = useState(false);
+    const [showApprovalStatusRibbon, setShowApprovalStatusRibbon] = useState(false);
     const [showBibleReferenceSection, setShowBibleReferenceSection] = useState(true);
     const [lastEvent, setLastEvent] = useState('');
 
@@ -87,9 +87,9 @@ export function ContentItemVersesPanelDoc() {
                 <DemoControls toggles={[
                     {
                         name: 'verses-ribbons',
-                        label: 'shouldShowRibbons (status corner ribbon)',
-                        value: shouldShowRibbons,
-                        onChange: setShouldShowRibbons
+                        label: 'showApprovalStatusRibbon (status corner ribbon)',
+                        value: showApprovalStatusRibbon,
+                        onChange: setShowApprovalStatusRibbon
                     },
                     {
                         name: 'verses-bible-reference-section',
@@ -109,7 +109,7 @@ export function ContentItemVersesPanelDoc() {
                         showsModerateButton={false}
                         moderateButtonIconCss="bi bi-shield"
                         moderateButtonLabel="Moderate"
-                        shouldShowRibbons={shouldShowRibbons}
+                        showApprovalStatusRibbon={showApprovalStatusRibbon}
                         showBibleReferenceSection={showBibleReferenceSection}
                         areReactionCountsExpanded={false}
                         onAssignedReactionsClick={() => { }}

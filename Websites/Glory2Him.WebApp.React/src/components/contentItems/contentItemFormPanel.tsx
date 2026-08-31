@@ -137,10 +137,10 @@ export interface ContentItemFormPanelProps {
     isEditingAllowed?: boolean;
 
     // Whether the panel wears a corner ribbon naming the item's approval status: grey
-    // Draft, blue Submitted, green Approved, red Rejected — the colours in
+    // Draft, yellow Submitted, green Approved, red Rejected — the colours in
     // contentItems.css, keyed by data-approval-status. Off by default, and moot in add
     // mode: an item that does not exist yet has no status to wear.
-    shouldShowRibbons?: boolean;
+    showApprovalStatusRibbon?: boolean;
 
     // ── Events ────────────────────────────────────────────────────────────────
     // The panel mutates nothing and fetches nothing. The CONSUMER owns persistence: it decides
@@ -262,7 +262,7 @@ export function ContentItemFormPanel({
     isSubmitting = false,
     validationIssues,
     isEditingAllowed = false,
-    shouldShowRibbons = false,
+    showApprovalStatusRibbon = false,
     onAdded,
     onModified,
     onRemoved,
@@ -1018,7 +1018,7 @@ export function ContentItemFormPanel({
     // the same contract the card template keeps. An item without a status — or one whose
     // status has no ribbon entry (Dismissed) — wears none.
     const ribbonLabel =
-        shouldShowRibbons && contentItem?.approvalStatus != null
+        showApprovalStatusRibbon && contentItem?.approvalStatus != null
             ? approvalStatusRibbonLabels[contentItem.approvalStatus]
             : undefined;
 

@@ -408,8 +408,12 @@ section.g2h-content-item-list-panel {
     background-color: #6c757d;
 }
 
+/* The pill for Submitted reads "In review" in the theme's warning yellow, and the ribbon
+   says the same thing — so it wears the same colour, with dark text because white on
+   yellow reads as nothing. */
 .g2h-approval-ribbon[data-approval-status="Submitted"] {
-    background-color: #1976d2;
+    background-color: var(--bs-warning, #f7c32e);
+    color: #212529;
 }
 
 .g2h-approval-ribbon[data-approval-status="Approved"] {

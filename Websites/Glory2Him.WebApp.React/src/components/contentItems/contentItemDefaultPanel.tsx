@@ -14,7 +14,6 @@ import {
 } from '../../models/components/contentItems/contentItemTemplate';
 
 import {
-    ApprovalStatus,
     ContentItemSearchItem
 } from '../../models/components/contentItems/contentItemSearchItem';
 
@@ -65,7 +64,8 @@ export function ContentItemDefaultPanel({
     moderateButtonIconCss,
     moderateButtonLabel,
     contentSlot,
-    shouldShowRibbons,
+    showApprovalStatusRibbon,
+    showApprovalStatus = false,
     showTagSection = true,
     showBibleReferenceSection = true,
     showReactionSection = true,
@@ -143,14 +143,16 @@ export function ContentItemDefaultPanel({
     // colour-lives-in-CSS contract the type chip keeps. Dismissed has no ribbon entry, so
     // an unmapped status simply renders none rather than an unlabelled strip.
     const ribbonLabel =
-        shouldShowRibbons && contentItem.approvalStatus != null
+        showApprovalStatusRibbon && contentItem.approvalStatus != null
             ? approvalStatusRibbonLabels[contentItem.approvalStatus]
             : undefined;
 
+    // The status PILL: the surface's opt-in, like the ribbon — and where a surface opted
+    // in, EVERY status wears one, the ordinary Approved included.
     const renderStatusBadge = (item: ContentItemSearchItem) => {
         const status = item.approvalStatus;
 
-        if (status == null || status === ApprovalStatus.Approved) {
+        if (showApprovalStatus === false || status == null) {
             return null;
         }
 

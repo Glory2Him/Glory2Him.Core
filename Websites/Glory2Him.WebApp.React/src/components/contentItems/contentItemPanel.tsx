@@ -88,7 +88,11 @@ export interface ContentItemPanelProps
     // Whether the card wears a corner ribbon naming its approval status — coloured by the
     // stylesheet off data-approval-status. Off by default: the public feed already says
     // approved by existing.
-    shouldShowRibbons?: boolean;
+    showApprovalStatusRibbon?: boolean;
+
+    // The ribbon's sibling: whether the card wears its approval-status PILL beside the
+    // type chip. Off by default; on, every status shows, Approved included.
+    showApprovalStatus?: boolean;
 
     // THE SURFACE SWITCH for the edit face, ahead of every role check — off by default, so a
     // list card whose page wired onModified for element swaps can still never become an
@@ -152,7 +156,8 @@ export function ContentItemPanel({
     mode,
     reactionOptions = [],
     isModeratedView = false,
-    shouldShowRibbons = false,
+    showApprovalStatusRibbon = false,
+    showApprovalStatus = false,
     isEditingAllowed = false,
     isLoading = false,
     isSubmitting = false,
@@ -285,7 +290,7 @@ export function ContentItemPanel({
                 isSubmitting={isSubmitting}
                 validationIssues={validationIssues}
                 submittedByDisplayName={submittedByDisplayName}
-                shouldShowRibbons={shouldShowRibbons}
+                showApprovalStatusRibbon={showApprovalStatusRibbon}
                 ariaLabel={ariaLabel}
                 titleText={titleText}
                 showBorder={showBorder}
@@ -323,7 +328,8 @@ export function ContentItemPanel({
             showsModerateButton={showsModerateButton}
             moderateButtonIconCss={isModeratedView ? 'bi bi-pencil' : 'bi bi-shield'}
             moderateButtonLabel={isModeratedView ? 'Edit' : 'Moderate'}
-            shouldShowRibbons={shouldShowRibbons}
+            showApprovalStatusRibbon={showApprovalStatusRibbon}
+            showApprovalStatus={showApprovalStatus}
             showReactionSection={showReactionSection}
             onEditClick={(item) =>
                 opensEditorInPlace ? setIsEditorTaken(true) : onEditClick?.(item)}

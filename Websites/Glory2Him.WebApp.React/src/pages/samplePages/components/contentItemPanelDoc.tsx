@@ -202,12 +202,20 @@ const panelProps: ReadonlyArray<ComponentPropRow> = [
             + 'alone, wearing Edit’s pencil and label.'
     },
     {
-        name: 'shouldShowRibbons',
+        name: 'showApprovalStatusRibbon',
         type: 'boolean',
         defaultValue: 'false',
         description: 'The card wears a corner ribbon naming its approval status — grey Draft, '
-            + 'blue Submitted, green Approved, red Rejected — coloured by contentItems.css '
+            + 'yellow Submitted, green Approved, red Rejected — coloured by contentItems.css '
             + 'off data-approval-status.'
+    },
+    {
+        name: 'showApprovalStatus',
+        type: 'boolean',
+        defaultValue: 'false',
+        description: 'The ribbon’s sibling: the approval-status PILL beside the type chip, '
+            + 'in the same colours. On, every status shows — Approved included: a surface '
+            + 'that asks for statuses is asking for all of them.'
     },
     {
         name: 'showTagSection / showBibleReferenceSection / showReactionSection / '
@@ -260,7 +268,7 @@ const panelProps: ReadonlyArray<ComponentPropRow> = [
 // The four statuses the corner ribbon can wear — Dismissed has no ribbon by design.
 const ribbonStatusOptions = [
     { key: String(ApprovalStatus.Draft), label: 'Draft (grey)' },
-    { key: String(ApprovalStatus.Submitted), label: 'Submitted (blue)' },
+    { key: String(ApprovalStatus.Submitted), label: 'Submitted (yellow)' },
     { key: String(ApprovalStatus.Approved), label: 'Approved (green)' },
     { key: String(ApprovalStatus.Rejected), label: 'Rejected (red)' }
 ] as const;
@@ -292,7 +300,8 @@ export function ContentItemPanelDoc() {
     };
 
     // The playground's switches — each one of this panel's own props.
-    const [shouldShowRibbons, setShouldShowRibbons] = useState(true);
+    const [showApprovalStatusRibbon, setShowApprovalStatusRibbon] = useState(true);
+    const [showApprovalStatus, setShowApprovalStatus] = useState(true);
     const [isEditingAllowed, setIsEditingAllowed] = useState(true);
     const [isModeratedView, setIsModeratedView] = useState(false);
     const [showTagSection, setShowTagSection] = useState(true);
@@ -407,7 +416,7 @@ export function ContentItemPanelDoc() {
                         (Cancel brings the card back); the moderation tier sees the shield,
                         and <code>isModeratedView</code> restyles it into Edit&rsquo;s
                         pencil, standing alone. The ribbon wears whichever status the radio
-                        picks — with <code>shouldShowRibbons</code> on.
+                        picks — with <code>showApprovalStatusRibbon</code> on.
                     </>
                 }>
                 <SecurityContextSection
@@ -424,9 +433,15 @@ export function ContentItemPanelDoc() {
                 <DemoControls toggles={[
                     {
                         name: 'panel-ribbons',
-                        label: 'shouldShowRibbons',
-                        value: shouldShowRibbons,
-                        onChange: setShouldShowRibbons
+                        label: 'showApprovalStatusRibbon',
+                        value: showApprovalStatusRibbon,
+                        onChange: setShowApprovalStatusRibbon
+                    },
+                    {
+                        name: 'panel-status-pill',
+                        label: 'showApprovalStatus',
+                        value: showApprovalStatus,
+                        onChange: setShowApprovalStatus
                     },
                     {
                         name: 'panel-editing',
@@ -482,7 +497,8 @@ export function ContentItemPanelDoc() {
                     <DemoSecurityContext option={securityContext}>
                         <ContentItemPanel
                                 contentItem={viewedDemoItem}
-                            shouldShowRibbons={shouldShowRibbons}
+                            showApprovalStatusRibbon={showApprovalStatusRibbon}
+                            showApprovalStatus={showApprovalStatus}
                             isEditingAllowed={isEditingAllowed}
                             isModeratedView={isModeratedView}
                             showTagSection={showTagSection}

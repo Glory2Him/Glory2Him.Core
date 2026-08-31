@@ -67,7 +67,7 @@ const editProps: ReadonlyArray<ComponentPropRow> = [
             + 'never the reviewer tier; a ReadOnly block outranks everything (#366).'
     },
     {
-        name: 'shouldShowRibbons',
+        name: 'showApprovalStatusRibbon',
         type: 'boolean',
         defaultValue: 'false',
         description: 'The status corner ribbon, on the editor too — an amendment should not '
@@ -94,7 +94,7 @@ export function ContentItemEditPanelDoc() {
     const [securityContext, setSecurityContext] = useState(securityContextOptions[0]);
     const [isEditingAllowed, setIsEditingAllowed] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [shouldShowRibbons, setShouldShowRibbons] = useState(true);
+    const [showApprovalStatusRibbon, setShowApprovalStatusRibbon] = useState(true);
     const [lastEvent, setLastEvent] = useState('');
 
     return (
@@ -154,10 +154,10 @@ export function ContentItemEditPanelDoc() {
                         onChange: setIsSubmitting
                     },
                     {
-                        name: 'should-show-ribbons',
-                        label: 'shouldShowRibbons (status corner ribbon)',
-                        value: shouldShowRibbons,
-                        onChange: setShouldShowRibbons
+                        name: 'show-approval-status-ribbon',
+                        label: 'showApprovalStatusRibbon (status corner ribbon)',
+                        value: showApprovalStatusRibbon,
+                        onChange: setShowApprovalStatusRibbon
                     }
                 ]} />
 
@@ -171,7 +171,7 @@ export function ContentItemEditPanelDoc() {
                             contentItemSettingCollection={demoSettings}
                             isEditingAllowed={isEditingAllowed}
                             isSubmitting={isSubmitting}
-                            shouldShowRibbons={shouldShowRibbons}
+                            showApprovalStatusRibbon={showApprovalStatusRibbon}
                             onModified={(item) => setLastEvent(`onModified(${item.id})`)}
                             onRemoved={(item) => setLastEvent(`onRemoved(${item.id})`)}
                             onCancelled={() => setLastEvent('onCancelled()')} />

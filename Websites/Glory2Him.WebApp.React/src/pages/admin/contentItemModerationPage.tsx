@@ -136,6 +136,7 @@ export function ContentItemModerationPage() {
                         onShareClick={onShareClick}
                         onSaveClick={onSaveClick}
                         isModeratedView
+                        showApprovalStatus
                         onModerateClick={moderateContentItem}
                         emptyText="Nothing is waiting for moderation. Well done."
                         {...feedNavigation} />

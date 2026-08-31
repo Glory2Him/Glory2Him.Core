@@ -126,7 +126,8 @@ export function MyPostDetail() {
                             <ContentItemPanel
                                 contentItem={searchItem}
                                 isEditingAllowed
-                                shouldShowRibbons
+                                showApprovalStatusRibbon
+                                showApprovalStatus
                                 showTagSection={false}
                                 showBibleReferenceSection={false}
                                 onModified={saveChanges}
