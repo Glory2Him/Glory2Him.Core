@@ -55,6 +55,12 @@ vi.mock('../services/foundations/contentItemService', () => ({
     }
 }));
 
+vi.mock('../services/foundations/reactionService', () => ({
+    reactionService: {
+        useGetApprovedReactions: () => ({ data: [] })
+    }
+}));
+
 vi.mock('../services/foundations/contentItemSettingService', () => ({
     contentItemSettingService: {
         useGetDefaults: () => ({ data: [] })

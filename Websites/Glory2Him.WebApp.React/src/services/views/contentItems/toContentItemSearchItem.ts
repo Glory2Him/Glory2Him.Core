@@ -33,8 +33,10 @@ export const toExcerpt = (content: string): string => {
 //
 // When real header images land (§4.9), this is the one function that changes: the panel takes
 // whatever imageUrl it is handed and knows nothing about where it came from.
-const placeholderImageUrls: Readonly<Record<ContentType, string>> = {
-    [ContentType.Quote]: '/assets/images/blog/16by9/big/01.jpg',
+// QUOTE IS DELIBERATELY ABSENT. Its template stands the quote large over the image when one
+// exists, and a stock photo underneath somebody's words reads as a claim about them — so a quote
+// ships on the quiet light block until real header images land, and the hero face waits ready.
+const placeholderImageUrls: Partial<Readonly<Record<ContentType, string>>> = {
     [ContentType.Story]: '/assets/images/blog/4by3/01.jpg',
     [ContentType.Testimony]: '/assets/images/blog/4by3/02.jpg',
     [ContentType.Devotional]: '/assets/images/blog/4by3/03.jpg',

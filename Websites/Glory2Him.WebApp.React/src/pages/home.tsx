@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { ContentItemSearchPanel } from '../components/contentItems/contentItemSearchPanel';
 import { VerseOfTheDay } from '../components/coreUI/verseOfTheDay';
+import { useContentItemEngagement } from '../hooks/useContentItemEngagement';
 
 import {
     buildContentItemFeedNavigation
@@ -71,6 +72,9 @@ export const Home = () => {
 
     const feedNavigation = buildContentItemFeedNavigation(navigate, location);
 
+    const { reactionOptions, onReactionSelected, onShareClick, onSaveClick, withViewerReactions } =
+        useContentItemEngagement();
+
     return (
         <>
             <VerseOfTheDay verse={verseOfTheDay} href="/BibleReferences" />
@@ -94,7 +98,7 @@ export const Home = () => {
                             ) : (
                                 <ContentItemSearchPanel
                                     ariaLabel="The journal"
-                                    contentItemCollection={contentItems}
+                                    contentItemCollection={withViewerReactions(contentItems)}
                                     contentItemSettingCollection={contentItemSettings ?? []}
                                     criteria={criteria}
                                     onSearch={search}
@@ -102,15 +106,19 @@ export const Home = () => {
                                     isLoadingMore={isFetchingNextPage}
                                     hasMore={hasNextPage}
                                     onLoadMore={fetchNextPage}
+                                    reactionOptions={reactionOptions}
+                                    onReactionSelected={onReactionSelected}
+                                    onShareClick={onShareClick}
+                                    onSaveClick={onSaveClick}
                                     emptyText={
                                         'Nothing matched that search. Try clearing the advanced '
                                         + 'options.'}
                                     {...feedNavigation} />
                             )}
 
-                            {/* No reactionOptions and no onReactionSelected until #318 gives
-                                this page a write to make: a surface that cannot persist a
-                                reaction must not appear to accept one. */}
+                            {/* The engagement handlers are the shared THIN wiring: the
+                                controls render and respond, and the writes behind them
+                                arrive with #318 — see useContentItemEngagement. */}
                         </div>
                     </div>
                 </div>

@@ -51,6 +51,21 @@ vi.mock('../services/foundations/contentItemService', () => ({
     }
 }));
 
+vi.mock('../services/foundations/reactionService', () => ({
+    reactionService: {
+        useGetApprovedReactions: () => ({
+            data: [{
+                id: 'reaction-1',
+                name: 'Amen',
+                unicodeEmoji: '👍',
+                isPublished: true,
+                approvalStatus: 2,
+                isDeleted: false
+            }]
+        })
+    }
+}));
+
 vi.mock('../services/foundations/contentItemSettingService', () => ({
     contentItemSettingService: {
         useGetDefaults: () => ({ data: settings })
@@ -181,19 +196,23 @@ describe('Posts', () => {
             .toHaveTextContent('Miriam Vale');
     });
 
-    // A card carries no figure it does not have: comments and reactions are association reads
-    // the host does not expose yet (#318).
-    it('should claim no engagement figures the api cannot answer', () => {
+    // A card claims no figure it does not have — the comment READS are blocked on #318 — but
+    // the way into the comments still renders, uncounted.
+    it('should offer the comments control uncounted rather than with an invented figure', () => {
         // when
         renderPosts();
 
         // then
-        expect(screen.queryByText(/comments/)).not.toBeInTheDocument();
+        expect(screen.getAllByRole('button', { name: 'Comments' }).length)
+            .toBeGreaterThan(0);
+
+        expect(screen.queryByText(/\d+ comments/)).not.toBeInTheDocument();
     });
 
-    // Giving a reaction is an association too, and a surface that cannot persist one must not
-    // appear to accept one — no reactionOptions and no onReactionSelected are passed.
-    it('should offer no Like it could not persist', () => {
+    // The Like control renders with the REAL vocabulary — the page pulls the approved
+    // reactions and the thin engagement wiring makes the picker respond; the write behind it
+    // arrives with #318.
+    it('should offer the Like control fed by the approved vocabulary', async () => {
         // given
         pages = onePage([contentItemFor({
             id: 'quote-1',
@@ -202,14 +221,13 @@ describe('Posts', () => {
             content: 'Character is what you are in the dark.'
         })]);
 
-        // when
         renderPosts();
 
-        // then
-        expect(screen.getByText(new RegExp('Character is what you are')))
-            .toBeInTheDocument();
+        // when
+        await userEvent.click(screen.getByRole('button', { name: /Like/ }));
 
-        expect(screen.queryByRole('button', { name: /Like/ })).not.toBeInTheDocument();
+        // then
+        expect(screen.getByRole('menuitem', { name: 'Amen' })).toBeInTheDocument();
     });
 
     it('should read the criteria off the url so a shared link lands on the results', () => {

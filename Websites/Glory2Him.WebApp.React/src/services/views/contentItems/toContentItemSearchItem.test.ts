@@ -116,10 +116,12 @@ describe('toContentItemSearchItem', () => {
     // ContentItem carries no image column and Attachment has no exposer, so the picture is a
     // placeholder chosen by TYPE — the same type always looks the same, and a card never changes
     // picture between renders.
-    it('should give every content type a stable placeholder of its own', () => {
+    // QUOTE IS THE EXCEPTION: its template stands the words large, and a stock photo
+    // underneath somebody's words reads as a claim about them, so a quote ships on the quiet
+    // block until real header images land.
+    it('should give every content type but the quote a stable placeholder of its own', () => {
         // given
         const contentTypes = [
-            ContentType.Quote,
             ContentType.Story,
             ContentType.Testimony,
             ContentType.Devotional,
@@ -138,6 +140,8 @@ describe('toContentItemSearchItem', () => {
 
         expect(placeholderImageUrlFor(ContentType.Devotional))
             .toBe(placeholderImageUrlFor(ContentType.Devotional));
+
+        expect(placeholderImageUrlFor(ContentType.Quote)).toBeUndefined();
     });
 
     // Each of these is blocked on an association read the host does not expose yet (#318), and

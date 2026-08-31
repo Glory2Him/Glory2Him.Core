@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { ContentItemSearchPanel } from '../components/contentItems/contentItemSearchPanel';
 import { useAuth } from '../components/securitys/authProvider';
+import { useContentItemEngagement } from '../hooks/useContentItemEngagement';
 
 import {
     buildContentItemFeedNavigation
@@ -76,6 +77,16 @@ export function MyPosts() {
 
     const feedNavigation = buildContentItemFeedNavigation(navigate, location);
 
+    const { reactionOptions, onReactionSelected, onShareClick, onSaveClick, withViewerReactions } =
+        useContentItemEngagement();
+
+    // Straight to the item; the detail surface's edit mode is its own work, so for now Edit
+    // and the title share a destination and the origin (and intent) ride along in state.
+    const editContentItem = (item: { id: string }) =>
+        navigate(`/posts/${item.id}`, {
+            state: { from: `${location.pathname}${location.search}`, edit: true }
+        });
+
     return (
         <section className="pt-4 pb-5">
             <div className="container">
@@ -97,7 +108,7 @@ export function MyPosts() {
                         ) : (
                             <ContentItemSearchPanel
                                 ariaLabel="My posts"
-                                contentItemCollection={contentItems}
+                                contentItemCollection={withViewerReactions(contentItems)}
                                 contentItemSettingCollection={contentItemSettings ?? []}
                                 criteria={criteria}
                                 onSearch={search}
@@ -105,6 +116,11 @@ export function MyPosts() {
                                 isLoadingMore={isFetchingNextPage}
                                 hasMore={hasNextPage}
                                 onLoadMore={fetchNextPage}
+                                reactionOptions={reactionOptions}
+                                onReactionSelected={onReactionSelected}
+                                onShareClick={onShareClick}
+                                onSaveClick={onSaveClick}
+                                onEditClick={editContentItem}
                                 emptyText={
                                     'You have not contributed anything that matches. Share '
                                     + 'what He has done!'}

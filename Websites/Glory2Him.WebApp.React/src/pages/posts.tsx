@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { ContentItemSearchPanel } from '../components/contentItems/contentItemSearchPanel';
+import { useContentItemEngagement } from '../hooks/useContentItemEngagement';
 
 import {
     buildContentItemFeedNavigation
@@ -75,6 +76,9 @@ export function Posts() {
 
     const feedNavigation = buildContentItemFeedNavigation(navigate, location);
 
+    const { reactionOptions, onReactionSelected, onShareClick, onSaveClick, withViewerReactions } =
+        useContentItemEngagement();
+
     return (
         <section className="pt-4 pb-5">
             <div className="container">
@@ -96,7 +100,7 @@ export function Posts() {
                         ) : (
                             <ContentItemSearchPanel
                                 ariaLabel="The journal"
-                                contentItemCollection={contentItems}
+                                contentItemCollection={withViewerReactions(contentItems)}
                                 contentItemSettingCollection={contentItemSettings ?? []}
                                 criteria={criteria}
                                 onSearch={search}
@@ -104,17 +108,19 @@ export function Posts() {
                                 isLoadingMore={isFetchingNextPage}
                                 hasMore={hasNextPage}
                                 onLoadMore={fetchNextPage}
+                                reactionOptions={reactionOptions}
+                                onReactionSelected={onReactionSelected}
+                                onShareClick={onShareClick}
+                                onSaveClick={onSaveClick}
                                 emptyText={
                                     'Nothing matched that search. Try clearing the advanced '
                                     + 'options.'}
                                 {...feedNavigation} />
                         )}
 
-                        {/* NO reactionOptions AND NO onReactionSelected, a decision rather than
-                            an omission: giving a reaction is a ContentItem-to-Reaction
-                            ASSOCIATION, and associations have no HTTP exposer yet (#318), so
-                            this page cannot persist one. A surface that cannot persist a
-                            reaction must not appear to accept one. Two props when #318 lands. */}
+                        {/* The engagement handlers are the shared THIN wiring: the controls
+                            render and respond, and the writes behind them arrive with #318 —
+                            see useContentItemEngagement. */}
                     </div>
                 </div>
             </div>

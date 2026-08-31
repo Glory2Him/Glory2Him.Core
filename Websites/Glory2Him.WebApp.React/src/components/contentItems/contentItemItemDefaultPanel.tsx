@@ -63,6 +63,7 @@ export function ContentItemItemDefaultPanel({
     dateLabelText = 'Date',
     likeButtonText = 'Like',
     commentsText = 'comments',
+    commentsNoCountText = 'Comments',
     shareButtonText = 'Share',
     saveButtonText = 'Save',
     editButtonText = 'Edit',
@@ -88,10 +89,11 @@ export function ContentItemItemDefaultPanel({
     const showsAssignedReactions =
         contentItemSetting?.showReactions !== false && reactionSummary.length > 0;
 
+    // The count is optional — the comment reads have no exposer yet (#318) — but the way INTO
+    // the comments is not: the control renders whenever the surface shows comments and somebody
+    // is listening, counted or not.
     const showsComments =
-        contentItemSetting?.showComments !== false
-        && contentItem.commentCount != null
-        && onCommentsClick != null;
+        contentItemSetting?.showComments !== false && onCommentsClick != null;
 
     const totalReactions =
         reactionSummary.reduce((total, reaction) => total + reaction.count, 0);
@@ -337,7 +339,9 @@ export function ContentItemItemDefaultPanel({
                         className="btn btn-link text-reset p-0 mb-0"
                         onClick={() => onCommentsClick?.(contentItem)}>
                         <i className="far fa-comment me-1" aria-hidden="true"></i>
-                        {contentItem.commentCount} {commentsText}
+                        {contentItem.commentCount != null
+                            ? `${contentItem.commentCount} ${commentsText}`
+                            : commentsNoCountText}
                     </button>
                 )}
 

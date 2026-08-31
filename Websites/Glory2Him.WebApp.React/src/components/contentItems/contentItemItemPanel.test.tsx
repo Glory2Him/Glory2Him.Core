@@ -508,14 +508,17 @@ describe('ContentItemItemPanel', () => {
     });
 
     describe('honest figures', () => {
-        it('should claim no comment count it was not given', () => {
+        // The count is a figure and figures are never invented; the way IN is an affordance
+        // and renders regardless, uncounted.
+        it('should offer the comments control uncounted when no count was given', () => {
             render(
                 <ContentItemItemPanel
                     contentItem={{ ...devotionalItem, commentCount: undefined }}
                     contentItemSettingCollection={defaultSettings}
                     onCommentsClick={vi.fn()} />);
 
-            expect(screen.queryByText(/comments/)).not.toBeInTheDocument();
+            expect(screen.getByRole('button', { name: 'Comments' })).toBeInTheDocument();
+            expect(screen.queryByText(/\d+ comments/)).not.toBeInTheDocument();
         });
 
         it('should fall back to the content when no excerpt was written', () => {

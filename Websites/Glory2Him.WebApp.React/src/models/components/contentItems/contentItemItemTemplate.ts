@@ -66,6 +66,7 @@ export interface ContentItemItemText {
     dateLabelText?: string;
     likeButtonText?: string;
     commentsText?: string;
+    commentsNoCountText?: string;
     shareButtonText?: string;
     saveButtonText?: string;
     editButtonText?: string;

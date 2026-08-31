@@ -4,6 +4,7 @@ import { ContentItemSearchPanel } from '../../components/contentItems/contentIte
 import { Breadcrumb } from '../../components/coreUI/breadcrumb';
 import { Card } from '../../components/coreUI/card';
 import { BreadcrumbItem } from '../../models/coreUI/breadcrumbItem';
+import { useContentItemEngagement } from '../../hooks/useContentItemEngagement';
 
 import {
     buildContentItemFeedNavigation
@@ -86,6 +87,15 @@ export function ContentItemModerationPage() {
     // work, and this builder's parameter is where it plugs in when it exists.
     const feedNavigation = buildContentItemFeedNavigation(navigate, location);
 
+    const { reactionOptions, onReactionSelected, onShareClick, onSaveClick, withViewerReactions } =
+        useContentItemEngagement();
+
+    // The moderation detail surface is #350's work; until it exists Edit leads to the item.
+    const editContentItem = (item: { id: string }) =>
+        navigate(`/posts/${item.id}`, {
+            state: { from: `${location.pathname}${location.search}`, edit: true }
+        });
+
     return (
         <>
             <div className="d-flex flex-wrap justify-content-between align-items-center mb-3">
@@ -101,7 +111,7 @@ export function ContentItemModerationPage() {
                 ) : (
                     <ContentItemSearchPanel
                         ariaLabel="Posts awaiting moderation"
-                        contentItemCollection={contentItems}
+                        contentItemCollection={withViewerReactions(contentItems)}
                         contentItemSettingCollection={contentItemSettings ?? []}
                         criteria={criteria}
                         onSearch={search}
@@ -109,6 +119,11 @@ export function ContentItemModerationPage() {
                         isLoadingMore={isFetchingNextPage}
                         hasMore={hasNextPage}
                         onLoadMore={fetchNextPage}
+                        reactionOptions={reactionOptions}
+                        onReactionSelected={onReactionSelected}
+                        onShareClick={onShareClick}
+                        onSaveClick={onSaveClick}
+                        onEditClick={editContentItem}
                         emptyText="Nothing is waiting for moderation. Well done."
                         {...feedNavigation} />
                 )}
