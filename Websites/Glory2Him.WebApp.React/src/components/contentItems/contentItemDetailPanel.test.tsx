@@ -217,7 +217,9 @@ describe('ContentItemDetailPanel', () => {
             await userEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
 
             // then
-            expect(onAdded).toHaveBeenCalledWith({
+            // objectContaining: the emitted projection also carries its winning setting,
+            // constructed from the collection the form was shaped with.
+            expect(onAdded).toHaveBeenCalledWith(expect.objectContaining({
                 contentType: ContentType.Devotional,
                 title: 'Morning',
 
@@ -229,7 +231,7 @@ describe('ContentItemDetailPanel', () => {
 
                 // Mandatory under the permission default the form opens on.
                 sharePermission: 'By email from the author'
-            });
+            }));
         });
 
         it('should ask for the permission detail only once permission is the basis', async () => {
@@ -705,6 +707,55 @@ describe('ContentItemDetailPanel', () => {
 
             expect(screen.getByText(new RegExp('required for this sharing basis')))
                 .toBeInTheDocument();
+        });
+    });
+
+    describe('the self-contained projection', () => {
+        // A list surface hands its element over WITH its winning setting; re-resolving
+        // from a collection that may not hold the override would silently un-override it.
+        it('should let the embedded winner beat the collection for its own item', () => {
+            signInAs(authState);
+
+            // The collection's Story default says hasTitle; the element's own winner says
+            // not — the element wins, so no title heading renders.
+            renderWithAuth(
+                <ContentItemDetailPanel
+                    contentItem={itemWith({
+                        contentItemSetting: settingFor(ContentType.Story, 'Story override', {
+                            id: 'override-row',
+                            contentItemId: 'content-item-1',
+                            hasTitle: false
+                        })
+                    })}
+                    contentItemSettingCollection={settings} />);
+
+            expect(screen.queryByRole('heading', { name: 'He carried me' }))
+                .not.toBeInTheDocument();
+        });
+
+        it('should emit a projection carrying the winner it was shaped with', async () => {
+            signInAs(authState);
+            const onAdded = vi.fn();
+
+            renderWithAuth(
+                <ContentItemDetailPanel
+                    contentItemSettingCollection={settings}
+                    onAdded={onAdded} />);
+
+            await userEvent.click(screen.getByRole('button', { name: /Devotional/ }));
+            await userEvent.type(screen.getByLabelText(/Devotional/), 'A word for today');
+
+            await userEvent.type(
+                screen.getByLabelText(/Permission details/), 'By email from the author');
+
+            await userEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
+
+            // then: the consumer can hand this straight to a detail surface
+            expect(onAdded).toHaveBeenCalledWith(expect.objectContaining({
+                contentItemSetting: expect.objectContaining({
+                    contentType: ContentType.Devotional
+                })
+            }));
         });
     });
 

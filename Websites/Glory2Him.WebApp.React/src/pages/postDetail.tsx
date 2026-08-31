@@ -50,8 +50,10 @@ export function PostDetail() {
     // Memoized because the panel seeds its editor from the item's identity: a fresh projection
     // object on every render would be a fresh item as far as any consumer of it is concerned.
     const formItem = useMemo(
-        () => contentItem == null ? undefined : toContentItemFormItem(contentItem),
-        [contentItem]);
+        () => contentItem == null
+            ? undefined
+            : toContentItemFormItem(contentItem, contentItemSettings ?? []),
+        [contentItem, contentItemSettings]);
 
     // What the page is called, on screen and in the tab.
     //

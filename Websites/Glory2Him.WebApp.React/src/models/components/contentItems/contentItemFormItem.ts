@@ -1,4 +1,5 @@
 import { ApprovalStatus } from '../associations/associationItem';
+import { ContentItemSetting } from '../../foundations/contentItemSettings/contentItemSetting';
 import { ContentType } from '../../foundations/contentItemSettings/contentType';
 
 export { ApprovalStatus };
@@ -106,6 +107,14 @@ export type ContentItemFormItem = {
     // `edit`. It also composes the content-type-scoped role names, which is why the numeric
     // member — never a display name — is what is carried.
     contentType: ContentType;
+
+    // THE WINNING SETTING, when the projection resolved one (§6.4: this item's own override
+    // beats its type default) — carried ON the item so a list surface can hand its element
+    // straight to a detail view with no server round trip. When present it WINS over the
+    // panel's contentItemSettingCollection for this item's shaping; absent, the panel
+    // resolves from the collection exactly as it always has, and `add` — which has no item
+    // yet — always shapes from the collection and stamps the winner onto what it emits.
+    contentItemSetting?: ContentItemSetting;
 
     title?: string;
     author?: string;

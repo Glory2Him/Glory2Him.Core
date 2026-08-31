@@ -201,8 +201,11 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
     {
         name: 'contentItem',
         type: 'ContentItemFormItem?',
-        description: 'The item. Absent puts the panel in add. Hand over a STABLE object — the '
-            + 'editor is seeded from it whenever its identity changes.'
+        description: 'The item, as a SELF-CONTAINED projection: when it carries its winning '
+            + 'contentItemSetting (§6.4, resolved by the projection) that row WINS for this '
+            + 'item’s shaping — which is what lets a list surface hand its element over '
+            + 'with no further read. Absent puts the panel in add. Hand over a STABLE '
+            + 'object — the editor is seeded from it whenever its identity changes.'
     },
     {
         name: 'mode',
@@ -217,8 +220,9 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
         name: 'contentItemSettingCollection',
         type: 'ContentItemSetting[]',
         defaultValue: '[]',
-        description: 'Which fields exist, per content type — passed in, never fetched. Hand over '
-            + 'whatever rows you hold; the panel resolves the effective one (see below).'
+        description: 'The active per-type defaults — the add picker’s tiles, and the fallback '
+            + 'for an item that arrived without its embedded setting. Passed in, never '
+            + 'fetched; the item’s own contentItemSetting wins over these for its shaping.'
     },
     {
         name: 'contentItemSettingCollection (resolution)',

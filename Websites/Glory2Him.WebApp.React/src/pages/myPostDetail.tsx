@@ -44,8 +44,10 @@ export function MyPostDetail() {
             contentItemId.length > 0 ? [contentItemId] : []);
 
     const formItem = useMemo(
-        () => contentItem == null ? undefined : toContentItemFormItem(contentItem),
-        [contentItem]);
+        () => contentItem == null
+            ? undefined
+            : toContentItemFormItem(contentItem, contentItemSettings ?? []),
+        [contentItem, contentItemSettings]);
 
     // The same resolver and hasTitle rule the panel applies — see postDetail, which this page
     // mirrors: an earlier hand-rolled copy of this logic drifted immediately.

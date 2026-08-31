@@ -500,11 +500,21 @@ export function ContentItemDetailPanel({
     // §6.4 / §12.5.2 rules 1-2 resolution, shared with the page above so the two cannot drift.
     // `add` passes no item id and so can only ever resolve a default, which is right: an override
     // cannot exist for an item that does not exist yet.
+    // THE ITEM'S OWN EMBEDDED WINNER COMES FIRST: a projection handed over by a list surface
+    // already resolved §6.4 for this item, and re-resolving from a collection that may not
+    // even hold the override would silently un-override it. The collection remains the
+    // answer for every OTHER type — the add picker's tiles — and the fallback for an item
+    // that arrived without its setting.
     const settingFor = (contentType: ContentType | null): ContentItemSetting | undefined =>
-        resolveContentItemSetting(contentItemSettingCollection, contentType, contentItem?.id);
+        contentItem?.contentItemSetting != null && contentType === contentItem.contentType
+            ? contentItem.contentItemSetting
+            : resolveContentItemSetting(
+                contentItemSettingCollection, contentType, contentItem?.id);
 
     const typeNameOf = (contentType: ContentType | null): string =>
-        contentTypeNameOf(contentItemSettingCollection, contentType, contentItem?.id);
+        contentItem?.contentItemSetting != null && contentType === contentItem.contentType
+            ? contentItem.contentItemSetting.contentTypeName
+            : contentTypeNameOf(contentItemSettingCollection, contentType, contentItem?.id);
 
     // What the picker may offer: the content type DEFAULTS, and only those open to a general
     // contribution. An override belongs to one existing item and can never be a type somebody
@@ -664,7 +674,12 @@ export function ContentItemDetailPanel({
 
         content: draft.content,
         shareabilityBasis: draft.shareabilityBasis,
-        sharePermission: hasSharePermissionField ? draft.sharePermission : ''
+        sharePermission: hasSharePermissionField ? draft.sharePermission : '',
+
+        // The emitted projection is SELF-CONTAINED like everything else that carries this
+        // shape: `add` constructs the winner from the collection it shaped the form with, so
+        // the consumer can hand what it receives straight to a detail surface.
+        contentItemSetting: settingFor(contentType)
     });
 
     // The mandatory-permission gate, asked by BOTH submits: a permission basis with no
