@@ -7,6 +7,7 @@ import { ContentType } from '../../models/foundations/contentItemSettings/conten
 
 import {
     ContentItemSearchItem,
+    ShareabilityBasis,
     emptyContentItemSearchCriteria
 } from '../../models/components/contentItems/contentItemSearchItem';
 
@@ -148,7 +149,9 @@ describe('ContentItemSearchPanel', () => {
                 contentType: ContentType.Devotional,
                 author: 'Moody',
                 submittedBy: null,
-                tag: null
+                tags: [],
+                tagMatchMode: 'any',
+                shareabilityBasis: null
             });
         });
 
@@ -200,9 +203,7 @@ describe('ContentItemSearchPanel', () => {
                 .not.toBeInTheDocument();
         });
 
-        // #318: no Associations exposer, so a typed tag filter would be a control that does
-        // nothing — the tag criterion arrives by clicking a pill, never by a box.
-        it('should offer no tag box in the advanced options', async () => {
+        it('should offer the full advanced grid — the two people, the basis, the tags', async () => {
             render(
                 <ContentItemSearchPanel
                     contentItemCollection={[]}
@@ -211,7 +212,48 @@ describe('ContentItemSearchPanel', () => {
             await userEvent.click(
                 screen.getByRole('button', { name: 'Advanced search options' }));
 
-            expect(screen.queryByLabelText(/tag/i)).not.toBeInTheDocument();
+            expect(screen.getByLabelText('Category')).toBeInTheDocument();
+            expect(screen.getByLabelText('Author')).toBeInTheDocument();
+            expect(screen.getByLabelText('Submitted by')).toBeInTheDocument();
+            expect(screen.getByLabelText('Shareability')).toBeInTheDocument();
+
+            expect(screen.getByLabelText('Type a tag and press Enter'))
+                .toBeInTheDocument();
+        });
+
+        it('should commit the typed submitted-by, basis and entered tags on Search', async () => {
+            const onSearch = vi.fn();
+
+            render(
+                <ContentItemSearchPanel
+                    contentItemCollection={[]}
+                    categorySettingCollection={defaultSettings}
+                    onSearch={onSearch} />);
+
+            await userEvent.click(
+                screen.getByRole('button', { name: 'Advanced search options' }));
+
+            await userEvent.type(screen.getByLabelText('Submitted by'), 'Joan');
+
+            await userEvent.selectOptions(
+                screen.getByLabelText('Shareability'),
+                String(ShareabilityBasis.PublicDomain));
+
+            const tagBox = screen.getByLabelText('Type a tag and press Enter');
+            await userEvent.type(tagBox, 'grace{Enter}');
+            await userEvent.type(tagBox, 'healing{Enter}');
+
+            await userEvent.click(screen.getByRole('button', { name: 'All' }));
+            await userEvent.click(screen.getByRole('button', { name: /Search/ }));
+
+            // A TYPED submitted-by carries no account id — only a pill click can — so the
+            // read narrows on the name's id only when there is one.
+            expect(onSearch).toHaveBeenCalledWith(expect.objectContaining({
+                submittedBy: { id: '', name: 'Joan' },
+                shareabilityBasis: ShareabilityBasis.PublicDomain,
+                tags: ['grace', 'healing'],
+                tagMatchMode: 'all'
+            }));
         });
 
         it('should seed the boxes from the criteria it was landed with', async () => {
@@ -348,7 +390,7 @@ describe('ContentItemSearchPanel', () => {
             await userEvent.click(screen.getByRole('button', { name: '#grace' }));
 
             expect(onSearch).toHaveBeenCalledWith(
-                expect.objectContaining({ tag: 'grace' }));
+                expect.objectContaining({ tags: ['grace'] }));
         });
 
         // Invisible state is the failure mode: a narrowed list with nothing on screen saying
@@ -363,7 +405,7 @@ describe('ContentItemSearchPanel', () => {
                     criteria={{
                         ...emptyContentItemSearchCriteria,
                         submittedBy: { id: 'account-joan', name: 'Joan' },
-                        tag: 'grace'
+                        tags: ['grace']
                     }}
                     onSearch={onSearch} />);
 
@@ -380,7 +422,7 @@ describe('ContentItemSearchPanel', () => {
 
             expect(onSearch).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    tag: null,
+                    tags: [],
                     submittedBy: { id: 'account-joan', name: 'Joan' }
                 }));
         });

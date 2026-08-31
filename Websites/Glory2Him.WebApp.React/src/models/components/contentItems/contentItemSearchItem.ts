@@ -145,20 +145,33 @@ export type ContentItemSearchCriteria = {
     // The Author box — free text against the author of the WORDS, not the submitter.
     author: string;
 
-    // Set by onSubmittedByClick, shown and cleared as a chip — there is no box for it, because
-    // nobody types an account id.
+    // The Submitted by box and onSubmittedByClick both land here. A PILL CLICK carries both
+    // halves — the id the read filters on, the name the chip shows. A TYPED name carries an
+    // empty id: the panel has no resolver from a display name to an account, so the page
+    // filters on the id only when one is present (§16.7.4 keeps the resolver reviewer-gated).
     submittedBy: ContentItemSubmittedByCriterion | null;
 
-    // Set by onTagClick, shown and cleared as a chip. Carried in the criteria now so the family
-    // does not change shape when #318 makes it servable; until then the page simply cannot act
-    // on it.
-    tag: string | null;
+    // The Tags box and onTagClick both land here: typed-and-entered or clicked on a card,
+    // each tag wears a removable chip. Carried in the criteria so the family does not change
+    // shape when #318 makes it servable; until then the page simply cannot act on it.
+    tags: ReadonlyArray<string>;
+
+    // Whether a row must carry ANY of the tags or ALL of them — the Any/All toggle beside
+    // the Tags box. Meaningless while tags is empty.
+    tagMatchMode: ContentItemTagMatchMode;
+
+    // The Shareability box. Null is "any shareability".
+    shareabilityBasis: ShareabilityBasis | null;
 };
+
+export type ContentItemTagMatchMode = 'any' | 'all';
 
 export const emptyContentItemSearchCriteria: ContentItemSearchCriteria = {
     query: '',
     contentType: null,
     author: '',
     submittedBy: null,
-    tag: null
+    tags: [],
+    tagMatchMode: 'any',
+    shareabilityBasis: null
 };

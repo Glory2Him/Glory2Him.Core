@@ -241,7 +241,9 @@ describe('Posts', () => {
             contentType: ContentType.Devotional,
             author: 'Vale',
             submittedBy: null,
-            tag: null
+            tags: [],
+            tagMatchMode: 'any',
+            shareabilityBasis: null
         });
     });
 
@@ -266,7 +268,9 @@ describe('Posts', () => {
             contentType: ContentType.Devotional,
             author: '',
             submittedBy: null,
-            tag: null
+            tags: [],
+            tagMatchMode: 'any',
+            shareabilityBasis: null
         }));
     });
 

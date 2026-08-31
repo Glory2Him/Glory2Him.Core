@@ -1,10 +1,18 @@
 import { ChangeEvent, useEffect, useId, useState } from 'react';
 import SearchBarComponent from '../coreUI/searchBar';
+import { TagInput } from '../coreUI/tagInput';
 import { ContentItemSetting } from '../../models/foundations/contentItemSettings/contentItemSetting';
 import { ContentType } from '../../models/foundations/contentItemSettings/contentType';
 
 import {
-    ContentItemSearchCriteria
+    ShareabilityBasis,
+    shareabilityBasisMembers,
+    shareabilityBasisReadLabels
+} from '../../models/components/contentItems/contentItemFormItem';
+
+import {
+    ContentItemSearchCriteria,
+    ContentItemTagMatchMode
 } from '../../models/components/contentItems/contentItemSearchItem';
 
 import './contentItems.css';
@@ -13,11 +21,12 @@ import './contentItems.css';
 // A pure presentation component — it holds the half-typed drafts and raises onSearch with the
 // committed criteria; what a search MEANS is the consumer's decision.
 //
-// Two kinds of criterion live here, and they behave differently on purpose. The TYPED boxes
-// (query, Category, Author) commit only when Search is pressed, matching the search page this
-// bar came from. The CLICKED criteria (submitted-by, tag) have no box at all — they are set by
-// the pill hooks upstream and arrive already committed — so the bar's job for those is to show
-// them as chips and let the reader take them off again.
+// Two kinds of criterion live here, and they behave differently on purpose. The TYPED
+// criteria (query, Category, Author, Submitted by, Shareability, the Tags list) commit only
+// when Search is pressed, matching the search page this bar came from. The CLICKED criteria
+// arrive already committed from the pill hooks upstream — a submitted-by pill carries the
+// account id a typed name never can — and the committed filters wear removable chips below
+// the bar, so a narrowed list always says why on screen.
 export interface ContentItemSearchBarPanelProps {
     // As last committed. Seeds the boxes and RESEEDS them when it changes, so a page landing from
     // ?q= shows what it searched for and a pill-click upstream is reflected here.
@@ -38,6 +47,14 @@ export interface ContentItemSearchBarPanelProps {
     anyCategoryText?: string;
     authorLabelText?: string;
     authorPlaceholderText?: string;
+    submittedByLabelText?: string;
+    submittedByPlaceholderText?: string;
+    shareabilityLabelText?: string;
+    anyShareabilityText?: string;
+    tagsLabelText?: string;
+    tagPlaceholderText?: string;
+    tagMatchAnyText?: string;
+    tagMatchAllText?: string;
     submittedByChipText?: string;
     tagChipText?: string;
     removeFilterText?: string;
@@ -52,6 +69,14 @@ export function ContentItemSearchBarPanel({
     anyCategoryText = 'Any category',
     authorLabelText = 'Author',
     authorPlaceholderText = 'Any author',
+    submittedByLabelText = 'Submitted by',
+    submittedByPlaceholderText = 'Anyone',
+    shareabilityLabelText = 'Shareability',
+    anyShareabilityText = 'Any shareability',
+    tagsLabelText = 'Tags',
+    tagPlaceholderText = 'Type a tag and press Enter',
+    tagMatchAnyText = 'Any',
+    tagMatchAllText = 'All',
     submittedByChipText = 'Submitted by',
     tagChipText = 'Tag',
     removeFilterText = 'Remove this filter'
@@ -64,33 +89,91 @@ export function ContentItemSearchBarPanel({
     const [draftContentType, setDraftContentType] =
         useState<ContentType | null>(criteria?.contentType ?? null);
 
+    const [draftSubmittedByName, setDraftSubmittedByName] =
+        useState(criteria?.submittedBy?.name ?? '');
+
+    const [draftShareabilityBasis, setDraftShareabilityBasis] =
+        useState<ShareabilityBasis | null>(criteria?.shareabilityBasis ?? null);
+
+    const [draftTags, setDraftTags] =
+        useState<ReadonlyArray<string>>(criteria?.tags ?? []);
+
+    const [draftTagMatchMode, setDraftTagMatchMode] =
+        useState<ContentItemTagMatchMode>(criteria?.tagMatchMode ?? 'any');
+
     // Keyed on the MEMBERS rather than on the object, so a consumer building the criteria inline
     // — the natural thing when they live in the URL — does not wipe what is being typed on every
     // render.
+    const committedTagsKey = (criteria?.tags ?? []).join('\u241f');
+
     useEffect(() => {
         setDraftQuery(criteria?.query ?? '');
         setDraftAuthor(criteria?.author ?? '');
         setDraftContentType(criteria?.contentType ?? null);
-    }, [criteria?.query, criteria?.author, criteria?.contentType]);
+        setDraftSubmittedByName(criteria?.submittedBy?.name ?? '');
+        setDraftShareabilityBasis(criteria?.shareabilityBasis ?? null);
+        setDraftTags(criteria?.tags ?? []);
+        setDraftTagMatchMode(criteria?.tagMatchMode ?? 'any');
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [
+        criteria?.query,
+        criteria?.author,
+        criteria?.contentType,
+        criteria?.submittedBy?.name,
+        criteria?.shareabilityBasis,
+        committedTagsKey,
+        criteria?.tagMatchMode
+    ]);
 
-    // Committing keeps the clicked criteria as they stand — pressing Search narrows within the
-    // person or tag the reader clicked their way into, rather than silently widening back out.
+    // WHAT A TYPED SUBMITTED-BY MEANS. The box shows the committed criterion's name; while
+    // the reader leaves it alone, the id a pill-click carried survives a Search. The moment
+    // they retype it the id is gone — the bar has no resolver from a display name to an
+    // account — so a typed name travels with an empty id and the page filters on what it can.
+    const committedSubmittedBy = () => {
+        const typedName = draftSubmittedByName.trim();
+
+        if (typedName.length === 0) {
+            return null;
+        }
+
+        return typedName === (criteria?.submittedBy?.name ?? '')
+            ? criteria?.submittedBy ?? { id: '', name: typedName }
+            : { id: '', name: typedName };
+    };
+
     const committed = (): ContentItemSearchCriteria => ({
         query: draftQuery,
         contentType: draftContentType,
         author: draftAuthor,
-        submittedBy: criteria?.submittedBy ?? null,
-        tag: criteria?.tag ?? null
+        submittedBy: committedSubmittedBy(),
+        tags: draftTags,
+        tagMatchMode: draftTagMatchMode,
+        shareabilityBasis: draftShareabilityBasis
     });
 
     const search = () => onSearch?.(committed());
 
-    const clearSubmittedBy = () => onSearch?.({ ...committed(), submittedBy: null });
-    const clearTag = () => onSearch?.({ ...committed(), tag: null });
+    const clearSubmittedBy = () => {
+        setDraftSubmittedByName('');
+        onSearch?.({ ...committed(), submittedBy: null });
+    };
+
+    const removeTag = (tag: string) => {
+        const remaining = (criteria?.tags ?? []).filter((listed) => listed !== tag);
+
+        setDraftTags(remaining);
+        onSearch?.({ ...committed(), tags: remaining });
+    };
 
     const onCategoryChanged = (event: ChangeEvent<HTMLSelectElement>) =>
         setDraftContentType(
             event.target.value.length === 0 ? null : Number(event.target.value) as ContentType);
+
+    const onShareabilityChanged = (event: ChangeEvent<HTMLSelectElement>) =>
+        setDraftShareabilityBasis(
+            event.target.value.length === 0
+                ? null
+                : Number(event.target.value) as ShareabilityBasis);
 
     // A soft-deleted row is excluded from active policy resolution (§6.6).
     const filterableSettings = contentItemSettingCollection
@@ -98,7 +181,7 @@ export function ContentItemSearchBarPanel({
         .sort((first, second) => first.sortOrder - second.sortOrder);
 
     const submittedBy = criteria?.submittedBy ?? null;
-    const tag = criteria?.tag ?? null;
+    const committedTags = criteria?.tags ?? [];
 
     return (
         <div className="g2h-content-item-search-bar">
@@ -133,12 +216,7 @@ export function ContentItemSearchBarPanel({
                         </div>
 
                         {/* Free text rather than a list — no useful upper bound on authors — and
-                            it asks about the AUTHOR OF THE WORDS, not whoever submitted the row.
-
-                            There is deliberately no Tags BOX. Associations have no HTTP exposer
-                            yet (#318), so typing a tag would be a control that does nothing; the
-                            tag criterion exists, but it arrives by clicking a pill on a card and
-                            shows below as a chip. */}
+                            it asks about the AUTHOR OF THE WORDS, not whoever submitted the row. */}
                         <div className="col-sm-6">
                             <label className="form-label" htmlFor={`${fieldId}-author`}>
                                 {authorLabelText}
@@ -152,13 +230,98 @@ export function ContentItemSearchBarPanel({
                                 value={draftAuthor}
                                 onChange={(event) => setDraftAuthor(event.target.value)} />
                         </div>
+
+                        {/* Whoever SUBMITTED the row — the other person a card names. A typed
+                            name travels without an account id (see committedSubmittedBy). */}
+                        <div className="col-sm-6">
+                            <label className="form-label" htmlFor={`${fieldId}-submitted-by`}>
+                                {submittedByLabelText}
+                            </label>
+
+                            <input
+                                className="form-control"
+                                type="text"
+                                id={`${fieldId}-submitted-by`}
+                                placeholder={submittedByPlaceholderText}
+                                value={draftSubmittedByName}
+                                onChange={(event) =>
+                                    setDraftSubmittedByName(event.target.value)} />
+                        </div>
+
+                        {/* The basis is a small closed set, so it is a list — the READ labels,
+                            which is how a basis is described to a reader everywhere else. */}
+                        <div className="col-sm-6">
+                            <label className="form-label" htmlFor={`${fieldId}-shareability`}>
+                                {shareabilityLabelText}
+                            </label>
+
+                            <select
+                                className="form-select"
+                                id={`${fieldId}-shareability`}
+                                value={draftShareabilityBasis == null
+                                    ? ''
+                                    : String(draftShareabilityBasis)}
+                                onChange={onShareabilityChanged}>
+
+                                <option value="">{anyShareabilityText}</option>
+
+                                {shareabilityBasisMembers.map((basis) => (
+                                    <option key={basis} value={String(basis)}>
+                                        {shareabilityBasisReadLabels[basis]}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* The Tags list, full width, with the Any/All match mode standing
+                            beside the label. Enter turns what is typed into a pill; the pills
+                            commit with Search like every other typed criterion. */}
+                        <div className="col-12">
+                            <div className="d-flex justify-content-between align-items-center">
+                                <span className="form-label mb-0">{tagsLabelText}</span>
+
+                                <div
+                                    className="btn-group btn-group-sm"
+                                    role="group"
+                                    aria-label={`${tagsLabelText} match mode`}>
+                                    <button
+                                        type="button"
+                                        className={`btn mb-0 ${draftTagMatchMode === 'any'
+                                            ? 'btn-primary'
+                                            : 'btn-outline-primary'}`}
+                                        aria-pressed={draftTagMatchMode === 'any'}
+                                        onClick={() => setDraftTagMatchMode('any')}>
+                                        {tagMatchAnyText}
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className={`btn mb-0 ${draftTagMatchMode === 'all'
+                                            ? 'btn-primary'
+                                            : 'btn-outline-primary'}`}
+                                        aria-pressed={draftTagMatchMode === 'all'}
+                                        onClick={() => setDraftTagMatchMode('all')}>
+                                        {tagMatchAllText}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="mt-2">
+                                <TagInput
+                                    tags={draftTags}
+                                    onTagsChange={setDraftTags}
+                                    placeholder={tagPlaceholderText}
+                                    ariaLabel={tagPlaceholderText}
+                                    tagPrefix="#" />
+                            </div>
+                        </div>
                     </div>
                 } />
 
             {/* The clicked criteria, worn where the reader can see and remove them. Without this
                 row a pill-click filter would be invisible state — a narrowed list with nothing on
                 screen saying why. */}
-            {(submittedBy != null || tag != null) && (
+            {(submittedBy != null || committedTags.length > 0) && (
                 <div className="d-flex flex-wrap align-items-center gap-2 mt-3">
                     {submittedBy != null && (
                         <button
@@ -171,16 +334,17 @@ export function ContentItemSearchBarPanel({
                         </button>
                     )}
 
-                    {tag != null && (
+                    {committedTags.map((committedTag) => (
                         <button
+                            key={committedTag}
                             type="button"
                             className="btn btn-xs btn-success-soft mb-0"
-                            onClick={clearTag}
+                            onClick={() => removeTag(committedTag)}
                             title={removeFilterText}>
-                            {tagChipText} #{tag}
+                            {tagChipText} #{committedTag}
                             <i className="bi bi-x ms-1" aria-hidden="true"></i>
                         </button>
-                    )}
+                    ))}
                 </div>
             )}
         </div>

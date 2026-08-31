@@ -1,6 +1,11 @@
 import { ContentType } from '../../../models/foundations/contentItemSettings/contentType';
 
 import {
+    ShareabilityBasis,
+    shareabilityBasisMemberNames
+} from '../../../models/components/contentItems/contentItemFormItem';
+
+import {
     ContentItemSearchCriteria
 } from '../../../models/components/contentItems/contentItemSearchItem';
 
@@ -18,7 +23,21 @@ const contentTypeParameterName = 'type';
 const authorParameterName = 'author';
 const submittedByIdParameterName = 'by';
 const submittedByNameParameterName = 'byName';
-const tagParameterName = 'tag';
+const tagsParameterName = 'tags';
+const tagMatchModeParameterName = 'tagMode';
+const shareabilityParameterName = 'shareability';
+
+// The basis travels by MEMBER NAME too, for the same reason the type does.
+const toShareabilityBasis = (value: string | null): ShareabilityBasis | null => {
+    if (value == null || value.length === 0) {
+        return null;
+    }
+
+    const match = (Object.entries(shareabilityBasisMemberNames) as [string, string][])
+        .find(([, memberName]) => memberName === value);
+
+    return match == null ? null : Number(match[0]) as ShareabilityBasis;
+};
 
 const toContentType = (value: string | null): ContentType | null => {
     if (value == null || value.length === 0) {
@@ -46,7 +65,16 @@ export const toContentItemSearchCriteria = (
                 name: searchParams.get(submittedByNameParameterName) ?? ''
             },
 
-        tag: searchParams.get(tagParameterName)
+        tags: (searchParams.get(tagsParameterName) ?? '')
+            .split(',')
+            .map((tag) => tag.trim())
+            .filter((tag) => tag.length > 0),
+
+        tagMatchMode:
+            searchParams.get(tagMatchModeParameterName) === 'all' ? 'all' : 'any',
+
+        shareabilityBasis:
+            toShareabilityBasis(searchParams.get(shareabilityParameterName))
     };
 };
 
@@ -74,8 +102,20 @@ export const toContentItemSearchParams = (
         }
     }
 
-    if ((criteria.tag ?? '').length > 0) {
-        parameters.set(tagParameterName, criteria.tag ?? '');
+    if (criteria.tags.length > 0) {
+        parameters.set(tagsParameterName, criteria.tags.join(','));
+
+        // 'any' is the default, so only 'all' earns a parameter — shorter links, and a
+        // missing mode reads back as the default it was.
+        if (criteria.tagMatchMode === 'all') {
+            parameters.set(tagMatchModeParameterName, 'all');
+        }
+    }
+
+    if (criteria.shareabilityBasis != null) {
+        parameters.set(
+            shareabilityParameterName,
+            shareabilityBasisMemberNames[criteria.shareabilityBasis]);
     }
 
     return parameters;

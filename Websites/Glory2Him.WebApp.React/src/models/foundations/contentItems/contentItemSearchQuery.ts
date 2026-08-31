@@ -1,6 +1,7 @@
 import { ApprovalStatus } from '../../components/associations/associationItem';
 import { ContentItem } from './contentItem';
 import { ContentType } from '../contentItemSettings/contentType';
+import { ShareabilityBasis } from '../../components/contentItems/contentItemFormItem';
 
 // What a page of the content-item list asks for. The sibling of ContentItemSettingQuery, and
 // paged the same way for the same reason.
@@ -30,6 +31,9 @@ export type ContentItemSearchQuery = {
     // The submitter — CreatedBy, matched exactly: it is an account id, and ids are not searched
     // by fragment. Null asks for everybody's.
     submittedById: string | null;
+
+    // Null is "any shareability". The member NAME travels in $filter, like the statuses.
+    shareabilityBasis: ShareabilityBasis | null;
 
     // Narrows to these statuses — the moderation queue's Draft + Submitted. Null or empty leaves
     // the read's own visibility rules to decide alone. The names travel as MEMBER NAMES in

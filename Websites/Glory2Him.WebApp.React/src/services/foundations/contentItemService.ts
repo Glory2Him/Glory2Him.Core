@@ -69,6 +69,7 @@ export const contentItemService = {
                 criteria.query,
                 criteria.contentType,
                 criteria.author,
+                criteria.shareabilityBasis,
                 submittedById,
                 options.approvalStatuses ?? null,
                 pageSize
@@ -83,6 +84,7 @@ export const contentItemService = {
                     searchTerm: criteria.query,
                     contentType: criteria.contentType,
                     author: criteria.author,
+                    shareabilityBasis: criteria.shareabilityBasis,
                     submittedById,
                     approvalStatuses: options.approvalStatuses ?? null,
                     pageIndex: pageParam as number,

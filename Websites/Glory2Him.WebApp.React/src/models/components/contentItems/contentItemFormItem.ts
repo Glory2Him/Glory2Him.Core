@@ -85,6 +85,16 @@ export const isOwnedShareabilityBasis = (basis: ShareabilityBasis): boolean =>
 // Whether the basis rests on somebody's PERMISSION, and so has a permission worth detailing.
 // Both members qualify: the contributor either holds the owner's permission or is granting their
 // own, and either way the detail field is what records it.
+// The member NAMES: ShareabilityBasis is a const object with no reverse mapping, and both
+// OData's $filter and a shareable URL want the name while JSON bodies carry the number.
+export const shareabilityBasisMemberNames: Readonly<Record<ShareabilityBasis, string>> = {
+    [ShareabilityBasis.Owned]: 'Owned',
+    [ShareabilityBasis.PermissionGranted]: 'PermissionGranted',
+    [ShareabilityBasis.PublicDomain]: 'PublicDomain',
+    [ShareabilityBasis.OwnedPermissionGranted]: 'OwnedPermissionGranted',
+    [ShareabilityBasis.OwnedPublicDomain]: 'OwnedPublicDomain'
+};
+
 export const isPermissionShareabilityBasis = (basis: ShareabilityBasis): boolean =>
     basis === ShareabilityBasis.PermissionGranted
     || basis === ShareabilityBasis.OwnedPermissionGranted;

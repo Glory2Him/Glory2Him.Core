@@ -19,6 +19,7 @@ const getAsync = vi.mocked(axios.get);
 const queryFor = (overrides: Partial<ContentItemSearchQuery> = {}): ContentItemSearchQuery => ({
     scope: 'caller',
     submittedById: null,
+    shareabilityBasis: null,
     approvalStatuses: null,
     searchTerm: '',
     contentType: null,

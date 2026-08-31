@@ -12,6 +12,10 @@ import { ApprovalStatus } from '../models/components/associations/associationIte
 import { ContentType } from '../models/foundations/contentItemSettings/contentType';
 import ApiBroker from './apiBroker';
 
+import {
+    shareabilityBasisMemberNames
+} from '../models/components/contentItems/contentItemFormItem';
+
 // ApprovalStatus is a const object rather than an enum, so it has no reverse mapping the way
 // ContentType does — the member names $filter parses are stated here instead. This is a wire
 // contract: OData parses the NAME while the JSON body carries the number.
@@ -90,6 +94,12 @@ class ContentItemBroker {
         // Exact, not contains: an account id is an identity, and half of one identifies nobody.
         if (query.submittedById != null && query.submittedById.trim().length > 0) {
             filters.push(`createdBy eq ${toODataLiteral(query.submittedById.trim())}`);
+        }
+
+        // The MEMBER NAME again — the basis is persisted by name (§4.x), and $filter parses it.
+        if (query.shareabilityBasis != null) {
+            filters.push(
+                `shareabilityBasis eq '${shareabilityBasisMemberNames[query.shareabilityBasis]}'`);
         }
 
         // An or-chain of member names rather than `in`, so the clause stays inside the OData

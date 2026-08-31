@@ -165,8 +165,20 @@ export function ContentItemSearchPanel({
         onAuthorClick?.(item);
     };
 
+    // Toggles membership, the same register the Category toggle keeps: clicking a tag the
+    // criteria already carry takes it back off.
     const tagClicked = (item: ContentItemSearchItem, tag: string) => {
-        onSearch?.({ ...committedCriteria, tag });
+        const alreadyListed = committedCriteria.tags.some(
+            (listed) => listed.toLowerCase() === tag.toLowerCase());
+
+        onSearch?.({
+            ...committedCriteria,
+            tags: alreadyListed
+                ? committedCriteria.tags.filter(
+                    (listed) => listed.toLowerCase() !== tag.toLowerCase())
+                : [...committedCriteria.tags, tag]
+        });
+
         onTagClick?.(item, tag);
     };
 

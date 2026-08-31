@@ -359,8 +359,7 @@ describe('Component reference pages', () => {
                 .toHaveAttribute('aria-pressed', 'true');
         });
 
-        // #318: a typed tag filter would be a control that does nothing.
-        it('should offer no tag box in the advanced options', async () => {
+        it('should offer the full advanced options', async () => {
             // given
             renderWithAuth(<ContentItemSearchPanelDoc />);
 
@@ -369,10 +368,14 @@ describe('Component reference pages', () => {
             await userEvent.click(
                 screen.getAllByRole('button', { name: 'Advanced search options' })[0]);
 
-            // then
+            // then: the whole grid — Category | Author, Submitted by | Shareability, Tags
             expect(screen.getAllByLabelText('Category').length).toBeGreaterThan(0);
             expect(screen.getAllByLabelText('Author').length).toBeGreaterThan(0);
-            expect(screen.queryByLabelText(/tag/i)).not.toBeInTheDocument();
+            expect(screen.getAllByLabelText('Submitted by').length).toBeGreaterThan(0);
+            expect(screen.getAllByLabelText('Shareability').length).toBeGreaterThan(0);
+
+            expect(screen.getAllByLabelText('Type a tag and press Enter').length)
+                .toBeGreaterThan(0);
         });
     });
 

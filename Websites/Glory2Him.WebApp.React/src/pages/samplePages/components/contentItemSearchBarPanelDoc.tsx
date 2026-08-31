@@ -45,6 +45,14 @@ const barProps: ReadonlyArray<ComponentPropRow> = [
             + 'the CONSUMER owns what a search means — a query-string, a fetch, a filter.'
     },
     {
+        name: '(the advanced options)',
+        type: '—',
+        description: 'Category and Shareability are closed lists; Author and Submitted by '
+            + 'are free text (a typed submitted-by travels without an account id — only a '
+            + 'pill click carries one); Tags collects pills on Enter with an Any/All match '
+            + 'mode beside the label. Everything typed commits on Search, like the query.'
+    },
+    {
         name: 'contentItemSettingCollection',
         type: 'ContentItemSetting[]',
         defaultValue: '[]',
@@ -66,15 +74,16 @@ export function ContentItemSearchBarPanelDoc() {
         submittedBy: withSubmittedByChip
             ? { id: 'demo-user', name: 'Grace Abara' }
             : null,
-        tag: withTagChip ? 'providence' : null
+        tags: withTagChip ? ['providence'] : []
     };
 
     return (
         <ComponentDoc
             name="Content Item Search Bar Panel"
             filePath="src/components/contentItems/contentItemSearchBarPanel.tsx"
-            summary="The search bar of the ContentItemSearchPanel family: the query box, the
-                advanced Category and Author options, and the removable filter chips.">
+            summary="The search bar of the ContentItemSearchPanel family: the query box; the
+                advanced Category, Author, Submitted by, Shareability and Tags options
+                (with an Any/All match mode); and the removable filter chips.">
 
             <DocSection
                 title="Where it stands in the family"
@@ -122,7 +131,9 @@ export function ContentItemSearchBarPanelDoc() {
                             contentType: committed.contentType,
                             author: committed.author,
                             submittedBy: committed.submittedBy?.name ?? null,
-                            tag: committed.tag
+                            tags: committed.tags,
+                            tagMatchMode: committed.tagMatchMode,
+                            shareabilityBasis: committed.shareabilityBasis
                         }))} />
                 </LiveDemo>
             </DocSection>
