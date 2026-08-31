@@ -41,19 +41,23 @@ describe('ContentItemSettingBroker.GetOverridesForContentItemsAsync', () => {
             '$filter=contentItemId eq item-1 or contentItemId eq item-2');
     });
 
-    // Repeated guids exhaust IIS's 2048-character query string at roughly 45 — a refusal, not a
-    // truncation — so a long list travels as several requests rather than one long one.
-    it('should chunk a long list rather than build one long query string', async () => {
+    // OData's [EnableQuery] validates $filter against a default MaxNodeCount of 100, and a
+    // 17-guid or-chain already trips it — a 400, not a truncation — so a long list travels
+    // as several small requests rather than one long one.
+    it('should chunk a long list under the OData node-count limit', async () => {
         // given
         const ids = Array.from({ length: 45 }, (_unused, index) => `item-${index}`);
 
         // when
         await new ContentItemSettingBroker().GetOverridesForContentItemsAsync(ids);
 
-        // then: 45 ids at a chunk of 20 is three requests, none oversized
-        expect(getAsync).toHaveBeenCalledTimes(3);
+        // then: 45 ids at a chunk of 12 is four requests, none carrying 17+ ids
+        expect(getAsync).toHaveBeenCalledTimes(4);
 
-        requestedUrls().forEach((url) => expect(url.length).toBeLessThan(2048));
+        requestedUrls().forEach((url) => {
+            expect((url.match(/contentItemId eq /g) ?? []).length).toBeLessThanOrEqual(12);
+            expect(url.length).toBeLessThan(2048);
+        });
     });
 
     it('should pool every chunk into one collection', async () => {
@@ -62,7 +66,7 @@ describe('ContentItemSettingBroker.GetOverridesForContentItemsAsync', () => {
             .mockResolvedValueOnce({ data: [{ id: 'override-1' }] } as never)
             .mockResolvedValueOnce({ data: [{ id: 'override-2' }] } as never);
 
-        const ids = Array.from({ length: 21 }, (_unused, index) => `item-${index}`);
+        const ids = Array.from({ length: 13 }, (_unused, index) => `item-${index}`);
 
         // when
         const overrides =

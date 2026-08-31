@@ -47,18 +47,19 @@ class ContentItemSettingBroker {
     // switched off carries a row with ITS ContentItemId, and a feed that never fetched it would
     // silently render the type default instead.
     //
-    // Batched, not per item: one request per CHUNK of ids rather than one per card. The chunk
-    // size keeps the or-chain comfortably inside IIS's 2048-character query-string limit, which
-    // repeated guids exhaust at roughly 45 — a refusal, not a truncation, so it must never be
-    // approached. Most chunks come back empty, which is the ordinary case: overrides are rare
-    // by design.
+    // Batched, not per item: one request per CHUNK of ids rather than one per card. The
+    // binding limit is OData's own: [EnableQuery] validates $filter against a default
+    // MaxNodeCount of 100, and a 17-guid or-chain already trips it (measured — a 400, not a
+    // truncation). Twelve ids stays comfortably under that AND far inside IIS's 2048-character
+    // query-string limit. Most chunks come back empty, which is the ordinary case: overrides
+    // are rare by design.
     async GetOverridesForContentItemsAsync(
         contentItemIds: ReadonlyArray<string>): Promise<ContentItemSetting[]> {
         if (contentItemIds.length === 0) {
             return [];
         }
 
-        const chunkSize = 20;
+        const chunkSize = 12;
         const overrides: ContentItemSetting[] = [];
 
         for (let start = 0; start < contentItemIds.length; start += chunkSize) {
