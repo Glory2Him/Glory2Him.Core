@@ -132,3 +132,16 @@ section.g2h-content-item-search-panel {
 .g2h-content-item-sentinel {
     height: 1px;
 }
+
+/* A heading whose text is a BUTTON — the title and the quote are events, not links — must still
+   read as the heading. Bootstrap's .btn sets its own font size, weight and line height, which
+   shrank every card title and quote to body size; inheriting hands the typography back to the
+   h3/h5 the button sits in. */
+.g2h-content-item-card h3 .btn,
+.g2h-content-item-card .h3 .btn,
+.g2h-content-item-card .h5 .btn {
+    font-size: inherit;
+    font-weight: inherit;
+    line-height: inherit;
+    font-family: inherit;
+}
