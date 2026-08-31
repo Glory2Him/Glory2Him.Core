@@ -19,6 +19,7 @@ import {
     CodeSample,
     ComponentDoc,
     ComponentPropRow,
+    DemoControls,
     DocSection,
     LiveDemo,
     PropsTable
@@ -135,7 +136,14 @@ const demoItem: ContentItemSearchItem = {
     shareabilityBasis: 3,
     sharePermission: '',
     approvalStatus: ApprovalStatus.Draft,
-    submittedById: 'doc-demo-user'
+    submittedById: 'doc-demo-user',
+    tags: ['providence', 'healing'],
+    bibleReferences: ['Deuteronomy 31:6'],
+    reactionSummary: [
+        { label: 'Amen', glyph: '\ud83d\ude4f', count: 12 },
+        { label: 'Love', glyph: '\u2764\ufe0f', count: 5 }
+    ],
+    commentCount: 4
 };
 
 const panelProps: ReadonlyArray<ComponentPropRow> = [
@@ -247,6 +255,17 @@ export function ContentItemPanelDoc() {
 
     const [lastEvent, setLastEvent] = useState('');
 
+    // The playground's switches — each one of this panel's own props.
+    const [shouldShowRibbons, setShouldShowRibbons] = useState(true);
+    const [isEditingAllowed, setIsEditingAllowed] = useState(true);
+    const [isModeratedView, setIsModeratedView] = useState(false);
+    const [showTagSection, setShowTagSection] = useState(true);
+    const [showBibleReferenceSection, setShowBibleReferenceSection] = useState(true);
+    const [showReactionSection, setShowReactionSection] = useState(true);
+    const [showCommentsSection, setShowCommentsSection] = useState(true);
+    const [showShareSection, setShowShareSection] = useState(true);
+    const [showSaveSection, setShowSaveSection] = useState(true);
+
     return (
         <ComponentDoc
             name="Content Item Panel"
@@ -307,11 +326,81 @@ export function ContentItemPanelDoc() {
                         the Edit affordance appears only for that owner; the gates are real.
                     </>
                 }>
+                <DemoControls toggles={[
+                    {
+                        name: 'panel-ribbons',
+                        label: 'shouldShowRibbons',
+                        value: shouldShowRibbons,
+                        onChange: setShouldShowRibbons
+                    },
+                    {
+                        name: 'panel-editing',
+                        label: 'isEditingAllowed',
+                        value: isEditingAllowed,
+                        onChange: setIsEditingAllowed
+                    },
+                    {
+                        name: 'panel-moderated',
+                        label: 'isModeratedView',
+                        value: isModeratedView,
+                        onChange: setIsModeratedView
+                    },
+                    {
+                        name: 'panel-tags',
+                        label: 'showTagSection',
+                        value: showTagSection,
+                        onChange: setShowTagSection
+                    },
+                    {
+                        name: 'panel-bible-references',
+                        label: 'showBibleReferenceSection',
+                        value: showBibleReferenceSection,
+                        onChange: setShowBibleReferenceSection
+                    },
+                    {
+                        name: 'panel-reactions',
+                        label: 'showReactionSection',
+                        value: showReactionSection,
+                        onChange: setShowReactionSection
+                    },
+                    {
+                        name: 'panel-comments',
+                        label: 'showCommentsSection',
+                        value: showCommentsSection,
+                        onChange: setShowCommentsSection
+                    },
+                    {
+                        name: 'panel-share',
+                        label: 'showShareSection',
+                        value: showShareSection,
+                        onChange: setShowShareSection
+                    },
+                    {
+                        name: 'panel-save',
+                        label: 'showSaveSection',
+                        value: showSaveSection,
+                        onChange: setShowSaveSection
+                    }
+                ]} />
+
                 <LiveDemo title="Live — view">
                     <ContentItemPanel
                         contentItem={demoItem}
-                        shouldShowRibbons
-                        isEditingAllowed
+                        shouldShowRibbons={shouldShowRibbons}
+                        isEditingAllowed={isEditingAllowed}
+                        isModeratedView={isModeratedView}
+                        showTagSection={showTagSection}
+                        showBibleReferenceSection={showBibleReferenceSection}
+                        showReactionSection={showReactionSection}
+                        showCommentsSection={showCommentsSection}
+                        showShareSection={showShareSection}
+                        showSaveSection={showSaveSection}
+                        onCommentsClick={(item) =>
+                            setLastEvent(`onCommentsClick(${item.id})`)}
+                        onShareClick={(item) =>
+                            setLastEvent(`onShareClick(${item.id})`)}
+                        onSaveClick={(item) =>
+                            setLastEvent(`onSaveClick(${item.id})`)}
                         onModified={(item) =>
                             setLastEvent(`onModified(${item.id})`)}
                         onRemoved={(item) =>

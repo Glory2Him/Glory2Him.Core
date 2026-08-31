@@ -143,3 +143,48 @@ export function PropsTable({ rows }: PropsTableProps) {
         </div>
     );
 }
+
+// A LIVE CONTROL BOARD for a demo: one switch per boolean prop, restyled the way the admin
+// Features table reads — flip a switch and the demo beside it re-renders with the prop
+// changed, so what a prop DOES is seen rather than read about.
+export interface DemoToggle {
+    name: string;
+    label: string;
+    value: boolean;
+    onChange: (value: boolean) => void;
+}
+
+export interface DemoControlsProps {
+    title?: string;
+    toggles: ReadonlyArray<DemoToggle>;
+}
+
+export function DemoControls({ title = 'Controls', toggles }: DemoControlsProps) {
+    return (
+        <div className="border rounded-3 p-3 mb-3">
+            <p className="small text-uppercase fw-bold text-body-secondary mb-2">{title}</p>
+
+            <div className="row g-2">
+                {toggles.map((toggle) => (
+                    <div className="col-12 col-md-6 col-xl-4" key={toggle.name}>
+                        <div className="form-check form-switch mb-0">
+                            <input
+                                className="form-check-input"
+                                type="checkbox"
+                                role="switch"
+                                id={`demo-toggle-${toggle.name}`}
+                                checked={toggle.value}
+                                onChange={(event) => toggle.onChange(event.target.checked)} />
+
+                            <label
+                                className="form-check-label"
+                                htmlFor={`demo-toggle-${toggle.name}`}>
+                                {toggle.label}
+                            </label>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}

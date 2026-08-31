@@ -132,8 +132,19 @@ describe('navMenuProvider.getSamplePagesSection', () => {
             'Tag Association Panel',
             'Bible Reference Association Panel',
             'Review Panel',
-            'Content Item Panel',
+
+            // The ContentItemPanel family, in TREE ORDER — parent before children, so
+            // the sidebar reads the composition root-down.
             'Content Item Search Panel',
+            'Content Item Search Bar Panel',
+            'Content Item Results Panel',
+            'Content Item Panel',
+            'Content Item Add Panel',
+            'Content Item Edit Panel',
+            'Content Item Default Panel',
+            'Content Item Quotes Panel',
+            'Content Item Verses Panel',
+
             'Sharing Panel'
         ]);
     });
@@ -149,8 +160,15 @@ describe('navMenuProvider.getSamplePagesSection', () => {
             'SamplePages/Components/Tag-Association-Panel',
             'SamplePages/Components/Bible-Reference-Association-Panel',
             'SamplePages/Components/Review-Panel',
-            'SamplePages/Components/Content-Item-Panel',
             'SamplePages/Components/Content-Item-Search-Panel',
+            'SamplePages/Components/Content-Item-Search-Bar-Panel',
+            'SamplePages/Components/Content-Item-Results-Panel',
+            'SamplePages/Components/Content-Item-Panel',
+            'SamplePages/Components/Content-Item-Add-Panel',
+            'SamplePages/Components/Content-Item-Edit-Panel',
+            'SamplePages/Components/Content-Item-Default-Panel',
+            'SamplePages/Components/Content-Item-Quotes-Panel',
+            'SamplePages/Components/Content-Item-Verses-Panel',
             'SamplePages/Components/Sharing-Panel'
         ]);
     });

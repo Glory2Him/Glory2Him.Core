@@ -3,6 +3,13 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AssociationPanelDoc } from './associationPanelDoc';
 import { ContentItemPanelDoc } from './contentItemPanelDoc';
+import { ContentItemSearchBarPanelDoc } from './contentItemSearchBarPanelDoc';
+import { ContentItemResultsPanelDoc } from './contentItemResultsPanelDoc';
+import { ContentItemAddPanelDoc } from './contentItemAddPanelDoc';
+import { ContentItemEditPanelDoc } from './contentItemEditPanelDoc';
+import { ContentItemDefaultPanelDoc } from './contentItemDefaultPanelDoc';
+import { ContentItemQuotesPanelDoc } from './contentItemQuotesPanelDoc';
+import { ContentItemVersesPanelDoc } from './contentItemVersesPanelDoc';
 import { ContentItemSearchPanelDoc } from './contentItemSearchPanelDoc';
 import { SharingPanelDoc } from './sharingPanelDoc';
 import { BibleReferenceAssociationPanelDoc } from './bibleReferenceAssociationPanelDoc';
@@ -214,6 +221,75 @@ describe('Component reference pages', () => {
         });
     });
 
+    describe('the family reference pages', () => {
+        // One smoke per page: the heading, the source path, and the control board —
+        // every page in the tree documents its own component with its own switches.
+        const pages = [
+            {
+                name: 'Content Item Search Bar Panel',
+                path: 'src/components/contentItems/contentItemSearchBarPanel.tsx',
+                page: <ContentItemSearchBarPanelDoc />
+            },
+            {
+                name: 'Content Item Results Panel',
+                path: 'src/components/contentItems/contentItemResultsPanel.tsx',
+                page: <ContentItemResultsPanelDoc />
+            },
+            {
+                name: 'Content Item Add Panel',
+                path: 'src/components/contentItems/contentItemAddPanel.tsx',
+                page: <ContentItemAddPanelDoc />
+            },
+            {
+                name: 'Content Item Edit Panel',
+                path: 'src/components/contentItems/contentItemEditPanel.tsx',
+                page: <ContentItemEditPanelDoc />
+            },
+            {
+                name: 'Content Item Default Panel',
+                path: 'src/components/contentItems/contentItemDefaultPanel.tsx',
+                page: <ContentItemDefaultPanelDoc />
+            },
+            {
+                name: 'Content Item Quotes Panel',
+                path: 'src/components/contentItems/contentItemQuotesPanel.tsx',
+                page: <ContentItemQuotesPanelDoc />
+            },
+            {
+                name: 'Content Item Verses Panel',
+                path: 'src/components/contentItems/contentItemVersesPanel.tsx',
+                page: <ContentItemVersesPanelDoc />
+            }
+        ];
+
+        it.each(pages)('should document $name with a live control board', (entry) => {
+            // when
+            renderWithAuth(entry.page);
+
+            // then
+            expect(screen.getByRole('heading', { name: entry.name, level: 1 }))
+                .toBeInTheDocument();
+
+            expect(screen.getByText(entry.path)).toBeInTheDocument();
+
+            // the control board: at least one switch, each driving the demo beside it
+            expect(screen.getAllByRole('switch').length).toBeGreaterThan(0);
+        });
+
+        it('should flip a section switch and re-render the template live', async () => {
+            // given: the default template page, tags showing
+            renderWithAuth(<ContentItemDefaultPanelDoc />);
+
+            expect(screen.getByText('#providence')).toBeInTheDocument();
+
+            // when: the reader flips showTagSection off
+            await userEvent.click(screen.getByRole('switch', { name: 'showTagSection' }));
+
+            // then: the demo re-rendered with the prop changed
+            expect(screen.queryByText('#providence')).not.toBeInTheDocument();
+        });
+    });
+
     describe('ContentItemSearchPanelDoc', () => {
         it('should document the family and name its source', () => {
             // when
@@ -288,13 +364,14 @@ describe('Component reference pages', () => {
             // given
             renderWithAuth(<ContentItemSearchPanelDoc />);
 
-            // when
+            // when: the page carries two live bars now (the criteria demo and the
+            // playground), so the first is the one exercised
             await userEvent.click(
-                screen.getByRole('button', { name: 'Advanced search options' }));
+                screen.getAllByRole('button', { name: 'Advanced search options' })[0]);
 
             // then
-            expect(screen.getByLabelText('Category')).toBeInTheDocument();
-            expect(screen.getByLabelText('Author')).toBeInTheDocument();
+            expect(screen.getAllByLabelText('Category').length).toBeGreaterThan(0);
+            expect(screen.getAllByLabelText('Author').length).toBeGreaterThan(0);
             expect(screen.queryByLabelText(/tag/i)).not.toBeInTheDocument();
         });
     });

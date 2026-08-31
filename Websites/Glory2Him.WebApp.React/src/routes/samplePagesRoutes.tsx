@@ -45,6 +45,13 @@ const TagAssociationPanelDoc = lazyNamed(() => import('../pages/samplePages/comp
 const ReviewPanelDoc = lazyNamed(() => import('../pages/samplePages/components/reviewPanelDoc'), 'ReviewPanelDoc');
 const ContentItemPanelDoc = lazyNamed(() => import('../pages/samplePages/components/contentItemPanelDoc'), 'ContentItemPanelDoc');
 const ContentItemSearchPanelDoc = lazyNamed(() => import('../pages/samplePages/components/contentItemSearchPanelDoc'), 'ContentItemSearchPanelDoc');
+const ContentItemSearchBarPanelDoc = lazyNamed(() => import('../pages/samplePages/components/contentItemSearchBarPanelDoc'), 'ContentItemSearchBarPanelDoc');
+const ContentItemResultsPanelDoc = lazyNamed(() => import('../pages/samplePages/components/contentItemResultsPanelDoc'), 'ContentItemResultsPanelDoc');
+const ContentItemAddPanelDoc = lazyNamed(() => import('../pages/samplePages/components/contentItemAddPanelDoc'), 'ContentItemAddPanelDoc');
+const ContentItemEditPanelDoc = lazyNamed(() => import('../pages/samplePages/components/contentItemEditPanelDoc'), 'ContentItemEditPanelDoc');
+const ContentItemDefaultPanelDoc = lazyNamed(() => import('../pages/samplePages/components/contentItemDefaultPanelDoc'), 'ContentItemDefaultPanelDoc');
+const ContentItemQuotesPanelDoc = lazyNamed(() => import('../pages/samplePages/components/contentItemQuotesPanelDoc'), 'ContentItemQuotesPanelDoc');
+const ContentItemVersesPanelDoc = lazyNamed(() => import('../pages/samplePages/components/contentItemVersesPanelDoc'), 'ContentItemVersesPanelDoc');
 const SharingPanelDoc = lazyNamed(() => import('../pages/samplePages/components/sharingPanelDoc'), 'SharingPanelDoc');
 const BibleReferenceFullChapterSample = lazyNamed(() => import('../pages/samplePages/bibleReferences/bibleReferenceFullChapterSample'), 'BibleReferenceFullChapterSample');
 const BibleReferencePartialSample = lazyNamed(() => import('../pages/samplePages/bibleReferences/bibleReferencePartialSample'), 'BibleReferencePartialSample');
@@ -121,12 +128,40 @@ export const samplePagesRoutes: RouteObject[] = [
                 element: secured(<ReviewPanelDoc />),
             },
             {
+                path: 'SamplePages/Components/Content-Item-Search-Panel',
+                element: secured(<ContentItemSearchPanelDoc />),
+            },
+            {
+                path: 'SamplePages/Components/Content-Item-Search-Bar-Panel',
+                element: secured(<ContentItemSearchBarPanelDoc />),
+            },
+            {
+                path: 'SamplePages/Components/Content-Item-Results-Panel',
+                element: secured(<ContentItemResultsPanelDoc />),
+            },
+            {
                 path: 'SamplePages/Components/Content-Item-Panel',
                 element: secured(<ContentItemPanelDoc />),
             },
             {
-                path: 'SamplePages/Components/Content-Item-Search-Panel',
-                element: secured(<ContentItemSearchPanelDoc />),
+                path: 'SamplePages/Components/Content-Item-Add-Panel',
+                element: secured(<ContentItemAddPanelDoc />),
+            },
+            {
+                path: 'SamplePages/Components/Content-Item-Edit-Panel',
+                element: secured(<ContentItemEditPanelDoc />),
+            },
+            {
+                path: 'SamplePages/Components/Content-Item-Default-Panel',
+                element: secured(<ContentItemDefaultPanelDoc />),
+            },
+            {
+                path: 'SamplePages/Components/Content-Item-Quotes-Panel',
+                element: secured(<ContentItemQuotesPanelDoc />),
+            },
+            {
+                path: 'SamplePages/Components/Content-Item-Verses-Panel',
+                element: secured(<ContentItemVersesPanelDoc />),
             },
             {
                 path: 'SamplePages/Components/Sharing-Panel',

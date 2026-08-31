@@ -102,8 +102,19 @@ const samplePagesSection: NavItem = {
                     "SamplePages/Components/Bible-Reference-Association-Panel"),
 
                 sample("Review Panel", "SamplePages/Components/Review-Panel"),
-                sample("Content Item Panel", "SamplePages/Components/Content-Item-Panel"),
+
+                // The ContentItemPanel family, in TREE ORDER — parent first, so a reader
+                // walking the list walks the composition root-down.
                 sample("Content Item Search Panel", "SamplePages/Components/Content-Item-Search-Panel"),
+                sample("Content Item Search Bar Panel", "SamplePages/Components/Content-Item-Search-Bar-Panel"),
+                sample("Content Item Results Panel", "SamplePages/Components/Content-Item-Results-Panel"),
+                sample("Content Item Panel", "SamplePages/Components/Content-Item-Panel"),
+                sample("Content Item Add Panel", "SamplePages/Components/Content-Item-Add-Panel"),
+                sample("Content Item Edit Panel", "SamplePages/Components/Content-Item-Edit-Panel"),
+                sample("Content Item Default Panel", "SamplePages/Components/Content-Item-Default-Panel"),
+                sample("Content Item Quotes Panel", "SamplePages/Components/Content-Item-Quotes-Panel"),
+                sample("Content Item Verses Panel", "SamplePages/Components/Content-Item-Verses-Panel"),
+
                 sample("Sharing Panel", "SamplePages/Components/Sharing-Panel"),
             ]
         },

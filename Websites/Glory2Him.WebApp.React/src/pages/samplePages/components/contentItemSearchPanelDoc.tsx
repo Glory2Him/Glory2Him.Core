@@ -22,6 +22,7 @@ import {
     CodeSample,
     ComponentDoc,
     ComponentPropRow,
+    DemoControls,
     DocSection,
     LiveDemo,
     PropsTable
@@ -377,6 +378,11 @@ export function ContentItemSearchPanelDoc() {
     // state and hands a new collection back, exactly as a real consumer does after its write.
     const [reactedBy, setReactedBy] = useState<Readonly<Record<string, string>>>({});
 
+    // The playground's switches — each one of this panel's own props.
+    const [playgroundShowsSearchBar, setPlaygroundShowsSearchBar] = useState(true);
+    const [playgroundIsModeratedView, setPlaygroundIsModeratedView] = useState(false);
+    const [playgroundShowsRibbons, setPlaygroundShowsRibbons] = useState(false);
+
     const quoteItems: ReadonlyArray<ContentItemSearchItem> = [
         demoItems[0],
         {
@@ -558,6 +564,46 @@ export function ContentItemSearchPanelDoc() {
                         contentItemCollection={statusItems}
                         shouldShowRibbons
                         showSearchBar={false} />
+                </LiveDemo>
+            </DocSection>
+
+            <DocSection
+                title="Playground"
+                lead={
+                    <>
+                        Every switch is one of this panel&rsquo;s own props — flip one and
+                        the panel re-renders with it changed, so what a prop does is seen
+                        rather than read about.
+                    </>
+                }>
+                <DemoControls toggles={[
+                    {
+                        name: 'search-show-bar',
+                        label: 'showSearchBar',
+                        value: playgroundShowsSearchBar,
+                        onChange: setPlaygroundShowsSearchBar
+                    },
+                    {
+                        name: 'search-moderated',
+                        label: 'isModeratedView (Moderate wears Edit\u2019s clothes)',
+                        value: playgroundIsModeratedView,
+                        onChange: setPlaygroundIsModeratedView
+                    },
+                    {
+                        name: 'search-ribbons',
+                        label: 'shouldShowRibbons (status corner ribbons)',
+                        value: playgroundShowsRibbons,
+                        onChange: setPlaygroundShowsRibbons
+                    }
+                ]} />
+
+                <LiveDemo title="Live — the playground">
+                    <ContentItemSearchPanel
+                        contentItemCollection={demoItems}
+                        categorySettingCollection={demoSettings}
+                        showSearchBar={playgroundShowsSearchBar}
+                        isModeratedView={playgroundIsModeratedView}
+                        shouldShowRibbons={playgroundShowsRibbons} />
                 </LiveDemo>
             </DocSection>
 
