@@ -2,6 +2,7 @@ import { ComponentType, useState } from 'react';
 import { useAuth } from '../securitys/authProvider';
 import { ContentItemItemDefaultPanel } from './contentItemItemDefaultPanel';
 import { ContentItemItemQuotesPanel } from './contentItemItemQuotesPanel';
+import { ContentItemItemVersesPanel } from './contentItemItemVersesPanel';
 import { ContentItemSetting } from '../../models/foundations/contentItemSettings/contentItemSetting';
 import { ContentType } from '../../models/foundations/contentItemSettings/contentType';
 
@@ -54,13 +55,12 @@ export interface ContentItemItemPanelProps extends ContentItemItemEvents, Conten
 }
 
 // THE TEMPLATE REGISTRY. An override renders when one is registered for the item's type; the
-// default renders otherwise. ContentItemItemVerseImagePanel belongs here too, but there is no
-// ContentType.VerseImage member yet — the enum is append-only (§3.6) and a new member drags the
-// settings, role and demo seeds with it, so that is its own change; this registry is why it will
-// then be one line here.
+// default renders otherwise. Adding one is exactly this one line — Verses arrived that way
+// when ContentType.Verses landed, seeds and all.
 const templateOverrides:
     Partial<Record<ContentType, ComponentType<ContentItemItemTemplateProps>>> = {
-    [ContentType.Quote]: ContentItemItemQuotesPanel
+    [ContentType.Quote]: ContentItemItemQuotesPanel,
+    [ContentType.Verses]: ContentItemItemVersesPanel
 };
 
 export function ContentItemItemPanel({

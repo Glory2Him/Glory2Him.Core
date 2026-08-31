@@ -42,6 +42,9 @@ namespace Glory2Him.Core.Models.Enums
         /// <summary>A blog post.</summary>
         BlogPost = 5,
 
+        /// <summary>A verse image.</summary>
+        Verses = 6,
+
         /// <summary>
         /// An ordered collection of related content items — excluded from feed projections
         /// (design §3.8). Numbered apart from the standalone content types above pending

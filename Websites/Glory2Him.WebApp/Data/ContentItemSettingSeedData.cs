@@ -219,6 +219,32 @@ namespace Glory2Him.WebApp.Data
                 showBibleReferences: true,
                 limitReactionsToLoveOnly: false);
 
+            // A verse image is the verse itself, standing large — no title of its own, and the
+            // author is the scripture reference's source. Comments and reactions welcome; links
+            // and attachments are not what a verse card carries.
+            yield return BuildSetting(
+                ContentType.Verses,
+                sortOrder: 6,
+                contentTypeName: "Verse Image",
+                contentTypeDescription: "A verse that carried you",
+                contentTypeIconCssClass: "bi-card-image",
+                hasTitle: false,
+                hasAuthor: true,
+                isAvailableAsGeneralUserContribution: true,
+                tagsAllowed: true,
+                showTags: true,
+                reactionsAllowed: true,
+                showReactions: true,
+                linksAllowed: false,
+                showLinks: true,
+                attachmentsAllowed: false,
+                showAttachments: true,
+                commentsAllowed: true,
+                showComments: true,
+                bibleReferenceAllowed: true,
+                showBibleReferences: true,
+                limitReactionsToLoveOnly: false);
+
             yield return BuildSetting(
                 ContentType.Series,
                 sortOrder: 100,

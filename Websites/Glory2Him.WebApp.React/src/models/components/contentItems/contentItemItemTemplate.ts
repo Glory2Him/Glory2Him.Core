@@ -125,6 +125,7 @@ export const contentTypeBadgeCssClasses: Readonly<Record<ContentType, string>> =
     [ContentType.Devotional]: 'text-bg-danger',
     [ContentType.BibleStudy]: 'text-bg-info',
     [ContentType.BlogPost]: 'text-bg-secondary',
+    [ContentType.Verses]: 'g2h-badge-purple',
     [ContentType.Series]: 'text-bg-dark',
     [ContentType.Topic]: 'text-bg-dark'
 };

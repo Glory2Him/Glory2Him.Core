@@ -144,6 +144,34 @@ describe('ContentItemItemPanel', () => {
             expect(screen.queryByText(devotionalItem.content)).not.toBeInTheDocument();
         });
 
+        // A verse card IS its verse: the content already carries its own quotation marks and
+        // reference, so the verses override renders it whole and appends nothing — no
+        // author after an em-dash the way the quotes template adds one.
+        it('should render a verse image through the verses override, appending nothing', () => {
+            renderCard(
+                <ContentItemItemPanel
+                    contentItem={{
+                        id: 'verses-1',
+                        contentType: ContentType.Verses,
+                        author: 'The Bible',
+                        content:
+                            '“For God so loved the world…” — John 3:16 ESV',
+                        submittedByName: 'Bryan',
+                        publishedDate: new Date(2026, 6, 18)
+                    }}
+                    contentItemSettingCollection={[
+                        settingFor(ContentType.Verses, 'Verse Image', { hasTitle: false })
+                    ]} />);
+
+            expect(screen.getByText(new RegExp('John 3:16 ESV'))).toBeInTheDocument();
+
+            // the author stays in the meta row, never appended to the verse
+            expect(screen.queryByText(new RegExp('ESV — The Bible')))
+                .not.toBeInTheDocument();
+
+            expect(screen.getByText('Verse Image')).toBeInTheDocument();
+        });
+
         // The quotes override DERIVES from the default: only the content slot differs, so the
         // meta row is the default's own on both.
         it('should carry the default meta row under the quotes override', () => {

@@ -142,6 +142,7 @@ describe('toContentItemSearchItem', () => {
             .toBe(placeholderImageUrlFor(ContentType.Devotional));
 
         expect(placeholderImageUrlFor(ContentType.Quote)).toBeUndefined();
+        expect(placeholderImageUrlFor(ContentType.Verses)).toBeUndefined();
     });
 
     // Each of these is blocked on an association read the host does not expose yet (#318), and

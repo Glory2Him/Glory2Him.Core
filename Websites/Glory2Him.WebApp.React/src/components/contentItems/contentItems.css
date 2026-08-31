@@ -174,3 +174,10 @@ section.g2h-content-item-search-panel {
         gap: 1.5rem;
     }
 }
+
+/* The Verse Image chip. The theme declares --bs-purple but ships no text-bg-purple
+   utility, so the pair is stated here once rather than inlined per card. */
+.g2h-badge-purple {
+    background-color: var(--bs-purple, #6f42c1);
+    color: #fff;
+}

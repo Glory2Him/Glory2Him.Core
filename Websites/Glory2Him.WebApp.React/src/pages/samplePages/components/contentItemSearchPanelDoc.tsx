@@ -36,6 +36,7 @@ ContentItemSearchPanel                     composes the two below
         ├── ContentItemItemDefaultPanel    the template most types use
         └── ContentItemItem{ContentType}Panel   overrides, by ContentType:
               ContentItemItemQuotesPanel        (derives from the default template)
+              ContentItemItemVersesPanel        (the verse whole — purple chip)
 `;
 
 const wiringSample = `

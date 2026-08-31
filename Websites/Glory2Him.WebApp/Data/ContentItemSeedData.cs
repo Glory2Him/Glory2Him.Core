@@ -485,6 +485,47 @@ namespace Glory2Him.WebApp.Data
                 }
             ],
 
+            // A verse image carries the verse whole — quotation marks, reference and translation
+            // in the content, the way the card renders it — and the author is the source. All
+            // public domain: scripture is nobody's to own here.
+            [ContentType.Verses] =
+            [
+                new ContentSpecimen
+                {
+                    Author = "The Bible",
+                    Content =
+                        "“For God so loved the world, that he gave his only Son, that whoever "
+                            + "believes in him should not perish but have eternal life.” "
+                            + "— John 3:16 ESV",
+                    ShareabilityBasis = ShareabilityBasis.PublicDomain
+                },
+                new ContentSpecimen
+                {
+                    Author = "The Bible",
+                    Content =
+                        "“I can do all things through him who strengthens me.” "
+                            + "— Philippians 4:13 ESV",
+                    ShareabilityBasis = ShareabilityBasis.PublicDomain
+                },
+                new ContentSpecimen
+                {
+                    Author = "The Bible",
+                    Content =
+                        "“Trust in the LORD with all your heart, and do not lean on your own "
+                            + "understanding.” — Proverbs 3:5 ESV",
+                    ShareabilityBasis = ShareabilityBasis.PublicDomain
+                },
+                new ContentSpecimen
+                {
+                    Author = "The Bible",
+                    Content =
+                        "“Be strong and courageous. Do not be frightened, and do not be "
+                            + "dismayed, for the LORD your God is with you wherever you go.” "
+                            + "— Joshua 1:9 ESV",
+                    ShareabilityBasis = ShareabilityBasis.PublicDomain
+                }
+            ],
+
             [ContentType.Series] =
             [
                 new ContentSpecimen
