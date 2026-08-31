@@ -9,6 +9,13 @@ import { useDocumentTitle } from '../../useDocumentTitle';
 import { demoSettings, demoStoryItem } from './shared/contentItemDemoData';
 
 import {
+    DemoSecurityContext,
+    demoSubmitterIdFor,
+    SecurityContextSection,
+    securityContextOptions
+} from './shared/securityContextDemo';
+
+import {
     CodeSample,
     ComponentDoc,
     ComponentPropRow,
@@ -84,6 +91,7 @@ const editProps: ReadonlyArray<ComponentPropRow> = [
 export function ContentItemEditPanelDoc() {
     useDocumentTitle('Content Item Edit Panel — Components — Glory 2 Him');
 
+    const [securityContext, setSecurityContext] = useState(securityContextOptions[0]);
     const [isEditingAllowed, setIsEditingAllowed] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [shouldShowRibbons, setShouldShowRibbons] = useState(true);
@@ -118,13 +126,20 @@ export function ContentItemEditPanelDoc() {
                 title="Live"
                 lead={
                     <>
-                        Every switch is one of this template&rsquo;s own props. The role gates
-                        are real: this demo row is amendable (Draft) and your admin session
-                        qualifies through the default edit roles — flip{' '}
-                        <code>isEditingAllowed</code> off and the editor refuses. Last event:{' '}
+                        Every switch is one of this template&rsquo;s own props, and the
+                        SECURITY CONTEXT says who is amending — the gates are presentation
+                        gates, so the demo may honestly step into any viewer. The owner
+                        edits at any status and holds Delete; the publisher tier edits a
+                        live row without Delete; a reviewer is refused outright — and
+                        flipping <code>isEditingAllowed</code> off refuses everybody.
+                        Last event:{' '}
                         <code>{lastEvent.length > 0 ? lastEvent : '(none yet)'}</code>
                     </>
                 }>
+                <SecurityContextSection
+                    selected={securityContext}
+                    onChange={setSecurityContext} />
+
                 <DemoControls toggles={[
                     {
                         name: 'is-editing-allowed',
@@ -147,15 +162,20 @@ export function ContentItemEditPanelDoc() {
                 ]} />
 
                 <LiveDemo>
-                    <ContentItemEditPanel
-                        contentItem={demoFormItem}
-                        contentItemSettingCollection={demoSettings}
-                        isEditingAllowed={isEditingAllowed}
-                        isSubmitting={isSubmitting}
-                        shouldShowRibbons={shouldShowRibbons}
-                        onModified={(item) => setLastEvent(`onModified(${item.id})`)}
-                        onRemoved={(item) => setLastEvent(`onRemoved(${item.id})`)}
-                        onCancelled={() => setLastEvent('onCancelled()')} />
+                    <DemoSecurityContext option={securityContext}>
+                        <ContentItemEditPanel
+                            contentItem={{
+                                ...demoFormItem,
+                                createdBy: demoSubmitterIdFor(securityContext)
+                            }}
+                            contentItemSettingCollection={demoSettings}
+                            isEditingAllowed={isEditingAllowed}
+                            isSubmitting={isSubmitting}
+                            shouldShowRibbons={shouldShowRibbons}
+                            onModified={(item) => setLastEvent(`onModified(${item.id})`)}
+                            onRemoved={(item) => setLastEvent(`onRemoved(${item.id})`)}
+                            onCancelled={() => setLastEvent('onCancelled()')} />
+                    </DemoSecurityContext>
                 </LiveDemo>
             </DocSection>
         </ComponentDoc>

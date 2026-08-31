@@ -19,6 +19,13 @@ import {
 import { useDocumentTitle } from '../../useDocumentTitle';
 
 import {
+    DemoSecurityContext,
+    demoSubmitterIdFor,
+    SecurityContextSection,
+    securityContextOptions
+} from './shared/securityContextDemo';
+
+import {
     CodeSample,
     ComponentDoc,
     ComponentPropRow,
@@ -389,6 +396,8 @@ export function ContentItemListPanelDoc() {
 
     // The playground's switches — each one of this panel's own props.
     const [playgroundShowsSearchBar, setPlaygroundShowsSearchBar] = useState(true);
+    const [playgroundSecurityContext, setPlaygroundSecurityContext] =
+        useState(securityContextOptions[0]);
     const [playgroundIsModeratedView, setPlaygroundIsModeratedView] = useState(false);
     const [playgroundShowsRibbons, setPlaygroundShowsRibbons] = useState(false);
 
@@ -586,13 +595,17 @@ export function ContentItemListPanelDoc() {
                     <>
                         Every switch is one of this panel&rsquo;s own props — flip one and
                         the panel re-renders with it changed, so what a prop does is seen
-                        rather than read about. The rows here carry approval statuses (so
-                        the ribbons have something to wear), and the moderation hook is
-                        wired — the gates are real, so the Moderate control renders for
-                        your admin session and <code>isModeratedView</code> restyles it
-                        into Edit&rsquo;s pencil, standing alone.
+                        rather than read about. The rows carry approval statuses (so the
+                        ribbons have something to wear), both action hooks are wired, and
+                        the SECURITY CONTEXT says who is looking — the gates are
+                        presentation gates, so the demo may honestly step into any viewer
+                        and show what that person would be offered on every card.
                     </>
                 }>
+                <SecurityContextSection
+                    selected={playgroundSecurityContext}
+                    onChange={setPlaygroundSecurityContext} />
+
                 <DemoControls toggles={[
                     {
                         name: 'search-show-bar',
@@ -618,17 +631,23 @@ export function ContentItemListPanelDoc() {
                     {/* statusItems, not demoItems: a ribbon needs a status to wear, and
                         the public-feed fixtures deliberately carry none. The two action
                         hooks are wired because a control renders only where somebody
-                        listens — without them isModeratedView would have no button to
-                        restyle and the switch would look dead. */}
-                    <ContentItemListPanel
-                        contentItemCollection={statusItems}
-                        categorySettingCollection={demoSettings}
-                        showSearchBar={playgroundShowsSearchBar}
-                        isModeratedView={playgroundIsModeratedView}
-                        shouldShowRibbons={playgroundShowsRibbons}
-                        onEditClick={(item) => setLastEvent(`onEditClick(${item.id})`)}
-                        onModerateClick={(item) =>
-                            setLastEvent(`onModerateClick(${item.id})`)} />
+                        listens; the submitter follows the security context's owner half,
+                        so the ownership gate answers to the radio above. */}
+                    <DemoSecurityContext option={playgroundSecurityContext}>
+                        <ContentItemListPanel
+                            contentItemCollection={statusItems.map((item) => ({
+                                ...item,
+                                submittedById:
+                                    demoSubmitterIdFor(playgroundSecurityContext)
+                            }))}
+                            categorySettingCollection={demoSettings}
+                            showSearchBar={playgroundShowsSearchBar}
+                            isModeratedView={playgroundIsModeratedView}
+                            shouldShowRibbons={playgroundShowsRibbons}
+                            onEditClick={(item) => setLastEvent(`onEditClick(${item.id})`)}
+                            onModerateClick={(item) =>
+                                setLastEvent(`onModerateClick(${item.id})`)} />
+                    </DemoSecurityContext>
                 </LiveDemo>
             </DocSection>
 

@@ -211,6 +211,39 @@ describe('Component reference pages', () => {
             expect(ribbon!.getAttribute('data-approval-status')).toBe('Draft');
         });
 
+        it('should step the demo into another viewer through the security context', async () => {
+            // given: the playground opens as the submitter (owner) — Edit shows
+            renderWithAuth(<ContentItemPanelDoc />);
+
+            expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
+
+            // when: the reader becomes a reviewer who is not the owner
+            await userEvent.click(
+                screen.getByRole('radio', { name: 'I am a reviewer (not owner)' }));
+
+            // then: the ownership gate closes Edit and the moderation tier gets the shield
+            expect(screen.queryByRole('button', { name: 'Edit' }))
+                .not.toBeInTheDocument();
+
+            expect(screen.getByRole('button', { name: 'Moderate' })).toBeInTheDocument();
+        });
+
+        it('should wear whichever status the ribbon radio picks', async () => {
+            // given: the playground opens on Draft
+            renderWithAuth(<ContentItemPanelDoc />);
+
+            expect(document.querySelector('.g2h-approval-ribbon'))
+                .toHaveAttribute('data-approval-status', 'Draft');
+
+            // when
+            await userEvent.click(
+                screen.getByRole('radio', { name: 'Rejected (red)' }));
+
+            // then
+            expect(document.querySelector('.g2h-approval-ribbon'))
+                .toHaveAttribute('data-approval-status', 'Rejected');
+        });
+
         it('should stamp the view demo as the reader\u2019s own and edit in place', async () => {
             // given: the demo item carries the signed-in account id, so the real
             // ownership gate opens for whoever reads the page

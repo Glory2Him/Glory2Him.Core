@@ -195,3 +195,54 @@ export function DemoControls({ title = 'Controls', toggles }: DemoControlsProps)
         </div>
     );
 }
+
+// A LIVE RADIO BOARD, the DemoControls' sibling for a prop that is one choice from a small
+// closed set rather than a boolean — pick an option and the demo re-renders under it.
+export interface DemoRadioOption {
+    key: string;
+    label: string;
+}
+
+export interface DemoRadioGroupProps {
+    title: string;
+    name: string;
+    options: ReadonlyArray<DemoRadioOption>;
+    selectedKey: string;
+    onChange: (key: string) => void;
+}
+
+export function DemoRadioGroup({
+    title,
+    name,
+    options,
+    selectedKey,
+    onChange
+}: DemoRadioGroupProps) {
+    return (
+        <div className="border rounded-3 p-3 mb-3">
+            <p className="small text-uppercase fw-bold text-body-secondary mb-2">{title}</p>
+
+            <div className="row g-2">
+                {options.map((option) => (
+                    <div className="col-12 col-md-6 col-xl-4" key={option.key}>
+                        <div className="form-check mb-0">
+                            <input
+                                className="form-check-input"
+                                type="radio"
+                                name={name}
+                                id={`${name}-${option.key}`}
+                                checked={selectedKey === option.key}
+                                onChange={() => onChange(option.key)} />
+
+                            <label
+                                className="form-check-label"
+                                htmlFor={`${name}-${option.key}`}>
+                                {option.label}
+                            </label>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}

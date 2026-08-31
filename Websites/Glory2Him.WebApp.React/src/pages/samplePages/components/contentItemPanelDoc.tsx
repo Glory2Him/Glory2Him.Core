@@ -16,10 +16,18 @@ import {
 import { useDocumentTitle } from '../../useDocumentTitle';
 
 import {
+    DemoSecurityContext,
+    demoSubmitterIdFor,
+    SecurityContextSection,
+    securityContextOptions
+} from './shared/securityContextDemo';
+
+import {
     CodeSample,
     ComponentDoc,
     ComponentPropRow,
     DemoControls,
+    DemoRadioGroup,
     DocSection,
     LiveDemo,
     PropsTable
@@ -249,9 +257,17 @@ const panelProps: ReadonlyArray<ComponentPropRow> = [
     }
 ];
 
+// The four statuses the corner ribbon can wear — Dismissed has no ribbon by design.
+const ribbonStatusOptions = [
+    { key: String(ApprovalStatus.Draft), label: 'Draft (grey)' },
+    { key: String(ApprovalStatus.Submitted), label: 'Submitted (blue)' },
+    { key: String(ApprovalStatus.Approved), label: 'Approved (green)' },
+    { key: String(ApprovalStatus.Rejected), label: 'Rejected (red)' }
+] as const;
+
 export function ContentItemPanelDoc() {
     useDocumentTitle('Content Item Panel — Components — Glory 2 Him');
-    const { isAuthenticated, user } = useAuth();
+    const { isAuthenticated } = useAuth();
 
     const [lastEvent, setLastEvent] = useState('');
 
@@ -260,12 +276,19 @@ export function ContentItemPanelDoc() {
     const [isAddSubmitting, setIsAddSubmitting] = useState(false);
     const [showsAddApiIssues, setShowsAddApiIssues] = useState(false);
 
-    // THE GATES ARE REAL, so the demo item is stamped as YOURS: the ownership gate compares
-    // submittedById against the signed-in account, and only the submitter is offered Edit —
-    // which is also the only way into the edit face here, exactly as on a page.
-    const ownedDemoItem = {
+    // WHO the demo is viewed as, and WHAT status the item stands in. The gates are real —
+    // presentation gates, which is exactly why the page may simulate any viewer: the demo
+    // subtree runs under the chosen security context, and the item's submitter follows the
+    // owner half of the choice.
+    const [securityContext, setSecurityContext] = useState(securityContextOptions[0]);
+
+    const [ribbonStatus, setRibbonStatus] =
+        useState<ApprovalStatus>(ApprovalStatus.Draft);
+
+    const viewedDemoItem = {
         ...demoItem,
-        submittedById: user?.userId ?? demoItem.submittedById
+        submittedById: demoSubmitterIdFor(securityContext),
+        approvalStatus: ribbonStatus
     };
 
     // The playground's switches — each one of this panel's own props.
@@ -376,16 +399,28 @@ export function ContentItemPanelDoc() {
                 title="The view face, and Edit in place"
                 lead={
                     <>
-                        The same card every feed shows — stamped as YOUR submission, because
-                        the ownership gate is real. With <code>isEditingAllowed</code> on and{' '}
-                        <code>onModified</code> wired, <strong>your Edit control swaps the
-                        card for the editor right here</strong> (Cancel brings the card
-                        back); flip <code>isEditingAllowed</code> off and Edit disappears.
-                        The moderation hook is wired too, so your admin session sees the
-                        shield — and <code>isModeratedView</code> restyles it into
-                        Edit&rsquo;s pencil, standing alone.
+                        The same card every feed shows, viewed as WHOEVER the security
+                        context says — the ownership and role gates are presentation gates,
+                        so the demo may honestly step into any viewer. As an owner, with{' '}
+                        <code>isEditingAllowed</code> on and <code>onModified</code> wired,
+                        <strong> Edit swaps the card for the editor right here</strong>{' '}
+                        (Cancel brings the card back); the moderation tier sees the shield,
+                        and <code>isModeratedView</code> restyles it into Edit&rsquo;s
+                        pencil, standing alone. The ribbon wears whichever status the radio
+                        picks — with <code>shouldShowRibbons</code> on.
                     </>
                 }>
+                <SecurityContextSection
+                    selected={securityContext}
+                    onChange={setSecurityContext} />
+
+                <DemoRadioGroup
+                    title="Ribbon status"
+                    name="demo-ribbon-status"
+                    options={ribbonStatusOptions}
+                    selectedKey={String(ribbonStatus)}
+                    onChange={(key) => setRibbonStatus(Number(key) as ApprovalStatus)} />
+
                 <DemoControls toggles={[
                     {
                         name: 'panel-ribbons',
@@ -444,29 +479,31 @@ export function ContentItemPanelDoc() {
                 ]} />
 
                 <LiveDemo title="Live — view">
-                    <ContentItemPanel
-                        contentItem={ownedDemoItem}
-                        shouldShowRibbons={shouldShowRibbons}
-                        isEditingAllowed={isEditingAllowed}
-                        isModeratedView={isModeratedView}
-                        showTagSection={showTagSection}
-                        showBibleReferenceSection={showBibleReferenceSection}
-                        showReactionSection={showReactionSection}
-                        showCommentsSection={showCommentsSection}
-                        showShareSection={showShareSection}
-                        showSaveSection={showSaveSection}
-                        onCommentsClick={(item) =>
-                            setLastEvent(`onCommentsClick(${item.id})`)}
-                        onShareClick={(item) =>
-                            setLastEvent(`onShareClick(${item.id})`)}
-                        onSaveClick={(item) =>
-                            setLastEvent(`onSaveClick(${item.id})`)}
-                        onModified={(item) =>
-                            setLastEvent(`onModified(${item.id})`)}
-                        onRemoved={(item) =>
-                            setLastEvent(`onRemoved(${item.id})`)}
-                        onModerateClick={(item) =>
-                            setLastEvent(`onModerateClick(${item.id})`)} />
+                    <DemoSecurityContext option={securityContext}>
+                        <ContentItemPanel
+                                contentItem={viewedDemoItem}
+                            shouldShowRibbons={shouldShowRibbons}
+                            isEditingAllowed={isEditingAllowed}
+                            isModeratedView={isModeratedView}
+                            showTagSection={showTagSection}
+                            showBibleReferenceSection={showBibleReferenceSection}
+                            showReactionSection={showReactionSection}
+                            showCommentsSection={showCommentsSection}
+                            showShareSection={showShareSection}
+                            showSaveSection={showSaveSection}
+                            onCommentsClick={(item) =>
+                                setLastEvent(`onCommentsClick(${item.id})`)}
+                            onShareClick={(item) =>
+                                setLastEvent(`onShareClick(${item.id})`)}
+                            onSaveClick={(item) =>
+                                setLastEvent(`onSaveClick(${item.id})`)}
+                            onModified={(item) =>
+                                setLastEvent(`onModified(${item.id})`)}
+                            onRemoved={(item) =>
+                                setLastEvent(`onRemoved(${item.id})`)}
+                            onModerateClick={(item) =>
+                                setLastEvent(`onModerateClick(${item.id})`)} />
+                    </DemoSecurityContext>
                 </LiveDemo>
             </DocSection>
         </ComponentDoc>
