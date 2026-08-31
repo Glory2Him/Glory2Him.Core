@@ -4,6 +4,7 @@ import { Spinner } from '../coreUI/spinner';
 
 import {
     ContentItemEvents,
+    ContentItemSectionToggles,
     ContentItemText
 } from '../../models/components/contentItems/contentItemTemplate';
 
@@ -18,7 +19,14 @@ import './contentItems.css';
 // than paged. A pure presentation component — the collection arrives ACCUMULATED (react-query
 // keeps the pages; this panel appends nothing of its own), and the panel's whole contribution
 // to paging is noticing that its foot came into view and saying so.
-export interface ContentItemResultsPanelProps extends ContentItemEvents, ContentItemText {
+// The six SECTION SWITCHES thread through too (ContentItemSectionToggles) — like
+// isModeratedView and shouldShowRibbons they are per-SURFACE decisions a page makes
+// once for every card, and ContentItemPanel owns what each means. The form-face props
+// (isEditingAllowed, onModified, validationIssues…) are deliberately NOT here: they
+// carry ONE item's write lifecycle, which no single list-level value can express — a
+// list row's edit is a navigation (onEditClick).
+export interface ContentItemResultsPanelProps
+    extends ContentItemEvents, ContentItemText, ContentItemSectionToggles {
     // The accumulated results as they stand — each element SELF-CONTAINED, carrying its item
     // and its winning setting, so a card consults nothing beyond its own element.
     contentItemCollection?: ReadonlyArray<ContentItemSearchItem>;

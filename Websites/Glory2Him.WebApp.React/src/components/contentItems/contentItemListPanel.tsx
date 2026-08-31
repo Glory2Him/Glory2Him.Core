@@ -5,6 +5,7 @@ import { ContentItemSetting } from '../../models/foundations/contentItemSettings
 
 import {
     ContentItemEvents,
+    ContentItemSectionToggles,
     ContentItemText
 } from '../../models/components/contentItems/contentItemTemplate';
 
@@ -38,7 +39,14 @@ import './contentItems.css';
 // signal however the reader asked. The navigation hooks (title, read-more, comments, bible
 // reference, edit) pass straight through: where they lead is the page's decision, and the page
 // stamps the origin into router state so the destination can offer a true way back.
-export interface ContentItemListPanelProps extends ContentItemEvents, ContentItemText {
+// The six SECTION SWITCHES thread through too (ContentItemSectionToggles) — like
+// isModeratedView and shouldShowRibbons they are per-SURFACE decisions a page makes
+// once for every card, and ContentItemPanel owns what each means. The form-face props
+// (isEditingAllowed, onModified, validationIssues…) are deliberately NOT here: they
+// carry ONE item's write lifecycle, which no single list-level value can express — a
+// list row's edit is a navigation (onEditClick).
+export interface ContentItemListPanelProps
+    extends ContentItemEvents, ContentItemText, ContentItemSectionToggles {
     // ── Subject ───────────────────────────────────────────────────────────────
     // The ACCUMULATED results — the consumer's infinite query keeps the pages. Each element
     // is SELF-CONTAINED: it carries the item and its winning setting, resolved by the

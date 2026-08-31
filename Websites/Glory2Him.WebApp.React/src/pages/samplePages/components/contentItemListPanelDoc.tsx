@@ -341,6 +341,15 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
             + 'moderation, the moderation action is simply what editing means there.'
     },
     {
+        name: 'showTagSection / showBibleReferenceSection / showReactionSection / '
+            + 'showCommentsSection / showShareSection / showSaveSection',
+        type: 'boolean',
+        defaultValue: 'true',
+        description: 'Threaded to every card — ContentItemPanel owns what each means: the '
+            + 'switch says what this surface has room for, the setting on the element says '
+            + 'what the type shows, and a section renders only when both agree.'
+    },
+    {
         name: 'shouldShowRibbons',
         type: 'boolean',
         defaultValue: 'false',

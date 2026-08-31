@@ -323,6 +323,26 @@ describe('ContentItemListPanel', () => {
         });
     });
 
+    describe('the threaded card props', () => {
+        // The same rule isModeratedView and shouldShowRibbons keep: a per-surface
+        // decision is made once at the root and threads to every card, while
+        // ContentItemPanel owns what it means.
+        it('should thread a section switch to every card', () => {
+            const taggedItem = {
+                ...devotionalItem,
+                tags: ['grace']
+            };
+
+            render(
+                <ContentItemListPanel
+                    contentItemCollection={[taggedItem]}
+                    showTagSection={false}
+                    showSearchBar={false} />);
+
+            expect(screen.queryByText('#grace')).not.toBeInTheDocument();
+        });
+    });
+
     describe('the filter hooks', () => {
         it('should toggle the category on when the type badge is clicked', async () => {
             const onSearch = vi.fn();
