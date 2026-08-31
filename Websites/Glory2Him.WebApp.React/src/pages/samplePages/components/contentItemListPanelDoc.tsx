@@ -432,6 +432,10 @@ export function ContentItemListPanelDoc() {
                 <CodeSample code={wiringSample} />
             </DocSection>
 
+            <DocSection title="Props">
+                <PropsTable rows={propRows} />
+            </DocSection>
+
             <DocSection
                 title="It does not know what is behind the collection"
                 lead={
@@ -624,10 +628,6 @@ export function ContentItemListPanelDoc() {
                         no <code>useMutation</code> and no broker call anywhere inside.
                     </>
                 } />
-
-            <DocSection title="Props">
-                <PropsTable rows={propRows} />
-            </DocSection>
         </ComponentDoc>
     );
 }

@@ -91,6 +91,10 @@ export function ContentItemResultsPanelDoc() {
                 <CodeSample code={familySample} caption="One tree, every face" />
             </DocSection>
 
+            <DocSection title="Props">
+                <PropsTable rows={resultsProps} />
+            </DocSection>
+
             <DocSection
                 title="Live"
                 lead={
@@ -144,10 +148,6 @@ export function ContentItemResultsPanelDoc() {
                         shouldShowRibbons={shouldShowRibbons}
                         onLoadMore={() => setLoadMoreCount((count) => count + 1)} />
                 </LiveDemo>
-            </DocSection>
-
-            <DocSection title="Props">
-                <PropsTable rows={resultsProps} />
             </DocSection>
         </ComponentDoc>
     );

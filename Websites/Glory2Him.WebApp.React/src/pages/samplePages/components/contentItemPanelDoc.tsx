@@ -295,6 +295,19 @@ export function ContentItemPanelDoc() {
             </DocSection>
 
             <DocSection
+                title="What the consumer owns"
+                lead={
+                    <>
+                        Everything in this family is a pure presentation component: props in,
+                        events out, no fetching, no mutation. The page owns reads, redirects
+                        and persistence — the last event this page received:{' '}
+                        <code>{lastEvent.length > 0 ? lastEvent : '(none yet)'}</code>
+                    </>
+                }>
+                <PropsTable rows={panelProps} />
+            </DocSection>
+
+            <DocSection
                 title="The add face"
                 lead={
                     <>
@@ -406,19 +419,6 @@ export function ContentItemPanelDoc() {
                         onRemoved={(item) =>
                             setLastEvent(`onRemoved(${item.id})`)} />
                 </LiveDemo>
-            </DocSection>
-
-            <DocSection
-                title="What the consumer owns"
-                lead={
-                    <>
-                        Everything in this family is a pure presentation component: props in,
-                        events out, no fetching, no mutation. The page owns reads, redirects
-                        and persistence — the last event this page received:{' '}
-                        <code>{lastEvent.length > 0 ? lastEvent : '(none yet)'}</code>
-                    </>
-                }>
-                <PropsTable rows={panelProps} />
             </DocSection>
         </ComponentDoc>
     );

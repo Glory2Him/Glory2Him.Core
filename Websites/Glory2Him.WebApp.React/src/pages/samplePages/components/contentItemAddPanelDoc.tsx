@@ -95,6 +95,10 @@ export function ContentItemAddPanelDoc() {
                 <CodeSample code={familySample} caption="One tree, every face" />
             </DocSection>
 
+            <DocSection title="Props">
+                <PropsTable rows={addProps} />
+            </DocSection>
+
             <DocSection
                 title="Live"
                 lead={
@@ -141,10 +145,6 @@ export function ContentItemAddPanelDoc() {
                             setLastEvent(`onAdded(${ContentType[item.contentType]})`)}
                         onCancelled={() => setLastEvent('onCancelled()')} />
                 </LiveDemo>
-            </DocSection>
-
-            <DocSection title="Props">
-                <PropsTable rows={addProps} />
             </DocSection>
         </ComponentDoc>
     );

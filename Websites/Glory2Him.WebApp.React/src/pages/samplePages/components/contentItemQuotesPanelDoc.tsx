@@ -86,6 +86,10 @@ export function ContentItemQuotesPanelDoc() {
                 <CodeSample code={derivationSample} caption="Derivation, the React way" />
             </DocSection>
 
+            <DocSection title="Props">
+                <PropsTable rows={quoteProps} />
+            </DocSection>
+
             <DocSection
                 title="Live"
                 lead={
@@ -149,10 +153,6 @@ export function ContentItemQuotesPanelDoc() {
                         onAuthorClick={(item) =>
                             setLastEvent(`onAuthorClick(${item.author ?? ''})`)} />
                 </LiveDemo>
-            </DocSection>
-
-            <DocSection title="Props">
-                <PropsTable rows={quoteProps} />
             </DocSection>
         </ComponentDoc>
     );

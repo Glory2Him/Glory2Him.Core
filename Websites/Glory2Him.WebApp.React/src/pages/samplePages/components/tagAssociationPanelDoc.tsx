@@ -135,14 +135,6 @@ export const TagAssociationPanelDoc = () => {
                 </LiveDemo>
             </DocSection>
 
-            <DocSection title="Minimal usage">
-                <CodeSample code={minimalSample} />
-            </DocSection>
-
-            <DocSection title="Overriding a default">
-                <CodeSample code={overrideSample} />
-            </DocSection>
-
             <DocSection
                 title="Defaults"
                 lead={
@@ -153,6 +145,14 @@ export const TagAssociationPanelDoc = () => {
                     </>
                 }>
                 <PropsTable rows={defaultRows} />
+            </DocSection>
+
+            <DocSection title="Minimal usage">
+                <CodeSample code={minimalSample} />
+            </DocSection>
+
+            <DocSection title="Overriding a default">
+                <CodeSample code={overrideSample} />
             </DocSection>
         </ComponentDoc>
     );

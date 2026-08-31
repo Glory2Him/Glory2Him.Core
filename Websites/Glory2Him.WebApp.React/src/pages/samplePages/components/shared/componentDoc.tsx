@@ -128,14 +128,15 @@ export function PropsTable({ rows }: PropsTableProps) {
                     </tr>
                 </thead>
                 <tbody>
+                    {/* Nothing here refuses to wrap: a nowrap name or type cell forces
+                        the table wider than the page, pushes the description off screen
+                        and stretches every row — the exact opposite of a reference table. */}
                     {rows.map((row) => (
                         <tr key={row.name}>
-                            <td className="text-nowrap"><code>{row.name}</code></td>
-                            <td className="text-nowrap"><small>{row.type}</small></td>
-                            <td className="text-nowrap">
-                                <small>{row.defaultValue ?? '—'}</small>
-                            </td>
-                            <td>{row.description}</td>
+                            <td className="w-25"><code>{row.name}</code></td>
+                            <td><small>{row.type}</small></td>
+                            <td><small>{row.defaultValue ?? '—'}</small></td>
+                            <td className="w-50">{row.description}</td>
                         </tr>
                     ))}
                 </tbody>

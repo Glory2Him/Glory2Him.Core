@@ -100,6 +100,10 @@ export function ContentItemSearchBarPanelDoc() {
                 <CodeSample code={familySample} caption="One tree, every face" />
             </DocSection>
 
+            <DocSection title="Props">
+                <PropsTable rows={barProps} />
+            </DocSection>
+
             <DocSection
                 title="Live"
                 lead={
@@ -153,10 +157,6 @@ export function ContentItemSearchBarPanelDoc() {
                             }));
                         }} />
                 </LiveDemo>
-            </DocSection>
-
-            <DocSection title="Props">
-                <PropsTable rows={barProps} />
             </DocSection>
         </ComponentDoc>
     );

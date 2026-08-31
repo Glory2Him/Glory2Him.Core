@@ -71,6 +71,10 @@ export function ContentItemVersesPanelDoc() {
                 <CodeSample code={familySample} caption="One tree, every face" />
             </DocSection>
 
+            <DocSection title="Props">
+                <PropsTable rows={versesProps} />
+            </DocSection>
+
             <DocSection
                 title="Live"
                 lead={
@@ -114,10 +118,6 @@ export function ContentItemVersesPanelDoc() {
                         onBibleReferenceClick={(_item, reference) =>
                             setLastEvent(`onBibleReferenceClick(${reference})`)} />
                 </LiveDemo>
-            </DocSection>
-
-            <DocSection title="Props">
-                <PropsTable rows={versesProps} />
             </DocSection>
         </ComponentDoc>
     );

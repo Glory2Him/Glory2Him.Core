@@ -110,6 +110,10 @@ export function ContentItemEditPanelDoc() {
                 <CodeSample code={familySample} caption="One tree, every face" />
             </DocSection>
 
+            <DocSection title="Props">
+                <PropsTable rows={editProps} />
+            </DocSection>
+
             <DocSection
                 title="Live"
                 lead={
@@ -153,10 +157,6 @@ export function ContentItemEditPanelDoc() {
                         onRemoved={(item) => setLastEvent(`onRemoved(${item.id})`)}
                         onCancelled={() => setLastEvent('onCancelled()')} />
                 </LiveDemo>
-            </DocSection>
-
-            <DocSection title="Props">
-                <PropsTable rows={editProps} />
             </DocSection>
         </ComponentDoc>
     );

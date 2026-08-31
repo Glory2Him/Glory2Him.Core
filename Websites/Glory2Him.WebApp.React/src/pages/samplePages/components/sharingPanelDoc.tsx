@@ -127,6 +127,10 @@ export function SharingPanelDoc() {
                 <CodeSample code={minimalSample} />
             </DocSection>
 
+            <DocSection title="Props">
+                <PropsTable rows={propRows} />
+            </DocSection>
+
             <DocSection
                 title="It adapts to its container, not the viewport"
                 lead={
@@ -195,10 +199,6 @@ export function SharingPanelDoc() {
                         inside.
                     </>
                 } />
-
-            <DocSection title="Props">
-                <PropsTable rows={propRows} />
-            </DocSection>
         </ComponentDoc>
     );
 }
