@@ -85,6 +85,10 @@ export function MyPostDetail() {
     const suggestBibleReference = () =>
         toastSuccess('Suggesting bible references is coming soon.');
 
+    // The modify write lands with its own service; until then the save answers honestly
+    // rather than pretending it stuck.
+    const saveChanges = () => toastSuccess('Saving changes is coming soon.');
+
     return (
         <section className="pt-4 pb-5">
             <div className="container">
@@ -112,6 +116,8 @@ export function MyPostDetail() {
                                     ariaLabel="My contribution"
                                     contentItem={formItem}
                                     showItemTitle={false}
+                                    isEditingAllowed
+                                    onModified={saveChanges}
                                     contentItemSettingCollection={contentItemSettings ?? []} />
                             </div>
                         </div>
