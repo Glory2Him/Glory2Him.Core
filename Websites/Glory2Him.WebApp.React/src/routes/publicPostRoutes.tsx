@@ -7,6 +7,7 @@ import { JournalMasonry } from '../pages/journalMasonry';
 import { PostDetail } from '../pages/postDetail';
 import { PostGrid } from '../pages/postGrid';
 import { PostList } from '../pages/postList';
+import { MyPostDetail } from '../pages/myPostDetail';
 import { MyPosts } from '../pages/myPosts';
 import { Posts } from '../pages/posts';
 import { SecuredRoute } from '../components/securitys/securedRoutes';
@@ -48,13 +49,13 @@ export const publicPostRoutes: RouteObject[] = [
     },
     {
         // One of MY posts — where /posts/contribute lands a fresh submission, so the
-        // contributor reads their draft on their own surface rather than the public one.
-        // The same detail page serves it: the caller-scoped read already shows an owner
-        // their own row at any status.
+        // contributor reads their draft on their own surface: the two-column detail with
+        // the way back to the list and the association surfaces beside the item. The
+        // caller-scoped read already shows an owner their own row at any status.
         path: 'myposts/:contentItemId',
         element:
             <SecuredRoute>
-                <PostDetail />
+                <MyPostDetail />
             </SecuredRoute>,
     },
     { path: 'posts/:contentItemId', element: <PostDetail /> },
