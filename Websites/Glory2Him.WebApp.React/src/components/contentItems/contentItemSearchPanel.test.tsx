@@ -151,6 +151,8 @@ describe('ContentItemSearchPanel', () => {
                 submittedBy: null,
                 tags: [],
                 tagMatchMode: 'any',
+                bibleReferences: [],
+                bibleReferenceMatchMode: 'any',
                 shareabilityBasis: null
             });
         });
@@ -219,6 +221,10 @@ describe('ContentItemSearchPanel', () => {
 
             expect(screen.getByLabelText('Type a tag and press Enter'))
                 .toBeInTheDocument();
+
+            expect(screen.getByLabelText(
+                'Type a bible reference and press Enter (e.g. John 3:16)'))
+                .toBeInTheDocument();
         });
 
         it('should commit the typed submitted-by, basis and entered tags on Search', async () => {
@@ -243,7 +249,15 @@ describe('ContentItemSearchPanel', () => {
             await userEvent.type(tagBox, 'grace{Enter}');
             await userEvent.type(tagBox, 'healing{Enter}');
 
-            await userEvent.click(screen.getByRole('button', { name: 'All' }));
+            // Two Any/All groups stand in the grid now — tags first, bible references
+            // second — so each is taken by position.
+            await userEvent.click(screen.getAllByRole('button', { name: 'All' })[0]);
+
+            const referenceBox = screen.getByLabelText(
+                'Type a bible reference and press Enter (e.g. John 3:16)');
+
+            await userEvent.type(referenceBox, 'John 3:16{Enter}');
+
             await userEvent.click(screen.getByRole('button', { name: /Search/ }));
 
             // A TYPED submitted-by carries no account id — only a pill click can — so the
@@ -252,7 +266,9 @@ describe('ContentItemSearchPanel', () => {
                 submittedBy: { id: '', name: 'Joan' },
                 shareabilityBasis: ShareabilityBasis.PublicDomain,
                 tags: ['grace', 'healing'],
-                tagMatchMode: 'all'
+                tagMatchMode: 'all',
+                bibleReferences: ['John 3:16'],
+                bibleReferenceMatchMode: 'any'
             }));
         });
 

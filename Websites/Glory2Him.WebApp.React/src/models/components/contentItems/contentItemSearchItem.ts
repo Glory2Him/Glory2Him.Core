@@ -160,6 +160,12 @@ export type ContentItemSearchCriteria = {
     // the Tags box. Meaningless while tags is empty.
     tagMatchMode: ContentItemTagMatchMode;
 
+    // The Bible references box and onBibleReferenceClick both land here, behaving exactly
+    // as the tags do — typed-and-entered or clicked on a card, each wearing a removable
+    // chip — and equally blocked on #318 for the actual narrowing.
+    bibleReferences: ReadonlyArray<string>;
+    bibleReferenceMatchMode: ContentItemTagMatchMode;
+
     // The Shareability box. Null is "any shareability".
     shareabilityBasis: ShareabilityBasis | null;
 };
@@ -173,5 +179,7 @@ export const emptyContentItemSearchCriteria: ContentItemSearchCriteria = {
     submittedBy: null,
     tags: [],
     tagMatchMode: 'any',
+    bibleReferences: [],
+    bibleReferenceMatchMode: 'any',
     shareabilityBasis: null
 };

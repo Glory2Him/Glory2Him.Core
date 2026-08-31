@@ -25,6 +25,8 @@ const submittedByIdParameterName = 'by';
 const submittedByNameParameterName = 'byName';
 const tagsParameterName = 'tags';
 const tagMatchModeParameterName = 'tagMode';
+const bibleReferencesParameterName = 'refs';
+const bibleReferenceMatchModeParameterName = 'refMode';
 const shareabilityParameterName = 'shareability';
 
 // The basis travels by MEMBER NAME too, for the same reason the type does.
@@ -73,6 +75,16 @@ export const toContentItemSearchCriteria = (
         tagMatchMode:
             searchParams.get(tagMatchModeParameterName) === 'all' ? 'all' : 'any',
 
+        bibleReferences: (searchParams.get(bibleReferencesParameterName) ?? '')
+            .split(',')
+            .map((reference) => reference.trim())
+            .filter((reference) => reference.length > 0),
+
+        bibleReferenceMatchMode:
+            searchParams.get(bibleReferenceMatchModeParameterName) === 'all'
+                ? 'all'
+                : 'any',
+
         shareabilityBasis:
             toShareabilityBasis(searchParams.get(shareabilityParameterName))
     };
@@ -109,6 +121,14 @@ export const toContentItemSearchParams = (
         // missing mode reads back as the default it was.
         if (criteria.tagMatchMode === 'all') {
             parameters.set(tagMatchModeParameterName, 'all');
+        }
+    }
+
+    if (criteria.bibleReferences.length > 0) {
+        parameters.set(bibleReferencesParameterName, criteria.bibleReferences.join(','));
+
+        if (criteria.bibleReferenceMatchMode === 'all') {
+            parameters.set(bibleReferenceMatchModeParameterName, 'all');
         }
     }
 

@@ -123,6 +123,7 @@ export function ContentItemSearchPanel({
     onSubmittedByClick,
     onAuthorClick,
     onTagClick,
+    onBibleReferenceClick,
     ...itemEventsAndText
 }: ContentItemSearchPanelProps) {
     const headingId = useId();
@@ -182,6 +183,21 @@ export function ContentItemSearchPanel({
         onTagClick?.(item, tag);
     };
 
+    const bibleReferenceClicked = (item: ContentItemSearchItem, bibleReference: string) => {
+        const alreadyListed = committedCriteria.bibleReferences.some(
+            (listed) => listed.toLowerCase() === bibleReference.toLowerCase());
+
+        onSearch?.({
+            ...committedCriteria,
+            bibleReferences: alreadyListed
+                ? committedCriteria.bibleReferences.filter(
+                    (listed) => listed.toLowerCase() !== bibleReference.toLowerCase())
+                : [...committedCriteria.bibleReferences, bibleReference]
+        });
+
+        onBibleReferenceClick?.(item, bibleReference);
+    };
+
     return (
         <section
             className={`g2h-content-item-search-panel ${cssClass}`}
@@ -223,6 +239,7 @@ export function ContentItemSearchPanel({
                 onSubmittedByClick={submittedByClicked}
                 onAuthorClick={authorClicked}
                 onTagClick={tagClicked}
+                onBibleReferenceClick={bibleReferenceClicked}
                 {...itemEventsAndText} />
         </section>
     );

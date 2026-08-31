@@ -49,8 +49,10 @@ const barProps: ReadonlyArray<ComponentPropRow> = [
         type: '—',
         description: 'Category and Shareability are closed lists; Author and Submitted by '
             + 'are free text (a typed submitted-by travels without an account id — only a '
-            + 'pill click carries one); Tags collects pills on Enter with an Any/All match '
-            + 'mode beside the label. Everything typed commits on Search, like the query.'
+            + 'pill click carries one); Tags and Bible references each collect pills on '
+            + 'Enter with their own Any/All match mode — the references wearing the '
+            + 'association surface’s blue and its book icon. Everything typed commits on '
+            + 'Search, like the query.'
     },
     {
         name: 'contentItemSettingCollection',
@@ -82,8 +84,9 @@ export function ContentItemSearchBarPanelDoc() {
             name="Content Item Search Bar Panel"
             filePath="src/components/contentItems/contentItemSearchBarPanel.tsx"
             summary="The search bar of the ContentItemSearchPanel family: the query box; the
-                advanced Category, Author, Submitted by, Shareability and Tags options
-                (with an Any/All match mode); and the removable filter chips.">
+                advanced Category, Author, Submitted by, Shareability, Tags and Bible
+                references options (each list with its own Any/All match mode); and the
+                removable filter chips.">
 
             <DocSection
                 title="Where it stands in the family"
@@ -133,6 +136,8 @@ export function ContentItemSearchBarPanelDoc() {
                             submittedBy: committed.submittedBy?.name ?? null,
                             tags: committed.tags,
                             tagMatchMode: committed.tagMatchMode,
+                            bibleReferences: committed.bibleReferences,
+                            bibleReferenceMatchMode: committed.bibleReferenceMatchMode,
                             shareabilityBasis: committed.shareabilityBasis
                         }))} />
                 </LiveDemo>

@@ -243,6 +243,8 @@ describe('Posts', () => {
             submittedBy: null,
             tags: [],
             tagMatchMode: 'any',
+            bibleReferences: [],
+            bibleReferenceMatchMode: 'any',
             shareabilityBasis: null
         });
     });
@@ -270,6 +272,8 @@ describe('Posts', () => {
             submittedBy: null,
             tags: [],
             tagMatchMode: 'any',
+            bibleReferences: [],
+            bibleReferenceMatchMode: 'any',
             shareabilityBasis: null
         }));
     });

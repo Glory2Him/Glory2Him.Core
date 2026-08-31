@@ -55,6 +55,8 @@ export interface ContentItemSearchBarPanelProps {
     tagPlaceholderText?: string;
     tagMatchAnyText?: string;
     tagMatchAllText?: string;
+    bibleReferencesLabelText?: string;
+    bibleReferencePlaceholderText?: string;
     submittedByChipText?: string;
     tagChipText?: string;
     removeFilterText?: string;
@@ -77,6 +79,9 @@ export function ContentItemSearchBarPanel({
     tagPlaceholderText = 'Type a tag and press Enter',
     tagMatchAnyText = 'Any',
     tagMatchAllText = 'All',
+    bibleReferencesLabelText = 'Bible references',
+    bibleReferencePlaceholderText =
+    'Type a bible reference and press Enter (e.g. John 3:16)',
     submittedByChipText = 'Submitted by',
     tagChipText = 'Tag',
     removeFilterText = 'Remove this filter'
@@ -101,10 +106,17 @@ export function ContentItemSearchBarPanel({
     const [draftTagMatchMode, setDraftTagMatchMode] =
         useState<ContentItemTagMatchMode>(criteria?.tagMatchMode ?? 'any');
 
+    const [draftBibleReferences, setDraftBibleReferences] =
+        useState<ReadonlyArray<string>>(criteria?.bibleReferences ?? []);
+
+    const [draftBibleReferenceMatchMode, setDraftBibleReferenceMatchMode] =
+        useState<ContentItemTagMatchMode>(criteria?.bibleReferenceMatchMode ?? 'any');
+
     // Keyed on the MEMBERS rather than on the object, so a consumer building the criteria inline
     // — the natural thing when they live in the URL — does not wipe what is being typed on every
     // render.
     const committedTagsKey = (criteria?.tags ?? []).join('\u241f');
+    const committedBibleReferencesKey = (criteria?.bibleReferences ?? []).join('\u241f');
 
     useEffect(() => {
         setDraftQuery(criteria?.query ?? '');
@@ -114,6 +126,8 @@ export function ContentItemSearchBarPanel({
         setDraftShareabilityBasis(criteria?.shareabilityBasis ?? null);
         setDraftTags(criteria?.tags ?? []);
         setDraftTagMatchMode(criteria?.tagMatchMode ?? 'any');
+        setDraftBibleReferences(criteria?.bibleReferences ?? []);
+        setDraftBibleReferenceMatchMode(criteria?.bibleReferenceMatchMode ?? 'any');
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [
         criteria?.query,
@@ -122,7 +136,9 @@ export function ContentItemSearchBarPanel({
         criteria?.submittedBy?.name,
         criteria?.shareabilityBasis,
         committedTagsKey,
-        criteria?.tagMatchMode
+        criteria?.tagMatchMode,
+        committedBibleReferencesKey,
+        criteria?.bibleReferenceMatchMode
     ]);
 
     // WHAT A TYPED SUBMITTED-BY MEANS. The box shows the committed criterion's name; while
@@ -148,6 +164,8 @@ export function ContentItemSearchBarPanel({
         submittedBy: committedSubmittedBy(),
         tags: draftTags,
         tagMatchMode: draftTagMatchMode,
+        bibleReferences: draftBibleReferences,
+        bibleReferenceMatchMode: draftBibleReferenceMatchMode,
         shareabilityBasis: draftShareabilityBasis
     });
 
@@ -163,6 +181,14 @@ export function ContentItemSearchBarPanel({
 
         setDraftTags(remaining);
         onSearch?.({ ...committed(), tags: remaining });
+    };
+
+    const removeBibleReference = (bibleReference: string) => {
+        const remaining = (criteria?.bibleReferences ?? [])
+            .filter((listed) => listed !== bibleReference);
+
+        setDraftBibleReferences(remaining);
+        onSearch?.({ ...committed(), bibleReferences: remaining });
     };
 
     const onCategoryChanged = (event: ChangeEvent<HTMLSelectElement>) =>
@@ -182,6 +208,7 @@ export function ContentItemSearchBarPanel({
 
     const submittedBy = criteria?.submittedBy ?? null;
     const committedTags = criteria?.tags ?? [];
+    const committedBibleReferences = criteria?.bibleReferences ?? [];
 
     return (
         <div className="g2h-content-item-search-bar">
@@ -317,13 +344,61 @@ export function ContentItemSearchBarPanel({
                                     tagPrefix="#" />
                             </div>
                         </div>
+
+                        {/* Bible references, behaving exactly as the tags do but wearing the
+                            association surface's blue and its book icon — one vocabulary for
+                            a reference everywhere it appears. */}
+                        <div className="col-12">
+                            <div className="d-flex justify-content-between align-items-center">
+                                <span className="form-label mb-0">
+                                    {bibleReferencesLabelText}
+                                </span>
+
+                                <div
+                                    className="btn-group btn-group-sm"
+                                    role="group"
+                                    aria-label={`${bibleReferencesLabelText} match mode`}>
+                                    <button
+                                        type="button"
+                                        className={`btn mb-0 ${draftBibleReferenceMatchMode === 'any'
+                                            ? 'btn-primary'
+                                            : 'btn-outline-primary'}`}
+                                        aria-pressed={draftBibleReferenceMatchMode === 'any'}
+                                        onClick={() => setDraftBibleReferenceMatchMode('any')}>
+                                        {tagMatchAnyText}
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className={`btn mb-0 ${draftBibleReferenceMatchMode === 'all'
+                                            ? 'btn-primary'
+                                            : 'btn-outline-primary'}`}
+                                        aria-pressed={draftBibleReferenceMatchMode === 'all'}
+                                        onClick={() => setDraftBibleReferenceMatchMode('all')}>
+                                        {tagMatchAllText}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="mt-2">
+                                <TagInput
+                                    tags={draftBibleReferences}
+                                    onTagsChange={setDraftBibleReferences}
+                                    placeholder={bibleReferencePlaceholderText}
+                                    ariaLabel={bibleReferencePlaceholderText}
+                                    tagCssClass="btn-primary-soft"
+                                    tagIconCssClass="bi-book" />
+                            </div>
+                        </div>
                     </div>
                 } />
 
             {/* The clicked criteria, worn where the reader can see and remove them. Without this
                 row a pill-click filter would be invisible state — a narrowed list with nothing on
                 screen saying why. */}
-            {(submittedBy != null || committedTags.length > 0) && (
+            {(submittedBy != null
+                || committedTags.length > 0
+                || committedBibleReferences.length > 0) && (
                 <div className="d-flex flex-wrap align-items-center gap-2 mt-3">
                     {submittedBy != null && (
                         <button
@@ -344,6 +419,19 @@ export function ContentItemSearchBarPanel({
                             onClick={() => removeTag(committedTag)}
                             title={removeFilterText}>
                             {tagChipText} #{committedTag}
+                            <i className="bi bi-x ms-1" aria-hidden="true"></i>
+                        </button>
+                    ))}
+
+                    {committedBibleReferences.map((committedReference) => (
+                        <button
+                            key={committedReference}
+                            type="button"
+                            className="btn btn-xs btn-primary-soft mb-0"
+                            onClick={() => removeBibleReference(committedReference)}
+                            title={removeFilterText}>
+                            <i className="bi bi-book me-1" aria-hidden="true"></i>
+                            {committedReference}
                             <i className="bi bi-x ms-1" aria-hidden="true"></i>
                         </button>
                     ))}
