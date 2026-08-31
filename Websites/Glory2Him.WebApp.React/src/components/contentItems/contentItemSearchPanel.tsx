@@ -63,6 +63,12 @@ export interface ContentItemSearchPanelProps extends ContentItemItemEvents, Cont
     // ── Engagement ────────────────────────────────────────────────────────────
     reactionOptions?: ReadonlyArray<ContentItemReactionOption>;
 
+    // ── Surface ───────────────────────────────────────────────────────────────
+    // Whether this whole panel is a MODERATED surface. Off — the default — every card
+    // offers Edit to its own submitter and Moderate (the shield) to the moderation tier.
+    // On, Moderate stands alone on every card, wearing Edit's pencil and label.
+    isModeratedView?: boolean;
+
     // ── Presentation ──────────────────────────────────────────────────────────
     cssClass?: string;
     ariaLabel?: string;
@@ -91,6 +97,7 @@ export function ContentItemSearchPanel({
     hasMore = false,
     onLoadMore,
     reactionOptions = [],
+    isModeratedView = false,
     cssClass = '',
     ariaLabel = 'Content items',
     titleText = '',
@@ -182,6 +189,7 @@ export function ContentItemSearchPanel({
                 contentItemCollection={contentItemCollection}
                 contentItemSettingCollection={contentItemSettingCollection}
                 reactionOptions={reactionOptions}
+                isModeratedView={isModeratedView}
                 isLoading={isLoading}
                 isLoadingMore={isLoadingMore}
                 hasMore={hasMore}

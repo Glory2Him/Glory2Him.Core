@@ -54,8 +54,13 @@ export function ContentItemItemDefaultPanel({
     onCommentsClick,
     onReadMoreClick,
     onEditClick,
+    onModerateClick,
     onShareClick,
     onSaveClick,
+    showsEditButton,
+    showsModerateButton,
+    moderateButtonIconCss,
+    moderateButtonLabel,
     contentSlot,
     submittedByLabelText = 'Submitted by',
     authorLabelText = 'Author',
@@ -107,7 +112,8 @@ export function ContentItemItemDefaultPanel({
         || showsComments
         || onShareClick != null
         || onSaveClick != null
-        || onEditClick != null;
+        || showsEditButton
+        || showsModerateButton;
 
     const renderStatusBadge = (item: ContentItemSearchItem) => {
         const status = item.approvalStatus;
@@ -375,13 +381,32 @@ export function ContentItemItemDefaultPanel({
                     </button>
                 )}
 
-                {onEditClick != null && (
-                    <button
-                        type="button"
-                        className="btn btn-link text-reset p-0 mb-0 ms-auto"
-                        onClick={() => onEditClick(contentItem)}>
-                        <i className="bi bi-pencil me-1" aria-hidden="true"></i>{editButtonText}
-                    </button>
+                {/* The actions on the right — Edit for the item's own submitter, Moderate
+                    for the moderation tier, both DECIDED in ContentItemItemPanel and only
+                    rendered here. On a moderated surface Moderate arrives alone, wearing
+                    Edit's icon and label. */}
+                {(showsEditButton || showsModerateButton) && (
+                    <span className="ms-auto d-inline-flex align-items-center gap-3">
+                        {showsEditButton && (
+                            <button
+                                type="button"
+                                className="btn btn-link text-reset p-0 mb-0"
+                                onClick={() => onEditClick?.(contentItem)}>
+                                <i className="bi bi-pencil me-1" aria-hidden="true"></i>
+                                {editButtonText}
+                            </button>
+                        )}
+
+                        {showsModerateButton && (
+                            <button
+                                type="button"
+                                className="btn btn-link text-reset p-0 mb-0"
+                                onClick={() => onModerateClick?.(contentItem)}>
+                                <i className={`${moderateButtonIconCss} me-1`} aria-hidden="true"></i>
+                                {moderateButtonLabel}
+                            </button>
+                        )}
+                    </span>
                 )}
             </div>
             )}

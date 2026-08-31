@@ -1,7 +1,10 @@
+import { ReactElement } from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ContentItemItemPanel } from './contentItemItemPanel';
+import { AuthProvider } from '../securitys/authProvider';
+import { createAuthState, signInAs, signOut } from '../../tests/testAuth';
 import { ContentItemSetting } from '../../models/foundations/contentItemSettings/contentItemSetting';
 import { ContentType } from '../../models/foundations/contentItemSettings/contentType';
 
@@ -15,6 +18,21 @@ import {
 // One card, dispatched to a template by content type. No router wrapper on purpose: every
 // affordance is an EVENT, not a link — where a title or a comment count leads is the page's
 // decision — so a card that needed a router would be a card that had smuggled navigation in.
+//
+// The auth double IS here, because two of the card's decisions are identity decisions:
+// Edit belongs to the item's own submitter, Moderate to the moderation tier. Render gates
+// only — the server re-decides both against the stored row.
+const authState = createAuthState();
+
+vi.mock('../../services/foundations/accountService', () => ({
+    accountService: {
+        useGetCurrentUser: () => authState
+    }
+}));
+
+const renderCard = (ui: ReactElement) =>
+    render(<AuthProvider>{ui}</AuthProvider>);
+
 const settingFor = (
     contentType: ContentType,
     contentTypeName: string,
@@ -100,9 +118,13 @@ const reactionOptions: ReadonlyArray<ContentItemReactionOption> = [
 ];
 
 describe('ContentItemItemPanel', () => {
+    beforeEach(() => {
+        signOut(authState);
+    });
+
     describe('template dispatch', () => {
         it('should render a quote through the quotes override, whole', () => {
-            render(
+            renderCard(
                 <ContentItemItemPanel
                     contentItem={quoteItem}
                     contentItemSettingCollection={defaultSettings} />);
@@ -112,7 +134,7 @@ describe('ContentItemItemPanel', () => {
         });
 
         it('should render every other type through the default template, excerpted', () => {
-            render(
+            renderCard(
                 <ContentItemItemPanel
                     contentItem={devotionalItem}
                     contentItemSettingCollection={defaultSettings} />);
@@ -125,7 +147,7 @@ describe('ContentItemItemPanel', () => {
         // The quotes override DERIVES from the default: only the content slot differs, so the
         // meta row is the default's own on both.
         it('should carry the default meta row under the quotes override', () => {
-            render(
+            renderCard(
                 <ContentItemItemPanel
                     contentItem={quoteItem}
                     contentItemSettingCollection={defaultSettings} />);
@@ -138,7 +160,7 @@ describe('ContentItemItemPanel', () => {
 
     describe('per-item settings awareness', () => {
         it('should name the card by the setting rather than the enum member', () => {
-            render(
+            renderCard(
                 <ContentItemItemPanel
                     contentItem={quoteItem}
                     contentItemSettingCollection={defaultSettings} />);
@@ -154,7 +176,7 @@ describe('ContentItemItemPanel', () => {
                 showTags: false
             });
 
-            render(
+            renderCard(
                 <ContentItemItemPanel
                     contentItem={{ ...devotionalItem, tags: ['grace'] }}
                     contentItemSettingCollection={[...defaultSettings, overridden]} />);
@@ -171,7 +193,7 @@ describe('ContentItemItemPanel', () => {
                 })
             ];
 
-            render(
+            renderCard(
                 <ContentItemItemPanel
                     contentItem={{
                         ...devotionalItem,
@@ -189,7 +211,7 @@ describe('ContentItemItemPanel', () => {
                 settingFor(ContentType.Devotional, 'Devotional', { showComments: false })
             ];
 
-            render(
+            renderCard(
                 <ContentItemItemPanel
                     contentItem={devotionalItem}
                     contentItemSettingCollection={hidden}
@@ -203,7 +225,7 @@ describe('ContentItemItemPanel', () => {
                 settingFor(ContentType.Devotional, 'Devotional', { hasAuthor: false })
             ];
 
-            render(
+            renderCard(
                 <ContentItemItemPanel
                     contentItem={devotionalItem}
                     contentItemSettingCollection={noAuthor}
@@ -217,7 +239,7 @@ describe('ContentItemItemPanel', () => {
                 settingFor(ContentType.Quote, 'Quotes', { showReactions: false })
             ];
 
-            render(
+            renderCard(
                 <ContentItemItemPanel
                     contentItem={quoteItem}
                     contentItemSettingCollection={hidden} />);
@@ -228,7 +250,7 @@ describe('ContentItemItemPanel', () => {
 
     describe('status', () => {
         it('should wear its status while it is not yet public', () => {
-            render(
+            renderCard(
                 <ContentItemItemPanel
                     contentItem={{ ...devotionalItem, approvalStatus: ApprovalStatus.Submitted }}
                     contentItemSettingCollection={defaultSettings} />);
@@ -237,7 +259,7 @@ describe('ContentItemItemPanel', () => {
         });
 
         it('should say nothing about an approved item, which is the ordinary case', () => {
-            render(
+            renderCard(
                 <ContentItemItemPanel
                     contentItem={{ ...devotionalItem, approvalStatus: ApprovalStatus.Approved }}
                     contentItemSettingCollection={defaultSettings} />);
@@ -251,7 +273,7 @@ describe('ContentItemItemPanel', () => {
         it('should raise onContentTypeClick from the type badge', async () => {
             const onContentTypeClick = vi.fn();
 
-            render(
+            renderCard(
                 <ContentItemItemPanel
                     contentItem={devotionalItem}
                     contentItemSettingCollection={defaultSettings}
@@ -265,7 +287,7 @@ describe('ContentItemItemPanel', () => {
         it('should raise onTitleClick from the title', async () => {
             const onTitleClick = vi.fn();
 
-            render(
+            renderCard(
                 <ContentItemItemPanel
                     contentItem={devotionalItem}
                     contentItemSettingCollection={defaultSettings}
@@ -281,7 +303,7 @@ describe('ContentItemItemPanel', () => {
         it('should raise onTitleClick from the quote itself', async () => {
             const onTitleClick = vi.fn();
 
-            render(
+            renderCard(
                 <ContentItemItemPanel
                     contentItem={quoteItem}
                     contentItemSettingCollection={defaultSettings}
@@ -297,7 +319,7 @@ describe('ContentItemItemPanel', () => {
             const onSubmittedByClick = vi.fn();
             const onAuthorClick = vi.fn();
 
-            render(
+            renderCard(
                 <ContentItemItemPanel
                     contentItem={quoteItem}
                     contentItemSettingCollection={defaultSettings}
@@ -315,7 +337,7 @@ describe('ContentItemItemPanel', () => {
             const onTagClick = vi.fn();
             const onBibleReferenceClick = vi.fn();
 
-            render(
+            renderCard(
                 <ContentItemItemPanel
                     contentItem={quoteItem}
                     contentItemSettingCollection={defaultSettings}
@@ -332,7 +354,7 @@ describe('ContentItemItemPanel', () => {
         it('should raise onCommentsClick with the count on show', async () => {
             const onCommentsClick = vi.fn();
 
-            render(
+            renderCard(
                 <ContentItemItemPanel
                     contentItem={quoteItem}
                     contentItemSettingCollection={defaultSettings}
@@ -346,7 +368,7 @@ describe('ContentItemItemPanel', () => {
         it('should raise onReadMoreClick from the read-more affordance', async () => {
             const onReadMoreClick = vi.fn();
 
-            render(
+            renderCard(
                 <ContentItemItemPanel
                     contentItem={devotionalItem}
                     contentItemSettingCollection={defaultSettings}
@@ -357,35 +379,189 @@ describe('ContentItemItemPanel', () => {
             expect(onReadMoreClick).toHaveBeenCalledWith(devotionalItem);
         });
 
-        // Edit, Share and Save render only when somebody is listening — a control whose event
+        // Share and Save render only when somebody is listening — a control whose event
         // goes nowhere is worse than no control.
-        it('should offer Edit, Share and Save only where they are wired', async () => {
-            const onEditClick = vi.fn();
+        it('should offer Share and Save only where they are wired', async () => {
+            const onShareClick = vi.fn();
 
-            const rendered = render(
+            const rendered = renderCard(
                 <ContentItemItemPanel
                     contentItem={devotionalItem}
                     contentItemSettingCollection={defaultSettings} />);
 
-            expect(screen.queryByRole('button', { name: /Edit/ })).not.toBeInTheDocument();
             expect(screen.queryByRole('button', { name: /Share/ })).not.toBeInTheDocument();
             expect(screen.queryByRole('button', { name: /Save/ })).not.toBeInTheDocument();
 
             rendered.rerender(
+                <AuthProvider>
+                    <ContentItemItemPanel
+                        contentItem={devotionalItem}
+                        contentItemSettingCollection={defaultSettings}
+                        onShareClick={onShareClick} />
+                </AuthProvider>);
+
+            await userEvent.click(screen.getByRole('button', { name: /Share/ }));
+
+            expect(onShareClick).toHaveBeenCalledWith(devotionalItem);
+        });
+    });
+
+    describe('Edit and Moderate', () => {
+        // signInAs mints userId 'user-1'; the devotional's submittedById is 'account-joan'.
+        const ownItem = { ...devotionalItem, submittedById: 'user-1' };
+
+        it('should offer Edit to the person who submitted it and to nobody else', async () => {
+            const onEditClick = vi.fn();
+            signInAs(authState, ['Users']);
+
+            const rendered = renderCard(
                 <ContentItemItemPanel
                     contentItem={devotionalItem}
                     contentItemSettingCollection={defaultSettings}
                     onEditClick={onEditClick} />);
 
+            // somebody else's item — no Edit however wired
+            expect(screen.queryByRole('button', { name: /Edit/ })).not.toBeInTheDocument();
+
+            rendered.rerender(
+                <AuthProvider>
+                    <ContentItemItemPanel
+                        contentItem={ownItem}
+                        contentItemSettingCollection={defaultSettings}
+                        onEditClick={onEditClick} />
+                </AuthProvider>);
+
             await userEvent.click(screen.getByRole('button', { name: /Edit/ }));
 
-            expect(onEditClick).toHaveBeenCalledWith(devotionalItem);
+            expect(onEditClick).toHaveBeenCalledWith(ownItem);
+        });
+
+        it('should offer Edit to no anonymous visitor', () => {
+            renderCard(
+                <ContentItemItemPanel
+                    contentItem={ownItem}
+                    contentItemSettingCollection={defaultSettings}
+                    onEditClick={vi.fn()} />);
+
+            expect(screen.queryByRole('button', { name: /Edit/ })).not.toBeInTheDocument();
+        });
+
+        it.each([
+            ['Administrators'],
+            ['Reviewers'],
+            ['Publishers'],
+            ['ContentItem-Reviewers'],
+            ['ContentItem-Publishers'],
+            ['ContentItem-Devotional-Reviewers'],
+            ['ContentItem-Devotional-Publishers']
+        ])('should offer Moderate to the %s tier with the shield', async (role) => {
+            const onModerateClick = vi.fn();
+            signInAs(authState, [role]);
+
+            const rendered = renderCard(
+                <ContentItemItemPanel
+                    contentItem={devotionalItem}
+                    contentItemSettingCollection={defaultSettings}
+                    onModerateClick={onModerateClick} />);
+
+            await userEvent.click(screen.getByRole('button', { name: /Moderate/ }));
+
+            expect(onModerateClick).toHaveBeenCalledWith(devotionalItem);
+            expect(rendered.container.querySelector('i.bi-shield')).toBeInTheDocument();
+        });
+
+        // The narrow tier is scoped to the item's OWN type: a Story reviewer moderates
+        // stories, not this devotional.
+        it('should offer no Moderate to a tier scoped to another type', () => {
+            signInAs(authState, ['ContentItem-Story-Reviewers']);
+
+            renderCard(
+                <ContentItemItemPanel
+                    contentItem={devotionalItem}
+                    contentItemSettingCollection={defaultSettings}
+                    onModerateClick={vi.fn()} />);
+
+            expect(screen.queryByRole('button', { name: /Moderate/ }))
+                .not.toBeInTheDocument();
+        });
+
+        it('should offer no Moderate to an ordinary reader', () => {
+            signInAs(authState, ['Users']);
+
+            renderCard(
+                <ContentItemItemPanel
+                    contentItem={devotionalItem}
+                    contentItemSettingCollection={defaultSettings}
+                    onModerateClick={vi.fn()} />);
+
+            expect(screen.queryByRole('button', { name: /Moderate/ }))
+                .not.toBeInTheDocument();
+        });
+
+        // The sanction outranks every grant (#366): ReadOnly at any scope silences both
+        // actions, the item's own submitter included.
+        it('should honour the ReadOnly veto over both actions', () => {
+            signInAs(authState, ['Administrators', 'ContentItem-Devotional-ReadOnly']);
+
+            renderCard(
+                <ContentItemItemPanel
+                    contentItem={ownItem}
+                    contentItemSettingCollection={defaultSettings}
+                    onEditClick={vi.fn()}
+                    onModerateClick={vi.fn()} />);
+
+            expect(screen.queryByRole('button', { name: /Edit/ })).not.toBeInTheDocument();
+
+            expect(screen.queryByRole('button', { name: /Moderate/ }))
+                .not.toBeInTheDocument();
+        });
+
+        // The isModeratedView matrix: the moderated surface offers Moderate ALONE, wearing
+        // Edit's pencil and label — on a surface that IS moderation, the moderation action
+        // is simply what editing means there.
+        it('should dress Moderate as Edit and stand it alone on a moderated view', async () => {
+            const onEditClick = vi.fn();
+            const onModerateClick = vi.fn();
+            signInAs(authState, ['Administrators']);
+
+            const rendered = renderCard(
+                <ContentItemItemPanel
+                    contentItem={ownItem}
+                    contentItemSettingCollection={defaultSettings}
+                    isModeratedView
+                    onEditClick={onEditClick}
+                    onModerateClick={onModerateClick} />);
+
+            // one action button, labelled Edit, carrying the pencil — but it is Moderate
+            expect(screen.queryByRole('button', { name: /Moderate/ }))
+                .not.toBeInTheDocument();
+
+            await userEvent.click(screen.getByRole('button', { name: /Edit/ }));
+
+            expect(onModerateClick).toHaveBeenCalledWith(ownItem);
+            expect(onEditClick).not.toHaveBeenCalled();
+            expect(rendered.container.querySelector('i.bi-pencil')).toBeInTheDocument();
+            expect(rendered.container.querySelector('i.bi-shield')).not.toBeInTheDocument();
+        });
+
+        it('should offer both, side by side, to an owning moderator off the moderated view', () => {
+            signInAs(authState, ['Administrators']);
+
+            renderCard(
+                <ContentItemItemPanel
+                    contentItem={ownItem}
+                    contentItemSettingCollection={defaultSettings}
+                    onEditClick={vi.fn()}
+                    onModerateClick={vi.fn()} />);
+
+            expect(screen.getByRole('button', { name: /Edit/ })).toBeInTheDocument();
+            expect(screen.getByRole('button', { name: /Moderate/ })).toBeInTheDocument();
         });
     });
 
     describe('assigned reactions', () => {
         it('should show the compact cluster with the summed total', () => {
-            render(
+            renderCard(
                 <ContentItemItemPanel
                     contentItem={quoteItem}
                     contentItemSettingCollection={defaultSettings} />);
@@ -395,7 +571,7 @@ describe('ContentItemItemPanel', () => {
         });
 
         it('should toggle to the per-reaction counts and back', async () => {
-            render(
+            renderCard(
                 <ContentItemItemPanel
                     contentItem={quoteItem}
                     contentItemSettingCollection={defaultSettings} />);
@@ -412,7 +588,7 @@ describe('ContentItemItemPanel', () => {
         });
 
         it('should show no cluster on a card given no summary', () => {
-            render(
+            renderCard(
                 <ContentItemItemPanel
                     contentItem={devotionalItem}
                     contentItemSettingCollection={defaultSettings} />);
@@ -426,7 +602,7 @@ describe('ContentItemItemPanel', () => {
         it('should open the choices from Like and raise the selection', async () => {
             const onReactionSelected = vi.fn();
 
-            render(
+            renderCard(
                 <ContentItemItemPanel
                     contentItem={quoteItem}
                     contentItemSettingCollection={defaultSettings}
@@ -446,7 +622,7 @@ describe('ContentItemItemPanel', () => {
         });
 
         it('should mark the reaction this reader already gave', async () => {
-            render(
+            renderCard(
                 <ContentItemItemPanel
                     contentItem={{ ...quoteItem, viewerReactionLabel: 'Love' }}
                     contentItemSettingCollection={defaultSettings}
@@ -463,7 +639,7 @@ describe('ContentItemItemPanel', () => {
         });
 
         it('should offer no Like when nobody is listening', () => {
-            render(
+            renderCard(
                 <ContentItemItemPanel
                     contentItem={quoteItem}
                     contentItemSettingCollection={defaultSettings}
@@ -477,7 +653,7 @@ describe('ContentItemItemPanel', () => {
                 settingFor(ContentType.Quote, 'Quotes', { reactionsAllowed: false })
             ];
 
-            render(
+            renderCard(
                 <ContentItemItemPanel
                     contentItem={quoteItem}
                     contentItemSettingCollection={noReactions}
@@ -492,7 +668,7 @@ describe('ContentItemItemPanel', () => {
                 settingFor(ContentType.Quote, 'Quotes', { limitReactionsToLoveOnly: true })
             ];
 
-            render(
+            renderCard(
                 <ContentItemItemPanel
                     contentItem={quoteItem}
                     contentItemSettingCollection={loveOnly}
@@ -511,7 +687,7 @@ describe('ContentItemItemPanel', () => {
         // The count is a figure and figures are never invented; the way IN is an affordance
         // and renders regardless, uncounted.
         it('should offer the comments control uncounted when no count was given', () => {
-            render(
+            renderCard(
                 <ContentItemItemPanel
                     contentItem={{ ...devotionalItem, commentCount: undefined }}
                     contentItemSettingCollection={defaultSettings}
@@ -522,7 +698,7 @@ describe('ContentItemItemPanel', () => {
         });
 
         it('should fall back to the content when no excerpt was written', () => {
-            render(
+            renderCard(
                 <ContentItemItemPanel
                     contentItem={{ ...devotionalItem, excerpt: undefined }}
                     contentItemSettingCollection={defaultSettings} />);

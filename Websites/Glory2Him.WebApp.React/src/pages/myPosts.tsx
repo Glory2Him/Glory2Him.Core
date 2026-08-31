@@ -82,9 +82,16 @@ export function MyPosts() {
 
     // Straight to the item; the detail surface's edit mode is its own work, so for now Edit
     // and the title share a destination and the origin (and intent) ride along in state.
+    // Moderate (a moderator reading their own posts still moderates) leads the same way
+    // until #350 builds the moderation detail.
     const editContentItem = (item: { id: string }) =>
         navigate(`/posts/${item.id}`, {
             state: { from: `${location.pathname}${location.search}`, edit: true }
+        });
+
+    const moderateContentItem = (item: { id: string }) =>
+        navigate(`/posts/${item.id}`, {
+            state: { from: `${location.pathname}${location.search}`, moderate: true }
         });
 
     return (
@@ -121,6 +128,7 @@ export function MyPosts() {
                                 onShareClick={onShareClick}
                                 onSaveClick={onSaveClick}
                                 onEditClick={editContentItem}
+                                onModerateClick={moderateContentItem}
                                 emptyText={
                                     'You have not contributed anything that matches. Share '
                                     + 'what He has done!'}

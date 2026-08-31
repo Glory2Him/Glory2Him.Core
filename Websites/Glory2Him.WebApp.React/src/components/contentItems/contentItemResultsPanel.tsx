@@ -30,6 +30,9 @@ export interface ContentItemResultsPanelProps extends ContentItemItemEvents, Con
     // The reaction choices behind every card's Like control.
     reactionOptions?: ReadonlyArray<ContentItemReactionOption>;
 
+    // Threaded to every card — see ContentItemItemPanel, which owns what it means.
+    isModeratedView?: boolean;
+
     // The FIRST page. While it is on, the list is replaced by a spinner rather than being
     // emptied, so a re-search does not flash "nothing found" on its way to results.
     isLoading?: boolean;
@@ -56,6 +59,7 @@ export function ContentItemResultsPanel({
     contentItemCollection = [],
     contentItemSettingCollection = [],
     reactionOptions = [],
+    isModeratedView = false,
     isLoading = false,
     isLoadingMore = false,
     hasMore = false,
@@ -128,6 +132,7 @@ export function ContentItemResultsPanel({
                     contentItem={contentItem}
                     contentItemSettingCollection={contentItemSettingCollection}
                     reactionOptions={reactionOptions}
+                    isModeratedView={isModeratedView}
                     {...itemEventsAndText} />
             ))}
 

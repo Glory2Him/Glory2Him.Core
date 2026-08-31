@@ -47,10 +47,16 @@ export interface ContentItemItemEvents {
     // Same destination as onTitleClick, from the read-more affordance.
     onReadMoreClick?: (item: ContentItemSearchItem) => void;
 
-    // Bubbles: the page routes to the detail surface in edit mode — or to moderation, for the
-    // publisher and administrator tiers. Rendering the control at all is the consumer's call:
-    // no handler, no Edit.
+    // Bubbles: the page routes to the detail surface where the item can be modified. The
+    // control renders ONLY for the person who submitted the item (submittedById is the
+    // viewer's own account id) — and rendering is all this decides: the server re-decides
+    // authorization against the stored row on every write.
     onEditClick?: (item: ContentItemSearchItem) => void;
+
+    // Bubbles: the page routes to the moderation detail surface. The control renders only
+    // for the moderation tier — Administrators, Reviewers and Publishers at every §18.6
+    // scope: global, ContentItem-, and ContentItem-{ContentType}- for the item's own type.
+    onModerateClick?: (item: ContentItemSearchItem) => void;
 
     // The design's cards carry these too; rendered only when wired, like Edit.
     onShareClick?: (item: ContentItemSearchItem) => void;
@@ -90,6 +96,16 @@ export interface ContentItemItemTemplateProps extends ContentItemItemEvents, Con
 
     // Already gated against the setting and love-narrowed — empty means render no Like control.
     offeredReactions: ReadonlyArray<ContentItemReactionOption>;
+
+    // The action-button decisions, made ONCE in the dispatching panel — ownership for Edit,
+    // the moderation tier for Moderate, and the isModeratedView styling — so a template only
+    // ever renders them. moderateButtonIconCss / moderateButtonLabel arrive resolved: the
+    // shield and 'Moderate' on an ordinary surface, the pencil and 'Edit' on a moderated one
+    // where Moderate stands alone wearing Edit's clothes.
+    showsEditButton: boolean;
+    showsModerateButton: boolean;
+    moderateButtonIconCss: string;
+    moderateButtonLabel: string;
 
     // The two render toggles the dispatching panel owns.
     areReactionCountsExpanded: boolean;

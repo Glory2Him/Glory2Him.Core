@@ -79,7 +79,11 @@ onTitleClick            the detail surface — public, my-content or moderation:
 onReadMoreClick         same destination as onTitleClick
 onCommentsClick         the detail's comment section
 onBibleReferenceClick   wherever a reference leads on this surface
-onEditClick             detail-in-edit, or moderation for the publisher/administrator tiers
+onEditClick             SUBMITTER ONLY (submittedById is the viewer's account id): detail-in-edit
+onModerateClick         MODERATION TIER ONLY (Administrators, Reviewers, Publishers and their
+                        ContentItem- / ContentItem-{ContentType}- scopes; ReadOnly vetoes):
+                        the moderation detail. isModeratedView=true renders Moderate ALONE,
+                        wearing Edit's pencil and label
 
 // RENDER TOGGLES — the item panel keeps these for itself:
 onAssignedReactionsClick   compact glyphs + total  ⇄  per-reaction counts
@@ -303,11 +307,35 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
             + 'holds no optimistic state.'
     },
     {
-        name: 'onTitleClick / onReadMoreClick / onCommentsClick / onBibleReferenceClick / onEditClick',
+        name: 'onTitleClick / onReadMoreClick / onCommentsClick / onBibleReferenceClick',
         type: '(item, …) => void',
         description: 'The navigation hooks — they bubble, the page routes, and the redirect '
             + 'carries { state: { from } } so the destination can offer a true back button. '
-            + 'Edit, Share and Save render only where wired.'
+            + 'Share and Save render only where wired.'
+    },
+    {
+        name: 'onEditClick',
+        type: '(item) => void',
+        description: 'The way to the surface where the item can be modified. Renders ONLY '
+            + 'for the person who submitted the item (submittedById equals the signed-in '
+            + 'account id) — a render gate: the server re-decides against the stored row.'
+    },
+    {
+        name: 'onModerateClick',
+        type: '(item) => void',
+        description: 'The way to the moderation detail. Renders only for the moderation '
+            + 'tier — Administrators, Reviewers and Publishers at every §18.6 scope '
+            + '(global, ContentItem-, ContentItem-{ContentType}- for the item’s own type) '
+            + '— with the ReadOnly veto asked first. Wears the shield and “Moderate”.'
+    },
+    {
+        name: 'isModeratedView',
+        type: 'boolean',
+        defaultValue: 'false',
+        description: 'Marks the whole panel as a MODERATED surface. Off, cards offer Edit '
+            + '(submitter) and Moderate (tier) side by side. On, Moderate stands alone on '
+            + 'every card, wearing Edit’s pencil and label — on a surface that IS '
+            + 'moderation, the moderation action is simply what editing means there.'
     },
     {
         name: 'onContentTypeClick / onSubmittedByClick / onAuthorClick / onTagClick',

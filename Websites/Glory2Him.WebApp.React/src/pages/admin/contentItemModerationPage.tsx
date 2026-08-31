@@ -90,10 +90,12 @@ export function ContentItemModerationPage() {
     const { reactionOptions, onReactionSelected, onShareClick, onSaveClick, withViewerReactions } =
         useContentItemEngagement();
 
-    // The moderation detail surface is #350's work; until it exists Edit leads to the item.
-    const editContentItem = (item: { id: string }) =>
+    // The moderation detail surface is #350's work; until it exists Moderate leads to the
+    // item with the intent in state. This page is the MODERATED view, so every card offers
+    // Moderate alone, wearing Edit's pencil and label.
+    const moderateContentItem = (item: { id: string }) =>
         navigate(`/posts/${item.id}`, {
-            state: { from: `${location.pathname}${location.search}`, edit: true }
+            state: { from: `${location.pathname}${location.search}`, moderate: true }
         });
 
     return (
@@ -123,7 +125,8 @@ export function ContentItemModerationPage() {
                         onReactionSelected={onReactionSelected}
                         onShareClick={onShareClick}
                         onSaveClick={onSaveClick}
-                        onEditClick={editContentItem}
+                        isModeratedView
+                        onModerateClick={moderateContentItem}
                         emptyText="Nothing is waiting for moderation. Well done."
                         {...feedNavigation} />
                 )}

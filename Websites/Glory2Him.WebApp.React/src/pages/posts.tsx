@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { ContentItemSearchPanel } from '../components/contentItems/contentItemSearchPanel';
-import { useAuth } from '../components/securitys/authProvider';
 import { useContentItemEngagement } from '../hooks/useContentItemEngagement';
 
 import {
@@ -80,14 +79,18 @@ export function Posts() {
     const { reactionOptions, onReactionSelected, onShareClick, onSaveClick, withViewerReactions } =
         useContentItemEngagement();
 
-    // Edit renders only for a signed-in reader — an anonymous visitor has nothing to edit —
-    // and leads to the item with the intent in state. WHO may actually edit it is the
-    // server's decision against the stored row; the button is a courtesy, never a boundary.
-    const { isAuthenticated } = useAuth();
-
+    // Edit renders only for the item's own submitter and Moderate only for the moderation
+    // tier — ContentItemItemPanel decides both from the signed-in identity, so this page
+    // just says where each leads. The moderation detail surface is #350's work; until it
+    // exists Moderate leads to the item with the intent in state, as Edit does.
     const editContentItem = (item: { id: string }) =>
         navigate(`/posts/${item.id}`, {
             state: { from: `${location.pathname}${location.search}`, edit: true }
+        });
+
+    const moderateContentItem = (item: { id: string }) =>
+        navigate(`/posts/${item.id}`, {
+            state: { from: `${location.pathname}${location.search}`, moderate: true }
         });
 
     return (
@@ -123,7 +126,8 @@ export function Posts() {
                                 onReactionSelected={onReactionSelected}
                                 onShareClick={onShareClick}
                                 onSaveClick={onSaveClick}
-                                onEditClick={isAuthenticated ? editContentItem : undefined}
+                                onEditClick={editContentItem}
+                                onModerateClick={moderateContentItem}
                                 emptyText={
                                     'Nothing matched that search. Try clearing the advanced '
                                     + 'options.'}

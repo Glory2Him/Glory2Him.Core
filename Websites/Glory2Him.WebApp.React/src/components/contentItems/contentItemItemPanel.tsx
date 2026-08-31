@@ -1,4 +1,5 @@
 import { ComponentType, useState } from 'react';
+import { useAuth } from '../securitys/authProvider';
 import { ContentItemItemDefaultPanel } from './contentItemItemDefaultPanel';
 import { ContentItemItemQuotesPanel } from './contentItemItemQuotesPanel';
 import { ContentItemSetting } from '../../models/foundations/contentItemSettings/contentItemSetting';
@@ -44,6 +45,12 @@ export interface ContentItemItemPanelProps extends ContentItemItemEvents, Conten
     // (approved rows only) and handed over. Empty means no card offers one, whatever the
     // settings say: a surface that cannot persist a reaction must not appear to accept one.
     reactionOptions?: ReadonlyArray<ContentItemReactionOption>;
+
+    // Whether this card sits on a MODERATED surface (the admin queue). Off — the default —
+    // the card offers Edit to its submitter and Moderate (shield) to the moderation tier,
+    // side by side. On, only Moderate renders, wearing Edit's pencil and label: on a surface
+    // that IS moderation, the moderation action is simply what editing means.
+    isModeratedView?: boolean;
 }
 
 // THE TEMPLATE REGISTRY. An override renders when one is registered for the item's type; the
@@ -60,9 +67,13 @@ export function ContentItemItemPanel({
     contentItem,
     contentItemSettingCollection = [],
     reactionOptions = [],
+    isModeratedView = false,
     onReactionSelected,
+    onEditClick,
+    onModerateClick,
     ...eventsAndText
 }: ContentItemItemPanelProps) {
+    const { isAuthenticated, user, userRoles } = useAuth();
     // The two per-card render toggles. Local state is right even in a presentation component:
     // which face of a cluster is showing is nothing the consumer persists.
     const [areReactionCountsExpanded, setAreReactionCountsExpanded] = useState(false);
@@ -91,6 +102,51 @@ export function ContentItemItemPanel({
             : reactionOptions;
     })();
 
+    // WHO SUBMITTED IT is an account-id comparison, exactly the [OWNER] rule
+    // ContentItemDetailPanel decides on — never a display name, which two accounts can share.
+    const viewerOwnsItem =
+        isAuthenticated
+        && (contentItem.submittedById ?? '').length > 0
+        && contentItem.submittedById === user?.userId;
+
+    // The moderation tier, at every §18.6 scope the item's type composes — and the ReadOnly
+    // veto asked FIRST, at its three scopes, because a sanction outranks every grant (#366).
+    // RENDER decisions only: the server re-decides both actions against the stored row.
+    const contentTypeSegment = ContentType[contentItem.contentType] ?? '';
+
+    const holdsAnyRole = (roles: ReadonlyArray<string>): boolean =>
+        roles.some((role) => userRoles.includes(role));
+
+    const isBlocked = holdsAnyRole([
+        'ReadOnly',
+        'ContentItem-ReadOnly',
+        `ContentItem-${contentTypeSegment}-ReadOnly`
+    ]);
+
+    const viewerModerates =
+        isAuthenticated
+        && isBlocked === false
+        && holdsAnyRole([
+            'Administrators',
+            'Reviewers',
+            'Publishers',
+            'ContentItem-Reviewers',
+            'ContentItem-Publishers',
+            `ContentItem-${contentTypeSegment}-Reviewers`,
+            `ContentItem-${contentTypeSegment}-Publishers`
+        ]);
+
+    // The isModeratedView matrix: an ordinary surface offers both, each to its own people; a
+    // moderated surface offers Moderate alone, wearing Edit's pencil and label — on a surface
+    // that IS moderation, the moderation action is simply what editing means there.
+    const showsEditButton =
+        isModeratedView === false
+        && viewerOwnsItem
+        && isBlocked === false
+        && onEditClick != null;
+
+    const showsModerateButton = viewerModerates && onModerateClick != null;
+
     const Template =
         templateOverrides[contentItem.contentType] ?? ContentItemItemDefaultPanel;
 
@@ -100,6 +156,12 @@ export function ContentItemItemPanel({
             contentItemSetting={contentItemSetting}
             contentTypeName={contentTypeName}
             offeredReactions={offeredReactions}
+            showsEditButton={showsEditButton}
+            showsModerateButton={showsModerateButton}
+            moderateButtonIconCss={isModeratedView ? 'bi bi-pencil' : 'bi bi-shield'}
+            moderateButtonLabel={isModeratedView ? 'Edit' : 'Moderate'}
+            onEditClick={onEditClick}
+            onModerateClick={onModerateClick}
             areReactionCountsExpanded={areReactionCountsExpanded}
             onAssignedReactionsClick={
                 () => setAreReactionCountsExpanded(!areReactionCountsExpanded)}
