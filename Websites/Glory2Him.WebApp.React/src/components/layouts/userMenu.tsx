@@ -125,7 +125,7 @@ export default function UserMenuComponent(): ReactElement {
                     <li><a className="dropdown-item d-flex align-items-center" href="#"><i className="bi bi-envelope fa-fw me-2"></i>Messages <span className="badge text-bg-success ms-auto">42</span></a></li>
                     <li><a className="dropdown-item d-flex align-items-center" href="#"><i className="bi bi-check2-square fa-fw me-2"></i>Tasks</a></li>
                     <li><a className="dropdown-item d-flex align-items-center" href="#"><i className="bi bi-chat-left fa-fw me-2"></i>Comments</a></li>
-                    <li><Link className="dropdown-item d-flex align-items-center" to="/MyPosts"><i className="bi bi-journal-text fa-fw me-2"></i>My Posts</Link></li>
+                    <li><Link className="dropdown-item d-flex align-items-center" to="/myposts"><i className="bi bi-journal-text fa-fw me-2"></i>My Posts</Link></li>
 
                     <li><hr className="dropdown-divider" /></li>
                     <li className="px-3 pt-1"><span className="d-block text-uppercase small text-body-secondary">Settings</span></li>

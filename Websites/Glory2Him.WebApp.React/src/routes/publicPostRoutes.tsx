@@ -36,14 +36,25 @@ export const publicPostRoutes: RouteObject[] = [
     { path: 'posts', element: <Posts /> },
     { path: 'posts/contribute', element: <Contribute /> },
 
-    // The caller's own contributions, in the public layout. Secured with no role list: there is
-    // no "my" for a visitor, and any authenticated reader owns whatever they contributed. React
-    // Router matches paths case-insensitively, so /myposts lands here too.
+    // The caller's own contributions, in the public layout — lowercase like the rest of the
+    // posts family. Secured with no role list: there is no "my" for a visitor, and any
+    // authenticated reader owns whatever they contributed.
     {
-        path: 'MyPosts',
+        path: 'myposts',
         element:
             <SecuredRoute>
                 <MyPosts />
+            </SecuredRoute>,
+    },
+    {
+        // One of MY posts — where /posts/contribute lands a fresh submission, so the
+        // contributor reads their draft on their own surface rather than the public one.
+        // The same detail page serves it: the caller-scoped read already shows an owner
+        // their own row at any status.
+        path: 'myposts/:contentItemId',
+        element:
+            <SecuredRoute>
+                <PostDetail />
             </SecuredRoute>,
     },
     { path: 'posts/:contentItemId', element: <PostDetail /> },

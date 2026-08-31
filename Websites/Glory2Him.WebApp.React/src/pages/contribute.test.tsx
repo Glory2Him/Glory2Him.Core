@@ -173,7 +173,7 @@ describe('Contribute', () => {
         await contributeAsync('He kept me through the night shift');
 
         // then
-        await waitFor(() => expect(navigate).toHaveBeenCalledWith('/posts/content-item-1'));
+        await waitFor(() => expect(navigate).toHaveBeenCalledWith('/myposts/content-item-1'));
         expect(toastError).not.toHaveBeenCalled();
     });
 
@@ -236,7 +236,7 @@ describe('Contribute', () => {
         await userEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
 
         // then
-        await waitFor(() => expect(navigate).toHaveBeenCalledWith('/posts/content-item-1'));
+        await waitFor(() => expect(navigate).toHaveBeenCalledWith('/myposts/content-item-1'));
         expect(screen.queryByText('Text is required')).not.toBeInTheDocument();
     });
 

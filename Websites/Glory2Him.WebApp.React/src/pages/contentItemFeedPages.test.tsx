@@ -154,7 +154,7 @@ describe('The content item feed pages', () => {
             signInAs(authState, ['Users']);
 
             // when
-            renderPage(<MyPosts />, '/MyPosts');
+            renderPage(<MyPosts />, '/myposts');
 
             // then: user-1 is the id signInAs mints
             expect(searchedOptions).toEqual(
@@ -164,7 +164,7 @@ describe('The content item feed pages', () => {
         // The page must never ask for everybody's rows while the identity is still arriving.
         it('should hold the read while the account id has not resolved', () => {
             // when
-            renderPage(<MyPosts />, '/MyPosts');
+            renderPage(<MyPosts />, '/myposts');
 
             // then
             expect(searchedOptions).toEqual(expect.objectContaining({ enabled: false }));
@@ -189,7 +189,7 @@ describe('The content item feed pages', () => {
             }];
 
             // when
-            renderPage(<MyPosts />, '/MyPosts');
+            renderPage(<MyPosts />, '/myposts');
 
             // then
             expect(screen.getByText('Draft')).toBeInTheDocument();
