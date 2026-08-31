@@ -133,7 +133,8 @@ describe('navMenuProvider.getSamplePagesSection', () => {
             'Bible Reference Association Panel',
             'Review Panel',
             'Content Item Detail Panel',
-            'Content Item Search Panel'
+            'Content Item Search Panel',
+            'Sharing Panel'
         ]);
     });
 
@@ -149,7 +150,8 @@ describe('navMenuProvider.getSamplePagesSection', () => {
             'SamplePages/Components/Bible-Reference-Association-Panel',
             'SamplePages/Components/Review-Panel',
             'SamplePages/Components/Content-Item-Detail-Panel',
-            'SamplePages/Components/Content-Item-Search-Panel'
+            'SamplePages/Components/Content-Item-Search-Panel',
+            'SamplePages/Components/Sharing-Panel'
         ]);
     });
 });

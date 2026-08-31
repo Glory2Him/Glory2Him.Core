@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
-import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { ContentItemSearchPanel } from '../components/contentItems/contentItemSearchPanel';
+import { SharingPanel } from '../components/contentItems/sharingPanel';
 import { VerseOfTheDay } from '../components/coreUI/verseOfTheDay';
 import { useContentItemEngagement } from '../hooks/useContentItemEngagement';
 
@@ -83,12 +84,13 @@ export const Home = () => {
                 <div className="container">
                     <div className="row">
                         <div className="col-12">
-                            <div className="d-flex flex-wrap justify-content-end align-items-center gap-2 mb-4">
-                                <Link to="/posts/contribute" className="btn btn-primary mb-0">
-                                    <i className="bi bi-pencil-square me-1" aria-hidden="true"></i>
-                                    Share what He has done
-                                </Link>
-                            </div>
+                            {/* The invitation, sized by its container: full-width here, so it
+                                wears its banner face. The panel raises onSubmit; this page says
+                                where contributing happens. */}
+                            <SharingPanel
+                                onSubmit={() => navigate('/posts/contribute', {
+                                    state: { from: `${location.pathname}${location.search}` }
+                                })} />
 
                             {isError ? (
                                 <div className="alert alert-danger" role="alert">

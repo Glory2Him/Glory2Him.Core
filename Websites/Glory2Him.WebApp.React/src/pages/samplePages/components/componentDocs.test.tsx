@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AssociationPanelDoc } from './associationPanelDoc';
 import { ContentItemDetailPanelDoc } from './contentItemDetailPanelDoc';
 import { ContentItemSearchPanelDoc } from './contentItemSearchPanelDoc';
+import { SharingPanelDoc } from './sharingPanelDoc';
 import { BibleReferenceAssociationPanelDoc } from './bibleReferenceAssociationPanelDoc';
 import { ReviewPanelDoc } from './reviewPanelDoc';
 import { TagAssociationPanelDoc } from './tagAssociationPanelDoc';
@@ -316,6 +317,39 @@ describe('Component reference pages', () => {
             expect(screen.getByLabelText('Category')).toBeInTheDocument();
             expect(screen.getByLabelText('Author')).toBeInTheDocument();
             expect(screen.queryByLabelText(/tag/i)).not.toBeInTheDocument();
+        });
+    });
+
+    describe('SharingPanelDoc', () => {
+        it('should document the component and name its source', () => {
+            // when
+            renderWithAuth(<SharingPanelDoc />);
+
+            // then
+            expect(screen.getByRole('heading', { name: 'Sharing Panel', level: 1 }))
+                .toBeInTheDocument();
+
+            expect(screen.getByText('src/components/contentItems/sharingPanel.tsx'))
+                .toBeInTheDocument();
+
+            expect(screen.getByRole('heading',
+                { name: 'It adapts to its container, not the viewport' })).toBeInTheDocument();
+
+            expect(screen.getByRole('heading', { name: 'Props' })).toBeInTheDocument();
+        });
+
+        it('should run the panel live in both faces and reworded', async () => {
+            // given: two default-worded demos (wide and narrow) plus the reworded one
+            renderWithAuth(<SharingPanelDoc />);
+
+            expect(screen.getAllByRole('button', { name: /Submit a contribution/ }))
+                .toHaveLength(2);
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: /Share your story/ }));
+
+            // then
+            expect(screen.getByText('onSubmit() — reworded')).toBeInTheDocument();
         });
     });
 

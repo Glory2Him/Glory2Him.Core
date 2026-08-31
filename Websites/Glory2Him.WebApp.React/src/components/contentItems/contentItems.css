@@ -145,3 +145,32 @@ section.g2h-content-item-search-panel {
     line-height: inherit;
     font-family: inherit;
 }
+
+/* ── SharingPanel ───────────────────────────────────────────────────────────── */
+
+/* The panel measures ITSELF, not the viewport: the same component sits full-width above a feed
+   and in a sidebar, and only its own width says which it is. inline-size containment is what
+   lets the body row below ask. */
+.g2h-sharing-panel {
+    container-type: inline-size;
+}
+
+/* Narrow by default: description over button, both hugging the left — the sidebar face. */
+.g2h-sharing-panel-body {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+
+/* Wide: one row, the button on the right — the banner face. The description keeps first claim
+   on the width; the button never shrinks below its own text, which is also why the text itself
+   carries text-nowrap. */
+@container (min-width: 40rem) {
+    .g2h-sharing-panel-body {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1.5rem;
+    }
+}

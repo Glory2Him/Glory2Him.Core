@@ -104,6 +104,7 @@ const samplePagesSection: NavItem = {
                 sample("Review Panel", "SamplePages/Components/Review-Panel"),
                 sample("Content Item Detail Panel", "SamplePages/Components/Content-Item-Detail-Panel"),
                 sample("Content Item Search Panel", "SamplePages/Components/Content-Item-Search-Panel"),
+                sample("Sharing Panel", "SamplePages/Components/Sharing-Panel"),
             ]
         },
         sample("Lifestyle", "SamplePages/Lifestyle", "bi-stars"),
