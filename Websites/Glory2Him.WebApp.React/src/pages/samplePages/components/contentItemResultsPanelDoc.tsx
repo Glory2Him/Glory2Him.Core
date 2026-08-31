@@ -18,7 +18,7 @@ import {
 } from './shared/componentDoc';
 
 const familySample = `
-ContentItemSearchPanel
+ContentItemListPanel
 ├── ContentItemSearchBarPanel
 └── ContentItemResultsPanel       ◄ this page
     └── ContentItemPanel …
@@ -75,14 +75,14 @@ export function ContentItemResultsPanelDoc() {
         <ComponentDoc
             name="Content Item Results Panel"
             filePath="src/components/contentItems/contentItemResultsPanel.tsx"
-            summary="The results half of the ContentItemSearchPanel family: every matched item,
+            summary="The results half of the ContentItemListPanel family: every matched item,
                 one ContentItemPanel each, scrolled rather than paged.">
 
             <DocSection
                 title="Where it stands in the family"
                 lead={
                     <>
-                        Composed by <code>ContentItemSearchPanel</code> beneath the bar, and a
+                        Composed by <code>ContentItemListPanel</code> beneath the bar, and a
                         page may render it directly when it has no bar to offer. Presentation
                         only: the consumer&rsquo;s infinite query owns the pages — this panel
                         asks for more, never fetches it.

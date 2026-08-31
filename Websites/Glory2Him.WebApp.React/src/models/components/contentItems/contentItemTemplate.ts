@@ -13,7 +13,7 @@ import {
 // templates can state it without importing the panel that dispatches to them — the panel imports
 // every template, and a template importing it back would be a cycle.
 
-// Every event hook a card raises. Filter hooks are handled by ContentItemSearchPanel (they
+// Every event hook a card raises. Filter hooks are handled by ContentItemListPanel (they
 // rewrite the committed criteria); navigation hooks bubble through it to the page, which owns
 // the redirect — and stamps the origin into router state so the destination can offer a true
 // way back.
@@ -125,7 +125,7 @@ export interface ContentItemTemplateProps
     moderateButtonLabel: string;
 
     // Whether the card wears its approval-status corner ribbon — the surface's opt-in,
-    // threaded down from ContentItemSearchPanel.
+    // threaded down from ContentItemListPanel.
     shouldShowRibbons: boolean;
 
     // The two render toggles the dispatching panel owns.

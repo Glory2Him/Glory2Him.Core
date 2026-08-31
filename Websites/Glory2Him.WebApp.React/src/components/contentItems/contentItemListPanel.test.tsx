@@ -1,7 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ContentItemSearchPanel } from './contentItemSearchPanel';
+import { ContentItemListPanel } from './contentItemListPanel';
 import { ContentItemSetting } from '../../models/foundations/contentItemSettings/contentItemSetting';
 import { ContentType } from '../../models/foundations/contentItemSettings/contentType';
 
@@ -120,13 +120,13 @@ afterEach(() => {
     vi.unstubAllGlobals();
 });
 
-describe('ContentItemSearchPanel', () => {
+describe('ContentItemListPanel', () => {
     describe('the bar', () => {
         it('should raise onSearch with everything the boxes were set to', async () => {
             const onSearch = vi.fn();
 
             render(
-                <ContentItemSearchPanel
+                <ContentItemListPanel
                     contentItemCollection={[quoteItem]}
                     categorySettingCollection={defaultSettings}
                     onSearch={onSearch} />);
@@ -159,7 +159,7 @@ describe('ContentItemSearchPanel', () => {
 
         it('should offer every default type in the order the administrator set', async () => {
             render(
-                <ContentItemSearchPanel
+                <ContentItemListPanel
                     contentItemCollection={[]}
                     categorySettingCollection={[
                         settingFor(ContentType.BibleStudy, 'Bible Study', { sortOrder: 9 }),
@@ -181,7 +181,7 @@ describe('ContentItemSearchPanel', () => {
         // write one of, and an override belongs to one item and is never a category.
         it('should offer non-contributable types and never an override', async () => {
             render(
-                <ContentItemSearchPanel
+                <ContentItemListPanel
                     contentItemCollection={[]}
                     categorySettingCollection={[
                         settingFor(ContentType.BlogPost, 'Blog Post', {
@@ -207,7 +207,7 @@ describe('ContentItemSearchPanel', () => {
 
         it('should offer the full advanced grid — the two people, the basis, the tags', async () => {
             render(
-                <ContentItemSearchPanel
+                <ContentItemListPanel
                     contentItemCollection={[]}
                     categorySettingCollection={defaultSettings} />);
 
@@ -231,7 +231,7 @@ describe('ContentItemSearchPanel', () => {
             const onSearch = vi.fn();
 
             render(
-                <ContentItemSearchPanel
+                <ContentItemListPanel
                     contentItemCollection={[]}
                     categorySettingCollection={defaultSettings}
                     onSearch={onSearch} />);
@@ -274,7 +274,7 @@ describe('ContentItemSearchPanel', () => {
 
         it('should seed the boxes from the criteria it was landed with', async () => {
             render(
-                <ContentItemSearchPanel
+                <ContentItemListPanel
                     contentItemCollection={[]}
                     categorySettingCollection={defaultSettings}
                     criteria={{
@@ -295,13 +295,13 @@ describe('ContentItemSearchPanel', () => {
 
         it('should follow the criteria when something else navigates here', () => {
             const rendered = render(
-                <ContentItemSearchPanel
+                <ContentItemListPanel
                     contentItemCollection={[]}
                     categorySettingCollection={defaultSettings}
                     criteria={{ ...emptyContentItemSearchCriteria, query: 'grace' }} />);
 
             rendered.rerender(
-                <ContentItemSearchPanel
+                <ContentItemListPanel
                     contentItemCollection={[]}
                     categorySettingCollection={defaultSettings}
                     criteria={{ ...emptyContentItemSearchCriteria, query: 'mercy' }} />);
@@ -311,7 +311,7 @@ describe('ContentItemSearchPanel', () => {
 
         it('should leave the list alone when the bar is switched off', () => {
             render(
-                <ContentItemSearchPanel
+                <ContentItemListPanel
                     contentItemCollection={[quoteItem]}
                     categorySettingCollection={defaultSettings}
                     showSearchBar={false} />);
@@ -328,7 +328,7 @@ describe('ContentItemSearchPanel', () => {
             const onSearch = vi.fn();
 
             render(
-                <ContentItemSearchPanel
+                <ContentItemListPanel
                     contentItemCollection={[devotionalItem]}
                     categorySettingCollection={defaultSettings}
                     criteria={emptyContentItemSearchCriteria}
@@ -344,7 +344,7 @@ describe('ContentItemSearchPanel', () => {
             const onSearch = vi.fn();
 
             render(
-                <ContentItemSearchPanel
+                <ContentItemListPanel
                     contentItemCollection={[devotionalItem]}
                     categorySettingCollection={defaultSettings}
                     criteria={{
@@ -363,7 +363,7 @@ describe('ContentItemSearchPanel', () => {
             const onSearch = vi.fn();
 
             render(
-                <ContentItemSearchPanel
+                <ContentItemListPanel
                     contentItemCollection={[devotionalItem]}
                     categorySettingCollection={defaultSettings}
                     criteria={emptyContentItemSearchCriteria}
@@ -381,7 +381,7 @@ describe('ContentItemSearchPanel', () => {
             const onSearch = vi.fn();
 
             render(
-                <ContentItemSearchPanel
+                <ContentItemListPanel
                     contentItemCollection={[devotionalItem]}
                     categorySettingCollection={defaultSettings}
                     criteria={emptyContentItemSearchCriteria}
@@ -397,7 +397,7 @@ describe('ContentItemSearchPanel', () => {
             const onSearch = vi.fn();
 
             render(
-                <ContentItemSearchPanel
+                <ContentItemListPanel
                     contentItemCollection={[devotionalItem]}
                     categorySettingCollection={defaultSettings}
                     criteria={emptyContentItemSearchCriteria}
@@ -415,7 +415,7 @@ describe('ContentItemSearchPanel', () => {
             const onSearch = vi.fn();
 
             render(
-                <ContentItemSearchPanel
+                <ContentItemListPanel
                     contentItemCollection={[devotionalItem]}
                     categorySettingCollection={defaultSettings}
                     criteria={{
@@ -448,7 +448,7 @@ describe('ContentItemSearchPanel', () => {
         // A re-search must not flash "nothing found" on its way to results.
         it('should hold the list back rather than emptying it while the first page loads', () => {
             render(
-                <ContentItemSearchPanel
+                <ContentItemListPanel
                     contentItemCollection={[]}
                     categorySettingCollection={defaultSettings}
                     isLoading />);
@@ -459,7 +459,7 @@ describe('ContentItemSearchPanel', () => {
 
         it('should say so when nothing matched', () => {
             render(
-                <ContentItemSearchPanel
+                <ContentItemListPanel
                     contentItemCollection={[]}
                     categorySettingCollection={defaultSettings} />);
 
@@ -473,7 +473,7 @@ describe('ContentItemSearchPanel', () => {
             const onLoadMore = vi.fn();
 
             render(
-                <ContentItemSearchPanel
+                <ContentItemListPanel
                     contentItemCollection={[quoteItem, devotionalItem]}
                     categorySettingCollection={defaultSettings}
                     hasMore
@@ -489,7 +489,7 @@ describe('ContentItemSearchPanel', () => {
             const onLoadMore = vi.fn();
 
             render(
-                <ContentItemSearchPanel
+                <ContentItemListPanel
                     contentItemCollection={[quoteItem]}
                     categorySettingCollection={defaultSettings}
                     hasMore={false}
@@ -506,7 +506,7 @@ describe('ContentItemSearchPanel', () => {
             const onLoadMore = vi.fn();
 
             render(
-                <ContentItemSearchPanel
+                <ContentItemListPanel
                     contentItemCollection={[quoteItem]}
                     categorySettingCollection={defaultSettings}
                     hasMore
@@ -524,7 +524,7 @@ describe('ContentItemSearchPanel', () => {
             const onLoadMore = vi.fn();
 
             render(
-                <ContentItemSearchPanel
+                <ContentItemListPanel
                     contentItemCollection={[quoteItem]}
                     categorySettingCollection={defaultSettings}
                     hasMore
@@ -539,7 +539,7 @@ describe('ContentItemSearchPanel', () => {
             installIntersectionObserver();
 
             render(
-                <ContentItemSearchPanel
+                <ContentItemListPanel
                     contentItemCollection={[quoteItem]}
                     categorySettingCollection={defaultSettings}
                     hasMore

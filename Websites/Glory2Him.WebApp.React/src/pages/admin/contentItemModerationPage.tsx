@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { ContentItemSearchPanel } from '../../components/contentItems/contentItemSearchPanel';
+import { ContentItemListPanel } from '../../components/contentItems/contentItemListPanel';
 import { Breadcrumb } from '../../components/coreUI/breadcrumb';
 import { Card } from '../../components/coreUI/card';
 import { BreadcrumbItem } from '../../models/coreUI/breadcrumbItem';
@@ -121,7 +121,7 @@ export function ContentItemModerationPage() {
                         We could not load the moderation queue right now. Please try again later.
                     </div>
                 ) : (
-                    <ContentItemSearchPanel
+                    <ContentItemListPanel
                         ariaLabel="Posts awaiting moderation"
                         contentItemCollection={withViewerReactions(contentItems)}
                         categorySettingCollection={contentItemSettings ?? []}

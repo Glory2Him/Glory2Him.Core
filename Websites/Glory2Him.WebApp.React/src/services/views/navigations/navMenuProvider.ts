@@ -105,7 +105,7 @@ const samplePagesSection: NavItem = {
 
                 // The ContentItemPanel family, in TREE ORDER — parent first, so a reader
                 // walking the list walks the composition root-down.
-                sample("Content Item Search Panel", "SamplePages/Components/Content-Item-Search-Panel"),
+                sample("Content Item List Panel", "SamplePages/Components/Content-Item-List-Panel"),
                 sample("Content Item Search Bar Panel", "SamplePages/Components/Content-Item-Search-Bar-Panel"),
                 sample("Content Item Results Panel", "SamplePages/Components/Content-Item-Results-Panel"),
                 sample("Content Item Panel", "SamplePages/Components/Content-Item-Panel"),

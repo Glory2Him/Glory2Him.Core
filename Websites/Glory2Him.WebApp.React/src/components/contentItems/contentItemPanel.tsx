@@ -43,7 +43,7 @@ import './contentItems.css';
 //                                      ContentItemDefaultPanel, or a registered override
 //                                      (ContentItemQuotesPanel, ContentItemVersesPanel)
 //
-// One family, one tree: ContentItemSearchPanel renders this same panel for every result, and a
+// One family, one tree: ContentItemListPanel renders this same panel for every result, and a
 // details page renders it for its one item — there is no second component to keep in sync.
 //
 // A pure presentation component, like everything in this family: props in, events out, no
@@ -59,13 +59,13 @@ export interface ContentItemPanelProps
     // is one element swapped by the consumer.
     //
     // ABSENT, THE PANEL IS THE ADD SURFACE — hand over contentItemSettingCollection and the
-    // picker offers its contributable types. ContentItemSearchPanel always has an item, so a
+    // picker offers its contributable types. ContentItemListPanel always has an item, so a
     // card in a list can never fall into `add`.
     contentItem?: ContentItemSearchItem;
 
     // THE ADD-MODE SIGNAL, and the editor's tile/fallback rows: the content type DEFAULTS the
     // consumer holds. Populated with no contentItem, the panel renders the add face from these
-    // rows (ContentItemSearchPanel never populates this prop). With an item it is simply the
+    // rows (ContentItemListPanel never populates this prop). With an item it is simply the
     // fallback behind the element's own embedded winner.
     contentItemSettingCollection?: ReadonlyArray<ContentItemSetting>;
 

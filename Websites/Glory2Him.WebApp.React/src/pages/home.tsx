@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { ContentItemSearchPanel } from '../components/contentItems/contentItemSearchPanel';
+import { ContentItemListPanel } from '../components/contentItems/contentItemListPanel';
 import { SharingPanel } from '../components/contentItems/sharingPanel';
 import { VerseOfTheDay } from '../components/coreUI/verseOfTheDay';
 import { useContentItemEngagement } from '../hooks/useContentItemEngagement';
@@ -29,7 +29,7 @@ import { verseOfTheDay } from './sampleContent';
 import { useDocumentTitle } from './useDocumentTitle';
 
 // THE PUBLIC HOME PAGE: the verse of the day, then what has actually been contributed — the
-// ContentItemSearchPanel family over the PUBLIC read, replacing the Blogzine sample feed that
+// ContentItemListPanel family over the PUBLIC read, replacing the Blogzine sample feed that
 // stood here.
 //
 // GET api/ContentItems/Public IS THE POINT of this page's wiring. It is caller-INDEPENDENT by
@@ -122,7 +122,7 @@ export const Home = () => {
                                     later.
                                 </div>
                             ) : (
-                                <ContentItemSearchPanel
+                                <ContentItemListPanel
                                     ariaLabel="The journal"
                                     contentItemCollection={withViewerReactions(contentItems)}
                                     categorySettingCollection={contentItemSettings ?? []}

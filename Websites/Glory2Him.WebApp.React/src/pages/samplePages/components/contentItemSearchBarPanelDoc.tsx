@@ -23,7 +23,7 @@ import {
 } from './shared/componentDoc';
 
 const familySample = `
-ContentItemSearchPanel
+ContentItemListPanel
 ├── ContentItemSearchBarPanel     ◄ this page
 └── ContentItemResultsPanel
     └── ContentItemPanel …
@@ -83,7 +83,7 @@ export function ContentItemSearchBarPanelDoc() {
         <ComponentDoc
             name="Content Item Search Bar Panel"
             filePath="src/components/contentItems/contentItemSearchBarPanel.tsx"
-            summary="The search bar of the ContentItemSearchPanel family: the query box; the
+            summary="The search bar of the ContentItemListPanel family: the query box; the
                 advanced Category, Author, Submitted by, Shareability, Tags and Bible
                 references options (each list with its own Any/All match mode); and the
                 removable filter chips.">
@@ -92,7 +92,7 @@ export function ContentItemSearchBarPanelDoc() {
                 title="Where it stands in the family"
                 lead={
                     <>
-                        Composed by <code>ContentItemSearchPanel</code> above the results; a
+                        Composed by <code>ContentItemListPanel</code> above the results; a
                         page that has already decided what it shows renders the results without
                         this bar at all. Presentation only: the bar drafts, the consumer
                         commits.

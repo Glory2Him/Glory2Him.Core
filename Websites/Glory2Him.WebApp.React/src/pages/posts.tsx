@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { ContentItemSearchPanel } from '../components/contentItems/contentItemSearchPanel';
+import { ContentItemListPanel } from '../components/contentItems/contentItemListPanel';
 import { useContentItemEngagement } from '../hooks/useContentItemEngagement';
 
 import {
@@ -26,7 +26,7 @@ import {
 import { useDocumentTitle } from './useDocumentTitle';
 
 // EVERY CONTRIBUTION THE CALLER MAY SEE — the collection `/posts/{id}` and `/posts/contribute`
-// are members of. The list itself is the ContentItemSearchPanel family; this page's whole job is
+// are members of. The list itself is the ContentItemListPanel family; this page's whole job is
 // to decide which read feeds it, page that read, project its rows and own the redirects.
 //
 // THE CALLER-SCOPED READ, which is what separates this surface from the home feed: it widens
@@ -122,7 +122,7 @@ export function Posts() {
                                 We could not load the journal right now. Please try again later.
                             </div>
                         ) : (
-                            <ContentItemSearchPanel
+                            <ContentItemListPanel
                                 ariaLabel="The journal"
                                 contentItemCollection={withViewerReactions(contentItems)}
                                 categorySettingCollection={contentItemSettings ?? []}

@@ -19,7 +19,7 @@ import './contentItems.css';
 
 // MANY content items, searched and scrolled — the composition of the family:
 //
-//   ContentItemSearchPanel
+//   ContentItemListPanel
 //   ├── ContentItemSearchBarPanel     the search bar and its advanced fold-out
 //   └── ContentItemResultsPanel       the results, infinite scroll
 //       └── ContentItemPanel      one result, dispatched to a template by content type
@@ -38,7 +38,7 @@ import './contentItems.css';
 // signal however the reader asked. The navigation hooks (title, read-more, comments, bible
 // reference, edit) pass straight through: where they lead is the page's decision, and the page
 // stamps the origin into router state so the destination can offer a true way back.
-export interface ContentItemSearchPanelProps extends ContentItemEvents, ContentItemText {
+export interface ContentItemListPanelProps extends ContentItemEvents, ContentItemText {
     // ── Subject ───────────────────────────────────────────────────────────────
     // The ACCUMULATED results — the consumer's infinite query keeps the pages. Each element
     // is SELF-CONTAINED: it carries the item and its winning setting, resolved by the
@@ -94,7 +94,7 @@ export interface ContentItemSearchPanelProps extends ContentItemEvents, ContentI
     emptyText?: string;
 }
 
-export function ContentItemSearchPanel({
+export function ContentItemListPanel({
     contentItemCollection = [],
     categorySettingCollection = [],
     showSearchBar = true,
@@ -125,7 +125,7 @@ export function ContentItemSearchPanel({
     onTagClick,
     onBibleReferenceClick,
     ...itemEventsAndText
-}: ContentItemSearchPanelProps) {
+}: ContentItemListPanelProps) {
     const headingId = useId();
 
     const committedCriteria = criteria ?? emptyContentItemSearchCriteria;
@@ -200,7 +200,7 @@ export function ContentItemSearchPanel({
 
     return (
         <section
-            className={`g2h-content-item-search-panel ${cssClass}`}
+            className={`g2h-content-item-list-panel ${cssClass}`}
             aria-label={titleText.length > 0 ? undefined : ariaLabel}
             aria-labelledby={titleText.length > 0 ? headingId : undefined}>
 

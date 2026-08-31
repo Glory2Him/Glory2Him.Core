@@ -10,7 +10,7 @@ export { ApprovalStatus, ShareabilityBasis };
 // wire entity: a card needs an image, the contributor's face and the engagement figures that no
 // ContentItem column carries, and it does not need the permission note only a form has a use for.
 //
-// A page projects whatever it holds down to this shape, so the ContentItemSearchPanel family
+// A page projects whatever it holds down to this shape, so the ContentItemListPanel family
 // never depends on the wire entity — the same split AssociationItem and ApprovalReviewItem take.
 //
 // EACH ELEMENT IS SELF-CONTAINED: it carries the item AND its winning setting (and, as the

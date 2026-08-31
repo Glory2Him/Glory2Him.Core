@@ -54,7 +54,7 @@ export const adminRoutes: RouteObject[] = [
                     </SecuredRoute>,
             },
             {
-                // The content item moderation queue — the ContentItemSearchPanel family over the
+                // The content item moderation queue — the ContentItemListPanel family over the
                 // Draft + Submitted statuses. The demo Post table that used to answer here moved
                 // to Admin/SamplePosts, because /posts is the content item collection now and
                 // its admin surface belongs at the matching address.

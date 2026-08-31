@@ -10,7 +10,7 @@ import { ContentItemEditPanelDoc } from './contentItemEditPanelDoc';
 import { ContentItemDefaultPanelDoc } from './contentItemDefaultPanelDoc';
 import { ContentItemQuotesPanelDoc } from './contentItemQuotesPanelDoc';
 import { ContentItemVersesPanelDoc } from './contentItemVersesPanelDoc';
-import { ContentItemSearchPanelDoc } from './contentItemSearchPanelDoc';
+import { ContentItemListPanelDoc } from './contentItemListPanelDoc';
 import { SharingPanelDoc } from './sharingPanelDoc';
 import { BibleReferenceAssociationPanelDoc } from './bibleReferenceAssociationPanelDoc';
 import { ReviewPanelDoc } from './reviewPanelDoc';
@@ -290,16 +290,16 @@ describe('Component reference pages', () => {
         });
     });
 
-    describe('ContentItemSearchPanelDoc', () => {
+    describe('ContentItemListPanelDoc', () => {
         it('should document the family and name its source', () => {
             // when
-            renderWithAuth(<ContentItemSearchPanelDoc />);
+            renderWithAuth(<ContentItemListPanelDoc />);
 
             // then
-            expect(screen.getByRole('heading', { name: 'Content Item Search Panel', level: 1 }))
+            expect(screen.getByRole('heading', { name: 'Content Item List Panel', level: 1 }))
                 .toBeInTheDocument();
 
-            expect(screen.getByText('src/components/contentItems/contentItemSearchPanel.tsx'))
+            expect(screen.getByText('src/components/contentItems/contentItemListPanel.tsx'))
                 .toBeInTheDocument();
 
             expect(screen.getByRole('heading', { name: 'The family' })).toBeInTheDocument();
@@ -308,7 +308,7 @@ describe('Component reference pages', () => {
 
         it('should run the two templates rather than picture them', () => {
             // when
-            renderWithAuth(<ContentItemSearchPanelDoc />);
+            renderWithAuth(<ContentItemListPanelDoc />);
 
             // then: a quote shown whole through the override, a story through the default
             expect(screen.getAllByText(new RegExp('coincidences happen')).length)
@@ -323,7 +323,7 @@ describe('Component reference pages', () => {
         // limitReactionsToLoveOnly, so its choices are one where the first's are four.
         it('should narrow the choices on the item its override belongs to', async () => {
             // given
-            renderWithAuth(<ContentItemSearchPanelDoc />);
+            renderWithAuth(<ContentItemListPanelDoc />);
             const likeButtons = screen.getAllByRole('button', { name: /Like/ });
 
             // when
@@ -343,7 +343,7 @@ describe('Component reference pages', () => {
 
         it('should react for real rather than describing the event', async () => {
             // given
-            renderWithAuth(<ContentItemSearchPanelDoc />);
+            renderWithAuth(<ContentItemListPanelDoc />);
 
             // when
             await userEvent.click(screen.getAllByRole('button', { name: /Like/ })[0]);
@@ -361,7 +361,7 @@ describe('Component reference pages', () => {
 
         it('should offer the full advanced options', async () => {
             // given
-            renderWithAuth(<ContentItemSearchPanelDoc />);
+            renderWithAuth(<ContentItemListPanelDoc />);
 
             // when: the page carries two live bars now (the criteria demo and the
             // playground), so the first is the one exercised

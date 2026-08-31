@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { ContentItemSearchPanel } from '../components/contentItems/contentItemSearchPanel';
+import { ContentItemListPanel } from '../components/contentItems/contentItemListPanel';
 import { useAuth } from '../components/securitys/authProvider';
 import { useContentItemEngagement } from '../hooks/useContentItemEngagement';
 
@@ -127,7 +127,7 @@ export function MyPosts() {
                                 We could not load your posts right now. Please try again later.
                             </div>
                         ) : (
-                            <ContentItemSearchPanel
+                            <ContentItemListPanel
                                 ariaLabel="My posts"
                                 contentItemCollection={withViewerReactions(contentItems)}
                                 categorySettingCollection={contentItemSettings ?? []}

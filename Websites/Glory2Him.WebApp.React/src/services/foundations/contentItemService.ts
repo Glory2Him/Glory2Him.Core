@@ -32,7 +32,7 @@ export const contentItemService = {
         });
     },
 
-    // The infinite scroll behind ContentItemSearchPanel. useInfiniteQuery rather than useQuery
+    // The infinite scroll behind ContentItemListPanel. useInfiniteQuery rather than useQuery
     // because the panel renders the ACCUMULATED list: react-query keeps the pages, so a page that
     // has already been fetched is never fetched again on the way down.
     //

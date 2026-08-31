@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ContentItemSearchPanel } from '../../../components/contentItems/contentItemSearchPanel';
+import { ContentItemListPanel } from '../../../components/contentItems/contentItemListPanel';
 
 import {
     ContentItemSetting
@@ -29,7 +29,7 @@ import {
 } from './shared/componentDoc';
 
 const structureSample = `
-ContentItemSearchPanel                     composes the two below
+ContentItemListPanel                     composes the two below
 ├── ContentItemSearchBarPanel              search bar + advanced options + filter chips
 └── ContentItemResultsPanel                the results, infinite scroll
     └── ContentItemPanel               ONE result — resolves the item's own effective
@@ -41,10 +41,10 @@ ContentItemSearchPanel                     composes the two below
 `;
 
 const wiringSample = `
-import { ContentItemSearchPanel } from '../../components/contentItems/contentItemSearchPanel';
+import { ContentItemListPanel } from '../../components/contentItems/contentItemListPanel';
 
 // A feed page. The PAGE owns the read, the paging, the redirects and the persistence.
-<ContentItemSearchPanel
+<ContentItemListPanel
     contentItemCollection={items}
     categorySettingCollection={defaultSettings}
     criteria={criteria}
@@ -62,13 +62,13 @@ import { ContentItemSearchPanel } from '../../components/contentItems/contentIte
 
 // A surface that has already decided what it shows turns the bar off and keeps the list.
 // …and needs no settings at all: each element already carries its own.
-<ContentItemSearchPanel
+<ContentItemListPanel
     contentItemCollection={myContributions}
     showSearchBar={false} />
 `;
 
 const hooksSample = `
-// FILTER HOOKS — handled by ContentItemSearchPanel itself: each rewrites the committed
+// FILTER HOOKS — handled by ContentItemListPanel itself: each rewrites the committed
 // criteria and raises onSearch, so the consumer sees one search signal however the reader asked.
 onContentTypeClick      toggle the Category criterion (set if clear, clear if already this type)
 onSubmittedByClick      set the submitted-by criterion ({ id, name } — the id filters, the name chips)
@@ -366,8 +366,8 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
     }
 ];
 
-export function ContentItemSearchPanelDoc() {
-    useDocumentTitle('Content Item Search Panel — Components — Glory 2 Him');
+export function ContentItemListPanelDoc() {
+    useDocumentTitle('Content Item List Panel — Components — Glory 2 Him');
 
     const [lastEvent, setLastEvent] = useState('—');
 
@@ -403,8 +403,8 @@ export function ContentItemSearchPanelDoc() {
 
     return (
         <ComponentDoc
-            name="Content Item Search Panel"
-            filePath="src/components/contentItems/contentItemSearchPanel.tsx"
+            name="Content Item List Panel"
+            filePath="src/components/contentItems/contentItemListPanel.tsx"
             summary={
                 <>
                     Many content items, searched and scrolled — a <strong>family</strong> of
@@ -459,7 +459,7 @@ export function ContentItemSearchPanelDoc() {
                     </>
                 }>
                 <LiveDemo title="Live — a mixed page">
-                    <ContentItemSearchPanel
+                    <ContentItemListPanel
                         contentItemCollection={demoItems}
                         showSearchBar={false}
                         onTitleClick={(item) => setLastEvent(`onTitleClick(${item.id})`)}
@@ -504,7 +504,7 @@ export function ContentItemSearchPanelDoc() {
                     </>
                 }>
                 <LiveDemo title="Live — react without leaving the list">
-                    <ContentItemSearchPanel
+                    <ContentItemListPanel
                         contentItemCollection={quoteItems}
                         showSearchBar={false}
                         reactionOptions={reactionOptions}
@@ -529,7 +529,7 @@ export function ContentItemSearchPanelDoc() {
                     </>
                 }>
                 <LiveDemo title="Live — click a badge, a byline or a pill">
-                    <ContentItemSearchPanel
+                    <ContentItemListPanel
                         contentItemCollection={demoItems}
                         categorySettingCollection={demoSettings}
                         criteria={criteria}
@@ -554,13 +554,13 @@ export function ContentItemSearchPanelDoc() {
                     </>
                 }>
                 <LiveDemo title="Live — draft, in review, approved">
-                    <ContentItemSearchPanel
+                    <ContentItemListPanel
                         contentItemCollection={statusItems}
                         showSearchBar={false} />
                 </LiveDemo>
 
                 <LiveDemo title="Live — the same rows wearing ribbons">
-                    <ContentItemSearchPanel
+                    <ContentItemListPanel
                         contentItemCollection={statusItems}
                         shouldShowRibbons
                         showSearchBar={false} />
@@ -598,7 +598,7 @@ export function ContentItemSearchPanelDoc() {
                 ]} />
 
                 <LiveDemo title="Live — the playground">
-                    <ContentItemSearchPanel
+                    <ContentItemListPanel
                         contentItemCollection={demoItems}
                         categorySettingCollection={demoSettings}
                         showSearchBar={playgroundShowsSearchBar}

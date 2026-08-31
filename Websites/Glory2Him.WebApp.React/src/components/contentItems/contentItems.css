@@ -227,11 +227,11 @@ section.g2h-content-item-panel {
     opacity: 0.55;
 }
 
-/* ── ContentItemSearchPanel family ─────────────────────────────────────── */
+/* ── ContentItemListPanel family ─────────────────────────────────────── */
 
 /* Same reason as the detail panel above: a <section> keeps the accessible name, and the Blogzine
    theme's page-band padding on a bare section is wrong for a panel sitting inside a column. */
-section.g2h-content-item-search-panel {
+section.g2h-content-item-list-panel {
     padding-top: 0;
     padding-bottom: 0;
 }

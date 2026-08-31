@@ -135,7 +135,7 @@ describe('navMenuProvider.getSamplePagesSection', () => {
 
             // The ContentItemPanel family, in TREE ORDER — parent before children, so
             // the sidebar reads the composition root-down.
-            'Content Item Search Panel',
+            'Content Item List Panel',
             'Content Item Search Bar Panel',
             'Content Item Results Panel',
             'Content Item Panel',
@@ -160,7 +160,7 @@ describe('navMenuProvider.getSamplePagesSection', () => {
             'SamplePages/Components/Tag-Association-Panel',
             'SamplePages/Components/Bible-Reference-Association-Panel',
             'SamplePages/Components/Review-Panel',
-            'SamplePages/Components/Content-Item-Search-Panel',
+            'SamplePages/Components/Content-Item-List-Panel',
             'SamplePages/Components/Content-Item-Search-Bar-Panel',
             'SamplePages/Components/Content-Item-Results-Panel',
             'SamplePages/Components/Content-Item-Panel',

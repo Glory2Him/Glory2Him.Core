@@ -26,7 +26,7 @@ import {
 } from './shared/componentDoc';
 
 const familySample = `
-ContentItemSearchPanel                composes the two below
+ContentItemListPanel                composes the two below
 ├── ContentItemSearchBarPanel         search bar + advanced options + filter chips
 └── ContentItemResultsPanel           the results, infinite scroll
     └── ContentItemPanel              ONE item, on whichever face the moment asks for
@@ -42,7 +42,7 @@ const minimalSample = `
 import { ContentItemPanel } from '../../components/contentItems/contentItemPanel';
 
 // add — a settings collection and no item puts the panel on its add face:
-// the type picker and a blank form. ContentItemSearchPanel never populates
+// the type picker and a blank form. ContentItemListPanel never populates
 // this prop, so a card in a list can never fall into add.
 <ContentItemPanel
     contentItemSettingCollection={contributableSettings}
@@ -161,7 +161,7 @@ const panelProps: ReadonlyArray<ComponentPropRow> = [
         defaultValue: '[]',
         description: 'THE ADD-MODE SIGNAL and the editor’s fallback rows: the content type '
             + 'defaults the consumer holds. Populated with no contentItem, the panel renders '
-            + 'the add face from these rows. ContentItemSearchPanel never populates this prop.'
+            + 'the add face from these rows. ContentItemListPanel never populates this prop.'
     },
     {
         name: 'mode',
@@ -245,7 +245,7 @@ const panelProps: ReadonlyArray<ComponentPropRow> = [
         name: 'onEditClick / onModerateClick / onTitleClick / …',
         type: '(item) => void',
         description: 'The view-face event hooks, unchanged from the search family — see the '
-            + 'Content Item Search Panel page, which documents every one of them.'
+            + 'Content Item List Panel page, which documents every one of them.'
     }
 ];
 
