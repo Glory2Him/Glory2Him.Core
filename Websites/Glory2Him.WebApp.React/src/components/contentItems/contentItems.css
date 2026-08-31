@@ -32,18 +32,17 @@ section.g2h-content-item-panel {
     opacity: 0.55;
 }
 
-/* ── ContentItemSearchPanel ─────────────────────────────────────────────────── */
+/* ── ContentItemSearchPanel family ─────────────────────────────────────── */
 
 /* Same reason as the detail panel above: a <section> keeps the accessible name, and the Blogzine
-   theme's page-band padding on a bare section is wrong for a panel inside a column. */
+   theme's page-band padding on a bare section is wrong for a panel sitting inside a column. */
 section.g2h-content-item-search-panel {
     padding-top: 0;
     padding-bottom: 0;
 }
 
-/* A row shows an EXCERPT, and an excerpt that runs to twelve lines is not one. Clamped rather
-   than truncated in TypeScript so the consumer's own summary is never cut mid-sentence in the
-   markup — what is clamped here is only what is shown. */
+/* The default template shows an EXCERPT, and an excerpt that runs to twelve lines is not one.
+   Clamped visually so the consumer's own summary is never cut mid-sentence in the markup. */
 .g2h-content-item-excerpt {
     display: -webkit-box;
     -webkit-line-clamp: 3;
@@ -52,71 +51,84 @@ section.g2h-content-item-search-panel {
     overflow: hidden;
 }
 
-/* The in-place reaction, offered on a quote alone. Deliberately smaller than coreUI's
-   .reaction-btn, which is an under-the-article control with a label and a count beside it: this
-   one sits over a hero image in a scrolling list and carries a glyph and nothing else. */
-.g2h-content-item-reaction {
+/* The default template's thumbnail: a fixed square beside the title, so a portrait image cannot
+   stretch the card and a landscape one cannot squash the heading. */
+.g2h-content-item-thumb {
+    width: 72px;
+    height: 72px;
+    flex-shrink: 0;
+}
+
+/* The meta row's segments read as one line with quiet dividers between them — the design's
+   "Submitted by | Author | Shareability | Date". */
+.g2h-content-item-meta > li + li {
+    border-left: 1px solid var(--bs-border-color);
+    margin-left: 1rem;
+    padding-left: 1rem;
+}
+
+/* The quote hero: height from a minimum rather than the theme's .card-grid pair, which only
+   applies under a .card-grid ancestor — a scrolling list has none, and a long quote should grow
+   the block rather than overflow a fixed height. The theme's card-overlay-bottom gradient sits
+   at z-index 1, so the text lifts itself above it. */
+.g2h-content-item-quote-hero {
+    min-height: 14rem;
+    background-color: var(--bs-dark);
+}
+
+.g2h-content-item-quote-text {
+    position: relative;
+    z-index: 2;
+}
+
+/* The reaction choices — the pill of options the Like control opens, floated above the row the
+   way the design's picker sits. position: absolute against the Like control's own wrapper. */
+.g2h-content-item-reaction-picker {
+    position: absolute;
+    bottom: calc(100% + 0.5rem);
+    left: 0;
+    z-index: 10;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.4rem 0.6rem;
+    white-space: nowrap;
+}
+
+.g2h-content-item-reaction-choice {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     width: 2.25rem;
     height: 2.25rem;
     padding: 0;
-    font-size: 1.05rem;
+    font-size: 1.15rem;
     line-height: 1;
-    border: 1px solid rgba(var(--bs-emphasis-color-rgb), 0.25);
+    border: 0;
     border-radius: 999px;
-    background: var(--bs-body-bg);
-    color: var(--bs-body-color);
-    transition: border-color 0.15s ease-in-out, transform 0.15s ease-in-out;
+    background: transparent;
+    transition: transform 0.15s ease-in-out, background-color 0.15s ease-in-out;
 }
 
-.g2h-content-item-reaction:hover {
-    border-color: var(--bs-primary);
-    transform: translateY(-1px);
+.g2h-content-item-reaction-choice:hover {
+    transform: translateY(-2px) scale(1.15);
+    background: var(--bs-secondary-bg);
 }
 
-.g2h-content-item-reaction:focus-visible {
+.g2h-content-item-reaction-choice:focus-visible {
     outline: 2px solid var(--bs-primary);
     outline-offset: 2px;
 }
 
-/* The one this reader chose. A ring rather than a fill, so the glyph stays legible and a second
-   click reads as changing your mind rather than voting twice. */
+/* The one this reader already chose — a soft ring, so a second click reads as changing your
+   mind rather than voting twice. */
 .g2h-content-item-reaction-given {
-    border-color: var(--bs-primary);
-    box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.25);
+    background: rgba(var(--bs-primary-rgb), 0.15);
+    box-shadow: 0 0 0 0.15rem rgba(var(--bs-primary-rgb), 0.35);
 }
 
-/* The quote card. Its height comes from a card-body in NORMAL FLOW rather than from the theme's
-   .card-grid .card-grid-lg pair, which sets a fixed 560px and only under a .card-grid ancestor —
-   a scrolling list has neither, so the card collapsed to nothing. A minimum keeps a one-line
-   quote from reading as a strip, and a long one simply grows the card. */
-.g2h-content-item-hero {
-    min-height: 18rem;
-    background-color: var(--bs-dark);
-    background-position: center center;
-    background-size: cover;
-}
-
-@media (max-width: 767.98px) {
-    .g2h-content-item-hero {
-        min-height: 14rem;
-    }
-}
-
-/* The theme draws its bottom gradient as an absolutely positioned ::before at z-index 1, and gives
-   only .card-img-overlay a z-index above it. A body in normal flow has to lift itself, or the
-   quote sits behind the very gradient that makes it readable. */
-.g2h-content-item-hero > .card-body {
-    position: relative;
-    z-index: 2;
-}
-
-/* The infinite-scroll sentinel. A pixel tall rather than nothing at all: an IntersectionObserver
-   over a zero-area target is unreliable — engines disagree on whether an empty intersection
-   rectangle counts — and the failure is a list that quietly stops loading rather than anything
-   anyone would see. */
+/* The infinite-scroll sentinel. A pixel tall rather than nothing at all: an observer over a
+   zero-area target is unreliable, and the failure is a list that quietly stops loading. */
 .g2h-content-item-sentinel {
     height: 1px;
 }

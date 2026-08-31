@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { ContentItemSearchPanel } from '../../../components/contentItems/contentItemSearchPanel';
 
 import {
@@ -12,6 +12,7 @@ import {
     ContentItemReactionOption,
     ContentItemSearchCriteria,
     ContentItemSearchItem,
+    ShareabilityBasis,
     emptyContentItemSearchCriteria
 } from '../../../models/components/contentItems/contentItemSearchItem';
 
@@ -26,10 +27,21 @@ import {
     PropsTable
 } from './shared/componentDoc';
 
-const minimalSample = `
+const structureSample = `
+ContentItemSearchPanel                     composes the two below
+├── ContentItemSearchBarPanel              search bar + advanced options + filter chips
+└── ContentItemResultsPanel                the results, infinite scroll
+    └── ContentItemItemPanel               ONE result — resolves the item's own effective
+        │                                  ContentItemSetting, then dispatches to a template
+        ├── ContentItemItemDefaultPanel    the template most types use
+        └── ContentItemItem{ContentType}Panel   overrides, by ContentType:
+              ContentItemItemQuotesPanel        (derives from the default template)
+`;
+
+const wiringSample = `
 import { ContentItemSearchPanel } from '../../components/contentItems/contentItemSearchPanel';
 
-// A public feed. The PAGE owns the read, the paging and the persistence.
+// A feed page. The PAGE owns the read, the paging, the redirects and the persistence.
 <ContentItemSearchPanel
     contentItemCollection={items}
     contentItemSettingCollection={defaultSettings}
@@ -40,52 +52,41 @@ import { ContentItemSearchPanel } from '../../components/contentItems/contentIte
     hasMore={hasNextPage}
     onLoadMore={fetchNextPage}
     reactionOptions={reactionOptions}
-    onReacted={(item, reaction) => reactAsync(item, reaction)} />
+    onReactionSelected={(item, reaction) => reactAsync(item, reaction)}
+    onTitleClick={(item) => navigate(\`/posts/\${item.id}\`, { state: { from } })}
+    onReadMoreClick={(item) => navigate(\`/posts/\${item.id}\`, { state: { from } })}
+    onCommentsClick={(item) => navigate(\`/posts/\${item.id}#comments\`, { state: { from } })}
+    onBibleReferenceClick={(item, ref) => navigate(bibleReferenceHref(ref), { state: { from } })} />
 
-// A surface that has already decided what it is showing — a topic's children,
-// a contributor's own rows — turns the bar off and keeps the list.
+// A surface that has already decided what it shows turns the bar off and keeps the list.
 <ContentItemSearchPanel
     contentItemCollection={myContributions}
     contentItemSettingCollection={defaultSettings}
     showSearchBar={false} />
 `;
 
-const pagingSample = `
-// THE PANEL DOES NOT FETCH. It raises onLoadMore when the foot of the list comes into view and
-// renders what it is handed next. The page owns the query:
+const hooksSample = `
+// FILTER HOOKS — handled by ContentItemSearchPanel itself: each rewrites the committed
+// criteria and raises onSearch, so the consumer sees one search signal however the reader asked.
+onContentTypeClick      toggle the Category criterion (set if clear, clear if already this type)
+onSubmittedByClick      set the submitted-by criterion ({ id, name } — the id filters, the name chips)
+onAuthorClick           set the author criterion
+onTagClick              set the tag criterion (servable once #318 lands)
 
-const { data, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } =
-    contentItemService.useSearchContentItems(criteria);
+// NAVIGATION HOOKS — bubble to the page, which owns every redirect and stamps the origin into
+// router state so the destination can offer a true way back.
+onTitleClick            the detail surface — public, my-content or moderation: the page decides
+onReadMoreClick         same destination as onTitleClick
+onCommentsClick         the detail's comment section
+onBibleReferenceClick   wherever a reference leads on this surface
+onEditClick             detail-in-edit, or moderation for the publisher/administrator tiers
 
-// ...and the broker pages with OData, asking for ONE ROW BEYOND the page and dropping it. The
-// reads answer with a plain array and no total in it, so the extra row is the only thing that
-// separates a full last page from a page with more behind it. The host caps [EnableQuery] at
-// OData:PageSize = 50, so a page size stays well under it.
+// RENDER TOGGLES — the item panel keeps these for itself:
+onAssignedReactionsClick   compact glyphs + total  ⇄  per-reaction counts
+onReactionClick            open / close the reaction choices
 
-parameters.set('$orderby', 'createdWhen desc');
-parameters.set('$skip', String(pageIndex * pageSize));
-parameters.set('$top', String(pageSize + 1));
-
-// $filter parses the enum MEMBER NAME, while the JSON body carries the number:
-//     contentType eq 'Quote'
-`;
-
-const engagementSample = `
-// WHERE AN OPINION MAY BE GIVEN follows from what the reader can see.
-//
-//   Quote            whole content on screen  →  react in place (onReacted)
-//   Everything else  an excerpt on screen     →  "Read and react" into /posts/{id}
-//   Comments         both renders             →  the count links into /posts/{id}
-//
-// And every one of those is still gated on the item's own effective ContentItemSetting:
-//
-//   reactionsAllowed && showReactions   →  a reaction row at all
-//   limitReactionsToLoveOnly            →  the isLove option and nothing else
-//   showComments                        →  the comment count
-//   showTags / showBibleReferences      →  the pill row
-//
-// onReacted is RAISED, never posted. The consumer writes it, decides whether a repeat click is
-// a retraction, and hands back a new collection.
+// PERSISTENCE — bubbles; the consumer posts and hands back a refreshed collection:
+onReactionSelected      create — or remove, when it is the one the reader already holds
 `;
 
 const settingFor = (
@@ -128,86 +129,100 @@ const settingFor = (
     });
 
 const demoSettings: ReadonlyArray<ContentItemSetting> = [
-    settingFor(ContentType.Quote, 'Quote', 'bi-quote'),
+    settingFor(ContentType.Quote, 'Quotes', 'bi-quote'),
+    settingFor(ContentType.Story, 'Story', 'bi-journal-text'),
     settingFor(ContentType.Testimony, 'Testimony', 'bi-chat-heart'),
     settingFor(ContentType.Devotional, 'Devotional', 'bi-brightness-high'),
     settingFor(ContentType.BibleStudy, 'Bible Study', 'bi-book')
 ];
 
-// A love-only override for one item, so the §6.5 narrowing is demonstrated rather than described.
+// A love-only override for ONE item, so the §6.4 per-card resolution is demonstrated rather
+// than described.
 const loveOnlyOverride: ContentItemSetting = settingFor(
-    ContentType.Quote, 'Quote', 'bi-quote', {
+    ContentType.Quote, 'Quotes', 'bi-quote', {
     id: 'setting-quote-override',
     contentItemId: 'quote-2',
     limitReactionsToLoveOnly: true
 });
 
 const reactionOptions: ReadonlyArray<ContentItemReactionOption> = [
-    { label: 'Amen', glyph: '🙌' },
+    { label: 'Amen', glyph: '👍' },
     { label: 'Love', glyph: '❤️', isLove: true },
-    { label: 'Joy', glyph: '😄' }
+    { label: 'Joy', glyph: '😄' },
+    { label: 'Praying', glyph: '🙏' }
 ];
 
 const demoItems: ReadonlyArray<ContentItemSearchItem> = [
     {
         id: 'quote-1',
         contentType: ContentType.Quote,
-        author: 'D. L. Moody',
-        content: 'Character is what you are in the dark.',
-        contributorName: 'Bryan',
+        author: 'William Temple',
+        content: "When I pray, coincidences happen; when I don't, they don't",
+        imageUrl: '/assets/images/blog/16by9/big/01.jpg',
+        submittedById: 'account-bryan',
+        submittedByName: 'Bryan',
+        shareabilityBasis: ShareabilityBasis.PublicDomain,
         publishedDate: new Date(2026, 6, 18),
-        reactionCount: 142,
-        commentCount: 9,
-        tags: ['character', 'integrity']
+        tags: ['prayer', 'providence'],
+        bibleReferences: ['James 5:16'],
+        reactionSummary: [
+            { label: 'Amen', glyph: '👍', count: 85 },
+            { label: 'Love', glyph: '❤️', count: 43 },
+            { label: 'Joy', glyph: '😄', count: 14 }
+        ],
+        commentCount: 9
     },
     {
-        id: 'testimony-1',
-        contentType: ContentType.Testimony,
-        title: 'I stopped running in a hospital car park',
+        id: 'story-1',
+        contentType: ContentType.Story,
+        title: 'NASA Proves The Bible Is True',
+        author: 'Harold Hill',
         content:
-            'I had been busy for eleven years, and busy is a very good place to hide. It took a '
-            + 'waiting room and a diagnosis that turned out to be nothing to make me sit still '
-            + 'long enough to be found.',
-        excerpt: 'Busy is a very good place to hide, until a waiting room takes it away.',
-        contributorName: 'Louis',
+            'Did you know that the space program is busy proving that what has been called '
+            + '"myth" in the Bible is true? Scientists at Green Belt, Maryland were checking '
+            + 'the position of the sun, moon, and planets out in space when the computer '
+            + 'stopped and put up a red signal: a day was missing in elapsed time.',
+        excerpt:
+            'Did you know that the space program is busy proving that what has been called '
+            + '"myth" in the Bible is true? Scientists at Green Belt, Maryland were checking '
+            + 'the position of the sun, moon, and planets…',
+        submittedById: 'account-louis',
+        submittedByName: 'Louis',
+        shareabilityBasis: ShareabilityBasis.PermissionGranted,
         publishedDate: new Date(2026, 6, 15),
-        reactionCount: 266,
-        commentCount: 18,
-        tags: ['testimony', 'faith'],
-        bibleReferences: ['Psalm 46:10']
+        tags: ['creation', 'science', 'faith'],
+        bibleReferences: ['Joshua 10:12-13', '2 Kings 20:9-11'],
+        reactionSummary: [
+            { label: 'Amen', glyph: '👍', count: 180 },
+            { label: 'Love', glyph: '❤️', count: 60 },
+            { label: 'Joy', glyph: '😄', count: 26 }
+        ],
+        commentCount: 18
     },
     {
         id: 'devotional-1',
         contentType: ContentType.Devotional,
         title: 'Walking daily in grace',
+        author: 'Joan',
         content:
-            'Grace is not a one-time event but the daily air the believer breathes. It is given '
-            + 'for the Tuesday you will not remember, as freely as for the day everything '
-            + 'changed.',
-        excerpt: 'Grace is not a one-time event but the daily air the believer breathes.',
-        contributorName: 'Joan',
-        publishedDate: new Date(2026, 6, 3),
-        reactionCount: 87,
-        commentCount: 5,
-        tags: ['grace', 'discipleship'],
-        bibleReferences: ['Ephesians 2:8-9']
-    },
-    {
-        id: 'biblestudy-1',
-        contentType: ContentType.BibleStudy,
-        title: 'The armour of God, piece by piece',
-        content:
-            'A six-part walk through Paul’s picture of the believer’s equipment for '
-            + 'the fight.',
+            'Grace is not a one-time event but the daily air the believer breathes. We wake '
+            + 'to mercies that are new every morning, walk through the day leaning on strength '
+            + 'that is not our own, and lie down at night forgiven.',
         excerpt:
-            'A six-part walk through Paul’s picture of the believer’s equipment for '
-            + 'the fight.',
-        contributorName: 'Amanda',
-        publishedDate: new Date(2026, 5, 28),
-        reactionCount: 54,
-        commentCount: 12,
-        tags: ['prayer', 'spiritual-warfare'],
-        bibleReferences: ['Ephesians 6:10-18']
+            'Grace is not a one-time event but the daily air the believer breathes. We wake '
+            + 'to mercies that are new every morning…',
+        imageUrl: '/assets/images/blog/4by3/03.jpg',
+        submittedById: 'account-joan',
+        submittedByName: 'Joan',
+        shareabilityBasis: ShareabilityBasis.Owned,
+        publishedDate: new Date(2026, 6, 3),
+        tags: ['grace', 'discipleship'],
+        bibleReferences: ['Ephesians 2:8-9'],
+        reactionSummary: [
+            { label: 'Amen', glyph: '👍', count: 60 },
+            { label: 'Love', glyph: '❤️', count: 27 }
+        ],
+        commentCount: 5
     }
 ];
 
@@ -237,17 +252,18 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
         name: 'contentItemCollection',
         type: 'ContentItemSearchItem[]',
         defaultValue: '[]',
-        description: 'The results as they stand. On an infinite scroll this is the ACCUMULATED '
-            + 'list, not the last page — the panel appends nothing of its own and holds no '
-            + 'results of its own.'
+        description: 'The ACCUMULATED results — the consumer’s infinite query keeps the '
+            + 'pages; the family appends nothing of its own.'
     },
     {
         name: 'contentItemSettingCollection',
         type: 'ContentItemSetting[]',
         defaultValue: '[]',
-        description: 'Every card resolves ITS OWN effective row (§6.4, §12.5.2 rules 1–2), so a '
-            + 'mixed collection is safe and a soft-deleted row is out of resolution (§6.6). The '
-            + 'Category box is built from the DEFAULT rows among them.'
+        description: 'Each ContentItemItemPanel resolves ITS OWN effective row (§6.4, §12.5.2 '
+            + 'rules 1–2, soft-deleted rows out §6.6), so a mixed collection is safe and every '
+            + 'card gates its features individually: ShowTags, ShowBibleReferences, '
+            + 'ShowReactions/ReactionsAllowed, LimitReactionsToLoveOnly, ShowComments, HasTitle, '
+            + 'HasAuthor. The Category box is built from the defaults among them.'
     },
     {
         name: 'showSearchBar',
@@ -257,75 +273,54 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
             + 'what it is showing.'
     },
     {
-        name: 'criteria',
-        type: 'ContentItemSearchCriteria?',
-        description: 'What Search was last pressed with. Seeds the boxes and reseeds them when '
-            + 'it changes, so a page landing from ?q= shows what it searched for. The '
-            + 'half-typed version lives inside the panel.'
+        name: 'criteria / onSearch',
+        type: 'ContentItemSearchCriteria / (criteria) => void',
+        description: 'The committed search. Typed boxes commit on Search; the clicked criteria '
+            + '(type badge, submitted-by, author, tag) commit immediately and wear removable '
+            + 'chips. onSearch is the ONE search signal the consumer sees, however the reader '
+            + 'asked.'
     },
     {
-        name: 'onSearch',
-        type: '(criteria) => void',
-        description: 'Raised when Search is pressed — never on a keystroke, and never when an '
-            + 'advanced option changes. The panel does not filter: what the criteria mean is '
-            + 'the consumer’s decision.'
-    },
-    {
-        name: 'isLoading',
-        type: 'boolean',
-        defaultValue: 'false',
-        description: 'The FIRST page. Holds the list back rather than emptying it, so a '
-            + 're-search does not flash “nothing found” on its way to results.'
-    },
-    {
-        name: 'isLoadingMore',
-        type: 'boolean',
-        defaultValue: 'false',
-        description: 'A further page, on its way. The sentinel is held back while it is on, so '
-            + 'one scroll is one fetch.'
-    },
-    {
-        name: 'hasMore',
-        type: 'boolean',
-        defaultValue: 'false',
-        description: 'Whether anything is left. The consumer knows this from its own paging — '
-            + 'the OData reads answer with no total, so a page asks for one row beyond the page.'
-    },
-    {
-        name: 'onLoadMore',
-        type: '() => void',
-        description: 'Raised when the foot of the list comes into view, and by the fallback '
-            + 'button where IntersectionObserver is unavailable. Never raised while '
-            + 'isLoadingMore is on.'
+        name: 'isLoading / isLoadingMore / hasMore / onLoadMore',
+        type: 'paging',
+        description: 'The infinite scroll: the results panel owns the sentinel and raises '
+            + 'onLoadMore; the page owns useInfiniteQuery and the OData $skip/$top+1 paging. A '
+            + 'visible Load more button takes over where IntersectionObserver is unavailable.'
     },
     {
         name: 'reactionOptions',
         type: 'ContentItemReactionOption[]',
         defaultValue: '[]',
-        description: 'The reactions a reader may give. Empty means no card offers one, whatever '
-            + 'the settings say: a surface that cannot persist a reaction must not appear to '
-            + 'accept one. isLove marks the one a love-only type keeps.'
+        description: 'The choices behind Like — pulled by the page from GET api/Reactions '
+            + '(approved rows only). Empty means no card offers one, whatever the settings say: '
+            + 'a surface that cannot persist a reaction must not appear to accept one.'
     },
     {
-        name: 'onReacted',
+        name: 'onReactionSelected',
         type: '(item, reaction) => void',
-        description: 'Raised on a QUOTE only, and only when the effective setting allows it. The '
-            + 'consumer posts it and hands back a new collection — the panel holds no optimistic '
-            + 'state.'
+        description: 'The reader chose. The consumer posts the create — or the remove, when it '
+            + 'is the one they already hold — and hands back a refreshed collection; the panel '
+            + 'holds no optimistic state.'
     },
     {
-        name: 'titleText / ariaLabel / cssClass',
-        type: 'string',
-        description: 'A heading above the list, the landmark name used when there is none, and a '
-            + 'class appended for spacing in whatever it sits in.'
+        name: 'onTitleClick / onReadMoreClick / onCommentsClick / onBibleReferenceClick / onEditClick',
+        type: '(item, …) => void',
+        description: 'The navigation hooks — they bubble, the page routes, and the redirect '
+            + 'carries { state: { from } } so the destination can offer a true back button. '
+            + 'Edit, Share and Save render only where wired.'
+    },
+    {
+        name: 'onContentTypeClick / onSubmittedByClick / onAuthorClick / onTagClick',
+        type: '(item, …) => void',
+        description: 'The filter hooks. The family rewrites the criteria itself; a same-named '
+            + 'consumer hook still fires afterwards for a page that wants to know.'
     },
     {
         name: 'text overrides',
         type: 'string',
-        description: 'Every visible string is a prop — searchPlaceholderText, categoryLabelText, '
-            + 'anyCategoryText, authorLabelText, authorPlaceholderText, loadingText, '
-            + 'loadingMoreText, loadMoreButtonText, emptyText, commentsLinkText, readMoreText '
-            + 'and authorByText.'
+        description: 'Every visible string is a prop, threaded once through the family — '
+            + 'searchPlaceholderText, categoryLabelText, submittedByLabelText, likeButtonText, '
+            + 'commentsText, editButtonText, readMoreText, emptyText and the rest.'
     }
 ];
 
@@ -337,26 +332,26 @@ export function ContentItemSearchPanelDoc() {
     const [criteria, setCriteria] =
         useState<ContentItemSearchCriteria>(emptyContentItemSearchCriteria);
 
-    // The demo reacts for real, in the only way a presentation component can: the page owns the
-    // state and hands a new collection back, exactly as a real consumer would after its write.
+    // The demo reacts for real, in the only way a presentation family can: the page owns the
+    // state and hands a new collection back, exactly as a real consumer does after its write.
     const [reactedBy, setReactedBy] = useState<Readonly<Record<string, string>>>({});
 
-    const quoteItems = useMemo(
-        () => [
-            demoItems[0],
-            {
-                ...demoItems[0],
-                id: 'quote-2',
-                author: 'George Müller',
-                content:
-                    'The beginning of anxiety is the end of faith, and the beginning of true '
-                    + 'faith is the end of anxiety.',
-                contributorName: 'Amanda',
-                reactionCount: 61,
-                commentCount: 3
-            }
-        ].map((item) => ({ ...item, viewerReactionLabel: reactedBy[item.id] })),
-        [reactedBy]);
+    const quoteItems: ReadonlyArray<ContentItemSearchItem> = [
+        demoItems[0],
+        {
+            ...demoItems[0],
+            id: 'quote-2',
+            author: 'George Müller',
+            content:
+                'The beginning of anxiety is the end of faith, and the beginning of true '
+                + 'faith is the end of anxiety.',
+            imageUrl: undefined,
+            submittedByName: 'Amanda',
+            submittedById: 'account-amanda',
+            reactionSummary: [{ label: 'Love', glyph: '❤️', count: 61 }],
+            commentCount: 3
+        }
+    ].map((item) => ({ ...item, viewerReactionLabel: reactedBy[item.id] }));
 
     return (
         <ComponentDoc
@@ -364,58 +359,101 @@ export function ContentItemSearchPanelDoc() {
             filePath="src/components/contentItems/contentItemSearchPanel.tsx"
             summary={
                 <>
-                    Many content items, searched and scrolled — the sibling of{' '}
-                    <code>ContentItemDetailPanel</code>, which renders one. A{' '}
-                    <strong>pure presentation component</strong>: props in, events out, no
-                    fetching, no mutation, no sockets.
+                    Many content items, searched and scrolled — a <strong>family</strong> of
+                    presentation components: props in, events out, no fetching, no mutation, no
+                    sockets. The same family serves the public home feed, /MyPosts and the
+                    /Admin/Posts moderation queue.
                 </>
             }>
+
+            <DocSection
+                title="The family"
+                lead={
+                    <>
+                        Templates are resolved by <code>ContentType</code>: an override renders
+                        where one is registered, the default otherwise, and an override{' '}
+                        <strong>derives from</strong> <code>ContentItemItemDefaultPanel</code> by
+                        rendering it with only the content slot replaced — the meta row, the
+                        pills and the engagement row are written once.{' '}
+                        <code>ContentItemItemVerseImagePanel</code> is designed but blocked:
+                        there is no <code>ContentType.VerseImage</code> member yet, and the enum
+                        is append-only (&sect;3.6) with three seeds riding on it.
+                    </>
+                }>
+                <CodeSample code={structureSample} />
+                <CodeSample code={wiringSample} />
+            </DocSection>
 
             <DocSection
                 title="It does not know what is behind the collection"
                 lead={
                     <>
-                        The same panel serves a public feed, a contributor&rsquo;s own rows and a
-                        moderation queue &mdash; three pages over one component. So it{' '}
-                        <strong>never filters</strong>, never decides visibility and never turns a
-                        search into a request: it raises <code>onSearch</code> and renders whatever
-                        comes back. The page chooses the read, and the server decides what that
-                        caller may see against the stored row.
+                        The panel never filters, never decides visibility and never turns a
+                        search into a request: it raises <code>onSearch</code> and renders
+                        whatever comes back. The page chooses the read —{' '}
+                        <code>GET api/ContentItems/Public</code> for the home feed,{' '}
+                        <code>GET api/ContentItems</code> pinned to the caller for /MyPosts,
+                        pinned to Draft + Submitted for the moderation queue — and the server
+                        decides what that caller may see against the stored row.
                     </>
-                }>
-                <CodeSample code={minimalSample} />
-            </DocSection>
+                } />
 
             <DocSection
-                title="Two renders, chosen by content type"
+                title="Two templates, live"
                 lead={
                     <>
-                        A <code>Quote</code> gets the hero card and shows the quote{' '}
-                        <strong>whole</strong>, because a quote is short enough to fit and to form
-                        an opinion on. Every other type gets the horizontal row: thumbnail, title,
-                        excerpt, pills, byline. The split is on the <em>type</em> rather than on
-                        position &mdash; the hero is what a quote looks like, so a page of quotes
-                        is a page of heroes and not one hero above a list.
+                        A quote renders <strong>whole</strong> through the Quotes override — a
+                        dark hero where the item carries an image, a quiet block where it does
+                        not — because a quote is short enough to form an opinion on. Every other
+                        type renders through the default template: title, excerpt,
+                        read&nbsp;more. Both carry the same meta row, pills and engagement row,
+                        because the override derives from the default.
                     </>
                 }>
                 <LiveDemo title="Live — a mixed page">
                     <ContentItemSearchPanel
                         contentItemCollection={demoItems}
                         contentItemSettingCollection={demoSettings}
-                        showSearchBar={false} />
+                        showSearchBar={false}
+                        onTitleClick={(item) => setLastEvent(`onTitleClick(${item.id})`)}
+                        onReadMoreClick={(item) => setLastEvent(`onReadMoreClick(${item.id})`)}
+                        onCommentsClick={(item) => setLastEvent(`onCommentsClick(${item.id})`)}
+                        onBibleReferenceClick={(item, reference) =>
+                            setLastEvent(`onBibleReferenceClick(${item.id}, ${reference})`)}
+                        onEditClick={(item) => setLastEvent(`onEditClick(${item.id})`)} />
                 </LiveDemo>
+
+                <p className="small text-body-secondary">
+                    Last event: <code>{lastEvent}</code> — every affordance is an event, and the
+                    page decides where each one leads.
+                </p>
             </DocSection>
 
             <DocSection
-                title="Where an opinion may be given"
+                title="The event hooks"
                 lead={
                     <>
-                        A quote may be reacted to <strong>in place</strong> &mdash; its whole
-                        content is on screen. Everything else routes into the detail view first,
-                        because you cannot form an opinion on an excerpt, and a like offered
-                        beside three sentences of a six-part study invites exactly that.
-                        Commenting always routes into the detail view, on both renders: there is
-                        no room for a thread here and no honest way to show one.
+                        Three kinds, and the kind decides who handles it: filter hooks rewrite
+                        the criteria inside the family, navigation hooks bubble to the page,
+                        and the two render toggles never leave the card.
+                    </>
+                }>
+                <CodeSample code={hooksSample} />
+            </DocSection>
+
+            <DocSection
+                title="Reacting, and the per-item settings"
+                lead={
+                    <>
+                        The assigned-reactions cluster toggles between its compact face and the
+                        per-reaction counts. <strong>Like</strong> opens the choices —{' '}
+                        <code>GET api/Reactions</code>, approved rows only, supplied by the page
+                        — and choosing raises <code>onReactionSelected</code>; this demo
+                        persists it into page state, exactly the shape of a real consumer.{' '}
+                        <strong>The second quote carries an item-level override</strong> with{' '}
+                        <code>limitReactionsToLoveOnly</code>, so it offers one choice where the
+                        first offers four: the &sect;6.4 resolution running per card, on one
+                        collection.
                     </>
                 }>
                 <LiveDemo title="Live — react without leaving the list">
@@ -424,21 +462,36 @@ export function ContentItemSearchPanelDoc() {
                         contentItemSettingCollection={[...demoSettings, loveOnlyOverride]}
                         showSearchBar={false}
                         reactionOptions={reactionOptions}
-                        onReacted={(item, reaction) => {
+                        onReactionSelected={(item, reaction) => {
                             setReactedBy((given) => ({ ...given, [item.id]: reaction.label }));
-                            setLastEvent(`onReacted(${item.id}, ${reaction.label})`);
+                            setLastEvent(`onReactionSelected(${item.id}, ${reaction.label})`);
+                        }}
+                        onTitleClick={(item) => setLastEvent(`onTitleClick(${item.id})`)} />
+                </LiveDemo>
+            </DocSection>
+
+            <DocSection
+                title="The search bar, the filter clicks and the chips"
+                lead={
+                    <>
+                        The typed boxes commit when Search is pressed. The clicked criteria —
+                        the type badge toggling the category, Submitted&nbsp;by, Author, a tag
+                        pill — commit <strong>immediately</strong> and wear removable chips, so
+                        a narrowed list always says why it narrowed. There is deliberately no
+                        Tags <em>box</em>: associations have no HTTP exposer yet (#318), and a
+                        typed tag would be a control that does nothing.
+                    </>
+                }>
+                <LiveDemo title="Live — click a badge, a byline or a pill">
+                    <ContentItemSearchPanel
+                        contentItemCollection={demoItems}
+                        contentItemSettingCollection={demoSettings}
+                        criteria={criteria}
+                        onSearch={(searched) => {
+                            setCriteria(searched);
+                            setLastEvent(`onSearch(${JSON.stringify(searched)})`);
                         }} />
                 </LiveDemo>
-
-                <p className="small text-body-secondary">
-                    Last event: <code>{lastEvent}</code>.{' '}
-                    <strong>The second quote carries an item-level override</strong> with{' '}
-                    <code>limitReactionsToLoveOnly</code>, so it offers the one option and the
-                    first offers all three &mdash; the &sect;6.4 resolution running per card, on
-                    one collection.
-                </p>
-
-                <CodeSample code={engagementSample} />
             </DocSection>
 
             <DocSection
@@ -446,10 +499,9 @@ export function ContentItemSearchPanelDoc() {
                 lead={
                     <>
                         A public feed leaves <code>approvalStatus</code> unset and no badge
-                        appears. A moderation surface or a &ldquo;my contributions&rdquo; page
-                        sets it, because a draft that looks published is the one thing a
-                        contributor must never be shown. <code>Approved</code> shows nothing: it
-                        is the ordinary case, and a badge on every card would say nothing.
+                        appears. /MyPosts and the moderation queue set it, because a draft that
+                        looks published is the one thing a contributor must never be shown.{' '}
+                        <code>Approved</code> shows nothing — it is the ordinary case.
                     </>
                 }>
                 <LiveDemo title="Live — draft, in review, approved">
@@ -461,68 +513,20 @@ export function ContentItemSearchPanelDoc() {
             </DocSection>
 
             <DocSection
-                title="The search bar, and the box that is deliberately missing"
-                lead={
-                    <>
-                        <code>SearchBarComponent</code> with the chevron folded out:{' '}
-                        <strong>Category</strong> from the default settings, in the
-                        administrator&rsquo;s own <code>SortOrder</code>, and{' '}
-                        <strong>Author</strong> as free text against the author of the{' '}
-                        <em>words</em> rather than whoever contributed the row. Changing an
-                        advanced option does not re-run the search until the button is pressed.
-                        <br />
-                        <br />
-                        The <strong>Tags</strong> box the search page carries is not here.
-                        Associations have no HTTP exposer yet (<code>#318</code>), so it would be
-                        a control that does nothing &mdash; and one that could only ever narrow
-                        the pages already loaded, which on an infinite scroll is a filter that
-                        quietly lies.
-                    </>
-                }>
-                <LiveDemo title="Live — press Search">
-                    <ContentItemSearchPanel
-                        contentItemCollection={demoItems}
-                        contentItemSettingCollection={demoSettings}
-                        criteria={criteria}
-                        onSearch={(searched) => {
-                            setCriteria(searched);
-
-                            setLastEvent(
-                                `onSearch(${JSON.stringify(searched)})`);
-                        }} />
-                </LiveDemo>
-            </DocSection>
-
-            <DocSection
-                title="Infinite scroll, and the panel still does not fetch"
-                lead={
-                    <>
-                        The panel owns an <code>IntersectionObserver</code> over a sentinel at the
-                        foot of the list and raises <code>onLoadMore</code>. It is torn down while
-                        a page is in flight and rebuilt when it lands, so one scroll is one fetch
-                        and a sentinel still on screen asks for the next page. Where the observer
-                        is unavailable a visible <strong>Load more</strong> button takes its
-                        place, so the list is never a dead end.
-                    </>
-                }>
-                <CodeSample code={pagingSample} />
-            </DocSection>
-
-            <DocSection
                 title="What it deliberately leaves out"
                 lead={
                     <>
-                        <strong>The image.</strong> <code>ContentItem</code> carries no image
-                        column and <code>Attachment</code> has no exposer, so nothing here fetches
-                        one: the consumer supplies <code>imageUrl</code>, today a per-content-type
-                        placeholder, and a card without one drops the thumbnail rather than
-                        rendering a broken image.{' '}
-                        <strong>Tags and bible references</strong> are rendered from the
-                        projection and supplied by nobody until <code>#318</code> lands.{' '}
-                        <strong>Approval controls</strong> belong to <code>ReviewPanel</code>, and{' '}
-                        <strong>the item itself</strong> to <code>ContentItemDetailPanel</code>.
-                        There is no <code>useQuery</code>, no <code>useMutation</code> and no
-                        broker call anywhere inside.
+                        <strong>The image</strong>: <code>ContentItem</code> carries no image
+                        column and <code>Attachment</code> has no exposer, so the consumer
+                        supplies <code>imageUrl</code> — today a per-type placeholder — and a
+                        card without one simply drops it. <strong>Tags, references, reaction
+                        summaries, comment counts and submitted-by names</strong> are
+                        association- or resolver-shaped reads the host does not expose yet
+                        (#318, &sect;16.7.4); cards claim no figure they were not given.{' '}
+                        <strong>Approval controls</strong> belong to <code>ReviewPanel</code>,
+                        and <strong>the item itself</strong> to{' '}
+                        <code>ContentItemDetailPanel</code>. There is no <code>useQuery</code>,
+                        no <code>useMutation</code> and no broker call anywhere inside.
                     </>
                 } />
 

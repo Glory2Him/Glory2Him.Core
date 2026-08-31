@@ -235,7 +235,7 @@ describe('Component reference pages', () => {
     });
 
     describe('ContentItemSearchPanelDoc', () => {
-        it('should document the component and name its source', () => {
+        it('should document the family and name its source', () => {
             // when
             renderWithAuth(<ContentItemSearchPanelDoc />);
 
@@ -246,37 +246,43 @@ describe('Component reference pages', () => {
             expect(screen.getByText('src/components/contentItems/contentItemSearchPanel.tsx'))
                 .toBeInTheDocument();
 
-            expect(screen.getByRole('heading',
-                { name: 'It does not know what is behind the collection' })).toBeInTheDocument();
-
+            expect(screen.getByRole('heading', { name: 'The family' })).toBeInTheDocument();
             expect(screen.getByRole('heading', { name: 'Props' })).toBeInTheDocument();
         });
 
-        it('should run the demos rather than picture them', () => {
+        it('should run the two templates rather than picture them', () => {
             // when
             renderWithAuth(<ContentItemSearchPanelDoc />);
 
-            // then: a quote shown whole, and a row showing its excerpt instead of its content
-            expect(screen.getAllByText('Character is what you are in the dark.').length)
+            // then: a quote shown whole through the override, a story through the default
+            expect(screen.getAllByText(new RegExp('coincidences happen')).length)
                 .toBeGreaterThan(0);
 
-            // More than one demo on the page renders the same testimony, so the excerpt is
-            // asserted as present rather than as unique.
-            expect(screen.getAllByText(
-                'Busy is a very good place to hide, until a waiting room takes it away.').length)
-                .toBeGreaterThan(0);
+            // The mixed-page and filter demos both render the story, so present, not unique.
+            expect(screen.getAllByRole('button', { name: 'NASA Proves The Bible Is True' })
+                .length).toBeGreaterThan(0);
         });
 
-        // §6.4 resolution running per card, on one collection: the second quote's item-level
-        // override carries limitReactionsToLoveOnly, so it offers one option where the first
-        // offers three.
-        it('should narrow the reactions on the item its override belongs to', () => {
-            // when
+        // §6.4 per card, on one collection: the second quote's item-level override carries
+        // limitReactionsToLoveOnly, so its choices are one where the first's are four.
+        it('should narrow the choices on the item its override belongs to', async () => {
+            // given
             renderWithAuth(<ContentItemSearchPanelDoc />);
+            const likeButtons = screen.getAllByRole('button', { name: /Like/ });
+
+            // when
+            await userEvent.click(likeButtons[0]);
 
             // then
-            expect(screen.getAllByRole('button', { name: 'Love' })).toHaveLength(2);
-            expect(screen.getAllByRole('button', { name: 'Amen' })).toHaveLength(1);
+            expect(screen.getAllByRole('menuitem')).toHaveLength(4);
+
+            // when: close it, open the love-only card's choices
+            await userEvent.click(likeButtons[0]);
+            await userEvent.click(likeButtons[1]);
+
+            // then
+            expect(screen.getAllByRole('menuitem')).toHaveLength(1);
+            expect(screen.getByRole('menuitem', { name: 'Love' })).toBeInTheDocument();
         });
 
         it('should react for real rather than describing the event', async () => {
@@ -284,16 +290,20 @@ describe('Component reference pages', () => {
             renderWithAuth(<ContentItemSearchPanelDoc />);
 
             // when
-            await userEvent.click(screen.getAllByRole('button', { name: 'Amen' })[0]);
+            await userEvent.click(screen.getAllByRole('button', { name: /Like/ })[0]);
+            await userEvent.click(screen.getByRole('menuitem', { name: 'Amen' }));
 
             // then
-            expect(screen.getByText('onReacted(quote-1, Amen)')).toBeInTheDocument();
+            expect(screen.getByText('onReactionSelected(quote-1, Amen)')).toBeInTheDocument();
 
-            expect(screen.getAllByRole('button', { name: 'Amen' })[0])
+            // and the choice the reader made is marked when the choices reopen
+            await userEvent.click(screen.getAllByRole('button', { name: /Like/ })[0]);
+
+            expect(screen.getByRole('menuitem', { name: 'Amen' }))
                 .toHaveAttribute('aria-pressed', 'true');
         });
 
-        // #318: a tag filter would be a control that does nothing.
+        // #318: a typed tag filter would be a control that does nothing.
         it('should offer no tag box in the advanced options', async () => {
             // given
             renderWithAuth(<ContentItemSearchPanelDoc />);

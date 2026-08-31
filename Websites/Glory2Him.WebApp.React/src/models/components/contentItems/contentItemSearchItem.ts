@@ -1,53 +1,58 @@
 import { ApprovalStatus } from '../associations/associationItem';
+import { ShareabilityBasis } from './contentItemFormItem';
 import { ContentType } from '../../foundations/contentItemSettings/contentType';
 
-export { ApprovalStatus };
+export { ApprovalStatus, ShareabilityBasis };
 
 // One row in a list of content items, projected down to what a CARD renders. The sibling of
 // ContentItemFormItem, and separate from it for the same reason that one is separate from the
-// wire entity: a list card needs an image, a contributor's face and two engagement counts that no
-// ContentItem column carries, and it does not need the shareability basis or the permission note
-// that only a form has any use for.
+// wire entity: a card needs an image, the contributor's face and the engagement figures that no
+// ContentItem column carries, and it does not need the permission note only a form has a use for.
 //
-// A page projects whatever it holds down to this shape, so ContentItemSearchPanel never depends
-// on the wire entity — the same split AssociationItem and ApprovalReviewItem take.
+// A page projects whatever it holds down to this shape, so the ContentItemSearchPanel family
+// never depends on the wire entity — the same split AssociationItem and ApprovalReviewItem take.
 export type ContentItemSearchItem = {
-    // The panel's React key, and what the default detail href is built from.
+    // The template's React key, and what the page routes its detail redirects on.
     id: string;
 
-    // Decides WHICH render the item gets — the hero treatment for a quote, the horizontal row for
-    // everything else — and which effective ContentItemSetting is resolved for it. The numeric
-    // member, never a display name, exactly as ContentItemFormItem carries it.
+    // Decides WHICH template renders the item — an override where one is registered, the default
+    // otherwise — and which effective ContentItemSetting is resolved for it. The numeric member,
+    // never a display name, exactly as ContentItemFormItem carries it.
     contentType: ContentType;
 
-    // Absent on a type whose effective setting carries no title (a quote). The panel does not
+    // Absent on a type whose effective setting carries no title (a quote). The templates do not
     // invent one: a card with no title leads with its content instead.
     title?: string;
 
-    // The AUTHOR OF THE WORDS — "D. L. Moody" — which is a different person from whoever
-    // contributed the row. Absent on the types whose setting carries no author.
+    // The AUTHOR OF THE WORDS — "William Temple" — which is a different person from whoever
+    // submitted the row. Absent on the types whose setting carries no author.
     author?: string;
 
-    // The item's own text. The hero render shows a quote WHOLE, because a quote is short enough
-    // to form an opinion on; the row render shows `excerpt` instead.
+    // The item's own text. The quote template shows it WHOLE — a quote is short enough to form an
+    // opinion on — while the default template shows `excerpt` instead.
     content: string;
 
-    // What a row shows in place of the full content. Left to the consumer rather than truncated
-    // here: a summary somebody wrote beats the first 140 characters of anything, and when it is
-    // absent the panel falls back to the content itself.
+    // What the default template shows in place of the full content. Left to the consumer rather
+    // than truncated here: a summary somebody wrote beats the first 220 characters of anything,
+    // and when it is absent the template falls back to the content itself.
     excerpt?: string;
 
-    // The card's thumbnail — the hero's background, the row's left column. NOTHING FETCHES THIS:
-    // ContentItem carries no image column and Attachment has no exposer yet, so the consumer
-    // supplies whatever it has, today a per-content-type placeholder. A card with no image drops
-    // the thumbnail rather than rendering a broken one.
+    // The card's imagery — the quote hero's background, the default template's thumbnail.
+    // NOTHING FETCHES THIS: ContentItem carries no image column and Attachment has no exposer, so
+    // the consumer supplies whatever it has, today a per-content-type placeholder. A card with no
+    // image drops the imagery rather than rendering a broken one.
     imageUrl?: string;
 
-    // WHO CONTRIBUTED IT, for the byline — a display name, unlike ContentItemFormItem.createdBy,
-    // which is the account id the [OWNER] rule is decided on. Nothing here is an authorization
-    // input, so a name is the right thing to carry.
-    contributorName?: string;
-    contributorImageUrl?: string;
+    // WHO SUBMITTED IT, for the "Submitted by" segment of the meta row. The NAME is what renders
+    // and the ID is what onSubmittedByClick filters on — deliberately two members, because the id
+    // is the account identifier the audit trail records and must never itself be rendered, while
+    // two accounts can share one display name and a name is therefore nothing to filter on.
+    submittedById?: string;
+    submittedByName?: string;
+    submittedByImageUrl?: string;
+
+    // How the contributor is permitted to share it, for the meta row's Shareability segment.
+    shareabilityBasis?: ShareabilityBasis;
 
     publishedDate?: Date;
 
@@ -57,61 +62,84 @@ export type ContentItemSearchItem = {
     tags?: ReadonlyArray<string>;
     bibleReferences?: ReadonlyArray<string>;
 
-    // Each count is optional and an omitted one is LEFT OUT rather than shown as a zero, the rule
-    // EngagementMeta already follows: a card must not claim a figure it does not have.
-    reactionCount?: number;
-    commentCount?: number;
+    // The reactions this item has already been given, per option. Drives both faces of the
+    // assigned-reactions cluster: compact shows the glyphs and the summed total, expanded shows
+    // each count. Absent or empty renders no cluster at all — a card claims no figure it does not
+    // have, the rule EngagementMeta already follows.
+    reactionSummary?: ReadonlyArray<ContentItemReactionCount>;
 
-    // The reaction this viewer has already given, by its ReactionOption label. Renders the
-    // matching button as pressed, so a second click is visibly a change of mind rather than a
-    // second vote.
+    // The reaction this viewer has already given, by its option label. Renders the matching
+    // choice as pressed, so a second click is visibly a change of mind rather than a second vote.
     viewerReactionLabel?: string;
 
-    // Drives the status badge on a non-public row. A public feed leaves it unset and no badge
-    // appears; a moderation surface or a "my contributions" page sets it, because a draft that
-    // looks published is the one thing a contributor must never be shown.
-    approvalStatus?: ApprovalStatus;
+    // Comment count for the engagement row. Absent leaves the comments control out entirely.
+    commentCount?: number;
 
-    // Where the card leads. Defaults to the detail route the app already answers on, so a
-    // consumer that routes items normally passes nothing.
-    href?: string;
+    // Drives the status badge on a non-public row. A public feed leaves it unset and no badge
+    // appears; a moderation surface or a "my posts" page sets it, because a draft that looks
+    // published is the one thing a contributor must never be shown.
+    approvalStatus?: ApprovalStatus;
 };
 
-// What the search bar was set to when Search was last pressed. The panel holds the half-typed
-// version itself and raises this on submit — an advanced option changed does not re-run the
-// search until the button is pressed, matching the search page this bar came from.
+// One glyph of the assigned-reactions cluster.
+export type ContentItemReactionCount = {
+    label: string;
+    glyph: string;
+    count: number;
+};
+
+// One reaction a reader may give — the choices behind the Like control. The page pulls these from
+// GET api/Reactions (approved rows only) and hands them over; the panel invents none.
+export type ContentItemReactionOption = {
+    // Identity as well as label: what comes back on onReactionSelected and what
+    // viewerReactionLabel is matched against, so it must be stable.
+    label: string;
+
+    // Rendered as it stands — the reaction row's UnicodeEmoji.
+    glyph: string;
+
+    // Marks the one option a love-only surface keeps. A content type whose effective setting
+    // carries LimitReactionsToLoveOnly (§6.5) offers this and nothing else — a flag rather than a
+    // match on the label text, so renaming "Love" cannot silently empty the row.
+    isLove?: boolean;
+};
+
+// Who a submitted-by filter points at. The ID is what the read filters on; the NAME is what the
+// filter chip shows — carried together because a criteria chip reading a bare account id would be
+// rendering the one thing the id must never do.
+export type ContentItemSubmittedByCriterion = {
+    id: string;
+    name: string;
+};
+
+// What the search stood at when it was last committed. The bar holds the half-typed version
+// itself and commits on Search; the pill-click hooks commit immediately, because a reader
+// clicking a tag has already said what they want.
 export type ContentItemSearchCriteria = {
     // Free text. What it is matched against is the CONSUMER's decision: the panel neither filters
     // nor knows what read is behind the collection it renders.
     query: string;
 
-    // The Category box. Null is "any category".
+    // The Category box, and what onContentTypeClick toggles. Null is "any category".
     contentType: ContentType | null;
 
-    // The Author box — free text against the item's author, not its contributor.
+    // The Author box — free text against the author of the WORDS, not the submitter.
     author: string;
+
+    // Set by onSubmittedByClick, shown and cleared as a chip — there is no box for it, because
+    // nobody types an account id.
+    submittedBy: ContentItemSubmittedByCriterion | null;
+
+    // Set by onTagClick, shown and cleared as a chip. Carried in the criteria now so the family
+    // does not change shape when #318 makes it servable; until then the page simply cannot act
+    // on it.
+    tag: string | null;
 };
 
 export const emptyContentItemSearchCriteria: ContentItemSearchCriteria = {
     query: '',
     contentType: null,
-    author: ''
-};
-
-// One reaction a reader may give from the list. Deliberately NOT coreUI's ReactionOption, which
-// carries a count: a count belongs to ONE item, and this list is shared by every card the panel
-// renders. The per-item total lives on ContentItemSearchItem.reactionCount.
-export type ContentItemReactionOption = {
-    // Identity as well as label. It is what comes back on onReacted and what
-    // ContentItemSearchItem.viewerReactionLabel is matched against, so it must be stable.
-    label: string;
-
-    // Rendered as it stands. An emoji reads at any size, needs no icon font, and is what the
-    // reaction row has always shown.
-    glyph: string;
-
-    // Marks the one option a love-only surface keeps. A content type whose effective setting
-    // carries LimitReactionsToLoveOnly (§6.5) offers this and nothing else — matched on a flag
-    // rather than on the label text, so renaming "Love" cannot silently empty the row.
-    isLove?: boolean;
+    author: '',
+    submittedBy: null,
+    tag: null
 };
