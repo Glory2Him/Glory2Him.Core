@@ -78,7 +78,7 @@ describe('navMenuProvider Admin section', () => {
 
         // then
         expect(children.map((child) => child.title))
-            .toEqual(['Users', 'Content Item Settings', 'Posts']);
+            .toEqual(['Users', 'Content Item Settings', 'Posts', 'Sample Posts']);
     });
 
     it('should point each admin entry at its route', () => {
@@ -86,8 +86,12 @@ describe('navMenuProvider Admin section', () => {
         const children = getAdminSection()?.children ?? [];
 
         // then: these must match adminRoutes, or the sidebar links land on nothing
-        expect(children.map((child) => child.href))
-            .toEqual(['Admin/Users', 'Admin/ContentItemSettings', 'Admin/Posts']);
+        expect(children.map((child) => child.href)).toEqual([
+            'Admin/Users',
+            'Admin/ContentItemSettings',
+            'Admin/Posts',
+            'Admin/SamplePosts'
+        ]);
     });
 
     it('should restrict every admin entry to administrators', () => {

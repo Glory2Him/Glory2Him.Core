@@ -7,7 +7,9 @@ import { JournalMasonry } from '../pages/journalMasonry';
 import { PostDetail } from '../pages/postDetail';
 import { PostGrid } from '../pages/postGrid';
 import { PostList } from '../pages/postList';
+import { MyPosts } from '../pages/myPosts';
 import { Posts } from '../pages/posts';
+import { SecuredRoute } from '../components/securitys/securedRoutes';
 import { PostSingle } from '../pages/postSingle';
 import { Tag } from '../pages/tag';
 
@@ -33,6 +35,17 @@ export const publicPostRoutes: RouteObject[] = [
     // dynamic one whatever the order.
     { path: 'posts', element: <Posts /> },
     { path: 'posts/contribute', element: <Contribute /> },
+
+    // The caller's own contributions, in the public layout. Secured with no role list: there is
+    // no "my" for a visitor, and any authenticated reader owns whatever they contributed. React
+    // Router matches paths case-insensitively, so /myposts lands here too.
+    {
+        path: 'MyPosts',
+        element:
+            <SecuredRoute>
+                <MyPosts />
+            </SecuredRoute>,
+    },
     { path: 'posts/:contentItemId', element: <PostDetail /> },
 
     // The route this page used to answer on. Kept so links already in the wild — and the

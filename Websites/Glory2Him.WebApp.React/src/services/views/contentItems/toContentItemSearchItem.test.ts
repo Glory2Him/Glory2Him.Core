@@ -141,26 +141,36 @@ describe('toContentItemSearchItem', () => {
     });
 
     // Each of these is blocked on an association read the host does not expose yet (#318), and
-    // the panel leaves an absent figure out rather than rendering a zero.
+    // the templates leave an absent figure out rather than rendering a zero.
     it('should claim nothing the api cannot answer', () => {
         // when
         const item = toContentItemSearchItem(contentItemFor());
 
         // then
-        expect(item.contributorName).toBeUndefined();
+        expect(item.submittedByName).toBeUndefined();
         expect(item.tags).toBeUndefined();
         expect(item.bibleReferences).toBeUndefined();
-        expect(item.reactionCount).toBeUndefined();
+        expect(item.reactionSummary).toBeUndefined();
         expect(item.commentCount).toBeUndefined();
     });
 
-    // CreatedBy is an ACCOUNT ID and the only display-name resolver is gated on the reviewer
-    // tier, so rendering it would leak it.
-    it('should put the account id nowhere a card would render it', () => {
+    it('should carry the shareability basis for the meta row', () => {
+        // when
+        const item = toContentItemSearchItem(contentItemFor());
+
+        // then
+        expect(item.shareabilityBasis).toBe(ShareabilityBasis.Owned);
+    });
+
+    // CreatedBy is an ACCOUNT ID: it travels as the FILTER half of "Submitted by" — the read
+    // matches createdBy exactly on it — while the NAME half stays unset until a resolver exists,
+    // and the card renders no segment without a name, so the id itself never shows.
+    it('should carry the account id for filtering and no name to render it as', () => {
         // when
         const item = toContentItemSearchItem(contentItemFor({ createdBy: 'account-secret' }));
 
         // then
-        expect(JSON.stringify(item)).not.toContain('account-secret');
+        expect(item.submittedById).toBe('account-secret');
+        expect(item.submittedByName).toBeUndefined();
     });
 });

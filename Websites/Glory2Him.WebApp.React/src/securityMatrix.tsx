@@ -17,6 +17,12 @@ const securityPoints = {
         edit: ['Administrators'],
         delete: ['Administrators'],
     },
+    contentItems: {
+        view: ['Administrators'],
+        add: ['Administrators'],
+        edit: ['Administrators'],
+        delete: ['Administrators'],
+    },
     users: {
         view: ['Administrators'],
         add: ['Administrators'],

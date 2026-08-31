@@ -1,183 +1,116 @@
-import { Link, useLocation } from 'react-router-dom';
-import { ArticleCard } from '../components/coreUI/articleCard';
-import { ContributionPrompt } from '../components/coreUI/contributionPrompt';
-import { PostHeroCard } from '../components/coreUI/postHeroCard';
+import { useMemo } from 'react';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { ContentItemSearchPanel } from '../components/contentItems/contentItemSearchPanel';
 import { VerseOfTheDay } from '../components/coreUI/verseOfTheDay';
-import { useAuth } from '../components/securitys/authProvider';
+
 import {
-    categories,
-    featured,
-    heroTiles,
-    latest,
-    popularReferences,
-    popularTags,
-    SamplePost,
-    verseOfTheDay,
-} from './sampleContent';
+    buildContentItemFeedNavigation
+} from '../services/views/contentItems/contentItemFeedNavigation';
+
+import {
+    toContentItemSearchCriteria,
+    toContentItemSearchParams
+} from '../services/views/contentItems/contentItemSearchCriteriaUrl';
+
+import { contentItemService } from '../services/foundations/contentItemService';
+import { contentItemSettingService } from '../services/foundations/contentItemSettingService';
+
+import {
+    ContentItemSearchCriteria
+} from '../models/components/contentItems/contentItemSearchItem';
+
+import {
+    toContentItemSearchItem
+} from '../services/views/contentItems/toContentItemSearchItem';
+
+import { verseOfTheDay } from './sampleContent';
 import { useDocumentTitle } from './useDocumentTitle';
 
-// The public home page, laid out exactly as the Home Default sample: verse-of-the-day strip, a
-// featured lead beside three smaller cards, then the latest posts with their tags and bible
-// references against a categories / tags / references sidebar.
+// THE PUBLIC HOME PAGE: the verse of the day, then what has actually been contributed — the
+// ContentItemSearchPanel family over the PUBLIC read, replacing the Blogzine sample feed that
+// stood here.
 //
-// The copy still comes from sampleContent — real posts have not been wired in yet. When they are,
-// only the data imports above and the hrefs need to change; the markup stays as it is.
-
-// Every hero tile is an h4 with its counts on a second row — the tiles are too narrow to
-// carry the byline and the counts on one line.
-const SmallHero = ({ post }: { post: SamplePost }) => (
-    <PostHeroCard
-        title={post.title}
-        href="/Post-Single"
-        category={post.category}
-        categoryBadgeCss={post.categoryBadgeCss}
-        imageUrl={post.imageUrl}
-        authorName={post.authorName}
-        publishedDate={post.publishedDate}
-        showExcerpt={false}
-        sizeCssClass="card-grid-sm"
-        titleCssClass="h4"
-        splitMeta={true}
-        reactions={post.reactions}
-        comments={post.comments}
-        tagCount={post.tags.length}
-        referenceCount={post.bibleReferences.length} />
-);
-
+// GET api/ContentItems/Public IS THE POINT of this page's wiring. It is caller-INDEPENDENT by
+// construction — exactly the §14.1 canonical set: approved, published, past its publish date —
+// so a privileged visitor sees what an anonymous one does, and no role change anywhere can leak
+// a draft onto the front page. The caller-widened surfaces are /posts, /MyPosts and
+// /Admin/Posts; the front door deliberately is not one.
+//
+// The criteria live in the URL, so the header's search and a shared link land with the results
+// already showing.
 export const Home = () => {
     useDocumentTitle('Glory 2 Him — Sharing the Gospel');
 
-    const { isAuthenticated } = useAuth();
+    const navigate = useNavigate();
     const location = useLocation();
-    const loginHref = `/Account/Login?returnUrl=${encodeURIComponent(location.pathname)}`;
+    const [searchParams, setSearchParams] = useSearchParams();
+
+    const criteria = useMemo(
+        () => toContentItemSearchCriteria(searchParams),
+        [searchParams]);
+
+    const {
+        data,
+        isLoading,
+        isError,
+        isFetchingNextPage,
+        hasNextPage,
+        fetchNextPage
+    } = contentItemService.useSearchContentItems(criteria, { scope: 'public' });
+
+    const { data: contentItemSettings } = contentItemSettingService.useGetDefaults();
+
+    const contentItems = useMemo(
+        () => (data?.pages ?? [])
+            .flatMap((page) => page.items)
+            .map(toContentItemSearchItem),
+        [data]);
+
+    const search = (searched: ContentItemSearchCriteria) =>
+        setSearchParams(toContentItemSearchParams(searched));
+
+    const feedNavigation = buildContentItemFeedNavigation(navigate, location);
 
     return (
         <>
-            <VerseOfTheDay verse={verseOfTheDay} href="/Post-Single" />
+            <VerseOfTheDay verse={verseOfTheDay} href="/BibleReferences" />
 
-            <section className="pt-4 pb-0 card-grid">
+            <section className="pt-4 pb-5">
                 <div className="container">
-                    <div className="row g-4">
-                        <div className="col-lg-6">
-                            <PostHeroCard
-                                title={featured.title}
-                                href="/Post-Single"
-                                excerpt={featured.excerpt}
-                                category={featured.category}
-                                categoryBadgeCss={featured.categoryBadgeCss}
-                                imageUrl={featured.imageUrl}
-                                authorName={featured.authorName}
-                                authorImageUrl={featured.authorImageUrl}
-                                showAuthorAvatar={true}
-                                publishedDate={featured.publishedDate}
-                                isFeatured={true}
-                                sizeCssClass="card-grid-lg"
-                                titleCssClass="h1"
-                                reactions={featured.reactions}
-                                comments={featured.comments}
-                                tagCount={featured.tags.length}
-                                referenceCount={featured.bibleReferences.length} />
-                        </div>
+                    <div className="row justify-content-center">
+                        <div className="col-xl-9">
+                            <div className="d-flex flex-wrap justify-content-end align-items-center gap-2 mb-4">
+                                <Link to="/posts/contribute" className="btn btn-primary mb-0">
+                                    <i className="bi bi-pencil-square me-1" aria-hidden="true"></i>
+                                    Share what He has done
+                                </Link>
+                            </div>
 
-                        <div className="col-lg-6">
-                            <div className="row g-4">
-                                <div className="col-12">
-                                    <SmallHero post={heroTiles[0]} />
+                            {isError ? (
+                                <div className="alert alert-danger" role="alert">
+                                    We could not load the journal right now. Please try again
+                                    later.
                                 </div>
-                                <div className="col-md-6">
-                                    <SmallHero post={heroTiles[1]} />
-                                </div>
-                                <div className="col-md-6">
-                                    <SmallHero post={heroTiles[2]} />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
+                            ) : (
+                                <ContentItemSearchPanel
+                                    ariaLabel="The journal"
+                                    contentItemCollection={contentItems}
+                                    contentItemSettingCollection={contentItemSettings ?? []}
+                                    criteria={criteria}
+                                    onSearch={search}
+                                    isLoading={isLoading}
+                                    isLoadingMore={isFetchingNextPage}
+                                    hasMore={hasNextPage}
+                                    onLoadMore={fetchNextPage}
+                                    emptyText={
+                                        'Nothing matched that search. Try clearing the advanced '
+                                        + 'options.'}
+                                    {...feedNavigation} />
+                            )}
 
-            <section className="position-relative py-5">
-                <div className="container">
-                    <div className="row g-4">
-                        <div className="col-lg-9">
-                            <div className="mb-4">
-                                <h2 className="m-0">
-                                    <i className="bi bi-hourglass-top me-2"></i>Latest posts
-                                </h2>
-                                <p className="mb-0">
-                                    Quotes, stories, devotionals and studies from the community
-                                </p>
-                            </div>
-
-                            <div className="row gy-4">
-                                {latest.map((post) => (
-                                    <div className="col-sm-6" key={`${post.slug}-${post.category}`}>
-                                        <ArticleCard
-                                            title={post.title}
-                                            href="/Post-Single"
-                                            excerpt={post.excerpt}
-                                            imageUrl={post.imageUrl}
-                                            category={post.category}
-                                            categoryBadgeCss={post.categoryBadgeCss}
-                                            authorName={post.authorName}
-                                            authorImageUrl={post.authorImageUrl}
-                                            publishedDate={post.publishedDate}
-                                            tags={post.tags}
-                                            bibleReferences={post.bibleReferences}
-                                            reactions={post.reactions}
-                                            comments={post.comments} />
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="col-lg-3">
-                            {/* Categories and tags are both ways of asking "show me posts about
-                                this", so both go to a search for the word. References go to the
-                                passage itself instead — that page shows one fixed verse for now,
-                                so its link carries no query. */}
-                            <h4 className="mb-3">Categories</h4>
-                            <div className="d-flex flex-wrap mb-4" style={{ gap: '8px' }}>
-                                {categories.map(([label, buttonCss]) => (
-                                    <Link
-                                        key={label}
-                                        to={`/Search?q=${encodeURIComponent(label)}`}
-                                        className={`btn btn-sm ${buttonCss} mb-0`}>
-                                        <i className="fas fa-circle me-2 small"></i>{label}
-                                    </Link>
-                                ))}
-                            </div>
-
-                            <h4 className="mb-3">Popular tags</h4>
-                            <div className="d-flex flex-wrap" style={{ gap: '8px' }}>
-                                {popularTags.map(([label, buttonCss]) => (
-                                    <Link
-                                        key={label}
-                                        to={`/Search?q=${encodeURIComponent(label)}`}
-                                        className={`btn btn-sm ${buttonCss} mb-0`}>
-                                        {label}
-                                    </Link>
-                                ))}
-                            </div>
-
-                            {/* References flow across and wrap like the tags above them, rather
-                                than stacking as full-width rows. */}
-                            <h4 className="mt-4 mb-3">Popular references</h4>
-                            <div className="d-flex flex-wrap" style={{ gap: '8px' }}>
-                                {popularReferences.map((reference) => (
-                                    <Link
-                                        key={reference}
-                                        to="/BibleReferences"
-                                        className="btn btn-sm btn-primary-soft mb-0">
-                                        <i className="bi bi-book me-2"></i>{reference}
-                                    </Link>
-                                ))}
-                            </div>
-
-                            <ContributionPrompt
-                                cssClass="mt-4 mb-0"
-                                isAuthenticated={isAuthenticated}
-                                loginHref={loginHref} />
+                            {/* No reactionOptions and no onReactionSelected until #318 gives
+                                this page a write to make: a surface that cannot persist a
+                                reaction must not appear to accept one. */}
                         </div>
                     </div>
                 </div>

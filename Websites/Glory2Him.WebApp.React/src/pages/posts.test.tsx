@@ -17,11 +17,12 @@ import {
     ContentItemSearchCriteria
 } from '../models/components/contentItems/contentItemSearchItem';
 
-// What the PAGE owns is everything the panel does not: which read feeds it, the paging over that
-// read, the projection of its rows, and the criteria in the URL. The service is mocked at its own
-// boundary so each of those is asserted directly.
+// What the PAGE owns is everything the family does not: which read feeds it (the scope and the
+// pins), the paging over that read, the projection of its rows, the criteria in the URL and the
+// redirects. The service is mocked at its own boundary so each is asserted directly.
 const fetchNextPage = vi.fn();
 let searchedCriteria: ContentItemSearchCriteria | null = null;
+let searchedOptions: Record<string, unknown> | null = null;
 let pages: ContentItemPage[] = [];
 let isLoading = false;
 let isError = false;
@@ -32,8 +33,11 @@ vi.mock('../services/foundations/contentItemService', () => ({
     contentItemSearchPageSize: 8,
 
     contentItemService: {
-        useSearchContentItems: (criteria: ContentItemSearchCriteria) => {
+        useSearchContentItems: (
+            criteria: ContentItemSearchCriteria,
+            options: Record<string, unknown>) => {
             searchedCriteria = criteria;
+            searchedOptions = options;
 
             return {
                 data: { pages },
@@ -136,6 +140,7 @@ describe('Posts', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         searchedCriteria = null;
+        searchedOptions = null;
         pages = onePage([contentItemFor()]);
         isLoading = false;
         isError = false;
@@ -155,19 +160,29 @@ describe('Posts', () => {
             .toHaveAttribute('href', '/posts/contribute');
     });
 
-    it('should project each row onto the card the panel renders', () => {
+    // The caller-scoped read is what separates this surface from the home feed.
+    it('should feed the panel from the caller-scoped read', () => {
         // when
         renderPosts();
 
         // then
-        expect(screen.getByRole('link', { name: 'Grace for the ordinary Tuesday' }))
-            .toHaveAttribute('href', '/posts/devotional-1');
-
-        expect(screen.getByText('by Miriam Vale')).toBeInTheDocument();
+        expect(searchedOptions).toEqual(expect.objectContaining({ scope: 'caller' }));
     });
 
-    // A card carries no figure it does not have: neither Reaction nor Comment carries a
-    // ContentItemId — both are linked by an Association, which has no exposer yet (#318).
+    it('should project each row onto the card the panel renders', () => {
+        // when
+        renderPosts();
+
+        // then: the title is an EVENT, not a link — the page owns the redirect
+        expect(screen.getByRole('button', { name: 'Grace for the ordinary Tuesday' }))
+            .toBeInTheDocument();
+
+        expect(screen.getByRole('button', { name: /Author/ }))
+            .toHaveTextContent('Miriam Vale');
+    });
+
+    // A card carries no figure it does not have: comments and reactions are association reads
+    // the host does not expose yet (#318).
     it('should claim no engagement figures the api cannot answer', () => {
         // when
         renderPosts();
@@ -177,8 +192,8 @@ describe('Posts', () => {
     });
 
     // Giving a reaction is an association too, and a surface that cannot persist one must not
-    // appear to accept one.
-    it('should offer no reaction it could not persist', () => {
+    // appear to accept one — no reactionOptions and no onReactionSelected are passed.
+    it('should offer no Like it could not persist', () => {
         // given
         pages = onePage([contentItemFor({
             id: 'quote-1',
@@ -191,8 +206,10 @@ describe('Posts', () => {
         renderPosts();
 
         // then
-        expect(screen.getByText('Character is what you are in the dark.')).toBeInTheDocument();
-        expect(screen.queryByRole('button', { name: 'Love' })).not.toBeInTheDocument();
+        expect(screen.getByText(new RegExp('Character is what you are')))
+            .toBeInTheDocument();
+
+        expect(screen.queryByRole('button', { name: /Like/ })).not.toBeInTheDocument();
     });
 
     it('should read the criteria off the url so a shared link lands on the results', () => {
@@ -203,7 +220,9 @@ describe('Posts', () => {
         expect(searchedCriteria).toEqual({
             query: 'grace',
             contentType: ContentType.Devotional,
-            author: 'Vale'
+            author: 'Vale',
+            submittedBy: null,
+            tag: null
         });
     });
 
@@ -226,8 +245,26 @@ describe('Posts', () => {
         await waitFor(() => expect(searchedCriteria).toEqual({
             query: 'grace',
             contentType: ContentType.Devotional,
-            author: ''
+            author: '',
+            submittedBy: null,
+            tag: null
         }));
+    });
+
+    // The clicked filters commit into the URL — id and name both — so a narrowed list is
+    // shareable and the back button un-narrows it.
+    it('should read a clicked submitted-by filter back off the url', () => {
+        // when
+        renderPosts('/posts?by=account-1&byName=Joan');
+
+        // then
+        expect(searchedCriteria).toEqual(
+            expect.objectContaining({
+                submittedBy: { id: 'account-1', name: 'Joan' }
+            }));
+
+        expect(screen.getByRole('button', { name: /Submitted by Joan/ }))
+            .toBeInTheDocument();
     });
 
     it('should ignore a content type the url does not actually name', () => {
@@ -259,10 +296,10 @@ describe('Posts', () => {
         renderPosts();
 
         // then
-        expect(screen.getByRole('link', { name: 'Grace for the ordinary Tuesday' }))
+        expect(screen.getByRole('button', { name: 'Grace for the ordinary Tuesday' }))
             .toBeInTheDocument();
 
-        expect(screen.getByRole('link', { name: 'When the answer is wait' }))
+        expect(screen.getByRole('button', { name: 'When the answer is wait' }))
             .toBeInTheDocument();
     });
 

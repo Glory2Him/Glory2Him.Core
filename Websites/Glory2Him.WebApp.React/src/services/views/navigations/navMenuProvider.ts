@@ -149,6 +149,10 @@ const getFullNavMenu = (): NavItem[] => [
                 title: "Posts", icon: "bi-file-earmark-text", href: "Admin/Posts",
                 roles: administratorsOnly, requiresAuth: true
             },
+            {
+                title: "Sample Posts", icon: "bi-files", href: "Admin/SamplePosts",
+                roles: administratorsOnly, requiresAuth: true
+            },
         ]
     },
     samplePagesSection,

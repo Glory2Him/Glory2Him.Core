@@ -55,10 +55,16 @@ export const toContentItemSearchItem = (contentItem: ContentItem): ContentItemSe
     content: contentItem.content,
     excerpt: toExcerpt(contentItem.content),
     imageUrl: placeholderImageUrlFor(contentItem.contentType),
+    shareabilityBasis: contentItem.shareabilityBasis,
 
     // PublishDate where the row has one, CreatedWhen otherwise. A draft has no publish date and
     // a card with no date at all reads as broken, so the honest fallback is when it was written.
     publishedDate: new Date(contentItem.publishDate ?? contentItem.createdWhen),
+
+    // The ID alone — the filter half of "Submitted by". onSubmittedByClick needs something the
+    // read can match on, and CreatedBy is exactly what the rows carry; the NAME stays unset (see
+    // below), and the card renders no segment without one, so the id itself never shows.
+    submittedById: contentItem.createdBy,
 
     // The status the page hands the panel, so a row that is not yet public wears a badge. Set
     // unconditionally: the panel says nothing about an Approved one, which is the ordinary case.
@@ -66,15 +72,15 @@ export const toContentItemSearchItem = (contentItem: ContentItem): ContentItemSe
 
     // DELIBERATELY UNSET, all for the same reason — the API cannot answer them yet:
     //
-    //   contributorName  CreatedBy is an ACCOUNT ID, and the only display-name resolver in the
+    //   submittedByName  CreatedBy is an ACCOUNT ID, and the only display-name resolver in the
     //                    host is [Authorize] and gated on the reviewer tier (§16.7.4). Rendering
     //                    the id would leak it; inventing a name would be worse.
     //   tags,
     //   bibleReferences  Associations have no HTTP exposer (#318).
-    //   reactionCount,
+    //   reactionSummary,
     //   commentCount     Neither Reaction nor Comment carries a ContentItemId — both are linked
     //                    by an Association, so these are blocked on #318 too.
     //
-    // Each one is optional on the projection and the panel LEAVES IT OUT rather than rendering a
-    // zero, so a card claims no figure it does not have.
+    // Each one is optional on the projection and the templates LEAVE IT OUT rather than
+    // rendering a zero, so a card claims no figure it does not have.
 });
