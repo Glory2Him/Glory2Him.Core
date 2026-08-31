@@ -7,7 +7,7 @@ const wordsPerMinute = 200;
 //
 // Computed rather than stored: it is a pure function of the text, so a stored copy would be one
 // more field to keep in step with an edit, and it would be wrong the moment somebody amended a
-// paragraph. ContentItemPanel takes it as a PROP rather than working it out itself — the panel is
+// paragraph. ContentItemDetailPanel takes it as a PROP rather than working it out itself — the panel is
 // pure presentation, and a consumer rendering a list wants to compute this once per item rather
 // than have every panel do it on every render.
 //

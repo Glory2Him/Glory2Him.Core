@@ -564,7 +564,7 @@ export function ContentItemDetailPanelDoc() {
                     </>
                 }>
                 <LiveDemo>
-                    <ContentItemPanel
+                    <ContentItemDetailPanel
                         contentItem={storyByAnother}
                         contentItemSettingCollection={demoSettings}
                         titleHeadingLevel="h2"
@@ -596,7 +596,7 @@ export function ContentItemDetailPanelDoc() {
                     </>
                 }>
                 <LiveDemo title="Read — the author IS the submitter, so it is said once">
-                    <ContentItemPanel
+                    <ContentItemDetailPanel
                         contentItem={storyReleasedByItsAuthor}
                         contentItemSettingCollection={demoSettings}
                         titleHeadingLevel="h2"
@@ -607,7 +607,7 @@ export function ContentItemDetailPanelDoc() {
                 </LiveDemo>
 
                 <LiveDemo title="Read — a pen name, which the submitter column does not say">
-                    <ContentItemPanel
+                    <ContentItemDetailPanel
                         contentItem={storyUnderAPenName}
                         contentItemSettingCollection={demoSettings}
                         titleHeadingLevel="h2"

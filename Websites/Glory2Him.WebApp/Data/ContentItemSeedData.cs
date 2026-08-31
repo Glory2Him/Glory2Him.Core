@@ -233,7 +233,11 @@ namespace Glory2Him.WebApp.Data
             public string? Title { get; init; }
             public string? Author { get; init; }
             public string Content { get; init; } = string.Empty;
-            public ShareabilityBasis ShareabilityBasis { get; init; } = ShareabilityBasis.Owned;
+            // The NARROWEST live member, matching the untouched contribute form's own default:
+            // the retired Owned is what pre-split rows carry, and a freshly seeded row must not
+            // be born under a member the picker no longer offers.
+            public ShareabilityBasis ShareabilityBasis { get; init; } =
+                ShareabilityBasis.OwnedPermissionGranted;
             public string? SharePermission { get; init; }
         }
 

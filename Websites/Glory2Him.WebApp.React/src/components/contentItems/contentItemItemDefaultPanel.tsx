@@ -2,10 +2,11 @@ import { ReactNode } from 'react';
 import { Avatar } from '../coreUI/avatar';
 import { formatDate } from '../coreUI/dateFormats';
 
+import { ContentType } from '../../models/foundations/contentItemSettings/contentType';
+
 import {
     approvalStatusBadgeCssClasses,
     approvalStatusBadgeLabels,
-    contentTypeBadgeCssClasses,
     ContentItemItemTemplateProps,
     defaultShareabilityBasisLabels
 } from '../../models/components/contentItems/contentItemItemTemplate';
@@ -135,9 +136,14 @@ export function ContentItemItemDefaultPanel({
     // while the default block stands it beside the thumbnail, over the title.
     const badgeRow = (
         <div className="d-flex align-items-center mb-2">
+            {/* THE COLOUR LIVES IN THE STYLESHEET AND NOWHERE ELSE: the chip renders the
+                enum MEMBER NAME into data-content-type and the palette in contentItems.css
+                does the rest — the same contract the detail panel's chip keeps, so one type
+                is one colour on every surface. */}
             <button
                 type="button"
-                className={`badge ${contentTypeBadgeCssClasses[contentItem.contentType]} border-0`}
+                className="g2h-content-item-chip border-0"
+                data-content-type={ContentType[contentItem.contentType]}
                 onClick={() => onContentTypeClick?.(contentItem)}>
                 <i className="fas fa-circle me-2 small" aria-hidden="true"></i>
                 {contentTypeName}

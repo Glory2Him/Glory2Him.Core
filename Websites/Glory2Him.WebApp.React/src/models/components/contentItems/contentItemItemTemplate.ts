@@ -1,5 +1,6 @@
 import { ContentItemSetting } from '../../foundations/contentItemSettings/contentItemSetting';
-import { ContentType } from '../../foundations/contentItemSettings/contentType';
+
+import { shareabilityBasisReadLabels } from './contentItemFormItem';
 
 import {
     ApprovalStatus,
@@ -114,21 +115,11 @@ export interface ContentItemItemTemplateProps extends ContentItemItemEvents, Con
     onReactionClick: () => void;
 }
 
-// What a card's type badge is coloured with — a presentation decision this family owns: the
-// setting carries an icon and a name but no colour, and the same type must look the same on
-// every page. A Record so a new ContentType member fails to compile here rather than falling
-// back to something unreadable.
-export const contentTypeBadgeCssClasses: Readonly<Record<ContentType, string>> = {
-    [ContentType.Quote]: 'text-bg-success',
-    [ContentType.Story]: 'text-bg-warning',
-    [ContentType.Testimony]: 'text-bg-primary',
-    [ContentType.Devotional]: 'text-bg-danger',
-    [ContentType.BibleStudy]: 'text-bg-info',
-    [ContentType.BlogPost]: 'text-bg-secondary',
-    [ContentType.Verses]: 'g2h-badge-purple',
-    [ContentType.Series]: 'text-bg-dark',
-    [ContentType.Topic]: 'text-bg-dark'
-};
+// THE TYPE CHIP CARRIES NO COLOUR TABLE HERE. The colour of a content type lives in
+// contentItems.css and nowhere else — the chip renders the enum member name into
+// data-content-type and the measured palette does the rest, pinned by
+// contentItemChipPalette.test.ts. A second table in TypeScript is exactly the drift that
+// rule exists to prevent.
 
 // A row that is not yet public wears its status; the colour says which kind of not-yet. Approved
 // is absent on purpose — it is the ordinary case, and a badge on every card would say nothing.
@@ -146,10 +137,8 @@ export const approvalStatusBadgeCssClasses: Readonly<Record<number, string>> = {
     [ApprovalStatus.Dismissed]: 'text-bg-secondary'
 };
 
-// How each basis reads on the meta row — the compact register of the contribute form's own
-// wording, matched to the design's cards.
-export const defaultShareabilityBasisLabels: Readonly<Record<ShareabilityBasis, string>> = {
-    [ShareabilityBasis.Owned]: "It's my own",
-    [ShareabilityBasis.PermissionGranted]: 'Permission to share',
-    [ShareabilityBasis.PublicDomain]: 'Public Domain'
-};
+// How each basis reads on the meta row: the READ labels the shareability split defined — a
+// reader wants the LICENCE, and who wrote it is already answered by the Submitted by and Author
+// segments beside it. One table, shared with the detail panel, so the two surfaces cannot drift.
+export const defaultShareabilityBasisLabels: Readonly<Record<ShareabilityBasis, string>> =
+    shareabilityBasisReadLabels;

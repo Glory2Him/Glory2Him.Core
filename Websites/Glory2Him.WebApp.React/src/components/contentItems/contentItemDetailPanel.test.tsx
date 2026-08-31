@@ -254,7 +254,7 @@ describe('ContentItemDetailPanel', () => {
             signInAs(authState);
 
             // when
-            renderWithAuth(<ContentItemPanel contentItemSettingCollection={settings} />);
+            renderWithAuth(<ContentItemDetailPanel contentItemSettingCollection={settings} />);
 
             // then
             expect(screen.getByLabelText('Permission details')).toBeInTheDocument();
@@ -1483,7 +1483,7 @@ describe('ContentItemDetailPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith()}
                     titleHeadingLevel="h1"
                     contentItemSettingCollection={settings} />);
@@ -1496,7 +1496,7 @@ describe('ContentItemDetailPanel', () => {
         it('should head the item at h3 when the consumer says nothing', () => {
             // when: a panel sitting among other content must not claim the document's h1
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith()}
                     contentItemSettingCollection={settings} />);
 
@@ -1519,7 +1519,7 @@ describe('ContentItemDetailPanel', () => {
             signInAs(authState);
 
             // when
-            renderWithAuth(<ContentItemPanel contentItemSettingCollection={settings} />);
+            renderWithAuth(<ContentItemDetailPanel contentItemSettingCollection={settings} />);
 
             // then
             expect(screen.getByLabelText(/Author/)).toHaveValue(ViewerName);
@@ -1528,7 +1528,7 @@ describe('ContentItemDetailPanel', () => {
         it('should leave the field empty for a basis that names somebody else', async () => {
             // given
             signInAs(authState);
-            renderWithAuth(<ContentItemPanel contentItemSettingCollection={settings} />);
+            renderWithAuth(<ContentItemDetailPanel contentItemSettingCollection={settings} />);
 
             // when
             await userEvent.selectOptions(
@@ -1546,7 +1546,7 @@ describe('ContentItemDetailPanel', () => {
             const onAdded = vi.fn();
 
             renderWithAuth(
-                <ContentItemPanel contentItemSettingCollection={settings} onAdded={onAdded} />);
+                <ContentItemDetailPanel contentItemSettingCollection={settings} onAdded={onAdded} />);
 
             // when
             await userEvent.type(screen.getByLabelText(/Title/), 'He carried me');
@@ -1565,7 +1565,7 @@ describe('ContentItemDetailPanel', () => {
             const onAdded = vi.fn();
 
             renderWithAuth(
-                <ContentItemPanel contentItemSettingCollection={settings} onAdded={onAdded} />);
+                <ContentItemDetailPanel contentItemSettingCollection={settings} onAdded={onAdded} />);
 
             // when
             await userEvent.clear(screen.getByLabelText(/Author/));
@@ -1582,7 +1582,7 @@ describe('ContentItemDetailPanel', () => {
         it('should not overwrite a pen name when the basis changes', async () => {
             // given
             signInAs(authState);
-            renderWithAuth(<ContentItemPanel contentItemSettingCollection={settings} />);
+            renderWithAuth(<ContentItemDetailPanel contentItemSettingCollection={settings} />);
 
             await userEvent.clear(screen.getByLabelText(/Author/));
             await userEvent.type(screen.getByLabelText(/Author/), 'A. Pilgrim');
@@ -1599,7 +1599,7 @@ describe('ContentItemDetailPanel', () => {
         it('should respect a field the contributor deliberately emptied', async () => {
             // given
             signInAs(authState);
-            renderWithAuth(<ContentItemPanel contentItemSettingCollection={settings} />);
+            renderWithAuth(<ContentItemDetailPanel contentItemSettingCollection={settings} />);
 
             // when
             await userEvent.clear(screen.getByLabelText(/Author/));
@@ -1616,7 +1616,7 @@ describe('ContentItemDetailPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith({
                         shareabilityBasis: ShareabilityBasis.OwnedPublicDomain,
                         author: 'Grace Abara',
@@ -1637,7 +1637,7 @@ describe('ContentItemDetailPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith({
                         shareabilityBasis: ShareabilityBasis.OwnedPublicDomain,
                         author: '',
@@ -1657,7 +1657,7 @@ describe('ContentItemDetailPanel', () => {
         it('should say nothing twice when the author IS the submitter', () => {
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith({
                         shareabilityBasis: ShareabilityBasis.OwnedPublicDomain,
                         author: 'Louis Ferguson'
@@ -1674,7 +1674,7 @@ describe('ContentItemDetailPanel', () => {
         it('should treat a difference in case as the same person', () => {
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith({ author: 'louis ferguson' })}
                     submittedByDisplayName="Louis Ferguson"
                     contentItemSettingCollection={settings} />);
@@ -1686,7 +1686,7 @@ describe('ContentItemDetailPanel', () => {
         it('should show the pen name the contributor chose', () => {
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith({
                         shareabilityBasis: ShareabilityBasis.OwnedPublicDomain,
                         author: 'A. Pilgrim'
@@ -1703,7 +1703,7 @@ describe('ContentItemDetailPanel', () => {
         it('should show the author while the submitter is still unresolved', () => {
             // when: no submitter passed, so nothing is known to be duplicated
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith({ author: 'Anon' })}
                     contentItemSettingCollection={settings} />);
 
@@ -1721,7 +1721,7 @@ describe('ContentItemDetailPanel', () => {
 
             // when
             const { container } = renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith()}
                     contentItemSettingCollection={[renamed]} />);
 
@@ -1735,7 +1735,7 @@ describe('ContentItemDetailPanel', () => {
         it('should re-key the chip when the type in play changes', async () => {
             // given
             const { container, rerender } = renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith()}
                     contentItemSettingCollection={settings} />);
 
@@ -1744,7 +1744,7 @@ describe('ContentItemDetailPanel', () => {
 
             // when
             rerender(wrapped(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith({
                         id: 'content-item-2',
                         contentType: ContentType.Devotional
@@ -1762,7 +1762,7 @@ describe('ContentItemDetailPanel', () => {
             signInAs(authState);
 
             const { container } = renderWithAuth(
-                <ContentItemPanel contentItemSettingCollection={settings} />);
+                <ContentItemDetailPanel contentItemSettingCollection={settings} />);
 
             // when
             await userEvent.click(screen.getByRole('button', { name: /Devotional/ }));
@@ -1781,7 +1781,7 @@ describe('ContentItemDetailPanel', () => {
             // when: the panel fetches nothing — CreatedBy is an account id, and the NAME behind it
             // is the consumer's to look up
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith()}
                     submittedByDisplayName="Louis Ferguson"
                     submittedByImageUrl="Profile-Image/abc?v=1234"
@@ -1798,7 +1798,7 @@ describe('ContentItemDetailPanel', () => {
         it('should show no contributor at all rather than a placeholder while one loads', () => {
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith()}
                     contentItemSettingCollection={settings} />);
 
@@ -1810,7 +1810,7 @@ describe('ContentItemDetailPanel', () => {
         it('should state the licence rather than repeat who wrote it', () => {
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith({
                         shareabilityBasis: ShareabilityBasis.OwnedPublicDomain
                     })}
@@ -1825,7 +1825,7 @@ describe('ContentItemDetailPanel', () => {
         it('should name the retired basis plainly rather than claiming a licence for it', () => {
             // when: every item contributed before the basis was split carries this
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith({ shareabilityBasis: ShareabilityBasis.Owned })}
                     contentItemSettingCollection={settings} />);
 
@@ -1836,7 +1836,7 @@ describe('ContentItemDetailPanel', () => {
         it('should date the contribution from the row rather than from today', () => {
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith({ createdWhen: '2026-07-15T09:14:00+00:00' })}
                     contentItemSettingCollection={settings} />);
 
@@ -1847,7 +1847,7 @@ describe('ContentItemDetailPanel', () => {
         it('should ignore a date it cannot parse rather than printing Invalid Date', () => {
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith({ createdWhen: 'not a date' })}
                     contentItemSettingCollection={settings} />);
 
@@ -1860,7 +1860,7 @@ describe('ContentItemDetailPanel', () => {
         it('should read the figures the consumer gathered', () => {
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith()}
                     readingTimeMinutes={5}
                     reactionCount={257}
@@ -1878,7 +1878,7 @@ describe('ContentItemDetailPanel', () => {
         it('should agree in number with the count it is reporting', () => {
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith()}
                     reactionCount={1}
                     commentCount={1}
@@ -1894,7 +1894,7 @@ describe('ContentItemDetailPanel', () => {
         it('should leave out a figure it was given none of rather than reporting a zero', () => {
             // when: only one of the four is passed
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith()}
                     commentCount={3}
                     contentItemSettingCollection={settings} />);
@@ -1910,7 +1910,7 @@ describe('ContentItemDetailPanel', () => {
         it('should report a genuine zero it was actually given', () => {
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith()}
                     commentCount={0}
                     contentItemSettingCollection={settings} />);

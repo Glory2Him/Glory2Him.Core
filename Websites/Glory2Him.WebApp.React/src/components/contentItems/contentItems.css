@@ -131,6 +131,16 @@ section.g2h-content-item-panel {
     --g2h-chip-fg: #ffffff;
 }
 
+/* Verses is PURPLE BY RULING, beside a Quote that is already a purple — so the two are
+   split by DEPTH: Quote stays the light magenta-purple above and Verses takes a dark
+   violet, the lightness gap carrying the distance that hue alone cannot. Measured like
+   every other pair — the palette test does the arithmetic on each run. */
+.g2h-content-item-chip[data-content-type="Verses"],
+.g2h-content-item-type-selected[data-content-type="Verses"] {
+    --g2h-chip-bg: #5925b8;
+    --g2h-chip-fg: #ffffff;
+}
+
 .g2h-content-item-chip[data-content-type="Topic"],
 .g2h-content-item-type-selected[data-content-type="Topic"] {
     /* A WARM neutral, not a slate one. Topic is the only fill with no hue to carry it, so it is
@@ -364,9 +374,3 @@ section.g2h-content-item-search-panel {
     }
 }
 
-/* The Verse Image chip. The theme declares --bs-purple but ships no text-bg-purple
-   utility, so the pair is stated here once rather than inlined per card. */
-.g2h-badge-purple {
-    background-color: var(--bs-purple, #6f42c1);
-    color: #fff;
-}
