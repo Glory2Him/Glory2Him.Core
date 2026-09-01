@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ContentItemSetting } from '../../models/foundations/contentItemSettings/contentItemSetting';
 import { ContentItemSettingQuery } from '../../models/foundations/contentItemSettings/contentItemSettingQuery';
@@ -64,10 +64,39 @@ const createSetting = (overrides: Partial<ContentItemSetting> = {}): ContentItem
     ...overrides
 });
 
+const settingsRoute = '/Admin/ContentItemSettings';
+
 const renderPage = () =>
     render(
         <MemoryRouter>
             <ContentItemSettingsPage />
+        </MemoryRouter>);
+
+// The address the page is at, and the address a Manage handed on — the filters live nowhere
+// else, so both are read off the router rather than off the screen.
+let currentUrl = '';
+let handedOn: string | undefined;
+
+const AddressProbe = () => {
+    const location = useLocation();
+
+    currentUrl = `${location.pathname}${location.search}`;
+    handedOn = (location.state as { from?: string } | null)?.from;
+
+    return null;
+};
+
+const renderPageAt = (url: string) =>
+    render(
+        <MemoryRouter initialEntries={[url]}>
+            <Routes>
+                <Route
+                    path={settingsRoute}
+                    element={<><ContentItemSettingsPage /><AddressProbe /></>} />
+                <Route
+                    path={`${settingsRoute}/:contentItemSettingId`}
+                    element={<AddressProbe />} />
+            </Routes>
         </MemoryRouter>);
 
 describe('ContentItemSettingsPage', () => {
@@ -75,6 +104,8 @@ describe('ContentItemSettingsPage', () => {
         lastQuery = undefined;
         hasNextPage = false;
         settings = [];
+        currentUrl = '';
+        handedOn = undefined;
     });
 
     it('should ask for the first page unfiltered', () => {
@@ -233,5 +264,82 @@ describe('ContentItemSettingsPage', () => {
 
         // then
         expect(screen.getByText('No content item settings match these filters.')).toBeInTheDocument();
+    });
+
+    // The view is an ADDRESS. That is what lets Manage hand the detail page somewhere real to
+    // come back to — and what lets the detail page's save land on the same filtered page.
+    describe('the filters as an address', () => {
+        it('should open on the view the URL names', () => {
+            // when
+            renderPageAt(`${settingsRoute}?q=verse&type=Testimony&scope=Override&page=3`);
+
+            // then: the read asked for
+            expect(lastQuery).toEqual({
+                searchTerm: 'verse',
+                contentType: ContentType.Testimony,
+                scope: 'Override',
+                page: 3,
+                pageSize: 10
+            });
+
+            // and the controls the administrator sees, which must not disagree with it
+            expect(screen.getByLabelText('Search content item settings')).toHaveValue('verse');
+
+            expect(screen.getByLabelText('Content type'))
+                .toHaveValue(String(ContentType.Testimony));
+
+            expect(screen.getByLabelText('Scope')).toHaveValue('Override');
+        });
+
+        it('should write a chosen filter into the address', async () => {
+            // given
+            renderPageAt(settingsRoute);
+
+            // when
+            await userEvent.selectOptions(
+                screen.getByLabelText('Content type'), String(ContentType.Quote));
+
+            // then: by member name, so a person can read the link
+            expect(currentUrl).toBe(`${settingsRoute}?type=Quote`);
+        });
+
+        it('should leave a filter at its default out of the address', async () => {
+            // given
+            renderPageAt(`${settingsRoute}?scope=Override`);
+
+            // when: back to All, which is the default
+            await userEvent.selectOptions(screen.getByLabelText('Scope'), 'All');
+
+            // then: a clean URL rather than one carrying what it did not need to say
+            expect(currentUrl).toBe(settingsRoute);
+        });
+
+        it('should hand Manage the view it was taken from', async () => {
+            // given
+            settings = [createSetting()];
+            renderPageAt(`${settingsRoute}?q=verse&type=Quote&scope=Default`);
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Manage' }));
+
+            // then: the detail page is reached, carrying the whole view to return to
+            expect(currentUrl)
+                .toBe(`${settingsRoute}/11111111-1111-1111-1111-111111111111`);
+
+            expect(handedOn).toBe(`${settingsRoute}?q=verse&type=Quote&scope=Default`);
+        });
+
+        it('should clear the address rather than only the controls', async () => {
+            // given
+            settings = [createSetting()];
+            renderPageAt(`${settingsRoute}?q=verse&type=Quote&scope=Default&page=2`);
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Clear' }));
+
+            // then
+            expect(currentUrl).toBe(settingsRoute);
+            expect(screen.getByLabelText('Search content item settings')).toHaveValue('');
+        });
     });
 });

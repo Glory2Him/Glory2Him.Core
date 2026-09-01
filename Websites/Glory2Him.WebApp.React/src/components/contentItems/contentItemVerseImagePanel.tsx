@@ -7,7 +7,7 @@ import {
 import './contentItems.css';
 
 // The Verse Image override — the ContentItem{ContentType}Panel the redesign sketched, landed
-// now that ContentType.Verses exists. A verse card IS its verse: the content arrives whole, with
+// now that ContentType.VerseImage exists. A verse card IS its verse: the content arrives whole, with
 // its own quotation marks, reference and translation ("…" — John 3:16 ESV), so the block renders
 // it exactly as written and appends NOTHING — unlike the quotes template, which adds the author
 // after an em-dash, because a verse's content already ends in one.
@@ -19,7 +19,7 @@ import './contentItems.css';
 // Two faces, decided by the imagery the consumer supplied: the verse VERTICALLY CENTRED over a
 // dark hero where there is an image — the face the design's mock draws — and the quiet light
 // block where there is not, which is what ships until real header images land (§4.9).
-export function ContentItemVersesPanel(props: ContentItemTemplateProps) {
+export function ContentItemVerseImagePanel(props: ContentItemTemplateProps) {
     const { contentItem, onTitleClick } = props;
 
     const hasImage = (contentItem.imageUrl ?? '').length > 0;

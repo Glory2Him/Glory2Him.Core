@@ -50,7 +50,7 @@ ContentItemListPanel                     composes the two below
         ├── ContentItemDefaultPanel    the template most types use
         └── ContentItem{ContentType}Panel   overrides, by ContentType:
               ContentItemQuotesPanel        (derives from the default template)
-              ContentItemVersesPanel        (the verse whole — purple chip)
+              ContentItemVerseImagePanel    (the verse whole — purple chip)
 `;
 
 const wiringSample = `
@@ -330,6 +330,15 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
             + 'account id) — a render gate: the server re-decides against the stored row.'
     },
     {
+        name: 'editButtonText',
+        type: 'string',
+        defaultValue: '‘View’',
+        description: 'The word on that button — and the one inherited string this level '
+            + 'answers differently. A listed card’s pencil is a NAVIGATION, so it reads '
+            + 'View; ContentItemPanel standing on its own opens an editor in place and keeps '
+            + 'Edit. Pass your own to override, exactly as with any other default.'
+    },
+    {
         name: 'onModerateClick',
         type: '(item) => void',
         description: 'The way to the moderation detail. Renders only for the moderation '
@@ -384,7 +393,8 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
         type: 'string',
         description: 'Every visible string is a prop, threaded once through the family — '
             + 'searchPlaceholderText, categoryLabelText, submittedByLabelText, likeButtonText, '
-            + 'commentsText, editButtonText, readMoreText, emptyText and the rest.'
+            + 'commentsText, readMoreText, emptyText and the rest. Each keeps the card’s own '
+            + 'default; editButtonText above is the single exception this level raises.'
     }
 ];
 

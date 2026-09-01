@@ -143,7 +143,7 @@ describe('navMenuProvider.getSamplePagesSection', () => {
             'Content Item Edit Panel',
             'Content Item Default Panel',
             'Content Item Quotes Panel',
-            'Content Item Verses Panel',
+            'Content Item Verse Image Panel',
 
             'Sharing Panel'
         ]);
@@ -168,7 +168,7 @@ describe('navMenuProvider.getSamplePagesSection', () => {
             'SamplePages/Components/Content-Item-Edit-Panel',
             'SamplePages/Components/Content-Item-Default-Panel',
             'SamplePages/Components/Content-Item-Quotes-Panel',
-            'SamplePages/Components/Content-Item-Verses-Panel',
+            'SamplePages/Components/Content-Item-Verse-Image-Panel',
             'SamplePages/Components/Sharing-Panel'
         ]);
     });

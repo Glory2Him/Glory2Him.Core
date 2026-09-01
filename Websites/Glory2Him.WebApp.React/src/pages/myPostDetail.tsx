@@ -149,7 +149,12 @@ export function MyPostDetail() {
                                 contentItem={searchItem}
                                 showEditSection
                                 showApprovalStatusRibbon
-                                showApprovalStatus
+
+                                // The corner ribbon already says the status on the card, so
+                                // the pill beside the type chip is off here: one card saying
+                                // Draft twice reads as two different facts about the row. The
+                                // same call /myposts makes for its list.
+                                showApprovalStatus={false}
                                 showContentExpanded
                                 showTagSection={false}
                                 showBibleReferenceSection={false}

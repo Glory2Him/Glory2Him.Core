@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -492,7 +492,7 @@ namespace Glory2Him.WebApp.Data
             // A verse image carries the verse whole — quotation marks, reference and translation
             // in the content, the way the card renders it — and the author is the source. All
             // public domain: scripture is nobody's to own here.
-            [ContentType.Verses] =
+            [ContentType.VerseImage] =
             [
                 new ContentSpecimen
                 {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Breadcrumb } from '../../components/coreUI/breadcrumb';
 import { Button } from '../../components/coreUI/button';
 import { Card } from '../../components/coreUI/card';
@@ -23,6 +23,12 @@ import { extractApiErrorMessage } from './apiErrorMessage';
 // shown but not editable: the unique indexes allow one default per type and one override per
 // item, so moving a row to another scope is creating a different policy rather than changing
 // this one, and it would collide with whatever already occupies the target.
+//
+// WHERE THE WAY OUT LEADS. The list hands its own address over in router state when Manage is
+// taken, so both exits — Back and a successful save — return to the FILTERED page the
+// administrator was working through rather than to an unfiltered first page. Opened directly
+// (a pasted link, a refresh) there is no origin to honour, and the bare list is the honest
+// fallback.
 
 const settingsRoute = '/Admin/ContentItemSettings';
 
@@ -104,6 +110,7 @@ const featureFields: ReadonlyArray<FeatureField> = [
 export const ContentItemSettingDetailPage = () => {
     const { contentItemSettingId = '' } = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
 
     const { data: setting, isLoading, isError } =
         contentItemSettingService.useGetContentItemSettingById(
@@ -115,7 +122,6 @@ export const ContentItemSettingDetailPage = () => {
     // Edit a copy, so an abandoned edit never leaves the displayed row half-changed.
     const [editModel, setEditModel] = useState<ContentItemSetting | null>(null);
     const [actionError, setActionError] = useState<string | null>(null);
-    const [actionMessage, setActionMessage] = useState<string | null>(null);
 
     useDocumentTitle(setting == null
         ? 'Content Item Setting — Glory 2 Him'
@@ -133,7 +139,12 @@ export const ContentItemSettingDetailPage = () => {
         { title: setting?.contentTypeName ?? 'Setting', isActive: true },
     ];
 
-    const goBack = () => navigate(settingsRoute);
+    // The view this page was opened from, filters and page and all. Absent when the page was
+    // reached without going through the list.
+    const backRoute =
+        (location.state as { from?: string } | null)?.from ?? settingsRoute;
+
+    const goBack = () => navigate(backRoute);
 
     const setField = <TField extends keyof ContentItemSetting>(
         field: TField,
@@ -146,12 +157,14 @@ export const ContentItemSettingDetailPage = () => {
         }
 
         setActionError(null);
-        setActionMessage(null);
 
         try {
             await updateContentItemSetting.mutateAsync(editModel);
 
-            setActionMessage('Settings saved.');
+            // Saved IS finished here, so the save leaves the same way Back does rather than
+            // parking the administrator on a form they are done with. The mutation invalidates
+            // the list read on its way out, so the row they land on is the row they just wrote.
+            goBack();
         } catch (error) {
             setActionError(extractApiErrorMessage(
                 error, 'The settings could not be saved. Please try again.'));
@@ -185,11 +198,10 @@ export const ContentItemSettingDetailPage = () => {
                         </Button>
                     </div>
 
+                    {/* A refused save is the one outcome that keeps the reader here, so it is
+                        the one that still has something to say on this page. */}
                     {actionError != null && (
                         <div className="alert alert-danger" role="alert">{actionError}</div>
-                    )}
-                    {actionMessage != null && (
-                        <div className="alert alert-success" role="alert">{actionMessage}</div>
                     )}
 
                     <Card cssClass="mb-4" headerContent="Scope">

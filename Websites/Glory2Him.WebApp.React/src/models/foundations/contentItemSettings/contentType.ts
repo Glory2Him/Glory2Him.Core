@@ -13,7 +13,7 @@ export enum ContentType {
     Devotional = 3,
     BibleStudy = 4,
     BlogPost = 5,
-    Verses = 6,
+    VerseImage = 6,
     Series = 100,
     Topic = 200,
 }
@@ -27,7 +27,7 @@ export const contentTypeMembers: ReadonlyArray<ContentType> = [
     ContentType.Devotional,
     ContentType.BibleStudy,
     ContentType.BlogPost,
-    ContentType.Verses,
+    ContentType.VerseImage,
     ContentType.Series,
     ContentType.Topic,
 ];
@@ -41,7 +41,7 @@ export const contentTypeLabels: Readonly<Record<ContentType, string>> = {
     [ContentType.Devotional]: 'Devotional',
     [ContentType.BibleStudy]: 'Bible Study',
     [ContentType.BlogPost]: 'Blog Post',
-    [ContentType.Verses]: 'Verses',
+    [ContentType.VerseImage]: 'Verse Image',
     [ContentType.Series]: 'Series',
     [ContentType.Topic]: 'Topic',
 };

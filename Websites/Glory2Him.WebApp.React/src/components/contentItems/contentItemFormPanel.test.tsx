@@ -747,6 +747,46 @@ describe('ContentItemFormPanel', () => {
             expect(screen.getByText(new RegExp('required for this sharing basis')))
                 .toBeInTheDocument();
         });
+
+        it('should ask for the proof in a textarea the reader can drag taller', async () => {
+            // given
+            signInAs(authState);
+
+            renderWithAuth(
+                <ContentItemFormPanel contentItemSettingCollection={settings} />);
+
+            // when
+            const sharePermission = screen.getByLabelText(/Permission details/);
+
+            // then: the answer wanted here is PASTED evidence rather than a typed claim, so the
+            // control is a textarea — opened at one row, which costs the form no more height
+            // than the line it replaced
+            expect(sharePermission.tagName).toBe('TEXTAREA');
+            expect(sharePermission).toHaveAttribute('rows', '1');
+        });
+
+        it('should carry pasted evidence through with its own line breaks', async () => {
+            // given: an email granting permission, pasted in whole
+            signInAs(authState);
+            const onAdded = vi.fn();
+
+            const pastedEmail =
+                'From: author@example.com\nYou are welcome to republish this on your site.';
+
+            renderWithAuth(
+                <ContentItemFormPanel contentItemSettingCollection={settings} onAdded={onAdded} />);
+
+            await userEvent.type(screen.getByLabelText(/^Story/), 'The whole story.');
+
+            // when
+            await userEvent.type(screen.getByLabelText(/Permission details/), pastedEmail);
+            await userEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
+
+            // then: the newline survives, which is the whole reason the field is not a line
+            expect(onAdded).toHaveBeenCalledWith(expect.objectContaining({
+                sharePermission: pastedEmail
+            }));
+        });
     });
 
     describe('the approval-status ribbon', () => {
@@ -785,6 +825,400 @@ describe('ContentItemFormPanel', () => {
                     contentItemSettingCollection={settings} />);
 
             expect(container.querySelector('.g2h-approval-ribbon')).toBeNull();
+        });
+    });
+
+    describe('the Submit as row', () => {
+        it('should offer the two states a contributor owns, opening on Submitted', () => {
+            // given
+            signInAs(authState);
+
+            // when
+            renderWithAuth(<ContentItemFormPanel contentItemSettingCollection={settings} />);
+
+            // then: Approved, Rejected and Dismissed are a reviewer's award and are not on
+            // offer here at all — nobody may claim one for themselves
+            const submitAs = screen.getByLabelText(/Submit as/);
+
+            expect(within(submitAs).getAllByRole('option').map((option) => option.textContent))
+                .toEqual(['Submitted', 'Draft']);
+
+            expect(submitAs).toHaveValue(String(ApprovalStatus.Submitted));
+        });
+
+        it('should stand last in the form, under the permission question and over the '
+            + 'buttons', () => {
+                // given
+                signInAs(authState);
+
+                // when
+                renderWithAuth(<ContentItemFormPanel contentItemSettingCollection={settings} />);
+
+                // then: what the contribution IS comes first, what to DO with it comes last
+                const sharePermission = screen.getByLabelText(/Permission details/);
+                const submitAs = screen.getByLabelText(/Submit as/);
+                const submitButton = screen.getByRole('button', { name: 'Submit for review' });
+
+                expect(sharePermission.compareDocumentPosition(submitAs)
+                    & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+                expect(submitAs.compareDocumentPosition(submitButton)
+                    & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+            });
+
+        it('should file a fresh contribution under the status left standing', async () => {
+            // given
+            signInAs(authState);
+            const onAdded = vi.fn();
+
+            renderWithAuth(
+                <ContentItemFormPanel
+                    contentItemSettingCollection={settings}
+                    onAdded={onAdded} />);
+
+            // when: the dropdown is never opened
+            await userEvent.click(screen.getByRole('button', { name: /Story/ }));
+            await userEvent.type(screen.getByLabelText(/Story/), 'The whole of it');
+
+            await userEvent.type(
+                screen.getByLabelText(/Permission details/), 'By email from the author');
+
+            await userEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
+
+            // then: the contribution page exists to put work in front of a reviewer
+            expect(onAdded).toHaveBeenCalledWith(expect.objectContaining({
+                approvalStatus: ApprovalStatus.Submitted
+            }));
+        });
+
+        it('should file a fresh contribution as a draft when the contributor says so',
+            async () => {
+                // given
+                signInAs(authState);
+                const onAdded = vi.fn();
+
+                renderWithAuth(
+                    <ContentItemFormPanel
+                        contentItemSettingCollection={settings}
+                        onAdded={onAdded} />);
+
+                // when
+                await userEvent.click(screen.getByRole('button', { name: /Story/ }));
+                await userEvent.type(screen.getByLabelText(/Story/), 'The whole of it');
+
+                await userEvent.type(
+                    screen.getByLabelText(/Permission details/), 'By email from the author');
+
+                await userEvent.selectOptions(
+                    screen.getByLabelText(/Submit as/), String(ApprovalStatus.Draft));
+
+                await userEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
+
+                // then
+                expect(onAdded).toHaveBeenCalledWith(expect.objectContaining({
+                    approvalStatus: ApprovalStatus.Draft
+                }));
+            });
+
+        it('should open on the consumer’s approvalStatusDefault', async () => {
+            // given: a surface whose contributions start life as drafts
+            signInAs(authState);
+            const onAdded = vi.fn();
+
+            renderWithAuth(
+                <ContentItemFormPanel
+                    contentItemSettingCollection={settings}
+                    approvalStatusDefault={ApprovalStatus.Draft}
+                    onAdded={onAdded} />);
+
+            // then
+            expect(screen.getByLabelText(/Submit as/))
+                .toHaveValue(String(ApprovalStatus.Draft));
+
+            // when: the dropdown is left where the consumer set it
+            await userEvent.type(
+                screen.getByLabelText(/Permission details/), 'By email from the author');
+
+            await userEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
+
+            // then
+            expect(onAdded).toHaveBeenCalledWith(expect.objectContaining({
+                approvalStatus: ApprovalStatus.Draft
+            }));
+        });
+
+        it('should let an item name its own status over the consumer’s default', () => {
+            // given: the default SEEDS where the model is silent — it never overrides
+            signInAs(authState);
+
+            // when
+            renderWithAuth(
+                <ContentItemFormPanel
+                    contentItem={itemWith({ approvalStatus: ApprovalStatus.Submitted })}
+                    showEditSection
+                    approvalStatusDefault={ApprovalStatus.Draft}
+                    contentItemSettingCollection={settings} />);
+
+            // then
+            expect(screen.getByLabelText(/Submit as/))
+                .toHaveValue(String(ApprovalStatus.Submitted));
+        });
+
+        it('should answer for an item whose projection left the status unset', () => {
+            // given: approvalStatus is optional on the projection, so the default is what a
+            // silent model falls to in `edit` as well as in `add`
+            signInAs(authState);
+
+            // when
+            renderWithAuth(
+                <ContentItemFormPanel
+                    contentItem={itemWith({ approvalStatus: undefined })}
+                    showEditSection
+                    approvalStatusDefault={ApprovalStatus.Draft}
+                    contentItemSettingCollection={settings} />);
+
+            // then
+            expect(screen.getByLabelText(/Submit as/))
+                .toHaveValue(String(ApprovalStatus.Draft));
+        });
+
+        it('should seed the row from the item it is amending', () => {
+            // given
+            signInAs(authState);
+
+            // when
+            renderWithAuth(
+                <ContentItemFormPanel
+                    contentItem={itemWith({ approvalStatus: ApprovalStatus.Submitted })}
+                    showEditSection
+                    contentItemSettingCollection={settings} />);
+
+            // then
+            expect(screen.getByLabelText(/Submit as/))
+                .toHaveValue(String(ApprovalStatus.Submitted));
+        });
+
+        it('should let a contributor withdraw a submitted item back to draft', async () => {
+            // given: both members are the contributor's own, so the move between them runs
+            // in either direction — pulling work back out of review is theirs to make
+            signInAs(authState);
+            const onModified = vi.fn();
+
+            renderWithAuth(
+                <ContentItemFormPanel
+                    contentItem={itemWith({ approvalStatus: ApprovalStatus.Submitted })}
+                    showEditSection
+                    onModified={onModified}
+                    contentItemSettingCollection={settings} />);
+
+            // when
+            await userEvent.selectOptions(
+                screen.getByLabelText(/Submit as/), String(ApprovalStatus.Draft));
+
+            await userEvent.type(
+                screen.getByLabelText(/Permission details/), 'By email from the author');
+
+            await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+            // then
+            expect(onModified).toHaveBeenCalledWith(expect.objectContaining({
+                approvalStatus: ApprovalStatus.Draft
+            }));
+        });
+
+        it.each<[string, ApprovalStatus]>([
+            ['approved', ApprovalStatus.Approved],
+            ['rejected', ApprovalStatus.Rejected],
+            ['dismissed', ApprovalStatus.Dismissed]
+        ])('should render no row at all on an item a reviewer has %s', (_name, approvalStatus) => {
+            // given: the owner, who edits at any status
+            signInAs(authState);
+
+            // when
+            renderWithAuth(
+                <ContentItemFormPanel
+                    contentItem={itemWith({ approvalStatus })}
+                    showEditSection
+                    contentItemSettingCollection={settings} />);
+
+            // then: the label goes with the dropdown — there is no transition backwards out
+            // of a decision for this surface to offer, disabled or otherwise
+            expect(screen.queryByLabelText(/Submit as/)).not.toBeInTheDocument();
+            expect(screen.queryByText(/Submit as/)).not.toBeInTheDocument();
+
+            // and the editor itself is still open: it is the ROW that is gone, not the face
+            expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
+        });
+
+        it('should carry a decided status through a save untouched', async () => {
+            // given
+            signInAs(authState);
+            const onModified = vi.fn();
+
+            renderWithAuth(
+                <ContentItemFormPanel
+                    contentItem={itemWith({ approvalStatus: ApprovalStatus.Approved })}
+                    showEditSection
+                    onModified={onModified}
+                    contentItemSettingCollection={settings} />);
+
+            // when
+            await userEvent.type(
+                screen.getByLabelText(/Permission details/), 'By email from the author');
+
+            await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+            // then: a hidden row demotes nothing — the amendment files the status it arrived
+            // with, rather than the default an absent answer would otherwise fall to
+            expect(onModified).toHaveBeenCalledWith(expect.objectContaining({
+                approvalStatus: ApprovalStatus.Approved
+            }));
+        });
+
+        it('should follow the item when the status moves underneath an unanswered row',
+            async () => {
+                // given: the ribbon and this row render the SAME fact, so a status the
+                // consumer changes must move both — the item's identity is unchanged, which
+                // is exactly when a seeded copy would go stale
+                signInAs(authState);
+
+                const view = renderWithAuth(
+                    <ContentItemFormPanel
+                        contentItem={itemWith({ approvalStatus: ApprovalStatus.Draft })}
+                        showEditSection
+                        showApprovalStatusRibbon
+                        contentItemSettingCollection={settings} />);
+
+                expect(screen.getByLabelText(/Submit as/))
+                    .toHaveValue(String(ApprovalStatus.Draft));
+
+                // when
+                view.rerender(wrapped(
+                    <ContentItemFormPanel
+                        contentItem={itemWith({ approvalStatus: ApprovalStatus.Submitted })}
+                        showEditSection
+                        showApprovalStatusRibbon
+                        contentItemSettingCollection={settings} />));
+
+                // then: the row and the ribbon agree, because both read the model
+                expect(screen.getByLabelText(/Submit as/))
+                    .toHaveValue(String(ApprovalStatus.Submitted));
+
+                expect(document.querySelector('.g2h-approval-ribbon')
+                    ?.getAttribute('data-approval-status')).toBe('Submitted');
+            });
+
+        it('should leave an answered row alone when the status moves underneath it',
+            async () => {
+                // given: a contributor part-way through withdrawing their submission
+                signInAs(authState);
+                const onModified = vi.fn();
+
+                const view = renderWithAuth(
+                    <ContentItemFormPanel
+                        contentItem={itemWith({ approvalStatus: ApprovalStatus.Submitted })}
+                        showEditSection
+                        onModified={onModified}
+                        contentItemSettingCollection={settings} />);
+
+                await userEvent.selectOptions(
+                    screen.getByLabelText(/Submit as/), String(ApprovalStatus.Draft));
+
+                await userEvent.type(
+                    screen.getByLabelText(/Permission details/), 'By email from the author');
+
+                // when: the consumer re-renders the same item, still Submitted
+                view.rerender(wrapped(
+                    <ContentItemFormPanel
+                        contentItem={itemWith({ approvalStatus: ApprovalStatus.Submitted })}
+                        showEditSection
+                        onModified={onModified}
+                        contentItemSettingCollection={settings} />));
+
+                // then: an answer given is theirs, and survives — as a pen name does
+                expect(screen.getByLabelText(/Submit as/))
+                    .toHaveValue(String(ApprovalStatus.Draft));
+
+                await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+                expect(onModified).toHaveBeenCalledWith(expect.objectContaining({
+                    approvalStatus: ApprovalStatus.Draft
+                }));
+            });
+
+        it('should take the row away when another process decides the item underneath it',
+            async () => {
+                // given: a live editor over a submitted item — the row stands, and the
+                // contributor has even moved it back to Draft
+                signInAs(authState);
+                const onModified = vi.fn();
+
+                const view = renderWithAuth(
+                    <ContentItemFormPanel
+                        contentItem={itemWith({ approvalStatus: ApprovalStatus.Submitted })}
+                        showEditSection
+                        onModified={onModified}
+                        contentItemSettingCollection={settings} />);
+
+                await userEvent.selectOptions(
+                    screen.getByLabelText(/Submit as/), String(ApprovalStatus.Draft));
+
+                await userEvent.type(
+                    screen.getByLabelText(/Permission details/), 'By email from the author');
+
+                // when: a reviewer approves it elsewhere and the consumer re-renders with the
+                // decided row — the SAME item, so nothing here is reseeded
+                view.rerender(wrapped(
+                    <ContentItemFormPanel
+                        contentItem={itemWith({ approvalStatus: ApprovalStatus.Approved })}
+                        showEditSection
+                        onModified={onModified}
+                        contentItemSettingCollection={settings} />));
+
+                // then: the question is no longer the contributor's to answer
+                expect(screen.queryByLabelText(/Submit as/)).not.toBeInTheDocument();
+
+                // and the answer they had given is not filed either — the decision stands
+                await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+                expect(onModified).toHaveBeenCalledWith(expect.objectContaining({
+                    approvalStatus: ApprovalStatus.Approved
+                }));
+            });
+
+        it('should place an ApprovalStatus message on the row while it stands', () => {
+            // given
+            signInAs(authState);
+
+            // when
+            renderWithAuth(
+                <ContentItemFormPanel
+                    contentItemSettingCollection={settings}
+                    validationIssues={{ ApprovalStatus: ['Value is invalid'] }} />);
+
+            // then
+            expect(screen.getByLabelText(/Submit as/)).toHaveClass('is-invalid');
+            expect(screen.getByText('Value is invalid')).toBeInTheDocument();
+        });
+
+        it('should summarise an ApprovalStatus message once the row is gone', () => {
+            // given: a decided item renders no row, so a message named for it has nowhere
+            // to land — it must reach the summary rather than vanish
+            signInAs(authState);
+
+            // when
+            renderWithAuth(
+                <ContentItemFormPanel
+                    contentItem={itemWith({ approvalStatus: ApprovalStatus.Approved })}
+                    showEditSection
+                    contentItemSettingCollection={settings}
+                    validationIssues={{ ApprovalStatus: ['Value is invalid'] }} />);
+
+            // then
+            expect(screen.getByText('Please fix the following and try again:'))
+                .toBeInTheDocument();
+
+            expect(screen.getByText('Value is invalid')).toBeInTheDocument();
         });
     });
 

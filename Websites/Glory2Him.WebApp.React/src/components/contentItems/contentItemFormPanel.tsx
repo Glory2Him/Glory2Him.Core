@@ -19,7 +19,11 @@ import {
     ApprovalStatus,
     ContentItemFormItem,
     ContentItemValidationIssues,
+    contributorApprovalStatusLabels,
+    contributorApprovalStatusMembers,
+    defaultContributorApprovalStatus,
     defaultShareabilityBasis,
+    isContributorApprovalStatus,
     isOwnedShareabilityBasis,
     isPermissionShareabilityBasis,
     ShareabilityBasis,
@@ -63,7 +67,10 @@ export const ContentTypeToken = '{ContentType}';
 //
 // WHAT IT DELIBERATELY DOES NOT CONTAIN. Tags and bible references — AssociationPanel and its two
 // wrappers already own that surface with their own approval and role rules, and they render
-// BESIDE this panel on the page rather than within it. Approval controls belong to ReviewPanel.
+// BESIDE this panel on the page rather than within it. The APPROVAL DECISION belongs to
+// ReviewPanel: what this panel carries is the "Submit as" row, and that offers the contributor's
+// own two states alone — Draft and Submitted. A decided item (Approved, Rejected, Dismissed) does
+// not render the row at all, because reversing a reviewer is not a move this surface has.
 //
 // THEMING. Styling is expressed as CSS CLASSES rather than colours, so every control follows the
 // light/dark theme. Pass btn-primary, btn-danger or any theme class — never a literal colour.
@@ -144,6 +151,20 @@ export interface ContentItemFormPanelProps {
     // mode: an item that does not exist yet has no status to wear.
     showApprovalStatusRibbon?: boolean;
 
+    // WHAT THE "Submit as" ROW OPENS ON where the model names no status — `add`, which has no
+    // item at all, and an item whose projection left approvalStatus unset. Submitted by
+    // default: the contribution page exists to put work in front of a reviewer, and the button
+    // under the row says so.
+    //
+    // It seeds and nothing more. An item that HAS a status is reported by that status, never by
+    // this — a surface whose drafts should open as drafts passes ApprovalStatus.Draft, and its
+    // submitted items still read Submitted.
+    //
+    // Only the two a contributor owns are meaningful here. A decided status would name a state
+    // the row does not render for, which in `add` would leave the form with no way to answer
+    // the question at all.
+    approvalStatusDefault?: ApprovalStatus;
+
     // ── Events ────────────────────────────────────────────────────────────────
     // The panel mutates nothing and fetches nothing. The CONSUMER owns persistence: it decides
     // whether onModified is a PUT or, on a terminal item, a fork into a new version (§3.4 rule 16).
@@ -202,6 +223,7 @@ export interface ContentItemFormPanelProps {
     sharePermissionLabelText?: string;
     sharePermissionPlaceholderText?: string;
     sharePermissionRequiredText?: string;
+    submitAsLabelText?: string;
 
     // The over-length refusal, with {max} standing in for the ceiling the setting names.
     maxLengthExceededText?: string;
@@ -244,15 +266,24 @@ type ContentItemDraft = {
     content: string;
     shareabilityBasis: ShareabilityBasis;
     sharePermission: string;
+    approvalStatus: ApprovalStatus;
 };
 
-const draftFromItem = (contentItem: ContentItemFormItem | undefined): ContentItemDraft => ({
+const draftFromItem = (
+    contentItem: ContentItemFormItem | undefined,
+    approvalStatusDefault: ApprovalStatus): ContentItemDraft => ({
     contentType: contentItem?.contentType ?? null,
     title: contentItem?.title ?? '',
     author: contentItem?.author ?? '',
     content: contentItem?.content ?? '',
     shareabilityBasis: contentItem?.shareabilityBasis ?? defaultShareabilityBasis,
-    sharePermission: contentItem?.sharePermission ?? ''
+    sharePermission: contentItem?.sharePermission ?? '',
+
+    // WHERE THE CONTRIBUTOR'S OWN ANSWER LIVES once they give one. Until then it is not read
+    // at all — an unanswered row reports the model, not this (see effectiveApprovalStatus) —
+    // so the seed exists to keep the draft coherent with what is on screen rather than to
+    // drive it.
+    approvalStatus: contentItem?.approvalStatus ?? approvalStatusDefault
 });
 
 export function ContentItemFormPanel({
@@ -268,6 +299,7 @@ export function ContentItemFormPanel({
     validationIssues,
     showEditSection = false,
     showApprovalStatusRibbon = false,
+    approvalStatusDefault = defaultContributorApprovalStatus,
     onAdded,
     onModified,
     onRemoved,
@@ -295,8 +327,12 @@ export function ContentItemFormPanel({
     'Please say what permission you have — it is required for this sharing basis.',
     maxLengthExceededText =
     'Too long — this type allows at most {max} characters here.',
+    // NOT a claim, the EVIDENCE. "Permission granted by the author, 12 Jan 2026" is a
+    // contributor's word for it; what a reviewer can act on is the wording itself, pasted in —
+    // which is also why the field is a textarea rather than a line (see below).
     sharePermissionPlaceholderText =
-    'e.g. Permission granted by the author by email, 12 Jan 2026',
+    'e.g. paste the permission itself — the email, the copyright notice, or the sharing terms',
+    submitAsLabelText = 'Submit as',
     submitButtonText = 'Submit for review',
     saveButtonText = 'Save',
     cancelButtonText = 'Cancel',
@@ -320,7 +356,8 @@ export function ContentItemFormPanel({
     const headingId = useId();
     const fieldId = useId();
 
-    const [draft, setDraft] = useState<ContentItemDraft>(() => draftFromItem(contentItem));
+    const [draft, setDraft] =
+        useState<ContentItemDraft>(() => draftFromItem(contentItem, approvalStatusDefault));
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
     // The one client-side mandatory rule (see validationIssues above): raised on a refused
@@ -332,14 +369,21 @@ export function ContentItemFormPanel({
     // prefill above stops second-guessing them — including when they deliberately empty it.
     const [isAuthorTouched, setIsAuthorTouched] = useState(false);
 
+    // The same question for the "Submit as" row, and it matters more there: the status is the
+    // one field on this form that ANOTHER PROCESS moves, so until the contributor has answered
+    // it themselves the row reports the item rather than a copy of it — see
+    // effectiveApprovalStatus.
+    const [isSubmitAsTouched, setIsSubmitAsTouched] = useState(false);
+
     const contentItemId = contentItem?.id;
 
     // A different item is a different editor. Keyed on the identity rather than the object so a
     // consumer re-rendering with an equivalent row does not wipe what is being typed.
     useEffect(() => {
-        setDraft(draftFromItem(contentItem));
+        setDraft(draftFromItem(contentItem, approvalStatusDefault));
         setIsConfirmingDelete(false);
         setIsAuthorTouched(false);
+        setIsSubmitAsTouched(false);
         setIsSharePermissionMissing(false);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [contentItemId]);
@@ -584,6 +628,13 @@ export function ContentItemFormPanel({
         shareabilityBasis: draft.shareabilityBasis,
         sharePermission: hasSharePermissionField ? draft.sharePermission : '',
 
+        // effectiveApprovalStatus, not draft.approvalStatus: what the row was SHOWING is what
+        // gets filed — the same rule the author field keeps one line up. It also settles the
+        // hidden case on its own, since an unanswerable row is reporting the model: a decided
+        // item files the decision it arrived with, whether it was decided before the editor
+        // opened or underneath it.
+        approvalStatus: effectiveApprovalStatus,
+
         // The emitted projection is SELF-CONTAINED like everything else that carries this
         // shape: `add` constructs the winner from the collection it shaped the form with, so
         // the consumer can hand what it receives straight to a detail surface.
@@ -626,7 +677,7 @@ export function ContentItemFormPanel({
     };
 
     const cancelEdit = () => {
-        setDraft(draftFromItem(contentItem));
+        setDraft(draftFromItem(contentItem, approvalStatusDefault));
         onCancelled?.();
     };
 
@@ -704,6 +755,48 @@ export function ContentItemFormPanel({
     const hasSharePermissionField =
         isPermissionShareabilityBasis(effectiveShareabilityBasis);
 
+    // THE STATUS AS THE MODEL HOLDS IT, which is what the ribbon and the status pill render
+    // from — so everything below reads the same fact those do, and the row cannot sit on a
+    // stale copy while the corner of the same panel says otherwise.
+    //
+    // BOTH HALVES ARE PROPS, deliberately. Where the model names no status — `add`, which has
+    // no item at all, and an item whose projection left the field unset — the consumer's
+    // approvalStatusDefault answers, and it answers LIVE. Reading the draft's seed here
+    // instead would have re-introduced the same staleness one level down: a consumer moving
+    // the default would move nothing, because the draft reseeds on the item's identity and
+    // `add` has no identity to change.
+    const storedApprovalStatus = contentItem?.approvalStatus ?? approvalStatusDefault;
+
+    // WHETHER THE STATUS IS STILL THE CONTRIBUTOR'S TO SET, which is the whole of the "Submit as"
+    // row's render rule.
+    //
+    // READ OFF THE MODEL, NOT THE DRAFT. The status is the one field on this form that ANOTHER
+    // PROCESS decides — a reviewer approving or rejecting the row, here or elsewhere — so the
+    // authority is the row as the consumer last handed it over, and a decision reaching the
+    // panel takes the question away rather than leaving the surface offering a move that is no
+    // longer anybody's to make.
+    //
+    // A DECIDED ITEM SHOWS NOTHING HERE. Approved, Rejected and Dismissed are a reviewer's
+    // award, and there is no transition backwards out of them for a contributor to take — so the
+    // label and the dropdown go together rather than the dropdown being rendered disabled, which
+    // would still be offering a move nobody has.
+    const hasSubmitAsField = isContributorApprovalStatus(storedApprovalStatus);
+
+    // WHAT THE "SUBMIT AS" ROW ACTUALLY HOLDS, derived rather than stored — the same shape
+    // effectiveAuthor takes, and for the same reason turned up the other way round.
+    //
+    // The draft is seeded once per ITEM (see the reset effect), which is right for a field the
+    // reader types: a consumer re-render must not wipe half a sentence. But the status is not
+    // theirs alone — a review decision, or any other surface, moves it under a live editor with
+    // the item's identity unchanged, and a seeded copy would go on reporting what the row used
+    // to say while the ribbon two inches away showed the truth.
+    //
+    // So an UNANSWERED row simply reports the model, and follows it wherever it goes; once the
+    // contributor has answered it, their pending choice is theirs and stands. Withdrawing a
+    // submission back to Draft survives a re-render, exactly as a pen name does.
+    const effectiveApprovalStatus =
+        isSubmitAsTouched && hasSubmitAsField ? draft.approvalStatus : storedApprovalStatus;
+
     const selectedTypeName = typeNameOf(selectedContentType);
 
     const contentLabel = contentLabelText.length > 0
@@ -722,7 +815,8 @@ export function ContentItemFormPanel({
         ...(hasAuthorField ? ['Author'] : []),
         'Content',
         'ShareabilityBasis',
-        ...(hasSharePermissionField ? ['SharePermission'] : [])
+        ...(hasSharePermissionField ? ['SharePermission'] : []),
+        ...(hasSubmitAsField ? ['ApprovalStatus'] : [])
     ];
 
     // Keyed on the FIELD as well as the message: the server's messages are shared literals
@@ -967,19 +1061,25 @@ export function ContentItemFormPanel({
             {/* The field only renders under a permission basis, and under one it is
                 MANDATORY — the asterisk is unconditional because the two arrive together. */}
             {hasSharePermissionField && (
-                <div className="mb-4">
+                <div className="mb-3">
                     <label className="form-label" htmlFor={`${fieldId}-share-permission`}>
                         {sharePermissionLabelText}{' '}
                         <span className="text-danger" aria-hidden="true">*</span>
                     </label>
 
-                    <input
-                        type="text"
-                        className={`form-control${invalidCssClass('SharePermission')}`}
+                    {/* A TEXTAREA, not a line, because the answer the field wants is PASTED
+                        rather than typed — an email granting permission, a licence or a
+                        copyright line, all of which arrive with their own newlines. It opens at
+                        one row so it costs no more space than the input it replaces, and the
+                        reader drags it taller when they have more to paste. */}
+                    <textarea
+                        className={'form-control g2h-content-item-share-permission'
+                            + invalidCssClass('SharePermission')}
                         id={`${fieldId}-share-permission`}
                         aria-required="true"
                         {...fieldIssueAttributes('SharePermission')}
                         maxLength={500}
+                        rows={1}
                         value={draft.sharePermission}
                         placeholder={sharePermissionPlaceholderText}
                         onChange={(event) => {
@@ -987,9 +1087,45 @@ export function ContentItemFormPanel({
 
                             setDraft((current) =>
                                 ({ ...current, sharePermission: event.target.value }));
-                        }} />
+                        }}></textarea>
 
                     {renderFieldIssues('SharePermission')}
+                </div>
+            )}
+
+            {/* THE LAST QUESTION THE FORM ASKS, and it belongs last: everything above is what
+                the contribution IS, and this is what to DO with it — so the reader answers it
+                with the whole of their submission already in front of them, one row above the
+                button that acts on the answer. */}
+            {hasSubmitAsField && (
+                <div className="mb-4">
+                    <label className="form-label" htmlFor={`${fieldId}-approval-status`}>
+                        {submitAsLabelText}{' '}
+                        <span className="text-danger" aria-hidden="true">*</span>
+                    </label>
+
+                    <select
+                        className={`form-select${invalidCssClass('ApprovalStatus')}`}
+                        id={`${fieldId}-approval-status`}
+                        aria-required="true"
+                        {...fieldIssueAttributes('ApprovalStatus')}
+                        value={effectiveApprovalStatus}
+                        onChange={(event) => {
+                            setIsSubmitAsTouched(true);
+
+                            setDraft((current) => ({
+                                ...current,
+                                approvalStatus: Number(event.target.value) as ApprovalStatus
+                            }));
+                        }}>
+                        {contributorApprovalStatusMembers.map((status) => (
+                            <option key={status} value={status}>
+                                {contributorApprovalStatusLabels[status]}
+                            </option>
+                        ))}
+                    </select>
+
+                    {renderFieldIssues('ApprovalStatus')}
                 </div>
             )}
         </>

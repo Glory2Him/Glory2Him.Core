@@ -9,12 +9,17 @@ import { ContentItemAddPanelDoc } from './contentItemAddPanelDoc';
 import { ContentItemEditPanelDoc } from './contentItemEditPanelDoc';
 import { ContentItemDefaultPanelDoc } from './contentItemDefaultPanelDoc';
 import { ContentItemQuotesPanelDoc } from './contentItemQuotesPanelDoc';
-import { ContentItemVersesPanelDoc } from './contentItemVersesPanelDoc';
+import { ContentItemVerseImagePanelDoc } from './contentItemVerseImagePanelDoc';
 import { ContentItemListPanelDoc } from './contentItemListPanelDoc';
 import { SharingPanelDoc } from './sharingPanelDoc';
 import { BibleReferenceAssociationPanelDoc } from './bibleReferenceAssociationPanelDoc';
 import { ReviewPanelDoc } from './reviewPanelDoc';
 import { TagAssociationPanelDoc } from './tagAssociationPanelDoc';
+
+import {
+    ApprovalStatus
+} from '../../../models/components/contentItems/contentItemFormItem';
+
 import {
     createAuthState,
     renderWithAuth,
@@ -267,6 +272,56 @@ describe('Component reference pages', () => {
         });
     });
 
+    describe('ContentItemAddPanelDoc', () => {
+        it('should open and close the surface through the contribution gates', async () => {
+            // given: the board opens on the design's own position — any signed-in reader
+            renderWithAuth(<ContentItemAddPanelDoc />);
+
+            expect(screen.getByText('What are you sharing?')).toBeInTheDocument();
+
+            // when: a grant the demo reader does not hold
+            await userEvent.click(screen.getByRole('radio',
+                { name: 'addRoles = Contributors — which this reader lacks' }));
+
+            // then
+            expect(screen.queryByText('What are you sharing?')).not.toBeInTheDocument();
+
+            expect(screen.getByText('Contributions are not open to this account.'))
+                .toBeInTheDocument();
+
+            // when: the same grant, now held
+            await userEvent.click(screen.getByRole('radio',
+                { name: 'addRoles = Contributors — and this reader holds it' }));
+
+            // then
+            expect(screen.getByText('What are you sharing?')).toBeInTheDocument();
+
+            // when: a ReadOnly block, which is asked FIRST and outranks the grant (#366)
+            await userEvent.click(screen.getByRole('radio',
+                { name: 'ContentItem-ReadOnly — the block outranks the grant' }));
+
+            // then
+            expect(screen.getByText('Contributions are not open to this account.'))
+                .toBeInTheDocument();
+        });
+
+        it('should open the Submit as row on whichever default the board picks', async () => {
+            // given
+            renderWithAuth(<ContentItemAddPanelDoc />);
+
+            expect(screen.getByLabelText(/Submit as/))
+                .toHaveValue(String(ApprovalStatus.Submitted));
+
+            // when
+            await userEvent.click(screen.getByRole('radio',
+                { name: 'Draft — a surface that files drafts' }));
+
+            // then
+            expect(screen.getByLabelText(/Submit as/))
+                .toHaveValue(String(ApprovalStatus.Draft));
+        });
+    });
+
     describe('the family reference pages', () => {
         // One smoke per page: the heading, the source path, and the control board —
         // every page in the tree documents its own component with its own switches.
@@ -302,9 +357,9 @@ describe('Component reference pages', () => {
                 page: <ContentItemQuotesPanelDoc />
             },
             {
-                name: 'Content Item Verses Panel',
-                path: 'src/components/contentItems/contentItemVersesPanel.tsx',
-                page: <ContentItemVersesPanelDoc />
+                name: 'Content Item Verse Image Panel',
+                path: 'src/components/contentItems/contentItemVerseImagePanel.tsx',
+                page: <ContentItemVerseImagePanelDoc />
             }
         ];
 

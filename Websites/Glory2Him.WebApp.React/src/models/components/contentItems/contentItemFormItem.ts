@@ -99,6 +99,45 @@ export const isPermissionShareabilityBasis = (basis: ShareabilityBasis): boolean
     basis === ShareabilityBasis.PermissionGranted
     || basis === ShareabilityBasis.OwnedPermissionGranted;
 
+// THE TWO STATUSES A CONTRIBUTOR OWNS, and the declaration order of the "Submit as" dropdown.
+// The workflow's other three — Approved, Rejected, Dismissed — are a REVIEWER's to award and
+// nobody's to claim, so they are absent from the offerable list rather than filtered at the
+// point of render: stating the pair is what makes the exclusion a decision instead of an
+// accident, exactly as shareabilityBasisMembers states its own.
+//
+// Submitted leads because it is what the writing surfaces are for: the add face's button reads
+// "Submit for review", and a contributor who never opens this dropdown is asking for one.
+export const contributorApprovalStatusMembers: ReadonlyArray<ApprovalStatus> = [
+    ApprovalStatus.Submitted,
+    ApprovalStatus.Draft
+];
+
+// How each status is PUT TO A CONTRIBUTOR under "Submit as" — the state they are filing the
+// item in, in the workflow's own words. NOT approvalStatusBadgeLabels, which renders Submitted
+// as "In review": a badge reports where an item HAS got to, and this dropdown asks where the
+// contributor wants to SEND it, which is a different sentence.
+//
+// Keyed loosely (Record<number>) because only the offerable pair has an entry: a label for a
+// status this dropdown can never show would be dead vocabulary, the same reason the ribbon map
+// carries no Dismissed.
+export const contributorApprovalStatusLabels: Readonly<Record<number, string>> = {
+    [ApprovalStatus.Submitted]: 'Submitted',
+    [ApprovalStatus.Draft]: 'Draft'
+};
+
+// THE STATUS AN UNTOUCHED ADD FORM CARRIES. It has to be a member of the offerable list above —
+// anything else would leave the <select> showing an option it does not hold — and of the two it
+// is deliberately Submitted: the contribution page exists to put work in front of a reviewer,
+// and a contributor who files without opening this dropdown has asked for exactly that.
+export const defaultContributorApprovalStatus: ApprovalStatus = ApprovalStatus.Submitted;
+
+// Whether a status is still THE CONTRIBUTOR'S TO SET. Where it is not — an item a reviewer has
+// Approved, Rejected or Dismissed — the "Submit as" row does not render at all: the transition
+// backwards out of a decided state is not one this surface offers, and a dropdown holding an
+// option nobody may choose would be offering it.
+export const isContributorApprovalStatus = (status: ApprovalStatus): boolean =>
+    contributorApprovalStatusMembers.includes(status);
+
 // The three surfaces of one content item. `add` has no item behind it yet; `read` renders the
 // item; `edit` renders the same fields the add surface does, over an item that already exists.
 export type ContentItemPanelMode = 'add' | 'read' | 'edit';

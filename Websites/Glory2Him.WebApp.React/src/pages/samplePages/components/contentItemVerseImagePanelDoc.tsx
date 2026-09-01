@@ -3,7 +3,7 @@ import { useDocumentTitle } from '../../useDocumentTitle';
 import {
     contentItemElementShape
 } from './shared/contentItemShapeSamples';
-import { demoVersesItem } from './shared/contentItemDemoData';
+import { demoVerseImageItem } from './shared/contentItemDemoData';
 import { ContentItemPanelPlayground } from './shared/contentItemPanelPlayground';
 
 import {
@@ -19,7 +19,7 @@ ContentItemPanel
 ├── ContentItemAddPanel
 ├── ContentItemEditPanel
 ├── ContentItemDefaultPanel         the meta row, pills and engagement row live here
-└── ContentItemVersesPanel          ◄ this page — derives via contentSlot
+└── ContentItemVerseImagePanel      ◄ this page — derives via contentSlot
 `;
 
 const versesProps: ReadonlyArray<ComponentPropRow> = [
@@ -27,7 +27,7 @@ const versesProps: ReadonlyArray<ComponentPropRow> = [
         name: '…everything ContentItemDefaultPanel takes',
         type: 'ContentItemTemplateProps',
         description: 'The same decided bundle, passed straight through — see the Content '
-            + 'Item Default Panel page for the full table. The purple Verses chip is the '
+            + 'Item Default Panel page for the full table. The purple Verse Image chip is the '
             + 'measured palette in contentItems.css, keyed off data-content-type like every '
             + 'other type.'
     },
@@ -41,14 +41,14 @@ const versesProps: ReadonlyArray<ComponentPropRow> = [
     }
 ];
 
-export function ContentItemVersesPanelDoc() {
-    useDocumentTitle('Content Item Verses Panel — Components — Glory 2 Him');
+export function ContentItemVerseImagePanelDoc() {
+    useDocumentTitle('Content Item Verse Image Panel — Components — Glory 2 Him');
 
     return (
         <ComponentDoc
-            name="Content Item Verses Panel"
-            filePath="src/components/contentItems/contentItemVersesPanel.tsx"
-            summary="The Verses override of the ContentItemPanel view templates: the verse
+            name="Content Item Verse Image Panel"
+            filePath="src/components/contentItems/contentItemVerseImagePanel.tsx"
+            summary="The Verse Image override of the ContentItemPanel view templates: the verse
                 whole, standing large — everything else is the default template, inherited by
                 composition.">
 
@@ -56,7 +56,7 @@ export function ContentItemVersesPanelDoc() {
                 title="Where it stands in the family"
                 lead={
                     <>
-                        Registered against <code>ContentType.Verses</code> in{' '}
+                        Registered against <code>ContentType.VerseImage</code> in{' '}
                         <code>ContentItemPanel</code>&rsquo;s template registry, the way every
                         override arrives — one line, seeds and all. Because it derives from
                         the default template, its control surface is the default&rsquo;s,
@@ -92,7 +92,7 @@ export function ContentItemVersesPanelDoc() {
                         way into the edit face as an owner.
                     </>
                 }>
-                <ContentItemPanelPlayground contentItem={demoVersesItem} />
+                <ContentItemPanelPlayground contentItem={demoVerseImageItem} />
             </DocSection>
         </ComponentDoc>
     );

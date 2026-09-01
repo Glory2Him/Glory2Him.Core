@@ -57,7 +57,7 @@ export const demoSettings: ReadonlyArray<ContentItemSetting> = [
     demoSettingFor(ContentType.Devotional, 'Devotional', {
         contentTypeIconCssClass: 'bi-sunrise'
     }),
-    demoSettingFor(ContentType.Verses, 'Verse Image', {
+    demoSettingFor(ContentType.VerseImage, 'Verse Image', {
         contentTypeIconCssClass: 'bi-card-image', hasTitle: false
     })
 ];
@@ -133,9 +133,9 @@ export const demoQuoteItem: ContentItemSearchItem = {
     publishedDate: new Date(2026, 5, 2)
 };
 
-export const demoVersesItem: ContentItemSearchItem = {
+export const demoVerseImageItem: ContentItemSearchItem = {
     id: 'demo-verses',
-    contentType: ContentType.Verses,
+    contentType: ContentType.VerseImage,
     contentItemSetting: demoSettings[3],
     author: 'The Bible',
     content:
@@ -149,7 +149,7 @@ export const demoVersesItem: ContentItemSearchItem = {
 };
 
 export const demoItems: ReadonlyArray<ContentItemSearchItem> =
-    [demoStoryItem, demoQuoteItem, demoVersesItem];
+    [demoStoryItem, demoQuoteItem, demoVerseImageItem];
 
 export const demoReactionOptions: ReadonlyArray<ContentItemReactionOption> = [
     { label: 'Amen', glyph: '🙏' },
