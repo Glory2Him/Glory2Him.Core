@@ -12,10 +12,10 @@ import {
 import { contentItemService } from '../services/foundations/contentItemService';
 import { contentItemSettingService } from '../services/foundations/contentItemSettingService';
 import { toContentItemApiFailure } from '../services/views/contentItems/toContentItemApiFailure';
-import { toContentItemAddRequest } from '../services/views/contentItems/toContentItemFormItem';
+import { toContentItemAddRequest } from '../services/views/contentItems/toContentItemAddRequest';
 import { useDocumentTitle } from './useDocumentTitle';
 
-// The contribution page. The form itself is ContentItemPanel in its `add` surface — the bespoke
+// The contribution page. The form itself is ContentItemPanel on its add face — the bespoke
 // markup that used to live here (its own field layout, its own type picker, a dead submit button)
 // is gone, and with it the tag and bible-reference boxes: those belong to the association panels,
 // which need an item to associate to and therefore cannot render before one exists (design
@@ -47,7 +47,9 @@ export function Contribute() {
             const addedContentItem =
                 await addContentItem.mutateAsync(toContentItemAddRequest(formItem));
 
-            navigate(`/posts/${addedContentItem.id}`);
+            // The contributor's OWN surface, not the public one: a fresh submission is a
+            // Draft, and /myposts/{id} is where a draft is theirs to read.
+            navigate(`/myposts/${addedContentItem.id}`);
         } catch (error) {
             const failure = toContentItemApiFailure(error, contributeFailureText);
 

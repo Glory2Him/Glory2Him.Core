@@ -78,7 +78,7 @@ describe('navMenuProvider Admin section', () => {
 
         // then
         expect(children.map((child) => child.title))
-            .toEqual(['Users', 'Content Item Settings', 'Posts']);
+            .toEqual(['Users', 'Content Item Settings', 'Posts', 'Sample Posts']);
     });
 
     it('should point each admin entry at its route', () => {
@@ -86,8 +86,12 @@ describe('navMenuProvider Admin section', () => {
         const children = getAdminSection()?.children ?? [];
 
         // then: these must match adminRoutes, or the sidebar links land on nothing
-        expect(children.map((child) => child.href))
-            .toEqual(['Admin/Users', 'Admin/ContentItemSettings', 'Admin/Posts']);
+        expect(children.map((child) => child.href)).toEqual([
+            'Admin/Users',
+            'Admin/ContentItemSettings',
+            'Admin/Posts',
+            'Admin/SamplePosts'
+        ]);
     });
 
     it('should restrict every admin entry to administrators', () => {
@@ -128,7 +132,20 @@ describe('navMenuProvider.getSamplePagesSection', () => {
             'Tag Association Panel',
             'Bible Reference Association Panel',
             'Review Panel',
-            'Content Item Panel'
+
+            // The ContentItemPanel family, in TREE ORDER — parent before children, so
+            // the sidebar reads the composition root-down.
+            'Content Item List Panel',
+            'Content Item Search Bar Panel',
+            'Content Item Results Panel',
+            'Content Item Panel',
+            'Content Item Add Panel',
+            'Content Item Edit Panel',
+            'Content Item Default Panel',
+            'Content Item Quotes Panel',
+            'Content Item Verses Panel',
+
+            'Sharing Panel'
         ]);
     });
 
@@ -143,7 +160,16 @@ describe('navMenuProvider.getSamplePagesSection', () => {
             'SamplePages/Components/Tag-Association-Panel',
             'SamplePages/Components/Bible-Reference-Association-Panel',
             'SamplePages/Components/Review-Panel',
-            'SamplePages/Components/Content-Item-Panel'
+            'SamplePages/Components/Content-Item-List-Panel',
+            'SamplePages/Components/Content-Item-Search-Bar-Panel',
+            'SamplePages/Components/Content-Item-Results-Panel',
+            'SamplePages/Components/Content-Item-Panel',
+            'SamplePages/Components/Content-Item-Add-Panel',
+            'SamplePages/Components/Content-Item-Edit-Panel',
+            'SamplePages/Components/Content-Item-Default-Panel',
+            'SamplePages/Components/Content-Item-Quotes-Panel',
+            'SamplePages/Components/Content-Item-Verses-Panel',
+            'SamplePages/Components/Sharing-Panel'
         ]);
     });
 });

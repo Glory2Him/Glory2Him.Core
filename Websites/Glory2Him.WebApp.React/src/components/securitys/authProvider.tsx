@@ -39,3 +39,43 @@ export const AuthProvider = ({ children }: AuthProviderParameters): ReactElement
         </AuthContext.Provider>
     );
 }
+
+// A SUBTREE in a CHOSEN security context — for the component reference pages' playgrounds
+// and for tests. Every gate in the component family decides RENDERING only; the server
+// re-decides each write against the stored row (§14.6, §14.7 posture A) — so letting a doc
+// reader step into "a reviewer who is not the owner" shows the controls honestly without
+// touching the session, and grants nothing.
+type AuthContextOverrideParameters = {
+    userId: string;
+    displayName: string;
+    roles: ReadonlyArray<string>;
+    children: ReactNode;
+};
+
+export const AuthContextOverride = ({
+    userId,
+    displayName,
+    roles,
+    children
+}: AuthContextOverrideParameters): ReactElement => {
+    const value: AuthContextValue = {
+        isAuthenticated: true,
+        isLoading: false,
+
+        user: new CurrentUser({
+            isAuthenticated: true,
+            userId,
+            userName: displayName,
+            displayName,
+            roles: [...roles]
+        }),
+
+        userRoles: [...roles]
+    };
+
+    return (
+        <AuthContext.Provider value={value}>
+            {children}
+        </AuthContext.Provider>
+    );
+};

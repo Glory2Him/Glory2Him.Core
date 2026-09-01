@@ -7,6 +7,10 @@ import { JournalMasonry } from '../pages/journalMasonry';
 import { PostDetail } from '../pages/postDetail';
 import { PostGrid } from '../pages/postGrid';
 import { PostList } from '../pages/postList';
+import { MyPostDetail } from '../pages/myPostDetail';
+import { MyPosts } from '../pages/myPosts';
+import { Posts } from '../pages/posts';
+import { SecuredRoute } from '../components/securitys/securedRoutes';
 import { PostSingle } from '../pages/postSingle';
 import { Tag } from '../pages/tag';
 
@@ -27,7 +31,33 @@ export const publicPostRoutes: RouteObject[] = [
     // the parameter one for the reader's sake — React Router ranks a static segment above a
     // dynamic one whatever the order — so /posts/contribute is the form and /posts/{id} is an
     // item.
+    // The collection itself: every contribution, searched and scrolled. Declared before
+    // its two members for the reader's sake - React Router ranks a static segment above a
+    // dynamic one whatever the order.
+    { path: 'posts', element: <Posts /> },
     { path: 'posts/contribute', element: <Contribute /> },
+
+    // The caller's own contributions, in the public layout — lowercase like the rest of the
+    // posts family. Secured with no role list: there is no "my" for a visitor, and any
+    // authenticated reader owns whatever they contributed.
+    {
+        path: 'myposts',
+        element:
+            <SecuredRoute>
+                <MyPosts />
+            </SecuredRoute>,
+    },
+    {
+        // One of MY posts — where /posts/contribute lands a fresh submission, so the
+        // contributor reads their draft on their own surface: the two-column detail with
+        // the way back to the list and the association surfaces beside the item. The
+        // caller-scoped read already shows an owner their own row at any status.
+        path: 'myposts/:contentItemId',
+        element:
+            <SecuredRoute>
+                <MyPostDetail />
+            </SecuredRoute>,
+    },
     { path: 'posts/:contentItemId', element: <PostDetail /> },
 
     // The route this page used to answer on. Kept so links already in the wild — and the

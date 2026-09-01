@@ -81,6 +81,21 @@ namespace Glory2Him.Core.Models.Foundations.ContentItemSettings
         /// </summary>
         public bool IsAvailableAsGeneralUserContribution { get; set; }
 
+        /// <summary>
+        /// Gets or sets a value indicating the maximum length of the title field, if applicable.
+        /// </summary>
+        public int? MaxTitleLength { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating the maximum length of the author field, if applicable.
+        /// </summary>
+        public int? MaxAuthorLength { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating the maximum length of the content field, if applicable.
+        /// </summary>
+        public int? MaxContentLength { get; set; }
+
         // --------------------
         // Tag Settings
         // --------------------

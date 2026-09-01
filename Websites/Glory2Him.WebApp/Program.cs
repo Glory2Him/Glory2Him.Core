@@ -230,6 +230,38 @@ for (int seedAttempt = 1; seedAttempt <= maxSeedAttempts; seedAttempt++)
     }
 }
 
+// Demo content items, and the only seed in the host that does not run everywhere. The other two
+// mint things the site is broken without — the authorization vocabulary and the per-type default
+// setting — while these 32 rows are fabricated contributions that belong in a database somebody
+// is developing against and nowhere else.
+//
+// The key wins where it is present, so an environment that is not "Development" (the Azure dev
+// host, a demo deployment) can opt in without pretending to be one, and a Development machine
+// that wants an empty table can opt out. Absent, the environment decides.
+//
+// AFTER the identity seed, not with the other Core initialization at the top of this file. It
+// needs both halves: the per-type ContentItemSetting rows InitializeCoreAsync writes, and the
+// demo contributor account the identity seed above creates — the account the rows are attributed
+// to, which on a first run does not exist until that loop has finished.
+bool? isContentItemSeedConfigured = app.Configuration.GetValue<bool?>("Seed:ContentItems");
+
+if (isContentItemSeedConfigured ?? app.Environment.IsDevelopment())
+{
+    try
+    {
+        await ContentItemSeedData.SeedAsync(app.Services);
+    }
+    catch (Exception contentItemSeedException)
+    {
+        // Not retried and never fatal. Demo rows are the one thing here nothing depends on: a
+        // site that comes up without them is a site with an empty journal, and the next start
+        // tries again anyway.
+        app.Logger.LogError(
+            contentItemSeedException,
+            "Content item demo seed failed; continuing without it.");
+    }
+}
+
 app.Run();
 
 // Exposed so the acceptance suite's WebApplicationFactory<Program> has a concrete entry point.

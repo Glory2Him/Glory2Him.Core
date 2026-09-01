@@ -1,4 +1,5 @@
 import { ApprovalStatus } from '../associations/associationItem';
+import { ContentItemSetting } from '../../foundations/contentItemSettings/contentItemSetting';
 import { ContentType } from '../../foundations/contentItemSettings/contentType';
 
 export { ApprovalStatus };
@@ -84,6 +85,16 @@ export const isOwnedShareabilityBasis = (basis: ShareabilityBasis): boolean =>
 // Whether the basis rests on somebody's PERMISSION, and so has a permission worth detailing.
 // Both members qualify: the contributor either holds the owner's permission or is granting their
 // own, and either way the detail field is what records it.
+// The member NAMES: ShareabilityBasis is a const object with no reverse mapping, and both
+// OData's $filter and a shareable URL want the name while JSON bodies carry the number.
+export const shareabilityBasisMemberNames: Readonly<Record<ShareabilityBasis, string>> = {
+    [ShareabilityBasis.Owned]: 'Owned',
+    [ShareabilityBasis.PermissionGranted]: 'PermissionGranted',
+    [ShareabilityBasis.PublicDomain]: 'PublicDomain',
+    [ShareabilityBasis.OwnedPermissionGranted]: 'OwnedPermissionGranted',
+    [ShareabilityBasis.OwnedPublicDomain]: 'OwnedPublicDomain'
+};
+
 export const isPermissionShareabilityBasis = (basis: ShareabilityBasis): boolean =>
     basis === ShareabilityBasis.PermissionGranted
     || basis === ShareabilityBasis.OwnedPermissionGranted;
@@ -92,7 +103,8 @@ export const isPermissionShareabilityBasis = (basis: ShareabilityBasis): boolean
 // item; `edit` renders the same fields the add surface does, over an item that already exists.
 export type ContentItemPanelMode = 'add' | 'read' | 'edit';
 
-// The minimum a ContentItemPanel needs to render one content item and decide who may act on it.
+// The minimum the ContentItemPanel form faces need to render one content item and decide who
+// may act on it.
 // A page projects whatever it holds — a ContentItem row off the wire, a draft it is composing —
 // down to this shape, so the panel never depends on the wire entity (the same split
 // AssociationItem and ApprovalReviewItem take).
@@ -106,6 +118,14 @@ export type ContentItemFormItem = {
     // `edit`. It also composes the content-type-scoped role names, which is why the numeric
     // member — never a display name — is what is carried.
     contentType: ContentType;
+
+    // THE WINNING SETTING, when the projection resolved one (§6.4: this item's own override
+    // beats its type default) — carried ON the item so a list surface can hand its element
+    // straight to a detail view with no server round trip. When present it WINS over the
+    // panel's contentItemSettingCollection for this item's shaping; absent, the panel
+    // resolves from the collection exactly as it always has, and `add` — which has no item
+    // yet — always shapes from the collection and stamps the winner onto what it emits.
+    contentItemSetting?: ContentItemSetting;
 
     title?: string;
     author?: string;

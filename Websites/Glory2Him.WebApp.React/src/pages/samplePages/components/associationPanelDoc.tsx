@@ -317,6 +317,10 @@ export const AssociationPanelDoc = () => {
                 </LiveDemo>
             </DocSection>
 
+            <DocSection title="Props">
+                <PropsTable rows={propRows} />
+            </DocSection>
+
             <DocSection title="Minimal usage">
                 <CodeSample code={minimalSample} />
             </DocSection>
@@ -475,10 +479,6 @@ export const AssociationPanelDoc = () => {
 
             <DocSection title="Roles">
                 <CodeSample code={rolesSample} />
-            </DocSection>
-
-            <DocSection title="Props">
-                <PropsTable rows={propRows} />
             </DocSection>
         </ComponentDoc>
     );

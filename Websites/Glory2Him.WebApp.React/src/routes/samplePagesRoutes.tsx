@@ -7,16 +7,52 @@ import securityPoints from '../securityMatrix';
 
 // The demos are admin-only reference pages, so they are code-split out of the main
 // bundle: each page loads on first visit (React.lazy), keeping the public bundle lean.
+//
+// A FAILED CHUNK FETCH RELOADS THE PAGE, ONCE. The chunks carry content hashes, so every
+// redeploy renames them — and a browser still running the previous build asks for a chunk that
+// no longer exists the first time it opens one of these pages after a deploy. That is not a
+// bug in the page; the app underneath it is simply stale, and a reload picks up the fresh
+// index and its chunk names. Guarded through sessionStorage so a chunk that GENUINELY cannot
+// load (a broken build, no network) surfaces as the error page rather than a reload loop.
+const reloadGuardKey = 'g2h-chunk-reload';
+
 const lazyNamed = <T extends Record<string, ComponentType>, K extends keyof T & string>(
     loader: () => Promise<T>,
     exportName: K) =>
-    lazy(async () => ({ default: (await loader())[exportName] }));
+    lazy(async () => {
+        try {
+            const module = await loader();
+            sessionStorage.removeItem(reloadGuardKey);
+
+            return { default: module[exportName] };
+        } catch (loadError) {
+            if (sessionStorage.getItem(reloadGuardKey) == null) {
+                sessionStorage.setItem(reloadGuardKey, 'reloading');
+                window.location.reload();
+
+                // Unresolved on purpose: the page is reloading, and rendering anything now
+                // would flash the error boundary on its way out.
+                return await new Promise<never>(() => { });
+            }
+
+            throw loadError;
+        }
+    });
 
 const AssociationPanelDoc = lazyNamed(() => import('../pages/samplePages/components/associationPanelDoc'), 'AssociationPanelDoc');
 const BibleReferenceAssociationPanelDoc = lazyNamed(() => import('../pages/samplePages/components/bibleReferenceAssociationPanelDoc'), 'BibleReferenceAssociationPanelDoc');
 const TagAssociationPanelDoc = lazyNamed(() => import('../pages/samplePages/components/tagAssociationPanelDoc'), 'TagAssociationPanelDoc');
 const ReviewPanelDoc = lazyNamed(() => import('../pages/samplePages/components/reviewPanelDoc'), 'ReviewPanelDoc');
 const ContentItemPanelDoc = lazyNamed(() => import('../pages/samplePages/components/contentItemPanelDoc'), 'ContentItemPanelDoc');
+const ContentItemListPanelDoc = lazyNamed(() => import('../pages/samplePages/components/contentItemListPanelDoc'), 'ContentItemListPanelDoc');
+const ContentItemSearchBarPanelDoc = lazyNamed(() => import('../pages/samplePages/components/contentItemSearchBarPanelDoc'), 'ContentItemSearchBarPanelDoc');
+const ContentItemResultsPanelDoc = lazyNamed(() => import('../pages/samplePages/components/contentItemResultsPanelDoc'), 'ContentItemResultsPanelDoc');
+const ContentItemAddPanelDoc = lazyNamed(() => import('../pages/samplePages/components/contentItemAddPanelDoc'), 'ContentItemAddPanelDoc');
+const ContentItemEditPanelDoc = lazyNamed(() => import('../pages/samplePages/components/contentItemEditPanelDoc'), 'ContentItemEditPanelDoc');
+const ContentItemDefaultPanelDoc = lazyNamed(() => import('../pages/samplePages/components/contentItemDefaultPanelDoc'), 'ContentItemDefaultPanelDoc');
+const ContentItemQuotesPanelDoc = lazyNamed(() => import('../pages/samplePages/components/contentItemQuotesPanelDoc'), 'ContentItemQuotesPanelDoc');
+const ContentItemVersesPanelDoc = lazyNamed(() => import('../pages/samplePages/components/contentItemVersesPanelDoc'), 'ContentItemVersesPanelDoc');
+const SharingPanelDoc = lazyNamed(() => import('../pages/samplePages/components/sharingPanelDoc'), 'SharingPanelDoc');
 const BibleReferenceFullChapterSample = lazyNamed(() => import('../pages/samplePages/bibleReferences/bibleReferenceFullChapterSample'), 'BibleReferenceFullChapterSample');
 const BibleReferencePartialSample = lazyNamed(() => import('../pages/samplePages/bibleReferences/bibleReferencePartialSample'), 'BibleReferencePartialSample');
 const DashboardSample = lazyNamed(() => import('../pages/samplePages/dashboardSample'), 'DashboardSample');
@@ -92,8 +128,44 @@ export const samplePagesRoutes: RouteObject[] = [
                 element: secured(<ReviewPanelDoc />),
             },
             {
+                path: 'SamplePages/Components/Content-Item-List-Panel',
+                element: secured(<ContentItemListPanelDoc />),
+            },
+            {
+                path: 'SamplePages/Components/Content-Item-Search-Bar-Panel',
+                element: secured(<ContentItemSearchBarPanelDoc />),
+            },
+            {
+                path: 'SamplePages/Components/Content-Item-Results-Panel',
+                element: secured(<ContentItemResultsPanelDoc />),
+            },
+            {
                 path: 'SamplePages/Components/Content-Item-Panel',
                 element: secured(<ContentItemPanelDoc />),
+            },
+            {
+                path: 'SamplePages/Components/Content-Item-Add-Panel',
+                element: secured(<ContentItemAddPanelDoc />),
+            },
+            {
+                path: 'SamplePages/Components/Content-Item-Edit-Panel',
+                element: secured(<ContentItemEditPanelDoc />),
+            },
+            {
+                path: 'SamplePages/Components/Content-Item-Default-Panel',
+                element: secured(<ContentItemDefaultPanelDoc />),
+            },
+            {
+                path: 'SamplePages/Components/Content-Item-Quotes-Panel',
+                element: secured(<ContentItemQuotesPanelDoc />),
+            },
+            {
+                path: 'SamplePages/Components/Content-Item-Verses-Panel',
+                element: secured(<ContentItemVersesPanelDoc />),
+            },
+            {
+                path: 'SamplePages/Components/Sharing-Panel',
+                element: secured(<SharingPanelDoc />),
             },
             {
                 path: 'SamplePages/Icons/UnicodeEmoji',

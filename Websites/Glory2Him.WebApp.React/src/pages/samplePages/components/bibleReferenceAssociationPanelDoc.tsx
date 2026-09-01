@@ -142,14 +142,6 @@ export const BibleReferenceAssociationPanelDoc = () => {
                 </LiveDemo>
             </DocSection>
 
-            <DocSection title="Minimal usage">
-                <CodeSample code={minimalSample} />
-            </DocSection>
-
-            <DocSection title="How a chip addresses its passage">
-                <CodeSample code={hrefSample} />
-            </DocSection>
-
             <DocSection
                 title="Defaults"
                 lead={
@@ -160,6 +152,14 @@ export const BibleReferenceAssociationPanelDoc = () => {
                     </>
                 }>
                 <PropsTable rows={defaultRows} />
+            </DocSection>
+
+            <DocSection title="Minimal usage">
+                <CodeSample code={minimalSample} />
+            </DocSection>
+
+            <DocSection title="How a chip addresses its passage">
+                <CodeSample code={hrefSample} />
             </DocSection>
         </ComponentDoc>
     );

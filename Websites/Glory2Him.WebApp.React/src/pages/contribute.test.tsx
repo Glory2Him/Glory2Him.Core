@@ -114,6 +114,11 @@ const renderPage = () =>
 
 const contributeAsync = async (content: string) => {
     await userEvent.type(screen.getByLabelText(/^Testimony/), content);
+
+    // Mandatory under the permission default the form opens on.
+    await userEvent.type(
+        screen.getByLabelText(/Permission details/), 'By email from the author');
+
     await userEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
 };
 
@@ -155,7 +160,7 @@ describe('Contribute', () => {
             // their permission. The narrowest of the four offered, so a form nobody opened the
             // dropdown on has licensed this use and given nothing away.
             shareabilityBasis: ShareabilityBasis.OwnedPermissionGranted,
-            sharePermission: null
+            sharePermission: 'By email from the author'
         }));
     });
 
@@ -168,7 +173,7 @@ describe('Contribute', () => {
         await contributeAsync('He kept me through the night shift');
 
         // then
-        await waitFor(() => expect(navigate).toHaveBeenCalledWith('/posts/content-item-1'));
+        await waitFor(() => expect(navigate).toHaveBeenCalledWith('/myposts/content-item-1'));
         expect(toastError).not.toHaveBeenCalled();
     });
 
@@ -231,7 +236,7 @@ describe('Contribute', () => {
         await userEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
 
         // then
-        await waitFor(() => expect(navigate).toHaveBeenCalledWith('/posts/content-item-1'));
+        await waitFor(() => expect(navigate).toHaveBeenCalledWith('/myposts/content-item-1'));
         expect(screen.queryByText('Text is required')).not.toBeInTheDocument();
     });
 

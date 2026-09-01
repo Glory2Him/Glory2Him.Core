@@ -1,7 +1,17 @@
-import { screen, within } from '@testing-library/react';
+import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AssociationPanelDoc } from './associationPanelDoc';
 import { ContentItemPanelDoc } from './contentItemPanelDoc';
+import { ContentItemSearchBarPanelDoc } from './contentItemSearchBarPanelDoc';
+import { ContentItemResultsPanelDoc } from './contentItemResultsPanelDoc';
+import { ContentItemAddPanelDoc } from './contentItemAddPanelDoc';
+import { ContentItemEditPanelDoc } from './contentItemEditPanelDoc';
+import { ContentItemDefaultPanelDoc } from './contentItemDefaultPanelDoc';
+import { ContentItemQuotesPanelDoc } from './contentItemQuotesPanelDoc';
+import { ContentItemVersesPanelDoc } from './contentItemVersesPanelDoc';
+import { ContentItemListPanelDoc } from './contentItemListPanelDoc';
+import { SharingPanelDoc } from './sharingPanelDoc';
 import { BibleReferenceAssociationPanelDoc } from './bibleReferenceAssociationPanelDoc';
 import { ReviewPanelDoc } from './reviewPanelDoc';
 import { TagAssociationPanelDoc } from './tagAssociationPanelDoc';
@@ -159,7 +169,7 @@ describe('Component reference pages', () => {
     });
 
     describe('ContentItemPanelDoc', () => {
-        it('should document the component and name its source', () => {
+        it('should document the merged panel and name its source', () => {
             // when
             renderWithAuth(<ContentItemPanelDoc />);
 
@@ -170,10 +180,11 @@ describe('Component reference pages', () => {
             expect(screen.getByText('src/components/contentItems/contentItemPanel.tsx'))
                 .toBeInTheDocument();
 
-            expect(screen.getByRole('heading', { name: 'Security posture' }))
+            expect(screen.getByRole('heading', { name: 'The family' }))
                 .toBeInTheDocument();
 
-            expect(screen.getByRole('heading', { name: 'Props' })).toBeInTheDocument();
+            expect(screen.getByRole('heading', { name: 'What the consumer owns' }))
+                .toBeInTheDocument();
         });
 
         it('should run the add demo rather than picture one', () => {
@@ -181,54 +192,269 @@ describe('Component reference pages', () => {
             renderWithAuth(<ContentItemPanelDoc />);
 
             // then: the picker is the settings the page handed over, running for real
-            expect(screen.getAllByRole('button', { name: /Testimony/ }).length)
+            expect(screen.getAllByRole('button', { name: /Devotional/ }).length)
                 .toBeGreaterThan(0);
 
-            expect(screen.getAllByRole('button', { name: 'Submit for review' }))
-                .toHaveLength(2);
-        });
-
-        it('should mark up the validation demo from the API messages it was given', () => {
-            // when
-            renderWithAuth(<ContentItemPanelDoc />);
-
-            // then: two fields named, and the message that names no field summarised
-            expect(screen.getAllByText('Text is required')).toHaveLength(2);
-
-            expect(screen.getByText('A content item already exists with the same content.'))
+            expect(screen.getByRole('button', { name: 'Submit for review' }))
                 .toBeInTheDocument();
         });
 
-        it('should demonstrate the effective-setting resolution, not merely describe it', () => {
+        it('should render the view demo through the view template, ribbon and all', () => {
             // when
             renderWithAuth(<ContentItemPanelDoc />);
+
+            // then: the demo element renders as the card the feeds show
+            expect(screen.getByText('NASA Proves The Bible Is True')).toBeInTheDocument();
+
+            const ribbon = document.querySelector('.g2h-approval-ribbon');
+            expect(ribbon).not.toBeNull();
+            expect(ribbon!.getAttribute('data-approval-status')).toBe('Draft');
+        });
+
+        it('should step the demo into another viewer through the security context', async () => {
+            // given: the playground opens as the submitter (owner) — Edit shows
+            renderWithAuth(<ContentItemPanelDoc />);
+
+            expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
+
+            // when: the reader becomes a reviewer who is not the owner
+            await userEvent.click(
+                screen.getByRole('radio', { name: 'I am a reviewer (not owner)' }));
+
+            // then: the ownership gate closes Edit and the moderation tier gets the shield
+            expect(screen.queryByRole('button', { name: 'Edit' }))
+                .not.toBeInTheDocument();
+
+            expect(screen.getByRole('button', { name: 'Moderate' })).toBeInTheDocument();
+        });
+
+        it('should wear whichever status the ribbon radio picks', async () => {
+            // given: the playground opens on Draft
+            renderWithAuth(<ContentItemPanelDoc />);
+
+            expect(document.querySelector('.g2h-approval-ribbon'))
+                .toHaveAttribute('data-approval-status', 'Draft');
+
+            // when
+            await userEvent.click(
+                screen.getByRole('radio', { name: 'Rejected (red)' }));
 
             // then
-            expect(screen.getByRole('heading',
-                { name: 'Settings resolve here — most specific wins' })).toBeInTheDocument();
-
-            // Two demos over the SAME item and the same props but one extra row. Scoped to each
-            // demo card, because three other demos on the page render the same byline.
-            const demoBody = (title: string): HTMLElement =>
-                screen.getByText(title).closest('.card')?.querySelector('.card-body') as HTMLElement;
-
-            expect(within(demoBody('Live — default only')).getByText('Grace Abara'))
-                .toBeInTheDocument();
-
-            expect(within(demoBody(
-                'Live — the same item, with its override in the collection'))
-                .queryByText('Grace Abara')).not.toBeInTheDocument();
+            expect(document.querySelector('.g2h-approval-ribbon'))
+                .toHaveAttribute('data-approval-status', 'Rejected');
         });
 
-        it('should show the actions only where isEditingAllowed lets the roles decide', () => {
-            // when
+        it('should stamp the view demo as the reader\u2019s own and edit in place', async () => {
+            // given: the demo item carries the signed-in account id, so the real
+            // ownership gate opens for whoever reads the page
             renderWithAuth(<ContentItemPanelDoc />);
 
-            // then: three read demos, and only the two that throw the switch offer anything —
-            // and of those, the Approved one is terminal to an administrator, so it keeps the
-            // takedown and loses the amendment
-            expect(screen.getAllByRole('button', { name: /Edit/ })).toHaveLength(1);
-            expect(screen.getAllByRole('button', { name: /Delete/ })).toHaveLength(2);
+            // when: Edit is taken on the view demo
+            await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
+
+            // then: the card became the editor — anchored on the seeded Title field,
+            // because the view card carries a bookmark control also named Save
+            expect(screen.getByLabelText(/Title/))
+                .toHaveValue('NASA Proves The Bible Is True');
+
+            // The add demo above carries a Cancel of its own; the editor's is the last.
+            const cancels = screen.getAllByRole('button', { name: 'Cancel' });
+            await userEvent.click(cancels[cancels.length - 1]);
+
+            // and Cancel brings the card back
+            expect(screen.queryByLabelText(/Title/)).not.toBeInTheDocument();
+            expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
+        });
+    });
+
+    describe('the family reference pages', () => {
+        // One smoke per page: the heading, the source path, and the control board —
+        // every page in the tree documents its own component with its own switches.
+        const pages = [
+            {
+                name: 'Content Item Search Bar Panel',
+                path: 'src/components/contentItems/contentItemSearchBarPanel.tsx',
+                page: <ContentItemSearchBarPanelDoc />
+            },
+            {
+                name: 'Content Item Results Panel',
+                path: 'src/components/contentItems/contentItemResultsPanel.tsx',
+                page: <ContentItemResultsPanelDoc />
+            },
+            {
+                name: 'Content Item Add Panel',
+                path: 'src/components/contentItems/contentItemAddPanel.tsx',
+                page: <ContentItemAddPanelDoc />
+            },
+            {
+                name: 'Content Item Edit Panel',
+                path: 'src/components/contentItems/contentItemEditPanel.tsx',
+                page: <ContentItemEditPanelDoc />
+            },
+            {
+                name: 'Content Item Default Panel',
+                path: 'src/components/contentItems/contentItemDefaultPanel.tsx',
+                page: <ContentItemDefaultPanelDoc />
+            },
+            {
+                name: 'Content Item Quotes Panel',
+                path: 'src/components/contentItems/contentItemQuotesPanel.tsx',
+                page: <ContentItemQuotesPanelDoc />
+            },
+            {
+                name: 'Content Item Verses Panel',
+                path: 'src/components/contentItems/contentItemVersesPanel.tsx',
+                page: <ContentItemVersesPanelDoc />
+            }
+        ];
+
+        it.each(pages)('should document $name with a live control board', (entry) => {
+            // when
+            renderWithAuth(entry.page);
+
+            // then
+            expect(screen.getByRole('heading', { name: entry.name, level: 1 }))
+                .toBeInTheDocument();
+
+            expect(screen.getByText(entry.path)).toBeInTheDocument();
+
+            // the control board: at least one switch, each driving the demo beside it
+            expect(screen.getAllByRole('switch').length).toBeGreaterThan(0);
+        });
+
+        it('should flip a section switch and re-render the template live', async () => {
+            // given: the default template page, tags showing
+            renderWithAuth(<ContentItemDefaultPanelDoc />);
+
+            expect(screen.getByText('#creation')).toBeInTheDocument();
+
+            // when: the reader flips showTagSection off
+            await userEvent.click(screen.getByRole('switch', { name: /^showTagSection/ }));
+
+            // then: the demo re-rendered with the prop changed
+            expect(screen.queryByText('#creation')).not.toBeInTheDocument();
+        });
+    });
+
+    describe('ContentItemListPanelDoc', () => {
+        it('should document the family and name its source', () => {
+            // when
+            renderWithAuth(<ContentItemListPanelDoc />);
+
+            // then
+            expect(screen.getByRole('heading', { name: 'Content Item List Panel', level: 1 }))
+                .toBeInTheDocument();
+
+            expect(screen.getByText('src/components/contentItems/contentItemListPanel.tsx'))
+                .toBeInTheDocument();
+
+            expect(screen.getByRole('heading', { name: 'The family' })).toBeInTheDocument();
+            expect(screen.getByRole('heading', { name: 'Props' })).toBeInTheDocument();
+        });
+
+        it('should run the two templates rather than picture them', () => {
+            // when
+            renderWithAuth(<ContentItemListPanelDoc />);
+
+            // then: a quote shown whole through the override, a story through the default
+            expect(screen.getAllByText(new RegExp('coincidences happen')).length)
+                .toBeGreaterThan(0);
+
+            // The mixed-page and filter demos both render the story, so present, not unique.
+            expect(screen.getAllByRole('button', { name: 'NASA Proves The Bible Is True' })
+                .length).toBeGreaterThan(0);
+        });
+
+        // §6.4 per card, on one collection: the second quote's item-level override carries
+        // limitReactionsToLoveOnly, so its choices are one where the first's are four.
+        it('should narrow the choices on the item its override belongs to', async () => {
+            // given
+            renderWithAuth(<ContentItemListPanelDoc />);
+            const likeButtons = screen.getAllByRole('button', { name: /Like/ });
+
+            // when
+            await userEvent.click(likeButtons[0]);
+
+            // then
+            expect(screen.getAllByRole('menuitem')).toHaveLength(4);
+
+            // when: close it, open the love-only card's choices
+            await userEvent.click(likeButtons[0]);
+            await userEvent.click(likeButtons[1]);
+
+            // then
+            expect(screen.getAllByRole('menuitem')).toHaveLength(1);
+            expect(screen.getByRole('menuitem', { name: 'Love' })).toBeInTheDocument();
+        });
+
+        it('should react for real rather than describing the event', async () => {
+            // given
+            renderWithAuth(<ContentItemListPanelDoc />);
+
+            // when
+            await userEvent.click(screen.getAllByRole('button', { name: /Like/ })[0]);
+            await userEvent.click(screen.getByRole('menuitem', { name: 'Amen' }));
+
+            // then
+            expect(screen.getByText('onReactionSelected(quote-1, Amen)')).toBeInTheDocument();
+
+            // and the choice the reader made is marked when the choices reopen
+            await userEvent.click(screen.getAllByRole('button', { name: /Like/ })[0]);
+
+            expect(screen.getByRole('menuitem', { name: 'Amen' }))
+                .toHaveAttribute('aria-pressed', 'true');
+        });
+
+        it('should offer the full advanced options', async () => {
+            // given
+            renderWithAuth(<ContentItemListPanelDoc />);
+
+            // when: the page carries two live bars now (the criteria demo and the
+            // playground), so the first is the one exercised
+            await userEvent.click(
+                screen.getAllByRole('button', { name: 'Advanced search options' })[0]);
+
+            // then: the whole grid — Category | Author, Submitted by | Shareability, Tags
+            expect(screen.getAllByLabelText('Category').length).toBeGreaterThan(0);
+            expect(screen.getAllByLabelText('Author').length).toBeGreaterThan(0);
+            expect(screen.getAllByLabelText('Submitted by').length).toBeGreaterThan(0);
+            expect(screen.getAllByLabelText('Shareability').length).toBeGreaterThan(0);
+
+            expect(screen.getAllByLabelText('Type a tag and press Enter').length)
+                .toBeGreaterThan(0);
+        });
+    });
+
+    describe('SharingPanelDoc', () => {
+        it('should document the component and name its source', () => {
+            // when
+            renderWithAuth(<SharingPanelDoc />);
+
+            // then
+            expect(screen.getByRole('heading', { name: 'Sharing Panel', level: 1 }))
+                .toBeInTheDocument();
+
+            expect(screen.getByText('src/components/contentItems/sharingPanel.tsx'))
+                .toBeInTheDocument();
+
+            expect(screen.getByRole('heading',
+                { name: 'It adapts to its container, not the viewport' })).toBeInTheDocument();
+
+            expect(screen.getByRole('heading', { name: 'Props' })).toBeInTheDocument();
+        });
+
+        it('should run the panel live in both faces and reworded', async () => {
+            // given: two default-worded demos (wide and narrow) plus the reworded one
+            renderWithAuth(<SharingPanelDoc />);
+
+            expect(screen.getAllByRole('button', { name: /Submit a contribution/ }))
+                .toHaveLength(2);
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: /Share your story/ }));
+
+            // then
+            expect(screen.getByText('onSubmit() — reworded')).toBeInTheDocument();
         });
     });
 

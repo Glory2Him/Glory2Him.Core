@@ -26,6 +26,13 @@ export type ContentItemSetting = {
     hasTitle: boolean;
     hasAuthor: boolean;
     isAvailableAsGeneralUserContribution: boolean;
+
+    // The per-type field ceilings, each optional — null or absent means no limit. The form
+    // enforces them client-side (maxLength on the input, and a refusal for a seeded value
+    // already over a lowered ceiling); the server re-validates as always.
+    maxTitleLength?: number | null;
+    maxAuthorLength?: number | null;
+    maxContentLength?: number | null;
     tagsAllowed: boolean;
     showTags: boolean;
     reactionsAllowed: boolean;

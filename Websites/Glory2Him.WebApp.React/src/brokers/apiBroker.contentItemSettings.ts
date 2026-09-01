@@ -42,6 +42,44 @@ class ContentItemSettingBroker {
         return result.data as ContentItemSetting[];
     }
 
+    // The ITEM-LEVEL OVERRIDES for exactly the items a surface is showing — the other half of
+    // the §6.4 resolution the defaults alone cannot answer: a specific quote whose comments are
+    // switched off carries a row with ITS ContentItemId, and a feed that never fetched it would
+    // silently render the type default instead.
+    //
+    // Batched, not per item: one request per CHUNK of ids rather than one per card. The
+    // binding limit is OData's own: [EnableQuery] validates $filter against a default
+    // MaxNodeCount of 100, and a 17-guid or-chain already trips it (measured — a 400, not a
+    // truncation). Twelve ids stays comfortably under that AND far inside IIS's 2048-character
+    // query-string limit. Most chunks come back empty, which is the ordinary case: overrides
+    // are rare by design.
+    async GetOverridesForContentItemsAsync(
+        contentItemIds: ReadonlyArray<string>): Promise<ContentItemSetting[]> {
+        if (contentItemIds.length === 0) {
+            return [];
+        }
+
+        const chunkSize = 12;
+        const overrides: ContentItemSetting[] = [];
+
+        for (let start = 0; start < contentItemIds.length; start += chunkSize) {
+            const chunk = contentItemIds.slice(start, start + chunkSize);
+
+            const filter = chunk
+                .map((contentItemId) => `contentItemId eq ${contentItemId}`)
+                .join(' or ');
+
+            const url =
+                `${this.relativeContentItemSettingsUrl}?$filter=${encodeURIComponent(filter)}`;
+
+            const result = await this.apiBroker.GetAsync(url);
+
+            overrides.push(...(result.data as ContentItemSetting[]));
+        }
+
+        return overrides;
+    }
+
     // The admin list. Searching, filtering, ordering and paging all run server-side through
     // [EnableQuery] — the host caps a collection read at OData:PageSize rows, so a client that
     // paged in memory would silently stop at that cap once the overrides outgrow it.

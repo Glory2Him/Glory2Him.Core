@@ -5,8 +5,7 @@ import { Spinner } from '../components/coreUI/spinner';
 import { contentItemService } from '../services/foundations/contentItemService';
 import { contentItemSettingService } from '../services/foundations/contentItemSettingService';
 import { contributorService } from '../services/foundations/contributorService';
-import { readingTimeMinutesOf } from '../services/views/contentItems/readingTimeMinutesOf';
-import { toContentItemFormItem } from '../services/views/contentItems/toContentItemFormItem';
+import { toContentItemSearchItem } from '../services/views/contentItems/toContentItemSearchItem';
 
 import {
     contentTypeNameOf,
@@ -17,9 +16,9 @@ import { useDocumentTitle } from './useDocumentTitle';
 // One content item, read. Where a contribution lands after it is submitted, and the permanent
 // address of the item afterwards.
 //
-// EDITING IS OFF HERE. isEditingAllowed is left at its default, which is the surface switch
-// ContentItemPanel puts ahead of every role check: no Edit, no Delete, no route into the edit
-// mode, however the reader's roles fall. A public page that could never be turned into an edit
+// EDITING IS OFF HERE. showEditSection is left at its default, the surface switch
+// ContentItemPanel puts ahead of every role check: no Edit, no route into the editor,
+// however the reader's roles fall. A public page that could never be turned into an edit
 // surface by a role change elsewhere is the point of that switch — an editing surface is a
 // separate page's decision, not this one's.
 export function PostDetail() {
@@ -31,7 +30,11 @@ export function PostDetail() {
     // Rendering an item needs its type's name, icon and field shaping, which is a different
     // question from which types are open to contribution — so the defaults are read rather than
     // the contribution list.
-    const { data: contentItemSettings } = contentItemSettingService.useGetDefaults();
+    // Defaults plus THIS item's own override, when one exists — the §6.4 resolution needs
+    // the specific row in hand to prefer it.
+    const { data: contentItemSettings } =
+        contentItemSettingService.useGetEffectiveSettingsFor(
+            contentItemId.length > 0 ? [contentItemId] : []);
 
     // WHO SUBMITTED IT. The item carries CreatedBy — an account id — so the byline needs a second
     // read to turn that into a name and a face. Anonymous, so a signed-out reader gets the byline
@@ -43,11 +46,18 @@ export function PostDetail() {
     const { data: contributor } = contributorService.useGetContributorById(
         contentItem?.createdBy ?? '');
 
-    // Memoized because the panel seeds its editor from the item's identity: a fresh projection
-    // object on every render would be a fresh item as far as any consumer of it is concerned.
-    const formItem = useMemo(
-        () => contentItem == null ? undefined : toContentItemFormItem(contentItem),
-        [contentItem]);
+    // The SAME self-contained element the feeds carry — one projection, one face, the whole
+    // family — enriched with what this page alone has resolved: the contributor’s name for
+    // the meta row.
+    const searchItem = useMemo(
+        () => contentItem == null
+            ? undefined
+            : {
+                ...toContentItemSearchItem(contentItem, contentItemSettings ?? []),
+                submittedByName: contributor?.displayName,
+                submittedByImageUrl: contributor?.imageUrl ?? undefined
+            },
+        [contentItem, contentItemSettings, contributor]);
 
     // What the page is called, on screen and in the tab.
     //
@@ -74,27 +84,6 @@ export function PostDetail() {
                 : contentTypeNameOf(
                     contentItemSettings ?? [], contentItem.contentType, contentItem.id);
 
-    // THE PANEL RENDERS THE VISIBLE HEADING, as an h1, because the design puts the title UNDER
-    // the type chip and a page cannot render a heading above a chip the panel owns.
-    //
-    // So this page states an h1 only in the case the panel will NOT — the same condition the
-    // panel's read surface applies, restated here rather than guessed at: a type whose effective
-    // setting has no title, or a row that simply carries none, leaves the panel nothing to head
-    // and the document would start at the article with no h1 at all.
-    //
-    // That heading is visually hidden, because what it would say is the type's name and the chip
-    // directly beneath it already says exactly that. Hidden rather than dropped: the outline is
-    // for a screen reader and a search engine, and neither of them is reading the chip.
-    const panelRendersHeading =
-        contentItem != null && showsTitle && (contentItem.title ?? '').length > 0;
-
-    const rendersOwnHeading = contentItem != null && panelRendersHeading === false;
-
-    // A pure function of the content, so it is computed here rather than stored or fetched. The
-    // three engagement counts are NOT passed: there is no comment, reaction or view client in
-    // this app yet, and a zero would assert an empty conversation rather than an absent one.
-    const readingTimeMinutes = readingTimeMinutesOf(contentItem?.content);
-
     useDocumentTitle(
         contentItem == null ? 'Glory 2 Him' : `${pageHeading} — Glory 2 Him`);
 
@@ -105,7 +94,7 @@ export function PostDetail() {
                     <div className="col-xl-9">
                         {isLoading ? (
                             <div className="text-center py-5"><Spinner /></div>
-                        ) : isError || formItem == null ? (
+                        ) : isError || searchItem == null ? (
                             <>
                                 <div className="alert alert-danger" role="alert">
                                     We could not load this contribution right now. It may have been
@@ -119,23 +108,15 @@ export function PostDetail() {
                             </>
                         ) : (
                             <>
-                                {rendersOwnHeading && (
-                                    <h1 className="visually-hidden">{pageHeading}</h1>
-                                )}
+                                {/* The card carries the visible title now — the same face
+                                    the feeds show — so the page states its heading for the
+                                    outline alone rather than printing it twice. */}
+                                <h1 className="visually-hidden">{pageHeading}</h1>
 
-                                <div className="card card-body border p-4 p-lg-5">
-                                    <ContentItemPanel
-                                        ariaLabel="Contribution"
-                                        contentItem={formItem}
-                                        titleHeadingLevel="h1"
-                                        contentItemSettingCollection={contentItemSettings ?? []}
-                                        submittedByDisplayName={contributor?.displayName}
-                                        submittedByImageUrl={contributor?.imageUrl ?? undefined}
-                                        readingTimeMinutes={
-                                            readingTimeMinutes > 0
-                                                ? readingTimeMinutes
-                                                : undefined} />
-                                </div>
+                                {/* The full reading surface: no cut, no read-more. */}
+                                <ContentItemPanel
+                                    contentItem={searchItem}
+                                    showContentExpanded />
                             </>
                         )}
                     </div>

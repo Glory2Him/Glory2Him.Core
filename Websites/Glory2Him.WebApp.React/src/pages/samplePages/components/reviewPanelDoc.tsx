@@ -390,6 +390,10 @@ export function ReviewPanelDoc() {
                 <CodeSample code={verdictSample} caption="Reading the verdict" />
             </DocSection>
 
+            <DocSection title="Props">
+                <PropsTable rows={propRows} />
+            </DocSection>
+
             <DocSection
                 title="Freshness is the consumer's job"
                 lead={
@@ -647,10 +651,6 @@ export function ReviewPanelDoc() {
                         tier (&sect;7.9 rule 2).
                     </>
                 } />
-
-            <DocSection title="Props">
-                <PropsTable rows={propRows} />
-            </DocSection>
         </ComponentDoc>
     );
 }

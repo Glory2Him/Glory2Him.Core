@@ -125,6 +125,7 @@ export default function UserMenuComponent(): ReactElement {
                     <li><a className="dropdown-item d-flex align-items-center" href="#"><i className="bi bi-envelope fa-fw me-2"></i>Messages <span className="badge text-bg-success ms-auto">42</span></a></li>
                     <li><a className="dropdown-item d-flex align-items-center" href="#"><i className="bi bi-check2-square fa-fw me-2"></i>Tasks</a></li>
                     <li><a className="dropdown-item d-flex align-items-center" href="#"><i className="bi bi-chat-left fa-fw me-2"></i>Comments</a></li>
+                    <li><Link className="dropdown-item d-flex align-items-center" to="/myposts"><i className="bi bi-journal-text fa-fw me-2"></i>My Posts</Link></li>
 
                     <li><hr className="dropdown-divider" /></li>
                     <li className="px-3 pt-1"><span className="d-block text-uppercase small text-body-secondary">Settings</span></li>
@@ -132,7 +133,7 @@ export default function UserMenuComponent(): ReactElement {
                     <li><Link className="dropdown-item d-flex align-items-center" to="/Account/Manage/Email"><i className="bi bi-gear fa-fw me-2"></i>Settings</Link></li>
                     <li><Link className="dropdown-item d-flex align-items-center" to="/Account/Manage/ChangePassword"><i className="bi bi-shield-lock fa-fw me-2"></i>Password</Link></li>
                     <SecuredComponent allowedRoles={securityPoints.admin.view}>
-                        <li><Link className="dropdown-item d-flex align-items-center" to="/Admin/Posts"><i className="bi bi-files fa-fw me-2"></i>Projects</Link></li>
+                        <li><Link className="dropdown-item d-flex align-items-center" to="/Admin/SamplePosts"><i className="bi bi-files fa-fw me-2"></i>Projects</Link></li>
                     </SecuredComponent>
 
                     <li><hr className="dropdown-divider" /></li>

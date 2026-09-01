@@ -37,8 +37,10 @@ const sortOrderMinimum = 0;
 
 // Only the setting's boolean members can be wired to a switch, so a mistyped field name below
 // is a compile error rather than a switch that silently never moves.
+// -? strips the optional modifier, or every optional member (the Max*Length ceilings)
+// would smuggle `undefined` into the union and no field name would satisfy it.
 type ContentItemSettingFlag = {
-    [TField in keyof ContentItemSetting]:
+    [TField in keyof ContentItemSetting]-?:
     ContentItemSetting[TField] extends boolean ? TField : never
 }[keyof ContentItemSetting];
 
@@ -302,6 +304,39 @@ export const ContentItemSettingDetailPage = () => {
                             label="Has an author"
                             value={editModel.hasAuthor}
                             onValueChange={(value) => setField('hasAuthor', value)} />
+
+                        {/* The field ceilings the contribute and edit forms enforce.
+                            Blank is the honest "no limit" — null on the wire — rather
+                            than a zero nobody could type under. */}
+                        <div className="row mt-3">
+                            {([
+                                ['maxTitleLength', 'Max title length'],
+                                ['maxAuthorLength', 'Max author length'],
+                                ['maxContentLength', 'Max content length']
+                            ] as const).map(([fieldName, label]) => (
+                                <div className="col-md-4 mb-3" key={fieldName}>
+                                    <label className="form-label" htmlFor={fieldName}>
+                                        {label}
+                                    </label>
+
+                                    <input
+                                        id={fieldName}
+                                        type="number"
+                                        min={1}
+                                        step={1}
+                                        className="form-control"
+                                        value={editModel[fieldName] ?? ''}
+                                        onChange={(event) => setField(
+                                            fieldName,
+                                            event.target.value.length === 0
+                                                ? null
+                                                : Math.max(1, Number.parseInt(
+                                                    event.target.value, 10) || 1))} />
+
+                                    <div className="form-text">Blank means no limit.</div>
+                                </div>
+                            ))}
+                        </div>
                     </Card>
 
                     <Card cssClass="mb-4" headerContent="Features">

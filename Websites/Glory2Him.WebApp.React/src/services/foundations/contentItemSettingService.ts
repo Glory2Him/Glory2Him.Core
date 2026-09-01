@@ -28,6 +28,37 @@ export const contentItemSettingService = {
         });
     },
 
+    // THE EFFECTIVE SET for a surface showing these items: the per-type defaults PLUS the
+    // item-level overrides of exactly these ids, in one collection for the §6.4 resolver to
+    // pick from — most specific wins, per item. This is what a rendering surface hands its
+    // panel; handing defaults alone silently un-overrides every overridden item, which is
+    // precisely the drift the resolver exists to prevent.
+    //
+    // Keyed on the SORTED ids so the cache does not treat a reordering as a new question,
+    // and kept while the next page's answer loads so cards do not flicker back to their
+    // defaults mid-scroll.
+    useGetEffectiveSettingsFor: (contentItemIds: ReadonlyArray<string>) => {
+        const contentItemSettingBroker = new ContentItemSettingBroker();
+
+        const sortedIds = [...contentItemIds].sort();
+
+        return useQuery<ContentItemSetting[]>({
+            queryKey: ["ContentItemSettingsGetEffective", sortedIds],
+            placeholderData: keepPreviousData,
+
+            queryFn: async () => {
+                const [defaults, overrides] = await Promise.all([
+                    contentItemSettingBroker.GetDefaultsAsync(),
+                    contentItemSettingBroker.GetOverridesForContentItemsAsync(sortedIds)
+                ]);
+
+                return [...defaults, ...overrides];
+            },
+
+            staleTime: 60 * 1000
+        });
+    },
+
     // The query is part of the key, so changing a filter or turning a page is a separate cache
     // entry rather than a refetch of the same one. The previous page stays on screen while the
     // next one loads, which keeps the table from collapsing to a spinner on every keystroke.

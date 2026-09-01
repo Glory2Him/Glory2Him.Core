@@ -1,6 +1,5 @@
 import { ReactNode } from 'react';
 import { Breadcrumb } from '../../../../components/coreUI/breadcrumb';
-import { Card } from '../../../../components/coreUI/card';
 import { BreadcrumbItem } from '../../../../models/coreUI/breadcrumbItem';
 
 // Shared chrome for the component reference pages. These are documentation rather than layout
@@ -90,17 +89,18 @@ export interface LiveDemoProps {
     children?: ReactNode;
 }
 
+// NOT the shared Card: the theme pads a card body generously, and a demo living inside one
+// loses real estate on both sides — the component under demonstration should get the width
+// the page has.
 export function LiveDemo({ title = 'Live', children }: LiveDemoProps) {
     return (
-        <Card
-            cssClass="mb-3"
-            headerContent={
-                <span className="d-flex align-items-center">
-                    <i className="bi bi-play-circle me-2"></i>{title}
-                </span>
-            }>
+        <div className="mb-3">
+            <p className="small fw-semibold text-body-secondary mb-2">
+                <i className="bi bi-play-circle me-2"></i>{title}
+            </p>
+
             {children}
-        </Card>
+        </div>
     );
 }
 
@@ -118,28 +118,185 @@ export interface PropsTableProps {
 export function PropsTable({ rows }: PropsTableProps) {
     return (
         <div className="table-responsive">
-            <table className="table table-sm align-middle">
+            {/* FIXED layout, or the browser hands the width to whichever column carries
+                the longest unbreakable token and the description ends up in a sliver —
+                tall rows and a table wider than the page. The description keeps the
+                width; names and types may break mid-token when they must. */}
+            <table
+                className="table table-sm align-middle"
+                style={{ tableLayout: 'fixed' }}>
                 <thead>
                     <tr>
-                        <th scope="col">Prop</th>
-                        <th scope="col">Type</th>
-                        <th scope="col">Default</th>
+                        <th scope="col" style={{ width: '22%' }}>Prop</th>
+                        <th scope="col" style={{ width: '20%' }}>Type</th>
+                        <th scope="col" style={{ width: '9%' }}>Default</th>
                         <th scope="col">Description</th>
                     </tr>
                 </thead>
                 <tbody>
+                    {/* Nothing here refuses to wrap: a nowrap name or type cell forces
+                        the table wider than the page, pushes the description off screen
+                        and stretches every row — the exact opposite of a reference table. */}
                     {rows.map((row) => (
                         <tr key={row.name}>
-                            <td className="text-nowrap"><code>{row.name}</code></td>
-                            <td className="text-nowrap"><small>{row.type}</small></td>
-                            <td className="text-nowrap">
-                                <small>{row.defaultValue ?? '—'}</small>
-                            </td>
+                            <td className="text-break"><code>{row.name}</code></td>
+                            <td className="text-break"><small>{row.type}</small></td>
+                            <td><small>{row.defaultValue ?? '—'}</small></td>
                             <td>{row.description}</td>
                         </tr>
                     ))}
                 </tbody>
             </table>
+        </div>
+    );
+}
+
+// A LIVE CONTROL BOARD for a demo: one switch per boolean prop, restyled the way the admin
+// Features table reads — flip a switch and the demo beside it re-renders with the prop
+// changed, so what a prop DOES is seen rather than read about.
+export interface DemoToggle {
+    name: string;
+    label: string;
+    value: boolean;
+    onChange: (value: boolean) => void;
+
+    // The component's own default for this prop, printed beside the label so the reader
+    // always knows which way the switch rests when a page says nothing.
+    defaultValue?: boolean;
+}
+
+export interface DemoControlsProps {
+    title?: string;
+    toggles: ReadonlyArray<DemoToggle>;
+}
+
+export function DemoControls({ title = 'Controls', toggles }: DemoControlsProps) {
+    return (
+        <div className="border rounded-3 p-3 mb-3">
+            <p className="small text-uppercase fw-bold text-body-secondary mb-2">{title}</p>
+
+            <div className="row g-2">
+                {toggles.map((toggle) => (
+                    <div className="col-12 col-md-6" key={toggle.name}>
+                        <div className="form-check form-switch mb-0">
+                            <input
+                                className="form-check-input"
+                                type="checkbox"
+                                role="switch"
+                                id={`demo-toggle-${toggle.name}`}
+                                checked={toggle.value}
+                                onChange={(event) => toggle.onChange(event.target.checked)} />
+
+                            <label
+                                className="form-check-label"
+                                htmlFor={`demo-toggle-${toggle.name}`}>
+                                {toggle.label}
+                                {toggle.defaultValue != null && (
+                                    <span className="small text-danger ms-1">
+                                        (Default: {String(toggle.defaultValue)})
+                                    </span>
+                                )}
+                            </label>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+// A LIVE RADIO BOARD, the DemoControls' sibling for a prop that is one choice from a small
+// closed set rather than a boolean — pick an option and the demo re-renders under it.
+export interface DemoRadioOption {
+    key: string;
+    label: string;
+}
+
+export interface DemoRadioGroupProps {
+    title: string;
+    name: string;
+    options: ReadonlyArray<DemoRadioOption>;
+    selectedKey: string;
+    onChange: (key: string) => void;
+}
+
+export function DemoRadioGroup({
+    title,
+    name,
+    options,
+    selectedKey,
+    onChange
+}: DemoRadioGroupProps) {
+    return (
+        <div className="border rounded-3 p-3 mb-3">
+            <p className="small text-uppercase fw-bold text-body-secondary mb-2">{title}</p>
+
+            <div className="row g-2">
+                {options.map((option) => (
+                    <div className="col-12 col-md-6" key={option.key}>
+                        <div className="form-check mb-0">
+                            <input
+                                className="form-check-input"
+                                type="radio"
+                                name={name}
+                                id={`${name}-${option.key}`}
+                                checked={selectedKey === option.key}
+                                onChange={() => onChange(option.key)} />
+
+                            <label
+                                className="form-check-label"
+                                htmlFor={`${name}-${option.key}`}>
+                                {option.label}
+                            </label>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+// A LIVE NUMBER BOX, the DemoControls' sibling for a numeric prop — type a value and the
+// demo re-renders under it. An emptied or unparseable box falls back to the default rather
+// than handing the component NaN.
+export interface DemoNumberInputProps {
+    label: string;
+    name: string;
+    value: number;
+    defaultValue: number;
+    onChange: (value: number) => void;
+}
+
+export function DemoNumberInput({
+    label,
+    name,
+    value,
+    defaultValue,
+    onChange
+}: DemoNumberInputProps) {
+    return (
+        <div className="border rounded-3 p-3 mb-3">
+            <label
+                className="small text-uppercase fw-bold text-body-secondary mb-2 d-block"
+                htmlFor={`demo-number-${name}`}>
+                {label}
+                <span className="text-danger ms-1">(Default: {defaultValue})</span>
+            </label>
+
+            <input
+                className="form-control"
+                style={{ maxWidth: '10rem' }}
+                type="number"
+                id={`demo-number-${name}`}
+                value={value}
+                min={1}
+                onChange={(event) => {
+                    const parsed = Number(event.target.value);
+
+                    onChange(Number.isFinite(parsed) && parsed > 0
+                        ? parsed
+                        : defaultValue);
+                }} />
         </div>
     );
 }

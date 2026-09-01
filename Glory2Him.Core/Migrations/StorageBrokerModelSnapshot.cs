@@ -896,6 +896,15 @@ namespace Glory2Him.Core.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
+                    b.Property<int?>("MaxAuthorLength")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("MaxContentLength")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("MaxTitleLength")
+                        .HasColumnType("int");
+
                     b.Property<bool>("ReactionsAllowed")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")

@@ -5,6 +5,7 @@ import securityPoints from '../securityMatrix';
 import { Dashboard } from '../pages/dashboard';
 import { ContentItemSettingDetailPage } from '../pages/admin/contentItemSettingDetailPage';
 import { ContentItemSettingsPage } from '../pages/admin/contentItemSettingsPage';
+import { ContentItemModerationPage } from '../pages/admin/contentItemModerationPage';
 import { PostDetailPage } from '../pages/admin/postDetailPage';
 import { PostsPage } from '../pages/admin/postsPage';
 import { UserDetailPage } from '../pages/admin/userDetailPage';
@@ -53,21 +54,37 @@ export const adminRoutes: RouteObject[] = [
                     </SecuredRoute>,
             },
             {
+                // The content item moderation queue — the ContentItemListPanel family over the
+                // Draft + Submitted statuses. The demo Post table that used to answer here moved
+                // to Admin/SamplePosts, because /posts is the content item collection now and
+                // its admin surface belongs at the matching address.
+                //
+                // Administrators for the ROUTE, for now: SecuredRoute takes a fixed role list
+                // and the review tier is suffix-matched (§18.6), which a list cannot express —
+                // widening who reaches this surface is #361's scope, and the foundation decides
+                // data visibility against the stored row regardless.
                 path: 'Admin/Posts',
+                element:
+                    <SecuredRoute allowedRoles={securityPoints.contentItems.view}>
+                        <ContentItemModerationPage />
+                    </SecuredRoute>,
+            },
+            {
+                path: 'Admin/SamplePosts',
                 element:
                     <SecuredRoute allowedRoles={securityPoints.posts.view}>
                         <PostsPage />
                     </SecuredRoute>,
             },
             {
-                path: 'Admin/Posts/New',
+                path: 'Admin/SamplePosts/New',
                 element:
                     <SecuredRoute allowedRoles={securityPoints.posts.add}>
                         <PostDetailPage />
                     </SecuredRoute>,
             },
             {
-                path: 'Admin/Posts/:postId',
+                path: 'Admin/SamplePosts/:postId',
                 element:
                     <SecuredRoute allowedRoles={securityPoints.posts.edit}>
                         <PostDetailPage />
