@@ -1,7 +1,9 @@
+import { ReactElement } from 'react';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ContentItemListPanel } from './contentItemListPanel';
+import { AuthContextOverride } from '../securitys/authProvider';
 import { ContentItemSetting } from '../../models/foundations/contentItemSettings/contentItemSetting';
 import { ContentType } from '../../models/foundations/contentItemSettings/contentType';
 
@@ -114,6 +116,16 @@ const installIntersectionObserver = () => {
 
 const removeIntersectionObserver = () =>
     vi.stubGlobal('IntersectionObserver', undefined);
+
+// Edit — View here — renders for the item's own submitter alone, so the one test that wants it
+// says who is reading. AuthContextOverride sets the subtree's security context outright rather
+// than mocking the account read: the gate decides RENDERING only, and the server re-decides
+// every write against the stored row.
+const renderAsSubmitter = (ui: ReactElement) =>
+    render(
+        <AuthContextOverride userId="account-joan" displayName="Joan" roles={[]}>
+            {ui}
+        </AuthContextOverride>);
 
 afterEach(() => {
     vi.unstubAllGlobals();
@@ -339,6 +351,40 @@ describe('ContentItemListPanel', () => {
                     showSearchBar={false} />);
 
             expect(screen.queryByText('#grace')).not.toBeInTheDocument();
+        });
+
+        // The list answers editButtonText for itself. A listed card's pencil is a NAVIGATION,
+        // so it says View; ContentItemPanel on its own opens an editor and keeps Edit, which
+        // its own tests pin. One button, named for what it does on each surface.
+        it('should name a listed card’s pencil View rather than Edit', async () => {
+            const onEditClick = vi.fn();
+
+            renderAsSubmitter(
+                <ContentItemListPanel
+                    contentItemCollection={[devotionalItem]}
+                    onEditClick={onEditClick}
+                    showSearchBar={false} />);
+
+            // then
+            expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+
+            // and it is the SAME button, renamed rather than replaced
+            await userEvent.click(screen.getByRole('button', { name: 'View' }));
+
+            expect(onEditClick).toHaveBeenCalledWith(devotionalItem);
+        });
+
+        it('should let the surface name the button itself', () => {
+            renderAsSubmitter(
+                <ContentItemListPanel
+                    contentItemCollection={[devotionalItem]}
+                    onEditClick={vi.fn()}
+                    editButtonText="Amend"
+                    showSearchBar={false} />);
+
+            // then: an override outranks the level's default, as it does every other
+            expect(screen.getByRole('button', { name: 'Amend' })).toBeInTheDocument();
+            expect(screen.queryByRole('button', { name: 'View' })).not.toBeInTheDocument();
         });
     });
 

@@ -120,13 +120,14 @@ describe('The content item feed pages', () => {
         });
 
         // The button is a courtesy, never a boundary — the server re-decides against the stored
-        // row — but a visitor with no account has nothing to edit, so they get no button.
-        it('should offer Edit to a signed-in reader and not to a visitor', () => {
+        // row — but a visitor with no account has nothing to edit, so they get no button. It
+        // reads View on a feed: a listed card's pencil navigates rather than opening an editor.
+        it('should offer the way in to a signed-in reader and not to a visitor', () => {
             // given / when: a visitor
             const rendered = renderPage(<Home />);
 
             // then
-            expect(screen.queryByRole('button', { name: /Edit/ })).not.toBeInTheDocument();
+            expect(screen.queryByRole('button', { name: 'View' })).not.toBeInTheDocument();
 
             // given / when: signed in
             rendered.unmount();
@@ -134,7 +135,7 @@ describe('The content item feed pages', () => {
             renderPage(<Home />);
 
             // then
-            expect(screen.getByRole('button', { name: /Edit/ })).toBeInTheDocument();
+            expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
         });
 
         it('should keep the verse of the day above the feed', () => {
@@ -172,7 +173,7 @@ describe('The content item feed pages', () => {
         });
 
         // The whole point of "my posts": the reader sees their own rows wearing their status.
-        it('should show the caller their own draft wearing its badge', () => {
+        it('should show the caller their own draft wearing its ribbon', () => {
             // given
             signInAs(authState, ['Users']);
 
@@ -192,9 +193,12 @@ describe('The content item feed pages', () => {
             // when
             renderPage(<MyPosts />, '/myposts');
 
-            // then: the badge AND the corner ribbon — /myposts opts into ribbons, so the
-            // status arrives twice, each through its own affordance.
-            expect(screen.getAllByText('Draft')).toHaveLength(2);
+            // then: the corner ribbon and NOTHING ELSE — /myposts opts into ribbons and
+            // leaves the pill off, so the card says Draft once rather than twice.
+            const statusTexts = screen.getAllByText('Draft');
+
+            expect(statusTexts).toHaveLength(1);
+            expect(statusTexts[0]).toHaveClass('g2h-approval-ribbon');
 
             expect(document.querySelector('.g2h-approval-ribbon'))
                 .toHaveAttribute('data-approval-status', 'Draft');

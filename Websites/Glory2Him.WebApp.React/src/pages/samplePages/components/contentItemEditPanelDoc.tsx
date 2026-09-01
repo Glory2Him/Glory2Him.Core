@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ContentItemEditPanel } from '../../../components/contentItems/contentItemEditPanel';
 
 import {
+    ApprovalStatus,
     ContentItemFormItem
 } from '../../../models/components/contentItems/contentItemFormItem';
 
@@ -25,6 +26,8 @@ import {
     ComponentDoc,
     ComponentPropRow,
     DemoControls,
+    DemoRadioGroup,
+    DemoRadioOption,
     DocSection,
     LiveDemo,
     PropsTable
@@ -51,6 +54,24 @@ const demoFormItem: ContentItemFormItem = {
     sharePermission: demoStoryItem.sharePermission ?? '',
     createdBy: demoStoryItem.submittedById,
     approvalStatus: demoStoryItem.approvalStatus
+};
+
+// THE ITEM'S OWN STATUS, as a live switch — because it is what decides whether the editor
+// carries a "Submit as" row at all. Draft and Submitted are the contributor's to move between;
+// a reviewer's decision takes the row away, which is a rule worth being able to see rather than
+// only read about.
+const approvalStatusOptions: ReadonlyArray<DemoRadioOption> = [
+    { key: 'Draft', label: 'Draft — the row stands' },
+    { key: 'Submitted', label: 'Submitted — the row stands' },
+    { key: 'Approved', label: 'Approved — no row' },
+    { key: 'Rejected', label: 'Rejected — no row' }
+];
+
+const approvalStatusByKey: Readonly<Record<string, ApprovalStatus>> = {
+    Draft: ApprovalStatus.Draft,
+    Submitted: ApprovalStatus.Submitted,
+    Approved: ApprovalStatus.Approved,
+    Rejected: ApprovalStatus.Rejected
 };
 
 const editProps: ReadonlyArray<ComponentPropRow> = [
@@ -85,6 +106,17 @@ const editProps: ReadonlyArray<ComponentPropRow> = [
         description: 'Freezes Save, Cancel and Delete while the consumer is persisting.'
     },
     {
+        name: 'submitAsLabelText',
+        type: 'string',
+        defaultValue: '“Submit as”',
+        description: 'The last row of the form, over the buttons: which state to file the '
+            + 'amendment in. It offers the two a contributor owns — Submitted and Draft, so '
+            + 'work can be pulled back out of review — and drives approvalStatus on the '
+            + 'emitted projection. On an item a reviewer has DECIDED (Approved, Rejected, '
+            + 'Dismissed) the row does not render at all: there is no transition backwards '
+            + 'for this surface to offer, and a save files the decision untouched.'
+    },
+    {
         name: 'onModified / onRemoved / onCancelled',
         type: '(item) => void',
         description: 'What the reader decided. Whether onModified is a PUT or, on a terminal '
@@ -100,6 +132,7 @@ export function ContentItemEditPanelDoc() {
     const [showEditSection, setShowEditSection] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showApprovalStatusRibbon, setShowApprovalStatusRibbon] = useState(true);
+    const [approvalStatusKey, setApprovalStatusKey] = useState('Draft');
     const [lastEvent, setLastEvent] = useState('');
 
     return (
@@ -151,7 +184,11 @@ export function ContentItemEditPanelDoc() {
                         gates, so the demo may honestly step into any viewer. The owner
                         edits at any status and holds Delete; the publisher tier edits a
                         live row without Delete; a reviewer is refused outright — and
-                        flipping <code>showEditSection</code> off refuses everybody.
+                        flipping <code>showEditSection</code> off refuses everybody. The
+                        STATUS is the item&rsquo;s own rather than a prop, and it decides
+                        the last row of the form: Draft and Submitted are the
+                        contributor&rsquo;s to move between, a decision takes the{' '}
+                        <code>Submit as</code> row away entirely.
                         Last event:{' '}
                         <code>{lastEvent.length > 0 ? lastEvent : '(none yet)'}</code>
                     </>
@@ -159,6 +196,13 @@ export function ContentItemEditPanelDoc() {
                 <SecurityContextSection
                     selected={securityContext}
                     onChange={setSecurityContext} />
+
+                <DemoRadioGroup
+                    title="The item's approval status"
+                    name="edit-approval-status"
+                    options={approvalStatusOptions}
+                    selectedKey={approvalStatusKey}
+                    onChange={setApprovalStatusKey} />
 
                 <DemoControls toggles={[
                     {
@@ -189,7 +233,8 @@ export function ContentItemEditPanelDoc() {
                         <ContentItemEditPanel
                             contentItem={{
                                 ...demoFormItem,
-                                createdBy: demoSubmitterIdFor(securityContext)
+                                createdBy: demoSubmitterIdFor(securityContext),
+                                approvalStatus: approvalStatusByKey[approvalStatusKey]
                             }}
                             contentItemSettingCollection={demoSettings}
                             showEditSection={showEditSection}

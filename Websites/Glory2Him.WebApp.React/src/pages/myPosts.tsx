@@ -135,7 +135,11 @@ export function MyPosts() {
                                 onSearch={search}
                                 isLoading={isLoading || userId.length === 0}
                                 showApprovalStatusRibbon
-                                showApprovalStatus
+
+                                // The corner ribbon already says the status on every card, so
+                                // the pill beside the type chip is off here: one card saying
+                                // Draft twice reads as two different facts about the row.
+                                showApprovalStatus={false}
                                 isLoadingMore={isFetchingNextPage}
                                 hasMore={hasNextPage}
                                 onLoadMore={fetchNextPage}

@@ -223,7 +223,7 @@ namespace Glory2Him.WebApp.Data
             // author is the scripture reference's source. Comments and reactions welcome; links
             // and attachments are not what a verse card carries.
             yield return BuildSetting(
-                ContentType.Verses,
+                ContentType.VerseImage,
                 sortOrder: 6,
                 contentTypeName: "Verse Image",
                 contentTypeDescription: "A verse that carried you",

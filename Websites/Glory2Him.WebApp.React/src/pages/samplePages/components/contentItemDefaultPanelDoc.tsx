@@ -34,7 +34,7 @@ const templateProps: ReadonlyArray<ComponentPropRow> = [
         type: 'ReactNode?',
         description: 'THE DERIVATION POINT. Absent, the default content block renders '
             + '(thumbnail, badge and title, the truncated content, read-more). An override — '
-            + 'Quotes, Verses — renders THIS template with contentSlot replaced, so the meta '
+            + 'Quotes, Verse Images — renders THIS template with contentSlot replaced, so the meta '
             + 'row, the pills and the engagement row are written once and carried identically.'
     },
     {

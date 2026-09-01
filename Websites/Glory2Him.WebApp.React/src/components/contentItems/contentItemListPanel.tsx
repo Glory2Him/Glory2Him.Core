@@ -38,7 +38,9 @@ import './contentItems.css';
 // committed criteria accordingly and raises onSearch — so the consumer sees exactly one search
 // signal however the reader asked. The navigation hooks (title, read-more, comments, bible
 // reference, edit) pass straight through: where they lead is the page's decision, and the page
-// stamps the origin into router state so the destination can offer a true way back.
+// stamps the origin into router state so the destination can offer a true way back. The edit
+// LABEL is the one inherited string this level answers differently — View, not Edit, because a
+// listed card's pencil goes somewhere rather than opening an editor (see editButtonText below).
 // The six SECTION SWITCHES thread through too (ContentItemSectionToggles) — like
 // showModerationSection and showApprovalStatusRibbon they are per-SURFACE decisions a page makes
 // once for every card, and ContentItemPanel owns what each means. The form-face props
@@ -139,6 +141,14 @@ export function ContentItemListPanel({
     loadingMoreText = 'Loading more…',
     loadMoreButtonText = 'Load more',
     emptyText = 'Nothing matched that search.',
+
+    // THE ONE INHERITED TEXT THIS LEVEL ANSWERS DIFFERENTLY. A card in a list does not edit
+    // in place — its pencil is a NAVIGATION (onEditClick), and where it leads is a page
+    // that shows the item whole and offers the editing there. So the word on a listed card
+    // is View, while ContentItemPanel standing on its own keeps Edit: the same button, named
+    // for what it actually does on each surface. A consumer passing editButtonText overrides
+    // this exactly as it overrides any other default.
+    editButtonText = 'View',
     onContentTypeClick,
     onSubmittedByClick,
     onAuthorClick,
@@ -248,6 +258,10 @@ export function ContentItemListPanel({
                 showModerationSection={showModerationSection}
                 showApprovalStatusRibbon={showApprovalStatusRibbon}
                 showApprovalStatus={showApprovalStatus}
+
+                // Named rather than left to the spread below: destructuring it above to
+                // give it this level's default took it out of itemEventsAndText.
+                editButtonText={editButtonText}
                 isLoading={isLoading}
                 isLoadingMore={isLoadingMore}
                 hasMore={hasMore}

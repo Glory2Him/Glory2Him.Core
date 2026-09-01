@@ -161,9 +161,9 @@ describe('ContentItemPanel', () => {
                 <ContentItemPanel
                     contentItem={{
                         id: 'verses-1',
-                        contentType: ContentType.Verses,
+                        contentType: ContentType.VerseImage,
                         contentItemSetting: settingFor(
-                            ContentType.Verses, 'Verse Image', { hasTitle: false }),
+                            ContentType.VerseImage, 'Verse Image', { hasTitle: false }),
                         author: 'The Bible',
                         content: '“For God so loved the world…” — John 3:16 ESV',
                         submittedByName: 'Bryan',
@@ -910,6 +910,43 @@ describe('ContentItemPanel', () => {
             expect(screen.getByRole('button', { name: 'Submit for review' }))
                 .toBeInTheDocument();
         });
+
+        it('should thread approvalStatusDefault to the add face', () => {
+            // given
+            signInAs(authState);
+
+            // when
+            renderCard(
+                <ContentItemPanel
+                    contentItemSettingCollection={[devotionalSetting]}
+                    approvalStatusDefault={ApprovalStatus.Draft} />);
+
+            // then: the dispatcher restates no default of its own — the form panel holds the
+            // one Submitted, so the two cannot drift
+            expect(screen.getByLabelText(/Submit as/))
+                .toHaveValue(String(ApprovalStatus.Draft));
+        });
+
+        it('should thread approvalStatusDefault to the editor for a statusless element',
+            async () => {
+                // given: an element whose projection left approvalStatus unset — the only
+                // case where the default has anything to say on the edit face
+                signInAs(authState);
+
+                renderCard(
+                    <ContentItemPanel
+                        contentItem={{ ...ownItem, approvalStatus: undefined }}
+                        showEditSection
+                        approvalStatusDefault={ApprovalStatus.Draft}
+                        onModified={vi.fn()} />);
+
+                // when
+                await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
+
+                // then
+                expect(screen.getByLabelText(/Submit as/))
+                    .toHaveValue(String(ApprovalStatus.Draft));
+            });
 
         it('should open the editor in place when the page listens on onModified', async () => {
             // given: the owner, on a surface that allows editing and owns persistence

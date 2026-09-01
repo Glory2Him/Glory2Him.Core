@@ -51,7 +51,7 @@ const ContentItemAddPanelDoc = lazyNamed(() => import('../pages/samplePages/comp
 const ContentItemEditPanelDoc = lazyNamed(() => import('../pages/samplePages/components/contentItemEditPanelDoc'), 'ContentItemEditPanelDoc');
 const ContentItemDefaultPanelDoc = lazyNamed(() => import('../pages/samplePages/components/contentItemDefaultPanelDoc'), 'ContentItemDefaultPanelDoc');
 const ContentItemQuotesPanelDoc = lazyNamed(() => import('../pages/samplePages/components/contentItemQuotesPanelDoc'), 'ContentItemQuotesPanelDoc');
-const ContentItemVersesPanelDoc = lazyNamed(() => import('../pages/samplePages/components/contentItemVersesPanelDoc'), 'ContentItemVersesPanelDoc');
+const ContentItemVerseImagePanelDoc = lazyNamed(() => import('../pages/samplePages/components/contentItemVerseImagePanelDoc'), 'ContentItemVerseImagePanelDoc');
 const SharingPanelDoc = lazyNamed(() => import('../pages/samplePages/components/sharingPanelDoc'), 'SharingPanelDoc');
 const BibleReferenceFullChapterSample = lazyNamed(() => import('../pages/samplePages/bibleReferences/bibleReferenceFullChapterSample'), 'BibleReferenceFullChapterSample');
 const BibleReferencePartialSample = lazyNamed(() => import('../pages/samplePages/bibleReferences/bibleReferencePartialSample'), 'BibleReferencePartialSample');
@@ -160,8 +160,8 @@ export const samplePagesRoutes: RouteObject[] = [
                 element: secured(<ContentItemQuotesPanelDoc />),
             },
             {
-                path: 'SamplePages/Components/Content-Item-Verses-Panel',
-                element: secured(<ContentItemVersesPanelDoc />),
+                path: 'SamplePages/Components/Content-Item-Verse-Image-Panel',
+                element: secured(<ContentItemVerseImagePanelDoc />),
             },
             {
                 path: 'SamplePages/Components/Sharing-Panel',

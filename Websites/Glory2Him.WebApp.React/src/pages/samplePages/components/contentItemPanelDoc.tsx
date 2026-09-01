@@ -39,7 +39,7 @@ ContentItemListPanel                composes the two below
         ├── ContentItemDefaultPanel   the view template most types use
         └── ContentItem{ContentType}Panel   overrides, by ContentType:
               ContentItemQuotesPanel        (derives from the default template)
-              ContentItemVersesPanel        (the verse whole — purple chip)
+              ContentItemVerseImagePanel    (the verse whole — purple chip)
 `;
 
 const minimalSample = `

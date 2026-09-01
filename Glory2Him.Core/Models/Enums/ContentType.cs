@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -43,7 +43,19 @@ namespace Glory2Him.Core.Models.Enums
         BlogPost = 5,
 
         /// <summary>A verse image.</summary>
-        Verses = 6,
+        ///
+        /// <remarks>
+        /// RENAMED FROM <c>Verses</c>, which is the one thing the note above says never
+        /// happens — so it was done the only way that keeps the rule's promise. The VALUE is
+        /// untouched (6), and every place the old name was persisted or composed into was
+        /// rewritten in the same release: the string column on ContentItems,
+        /// ContentItemSettings, ApprovalSettings and both endpoints of Associations by
+        /// <c>RenameVersesContentTypeToVerseImage</c>, and the
+        /// <c>ContentItem-Verses-*</c> role names by the SecurityDbContext migration of the
+        /// same name. Nothing was reassigned: the member means what it always meant, and now
+        /// says so. Do not take this as licence to rename another — it cost two migrations.
+        /// </remarks>
+        VerseImage = 6,
 
         /// <summary>
         /// An ordered collection of related content items — excluded from feed projections

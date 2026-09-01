@@ -131,12 +131,12 @@ section.g2h-content-item-panel {
     --g2h-chip-fg: #ffffff;
 }
 
-/* Verses is PURPLE BY RULING, beside a Quote that is already a purple — so the two are
-   split by DEPTH: Quote stays the light magenta-purple above and Verses takes a dark
+/* Verse Image is PURPLE BY RULING, beside a Quote that is already a purple — so the two
+   are split by DEPTH: Quote stays the light magenta-purple above and Verse Image takes a dark
    violet, the lightness gap carrying the distance that hue alone cannot. Measured like
    every other pair — the palette test does the arithmetic on each run. */
-.g2h-content-item-chip[data-content-type="Verses"],
-.g2h-content-item-type-selected[data-content-type="Verses"] {
+.g2h-content-item-chip[data-content-type="VerseImage"],
+.g2h-content-item-type-selected[data-content-type="VerseImage"] {
     --g2h-chip-bg: #5925b8;
     --g2h-chip-fg: #ffffff;
 }
@@ -225,6 +225,17 @@ section.g2h-content-item-panel {
 .g2h-content-item-type:disabled {
     cursor: not-allowed;
     opacity: 0.55;
+}
+
+/* ── The permission-details field ────────────────────────── */
+
+/* The one answer on the form that is PASTED rather than typed — an email granting permission, a
+   licence, a copyright line — so the control is a textarea. It opens at a single row, which the
+   theme's own textarea min-height holds to exactly the height of the inputs above it, so the form
+   costs no more space than it did as a line; the reader drags it taller when the proof is longer.
+   VERTICAL ONLY: a horizontal drag would leave the control wider than every field around it. */
+.g2h-content-item-share-permission {
+    resize: vertical;
 }
 
 /* ── ContentItemListPanel family ─────────────────────────────────────── */

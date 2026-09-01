@@ -114,7 +114,9 @@ const formItem: ContentItemFormItem = {
                                                   // the form's first ruled exception
 
     createdBy: 'a7727f95-b509-45e6-…',            // the [OWNER] gate's other half
-    approvalStatus: ApprovalStatus.Draft          // the owner edits at any status; the
-                                                  // publisher tier only while live
+    approvalStatus: ApprovalStatus.Draft          // what the "Submit as" row files, and
+                                                  // only ever Draft or Submitted from
+                                                  // there; a decided status rides back
+                                                  // out untouched, the row unrendered
 };
 `;

@@ -4,7 +4,7 @@ import { ContentItemAddPanel } from './contentItemAddPanel';
 import { ContentItemDefaultPanel } from './contentItemDefaultPanel';
 import { ContentItemEditPanel } from './contentItemEditPanel';
 import { ContentItemQuotesPanel } from './contentItemQuotesPanel';
-import { ContentItemVersesPanel } from './contentItemVersesPanel';
+import { ContentItemVerseImagePanel } from './contentItemVerseImagePanel';
 import { ContentItemSetting } from '../../models/foundations/contentItemSettings/contentItemSetting';
 
 import {
@@ -20,6 +20,7 @@ import {
 } from '../../models/components/contentItems/contentItemTemplate';
 
 import {
+    ApprovalStatus,
     ContentItemFormItem,
     ContentItemPanelMode,
     ContentItemValidationIssues,
@@ -41,7 +42,7 @@ import './contentItems.css';
 //   the editor, taken or asked for   → ContentItemEditPanel  (the frozen type, the seeded form)
 //   otherwise                        → a VIEW template by content type:
 //                                      ContentItemDefaultPanel, or a registered override
-//                                      (ContentItemQuotesPanel, ContentItemVersesPanel)
+//                                      (ContentItemQuotesPanel, ContentItemVerseImagePanel)
 //
 // One family, one tree: ContentItemListPanel renders this same panel for every result, and a
 // details page renders it for its one item — there is no second component to keep in sync.
@@ -131,6 +132,12 @@ export interface ContentItemPanelProps
     // the consumer has one, the signed-in reader otherwise.
     submittedByDisplayName?: string;
 
+    // What the form's "Submit as" row opens on where the model names no status — `add`, and an
+    // element whose approvalStatus is unset. Threaded straight through to both form faces;
+    // ContentItemFormPanel holds the default (Submitted), so it is stated in one place only.
+    // An element that HAS a status is reported by that status, never by this.
+    approvalStatusDefault?: ApprovalStatus;
+
     ariaLabel?: string;
     titleText?: string;
     showBorder?: boolean;
@@ -142,12 +149,12 @@ export interface ContentItemPanelProps
 }
 
 // THE TEMPLATE REGISTRY. An override renders when one is registered for the item's type; the
-// default renders otherwise. Adding one is exactly this one line — Verses arrived that way
-// when ContentType.Verses landed, seeds and all.
+// default renders otherwise. Adding one is exactly this one line — Verse Image arrived that
+// way when ContentType.VerseImage landed, seeds and all.
 const templateOverrides:
     Partial<Record<ContentType, ComponentType<ContentItemTemplateProps>>> = {
     [ContentType.Quote]: ContentItemQuotesPanel,
-    [ContentType.Verses]: ContentItemVersesPanel
+    [ContentType.VerseImage]: ContentItemVerseImagePanel
 };
 
 // Element → editor seed. The search element and the form item are the same facts in two
@@ -182,6 +189,7 @@ export function ContentItemPanel({
     isSubmitting = false,
     validationIssues,
     submittedByDisplayName,
+    approvalStatusDefault,
     ariaLabel,
     titleText,
     showBorder,
@@ -232,6 +240,7 @@ export function ContentItemPanel({
                 isSubmitting={isSubmitting}
                 validationIssues={validationIssues}
                 submittedByDisplayName={submittedByDisplayName}
+                approvalStatusDefault={approvalStatusDefault}
                 ariaLabel={ariaLabel}
                 titleText={titleText}
                 showBorder={showBorder}
@@ -318,6 +327,7 @@ export function ContentItemPanel({
                 isSubmitting={isSubmitting}
                 validationIssues={validationIssues}
                 submittedByDisplayName={submittedByDisplayName}
+                approvalStatusDefault={approvalStatusDefault}
                 showApprovalStatusRibbon={showApprovalStatusRibbon}
                 ariaLabel={ariaLabel}
                 titleText={titleText}
