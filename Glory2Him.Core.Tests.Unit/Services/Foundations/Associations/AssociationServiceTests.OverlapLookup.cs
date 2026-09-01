@@ -459,5 +459,29 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()),
                 Times.Never);
         }
+
+        [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnFindOverlappingAssociationIfCancellationRequestedAsync()
+        {
+            // given
+            Association incoming = CreateContentItemTagPair(
+                Guid.NewGuid(), contentItemKeyId: Guid.NewGuid(), Scope.AllVersions, tagKeyId: Guid.NewGuid());
+
+            var cancellationToken = new CancellationToken(canceled: true);
+
+            // when
+            ValueTask<AssociationPairMatch?> findTask =
+                this.associationService.FindOverlappingAssociationAsync(
+                    incoming,
+                    excludedAssociationId: null,
+                    cancellationToken);
+
+            // then
+            await Assert.ThrowsAsync<OperationCanceledException>(findTask.AsTask);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
     }
 }

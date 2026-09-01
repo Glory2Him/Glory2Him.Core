@@ -416,5 +416,26 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()),
                 Times.Never);
         }
+
+        [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnFindAssociationByPairIfCancellationRequestedAsync()
+        {
+            // given
+            Association pairRequest = CreateResolvedPairRequest();
+            var cancellationToken = new CancellationToken(canceled: true);
+
+            // when
+            ValueTask<AssociationPairMatch?> findTask =
+                this.associationService.FindAssociationByPairAsync(
+                    pairRequest,
+                    cancellationToken);
+
+            // then
+            await Assert.ThrowsAsync<OperationCanceledException>(findTask.AsTask);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
     }
 }

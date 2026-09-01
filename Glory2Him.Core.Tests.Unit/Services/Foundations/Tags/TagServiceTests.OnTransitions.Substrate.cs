@@ -29,6 +29,29 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
         // ── OnSubmitting ─────────────────────────────────────────────────────────────────────
 
         [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnSubmittingTagEventIfCancellationRequestedAsync()
+        {
+            // given
+            EventEnvelope<Tag> requestEnvelope = CreateRandomTagRequestEnvelope();
+            var cancellationToken = new CancellationToken(canceled: true);
+
+            // when
+            ValueTask<EventEnvelope<Tag>?> onSubmittingTask =
+                this.tagService.OnSubmittingTagAsync(
+                    requestEnvelope,
+                    cancellationToken);
+
+            // then
+            await Assert.ThrowsAsync<OperationCanceledException>(
+                onSubmittingTask.AsTask);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
         public async Task ShouldSubmitOnSubmittingTagEventAsync()
         {
             // given: the event path carries the id in the envelope; the do-work reads only the
@@ -161,6 +184,35 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
         }
 
         // ── OnApproving ──────────────────────────────────────────────────────────────────────
+
+        [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnApprovingTagEventIfCancellationRequestedAsync()
+        {
+            // given
+            var requestEnvelope = new EventEnvelope<Tag>
+            {
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers),
+                Content = CreateApprovalDecision(Guid.NewGuid()),
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            var cancellationToken = new CancellationToken(canceled: true);
+
+            // when
+            ValueTask<EventEnvelope<Tag>?> onApprovingTask =
+                this.tagService.OnApprovingTagAsync(
+                    requestEnvelope,
+                    cancellationToken);
+
+            // then
+            await Assert.ThrowsAsync<OperationCanceledException>(
+                onApprovingTask.AsTask);
+
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
 
         [Fact]
         public async Task ShouldApproveOnApprovingTagEventAsync()

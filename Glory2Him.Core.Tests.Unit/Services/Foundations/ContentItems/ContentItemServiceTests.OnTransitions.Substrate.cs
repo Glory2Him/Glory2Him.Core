@@ -160,6 +160,30 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             this.eventBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnSubmittingContentItemEventIfCancellationRequestedAsync()
+        {
+            // given
+            EventEnvelope<ContentItem> requestEnvelope = CreateRandomContentItemRequestEnvelope();
+            var cancellationToken = new CancellationToken(canceled: true);
+
+            // when
+            ValueTask<EventEnvelope<ContentItem>?> onSubmittingTask =
+                this.contentItemService.OnSubmittingContentItemAsync(
+                    requestEnvelope,
+                    cancellationToken);
+
+            // then
+            await Assert.ThrowsAsync<OperationCanceledException>(
+                onSubmittingTask.AsTask);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // ── OnApproving ──────────────────────────────────────────────────────────────────────
 
         [Fact]
@@ -303,6 +327,31 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                         It.IsAny<ApprovalDecisionQuery>(),
                         It.IsAny<CancellationToken>()),
                 Times.Never);
+        }
+
+        [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnApprovingContentItemEventIfCancellationRequestedAsync()
+        {
+            // given
+            EventEnvelope<ContentItem> requestEnvelope = CreateRandomContentItemRequestEnvelope();
+            var cancellationToken = new CancellationToken(canceled: true);
+
+            // when
+            ValueTask<EventEnvelope<ContentItem>?> onApprovingTask =
+                this.contentItemService.OnApprovingContentItemAsync(
+                    requestEnvelope,
+                    cancellationToken);
+
+            // then
+            await Assert.ThrowsAsync<OperationCanceledException>(
+                onApprovingTask.AsTask);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
         }
     }
 }
