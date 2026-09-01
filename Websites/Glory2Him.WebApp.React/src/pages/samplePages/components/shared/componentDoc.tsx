@@ -177,7 +177,7 @@ export function DemoControls({ title = 'Controls', toggles }: DemoControlsProps)
 
             <div className="row g-2">
                 {toggles.map((toggle) => (
-                    <div className="col-12 col-md-6 col-xl-4" key={toggle.name}>
+                    <div className="col-12 col-md-6" key={toggle.name}>
                         <div className="form-check form-switch mb-0">
                             <input
                                 className="form-check-input"
@@ -233,7 +233,7 @@ export function DemoRadioGroup({
 
             <div className="row g-2">
                 {options.map((option) => (
-                    <div className="col-12 col-md-6 col-xl-4" key={option.key}>
+                    <div className="col-12 col-md-6" key={option.key}>
                         <div className="form-check mb-0">
                             <input
                                 className="form-check-input"
