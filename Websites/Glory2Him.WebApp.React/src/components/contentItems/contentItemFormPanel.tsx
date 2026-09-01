@@ -122,9 +122,11 @@ export interface ContentItemFormPanelProps {
     // against the rendered fields; anything the panel cannot place renders in a summary above the
     // form rather than being dropped. The panel validates nothing itself — the server is the
     // authority on what a content item must carry, and a second opinion here would drift from it
-    // — WITH ONE RULED EXCEPTION: a permission basis makes the Permission details box mandatory
-    // here, because a claim of permission with no permission named is not a submission the
-    // product accepts, and the panel is the surface that knows which basis is selected.
+    // — WITH TWO RULED EXCEPTIONS the panel is the right surface for: a permission basis makes
+    // the Permission details box mandatory (a claim of permission with no permission named is
+    // not a submission the product accepts), and the effective setting's Max*Length ceilings
+    // cap the fields — the input refuses further typing, and a value already over a lowered
+    // ceiling is refused at submit with the limit named.
     validationIssues?: ContentItemValidationIssues;
 
     // ── Actions ───────────────────────────────────────────────────────────────
@@ -200,6 +202,9 @@ export interface ContentItemFormPanelProps {
     sharePermissionLabelText?: string;
     sharePermissionPlaceholderText?: string;
     sharePermissionRequiredText?: string;
+
+    // The over-length refusal, with {max} standing in for the ceiling the setting names.
+    maxLengthExceededText?: string;
     submitButtonText?: string;
     saveButtonText?: string;
     cancelButtonText?: string;
@@ -288,6 +293,8 @@ export function ContentItemFormPanel({
     sharePermissionLabelText = 'Permission details',
     sharePermissionRequiredText =
     'Please say what permission you have — it is required for this sharing basis.',
+    maxLengthExceededText =
+    'Too long — this type allows at most {max} characters here.',
     sharePermissionPlaceholderText =
     'e.g. Permission granted by the author by email, 12 Jan 2026',
     submitButtonText = 'Submit for review',
@@ -495,9 +502,22 @@ export function ContentItemFormPanel({
                 .flatMap(([, messages]) => messages),
 
             // The mandatory-permission rule speaks through the same channel the server's
-            // messages use, so the field lights up and is announced identically either way.
+            // messages use, so the field lights up and is announced identically either way
+            // — and the setting's ceilings speak through it too.
             ...(fieldName.toLowerCase() === 'sharepermission' && isSharePermissionMissing
                 ? [sharePermissionRequiredText]
+                : []),
+
+            ...(fieldName.toLowerCase() === 'title' && titleLengthIssue != null
+                ? [titleLengthIssue]
+                : []),
+
+            ...(fieldName.toLowerCase() === 'author' && authorLengthIssue != null
+                ? [authorLengthIssue]
+                : []),
+
+            ...(fieldName.toLowerCase() === 'content' && contentLengthIssue != null
+                ? [contentLengthIssue]
                 : [])
         ];
 
@@ -582,14 +602,25 @@ export function ContentItemFormPanel({
         return true;
     };
 
+    // The ceilings gate BOTH submits — the live messages already say why, so refusing is
+    // simply not posting what they name.
+    const holdsFieldLengths = (): boolean =>
+        titleLengthIssue == null
+        && authorLengthIssue == null
+        && contentLengthIssue == null;
+
     const submitAdd = () => {
-        if (selectedContentType != null && holdsRequiredSharePermission()) {
+        if (selectedContentType != null
+            && holdsRequiredSharePermission()
+            && holdsFieldLengths()) {
             onAdded?.(toFormItem(selectedContentType));
         }
     };
 
     const submitModify = () => {
-        if (contentItem != null && holdsRequiredSharePermission()) {
+        if (contentItem != null
+            && holdsRequiredSharePermission()
+            && holdsFieldLengths()) {
             onModified?.(toFormItem(contentItem.contentType));
         }
     };
@@ -622,6 +653,24 @@ export function ContentItemFormPanel({
     const hasAuthorField =
         activeSetting?.hasAuthor ?? (contentItem?.author ?? '').length > 0;
 
+    // THE SETTING'S CEILINGS, enforced twice over: maxLength on the input stops further
+    // typing, and these live messages catch what typing cannot cause — a stored value
+    // already over a ceiling an administrator lowered afterwards — refusing the submit
+    // rather than posting what the server would bounce.
+    const maxLengthIssueOf = (
+        value: string,
+        maxLength: number | null | undefined): string | null =>
+        maxLength != null && value.length > maxLength
+            ? maxLengthExceededText.replace('{max}', String(maxLength))
+            : null;
+
+    const titleLengthIssue = hasTitleField
+        ? maxLengthIssueOf(draft.title, activeSetting?.maxTitleLength)
+        : null;
+
+    const contentLengthIssue =
+        maxLengthIssueOf(draft.content, activeSetting?.maxContentLength);
+
     // WHOSE NAME AN OWNED BASIS PUTS IN THE AUTHOR FIELD. The submitter's where the consumer has
     // resolved one — an amendment to somebody else's contribution must not be signed with the
     // editor's name — otherwise the signed-in reader's, who in `add` is the contributor.
@@ -645,11 +694,16 @@ export function ContentItemFormPanel({
 
     const effectiveAuthor = isAuthorPrefilled ? contributorDisplayName : draft.author;
 
+    const authorLengthIssue = hasAuthorField
+        ? maxLengthIssueOf(effectiveAuthor, activeSetting?.maxAuthorLength)
+        : null;
+
     // Neither this nor the author rule above is setting-driven the way hasTitle is: both follow
     // the basis the reader has selected right now, and each drives its field, the placement of its
     // messages and what is submitted, so all three agree by construction.
     const hasSharePermissionField =
         isPermissionShareabilityBasis(effectiveShareabilityBasis);
+
     const selectedTypeName = typeNameOf(selectedContentType);
 
     const contentLabel = contentLabelText.length > 0
@@ -816,6 +870,7 @@ export function ContentItemFormPanel({
                         className={`form-control${invalidCssClass('Title')}`}
                         id={`${fieldId}-title`}
                         aria-required="true"
+                        maxLength={activeSetting?.maxTitleLength ?? undefined}
                         {...fieldIssueAttributes('Title')}
                         value={draft.title}
                         placeholder={titlePlaceholderText.length > 0
@@ -838,6 +893,7 @@ export function ContentItemFormPanel({
                         type="text"
                         className={`form-control${invalidCssClass('Author')}`}
                         id={`${fieldId}-author`}
+                        maxLength={activeSetting?.maxAuthorLength ?? undefined}
                         {...fieldIssueAttributes('Author')}
                         aria-describedby={isAuthorPrefilled ? `${fieldId}-author-hint` : undefined}
                         value={effectiveAuthor}
@@ -871,6 +927,7 @@ export function ContentItemFormPanel({
                     className={`form-control${invalidCssClass('Content')}`}
                     id={`${fieldId}-content`}
                     aria-required="true"
+                    maxLength={activeSetting?.maxContentLength ?? undefined}
                     {...fieldIssueAttributes('Content')}
                     rows={7}
                     value={draft.content}

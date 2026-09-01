@@ -559,6 +559,74 @@ describe('ContentItemFormPanel', () => {
         });
     });
 
+    describe('the setting\u2019s field ceilings', () => {
+        // The second ruled client-side exception: the effective setting's Max*Length
+        // ceilings cap the fields — the input stops further typing, and a stored value
+        // already over a lowered ceiling is refused at submit with the limit named.
+        it('should cap the inputs with the setting\u2019s ceilings', () => {
+            // given
+            signInAs(authState);
+
+            const capped = settingFor(ContentType.Story, 'Story', {
+                maxTitleLength: 40,
+                maxAuthorLength: 25,
+                maxContentLength: 500
+            });
+
+            // when
+            renderWithAuth(
+                <ContentItemFormPanel contentItemSettingCollection={[capped]} />);
+
+            // then: the browser refuses further typing at the ceiling
+            expect(screen.getByLabelText(/Title/)).toHaveAttribute('maxlength', '40');
+            expect(screen.getByLabelText(/Author/)).toHaveAttribute('maxlength', '25');
+            expect(screen.getByLabelText(/^Story/)).toHaveAttribute('maxlength', '500');
+        });
+
+        it('should leave a field uncapped when the setting names no ceiling', () => {
+            // given: null means no limit — not a zero nobody could type under
+            signInAs(authState);
+
+            // when
+            renderWithAuth(
+                <ContentItemFormPanel contentItemSettingCollection={settings} />);
+
+            // then
+            expect(screen.getByLabelText(/Title/)).not.toHaveAttribute('maxlength');
+        });
+
+        it('should refuse to save a stored value over a lowered ceiling, naming it', async () => {
+            // given: an item written before an administrator lowered the ceiling — the
+            // one over-length a maxLength attribute cannot prevent
+            signInAs(authState);
+            const onModified = vi.fn();
+
+            const lowered = settingFor(ContentType.Story, 'Story', {
+                maxTitleLength: 5
+            });
+
+            renderWithAuth(
+                <ContentItemFormPanel
+                    contentItem={itemWith({ title: 'He carried me' })}
+                    isEditingAllowed
+                    onModified={onModified}
+                    contentItemSettingCollection={[lowered]} />);
+
+            // then: the refusal stands on the field before any submit, naming the limit
+            expect(screen.getByText('Too long \u2014 this type allows at most 5 characters here.'))
+                .toBeInTheDocument();
+
+            // when
+            await userEvent.type(
+                screen.getByLabelText(/Permission details/), 'By email from the author');
+
+            await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+            // then
+            expect(onModified).not.toHaveBeenCalled();
+        });
+    });
+
     describe('the mandatory permission detail', () => {
         // The one client-side rule the panel decides itself: a permission basis with no
         // permission named is refused here rather than posted. Everything else stays the
