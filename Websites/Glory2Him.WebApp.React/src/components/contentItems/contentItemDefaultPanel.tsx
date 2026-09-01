@@ -54,7 +54,8 @@ export function ContentItemDefaultPanel({
     onBibleReferenceClick,
     onReactionSelected,
     onCommentsClick,
-    onReadMoreClick,
+    onReadMore,
+    onExpandCollapse,
     onEditClick,
     onModerateClick,
     onShareClick,
@@ -85,7 +86,10 @@ export function ContentItemDefaultPanel({
     shareButtonText = 'Share',
     saveButtonText = 'Save',
     editButtonText = 'Edit',
-    readMoreText = 'read more…',
+    // Four dots on the redirect, an ellipsis on the toggle — deliberately different, so
+    // which affordance a card carries is visible at a glance.
+    readMoreText = 'read more....',
+    expandLinkText = 'read more…',
     showLessText = 'show less',
     allReactionsText = 'All',
     shareabilityBasisLabels = defaultShareabilityBasisLabels
@@ -228,36 +232,36 @@ export function ContentItemDefaultPanel({
                 </div>
             </div>
 
-            {/* TRUNCATED BY CHARACTERS, decided by the dispatcher's trio: cut at truncateAt
-                with an ellipsis while the content stands collapsed, whole when expanded. The
-                read-more affordance renders only while there is more to read AND somebody is
-                listening — the page's route, or the in-place toggle — and an expanded card
-                that can collapse offers show-less. */}
+            {/* TRUNCATED BY CHARACTERS, decided by the dispatcher's trio — and TWO link
+                buttons that are never shared: allowInPlaceExpansion picks exactly one.
+                OFF → readMoreLinkButton ('read more....') raises onReadMore and the page
+                routes to the detail surface. ON → expandCollapseLinkButton ('read more…' /
+                'show less') raises onExpandCollapse and the dispatcher toggles in place. */}
             <p className="card-text mt-2 mb-0">
                 {isContentTruncated
                     ? `${contentItem.content.slice(0, truncateAt).trimEnd()}…`
                     : contentItem.content}
 
-                {isContentTruncated && onReadMoreClick != null && (
+                {isContentTruncated && allowInPlaceExpansion === false && (
                     <>
                         {' '}
                         <button
                             type="button"
                             className="btn btn-link fw-bold p-0 mb-0 align-baseline"
-                            onClick={() => onReadMoreClick(contentItem)}>
+                            onClick={() => onReadMore?.(contentItem)}>
                             {readMoreText}
                         </button>
                     </>
                 )}
 
-                {isContentExpanded && allowInPlaceExpansion && isContentOverTruncateAt && (
+                {allowInPlaceExpansion && isContentOverTruncateAt && (
                     <>
                         {' '}
                         <button
                             type="button"
                             className="btn btn-link fw-bold p-0 mb-0 align-baseline"
-                            onClick={() => onReadMoreClick?.(contentItem)}>
-                            {showLessText}
+                            onClick={() => onExpandCollapse?.(contentItem)}>
+                            {isContentExpanded ? showLessText : expandLinkText}
                         </button>
                     </>
                 )}

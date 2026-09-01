@@ -15,7 +15,7 @@ import {
 // will point at the moderation detail once #350 builds one — the cards never change.
 export interface ContentItemFeedNavigation {
     onTitleClick: (item: ContentItemSearchItem) => void;
-    onReadMoreClick: (item: ContentItemSearchItem) => void;
+    onReadMore: (item: ContentItemSearchItem) => void;
     onCommentsClick: (item: ContentItemSearchItem) => void;
     onBibleReferenceClick: (item: ContentItemSearchItem, bibleReference: string) => void;
 }
@@ -33,7 +33,7 @@ export const buildContentItemFeedNavigation = (
 
     return {
         onTitleClick: toDetail,
-        onReadMoreClick: toDetail,
+        onReadMore: toDetail,
 
         // The same page, aimed at its comment section — a fragment rather than a different
         // route, so the destination stays one page however the reader arrived.

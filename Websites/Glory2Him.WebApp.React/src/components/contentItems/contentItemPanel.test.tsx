@@ -436,8 +436,8 @@ describe('ContentItemPanel', () => {
             expect(onCommentsClick).toHaveBeenCalledWith(quoteItem);
         });
 
-        it('should raise onReadMoreClick from the read-more affordance', async () => {
-            const onReadMoreClick = vi.fn();
+        it('should raise onReadMore from the read-more affordance', async () => {
+            const onReadMore = vi.fn();
 
             // Cut low enough that this short fixture actually truncates — the affordance
             // renders only while there is more to read.
@@ -445,11 +445,11 @@ describe('ContentItemPanel', () => {
                 <ContentItemPanel
                     contentItem={devotionalItem}
                     truncateAt={10}
-                    onReadMoreClick={onReadMoreClick} />);
+                    onReadMore={onReadMore} />);
 
-            await userEvent.click(screen.getByRole('button', { name: 'read more…' }));
+            await userEvent.click(screen.getByRole('button', { name: 'read more....' }));
 
-            expect(onReadMoreClick).toHaveBeenCalledWith(devotionalItem);
+            expect(onReadMore).toHaveBeenCalledWith(devotionalItem);
         });
 
         // Share and Save render only when somebody is listening — a control whose event goes
@@ -738,12 +738,12 @@ describe('ContentItemPanel', () => {
         const longItem = { ...devotionalItem, content: longContent };
 
         it('should cut at truncateAt with an ellipsis and offer the way in', () => {
-            const onReadMoreClick = vi.fn();
+            const onReadMore = vi.fn();
 
             renderCard(
                 <ContentItemPanel
                     contentItem={longItem}
-                    onReadMoreClick={onReadMoreClick} />);
+                    onReadMore={onReadMore} />);
 
             // the default 400-character cut: the ending never renders, the ellipsis does
             expect(screen.queryByText(/ending/)).not.toBeInTheDocument();
@@ -751,14 +751,18 @@ describe('ContentItemPanel', () => {
             const paragraph = screen.getByText(/^word word/);
             expect(paragraph.textContent).toContain('\u2026');
 
-            expect(screen.getByRole('button', { name: 'read more\u2026' })).toBeInTheDocument();
+            // off-mode carries the REDIRECT button alone — four dots — never the toggle
+            expect(screen.getByRole('button', { name: 'read more....' })).toBeInTheDocument();
+
+            expect(screen.queryByRole('button', { name: 'read more\u2026' }))
+                .not.toBeInTheDocument();
         });
 
         it('should never cut content that fits, nor offer a way into nothing', () => {
             renderCard(
                 <ContentItemPanel
                     contentItem={devotionalItem}
-                    onReadMoreClick={vi.fn()} />);
+                    onReadMore={vi.fn()} />);
 
             expect(screen.getByText(devotionalItem.content)).toBeInTheDocument();
 
@@ -771,7 +775,7 @@ describe('ContentItemPanel', () => {
                 <ContentItemPanel
                     contentItem={longItem}
                     showContentExpanded
-                    onReadMoreClick={vi.fn()} />);
+                    onReadMore={vi.fn()} />);
 
             expect(screen.getByText(/ending/)).toBeInTheDocument();
 
@@ -781,13 +785,13 @@ describe('ContentItemPanel', () => {
 
         it('should toggle in place when the surface allows it', async () => {
             // given: in-place expansion — read-more is the toggle, not the page's route
-            const onReadMoreClick = vi.fn();
+            const onReadMore = vi.fn();
 
             renderCard(
                 <ContentItemPanel
                     contentItem={longItem}
                     allowInPlaceExpansion
-                    onReadMoreClick={onReadMoreClick} />);
+                    onReadMore={onReadMore} />);
 
             // when: expanded in place
             await userEvent.click(screen.getByRole('button', { name: 'read more\u2026' }));
@@ -795,7 +799,10 @@ describe('ContentItemPanel', () => {
             // then: the whole content stands, show-less offers the way back, and the
             // page's own hook was never asked to navigate
             expect(screen.getByText(/ending/)).toBeInTheDocument();
-            expect(onReadMoreClick).not.toHaveBeenCalled();
+            expect(onReadMore).not.toHaveBeenCalled();
+
+            expect(screen.queryByRole('button', { name: 'read more....' }))
+                .not.toBeInTheDocument();
 
             // when: collapsed again
             await userEvent.click(screen.getByRole('button', { name: 'show less' }));

@@ -69,7 +69,7 @@ import { ContentItemListPanel } from '../../components/contentItems/contentItemL
     reactionOptions={reactionOptions}
     onReactionSelected={(item, reaction) => reactAsync(item, reaction)}
     onTitleClick={(item) => navigate(\`/posts/\${item.id}\`, { state: { from } })}
-    onReadMoreClick={(item) => navigate(\`/posts/\${item.id}\`, { state: { from } })}
+    onReadMore={(item) => navigate(\`/posts/\${item.id}\`, { state: { from } })}
     onCommentsClick={(item) => navigate(\`/posts/\${item.id}#comments\`, { state: { from } })}
     onBibleReferenceClick={(item, ref) => navigate(bibleReferenceHref(ref), { state: { from } })} />
 
@@ -91,7 +91,7 @@ onTagClick              set the tag criterion (servable once #318 lands)
 // NAVIGATION HOOKS — bubble to the page, which owns every redirect and stamps the origin into
 // router state so the destination can offer a true way back.
 onTitleClick            the detail surface — public, my-content or moderation: the page decides
-onReadMoreClick         same destination as onTitleClick
+onReadMore         same destination as onTitleClick
 onCommentsClick         the detail's comment section
 onBibleReferenceClick   wherever a reference leads on this surface
 onEditClick             SUBMITTER ONLY (submittedById is the viewer's account id): detail-in-edit
@@ -316,7 +316,7 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
             + 'holds no optimistic state.'
     },
     {
-        name: 'onTitleClick / onReadMoreClick / onCommentsClick / onBibleReferenceClick',
+        name: 'onTitleClick / onReadMore / onCommentsClick / onBibleReferenceClick',
         type: '(item, …) => void',
         description: 'The navigation hooks — they bubble, the page routes, and the redirect '
             + 'carries { state: { from } } so the destination can offer a true back button. '
@@ -512,7 +512,7 @@ export function ContentItemListPanelDoc() {
                         contentItemCollection={demoItems}
                         showSearchBar={false}
                         onTitleClick={(item) => setLastEvent(`onTitleClick(${item.id})`)}
-                        onReadMoreClick={(item) => setLastEvent(`onReadMoreClick(${item.id})`)}
+                        onReadMore={(item) => setLastEvent(`onReadMore(${item.id})`)}
                         onCommentsClick={(item) => setLastEvent(`onCommentsClick(${item.id})`)}
                         onBibleReferenceClick={(item, reference) =>
                             setLastEvent(`onBibleReferenceClick(${item.id}, ${reference})`)}

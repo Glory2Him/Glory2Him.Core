@@ -219,6 +219,9 @@ export function ContentItemPanelPlayground({
                         showCommentsSection={showCommentsSection}
                         showShareSection={showShareSection}
                         showSaveSection={showSaveSection}
+                        onReadMore={(item) => setLastEvent(`onReadMore(${item.id})`)}
+                        onExpandCollapse={(item) =>
+                            setLastEvent(`onExpandCollapse(${item.id})`)}
                         onCommentsClick={(item) =>
                             setLastEvent(`onCommentsClick(${item.id})`)}
                         onShareClick={(item) => setLastEvent(`onShareClick(${item.id})`)}

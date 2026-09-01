@@ -103,10 +103,11 @@ export interface ContentItemPanelProps
     // is cut — a short devotional never wears an ellipsis.
     truncateAt?: number;
 
-    // WHERE READ-MORE GOES. Off (the default), the affordance raises onReadMoreClick and
-    // the page routes to the detail surface, carrying its back context. On, read-more
-    // TOGGLES the expansion in place — and the expanded card offers show-less — so one
-    // affordance never tries to be both at once.
+    // WHICH LINK BUTTON the card carries — the two are never shared. Off (the default),
+    // readMoreLinkButton renders while the content is cut and raises onReadMore, the
+    // page's route to the detail surface with its back context. On,
+    // expandCollapseLinkButton renders instead, raising onExpandCollapse — this panel
+    // toggles the expansion in place, and the expanded card offers show-less.
     allowInPlaceExpansion?: boolean;
 
     // THE SURFACE SWITCH for the edit face, ahead of every role check — off by default, so a
@@ -192,7 +193,7 @@ export function ContentItemPanel({
     onReactionSelected,
     onEditClick,
     onModerateClick,
-    onReadMoreClick,
+    onExpandCollapse,
     ...eventsAndText
 }: ContentItemPanelProps) {
     const { isAuthenticated, user, userRoles } = useAuth();
@@ -370,9 +371,10 @@ export function ContentItemPanel({
             isContentExpanded={allowInPlaceExpansion
                 ? isContentToggledOpen
                 : showContentExpanded}
-            onReadMoreClick={allowInPlaceExpansion
-                ? () => setIsContentToggledOpen(!isContentToggledOpen)
-                : onReadMoreClick}
+            onExpandCollapse={(item) => {
+                setIsContentToggledOpen(!isContentToggledOpen);
+                onExpandCollapse?.(item);
+            }}
             showReactionSection={showReactionSection}
             onEditClick={(item) =>
                 opensEditorInPlace ? setIsEditorTaken(true) : onEditClick?.(item)}

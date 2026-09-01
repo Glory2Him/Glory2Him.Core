@@ -198,7 +198,7 @@ const panelProps: ReadonlyArray<ComponentPropRow> = [
             + 'is cut at truncateAt characters with an ellipsis and the read-more '
             + 'affordance; a detail surface passes showContentExpanded and the whole '
             + 'content stands. Where read-more GOES is allowInPlaceExpansion’s answer: '
-            + 'off, it raises onReadMoreClick and the page routes to the detail surface '
+            + 'off, it raises onReadMore and the page routes to the detail surface '
             + 'with its back context; on, it toggles the expansion in place and the '
             + 'expanded card offers show-less — one affordance, never both jobs at once.'
     },

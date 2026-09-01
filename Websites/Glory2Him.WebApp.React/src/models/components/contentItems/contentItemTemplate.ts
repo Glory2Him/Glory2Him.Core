@@ -45,8 +45,16 @@ export interface ContentItemEvents {
     // Bubbles: the page routes into the detail's comment section.
     onCommentsClick?: (item: ContentItemSearchItem) => void;
 
-    // Same destination as onTitleClick, from the read-more affordance.
-    onReadMoreClick?: (item: ContentItemSearchItem) => void;
+    // THE REDIRECT read-more: raised by readMoreLinkButton, which renders only while
+    // allowInPlaceExpansion is OFF and the content is cut — the page routes to the detail
+    // surface, same destination as onTitleClick. Never shared with the in-place toggle.
+    onReadMore?: (item: ContentItemSearchItem) => void;
+
+    // THE IN-PLACE toggle: raised by expandCollapseLinkButton, which renders only while
+    // allowInPlaceExpansion is ON and the content overruns the cut. ContentItemPanel owns
+    // the expansion state and toggles it on this event; the hook still bubbles so a page
+    // can observe it.
+    onExpandCollapse?: (item: ContentItemSearchItem) => void;
 
     // Bubbles: the page routes to the detail surface where the item can be modified. The
     // control renders ONLY for the person who submitted the item (submittedById is the
@@ -78,6 +86,7 @@ export interface ContentItemText {
     saveButtonText?: string;
     editButtonText?: string;
     readMoreText?: string;
+    expandLinkText?: string;
     showLessText?: string;
     allReactionsText?: string;
     shareabilityBasisLabels?: Readonly<Record<ShareabilityBasis, string>>;
@@ -139,7 +148,7 @@ export interface ContentItemTemplateProps
     // the character position the content is cut at (with an ellipsis and the read-more
     // affordance) while isContentExpanded is off; allowInPlaceExpansion says whether the
     // read-more affordance TOGGLES the expansion in place — when it is off, read-more is
-    // the page's onReadMoreClick, the way into the detail surface.
+    // the page's onReadMore, the way into the detail surface.
     truncateAt: number;
     allowInPlaceExpansion: boolean;
     isContentExpanded: boolean;

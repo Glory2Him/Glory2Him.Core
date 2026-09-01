@@ -64,7 +64,7 @@ const templateProps: ReadonlyArray<ComponentPropRow> = [
         type: 'number / boolean / boolean',
         description: 'The content length, decided by the dispatcher: cut at truncateAt with '
             + 'an ellipsis and the read-more affordance while collapsed, whole when '
-            + 'expanded — and read-more either raises the page’s onReadMoreClick or toggles '
+            + 'expanded — and read-more either raises the page’s onReadMore or toggles '
             + 'the expansion in place, never both.'
     },
     {
@@ -77,7 +77,7 @@ const templateProps: ReadonlyArray<ComponentPropRow> = [
             + 'for. A section renders only when both agree.'
     },
     {
-        name: 'onTitleClick / onReadMoreClick / …',
+        name: 'onTitleClick / onReadMore / …',
         type: '(item) => void',
         description: 'The event hooks, unchanged across the family — a control renders only '
             + 'where somebody is listening: no onTitleClick and the title stands as plain '
