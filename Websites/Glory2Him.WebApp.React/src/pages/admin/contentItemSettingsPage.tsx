@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { Breadcrumb } from '../../components/coreUI/breadcrumb';
 import { Button } from '../../components/coreUI/button';
 import { Card } from '../../components/coreUI/card';
@@ -18,6 +18,11 @@ import {
     contentTypeMembers
 } from '../../models/foundations/contentItemSettings/contentType';
 
+import {
+    toContentItemSettingQuery,
+    toContentItemSettingSearchParams
+} from '../../services/views/contentItemSettings/contentItemSettingQueryUrl';
+
 import { contentItemSettingService } from '../../services/foundations/contentItemSettingService';
 import { useDocumentTitle } from '../useDocumentTitle';
 
@@ -25,6 +30,13 @@ import { useDocumentTitle } from '../useDocumentTitle';
 // server-side over [EnableQuery] rather than in the DataTable component the other admin lists
 // use: the host caps a collection read at OData:PageSize rows, so an in-memory table would go
 // quietly blind past that cap once per-item overrides outnumber the eight type defaults.
+//
+// THE FILTERS LIVE IN THE URL AND NOWHERE ELSE (contentItemSettingQueryUrl), the same place the
+// feed pages keep theirs. That is what makes the view an ADDRESS: Manage hands the detail page
+// the address it was opened from, and the way back — the detail's Back button and its save —
+// lands on the filtered page the administrator was working through rather than on an unfiltered
+// first one. Only the search box holds state of its own, because a debounce must hold the
+// keystrokes somewhere before it commits them.
 
 const settingsRoute = '/Admin/ContentItemSettings';
 const pageSize = 10;
@@ -65,33 +77,57 @@ const featureFields: ReadonlyArray<{
 
 export const ContentItemSettingsPage = () => {
     const navigate = useNavigate();
+    const location = useLocation();
+    const [searchParams, setSearchParams] = useSearchParams();
 
     useDocumentTitle('Content Item Settings — Glory 2 Him');
 
-    const [searchInput, setSearchInput] = useState('');
-    const [searchTerm, setSearchTerm] = useState('');
-    const [contentType, setContentType] = useState<ContentType | undefined>(undefined);
-    const [scope, setScope] = useState<ContentItemSettingScope>('All');
-    const [page, setPage] = useState(1);
+    const query = useMemo<ContentItemSettingQuery>(
+        () => toContentItemSettingQuery(searchParams, pageSize),
+        [searchParams]);
 
-    // Every keystroke would otherwise be its own request and its own cache entry.
+    const searchTerm = query.searchTerm ?? '';
+    const contentType = query.contentType;
+    const scope = query.scope ?? 'All';
+    const page = query.page;
+
+    // A narrower filter can leave the current page past the end of the results, which reads as
+    // an empty list rather than as a filter that matched something — so a filter change carries
+    // page 1 with it rather than being followed by a second write that resets it.
+    const applyFilters = (
+        changes: Partial<ContentItemSettingQuery>,
+        options?: { replace?: boolean }) =>
+        setSearchParams(toContentItemSettingSearchParams({ ...query, ...changes }), options);
+
+    // The one control that cannot read straight from the URL: every keystroke would otherwise be
+    // its own history entry, its own request and its own cache entry.
+    const [searchInput, setSearchInput] = useState(searchTerm);
+
+    // The box follows the URL back whenever the URL moves without it — the return from a detail
+    // page, a pasted link, the browser's own Back.
     useEffect(() => {
+        setSearchInput(searchTerm);
+    }, [searchTerm]);
+
+    // Committed by REPLACING rather than pushing: a pause in typing is not a place the reader
+    // asked to be able to come back to.
+    useEffect(() => {
+        if (searchInput === searchTerm) {
+            return;
+        }
+
         const timeoutId = window.setTimeout(
-            () => setSearchTerm(searchInput),
+            () => setSearchParams(
+                toContentItemSettingSearchParams({
+                    ...query,
+                    searchTerm: searchInput,
+                    page: 1
+                }),
+                { replace: true }),
             searchDebounceMilliseconds);
 
         return () => window.clearTimeout(timeoutId);
-    }, [searchInput]);
-
-    // A narrower filter can leave the current page past the end of the results, which reads as
-    // an empty list rather than as a filter that matched something.
-    useEffect(() => {
-        setPage(1);
-    }, [searchTerm, contentType, scope]);
-
-    const query = useMemo<ContentItemSettingQuery>(
-        () => ({ searchTerm, contentType, scope, page, pageSize }),
-        [searchTerm, contentType, scope, page]);
+    }, [searchInput, searchTerm, query, setSearchParams]);
 
     const { data: settingsPage, isLoading, isError, isFetching } =
         contentItemSettingService.useGetContentItemSettings(query);
@@ -99,14 +135,16 @@ export const ContentItemSettingsPage = () => {
     const settings = settingsPage?.items;
     const hasFilters = searchTerm.length > 0 || contentType != null || scope !== 'All';
 
+    // The address travels with the navigation, the way every content-item surface hands its
+    // origin on: the detail page offers a true way back rather than a guess at one.
     const manageSetting = (contentItemSettingId: string) =>
-        navigate(`${settingsRoute}/${contentItemSettingId}`);
+        navigate(`${settingsRoute}/${contentItemSettingId}`, {
+            state: { from: `${location.pathname}${location.search}` }
+        });
 
     const clearFilters = () => {
         setSearchInput('');
-        setSearchTerm('');
-        setContentType(undefined);
-        setScope('All');
+        setSearchParams(new URLSearchParams());
     };
 
     return (
@@ -140,9 +178,12 @@ export const ContentItemSettingsPage = () => {
                             aria-label="Content type"
                             value={contentType == null ? '' : String(contentType)}
                             onChange={(event) =>
-                                setContentType(event.target.value === ''
-                                    ? undefined
-                                    : Number(event.target.value) as ContentType)}>
+                                applyFilters({
+                                    contentType: event.target.value === ''
+                                        ? undefined
+                                        : Number(event.target.value) as ContentType,
+                                    page: 1
+                                })}>
                             <option value="">All content types</option>
                             {contentTypeMembers.map((member) => (
                                 <option key={member} value={member}>{contentTypeLabels[member]}</option>
@@ -155,7 +196,10 @@ export const ContentItemSettingsPage = () => {
                             aria-label="Scope"
                             value={scope}
                             onChange={(event) =>
-                                setScope(event.target.value as ContentItemSettingScope)}>
+                                applyFilters({
+                                    scope: event.target.value as ContentItemSettingScope,
+                                    page: 1
+                                })}>
                             {scopeOptions.map((option) => (
                                 <option key={option.value} value={option.value}>{option.text}</option>
                             ))}
@@ -285,7 +329,7 @@ export const ContentItemSettingsPage = () => {
                                     color="outline-secondary"
                                     cssClass="btn-sm"
                                     disabled={page <= 1}
-                                    onClick={() => setPage(page - 1)}>
+                                    onClick={() => applyFilters({ page: page - 1 })}>
                                     Previous
                                 </Button>
 
@@ -295,7 +339,7 @@ export const ContentItemSettingsPage = () => {
                                     color="outline-secondary"
                                     cssClass="btn-sm"
                                     disabled={settingsPage?.hasNextPage !== true}
-                                    onClick={() => setPage(page + 1)}>
+                                    onClick={() => applyFilters({ page: page + 1 })}>
                                     Next
                                 </Button>
                             </nav>
