@@ -90,16 +90,35 @@ namespace Glory2Him.WebApp.Services.Views.Users
             {
                 AppUser existingUser = await RetrieveExistingUserAsync(user.Id);
 
+                // The second of the two paths that mint a username, and the one with no other
+                // gate in front of it — an administrator types this field freely (§18.3.1).
+                EnsureUserNameIsNotAnEmailAddress(user.UserName);
+
                 existingUser.Name = user.Name ?? string.Empty;
                 existingUser.Surname = user.Surname ?? string.Empty;
                 existingUser.PreferredName = user.PreferredName;
                 existingUser.DateOfBirth = user.DateOfBirth;
 
-                await this.identityBroker.UpdateUserAsync(existingUser);
+                EnsureIdentitySucceeded(
+                    await this.identityBroker.UpdateUserAsync(existingUser),
+                    "save this user's personal details");
 
-                await this.identityBroker.SetUserNameAsync(existingUser, user.UserName);
-                await this.identityBroker.SetEmailAsync(existingUser, user.Email);
-                await this.identityBroker.SetPhoneNumberAsync(existingUser, user.PhoneNumber);
+                // Identity reports a refused value by returning an unsuccessful result, and these
+                // four calls used to discard it — so a rejected username left the in-memory user
+                // renamed, the row unchanged, and the admin looking at a success. It matters more
+                // now than it did: the narrowed AllowedUserNameCharacters makes refusal a normal
+                // outcome of this call rather than a theoretical one.
+                EnsureIdentitySucceeded(
+                    await this.identityBroker.SetUserNameAsync(existingUser, user.UserName),
+                    "change this user's username");
+
+                EnsureIdentitySucceeded(
+                    await this.identityBroker.SetEmailAsync(existingUser, user.Email),
+                    "change this user's email address");
+
+                EnsureIdentitySucceeded(
+                    await this.identityBroker.SetPhoneNumberAsync(existingUser, user.PhoneNumber),
+                    "change this user's phone number");
             });
 
         public ValueTask SetUserDisabledAsync(Guid userId, bool isDisabled) =>
@@ -304,6 +323,19 @@ namespace Glory2Him.WebApp.Services.Views.Users
             }
 
             return usableHolders;
+        }
+
+        // Design §18.3.1. Identity's own AllowedUserNameCharacters refuses this too, but it refuses
+        // it as "Username 'x@y.org' is invalid, can only contain letters or digits" — which does
+        // not tell an administrator that the rule is about a leak, or that it is deliberate.
+        private static void EnsureUserNameIsNotAnEmailAddress(string userName)
+        {
+            if (UserNameRule.IsAllowed(userName))
+            {
+                return;
+            }
+
+            throw new UsersViewValidationException(UserNameRule.RejectionMessage);
         }
 
         // Identity reports failure by returning an unsuccessful result, not by throwing. Dropping

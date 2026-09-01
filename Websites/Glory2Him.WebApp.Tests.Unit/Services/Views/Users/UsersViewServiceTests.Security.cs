@@ -159,6 +159,101 @@ namespace Glory2Him.WebApp.Tests.Unit.Services.Views.Users
                     Times.Once);
         }
 
+        // Design §18.3.1. The administrator's edit is one of only two paths that write a
+        // username, and the only one with no other gate in front of it — the field is typed
+        // freely. The theory covers the account's own address, somebody else's (which the
+        // "narrow" form of the rule would have allowed, and which leaks identically), and a
+        // value that merely carries '@'.
+        [Theory]
+        [InlineData("existing@glory2him.local")]
+        [InlineData("someone.else@another.example")]
+        [InlineData("not@nemail")]
+        public async Task ShouldRefuseToModifyUserWithAnEmailAddressAsUserName(string userName)
+        {
+            // given
+            var user = new AppUser
+            {
+                Id = Guid.NewGuid(),
+                UserName = "before",
+                Email = "existing@glory2him.local",
+            };
+
+            GivenUserExists(user, roles: new List<string>());
+
+            var editedUser = new UserView
+            {
+                Id = user.Id,
+                UserName = userName,
+                Email = "existing@glory2him.local",
+                Name = "After",
+                Surname = "Name",
+            };
+
+            // when
+            Func<Task> modifyingUser = async () =>
+                await this.usersViewService.ModifyUserAsync(editedUser);
+
+            // then
+            await modifyingUser.Should().ThrowAsync<UsersViewValidationException>()
+                .Where(exception => exception.Message.Contains("@"));
+
+            // Refused BEFORE anything is written. The personal details and the username go to
+            // the broker as separate calls, so a guard that ran later would leave the row
+            // half-updated and the account renamed in memory only.
+            this.identityBrokerMock.Verify(broker =>
+                broker.UpdateUserAsync(It.IsAny<AppUser>()),
+                    Times.Never);
+
+            this.identityBrokerMock.Verify(broker =>
+                broker.SetUserNameAsync(It.IsAny<AppUser>(), It.IsAny<string>()),
+                    Times.Never);
+        }
+
+        // Identity reports a refused value by returning an unsuccessful result rather than
+        // throwing, and these calls used to discard it — so a rejected username left the row
+        // unchanged and the administrator looking at "Profile updated."
+        [Fact]
+        public async Task ShouldReportWhenIdentityRefusesTheUserNameChange()
+        {
+            // given
+            var user = new AppUser { Id = Guid.NewGuid(), UserName = "before" };
+            GivenUserExists(user, roles: new List<string>());
+
+            this.identityBrokerMock.Setup(broker =>
+                broker.UpdateUserAsync(It.IsAny<AppUser>()))
+                    .ReturnsAsync(IdentityResult.Success);
+
+            this.identityBrokerMock.Setup(broker =>
+                broker.SetUserNameAsync(It.IsAny<AppUser>(), It.IsAny<string>()))
+                    .ReturnsAsync(IdentityResult.Failed(new IdentityError
+                    {
+                        Code = "InvalidUserName",
+                        Description = "Username 'after' is invalid.",
+                    }));
+
+            var editedUser = new UserView
+            {
+                Id = user.Id,
+                UserName = "after",
+                Email = "after@glory2him.local",
+                Name = "After",
+                Surname = "Name",
+            };
+
+            // when
+            Func<Task> modifyingUser = async () =>
+                await this.usersViewService.ModifyUserAsync(editedUser);
+
+            // then
+            await modifyingUser.Should().ThrowAsync<UsersViewValidationException>()
+                .Where(exception => exception.Message.Contains("Username 'after' is invalid."));
+
+            // The refusal stops the run rather than falling through to the next field.
+            this.identityBrokerMock.Verify(broker =>
+                broker.SetEmailAsync(It.IsAny<AppUser>(), It.IsAny<string>()),
+                    Times.Never);
+        }
+
         [Fact]
         public async Task ShouldConfirmUserEmailUsingAFreshToken()
         {

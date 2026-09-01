@@ -48,6 +48,22 @@ namespace Glory2Him.WebApp.Infrastructure
                     {
                         IsAvailable = false,
                         IsTooShort = true,
+                        IsProhibited = false,
+                        ProhibitedReason = (string?)null,
+                        MinimumLength = registrationViewService.MinimumUsernameLength,
+                    });
+                }
+
+                // Reported separately from "taken", because they are different problems and
+                // "someone already has that" is a lie about an address nobody may use (§18.3.1).
+                if (UserNameRule.IsAllowed(candidate) is false)
+                {
+                    return Results.Ok(new
+                    {
+                        IsAvailable = false,
+                        IsTooShort = false,
+                        IsProhibited = true,
+                        ProhibitedReason = (string?)UserNameRule.RejectionMessage,
                         MinimumLength = registrationViewService.MinimumUsernameLength,
                     });
                 }
@@ -59,6 +75,8 @@ namespace Glory2Him.WebApp.Infrastructure
                 {
                     IsAvailable = isAvailable,
                     IsTooShort = false,
+                    IsProhibited = false,
+                    ProhibitedReason = (string?)null,
                     MinimumLength = registrationViewService.MinimumUsernameLength,
                 });
             });
@@ -95,6 +113,18 @@ namespace Glory2Him.WebApp.Infrastructure
                 UserManager<AppUser> userManager,
                 IUserStore<AppUser> userStore) =>
             {
+                // The rule first, so a rejected name is told why rather than being reported as
+                // somebody else's (§18.3.1). IsUsernameAvailableAsync refuses it too — this is
+                // the message, not the guard.
+                if (UserNameRule.IsAllowed(request.UserName) is false)
+                {
+                    return Results.BadRequest(new
+                    {
+                        Message = UserNameRule.RejectionMessage,
+                        Errors = new[] { UserNameRule.RejectionMessage },
+                    });
+                }
+
                 // Re-check on the server so a name taken between typing and submit
                 // is still caught — same as the Blazor Register page.
                 if (!await registrationViewService.IsUsernameAvailableAsync(request.UserName))
