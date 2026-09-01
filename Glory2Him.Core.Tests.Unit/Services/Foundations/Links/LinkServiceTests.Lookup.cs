@@ -376,6 +376,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             this.storageBrokerMock.Verify(broker =>
                 broker.SelectAllLinksAsync(It.IsAny<CancellationToken>()),
                 Times.Never);
+
+            // pins WHERE the guard sits, not merely that it exists. The operation mints an
+            // envelope before it reads anything, so a guard that drifted below that await would
+            // still surface OperationCanceledException and still satisfy the storage assertion
+            // above — this is the assertion that catches the drift.
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
         }
 
         [Fact]
