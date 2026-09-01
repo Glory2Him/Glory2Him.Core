@@ -1,4 +1,8 @@
 import { useDocumentTitle } from '../../useDocumentTitle';
+
+import {
+    contentItemElementShape
+} from './shared/contentItemShapeSamples';
 import { demoVersesItem } from './shared/contentItemDemoData';
 import { ContentItemPanelPlayground } from './shared/contentItemPanelPlayground';
 
@@ -65,6 +69,18 @@ export function ContentItemVersesPanelDoc() {
 
             <DocSection title="Props">
                 <PropsTable rows={versesProps} />
+            </DocSection>
+
+            <DocSection
+                title="The shapes"
+                lead={
+                    <>
+                        The same element every template renders from — the verse face shows content whole and appends nothing.
+                    </>
+                }>
+                <CodeSample
+                    code={contentItemElementShape}
+                    caption="contentItem — the self-contained element" />
             </DocSection>
 
             <DocSection

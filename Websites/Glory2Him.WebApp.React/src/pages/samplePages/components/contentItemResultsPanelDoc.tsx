@@ -5,6 +5,10 @@ import {
 } from '../../../components/contentItems/contentItemResultsPanel';
 
 import { useDocumentTitle } from '../../useDocumentTitle';
+
+import {
+    contentItemElementShape
+} from './shared/contentItemShapeSamples';
 import { demoItems } from './shared/contentItemDemoData';
 
 import {
@@ -93,6 +97,18 @@ export function ContentItemResultsPanelDoc() {
 
             <DocSection title="Props">
                 <PropsTable rows={resultsProps} />
+            </DocSection>
+
+            <DocSection
+                title="The shapes"
+                lead={
+                    <>
+                        The self-contained element every card in the list renders from — the family's one projection.
+                    </>
+                }>
+                <CodeSample
+                    code={contentItemElementShape}
+                    caption="One element of contentItemCollection" />
             </DocSection>
 
             <DocSection

@@ -15,6 +15,12 @@ import {
 
 import { useDocumentTitle } from '../../useDocumentTitle';
 
+import {
+    contentItemElementShape,
+    contentItemFormItemShape,
+    contentItemSettingShape
+} from './shared/contentItemShapeSamples';
+
 import { ContentItemPanelPlayground } from './shared/contentItemPanelPlayground';
 
 import {
@@ -321,6 +327,24 @@ export function ContentItemPanelDoc() {
                     </>
                 }>
                 <PropsTable rows={panelProps} />
+            </DocSection>
+
+            <DocSection
+                title="The shapes"
+                lead={
+                    <>
+                        Annotated literals of every shape this panel takes and emits: the element the view and edit faces run on, the setting rows behind the add face, and the form item the writes hand the page.
+                    </>
+                }>
+                <CodeSample
+                    code={contentItemElementShape}
+                    caption="contentItem — the self-contained element" />
+                <CodeSample
+                    code={contentItemSettingShape}
+                    caption="One row of contentItemSettingCollection (the add tiles and the fallback)" />
+                <CodeSample
+                    code={contentItemFormItemShape}
+                    caption="What onAdded / onModified emit — ContentItemFormItem" />
             </DocSection>
 
             <DocSection

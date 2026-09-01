@@ -19,6 +19,11 @@ import {
 import { useDocumentTitle } from '../../useDocumentTitle';
 
 import {
+    contentItemElementShape,
+    contentItemSettingShape
+} from './shared/contentItemShapeSamples';
+
+import {
     DemoSecurityContext,
     demoSubmitterIdFor,
     SecurityContextSection,
@@ -459,6 +464,21 @@ export function ContentItemListPanelDoc() {
 
             <DocSection title="Props">
                 <PropsTable rows={propRows} />
+            </DocSection>
+
+            <DocSection
+                title="The shapes"
+                lead={
+                    <>
+                        Annotated literals of what this panel is fed: the self-contained element every card renders from, and the setting rows the bar builds its Category box with.
+                    </>
+                }>
+                <CodeSample
+                    code={contentItemElementShape}
+                    caption="One element of contentItemCollection" />
+                <CodeSample
+                    code={contentItemSettingShape}
+                    caption="One row of categorySettingCollection (defaults only reach the Category box)" />
             </DocSection>
 
             <DocSection

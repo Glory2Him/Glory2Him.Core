@@ -1,4 +1,8 @@
 import { useDocumentTitle } from '../../useDocumentTitle';
+
+import {
+    contentItemElementShape
+} from './shared/contentItemShapeSamples';
 import { demoQuoteItem } from './shared/contentItemDemoData';
 import { ContentItemPanelPlayground } from './shared/contentItemPanelPlayground';
 
@@ -77,6 +81,18 @@ export function ContentItemQuotesPanelDoc() {
 
             <DocSection title="Props">
                 <PropsTable rows={quoteProps} />
+            </DocSection>
+
+            <DocSection
+                title="The shapes"
+                lead={
+                    <>
+                        The same element every template renders from — the quote face reads content and author from it and inherits the rest.
+                    </>
+                }>
+                <CodeSample
+                    code={contentItemElementShape}
+                    caption="contentItem — the self-contained element" />
             </DocSection>
 
             <DocSection

@@ -10,6 +10,10 @@ import {
 } from '../../../models/components/contentItems/contentItemSearchItem';
 
 import { useDocumentTitle } from '../../useDocumentTitle';
+
+import {
+    contentItemSettingShape
+} from './shared/contentItemShapeSamples';
 import { demoSettings } from './shared/contentItemDemoData';
 
 import {
@@ -102,6 +106,18 @@ export function ContentItemSearchBarPanelDoc() {
 
             <DocSection title="Props">
                 <PropsTable rows={barProps} />
+            </DocSection>
+
+            <DocSection
+                title="The shapes"
+                lead={
+                    <>
+                        The setting rows the Category box is built from — defaults only; an override belongs to one item and is never a category.
+                    </>
+                }>
+                <CodeSample
+                    code={contentItemSettingShape}
+                    caption="One row of contentItemSettingCollection (the Category box reads the defaults)" />
             </DocSection>
 
             <DocSection

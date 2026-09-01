@@ -6,6 +6,11 @@ import {
 } from '../../../models/components/contentItems/contentItemFormItem';
 
 import { useDocumentTitle } from '../../useDocumentTitle';
+
+import {
+    contentItemFormItemShape,
+    contentItemSettingShape
+} from './shared/contentItemShapeSamples';
 import { demoSettings, demoStoryItem } from './shared/contentItemDemoData';
 
 import {
@@ -120,6 +125,21 @@ export function ContentItemEditPanelDoc() {
 
             <DocSection title="Props">
                 <PropsTable rows={editProps} />
+            </DocSection>
+
+            <DocSection
+                title="The shapes"
+                lead={
+                    <>
+                        The form item that seeds the editor and comes back amended, and the setting rows behind the frozen tiles.
+                    </>
+                }>
+                <CodeSample
+                    code={contentItemFormItemShape}
+                    caption="contentItem in, onModified out — ContentItemFormItem" />
+                <CodeSample
+                    code={contentItemSettingShape}
+                    caption="One row of contentItemSettingCollection (the frozen tiles and the fallback)" />
             </DocSection>
 
             <DocSection

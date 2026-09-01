@@ -1,4 +1,8 @@
 import { useDocumentTitle } from '../../useDocumentTitle';
+
+import {
+    contentItemElementShape
+} from './shared/contentItemShapeSamples';
 import { demoStoryItem } from './shared/contentItemDemoData';
 import { ContentItemPanelPlayground } from './shared/contentItemPanelPlayground';
 
@@ -110,6 +114,18 @@ export function ContentItemDefaultPanelDoc() {
 
             <DocSection title="Props">
                 <PropsTable rows={templateProps} />
+            </DocSection>
+
+            <DocSection
+                title="The shapes"
+                lead={
+                    <>
+                        The element this template renders from — including the winning setting that rides on it, which every gate below reads.
+                    </>
+                }>
+                <CodeSample
+                    code={contentItemElementShape}
+                    caption="contentItem — the self-contained element" />
             </DocSection>
 
             <DocSection

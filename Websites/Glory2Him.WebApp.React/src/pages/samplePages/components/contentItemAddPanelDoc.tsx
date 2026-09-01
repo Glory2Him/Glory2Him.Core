@@ -2,6 +2,11 @@ import { useState } from 'react';
 import { ContentItemAddPanel } from '../../../components/contentItems/contentItemAddPanel';
 import { ContentType } from '../../../models/foundations/contentItemSettings/contentType';
 import { useDocumentTitle } from '../../useDocumentTitle';
+
+import {
+    contentItemFormItemShape,
+    contentItemSettingShape
+} from './shared/contentItemShapeSamples';
 import { demoSettings } from './shared/contentItemDemoData';
 
 import {
@@ -97,6 +102,21 @@ export function ContentItemAddPanelDoc() {
 
             <DocSection title="Props">
                 <PropsTable rows={addProps} />
+            </DocSection>
+
+            <DocSection
+                title="The shapes"
+                lead={
+                    <>
+                        The setting rows the picker offers and the fields shape from, and the form item a submit hands the page.
+                    </>
+                }>
+                <CodeSample
+                    code={contentItemSettingShape}
+                    caption="One row of contentItemSettingCollection (the picker's tiles)" />
+                <CodeSample
+                    code={contentItemFormItemShape}
+                    caption="What onAdded emits — ContentItemFormItem" />
             </DocSection>
 
             <DocSection
