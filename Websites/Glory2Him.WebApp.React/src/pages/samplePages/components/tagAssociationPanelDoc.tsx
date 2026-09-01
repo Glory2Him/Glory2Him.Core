@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { TagAssociationPanel } from '../../../components/associations/tagAssociationPanel';
-import { useAuth } from '../../../components/securitys/authProvider';
 import {
     ApprovalStatus,
     AssociationItem
@@ -11,10 +10,19 @@ import {
     CodeSample,
     ComponentDoc,
     ComponentPropRow,
+    DemoControls,
     DocSection,
     LiveDemo,
     PropsTable
 } from './shared/componentDoc';
+
+import {
+    DemoSecurityContext,
+    demoOtherSubmitterId,
+    demoViewerId,
+    SecurityContextSection,
+    securityContextOptions
+} from './shared/securityContextDemo';
 
 const minimalSample = `
 import { TagAssociationPanel } from '../../components/associations/tagAssociationPanel';
@@ -87,15 +95,22 @@ const defaultRows: ReadonlyArray<ComponentPropRow> = [
 export const TagAssociationPanelDoc = () => {
     useDocumentTitle('Tag Association — Glory 2 Him');
 
-    const { user } = useAuth();
-    const viewerId = user?.userId ?? 'demo-viewer';
+    // Playground state: initial values match the wrapper's own resting posture — showAdd on
+    // from its default, moderation off from the base default — with each label printing the
+    // default so the reader always knows where a switch rests.
+    const [securityContext, setSecurityContext] = useState(securityContextOptions[0]);
+    const [showAdd, setShowAdd] = useState(true);
+    const [showModerationActions, setShowModerationActions] = useState(false);
+    const [showBorder, setShowBorder] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
 
     const [tags, setTags] = useState<ReadonlyArray<AssociationItem>>([
-        { id: '1', value: 'creation', createdBy: 'another-user', approvalStatus: ApprovalStatus.Approved },
-        { id: '2', value: 'science', createdBy: 'another-user', approvalStatus: ApprovalStatus.Approved },
-        { id: '3', value: 'faith', createdBy: 'another-user', approvalStatus: ApprovalStatus.Approved },
-        { id: '4', value: 'miracles', createdBy: 'another-user', approvalStatus: ApprovalStatus.Approved },
-        { id: '5', value: 'test', createdBy: viewerId, approvalStatus: ApprovalStatus.Submitted }
+        { id: '1', value: 'creation', createdBy: demoOtherSubmitterId, approvalStatus: ApprovalStatus.Approved },
+        { id: '2', value: 'science', createdBy: demoOtherSubmitterId, approvalStatus: ApprovalStatus.Approved },
+        { id: '3', value: 'faith', createdBy: demoOtherSubmitterId, approvalStatus: ApprovalStatus.Approved },
+        { id: '4', value: 'miracles', createdBy: demoOtherSubmitterId, approvalStatus: ApprovalStatus.Approved },
+        { id: '5', value: 'grace', createdBy: demoOtherSubmitterId, approvalStatus: ApprovalStatus.Submitted },
+        { id: '6', value: 'test', createdBy: demoViewerId, approvalStatus: ApprovalStatus.Submitted }
     ]);
 
     const withStatus = (item: AssociationItem, approvalStatus: ApprovalStatus) =>
@@ -117,21 +132,62 @@ export const TagAssociationPanelDoc = () => {
 
             <DocSection
                 title="Live"
-                lead="Wired to local state. The last tag is yours and still waiting, so it carries the hourglass and a way to withdraw it.">
+                lead="Wired to local state. The last tag is yours and still waiting, so it carries the hourglass and a way to withdraw it — and the controls step the same panel through every viewer and surface switch.">
+                <SecurityContextSection
+                    selected={securityContext}
+                    onChange={setSecurityContext} />
+
+                <DemoControls toggles={[
+                    {
+                        name: 'tag-add',
+                        label: 'showAdd',
+                        defaultValue: true,
+                        value: showAdd,
+                        onChange: setShowAdd
+                    },
+                    {
+                        name: 'tag-moderation',
+                        label: 'showModerationActions',
+                        defaultValue: false,
+                        value: showModerationActions,
+                        onChange: setShowModerationActions
+                    },
+                    {
+                        name: 'tag-border',
+                        label: 'showBorder',
+                        defaultValue: false,
+                        value: showBorder,
+                        onChange: setShowBorder
+                    },
+                    {
+                        name: 'tag-loading',
+                        label: 'isLoading',
+                        defaultValue: false,
+                        value: isLoading,
+                        onChange: setIsLoading
+                    }
+                ]} />
+
                 <LiveDemo>
-                    <TagAssociationPanel
-                        associationCollection={tags}
-                        emptyText="No tags yet."
-                        onAdd={(value) => setTags([...tags, {
-                            id: value,
-                            value,
-                            createdBy: viewerId,
-                            approvalStatus: ApprovalStatus.Submitted
-                        }])}
-                        onRemove={(item) =>
-                            setTags(tags.filter((existing) => existing.id !== item.id))}
-                        onApprove={(item) => withStatus(item, ApprovalStatus.Approved)}
-                        onReject={(item) => withStatus(item, ApprovalStatus.Rejected)} />
+                    <DemoSecurityContext option={securityContext}>
+                        <TagAssociationPanel
+                            associationCollection={tags}
+                            emptyText="No tags yet."
+                            showAdd={showAdd}
+                            showModerationActions={showModerationActions}
+                            showBorder={showBorder}
+                            isLoading={isLoading}
+                            onAdd={(value) => setTags([...tags, {
+                                id: value,
+                                value,
+                                createdBy: demoViewerId,
+                                approvalStatus: ApprovalStatus.Submitted
+                            }])}
+                            onRemove={(item) =>
+                                setTags(tags.filter((existing) => existing.id !== item.id))}
+                            onApprove={(item) => withStatus(item, ApprovalStatus.Approved)}
+                            onReject={(item) => withStatus(item, ApprovalStatus.Rejected)} />
+                    </DemoSecurityContext>
                 </LiveDemo>
             </DocSection>
 

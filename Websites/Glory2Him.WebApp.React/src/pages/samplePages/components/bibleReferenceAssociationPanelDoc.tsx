@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BibleReferenceAssociationPanel } from '../../../components/associations/bibleReferenceAssociationPanel';
-import { useAuth } from '../../../components/securitys/authProvider';
 import {
     ApprovalStatus,
     AssociationItem
@@ -11,10 +10,19 @@ import {
     CodeSample,
     ComponentDoc,
     ComponentPropRow,
+    DemoControls,
     DocSection,
     LiveDemo,
     PropsTable
 } from './shared/componentDoc';
+
+import {
+    DemoSecurityContext,
+    demoOtherSubmitterId,
+    demoViewerId,
+    SecurityContextSection,
+    securityContextOptions
+} from './shared/securityContextDemo';
 
 const minimalSample = `
 import { BibleReferenceAssociationPanel } from '../../components/associations/bibleReferenceAssociationPanel';
@@ -87,21 +95,30 @@ const defaultRows: ReadonlyArray<ComponentPropRow> = [
 export const BibleReferenceAssociationPanelDoc = () => {
     useDocumentTitle('Bible Reference Association — Glory 2 Him');
 
-    const { user } = useAuth();
-    const viewerId = user?.userId ?? 'demo-viewer';
+    // Playground state, mirroring the tag panel's board: the wrapper rests with showAdd on
+    // and moderation off, and each label prints the default the switch rests at.
+    const [securityContext, setSecurityContext] = useState(securityContextOptions[0]);
+    const [showAdd, setShowAdd] = useState(true);
+    const [showModerationActions, setShowModerationActions] = useState(false);
+    const [showBorder, setShowBorder] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
 
     const [references, setReferences] = useState<ReadonlyArray<AssociationItem>>([
         {
             id: '1', value: 'Joshua 10:8, 12-13',
-            createdBy: 'another-user', approvalStatus: ApprovalStatus.Approved
+            createdBy: demoOtherSubmitterId, approvalStatus: ApprovalStatus.Approved
         },
         {
             id: '2', value: '2 Kings 20:9-11',
-            createdBy: 'another-user', approvalStatus: ApprovalStatus.Approved
+            createdBy: demoOtherSubmitterId, approvalStatus: ApprovalStatus.Approved
         },
         {
-            id: '3', value: 'Romans 3:23',
-            createdBy: viewerId, approvalStatus: ApprovalStatus.Submitted
+            id: '3', value: 'John 9:1-7',
+            createdBy: demoOtherSubmitterId, approvalStatus: ApprovalStatus.Submitted
+        },
+        {
+            id: '4', value: 'Romans 3:23',
+            createdBy: demoViewerId, approvalStatus: ApprovalStatus.Submitted
         }
     ]);
 
@@ -124,21 +141,62 @@ export const BibleReferenceAssociationPanelDoc = () => {
 
             <DocSection
                 title="Live"
-                lead="Wired to local state. The last reference is yours and still waiting, so it shows the hourglass in place of the book.">
+                lead="Wired to local state. The last reference is yours and still waiting, so it shows the hourglass in place of the book — and the controls step the same panel through every viewer and surface switch.">
+                <SecurityContextSection
+                    selected={securityContext}
+                    onChange={setSecurityContext} />
+
+                <DemoControls toggles={[
+                    {
+                        name: 'bible-reference-add',
+                        label: 'showAdd',
+                        defaultValue: true,
+                        value: showAdd,
+                        onChange: setShowAdd
+                    },
+                    {
+                        name: 'bible-reference-moderation',
+                        label: 'showModerationActions',
+                        defaultValue: false,
+                        value: showModerationActions,
+                        onChange: setShowModerationActions
+                    },
+                    {
+                        name: 'bible-reference-border',
+                        label: 'showBorder',
+                        defaultValue: false,
+                        value: showBorder,
+                        onChange: setShowBorder
+                    },
+                    {
+                        name: 'bible-reference-loading',
+                        label: 'isLoading',
+                        defaultValue: false,
+                        value: isLoading,
+                        onChange: setIsLoading
+                    }
+                ]} />
+
                 <LiveDemo>
-                    <BibleReferenceAssociationPanel
-                        associationCollection={references}
-                        emptyText="No references yet."
-                        onAdd={(value) => setReferences([...references, {
-                            id: value,
-                            value,
-                            createdBy: viewerId,
-                            approvalStatus: ApprovalStatus.Submitted
-                        }])}
-                        onRemove={(item) =>
-                            setReferences(references.filter((existing) => existing.id !== item.id))}
-                        onApprove={(item) => withStatus(item, ApprovalStatus.Approved)}
-                        onReject={(item) => withStatus(item, ApprovalStatus.Rejected)} />
+                    <DemoSecurityContext option={securityContext}>
+                        <BibleReferenceAssociationPanel
+                            associationCollection={references}
+                            emptyText="No references yet."
+                            showAdd={showAdd}
+                            showModerationActions={showModerationActions}
+                            showBorder={showBorder}
+                            isLoading={isLoading}
+                            onAdd={(value) => setReferences([...references, {
+                                id: value,
+                                value,
+                                createdBy: demoViewerId,
+                                approvalStatus: ApprovalStatus.Submitted
+                            }])}
+                            onRemove={(item) =>
+                                setReferences(references.filter((existing) => existing.id !== item.id))}
+                            onApprove={(item) => withStatus(item, ApprovalStatus.Approved)}
+                            onReject={(item) => withStatus(item, ApprovalStatus.Rejected)} />
+                    </DemoSecurityContext>
                 </LiveDemo>
             </DocSection>
 

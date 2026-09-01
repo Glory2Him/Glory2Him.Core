@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { AssociationPanel } from '../../../components/associations/associationPanel';
-import { useAuth } from '../../../components/securitys/authProvider';
 import {
     ApprovalStatus,
     AssociationItem
@@ -10,10 +9,20 @@ import {
     CodeSample,
     ComponentDoc,
     ComponentPropRow,
+    DemoControls,
+    DemoNumberInput,
     DocSection,
     LiveDemo,
     PropsTable
 } from './shared/componentDoc';
+
+import {
+    DemoSecurityContext,
+    demoOtherSubmitterId,
+    demoViewerId,
+    SecurityContextSection,
+    securityContextOptions
+} from './shared/securityContextDemo';
 
 const minimalSample = `
 import { AssociationPanel } from '../../components/associations/associationPanel';
@@ -241,25 +250,33 @@ const RemoveAndVerdict = () => (
 export const AssociationPanelDoc = () => {
     useDocumentTitle('Association Panel — Glory 2 Him');
 
-    const { user } = useAuth();
-    const viewerId = user?.userId ?? 'demo-viewer';
+    // The playground state: who the reader pretends to be, and the surface switches. The
+    // initial values are the DEMO's — showModerationActions opens the action matrix the page
+    // exists to show — while each label prints the component's own resting default.
+    const [securityContext, setSecurityContext] = useState(securityContextOptions[0]);
+    const [showBorder, setShowBorder] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [showAdd, setShowAdd] = useState(true);
+    const [showAddButton, setShowAddButton] = useState(false);
+    const [showModerationActions, setShowModerationActions] = useState(true);
+    const [addMaxLength, setAddMaxLength] = useState(100);
 
     const [items, setItems] = useState<ReadonlyArray<AssociationItem>>([
         {
             id: '1', value: 'creation',
-            createdBy: 'another-user', approvalStatus: ApprovalStatus.Approved
+            createdBy: demoOtherSubmitterId, approvalStatus: ApprovalStatus.Approved
         },
         {
             id: '2', value: 'science',
-            createdBy: 'another-user', approvalStatus: ApprovalStatus.Approved
+            createdBy: demoOtherSubmitterId, approvalStatus: ApprovalStatus.Approved
         },
         {
             id: '3', value: 'awaiting-someone-elses',
-            createdBy: 'another-user', approvalStatus: ApprovalStatus.Submitted
+            createdBy: demoOtherSubmitterId, approvalStatus: ApprovalStatus.Submitted
         },
         {
             id: '4', value: 'awaiting-mine',
-            createdBy: viewerId, approvalStatus: ApprovalStatus.Submitted
+            createdBy: demoViewerId, approvalStatus: ApprovalStatus.Submitted
         }
     ]);
 
@@ -287,33 +304,91 @@ export const AssociationPanelDoc = () => {
                 lead={
                     <>
                         Wired to local state, so adding, removing and deciding all take effect
-                        here. What you can do depends on the roles you hold and on who
-                        contributed each chip — the last one is yours.
+                        here. Ownership is per chip, not per viewer:{' '}
+                        <code>awaiting-mine</code> is always yours and anything you suggest
+                        joins it, whichever roles the security context lends you — so stepping
+                        through the six people walks the whole visibility and action matrix
+                        below.
                     </>
                 }>
+                <SecurityContextSection
+                    selected={securityContext}
+                    onChange={setSecurityContext} />
+
+                <DemoControls toggles={[
+                    {
+                        name: 'association-add',
+                        label: 'showAdd',
+                        defaultValue: false,
+                        value: showAdd,
+                        onChange: setShowAdd
+                    },
+                    {
+                        name: 'association-add-button',
+                        label: 'showAddButton',
+                        defaultValue: false,
+                        value: showAddButton,
+                        onChange: setShowAddButton
+                    },
+                    {
+                        name: 'association-moderation',
+                        label: 'showModerationActions',
+                        defaultValue: false,
+                        value: showModerationActions,
+                        onChange: setShowModerationActions
+                    },
+                    {
+                        name: 'association-border',
+                        label: 'showBorder',
+                        defaultValue: false,
+                        value: showBorder,
+                        onChange: setShowBorder
+                    },
+                    {
+                        name: 'association-loading',
+                        label: 'isLoading',
+                        defaultValue: false,
+                        value: isLoading,
+                        onChange: setIsLoading
+                    }
+                ]} />
+
+                <DemoNumberInput
+                    label="addMaxLength"
+                    name="association-add-max-length"
+                    value={addMaxLength}
+                    defaultValue={100}
+                    onChange={setAddMaxLength} />
+
                 <LiveDemo>
-                    <AssociationPanel
-                        title="Tags"
-                        associationCollection={items}
-                        chipPrefixText="#"
-                        chipHrefFor={(item) => `/Search?q=${encodeURIComponent(item.value)}`}
-                        showAdd={true}
-                        showModerationActions={true}
-                        suggestTitle="Suggest a tag"
-                        suggestDescription="Think a tag is missing? Suggest one and help others find this post."
-                        addPlaceholderText="Start typing a tag…"
-                        emptyText="No tags yet."
-                        normalizeAddedValue={(raw) => raw.trim().replace(/^#+/, '')}
-                        onAdd={(value) => setItems([...items, {
-                            id: value,
-                            value,
-                            createdBy: viewerId,
-                            approvalStatus: ApprovalStatus.Submitted
-                        }])}
-                        onRemove={(item) =>
-                            setItems(items.filter((existing) => existing.id !== item.id))}
-                        onApprove={(item) => withStatus(item, ApprovalStatus.Approved)}
-                        onReject={(item) => withStatus(item, ApprovalStatus.Rejected)} />
+                    <DemoSecurityContext option={securityContext}>
+                        <AssociationPanel
+                            title="Tags"
+                            associationCollection={items}
+                            chipPrefixText="#"
+                            chipHrefFor={(item) => `/Search?q=${encodeURIComponent(item.value)}`}
+                            showAdd={showAdd}
+                            showAddButton={showAddButton}
+                            showModerationActions={showModerationActions}
+                            showBorder={showBorder}
+                            isLoading={isLoading}
+                            addMaxLength={addMaxLength}
+                            suggestTitle="Suggest a tag"
+                            suggestDescription="Think a tag is missing? Suggest one and help others find this post."
+                            addPlaceholderText="Start typing a tag…"
+                            emptyText="No tags yet."
+                            normalizeAddedValue={(raw) => raw.trim().replace(/^#+/, '')}
+                            onAdd={(value) => setItems([...items, {
+                                id: value,
+                                value,
+                                createdBy: demoViewerId,
+                                approvalStatus: ApprovalStatus.Submitted
+                            }])}
+                            onRemove={(item) =>
+                                setItems(items.filter((existing) => existing.id !== item.id))}
+                            onApprove={(item) => withStatus(item, ApprovalStatus.Approved)}
+                            onReject={(item) => withStatus(item, ApprovalStatus.Rejected)} />
+                    </DemoSecurityContext>
                 </LiveDemo>
             </DocSection>
 
