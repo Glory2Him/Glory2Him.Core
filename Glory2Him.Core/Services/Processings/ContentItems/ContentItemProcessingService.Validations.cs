@@ -28,6 +28,8 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
             SecurityContext securityContext)
         {
             ValidateUserIsAllowedToContribute(securityContext);
+            ValidateContentItemIsNotNull(contentItem);
+            ValidateUserIsNotBlockedFromContentType(securityContext, contentItem.ContentType);
             ValidateContentItem(contentItem);
         }
 
@@ -36,6 +38,13 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
             SecurityContext securityContext)
         {
             ValidateUserIsAllowedToContribute(securityContext);
+            ValidateContentItemIsNotNull(contentItem);
+
+            // The item under write, which on this pre-load gate is the caller's copy. It is the
+            // coarse half of the answer: the stored row's own type is asked again in
+            // ValidateCurrentContentItemIsModifiable below, once it has been read, so a blocked
+            // caller relabelling their edit is refused there rather than admitted here.
+            ValidateUserIsNotBlockedFromContentType(securityContext, contentItem.ContentType);
             ValidateContentItemOnModify(contentItem);
         }
 
@@ -59,6 +68,14 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
                 throw new NotFoundContentItemProcessingException(
                     message: "The content item was not found.");
             }
+
+            // The veto, against the STORED type and ahead of both branches below. The remove
+            // path is handed an id, so this is the first point at which the narrow block can be
+            // composed at all — and it covers the holder's own rows, Administrators included
+            // (design §18.6 rule 2).
+            ValidateUserIsNotBlockedFromContentType(
+                securityContext,
+                currentContentItem.ContentType);
 
             bool isOwner =
                 string.IsNullOrWhiteSpace(actorUserId) is false
@@ -93,6 +110,14 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
                 throw new InvalidContentItemProcessingException(
                     message: "Only the latest version of a content item may be modified.");
             }
+
+            // The veto, against the STORED type. ContentType is create-only (§12.4.1 rule 7a),
+            // so the pre-load gate's answer came off the caller's copy, and this is what refuses
+            // a blocked contributor who relabelled their edit as a type they are free on. It
+            // runs ahead of the owner branch: the block covers the holder's own rows.
+            ValidateUserIsNotBlockedFromContentType(
+                securityContext,
+                currentContentItem.ContentType);
 
             bool isOwner =
                 string.IsNullOrWhiteSpace(actorUserId) is false
@@ -206,6 +231,25 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
             bool isBlocked =
                 securityContext.Roles.Contains(Roles.ReadOnly)
                     || securityContext.Roles.Contains(Roles.ContentItemReadOnly);
+
+            if (isBlocked)
+            {
+                throw new UnauthorizedContentItemProcessingException(
+                    message: "The current user is blocked from contributing content items.");
+            }
+        }
+
+        // The veto at its narrowest scope, and no grant answers it — not
+        // ContentItem-Quote-Publishers, not ContentItem-Publishers, not Publishers, not
+        // Administrators, and not the owner. Grants widen upward (§18.6 rule 4); blocks are
+        // absolute downward within the scope they cover, and silent outside it, so a
+        // ContentItem-Quote-ReadOnly holder writes stories exactly as before (rule 2).
+        private static void ValidateUserIsNotBlockedFromContentType(
+            SecurityContext securityContext,
+            ContentType contentType)
+        {
+            bool isBlocked = securityContext.Roles.Contains(
+                Roles.ReadOnlyFor(EntityType.ContentItem, contentType));
 
             if (isBlocked)
             {

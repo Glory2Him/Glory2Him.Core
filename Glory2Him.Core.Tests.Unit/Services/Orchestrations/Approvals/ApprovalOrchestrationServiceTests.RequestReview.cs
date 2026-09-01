@@ -39,14 +39,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             Guid invitedId = Guid.NewGuid();
             SetupReviewerScope(approvalId: approvalId);
 
-            this.identityUserServiceMock.Setup(service =>
-                service.RetrieveIdentityUsersInRolesAsync(
-                    It.IsAny<IEnumerable<string>>(),
-                    It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(new List<IdentityUser>
-                        {
-                            CreateIdentityUser(invitedId, preferredName: "Mary"),
-                        });
+            SetupReviewTierMembers(CreateIdentityUser(invitedId, preferredName: "Mary"));
 
             ApprovalReviewRequest captured = null;
 
@@ -181,11 +174,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             SetupReviewerScope(approvalId: approvalId);
 
             // the tier read comes back without the invited person in it
-            this.identityUserServiceMock.Setup(service =>
-                service.RetrieveIdentityUsersInRolesAsync(
-                    It.IsAny<IEnumerable<string>>(),
-                    It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(new List<IdentityUser>());
+            SetupReviewTierMembers();
 
             // when
             ValueTask<ApprovalReviewRequest> requestTask =
@@ -653,14 +642,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                             }
                         }));
 
-            this.identityUserServiceMock.Setup(service =>
-                service.RetrieveIdentityUsersInRolesAsync(
-                    It.IsAny<IEnumerable<string>>(),
-                    It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(new List<IdentityUser>
-                        {
-                            CreateIdentityUser(invitedId, preferredName: "Invited"),
-                        });
+            SetupReviewTierMembers(CreateIdentityUser(invitedId, preferredName: "Invited"));
 
             this.approvalReviewRequestServiceMock.Setup(service =>
                 service.AddApprovalReviewRequestAsync(

@@ -353,7 +353,12 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             EventEnvelope<ContentItem> inboundEnvelope,
             CancellationToken cancellationToken)
         {
-            ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
+            // The add is the one write path whose content type comes off the INCOMING item, and
+            // it can: ContentType is create-only, so on an add there is no stored value for the
+            // caller's to disagree with — the type they name is the type the row will carry.
+            ValidateUserIsAllowedToContribute(
+                inboundEnvelope.SecurityContext,
+                contentItem.ContentType);
 
             contentItem = await this.securityAuditBroker.ApplyAddAuditValuesAsync(
                 entity: contentItem,
@@ -552,6 +557,14 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 cancellationToken: cancellationToken);
 
             ValidateStorageContentItem(maybeContentItem, contentItemId);
+
+            // The narrow half of the veto, now that the row is known. Without it this surface is
+            // the one write a content-type-blocked Administrators could still perform — and it
+            // is the destructive one, taking the audit trail with it. A block that stops the
+            // reversible takedown but not the irreversible one is the wrong way round.
+            ValidateUserIsNotBlockedFromContentType(
+                inboundEnvelope.SecurityContext,
+                maybeContentItem.ContentType);
 
             ContentItem deletedContentItem = await this.storageBroker.DeleteContentItemAsync(
                 contentItem: maybeContentItem,

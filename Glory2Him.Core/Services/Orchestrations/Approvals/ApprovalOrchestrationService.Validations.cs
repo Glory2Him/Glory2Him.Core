@@ -321,6 +321,13 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 AccessDenialReason.NotInPublisherTier =>
                     "You do not hold the publisher role required to approve this item.",
 
+                // Says the sanction applies, and does not say which scope of it fired. The
+                // distinction is the sanction's own detail and names nothing the reader can act
+                // on from here — no scope of it is appealable through the verdict (§18.6 rule 2).
+                AccessDenialReason.BlockedByReadOnlyRole =>
+                    "Your account is restricted to read-only for this content, so you cannot "
+                        + "review or approve it.",
+
                 AccessDenialReason.ApprovalNotOpenForReview =>
                     "This approval is not open for review.",
 

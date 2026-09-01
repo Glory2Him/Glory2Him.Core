@@ -124,6 +124,12 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             ContentItem storageContentItem,
             SecurityContext securityContext)
         {
+            // Submitting is a write, so the veto is asked of the stored type first — ahead of
+            // the owner branch and of the publisher tier alike (§18.6 rule 2).
+            ValidateUserIsNotBlockedFromContentType(
+                securityContext,
+                storageContentItem.ContentType);
+
             string actorUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
 
             bool isOwner =
@@ -176,6 +182,15 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             bool isSystemIdentity,
             CancellationToken cancellationToken)
         {
+            // The veto, before every grant this method goes on to weigh — the publisher tier,
+            // the Administrators override, and the access decision below them all. A block on
+            // this content type refuses the transition however wide the caller's role
+            // (§18.6 rule 2). The workflow's own system identity carries no roles, so it is
+            // never the party this refuses.
+            ValidateUserIsNotBlockedFromContentType(
+                securityContext,
+                storageContentItem.ContentType);
+
             // Resolved from the STORED status, never the caller's copy — the same reason the
             // author and the content type are. A caller-supplied status would be
             // self-certification: anyone could present an approved row as Submitted and decide

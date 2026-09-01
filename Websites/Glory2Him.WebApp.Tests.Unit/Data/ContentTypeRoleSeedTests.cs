@@ -36,12 +36,12 @@ namespace Glory2Him.WebApp.Tests.Unit.Data
     public class ContentTypeRoleSeedTests
     {
         /// <summary>
-        /// Every ContentType member gets the narrow review pair, Series and Topic included.
+        /// Every ContentType member gets all THREE narrow roles, Series and Topic included.
         /// They are ContentType members on ContentItem, and 18.6 rule 5 scopes the tier to the
         /// entity type rather than to a chosen subset of its content types.
         /// </summary>
         [Fact]
-        public void ShouldSeedTheNarrowReviewTierForEveryContentType()
+        public void ShouldSeedTheNarrowTierForEveryContentType()
         {
             // given
             string[] seededRoles = SeedData.CoreRoles;
@@ -56,6 +56,12 @@ namespace Glory2Him.WebApp.Tests.Unit.Data
                 seededRoles.Should().Contain(
                     Roles.PublishersFor(EntityType.ContentItem, contentType),
                     because: $"a publisher must be scopeable to {contentType} alone (18.6 rule 5)");
+
+                seededRoles.Should().Contain(
+                    Roles.ReadOnlyFor(EntityType.ContentItem, contentType),
+                    because:
+                        $"a contributor must be blockable on {contentType} alone (18.6 rule 2), "
+                            + "and an unseeded block is a sanction that can never be applied");
             }
         }
 
@@ -88,17 +94,22 @@ namespace Glory2Him.WebApp.Tests.Unit.Data
                     seededRoles.Should().NotContain(
                         Roles.PublishersFor(entityType, contentType),
                         because: "only ContentItem carries a ContentType (18.6 rule 5)");
+
+                    seededRoles.Should().NotContain(
+                        Roles.ReadOnlyFor(entityType, contentType),
+                        because: "only ContentItem carries a ContentType (18.6 rule 5)");
                 }
             }
         }
 
         /// <summary>
-        /// There is deliberately no ReadOnlyFor(EntityType, ContentType). The block tier has no
-        /// content-type tier, and seeding one would invent a role nothing issues and nothing
-        /// checks - two roles per content type, not three.
+        /// Three roles per content type, not two. The matrix is uniform across all three tiers
+        /// (18.6 rule 2), so the narrow tier carries the block alongside the two grants - and a
+        /// count is what catches one of them being dropped from the loop, which no per-name
+        /// assertion above would notice if the loop stopped running at all.
         /// </summary>
         [Fact]
-        public void ShouldSeedExactlyTwoNarrowRolesPerContentType()
+        public void ShouldSeedExactlyThreeNarrowRolesPerContentType()
         {
             // given
             string[] seededRoles = SeedData.CoreRoles;
@@ -111,7 +122,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Data
                         && roleName.Split('-').Length == 3);
 
             // then
-            narrowRoleCount.Should().Be(contentTypeCount * 2);
+            narrowRoleCount.Should().Be(contentTypeCount * 3);
         }
 
         /// <summary>

@@ -39,6 +39,30 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 UserName = "someone",
             };
 
+        // The two identity reads, told apart. Both the candidates read and the request path ask
+        // the identity store TWICE - once for the review tier, once for the ReadOnly veto (18.6
+        // rule 2) - and both calls land on this one method. The global ReadOnly is the one name
+        // that only ever appears in the veto's list, so it is what separates them: a test
+        // stubbing "the tier read" with It.IsAny would answer the veto read with the same people
+        // and subtract every candidate it had just offered.
+        private void SetupReviewTierMembers(params IdentityUser[] tierMembers) =>
+            this.identityUserServiceMock.Setup(service =>
+                service.RetrieveIdentityUsersInRolesAsync(
+                    It.Is<IEnumerable<string>>(roleNames =>
+                        !roleNames.Contains(Roles.ReadOnly)),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(tierMembers.ToList());
+
+        // Nobody, by default - set in the constructor so every test starts unblocked, which is
+        // what makes a subtraction here visible as this issue's doing rather than the tier's.
+        private void SetupBlockedUsers(params IdentityUser[] blockedUsers) =>
+            this.identityUserServiceMock.Setup(service =>
+                service.RetrieveIdentityUsersInRolesAsync(
+                    It.Is<IEnumerable<string>>(roleNames =>
+                        roleNames.Contains(Roles.ReadOnly)),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(blockedUsers.ToList());
+
         private void SetupReviewerScope(
             Guid approvalId,
             ApprovalStatus approvalStatus = ApprovalStatus.Submitted,
@@ -122,17 +146,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     }
                 });
 
-            this.identityUserServiceMock.Setup(service =>
-                service.RetrieveIdentityUsersInRolesAsync(
-                    It.IsAny<IEnumerable<string>>(),
-                    It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(new List<IdentityUser>
-                        {
-                            CreateIdentityUser(ownerId, preferredName: "Owner"),
-                            CreateIdentityUser(reviewedId, preferredName: "Reviewed"),
-                            CreateIdentityUser(invitedId, preferredName: "Invited"),
-                            CreateIdentityUser(freshId, preferredName: "Fresh"),
-                        });
+            SetupReviewTierMembers(
+                CreateIdentityUser(ownerId, preferredName: "Owner"),
+                CreateIdentityUser(reviewedId, preferredName: "Reviewed"),
+                CreateIdentityUser(invitedId, preferredName: "Invited"),
+                CreateIdentityUser(freshId, preferredName: "Fresh"));
 
             // when
             IReadOnlyList<ReviewerCandidate> candidates =
@@ -170,7 +188,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             this.identityUserServiceMock.Setup(service =>
                 service.RetrieveIdentityUsersInRolesAsync(
-                    It.IsAny<IEnumerable<string>>(),
+                    It.Is<IEnumerable<string>>(roleNames =>
+                        !roleNames.Contains(Roles.ReadOnly)),
                     It.IsAny<CancellationToken>()))
                         .Callback<IEnumerable<string>, CancellationToken>(
                             (roleNames, token) => capturedRoleNames = roleNames)
@@ -207,7 +226,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             this.identityUserServiceMock.Setup(service =>
                 service.RetrieveIdentityUsersInRolesAsync(
-                    It.IsAny<IEnumerable<string>>(),
+                    It.Is<IEnumerable<string>>(roleNames =>
+                        !roleNames.Contains(Roles.ReadOnly)),
                     It.IsAny<CancellationToken>()))
                         .Callback<IEnumerable<string>, CancellationToken>(
                             (roleNames, token) => capturedRoleNames = roleNames)

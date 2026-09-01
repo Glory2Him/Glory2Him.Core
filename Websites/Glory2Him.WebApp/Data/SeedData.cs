@@ -118,16 +118,20 @@ namespace Glory2Him.WebApp.Data
             // and is assigned to nobody grants nothing, which is the same argument Attachment
             // above is seeded on.
             //
-            // There is deliberately NO ReadOnlyFor(EntityType, ContentType): Roles.cs says so at
-            // the point where it would sit. The block tier has no content-type tier, and offering
-            // the composition would invent a role nothing issues and nothing checks. Two roles
-            // per content type, not three.
+            // The NARROW BLOCK is seeded with them, and it is the one of the three that cannot
+            // afford to be missing. A grant that is never minted fails loudly enough — nobody
+            // can be scoped to it, and the coarse tier still admits them — but an unseeded
+            // BLOCK is a sanction that can never be applied: the composed name is simply never
+            // found among an actor's roles, every gate falls through to the coarser question,
+            // and a contributor an administrator believes they have restrained on one content
+            // type carries on writing it. Nothing throws and nothing is logged (§18.6 rule 2).
             //
             // Walking the enum is what keeps this correct as ContentType grows — see §18.6's
             // seeding rule, and ContentTypeRoleSeedTests, which fails if this loop is ever
-            // replaced by a hand-written list.
+            // replaced by a hand-written list, or if one of the three names is dropped from it.
             foreach (ContentType contentType in Enum.GetValues<ContentType>())
             {
+                coreRoleNames.Add(Roles.ReadOnlyFor(EntityType.ContentItem, contentType));
                 coreRoleNames.Add(Roles.ReviewersFor(EntityType.ContentItem, contentType));
                 coreRoleNames.Add(Roles.PublishersFor(EntityType.ContentItem, contentType));
             }

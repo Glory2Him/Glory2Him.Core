@@ -50,7 +50,9 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             ValidateUserIsNotBlockedFromEndpoints(
                 securityContext: securityContext,
                 firstEntityType: association.EntityAType,
-                secondEntityType: association.EntityBType);
+                firstContentType: association.EntityAContentType,
+                secondEntityType: association.EntityBType,
+                secondContentType: association.EntityBContentType);
         }
 
         // The half of the gate that needs no endpoints: authentication and the global block
@@ -74,23 +76,59 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             }
         }
 
-        // The endpoint-scoped half, which needs both entity types. Runs against a
+        // The endpoint-scoped half, which needs both endpoints at BOTH tiers. Runs against a
         // caller-supplied association on add and modify, and against the storage row on
         // remove — the same rule either way.
+        //
+        // Four names, two per endpoint: the coarse %EntityType%-ReadOnly and the narrow
+        // %EntityType%-%ContentType%-ReadOnly from the denormalised endpoint content type
+        // (§18.6). Both compose from the row alone, which is what the denormalisation is for
+        // — no endpoint is resolved and no read is issued to answer an authorization question.
+        //
+        // The OR runs in BOTH directions on purpose, and it is the mirror of the grant rather
+        // than a contradiction of it. On the grant side one end is enough to admit (§14.7 A'
+        // rule 2): requiring both would leave a Series-Quote association unreviewable by anyone
+        // short of a global role. On the block side one end is enough to bar:
+        // ContentItem-Series-ReadOnly refuses the holder that same association even though they
+        // hold ContentItem-Quote-Reviewers, and the reverse refuses them just the same. One end
+        // admits; one end bars.
+        //
+        // A null content type simply costs that endpoint its narrow tier rather than widening
+        // anything — ContentItem is the only entity type that carries one (§18.6 rule 5).
         private static void ValidateUserIsNotBlockedFromEndpoints(
             SecurityContext securityContext,
             EntityType firstEntityType,
-            EntityType secondEntityType)
+            ContentType? firstContentType,
+            EntityType secondEntityType,
+            ContentType? secondContentType)
         {
             bool isBlocked =
-                securityContext.Roles.Contains(Roles.ReadOnlyFor(firstEntityType))
-                    || securityContext.Roles.Contains(Roles.ReadOnlyFor(secondEntityType));
+                IsBlockedFromEndpoint(securityContext, firstEntityType, firstContentType)
+                    || IsBlockedFromEndpoint(securityContext, secondEntityType, secondContentType);
 
             if (isBlocked)
             {
                 throw new UnauthorizedAssociationException(
                     message: "The current user is blocked from contributing content item associations.");
             }
+        }
+
+        // Both block tiers for one endpoint, composed the same way HasEndpointReviewRole
+        // composes the two grant tiers — and read the opposite way: a grant at either tier
+        // admits, a block at either tier bars, and no grant anywhere outranks it (§18.6 rule 2).
+        private static bool IsBlockedFromEndpoint(
+            SecurityContext securityContext,
+            EntityType entityType,
+            ContentType? contentType)
+        {
+            if (securityContext.Roles.Contains(Roles.ReadOnlyFor(entityType)))
+            {
+                return true;
+            }
+
+            return contentType.HasValue
+                && securityContext.Roles.Contains(
+                    Roles.ReadOnlyFor(entityType, contentType.Value));
         }
 
         // the global moderation roles, which grant review over every entity type
