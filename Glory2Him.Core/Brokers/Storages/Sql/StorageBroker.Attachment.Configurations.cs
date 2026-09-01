@@ -71,9 +71,15 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             model.Property(attachment => attachment.GroupId)
                  .IsRequired();
 
+            // ValueGeneratedNever for the reason ContentItemSetting.SortOrder carries it
+            // (#395): a store default alone makes EF omit a CLR-default 0 from the insert, and
+            // the column writes 1 in its place. Version 0 is never legitimate here - versions
+            // start at 1 - so nothing has been lost, but that is a decision rather than an
+            // accident of which number the CLR happens to default to.
             model.Property(attachment => attachment.Version)
                  .IsRequired()
-                 .HasDefaultValue(1);
+                 .HasDefaultValue(1)
+                 .ValueGeneratedNever();
 
             model.Property(attachment => attachment.PublishDate)
                  .IsRequired(false);
