@@ -6,10 +6,19 @@ import {
     CodeSample,
     ComponentDoc,
     ComponentPropRow,
+    DemoRadioGroup,
+    DemoTextInput,
     DocSection,
     LiveDemo,
     PropsTable
 } from './shared/componentDoc';
+
+// The two container widths the playground can stand the panel in — the panel keys its face
+// off its own box, so this radio is the demo's stand-in for "a banner slot" and "a sidebar".
+const containerWidthOptions = [
+    { key: 'wide', label: 'Wide container (the banner face)' },
+    { key: 'narrow', label: 'Narrow container, 20rem (the sidebar face)' }
+] as const;
 
 const minimalSample = `
 import { SharingPanel } from '../../components/contentItems/sharingPanel';
@@ -99,6 +108,18 @@ export function SharingPanelDoc() {
 
     const [lastEvent, setLastEvent] = useState('—');
 
+    // The playground opens REWORDED rather than on the defaults — the two demos above already
+    // show the default wording, so the boards start where they have something to say. Each
+    // label prints the component's own default (the long description's lives in the table).
+    const [iconCss, setIconCss] = useState('bi bi-chat-heart');
+    const [title, setTitle] = useState('Was this a help to you?');
+
+    const [description, setDescription] = useState(
+        'Tell us how it landed — your story might carry somebody else.');
+
+    const [buttonText, setButtonText] = useState('Share your story');
+    const [containerWidth, setContainerWidth] = useState('wide');
+
     return (
         <ComponentDoc
             name="Sharing Panel"
@@ -172,18 +193,63 @@ export function SharingPanelDoc() {
                 lead={
                     <>
                         A surface with something more specific to ask swaps the wording and the
-                        icon and keeps the behaviour.
+                        icon and keeps the behaviour. Type into the boards and the panel
+                        re-renders beneath them; the container radio narrows the panel&rsquo;s
+                        box — not the window — so the face change is the container query doing
+                        its work.
                     </>
                 }>
-                <LiveDemo title="Live — reworded">
-                    <SharingPanel
-                        cssClass="mb-0"
-                        iconCss="bi bi-chat-heart"
-                        title="Was this a help to you?"
-                        description="Tell us how it landed — your story might carry somebody else."
-                        buttonText="Share your story"
-                        onSubmit={() => setLastEvent('onSubmit() — reworded')} />
+                <DemoTextInput
+                    label="iconCss"
+                    name="sharing-icon-css"
+                    value={iconCss}
+                    defaultValue="bi bi-pencil-square"
+                    onChange={setIconCss} />
+
+                <DemoTextInput
+                    label="title"
+                    name="sharing-title"
+                    value={title}
+                    defaultValue="Have something to share?"
+                    onChange={setTitle} />
+
+                <DemoTextInput
+                    label="description"
+                    name="sharing-description"
+                    value={description}
+                    onChange={setDescription} />
+
+                <DemoTextInput
+                    label="buttonText"
+                    name="sharing-button-text"
+                    value={buttonText}
+                    defaultValue="Submit a contribution"
+                    onChange={setButtonText} />
+
+                <DemoRadioGroup
+                    title="Container"
+                    name="sharing-container-width"
+                    options={containerWidthOptions}
+                    selectedKey={containerWidth}
+                    onChange={setContainerWidth} />
+
+                <LiveDemo title="Live — playground">
+                    <div style={containerWidth === 'narrow'
+                        ? { maxWidth: '20rem' }
+                        : undefined}>
+                        <SharingPanel
+                            cssClass="mb-0"
+                            iconCss={iconCss}
+                            title={title}
+                            description={description}
+                            buttonText={buttonText}
+                            onSubmit={() => setLastEvent('onSubmit() — playground')} />
+                    </div>
                 </LiveDemo>
+
+                <p className="small text-body-secondary">
+                    Last event: <code>{lastEvent}</code>
+                </p>
             </DocSection>
 
             <DocSection

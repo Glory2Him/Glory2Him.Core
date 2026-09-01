@@ -55,9 +55,17 @@ describe('Component reference pages', () => {
             expect(screen.getByPlaceholderText('Start typing a tag…')).toBeInTheDocument();
         });
 
-        it('should offer the moderation pair on a submission the reader does not own', () => {
-            // when
+        it('should offer the moderation pair on a submission the reader does not own', async () => {
+            // given: the playground opens as the submitter, who holds no moderation role and
+            // cannot even see somebody else's pending suggestion
             renderWithAuth(<AssociationPanelDoc />);
+
+            expect(screen.queryByRole('button', { name: 'Approve awaiting-someone-elses' }))
+                .not.toBeInTheDocument();
+
+            // when: the security context steps the reader into an administrator
+            await userEvent.click(
+                screen.getByRole('radio', { name: 'I am an administrator (not owner)' }));
 
             // then
             expect(screen.getByRole('button', { name: 'Approve awaiting-someone-elses' }))
@@ -67,15 +75,41 @@ describe('Component reference pages', () => {
                 .toBeInTheDocument();
         });
 
-        it('should give the reader a withdrawal rather than a verdict on their own submission', () => {
-            // when
+        it('should give the reader a withdrawal rather than a verdict on their own submission', async () => {
+            // given
             renderWithAuth(<AssociationPanelDoc />);
+
+            // when: the demo viewer contributed awaiting-mine, whatever roles they step into
+            await userEvent.click(
+                screen.getByRole('radio', { name: 'I am an administrator (not owner)' }));
 
             // then: an administrator who contributed it still cannot wave it through
             expect(screen.getByRole('button', { name: 'Remove awaiting-mine' })).toBeInTheDocument();
 
             expect(screen.queryByRole('button', { name: /Approve awaiting-mine/ }))
                 .not.toBeInTheDocument();
+        });
+
+        it('should close the whole action matrix when the moderation switch flips off', async () => {
+            // given: an administrator with the verdict pair showing
+            renderWithAuth(<AssociationPanelDoc />);
+
+            await userEvent.click(
+                screen.getByRole('radio', { name: 'I am an administrator (not owner)' }));
+
+            expect(screen.getByRole('button', { name: 'Approve awaiting-someone-elses' }))
+                .toBeInTheDocument();
+
+            // when
+            await userEvent.click(
+                screen.getByRole('switch', { name: /^showModerationActions/ }));
+
+            // then: read-only again, except the reader's own withdrawal carve-out
+            expect(screen.queryByRole('button', { name: 'Approve awaiting-someone-elses' }))
+                .not.toBeInTheDocument();
+
+            expect(screen.getByRole('button', { name: 'Remove awaiting-mine' }))
+                .toBeInTheDocument();
         });
 
         it('should not leave a bare section for the theme to pad', () => {
@@ -134,6 +168,27 @@ describe('Component reference pages', () => {
 
             expect(screen.getByText('Think a tag is missing? Suggest one and help others find this post.'))
                 .toBeInTheDocument();
+        });
+
+        it('should open the verdict pair through the persona and moderation controls', async () => {
+            // given: a submitter with the moderation switch resting off
+            renderWithAuth(<TagAssociationPanelDoc />);
+
+            expect(screen.queryByRole('button', { name: 'Approve grace' }))
+                .not.toBeInTheDocument();
+
+            // when: a reviewer with the actions switched on
+            await userEvent.click(
+                screen.getByRole('radio', { name: 'I am a reviewer (not owner)' }));
+
+            await userEvent.click(
+                screen.getByRole('switch', { name: /^showModerationActions/ }));
+
+            // then: somebody else's pending tag earns the pair; the reader's own does not
+            expect(screen.getByRole('button', { name: 'Approve grace' })).toBeInTheDocument();
+
+            expect(screen.queryByRole('button', { name: 'Approve test' }))
+                .not.toBeInTheDocument();
         });
     });
 
@@ -443,8 +498,8 @@ describe('Component reference pages', () => {
             expect(screen.getByRole('heading', { name: 'Props' })).toBeInTheDocument();
         });
 
-        it('should run the panel live in both faces and reworded', async () => {
-            // given: two default-worded demos (wide and narrow) plus the reworded one
+        it('should run the panel live in both faces and in the playground', async () => {
+            // given: two default-worded demos (wide and narrow) plus the reworded playground
             renderWithAuth(<SharingPanelDoc />);
 
             expect(screen.getAllByRole('button', { name: /Submit a contribution/ }))
@@ -453,8 +508,23 @@ describe('Component reference pages', () => {
             // when
             await userEvent.click(screen.getByRole('button', { name: /Share your story/ }));
 
+            // then: both last-event lines (the faces section's and the playground's) report it
+            expect(screen.getAllByText('onSubmit() — playground').length)
+                .toBeGreaterThan(0);
+        });
+
+        it('should re-render the playground under whatever is typed into its boards', async () => {
+            // given
+            renderWithAuth(<SharingPanelDoc />);
+            const buttonTextBox = screen.getByLabelText(/^buttonText/);
+
+            // when
+            await userEvent.clear(buttonTextBox);
+            await userEvent.type(buttonTextBox, 'Tell your story');
+
             // then
-            expect(screen.getByText('onSubmit() — reworded')).toBeInTheDocument();
+            expect(screen.getByRole('button', { name: /Tell your story/ }))
+                .toBeInTheDocument();
         });
     });
 
@@ -501,16 +571,59 @@ describe('Component reference pages', () => {
 
             // then: the DECISION control appears on two demos only - the blocked round and the
             // unblocked one. The read-only demo pins its role props empty, the decided demo is
-            // terminal, and the voted-reviewer and picker demos pin decisionRoles empty because
-            // they are about reviewing rather than deciding.
+            // terminal, the voted-reviewer and picker demos pin decisionRoles empty because
+            // they are about reviewing rather than deciding, and the playground opens as the
+            // roleless submitter.
             expect(screen.getAllByRole('button', { name: 'Set approval status' }))
                 .toHaveLength(2);
 
             // The cog follows the VOTE tier, not the decision tier, so it appears on all four
             // demos that leave voteRoles to compose: the two decision demos plus the two that
-            // exist to show reviewing.
+            // exist to show reviewing. The playground's submitter holds no tier yet.
             expect(screen.getAllByRole('button', { name: 'Request a review' }))
                 .toHaveLength(4);
+        });
+
+        it('should earn the playground its controls from the security context and verdict boards', async () => {
+            // given: the playground opens as the submitter with no verdict — the read-only floor
+            renderWithAuth(<ReviewPanelDoc />);
+
+            // when: a publisher who does not own the submission, under a blocked verdict
+            await userEvent.click(
+                screen.getByRole('radio', { name: 'I am a publisher (not owner)' }));
+
+            await userEvent.click(screen.getByRole('radio',
+                { name: 'Blocked — bypass available to this caller' }));
+
+            // then: the playground added a decision control and a cog to the fixed demos
+            expect(screen.getAllByRole('button', { name: 'Set approval status' }))
+                .toHaveLength(3);
+
+            expect(screen.getAllByRole('button', { name: 'Request a review' }))
+                .toHaveLength(5);
+
+            // and its block reasons render beside the blocked demo's own
+            expect(screen.getAllByText('A rejected review is blocking approval.'))
+                .toHaveLength(2);
+        });
+
+        it('should freeze the playground when the status board turns the round terminal', async () => {
+            // given: a publisher with the decision control showing
+            renderWithAuth(<ReviewPanelDoc />);
+
+            await userEvent.click(
+                screen.getByRole('radio', { name: 'I am a publisher (not owner)' }));
+
+            expect(screen.getAllByRole('button', { name: 'Set approval status' }))
+                .toHaveLength(3);
+
+            // when
+            await userEvent.click(
+                screen.getByRole('radio', { name: 'Rejected (terminal)' }));
+
+            // then: the playground's control is gone and only the fixed demos' remain
+            expect(screen.getAllByRole('button', { name: 'Set approval status' }))
+                .toHaveLength(2);
         });
     });
 });
