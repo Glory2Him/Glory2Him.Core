@@ -215,6 +215,12 @@ namespace Glory2Him.Core.Brokers.Securities
         /// §16.7.4) — the round's status, the entity's owner, the role subjects the review tier
         /// composes from, and who already holds an active review.
         ///
+        /// <para>The reviewers come back TWICE, filtered and unfiltered, because two questions
+        /// are asked of the same rows. Invitability turns on a review that still stands, so a
+        /// dismissed or withdrawn one releases the person; who the round INVOLVED is released by
+        /// nothing, and it is what the name resolver's legal set is built from — a panel renders
+        /// a dismissed review, so it has to be able to name its author.</para>
+        ///
         /// <para>Gather-only, like every other read here: it writes nothing and decides nothing.
         /// Whether a particular person may be invited is composed above this, because the tier
         /// naming convention (§18.6) belongs in one place and the role MEMBERSHIP behind it lives

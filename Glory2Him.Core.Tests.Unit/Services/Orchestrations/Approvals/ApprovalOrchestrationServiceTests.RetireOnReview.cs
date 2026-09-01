@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -70,6 +70,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                             EntityCreatedBy = "somebody-else",
                             RoleSubjects = Array.Empty<G2H.Security.Client.Models.Foundations.Access.RoleSubject>(),
                             ActiveReviewerUserIds = Array.Empty<string>(),
+                            RecordedReviewerUserIds = Array.Empty<string>(),
 
                             ActiveRequests = new[]
                             {
@@ -123,6 +124,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                             EntityCreatedBy = "somebody-else",
                             RoleSubjects = Array.Empty<G2H.Security.Client.Models.Foundations.Access.RoleSubject>(),
                             ActiveReviewerUserIds = Array.Empty<string>(),
+                            RecordedReviewerUserIds = Array.Empty<string>(),
                             ActiveRequests = Array.Empty<ActiveReviewRequest>(),
                         });
 
@@ -208,6 +210,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                             EntityCreatedBy = "somebody-else",
                             RoleSubjects = Array.Empty<G2H.Security.Client.Models.Foundations.Access.RoleSubject>(),
                             ActiveReviewerUserIds = Array.Empty<string>(),
+                            RecordedReviewerUserIds = Array.Empty<string>(),
 
                             ActiveRequests = new[]
                             {

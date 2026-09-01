@@ -15,6 +15,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.IdentityUsers;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
 using Glory2Him.Core.Models.Orchestrations.Approvals.Exceptions;
@@ -25,6 +27,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 {
     public partial class ApprovalOrchestrationServiceTests
     {
+        private void SetupTierMembers(params IdentityUser[] identityUsers) =>
+            this.identityUserServiceMock.Setup(service =>
+                service.RetrieveIdentityUsersInRolesAsync(
+                    It.IsAny<IEnumerable<string>>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(identityUsers.ToList());
+
         private void SetupResolvedIdentityUsers(params IdentityUser[] identityUsers) =>
             this.identityUserServiceMock.Setup(service =>
                 service.RetrieveIdentityUsersByIdsAsync(
@@ -33,51 +42,77 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                         .ReturnsAsync(identityUsers.ToList());
 
         /// <summary>
-        /// The id is echoed back beside the name, because a caller joins the answer onto rows it
-        /// already holds and must not have to depend on ordering to do it. The name itself is
-        /// composed by the same rule the candidates read uses - one composer is what stops two
-        /// surfaces rendering one person under two names.
+        /// The set is the ROUND's, drawn from all three places the panel draws from - the review
+        /// rows, the outstanding invitations and the review tier. The id is echoed back beside the
+        /// name so a caller joins the answer onto the rows it already holds without depending on
+        /// ordering, and the name is composed by the same rule the candidates read uses, which is
+        /// what stops two surfaces rendering one person under two names.
         /// </summary>
         [Fact]
-        public async Task ShouldResolveDisplayNamesForTheIdsGivenAsync()
+        public async Task ShouldNameEverybodyTheRoundInvolvesAsync()
         {
             // given
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
-            Guid firstUserId = Guid.NewGuid();
-            Guid secondUserId = Guid.NewGuid();
+            Guid approvalId = Guid.NewGuid();
+            Guid reviewerId = Guid.NewGuid();
+            Guid invitedId = Guid.NewGuid();
+            Guid candidateId = Guid.NewGuid();
 
-            SetupResolvedIdentityUsers(
-                CreateIdentityUser(secondUserId, preferredName: "Zoe"),
-                CreateIdentityUser(firstUserId, preferredName: "Adam"));
+            SetupReviewerScope(
+                approvalId: approvalId,
+                activeReviewerUserIds: new[] { reviewerId.ToString() },
+                activeRequests: new[]
+                {
+                    new ActiveReviewRequest
+                    {
+                        Id = Guid.NewGuid(),
+                        RequestedUserId = invitedId.ToString(),
+                    }
+                });
+
+            SetupTierMembers(
+                CreateIdentityUser(candidateId, preferredName: "Zoe"),
+                CreateIdentityUser(reviewerId, preferredName: "Adam"),
+                CreateIdentityUser(invitedId, preferredName: "Mary"));
 
             // when
             IReadOnlyList<ReviewerDisplayName> reviewerDisplayNames =
                 await this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
-                    new[] { firstUserId.ToString(), secondUserId.ToString() },
+                    EntityType.ContentItem,
+                    Guid.NewGuid(),
                     TestContext.Current.CancellationToken);
 
             // then: ordered by name, the way the picker renders them
             reviewerDisplayNames.Select(name => (name.UserId, name.DisplayName))
                 .Should().ContainInOrder(
-                    (firstUserId.ToString(), "Adam"),
-                    (secondUserId.ToString(), "Zoe"));
+                    (reviewerId.ToString(), "Adam"),
+                    (invitedId.ToString(), "Mary"),
+                    (candidateId.ToString(), "Zoe"));
         }
 
         /// <summary>
-        /// <b>No role filter, and that is the whole point of the read.</b> The candidates read
-        /// answers who is in scope for a round, so a reviewer who voted and then lost the role
-        /// vanishes from it entirely - which is the case that left the panel with a blank name.
-        /// This one resolves ids, so the tier read is never consulted.
+        /// <b>The case the resolver exists for.</b> A reviewer who voted and then lost the role,
+        /// or whose account was disabled, is absent from the tier read - which is exactly why the
+        /// candidates read could never name them. Their id is still stamped on the review row, so
+        /// the round admits them, and a second lookup applying no role filter and no disabled
+        /// filter names them.
         /// </summary>
         [Fact]
-        public async Task ShouldResolveNamesWithoutConsultingTheReviewTierAsync()
+        public async Task ShouldNameAReviewerWhoHasSinceLeftTheTierAsync()
         {
             // given
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
-            Guid departedUserId = Guid.NewGuid();
+            Guid approvalId = Guid.NewGuid();
+            Guid departedId = Guid.NewGuid();
+
+            SetupReviewerScope(
+                approvalId: approvalId,
+                activeReviewerUserIds: new[] { departedId.ToString() });
+
+            SetupTierMembers();
 
             IdentityUser departedUser = CreateIdentityUser(
-                departedUserId,
+                departedId,
                 preferredName: "Departed");
 
             departedUser.IsDisabled = true;
@@ -86,83 +121,212 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             // when
             IReadOnlyList<ReviewerDisplayName> reviewerDisplayNames =
                 await this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
-                    new[] { departedUserId.ToString() },
+                    EntityType.ContentItem,
+                    Guid.NewGuid(),
                     TestContext.Current.CancellationToken);
 
             // then
             reviewerDisplayNames.Single().DisplayName.Should().Be("Departed");
 
             this.identityUserServiceMock.Verify(service =>
-                service.RetrieveIdentityUsersInRolesAsync(
-                    It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()),
-                Times.Never);
-
-            // and: no approval is read either - the resolver takes ids, not a round, so nothing
-            // in this path touches the approval store. Whether it SHOULD be keyed on a round is
-            // recorded as open in 16.7.4, not settled by this assertion.
-            this.accessBrokerMock.VerifyNoOtherCalls();
-            this.approvalServiceMock.VerifyNoOtherCalls();
+                service.RetrieveIdentityUsersByIdsAsync(
+                    It.Is<IEnumerable<string>>(userIds =>
+                        userIds.Single() == departedId.ToString()),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
         }
 
         /// <summary>
-        /// An id naming no account comes back absent rather than as an error. A caller asking
-        /// about somebody whose account has been deleted renders its own fallback for that one
-        /// row; failing the call would let one departed account blank a whole panel.
+        /// The review rows are taken RECORDED rather than active, and the difference is the whole
+        /// reason <c>ApprovalReviewerScope</c> carries both. A dismissed or withdrawn verdict is
+        /// still rendered by the panel, so its author still needs a name -
+        /// <c>ActiveReviewerUserIds</c> deliberately subtracts exactly those people, which is why
+        /// it cannot answer this.
         /// </summary>
         [Fact]
-        public async Task ShouldOmitIdsThatNameNoAccountAsync()
+        public async Task ShouldNameTheAuthorOfADismissedReviewAsync()
         {
             // given
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
-            Guid knownUserId = Guid.NewGuid();
-            Guid unknownUserId = Guid.NewGuid();
-            SetupResolvedIdentityUsers(CreateIdentityUser(knownUserId, preferredName: "Known"));
+            Guid approvalId = Guid.NewGuid();
+            Guid dismissedReviewerId = Guid.NewGuid();
+
+            SetupReviewerScope(
+                approvalId: approvalId,
+                activeReviewerUserIds: Array.Empty<string>(),
+                recordedReviewerUserIds: new[] { dismissedReviewerId.ToString() });
+
+            SetupTierMembers();
+
+            SetupResolvedIdentityUsers(
+                CreateIdentityUser(dismissedReviewerId, preferredName: "Dismissed"));
 
             // when
             IReadOnlyList<ReviewerDisplayName> reviewerDisplayNames =
                 await this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
-                    new[] { knownUserId.ToString(), unknownUserId.ToString() },
+                    EntityType.ContentItem,
+                    Guid.NewGuid(),
+                    TestContext.Current.CancellationToken);
+
+            // then
+            reviewerDisplayNames.Single().UserId.Should().Be(dismissedReviewerId.ToString());
+        }
+
+        /// <summary>
+        /// One identity read in the ordinary case. The tier read returns whole accounts, so the
+        /// same rows that admit a candidate also carry the name; nobody the round involves is
+        /// looked up twice, and the second read is spent only on people the tier no longer holds.
+        /// </summary>
+        [Fact]
+        public async Task ShouldNotLookUpAgainAnybodyTheTierReadAlreadyNamedAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
+            Guid approvalId = Guid.NewGuid();
+            Guid reviewerId = Guid.NewGuid();
+            Guid invitedId = Guid.NewGuid();
+
+            SetupReviewerScope(
+                approvalId: approvalId,
+                activeReviewerUserIds: new[] { reviewerId.ToString() },
+                activeRequests: new[]
+                {
+                    new ActiveReviewRequest
+                    {
+                        Id = Guid.NewGuid(),
+                        RequestedUserId = invitedId.ToString(),
+                    }
+                });
+
+            SetupTierMembers(
+                CreateIdentityUser(reviewerId, preferredName: "Adam"),
+                CreateIdentityUser(invitedId, preferredName: "Mary"));
+
+            // when
+            IReadOnlyList<ReviewerDisplayName> reviewerDisplayNames =
+                await this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
+                    EntityType.ContentItem,
+                    Guid.NewGuid(),
+                    TestContext.Current.CancellationToken);
+
+            // then
+            reviewerDisplayNames.Should().HaveCount(2);
+
+            this.identityUserServiceMock.Verify(service =>
+                service.RetrieveIdentityUsersByIdsAsync(
+                    It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        /// <summary>
+        /// An id naming no account comes back absent rather than as an error. A caller rendering
+        /// somebody whose account has since been deleted falls back for that one row; failing the
+        /// call would let one departed account blank a whole panel.
+        /// </summary>
+        [Fact]
+        public async Task ShouldOmitRoundIdsThatNameNoAccountAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
+            Guid approvalId = Guid.NewGuid();
+            Guid knownId = Guid.NewGuid();
+            Guid deletedId = Guid.NewGuid();
+
+            SetupReviewerScope(
+                approvalId: approvalId,
+                activeReviewerUserIds: new[] { knownId.ToString(), deletedId.ToString() });
+
+            SetupTierMembers();
+            SetupResolvedIdentityUsers(CreateIdentityUser(knownId, preferredName: "Known"));
+
+            // when
+            IReadOnlyList<ReviewerDisplayName> reviewerDisplayNames =
+                await this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
+                    EntityType.ContentItem,
+                    Guid.NewGuid(),
                     TestContext.Current.CancellationToken);
 
             // then
             reviewerDisplayNames.Select(name => name.UserId)
-                .Should().BeEquivalentTo(new[] { knownUserId.ToString() });
+                .Should().BeEquivalentTo(new[] { knownId.ToString() });
         }
 
         /// <summary>
-        /// Blank and repeated ids are cleaned up before the read, so a surface may hand over
-        /// whatever it is holding - the same person appearing as a reviewer and as an invitation
-        /// is one lookup, not two.
+        /// One person appearing on the round more than once - as a reviewer and as an outstanding
+        /// invitation, and as a tier member besides - is one name, not three. The surfaces overlap
+        /// by design, so the resolver has to collapse them.
         /// </summary>
         [Fact]
-        public async Task ShouldTrimAndDeduplicateTheIdsBeforeResolvingAsync()
+        public async Task ShouldNameSomebodyOnceHoweverManySurfacesHoldThemAsync()
         {
             // given
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
-            Guid userId = Guid.NewGuid();
-            IEnumerable<string> capturedUserIds = null;
+            Guid approvalId = Guid.NewGuid();
+            Guid everywhereId = Guid.NewGuid();
 
-            this.identityUserServiceMock.Setup(service =>
-                service.RetrieveIdentityUsersByIdsAsync(
-                    It.IsAny<IEnumerable<string>>(),
-                    It.IsAny<CancellationToken>()))
-                        .Callback<IEnumerable<string>, CancellationToken>(
-                            (userIds, token) => capturedUserIds = userIds)
-                        .ReturnsAsync(new List<IdentityUser>());
+            SetupReviewerScope(
+                approvalId: approvalId,
+                activeReviewerUserIds: new[] { everywhereId.ToString() },
+                activeRequests: new[]
+                {
+                    new ActiveReviewRequest
+                    {
+                        Id = Guid.NewGuid(),
+                        RequestedUserId = everywhereId.ToString(),
+                    }
+                });
+
+            SetupTierMembers(CreateIdentityUser(everywhereId, preferredName: "Everywhere"));
 
             // when
-            await this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
-                new[] { $" {userId} ", userId.ToString(), null, "   " },
-                TestContext.Current.CancellationToken);
+            IReadOnlyList<ReviewerDisplayName> reviewerDisplayNames =
+                await this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
+                    EntityType.ContentItem,
+                    Guid.NewGuid(),
+                    TestContext.Current.CancellationToken);
 
             // then
-            capturedUserIds.Should().BeEquivalentTo(new[] { userId.ToString() });
+            reviewerDisplayNames.Single().DisplayName.Should().Be("Everywhere");
+        }
+
+        /// <summary>
+        /// <b>The round is the gate as well as the boundary.</b> Nobody outside it is named, so a
+        /// holder of any review-tier role can no longer resolve an arbitrary account id - which is
+        /// the composition of the tier gate with an entity gate that 16.7.4 asked for and the
+        /// unscoped form could not provide.
+        /// </summary>
+        [Fact]
+        public async Task ShouldNameNobodyOutsideTheRoundAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
+            Guid approvalId = Guid.NewGuid();
+            Guid strangerId = Guid.NewGuid();
+
+            SetupReviewerScope(approvalId: approvalId);
+            SetupTierMembers();
+            SetupResolvedIdentityUsers(CreateIdentityUser(strangerId, preferredName: "Stranger"));
+
+            // when
+            IReadOnlyList<ReviewerDisplayName> reviewerDisplayNames =
+                await this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
+                    EntityType.ContentItem,
+                    Guid.NewGuid(),
+                    TestContext.Current.CancellationToken);
+
+            // then: an empty round names nobody, and the resolution read is never even reached
+            reviewerDisplayNames.Should().BeEmpty();
+
+            this.identityUserServiceMock.Verify(service =>
+                service.RetrieveIdentityUsersByIdsAsync(
+                    It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()),
+                Times.Never);
         }
 
         /// <summary>
         /// 16.7.4's posture, applied rather than re-derived: this is a user-enumeration surface,
         /// so only the requesting tier reaches it. The identity store is never touched for a
-        /// caller who is refused.
+        /// caller who is refused - the gate runs on the envelope before the round is read.
         /// </summary>
         [Theory]
         [MemberData(nameof(NonModerationRoleSets))]
@@ -175,7 +339,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             // when
             ValueTask<IReadOnlyList<ReviewerDisplayName>> resolveTask =
                 this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
-                    new[] { Guid.NewGuid().ToString() },
+                    EntityType.ContentItem,
+                    Guid.NewGuid(),
                     TestContext.Current.CancellationToken);
 
             ApprovalOrchestrationValidationException actualException =
@@ -186,34 +351,24 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             actualException.InnerException.Should()
                 .BeOfType<UnauthorizedApprovalOrchestrationException>();
 
-            this.identityUserServiceMock.Verify(service =>
-                service.RetrieveIdentityUsersByIdsAsync(
-                    It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()),
-                Times.Never);
+            this.identityUserServiceMock.VerifyNoOtherCalls();
         }
 
         /// <summary>
-        /// The batch is capped, and an oversized one is REFUSED rather than truncated. Truncating
-        /// would hand the caller a shorter answer than it asked for and leave it rendering blanks
-        /// it could not explain.
-        ///
-        /// <para>The cap bounds one response, not a caller — what decides how much of the
-        /// directory is reachable is the tier gate, not this constant.</para>
+        /// The shape rule that replaced the batch ceiling. An unusable key names no round, so
+        /// there is nobody to resolve and the identity store is never asked.
         /// </summary>
         [Fact]
-        public async Task ShouldThrowValidationOnResolveIfTheBatchExceedsTheCapAsync()
+        public async Task ShouldThrowValidationOnResolveIfTheEntityKeyIsInvalidAsync()
         {
             // given
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
-            string[] tooManyUserIds = Enumerable.Range(0, 201)
-                .Select(_ => Guid.NewGuid().ToString())
-                .ToArray();
-
             // when
             ValueTask<IReadOnlyList<ReviewerDisplayName>> resolveTask =
                 this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
-                    tooManyUserIds,
+                    EntityType.ContentItem,
+                    Guid.Empty,
                     TestContext.Current.CancellationToken);
 
             ApprovalOrchestrationValidationException actualException =
@@ -224,161 +379,43 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             actualException.InnerException.Should()
                 .BeOfType<InvalidApprovalOrchestrationException>();
 
-            this.identityUserServiceMock.Verify(service =>
-                service.RetrieveIdentityUsersByIdsAsync(
-                    It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()),
-                Times.Never);
+            this.identityUserServiceMock.VerifyNoOtherCalls();
         }
 
         /// <summary>
-        /// The cap counts ACCOUNTS, not spellings. A GUID has several equal string forms - case,
-        /// braces, hyphens - so counting the caller's raw text would refuse somebody who asked
-        /// about 200 people using 201 spellings of them, which is a request the resolver can
-        /// answer perfectly well.
-        ///
-        /// <para>202 strings go in, naming 200 distinct accounts - one id spelled twice and one
-        /// entry naming nothing. It must succeed, and the identity store must be asked for exactly
-        /// the 200 canonical ids.</para>
+        /// No approval on the key is a not-found, the same answer the candidates read gives. There
+        /// is no round, so there is nobody it names - and an empty list instead would let a
+        /// mistyped key look like a round nobody has touched.
         /// </summary>
         [Fact]
-        public async Task ShouldCountAccountsRatherThanSpellingsAgainstTheCapAsync()
-        {
-            // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
-
-            List<Guid> distinctUserIds = Enumerable.Range(0, 200)
-                .Select(_ => Guid.NewGuid())
-                .ToList();
-
-            // 202 strings for 200 accounts, sitting exactly on the cap. The first id is spelled
-            // twice, once braced and uppercased; and one entry names nothing at all.
-            //
-            // The unparseable entry is what pins the Guid.Empty filter, and it has to live HERE
-            // rather than in its own test: an id that fails to parse becomes Guid.Empty, and
-            // Distinct() collapses ANY number of them to one - so a test that sends only rubbish
-            // never gets near the ceiling and cannot tell whether the filter ran. On the boundary
-            // it can. Drop the filter and this request counts 201 against a cap of 200 and is
-            // refused, which is the refusal the source comment promises will not happen.
-            var spellings = new List<string>(
-                distinctUserIds.Select(userId => userId.ToString()))
-                {
-                    distinctUserIds[0].ToString("B").ToUpperInvariant(),
-                    "not-a-guid",
-                };
-
-            IEnumerable<string> capturedUserIds = null;
-
-            this.identityUserServiceMock.Setup(service =>
-                service.RetrieveIdentityUsersByIdsAsync(
-                    It.IsAny<IEnumerable<string>>(),
-                    It.IsAny<CancellationToken>()))
-                        .Callback<IEnumerable<string>, CancellationToken>(
-                            (userIds, token) => capturedUserIds = userIds)
-                        .ReturnsAsync(new List<IdentityUser>());
-
-            // when
-            IReadOnlyList<ReviewerDisplayName> reviewerDisplayNames =
-                await this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
-                    spellings,
-                    TestContext.Current.CancellationToken);
-
-            // then
-            reviewerDisplayNames.Should().BeEmpty();
-
-            capturedUserIds.Should().BeEquivalentTo(
-                distinctUserIds.Select(userId => userId.ToString()));
-        }
-
-        /// <summary>
-        /// Unparseable ids fall out before the count as well. They can never name an account, so
-        /// charging them against a ceiling that exists to bound a query would refuse work nobody
-        /// asked for.
-        /// </summary>
-        [Fact]
-        public async Task ShouldNotCountUnusableIdsAgainstTheCapAsync()
-        {
-            // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
-            Guid realUserId = Guid.NewGuid();
-
-            var mostlyRubbish = new List<string> { realUserId.ToString() };
-
-            mostlyRubbish.AddRange(
-                Enumerable.Range(0, 300).Select(index => $"not-a-guid-{index}"));
-
-            SetupResolvedIdentityUsers(CreateIdentityUser(realUserId, preferredName: "Real"));
-
-            // when
-            IReadOnlyList<ReviewerDisplayName> reviewerDisplayNames =
-                await this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
-                    mostlyRubbish,
-                    TestContext.Current.CancellationToken);
-
-            // then
-            reviewerDisplayNames.Single().UserId.Should().Be(realUserId.ToString());
-        }
-
-        /// <summary>
-        /// A non-canonical spelling still reaches the identity store, canonicalised.
-        ///
-        /// <para><b>The captured argument is the assertion here, not the echo.</b> The echoed
-        /// UserId is read off the resolved row, so it is canonical by construction whatever the
-        /// caller sent and whatever this method does to the input — asserting on it alone would
-        /// pass even if every braced spelling were silently discarded on the way in, which is the
-        /// whole failure this guards. What has to be observed is the id handed DOWN.</para>
-        /// </summary>
-        [Fact]
-        public async Task ShouldResolveANonCanonicalSpellingAsTheCanonicalIdAsync()
+        public async Task ShouldThrowNotFoundOnResolveIfNoApprovalOccupiesTheKeyAsync()
         {
             // given
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
-            Guid userId = Guid.NewGuid();
-            IEnumerable<string> capturedUserIds = null;
 
-            this.identityUserServiceMock.Setup(service =>
-                service.RetrieveIdentityUsersByIdsAsync(
-                    It.IsAny<IEnumerable<string>>(),
+            this.approvalServiceMock.Setup(service =>
+                service.FindApprovalByEntityAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()))
-                        .Callback<IEnumerable<string>, CancellationToken>(
-                            (userIds, token) => capturedUserIds = userIds)
-                        .ReturnsAsync(new List<IdentityUser>
-                        {
-                            CreateIdentityUser(userId, preferredName: "Someone"),
-                        });
+                        .ReturnsAsync((ApprovalEntityMatch)null);
 
             // when
-            IReadOnlyList<ReviewerDisplayName> reviewerDisplayNames =
-                await this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
-                    new[] { userId.ToString("B").ToUpperInvariant() },
+            ValueTask<IReadOnlyList<ReviewerDisplayName>> resolveTask =
+                this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
+                    EntityType.ContentItem,
+                    Guid.NewGuid(),
                     TestContext.Current.CancellationToken);
 
-            // then: the braced, upper-cased spelling was recognised and canonicalised, not dropped
-            capturedUserIds.Should().BeEquivalentTo(new[] { userId.ToString() });
-
-            // and: the answer names the account in canonical form
-            reviewerDisplayNames.Single().UserId.Should().Be(userId.ToString());
-        }
-
-        /// <summary>
-        /// Asking about nobody is answered with nobody. A panel holding no ids should not have to
-        /// branch around calling, and the foundation fails closed beneath this anyway - an empty
-        /// set must never be read as "everybody".
-        /// </summary>
-        [Fact]
-        public async Task ShouldReturnNoNamesWhenNoIdsAreGivenAsync()
-        {
-            // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
-            SetupResolvedIdentityUsers();
-
-            // when
-            IReadOnlyList<ReviewerDisplayName> reviewerDisplayNames =
-                await this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
-                    Array.Empty<string>(),
-                    TestContext.Current.CancellationToken);
+            ApprovalOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<ApprovalOrchestrationValidationException>(
+                    resolveTask.AsTask);
 
             // then
-            reviewerDisplayNames.Should().BeEmpty();
+            actualException.InnerException.Should()
+                .BeOfType<NotFoundApprovalOrchestrationException>();
+
+            this.identityUserServiceMock.VerifyNoOtherCalls();
         }
     }
 }

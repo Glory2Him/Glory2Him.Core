@@ -45,6 +45,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             string entityCreatedBy = "the-entity-owner",
             IReadOnlyList<string> activeReviewerUserIds = null,
             IReadOnlyList<ActiveReviewRequest> activeRequests = null,
+            IReadOnlyList<string> recordedReviewerUserIds = null,
             string contentType = null)
         {
             this.approvalServiceMock.Setup(service =>
@@ -80,6 +81,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
                             ActiveReviewerUserIds =
                                 activeReviewerUserIds ?? Array.Empty<string>(),
+
+                            // Defaulted to the active set, because every standing review is a
+                            // recorded one - the broker builds this field from the same rows with
+                            // nothing subtracted. A test that cares about the DIFFERENCE - a
+                            // dismissed or withdrawn verdict, which is the case the resolver
+                            // exists for - passes it explicitly.
+                            RecordedReviewerUserIds =
+                                recordedReviewerUserIds
+                                    ?? activeReviewerUserIds
+                                    ?? Array.Empty<string>(),
 
                             ActiveRequests =
                                 activeRequests ?? Array.Empty<ActiveReviewRequest>(),
