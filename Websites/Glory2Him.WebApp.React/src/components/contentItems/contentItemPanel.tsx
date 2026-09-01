@@ -94,6 +94,21 @@ export interface ContentItemPanelProps
     // type chip. Off by default; on, every status shows, Approved included.
     showApprovalStatus?: boolean;
 
+    // ── The content length ─────────────────────────────────────────────────
+    // Off (the default), the content is cut at truncateAt characters with an ellipsis and
+    // the read-more affordance; on, the full content stands — what a detail surface asks.
+    showContentExpanded?: boolean;
+
+    // The character position the cut happens at. Only content actually longer than this
+    // is cut — a short devotional never wears an ellipsis.
+    truncateAt?: number;
+
+    // WHERE READ-MORE GOES. Off (the default), the affordance raises onReadMoreClick and
+    // the page routes to the detail surface, carrying its back context. On, read-more
+    // TOGGLES the expansion in place — and the expanded card offers show-less — so one
+    // affordance never tries to be both at once.
+    allowInPlaceExpansion?: boolean;
+
     // THE SURFACE SWITCH for the edit face, ahead of every role check — off by default, so a
     // list card whose page wired onModified for element swaps can still never become an
     // editor by accident. On, the owner's Edit affordance opens ContentItemEditPanel IN PLACE
@@ -159,6 +174,9 @@ export function ContentItemPanel({
     showApprovalStatusRibbon = false,
     showApprovalStatus = false,
     isEditingAllowed = false,
+    showContentExpanded = false,
+    truncateAt = 400,
+    allowInPlaceExpansion = false,
     isLoading = false,
     isSubmitting = false,
     validationIssues,
@@ -174,6 +192,7 @@ export function ContentItemPanel({
     onReactionSelected,
     onEditClick,
     onModerateClick,
+    onReadMoreClick,
     ...eventsAndText
 }: ContentItemPanelProps) {
     const { isAuthenticated, user, userRoles } = useAuth();
@@ -185,6 +204,10 @@ export function ContentItemPanel({
     const [isReactionPickerOpen, setIsReactionPickerOpen] = useState(false);
     const [isEditorTaken, setIsEditorTaken] = useState(false);
 
+    // The in-place expansion, seeded from the surface's own answer — consulted only while
+    // allowInPlaceExpansion is on; otherwise showContentExpanded decides alone.
+    const [isContentToggledOpen, setIsContentToggledOpen] = useState(showContentExpanded);
+
     // A different item is a different surface, and a changed mode prop overrules an Edit the
     // reader took earlier — the same identity-keyed reset the form engine keeps for its draft.
     const contentItemId = contentItem?.id;
@@ -192,6 +215,10 @@ export function ContentItemPanel({
     useEffect(() => {
         setIsEditorTaken(false);
     }, [contentItemId, mode]);
+
+    useEffect(() => {
+        setIsContentToggledOpen(showContentExpanded);
+    }, [contentItemId, showContentExpanded]);
 
     // ── The add face ──────────────────────────────────────────────────────────
     // No item: the panel IS the contribution form, shaped from the settings collection. Every
@@ -338,6 +365,14 @@ export function ContentItemPanel({
             moderateButtonLabel={isModeratedView ? 'Edit' : 'Moderate'}
             showApprovalStatusRibbon={showApprovalStatusRibbon}
             showApprovalStatus={showApprovalStatus}
+            truncateAt={truncateAt}
+            allowInPlaceExpansion={allowInPlaceExpansion}
+            isContentExpanded={allowInPlaceExpansion
+                ? isContentToggledOpen
+                : showContentExpanded}
+            onReadMoreClick={allowInPlaceExpansion
+                ? () => setIsContentToggledOpen(!isContentToggledOpen)
+                : onReadMoreClick}
             showReactionSection={showReactionSection}
             onEditClick={(item) =>
                 opensEditorInPlace ? setIsEditorTaken(true) : onEditClick?.(item)}

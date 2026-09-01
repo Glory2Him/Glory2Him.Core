@@ -36,7 +36,8 @@ const templateProps: ReadonlyArray<ComponentPropRow> = [
         name: 'contentSlot',
         type: 'ReactNode?',
         description: 'THE DERIVATION POINT. Absent, the default content block renders '
-            + '(thumbnail, badge and title, excerpt, read-more). An override — Quotes, '
+            + '(thumbnail, badge and title, the truncated content, read-more). An '
+            + 'override — Quotes, '
             + 'Verses — renders THIS template with contentSlot replaced, so the meta row, '
             + 'the pills and the engagement row are written once and carried identically.'
     },
@@ -216,6 +217,9 @@ export function ContentItemDefaultPanelDoc() {
                         showCommentsSection={showCommentsSection}
                         showShareSection={showShareSection}
                         showSaveSection={showSaveSection}
+                        truncateAt={120}
+                        allowInPlaceExpansion={false}
+                        isContentExpanded={false}
                         areReactionCountsExpanded={areReactionCountsExpanded}
                         onAssignedReactionsClick={() =>
                             setAreReactionCountsExpanded(!areReactionCountsExpanded)}

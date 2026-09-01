@@ -218,6 +218,18 @@ const panelProps: ReadonlyArray<ComponentPropRow> = [
             + 'that asks for statuses is asking for all of them.'
     },
     {
+        name: 'showContentExpanded / truncateAt / allowInPlaceExpansion',
+        type: 'boolean / number / boolean',
+        defaultValue: 'false / 400 / false',
+        description: 'The content length, threaded from the list. Collapsed, the content '
+            + 'is cut at truncateAt characters with an ellipsis and the read-more '
+            + 'affordance; a detail surface passes showContentExpanded and the whole '
+            + 'content stands. Where read-more GOES is allowInPlaceExpansion’s answer: '
+            + 'off, it raises onReadMoreClick and the page routes to the detail surface '
+            + 'with its back context; on, it toggles the expansion in place and the '
+            + 'expanded card offers show-less — one affordance, never both jobs at once.'
+    },
+    {
         name: 'showTagSection / showBibleReferenceSection / showReactionSection / '
             + 'showCommentsSection / showShareSection / showSaveSection',
         type: 'boolean',
@@ -302,6 +314,8 @@ export function ContentItemPanelDoc() {
     // The playground's switches — each one of this panel's own props.
     const [showApprovalStatusRibbon, setShowApprovalStatusRibbon] = useState(true);
     const [showApprovalStatus, setShowApprovalStatus] = useState(true);
+    const [showContentExpanded, setShowContentExpanded] = useState(false);
+    const [allowInPlaceExpansion, setAllowInPlaceExpansion] = useState(true);
     const [isEditingAllowed, setIsEditingAllowed] = useState(true);
     const [isModeratedView, setIsModeratedView] = useState(false);
     const [showTagSection, setShowTagSection] = useState(true);
@@ -444,6 +458,18 @@ export function ContentItemPanelDoc() {
                         onChange: setShowApprovalStatus
                     },
                     {
+                        name: 'panel-content-expanded',
+                        label: 'showContentExpanded',
+                        value: showContentExpanded,
+                        onChange: setShowContentExpanded
+                    },
+                    {
+                        name: 'panel-in-place-expansion',
+                        label: 'allowInPlaceExpansion (read-more toggles here)',
+                        value: allowInPlaceExpansion,
+                        onChange: setAllowInPlaceExpansion
+                    },
+                    {
                         name: 'panel-editing',
                         label: 'isEditingAllowed',
                         value: isEditingAllowed,
@@ -499,6 +525,9 @@ export function ContentItemPanelDoc() {
                                 contentItem={viewedDemoItem}
                             showApprovalStatusRibbon={showApprovalStatusRibbon}
                             showApprovalStatus={showApprovalStatus}
+                            showContentExpanded={showContentExpanded}
+                            truncateAt={160}
+                            allowInPlaceExpansion={allowInPlaceExpansion}
                             isEditingAllowed={isEditingAllowed}
                             isModeratedView={isModeratedView}
                             showTagSection={showTagSection}

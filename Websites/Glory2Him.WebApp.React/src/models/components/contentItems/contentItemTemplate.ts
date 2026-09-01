@@ -78,6 +78,7 @@ export interface ContentItemText {
     saveButtonText?: string;
     editButtonText?: string;
     readMoreText?: string;
+    showLessText?: string;
     allReactionsText?: string;
     shareabilityBasisLabels?: Readonly<Record<ShareabilityBasis, string>>;
 }
@@ -133,6 +134,15 @@ export interface ContentItemTemplateProps
     // shows the status on EVERY row, the ordinary Approved included, because a surface that
     // asks for statuses is asking for all of them.
     showApprovalStatus?: boolean;
+
+    // THE CONTENT LENGTH DECISIONS, decided once in the dispatching panel. truncateAt is
+    // the character position the content is cut at (with an ellipsis and the read-more
+    // affordance) while isContentExpanded is off; allowInPlaceExpansion says whether the
+    // read-more affordance TOGGLES the expansion in place — when it is off, read-more is
+    // the page's onReadMoreClick, the way into the detail surface.
+    truncateAt: number;
+    allowInPlaceExpansion: boolean;
+    isContentExpanded: boolean;
 
     // The two render toggles the dispatching panel owns.
     areReactionCountsExpanded: boolean;

@@ -33,7 +33,7 @@ import './contentItems.css';
 // and the moderation queue — and a filter click is the criteria's business, not the router's.
 export interface ContentItemDefaultPanelProps extends ContentItemTemplateProps {
     // The derivation point. Absent, the default content block renders: thumbnail, title,
-    // excerpt, read-more.
+    // the truncated content, read-more.
     contentSlot?: ReactNode;
 }
 
@@ -66,6 +66,9 @@ export function ContentItemDefaultPanel({
     contentSlot,
     showApprovalStatusRibbon,
     showApprovalStatus = false,
+    truncateAt,
+    allowInPlaceExpansion,
+    isContentExpanded,
     showTagSection = true,
     showBibleReferenceSection = true,
     showReactionSection = true,
@@ -83,6 +86,7 @@ export function ContentItemDefaultPanel({
     saveButtonText = 'Save',
     editButtonText = 'Edit',
     readMoreText = 'read more…',
+    showLessText = 'show less',
     allReactionsText = 'All',
     shareabilityBasisLabels = defaultShareabilityBasisLabels
 }: ContentItemDefaultPanelProps) {
@@ -122,6 +126,11 @@ export function ContentItemDefaultPanel({
 
     const totalReactions =
         reactionSummary.reduce((total, reaction) => total + reaction.count, 0);
+
+    // The content-length pair the dispatcher's trio resolves to on THIS card: whether
+    // there is anything beyond the cut at all, and whether the cut is currently applied.
+    const isContentOverTruncateAt = contentItem.content.length > truncateAt;
+    const isContentTruncated = isContentExpanded === false && isContentOverTruncateAt;
 
     // Whether the engagement row has anything to say. Today's shipped pages often have nothing —
     // no summaries or counts until #318, no wired Edit — and an empty flex row still spends its
@@ -188,8 +197,7 @@ export function ContentItemDefaultPanel({
 
     // The default content block: the thumbnail on the left with the badge and the title stacked
     // BESIDE it — the chip belongs to the title column, not to a row of its own above the image —
-    // then the excerpt beneath, and the way in at the end of it. The clamp is visual (CSS), so
-    // the read-more affordance renders whenever a longer body stands behind the excerpt.
+    // then the content beneath, cut at truncateAt, and the way in at the end of it.
     const defaultContentSlot = (
         <>
             <div className="d-flex align-items-start gap-3">
@@ -220,20 +228,17 @@ export function ContentItemDefaultPanel({
                 </div>
             </div>
 
-            {/* The clamp travels WITH the excerpt: an element that carries one is a list
-                card and clamps to three lines; an element without one is a detail surface
-                showing the full content, which no stylesheet may cut short. */}
-            <p
-                className={`card-text mt-2 mb-0${(contentItem.excerpt ?? '').length > 0
-                    ? ' g2h-content-item-excerpt'
-                    : ''}`}>
-                {(contentItem.excerpt ?? '').length > 0
-                    ? contentItem.excerpt
+            {/* TRUNCATED BY CHARACTERS, decided by the dispatcher's trio: cut at truncateAt
+                with an ellipsis while the content stands collapsed, whole when expanded. The
+                read-more affordance renders only while there is more to read AND somebody is
+                listening — the page's route, or the in-place toggle — and an expanded card
+                that can collapse offers show-less. */}
+            <p className="card-text mt-2 mb-0">
+                {isContentTruncated
+                    ? `${contentItem.content.slice(0, truncateAt).trimEnd()}…`
                     : contentItem.content}
 
-                {/* The way in renders only where a page is listening — a detail surface
-                    already IS the way in, and shows the full content with no clamp. */}
-                {onReadMoreClick != null && (
+                {isContentTruncated && onReadMoreClick != null && (
                     <>
                         {' '}
                         <button
@@ -241,6 +246,18 @@ export function ContentItemDefaultPanel({
                             className="btn btn-link fw-bold p-0 mb-0 align-baseline"
                             onClick={() => onReadMoreClick(contentItem)}>
                             {readMoreText}
+                        </button>
+                    </>
+                )}
+
+                {isContentExpanded && allowInPlaceExpansion && isContentOverTruncateAt && (
+                    <>
+                        {' '}
+                        <button
+                            type="button"
+                            className="btn btn-link fw-bold p-0 mb-0 align-baseline"
+                            onClick={() => onReadMoreClick?.(contentItem)}>
+                            {showLessText}
                         </button>
                     </>
                 )}

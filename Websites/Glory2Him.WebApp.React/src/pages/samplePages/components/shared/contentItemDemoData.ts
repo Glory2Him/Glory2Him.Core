@@ -72,9 +72,6 @@ export const demoStoryItem: ContentItemSearchItem = {
         'When the diagnosis came, I could not pray. But every morning there was bread '
         + 'on the table and a verse in my inbox, and looking back I can see that He was '
         + 'carrying me the whole way through it.',
-    excerpt:
-        'When the diagnosis came, I could not pray. But every morning there was bread '
-        + 'on the table and a verse in my inbox…',
     imageUrl: '/assets/images/blog/4by3/01.jpg',
     shareabilityBasis: 3,
     sharePermission: '',

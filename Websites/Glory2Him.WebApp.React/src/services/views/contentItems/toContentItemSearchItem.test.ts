@@ -7,7 +7,6 @@ import { ShareabilityBasis } from '../../../models/components/contentItems/conte
 import {
     placeholderImageUrlFor,
     toContentItemSearchItem,
-    toExcerpt
 } from './toContentItemSearchItem';
 
 const contentItemFor = (overrides: Partial<ContentItem> = {}): ContentItem => ({
@@ -35,39 +34,6 @@ const contentItemFor = (overrides: Partial<ContentItem> = {}): ContentItem => ({
     deletedWhen: null,
     deletionReason: null,
     ...overrides
-});
-
-describe('toExcerpt', () => {
-    it('should leave a short body exactly as it stands', () => {
-        // when
-        const excerpt = toExcerpt('Grace is the daily air the believer breathes.');
-
-        // then: no ellipsis on something that was never cut
-        expect(excerpt).toBe('Grace is the daily air the believer breathes.');
-    });
-
-    // Contributed text is typed into a textarea, so its paragraph breaks are newlines. A row is
-    // one line of prose, and the panel's clamp cannot collapse what the markup still carries.
-    it('should collapse the paragraph breaks a textarea left behind', () => {
-        // when
-        const excerpt = toExcerpt('  First line.\n\n   Second line.  ');
-
-        // then
-        expect(excerpt).toBe('First line. Second line.');
-    });
-
-    it('should cut a long body on a word boundary rather than mid-word', () => {
-        // given
-        const body = `${'word '.repeat(80)}end`;
-
-        // when
-        const excerpt = toExcerpt(body);
-
-        // then
-        expect(excerpt.endsWith('…')).toBe(true);
-        expect(excerpt).not.toContain('wor…');
-        expect(excerpt.length).toBeLessThanOrEqual(221);
-    });
 });
 
 describe('toContentItemSearchItem', () => {

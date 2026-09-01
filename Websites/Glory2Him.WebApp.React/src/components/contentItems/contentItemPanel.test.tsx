@@ -107,7 +107,6 @@ const devotionalItem: ContentItemSearchItem = {
     title: 'Walking daily in grace',
     author: 'Joan',
     content: 'The whole devotional, far too long for a list.',
-    excerpt: 'Grace is not a one-time event but the daily air the believer breathes.',
     imageUrl: 'https://example.test/grace.jpg',
     submittedById: 'account-joan',
     submittedByName: 'Joan',
@@ -146,12 +145,13 @@ describe('ContentItemPanel', () => {
             expect(screen.getByText(/— William Temple/)).toBeInTheDocument();
         });
 
-        it('should render every other type through the default template, excerpted', () => {
+        it('should render every other type through the default template', () => {
             renderCard(<ContentItemPanel contentItem={devotionalItem} />);
 
             expect(screen.getByText('Walking daily in grace')).toBeInTheDocument();
-            expect(screen.getByText(new RegExp('daily air'))).toBeInTheDocument();
-            expect(screen.queryByText(devotionalItem.content)).not.toBeInTheDocument();
+
+            // shorter than the default truncateAt, so the content stands whole
+            expect(screen.getByText(devotionalItem.content)).toBeInTheDocument();
         });
 
         // A verse card IS its verse: the content already carries its own quotation marks and
@@ -439,9 +439,12 @@ describe('ContentItemPanel', () => {
         it('should raise onReadMoreClick from the read-more affordance', async () => {
             const onReadMoreClick = vi.fn();
 
+            // Cut low enough that this short fixture actually truncates — the affordance
+            // renders only while there is more to read.
             renderCard(
                 <ContentItemPanel
                     contentItem={devotionalItem}
+                    truncateAt={10}
                     onReadMoreClick={onReadMoreClick} />);
 
             await userEvent.click(screen.getByRole('button', { name: 'read more…' }));
@@ -728,12 +731,78 @@ describe('ContentItemPanel', () => {
             expect(screen.queryByText(/\d+ comments/)).not.toBeInTheDocument();
         });
 
-        it('should fall back to the content when no excerpt was written', () => {
+    });
+
+    describe('the content length', () => {
+        const longContent = `${'word '.repeat(120)}ending`;
+        const longItem = { ...devotionalItem, content: longContent };
+
+        it('should cut at truncateAt with an ellipsis and offer the way in', () => {
+            const onReadMoreClick = vi.fn();
+
             renderCard(
                 <ContentItemPanel
-                    contentItem={{ ...devotionalItem, excerpt: undefined }} />);
+                    contentItem={longItem}
+                    onReadMoreClick={onReadMoreClick} />);
 
-            expect(screen.getByText(new RegExp('far too long'))).toBeInTheDocument();
+            // the default 400-character cut: the ending never renders, the ellipsis does
+            expect(screen.queryByText(/ending/)).not.toBeInTheDocument();
+
+            const paragraph = screen.getByText(/^word word/);
+            expect(paragraph.textContent).toContain('\u2026');
+
+            expect(screen.getByRole('button', { name: 'read more\u2026' })).toBeInTheDocument();
+        });
+
+        it('should never cut content that fits, nor offer a way into nothing', () => {
+            renderCard(
+                <ContentItemPanel
+                    contentItem={devotionalItem}
+                    onReadMoreClick={vi.fn()} />);
+
+            expect(screen.getByText(devotionalItem.content)).toBeInTheDocument();
+
+            expect(screen.queryByRole('button', { name: 'read more\u2026' }))
+                .not.toBeInTheDocument();
+        });
+
+        it('should stand the content whole when the surface says expanded', () => {
+            renderCard(
+                <ContentItemPanel
+                    contentItem={longItem}
+                    showContentExpanded
+                    onReadMoreClick={vi.fn()} />);
+
+            expect(screen.getByText(/ending/)).toBeInTheDocument();
+
+            expect(screen.queryByRole('button', { name: 'read more\u2026' }))
+                .not.toBeInTheDocument();
+        });
+
+        it('should toggle in place when the surface allows it', async () => {
+            // given: in-place expansion — read-more is the toggle, not the page's route
+            const onReadMoreClick = vi.fn();
+
+            renderCard(
+                <ContentItemPanel
+                    contentItem={longItem}
+                    allowInPlaceExpansion
+                    onReadMoreClick={onReadMoreClick} />);
+
+            // when: expanded in place
+            await userEvent.click(screen.getByRole('button', { name: 'read more\u2026' }));
+
+            // then: the whole content stands, show-less offers the way back, and the
+            // page's own hook was never asked to navigate
+            expect(screen.getByText(/ending/)).toBeInTheDocument();
+            expect(onReadMoreClick).not.toHaveBeenCalled();
+
+            // when: collapsed again
+            await userEvent.click(screen.getByRole('button', { name: 'show less' }));
+
+            // then
+            expect(screen.queryByText(/ending/)).not.toBeInTheDocument();
+            expect(screen.getByRole('button', { name: 'read more\u2026' })).toBeInTheDocument();
         });
     });
 

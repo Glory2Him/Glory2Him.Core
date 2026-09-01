@@ -65,7 +65,6 @@ const devotionalItem: ContentItemSearchItem = {
     title: 'Walking daily in grace',
     author: 'Miriam Vale',
     content: 'Grace is the daily air.',
-    excerpt: 'Grace is the daily air.',
     submittedById: 'account-joan',
     submittedByName: 'Joan',
     tags: ['grace'],

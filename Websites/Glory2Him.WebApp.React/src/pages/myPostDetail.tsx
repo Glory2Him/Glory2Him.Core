@@ -48,8 +48,8 @@ export function MyPostDetail() {
             contentItemId.length > 0 ? [contentItemId] : []);
 
     // The SAME self-contained element a list surface would carry — one projection for the
-    // whole family — except the excerpt is left off: this page is the reading surface for
-    // the full item, and a clamp with a read-more that leads here would point at itself.
+    // whole family. showContentExpanded on the panel keeps the full content standing: a
+    // cut with a read-more that leads here would point at itself.
     // THE ONE-ELEMENT SWAP, done locally: a save closes the editor and the card shows the
     // amendments because this page swapped its element. The modify WRITE lands with its own
     // service — until then the toast says plainly that the changes live on this page only.
@@ -67,7 +67,6 @@ export function MyPostDetail() {
             ? undefined
             : {
                 ...toContentItemSearchItem(contentItem, contentItemSettings ?? []),
-                excerpt: undefined,
 
                 // The swapped-in amendments, where a save made some.
                 ...(amendedItem == null
@@ -151,6 +150,7 @@ export function MyPostDetail() {
                                 isEditingAllowed
                                 showApprovalStatusRibbon
                                 showApprovalStatus
+                                showContentExpanded
                                 showTagSection={false}
                                 showBibleReferenceSection={false}
                                 onModified={saveChanges}

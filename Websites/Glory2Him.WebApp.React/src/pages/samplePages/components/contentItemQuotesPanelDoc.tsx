@@ -140,6 +140,9 @@ export function ContentItemQuotesPanelDoc() {
                         showApprovalStatusRibbon={showApprovalStatusRibbon}
                         showReactionSection={showReactionSection}
                         showShareSection={showShareSection}
+                        truncateAt={400}
+                        allowInPlaceExpansion={false}
+                        isContentExpanded={false}
                         areReactionCountsExpanded={false}
                         onAssignedReactionsClick={() => { }}
                         isReactionPickerOpen={isReactionPickerOpen}

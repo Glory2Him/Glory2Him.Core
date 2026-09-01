@@ -38,6 +38,9 @@ export interface ContentItemResultsPanelProps
     isModeratedView?: boolean;
     showApprovalStatusRibbon?: boolean;
     showApprovalStatus?: boolean;
+    showContentExpanded?: boolean;
+    truncateAt?: number;
+    allowInPlaceExpansion?: boolean;
 
     // The FIRST page. While it is on, the list is replaced by a spinner rather than being
     // emptied, so a re-search does not flash "nothing found" on its way to results.

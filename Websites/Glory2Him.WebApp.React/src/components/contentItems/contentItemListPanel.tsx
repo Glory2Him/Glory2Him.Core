@@ -89,6 +89,13 @@ export interface ContentItemListPanelProps
     // approval-status PILL beside the type chip. Off by default; on, every status shows.
     showApprovalStatus?: boolean;
 
+    // The content-length trio, threaded to every card — ContentItemPanel owns what each
+    // means: cut at truncateAt with the read-more affordance unless showContentExpanded,
+    // and allowInPlaceExpansion turns read-more into an in-place expand/collapse toggle.
+    showContentExpanded?: boolean;
+    truncateAt?: number;
+    allowInPlaceExpansion?: boolean;
+
     // ── Presentation ──────────────────────────────────────────────────────────
     cssClass?: string;
     ariaLabel?: string;

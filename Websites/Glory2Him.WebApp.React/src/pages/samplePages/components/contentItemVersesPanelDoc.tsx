@@ -111,6 +111,9 @@ export function ContentItemVersesPanelDoc() {
                         moderateButtonLabel="Moderate"
                         showApprovalStatusRibbon={showApprovalStatusRibbon}
                         showBibleReferenceSection={showBibleReferenceSection}
+                        truncateAt={400}
+                        allowInPlaceExpansion={false}
+                        isContentExpanded={false}
                         areReactionCountsExpanded={false}
                         onAssignedReactionsClick={() => { }}
                         isReactionPickerOpen={false}

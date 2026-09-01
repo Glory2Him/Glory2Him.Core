@@ -11,24 +11,6 @@ import {
 // self-contained element every face renders from — the list card, the detail view, and the
 // editor seed ContentItemPanel derives when Edit is taken.
 
-// How much of a body a row shows before the panel's own clamp takes over. Cut on a word boundary
-// so an excerpt never ends mid-word, and only when there is enough over the limit to be worth
-// cutting — trimming four characters off a paragraph buys nothing and costs an ellipsis.
-const excerptLength = 220;
-
-export const toExcerpt = (content: string): string => {
-    const normalized = content.replace(/\s+/g, ' ').trim();
-
-    if (normalized.length <= excerptLength) {
-        return normalized;
-    }
-
-    const cut = normalized.slice(0, excerptLength);
-    const lastSpace = cut.lastIndexOf(' ');
-
-    return `${(lastSpace > 0 ? cut.slice(0, lastSpace) : cut).trimEnd()}…`;
-};
-
 // THE PLACEHOLDER, and it is a placeholder rather than a picture of anything. ContentItem carries
 // no image column and Attachment has no HTTP exposer, so there is nothing to fetch — these are
 // the theme's own stock images, chosen by CONTENT TYPE so the same type always looks the same and
@@ -69,7 +51,6 @@ export const toContentItemSearchItem = (
     title: contentItem.title ?? undefined,
     author: contentItem.author ?? undefined,
     content: contentItem.content,
-    excerpt: toExcerpt(contentItem.content),
     imageUrl: placeholderImageUrlFor(contentItem.contentType),
     shareabilityBasis: contentItem.shareabilityBasis,
     sharePermission: contentItem.sharePermission ?? '',

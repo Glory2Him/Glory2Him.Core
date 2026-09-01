@@ -42,14 +42,11 @@ export type ContentItemSearchItem = {
     // submitted the row. Absent on the types whose setting carries no author.
     author?: string;
 
-    // The item's own text. The quote template shows it WHOLE — a quote is short enough to form an
-    // opinion on — while the default template shows `excerpt` instead.
+    // The item's own text, WHOLE. The quote template shows it entire — a quote is short
+    // enough to form an opinion on — and the default template cuts it at the surface's
+    // truncateAt with the read-more affordance, so no second excerpt field exists to drift
+    // from the content it summarises.
     content: string;
-
-    // What the default template shows in place of the full content. Left to the consumer rather
-    // than truncated here: a summary somebody wrote beats the first 220 characters of anything,
-    // and when it is absent the template falls back to the content itself.
-    excerpt?: string;
 
     // The card's imagery — the quote hero's background, the default template's thumbnail.
     // NOTHING FETCHES THIS: ContentItem carries no image column and Attachment has no exposer, so

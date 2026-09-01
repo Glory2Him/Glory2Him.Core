@@ -236,16 +236,6 @@ section.g2h-content-item-list-panel {
     padding-bottom: 0;
 }
 
-/* The default template shows an EXCERPT, and an excerpt that runs to twelve lines is not one.
-   Clamped visually so the consumer's own summary is never cut mid-sentence in the markup. */
-.g2h-content-item-excerpt {
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
-
 /* The default template's thumbnail: a fixed square beside the title, so a portrait image cannot
    stretch the card and a landscape one cannot squash the heading. */
 .g2h-content-item-thumb {

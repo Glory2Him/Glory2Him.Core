@@ -196,10 +196,6 @@ const demoItems: ReadonlyArray<ContentItemSearchItem> = [
             + '"myth" in the Bible is true? Scientists at Green Belt, Maryland were checking '
             + 'the position of the sun, moon, and planets out in space when the computer '
             + 'stopped and put up a red signal: a day was missing in elapsed time.',
-        excerpt:
-            'Did you know that the space program is busy proving that what has been called '
-            + '"myth" in the Bible is true? Scientists at Green Belt, Maryland were checking '
-            + 'the position of the sun, moon, and planets…',
         submittedById: 'account-louis',
         submittedByName: 'Louis',
         shareabilityBasis: ShareabilityBasis.PermissionGranted,
@@ -222,9 +218,6 @@ const demoItems: ReadonlyArray<ContentItemSearchItem> = [
             'Grace is not a one-time event but the daily air the believer breathes. We wake '
             + 'to mercies that are new every morning, walk through the day leaning on strength '
             + 'that is not our own, and lie down at night forgiven.',
-        excerpt:
-            'Grace is not a one-time event but the daily air the believer breathes. We wake '
-            + 'to mercies that are new every morning…',
         imageUrl: '/assets/images/blog/4by3/03.jpg',
         submittedById: 'account-joan',
         submittedByName: 'Joan',
@@ -483,7 +476,7 @@ export function ContentItemListPanelDoc() {
                         A quote renders <strong>whole</strong> through the Quotes override — a
                         dark hero where the item carries an image, a quiet block where it does
                         not — because a quote is short enough to form an opinion on. Every other
-                        type renders through the default template: title, excerpt,
+                        type renders through the default template: title, truncated content,
                         read&nbsp;more. Both carry the same meta row, pills and engagement row,
                         because the override derives from the default.
                     </>

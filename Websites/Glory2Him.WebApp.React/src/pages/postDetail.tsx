@@ -48,13 +48,12 @@ export function PostDetail() {
 
     // The SAME self-contained element the feeds carry — one projection, one face, the whole
     // family — enriched with what this page alone has resolved: the contributor’s name for
-    // the meta row. The excerpt is left off because this page IS the full reading surface.
+    // the meta row.
     const searchItem = useMemo(
         () => contentItem == null
             ? undefined
             : {
                 ...toContentItemSearchItem(contentItem, contentItemSettings ?? []),
-                excerpt: undefined,
                 submittedByName: contributor?.displayName,
                 submittedByImageUrl: contributor?.imageUrl ?? undefined
             },
@@ -114,7 +113,10 @@ export function PostDetail() {
                                     outline alone rather than printing it twice. */}
                                 <h1 className="visually-hidden">{pageHeading}</h1>
 
-                                <ContentItemPanel contentItem={searchItem} />
+                                {/* The full reading surface: no cut, no read-more. */}
+                                <ContentItemPanel
+                                    contentItem={searchItem}
+                                    showContentExpanded />
                             </>
                         )}
                     </div>
