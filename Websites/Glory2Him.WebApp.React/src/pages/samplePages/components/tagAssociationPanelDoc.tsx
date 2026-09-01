@@ -87,13 +87,18 @@ const defaultRows: ReadonlyArray<ComponentPropRow> = [
         description: 'Shown to a signed-out reader in place of the box.'
     },
     {
-        name: 'moderationRoles', type: 'string',
+        name: 'moderationRoles', type: 'string (csv)',
         defaultValue: "'Reviewers, Publishers, Administrators, Tag-Reviewers, Tag-Publishers'",
         description: 'The global tier plus the Tag-scoped pair (§18.6).'
     },
     {
-        name: 'showAdd / showRemove / showModeration', type: 'boolean', defaultValue: 'true',
+        name: 'showAdd', type: 'boolean', defaultValue: 'true',
         description: 'On by default so the bare component matches the post-detail panel.'
+    },
+    {
+        name: 'showModerationActions', type: 'boolean', defaultValue: 'false',
+        description: 'Off by default; switch on for a moderation surface to expose Remove, '
+            + 'Reject and Approve per moderationRoles/removeRoles.'
     }
 ];
 

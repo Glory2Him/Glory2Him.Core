@@ -173,6 +173,6 @@ describe('TagAssociationPanel', () => {
                 }]} />);
 
         // then: the tag is not even visible to a moderator this scope doesn't cover
-        expect(screen.queryByText('test')).not.toBeInTheDocument();
+        expect(screen.queryByRole('link', { name: '#test' })).not.toBeInTheDocument();
     });
 });

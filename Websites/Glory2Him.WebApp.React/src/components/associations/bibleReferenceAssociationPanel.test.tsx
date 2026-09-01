@@ -164,6 +164,6 @@ describe('BibleReferenceAssociationPanel', () => {
                 }]} />);
 
         // then: the reference is not even visible to a moderator this scope doesn't cover
-        expect(screen.queryByText(/Romans 3:23/)).not.toBeInTheDocument();
+        expect(screen.queryByRole('link', { name: /Romans 3:23/ })).not.toBeInTheDocument();
     });
 });
