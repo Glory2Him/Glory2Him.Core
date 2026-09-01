@@ -1,19 +1,12 @@
-import { useState } from 'react';
-
-import {
-    ContentItemDefaultPanel
-} from '../../../components/contentItems/contentItemDefaultPanel';
-
 import { useDocumentTitle } from '../../useDocumentTitle';
-import { demoReactionOptions, demoStoryItem } from './shared/contentItemDemoData';
+import { demoStoryItem } from './shared/contentItemDemoData';
+import { ContentItemPanelPlayground } from './shared/contentItemPanelPlayground';
 
 import {
     CodeSample,
     ComponentDoc,
     ComponentPropRow,
-    DemoControls,
     DocSection,
-    LiveDemo,
     PropsTable
 } from './shared/componentDoc';
 
@@ -36,10 +29,9 @@ const templateProps: ReadonlyArray<ComponentPropRow> = [
         name: 'contentSlot',
         type: 'ReactNode?',
         description: 'THE DERIVATION POINT. Absent, the default content block renders '
-            + '(thumbnail, badge and title, the truncated content, read-more). An '
-            + 'override — Quotes, '
-            + 'Verses — renders THIS template with contentSlot replaced, so the meta row, '
-            + 'the pills and the engagement row are written once and carried identically.'
+            + '(thumbnail, badge and title, the truncated content, read-more). An override — '
+            + 'Quotes, Verses — renders THIS template with contentSlot replaced, so the meta '
+            + 'row, the pills and the engagement row are written once and carried identically.'
     },
     {
         name: 'showsEditButton / showsModerateButton',
@@ -56,10 +48,20 @@ const templateProps: ReadonlyArray<ComponentPropRow> = [
             + 'and whether the Like picker stands open.'
     },
     {
-        name: 'showApprovalStatusRibbon',
+        name: 'showApprovalStatusRibbon / showApprovalStatus',
         type: 'boolean',
-        description: 'The status corner ribbon, rendered on the card ROOT so every derived '
-            + 'template wears it identically.'
+        description: 'The status pair, threaded from the surface: the corner ribbon on the '
+            + 'card ROOT (every derived template wears it identically) and the status pill '
+            + 'beside the type chip — each showing every status once asked, Approved '
+            + 'included.'
+    },
+    {
+        name: 'truncateAt / allowInPlaceExpansion / isContentExpanded',
+        type: 'number / boolean / boolean',
+        description: 'The content length, decided by the dispatcher: cut at truncateAt with '
+            + 'an ellipsis and the read-more affordance while collapsed, whole when '
+            + 'expanded — and read-more either raises the page’s onReadMoreClick or toggles '
+            + 'the expansion in place, never both.'
     },
     {
         name: 'showTagSection / showBibleReferenceSection / showReactionSection / '
@@ -75,44 +77,32 @@ const templateProps: ReadonlyArray<ComponentPropRow> = [
         type: '(item) => void',
         description: 'The event hooks, unchanged across the family — a control renders only '
             + 'where somebody is listening: no onTitleClick and the title stands as plain '
-            + 'heading text, no onReadMoreClick and no way-in renders (a detail surface '
-            + 'already IS the way in).'
+            + 'heading text.'
     }
 ];
 
 export function ContentItemDefaultPanelDoc() {
     useDocumentTitle('Content Item Default Panel — Components — Glory 2 Him');
 
-    const [showsEditButton, setShowsEditButton] = useState(true);
-    const [showsModerateButton, setShowsModerateButton] = useState(false);
-    const [areReactionCountsExpanded, setAreReactionCountsExpanded] = useState(false);
-    const [isReactionPickerOpen, setIsReactionPickerOpen] = useState(false);
-    const [showApprovalStatusRibbon, setShowApprovalStatusRibbon] = useState(false);
-    const [showTagSection, setShowTagSection] = useState(true);
-    const [showBibleReferenceSection, setShowBibleReferenceSection] = useState(true);
-    const [showReactionSection, setShowReactionSection] = useState(true);
-    const [showCommentsSection, setShowCommentsSection] = useState(true);
-    const [showShareSection, setShowShareSection] = useState(true);
-    const [showSaveSection, setShowSaveSection] = useState(true);
-    const [lastEvent, setLastEvent] = useState('');
-
     return (
         <ComponentDoc
             name="Content Item Default Panel"
             filePath="src/components/contentItems/contentItemDefaultPanel.tsx"
-            summary="The view template most content types render through: type badge, content
-                block, meta row, tag and reference pills, and the engagement row. The per-type
-                overrides derive from it by replacing contentSlot alone.">
+            summary="The view template most content types render through: type badge and
+                status pill, content block, meta row, tag and reference pills, and the
+                engagement row. The per-type overrides derive from it by replacing
+                contentSlot alone.">
 
             <DocSection
                 title="Where it stands in the family"
                 lead={
                     <>
                         A template renders a FULLY DECIDED bundle: ownership, the moderation
-                        tier, the reaction gating and the per-card toggles are all
-                        <code> ContentItemPanel</code>&rsquo;s decisions, handed over made.
-                        That is why every switch below exists here as a plain boolean prop —
-                        this page plays the dispatcher.
+                        tier, the reaction gating, the status pair and the content length are
+                        all <code>ContentItemPanel</code>&rsquo;s decisions, handed over made.
+                        The playground below therefore drives the DISPATCHER — the same
+                        control surface every page in the family carries — and this template
+                        renders what it decides.
                     </>
                 }>
                 <CodeSample code={familySample} caption="One tree, every face" />
@@ -126,121 +116,13 @@ export function ContentItemDefaultPanelDoc() {
                 title="Live"
                 lead={
                     <>
-                        Every switch is one of this template&rsquo;s own props — the decided
-                        bundle, driven by hand. Last event:{' '}
-                        <code>{lastEvent.length > 0 ? lastEvent : '(none yet)'}</code>
+                        The full family control surface — security context, ribbon status and
+                        every threaded switch — over a story rendering through this template.
+                        As an owner, Edit swaps the card for the editor in place and Save
+                        swaps the element back with the amendments.
                     </>
                 }>
-                <DemoControls toggles={[
-                    {
-                        name: 'shows-edit',
-                        label: 'showsEditButton (decided: the viewer owns it)',
-                        value: showsEditButton,
-                        onChange: setShowsEditButton
-                    },
-                    {
-                        name: 'shows-moderate',
-                        label: 'showsModerateButton (decided: the viewer moderates)',
-                        value: showsModerateButton,
-                        onChange: setShowsModerateButton
-                    },
-                    {
-                        name: 'counts-expanded',
-                        label: 'areReactionCountsExpanded (cluster face)',
-                        value: areReactionCountsExpanded,
-                        onChange: setAreReactionCountsExpanded
-                    },
-                    {
-                        name: 'picker-open',
-                        label: 'isReactionPickerOpen (Like choices open)',
-                        value: isReactionPickerOpen,
-                        onChange: setIsReactionPickerOpen
-                    },
-                    {
-                        name: 'ribbons',
-                        label: 'showApprovalStatusRibbon (status corner ribbon)',
-                        value: showApprovalStatusRibbon,
-                        onChange: setShowApprovalStatusRibbon
-                    },
-                    {
-                        name: 'tag-section',
-                        label: 'showTagSection',
-                        value: showTagSection,
-                        onChange: setShowTagSection
-                    },
-                    {
-                        name: 'bible-reference-section',
-                        label: 'showBibleReferenceSection',
-                        value: showBibleReferenceSection,
-                        onChange: setShowBibleReferenceSection
-                    },
-                    {
-                        name: 'reaction-section',
-                        label: 'showReactionSection',
-                        value: showReactionSection,
-                        onChange: setShowReactionSection
-                    },
-                    {
-                        name: 'comments-section',
-                        label: 'showCommentsSection',
-                        value: showCommentsSection,
-                        onChange: setShowCommentsSection
-                    },
-                    {
-                        name: 'share-section',
-                        label: 'showShareSection',
-                        value: showShareSection,
-                        onChange: setShowShareSection
-                    },
-                    {
-                        name: 'save-section',
-                        label: 'showSaveSection',
-                        value: showSaveSection,
-                        onChange: setShowSaveSection
-                    }
-                ]} />
-
-                <LiveDemo>
-                    <ContentItemDefaultPanel
-                        contentItem={demoStoryItem}
-                        contentItemSetting={demoStoryItem.contentItemSetting}
-                        contentTypeName="Story"
-                        offeredReactions={showReactionSection ? demoReactionOptions : []}
-                        showsEditButton={showsEditButton}
-                        showsModerateButton={showsModerateButton}
-                        moderateButtonIconCss="bi bi-shield"
-                        moderateButtonLabel="Moderate"
-                        showApprovalStatusRibbon={showApprovalStatusRibbon}
-                        showTagSection={showTagSection}
-                        showBibleReferenceSection={showBibleReferenceSection}
-                        showReactionSection={showReactionSection}
-                        showCommentsSection={showCommentsSection}
-                        showShareSection={showShareSection}
-                        showSaveSection={showSaveSection}
-                        truncateAt={120}
-                        allowInPlaceExpansion={false}
-                        isContentExpanded={false}
-                        areReactionCountsExpanded={areReactionCountsExpanded}
-                        onAssignedReactionsClick={() =>
-                            setAreReactionCountsExpanded(!areReactionCountsExpanded)}
-                        isReactionPickerOpen={isReactionPickerOpen}
-                        onReactionClick={() =>
-                            setIsReactionPickerOpen(!isReactionPickerOpen)}
-                        onReactionSelected={(_item, reaction) => {
-                            setIsReactionPickerOpen(false);
-                            setLastEvent(`onReactionSelected(${reaction.label})`);
-                        }}
-                        onTitleClick={(item) => setLastEvent(`onTitleClick(${item.id})`)}
-                        onReadMoreClick={(item) => setLastEvent(`onReadMoreClick(${item.id})`)}
-                        onCommentsClick={(item) => setLastEvent(`onCommentsClick(${item.id})`)}
-                        onShareClick={(item) => setLastEvent(`onShareClick(${item.id})`)}
-                        onSaveClick={(item) => setLastEvent(`onSaveClick(${item.id})`)}
-                        onEditClick={(item) => setLastEvent(`onEditClick(${item.id})`)}
-                        onModerateClick={(item) => setLastEvent(`onModerateClick(${item.id})`)}
-                        onTagClick={(_item, tag) => setLastEvent(`onTagClick(${tag})`)}
-                        onBibleReferenceClick={(_item, reference) =>
-                            setLastEvent(`onBibleReferenceClick(${reference})`)} />
-                </LiveDemo>
+                <ContentItemPanelPlayground contentItem={demoStoryItem} />
             </DocSection>
         </ComponentDoc>
     );

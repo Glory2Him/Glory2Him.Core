@@ -1,19 +1,12 @@
-import { useState } from 'react';
-
-import {
-    ContentItemQuotesPanel
-} from '../../../components/contentItems/contentItemQuotesPanel';
-
 import { useDocumentTitle } from '../../useDocumentTitle';
-import { demoQuoteItem, demoReactionOptions } from './shared/contentItemDemoData';
+import { demoQuoteItem } from './shared/contentItemDemoData';
+import { ContentItemPanelPlayground } from './shared/contentItemPanelPlayground';
 
 import {
     CodeSample,
     ComponentDoc,
     ComponentPropRow,
-    DemoControls,
     DocSection,
-    LiveDemo,
     PropsTable
 } from './shared/componentDoc';
 
@@ -42,10 +35,10 @@ const quoteProps: ReadonlyArray<ComponentPropRow> = [
     {
         name: '…everything ContentItemDefaultPanel takes',
         type: 'ContentItemTemplateProps',
-        description: 'The same decided bundle, passed straight through — the section '
-            + 'switches, the ribbon, the engagement row and every event hook behave '
-            + 'identically because they ARE the default template’s, inherited by '
-            + 'composition. See the Content Item Default Panel page for the full table.'
+        description: 'The same decided bundle, passed straight through — the status pair, '
+            + 'the section switches, the content length, the engagement row and every event '
+            + 'hook behave identically because they ARE the default template’s, inherited '
+            + 'by composition. See the Content Item Default Panel page for the full table.'
     },
     {
         name: '(the quote face)',
@@ -58,12 +51,6 @@ const quoteProps: ReadonlyArray<ComponentPropRow> = [
 
 export function ContentItemQuotesPanelDoc() {
     useDocumentTitle('Content Item Quotes Panel — Components — Glory 2 Him');
-
-    const [showApprovalStatusRibbon, setShowApprovalStatusRibbon] = useState(false);
-    const [showReactionSection, setShowReactionSection] = useState(true);
-    const [showShareSection, setShowShareSection] = useState(true);
-    const [isReactionPickerOpen, setIsReactionPickerOpen] = useState(false);
-    const [lastEvent, setLastEvent] = useState('');
 
     return (
         <ComponentDoc
@@ -79,7 +66,9 @@ export function ContentItemQuotesPanelDoc() {
                     <>
                         Registered against <code>ContentType.Quote</code> in{' '}
                         <code>ContentItemPanel</code>&rsquo;s template registry — adding an
-                        override is exactly one line there.
+                        override is exactly one line there. Because it derives from the
+                        default template, its control surface is the default&rsquo;s, whole:
+                        the playground below is the same one every page in the family carries.
                     </>
                 }>
                 <CodeSample code={familySample} caption="One tree, every face" />
@@ -94,68 +83,12 @@ export function ContentItemQuotesPanelDoc() {
                 title="Live"
                 lead={
                     <>
-                        The switches are the template&rsquo;s own props, inherited from the
-                        default — flip them and the shared rows react exactly as they do on
-                        every other card. Last event:{' '}
-                        <code>{lastEvent.length > 0 ? lastEvent : '(none yet)'}</code>
+                        The full family control surface over a quote rendering through this
+                        override — security context, ribbon status, the status pair, and the
+                        way into the edit face as an owner.
                     </>
                 }>
-                <DemoControls toggles={[
-                    {
-                        name: 'quote-ribbons',
-                        label: 'showApprovalStatusRibbon (status corner ribbon)',
-                        value: showApprovalStatusRibbon,
-                        onChange: setShowApprovalStatusRibbon
-                    },
-                    {
-                        name: 'quote-reaction-section',
-                        label: 'showReactionSection',
-                        value: showReactionSection,
-                        onChange: setShowReactionSection
-                    },
-                    {
-                        name: 'quote-share-section',
-                        label: 'showShareSection',
-                        value: showShareSection,
-                        onChange: setShowShareSection
-                    },
-                    {
-                        name: 'quote-picker-open',
-                        label: 'isReactionPickerOpen (Like choices open)',
-                        value: isReactionPickerOpen,
-                        onChange: setIsReactionPickerOpen
-                    }
-                ]} />
-
-                <LiveDemo>
-                    <ContentItemQuotesPanel
-                        contentItem={demoQuoteItem}
-                        contentItemSetting={demoQuoteItem.contentItemSetting}
-                        contentTypeName="Quote"
-                        offeredReactions={showReactionSection ? demoReactionOptions : []}
-                        showsEditButton={false}
-                        showsModerateButton={false}
-                        moderateButtonIconCss="bi bi-shield"
-                        moderateButtonLabel="Moderate"
-                        showApprovalStatusRibbon={showApprovalStatusRibbon}
-                        showReactionSection={showReactionSection}
-                        showShareSection={showShareSection}
-                        truncateAt={400}
-                        allowInPlaceExpansion={false}
-                        isContentExpanded={false}
-                        areReactionCountsExpanded={false}
-                        onAssignedReactionsClick={() => { }}
-                        isReactionPickerOpen={isReactionPickerOpen}
-                        onReactionClick={() =>
-                            setIsReactionPickerOpen(!isReactionPickerOpen)}
-                        onReactionSelected={(_item, reaction) => {
-                            setIsReactionPickerOpen(false);
-                            setLastEvent(`onReactionSelected(${reaction.label})`);
-                        }}
-                        onShareClick={(item) => setLastEvent(`onShareClick(${item.id})`)}
-                        onAuthorClick={(item) =>
-                            setLastEvent(`onAuthorClick(${item.author ?? ''})`)} />
-                </LiveDemo>
+                <ContentItemPanelPlayground contentItem={demoQuoteItem} />
             </DocSection>
         </ComponentDoc>
     );

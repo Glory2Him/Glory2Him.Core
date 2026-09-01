@@ -1,19 +1,12 @@
-import { useState } from 'react';
-
-import {
-    ContentItemVersesPanel
-} from '../../../components/contentItems/contentItemVersesPanel';
-
 import { useDocumentTitle } from '../../useDocumentTitle';
 import { demoVersesItem } from './shared/contentItemDemoData';
+import { ContentItemPanelPlayground } from './shared/contentItemPanelPlayground';
 
 import {
     CodeSample,
     ComponentDoc,
     ComponentPropRow,
-    DemoControls,
     DocSection,
-    LiveDemo,
     PropsTable
 } from './shared/componentDoc';
 
@@ -47,10 +40,6 @@ const versesProps: ReadonlyArray<ComponentPropRow> = [
 export function ContentItemVersesPanelDoc() {
     useDocumentTitle('Content Item Verses Panel — Components — Glory 2 Him');
 
-    const [showApprovalStatusRibbon, setShowApprovalStatusRibbon] = useState(false);
-    const [showBibleReferenceSection, setShowBibleReferenceSection] = useState(true);
-    const [lastEvent, setLastEvent] = useState('');
-
     return (
         <ComponentDoc
             name="Content Item Verses Panel"
@@ -65,7 +54,10 @@ export function ContentItemVersesPanelDoc() {
                     <>
                         Registered against <code>ContentType.Verses</code> in{' '}
                         <code>ContentItemPanel</code>&rsquo;s template registry, the way every
-                        override arrives — one line, seeds and all.
+                        override arrives — one line, seeds and all. Because it derives from
+                        the default template, its control surface is the default&rsquo;s,
+                        whole: the playground below is the same one every page in the family
+                        carries.
                     </>
                 }>
                 <CodeSample code={familySample} caption="One tree, every face" />
@@ -79,48 +71,12 @@ export function ContentItemVersesPanelDoc() {
                 title="Live"
                 lead={
                     <>
-                        The switches are the template&rsquo;s own props, inherited from the
-                        default. Last event:{' '}
-                        <code>{lastEvent.length > 0 ? lastEvent : '(none yet)'}</code>
+                        The full family control surface over a verse rendering through this
+                        override — security context, ribbon status, the status pair, and the
+                        way into the edit face as an owner.
                     </>
                 }>
-                <DemoControls toggles={[
-                    {
-                        name: 'verses-ribbons',
-                        label: 'showApprovalStatusRibbon (status corner ribbon)',
-                        value: showApprovalStatusRibbon,
-                        onChange: setShowApprovalStatusRibbon
-                    },
-                    {
-                        name: 'verses-bible-reference-section',
-                        label: 'showBibleReferenceSection',
-                        value: showBibleReferenceSection,
-                        onChange: setShowBibleReferenceSection
-                    }
-                ]} />
-
-                <LiveDemo>
-                    <ContentItemVersesPanel
-                        contentItem={demoVersesItem}
-                        contentItemSetting={demoVersesItem.contentItemSetting}
-                        contentTypeName="Verse Image"
-                        offeredReactions={[]}
-                        showsEditButton={false}
-                        showsModerateButton={false}
-                        moderateButtonIconCss="bi bi-shield"
-                        moderateButtonLabel="Moderate"
-                        showApprovalStatusRibbon={showApprovalStatusRibbon}
-                        showBibleReferenceSection={showBibleReferenceSection}
-                        truncateAt={400}
-                        allowInPlaceExpansion={false}
-                        isContentExpanded={false}
-                        areReactionCountsExpanded={false}
-                        onAssignedReactionsClick={() => { }}
-                        isReactionPickerOpen={false}
-                        onReactionClick={() => { }}
-                        onBibleReferenceClick={(_item, reference) =>
-                            setLastEvent(`onBibleReferenceClick(${reference})`)} />
-                </LiveDemo>
+                <ContentItemPanelPlayground contentItem={demoVersesItem} />
             </DocSection>
         </ComponentDoc>
     );

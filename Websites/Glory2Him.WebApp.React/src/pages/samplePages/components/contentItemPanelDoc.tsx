@@ -15,19 +15,13 @@ import {
 
 import { useDocumentTitle } from '../../useDocumentTitle';
 
-import {
-    DemoSecurityContext,
-    demoSubmitterIdFor,
-    SecurityContextSection,
-    securityContextOptions
-} from './shared/securityContextDemo';
+import { ContentItemPanelPlayground } from './shared/contentItemPanelPlayground';
 
 import {
     CodeSample,
     ComponentDoc,
     ComponentPropRow,
     DemoControls,
-    DemoRadioGroup,
     DocSection,
     LiveDemo,
     PropsTable
@@ -277,14 +271,6 @@ const panelProps: ReadonlyArray<ComponentPropRow> = [
     }
 ];
 
-// The four statuses the corner ribbon can wear — Dismissed has no ribbon by design.
-const ribbonStatusOptions = [
-    { key: String(ApprovalStatus.Draft), label: 'Draft (grey)' },
-    { key: String(ApprovalStatus.Submitted), label: 'Submitted (yellow)' },
-    { key: String(ApprovalStatus.Approved), label: 'Approved (green)' },
-    { key: String(ApprovalStatus.Rejected), label: 'Rejected (red)' }
-] as const;
-
 export function ContentItemPanelDoc() {
     useDocumentTitle('Content Item Panel — Components — Glory 2 Him');
     const { isAuthenticated } = useAuth();
@@ -295,35 +281,6 @@ export function ContentItemPanelDoc() {
     const [isAddLoading, setIsAddLoading] = useState(false);
     const [isAddSubmitting, setIsAddSubmitting] = useState(false);
     const [showsAddApiIssues, setShowsAddApiIssues] = useState(false);
-
-    // WHO the demo is viewed as, and WHAT status the item stands in. The gates are real —
-    // presentation gates, which is exactly why the page may simulate any viewer: the demo
-    // subtree runs under the chosen security context, and the item's submitter follows the
-    // owner half of the choice.
-    const [securityContext, setSecurityContext] = useState(securityContextOptions[0]);
-
-    const [ribbonStatus, setRibbonStatus] =
-        useState<ApprovalStatus>(ApprovalStatus.Draft);
-
-    const viewedDemoItem = {
-        ...demoItem,
-        submittedById: demoSubmitterIdFor(securityContext),
-        approvalStatus: ribbonStatus
-    };
-
-    // The playground's switches — each one of this panel's own props.
-    const [showApprovalStatusRibbon, setShowApprovalStatusRibbon] = useState(true);
-    const [showApprovalStatus, setShowApprovalStatus] = useState(true);
-    const [showContentExpanded, setShowContentExpanded] = useState(false);
-    const [allowInPlaceExpansion, setAllowInPlaceExpansion] = useState(true);
-    const [isEditingAllowed, setIsEditingAllowed] = useState(true);
-    const [isModeratedView, setIsModeratedView] = useState(false);
-    const [showTagSection, setShowTagSection] = useState(true);
-    const [showBibleReferenceSection, setShowBibleReferenceSection] = useState(true);
-    const [showReactionSection, setShowReactionSection] = useState(true);
-    const [showCommentsSection, setShowCommentsSection] = useState(true);
-    const [showShareSection, setShowShareSection] = useState(true);
-    const [showSaveSection, setShowSaveSection] = useState(true);
 
     return (
         <ComponentDoc
@@ -422,134 +379,16 @@ export function ContentItemPanelDoc() {
                 title="The view face, and Edit in place"
                 lead={
                     <>
-                        The same card every feed shows, viewed as WHOEVER the security
-                        context says — the ownership and role gates are presentation gates,
-                        so the demo may honestly step into any viewer. As an owner, with{' '}
-                        <code>isEditingAllowed</code> on and <code>onModified</code> wired,
-                        <strong> Edit swaps the card for the editor right here</strong>{' '}
-                        (Cancel brings the card back); the moderation tier sees the shield,
-                        and <code>isModeratedView</code> restyles it into Edit&rsquo;s
-                        pencil, standing alone. The ribbon wears whichever status the radio
-                        picks — with <code>showApprovalStatusRibbon</code> on.
+                        The same card every feed shows, driven by the family’s ONE
+                        playground — the identical control surface every template page
+                        carries, because the templates inherit it from the dispatcher. As
+                        an owner, Edit swaps the card for the editor in place; Save swaps
+                        the element back with the amendments; the moderation tier sees the
+                        shield, and <code>isModeratedView</code> restyles it into
+                        Edit&rsquo;s pencil, standing alone.
                     </>
                 }>
-                <SecurityContextSection
-                    selected={securityContext}
-                    onChange={setSecurityContext} />
-
-                <DemoRadioGroup
-                    title="Ribbon status"
-                    name="demo-ribbon-status"
-                    options={ribbonStatusOptions}
-                    selectedKey={String(ribbonStatus)}
-                    onChange={(key) => setRibbonStatus(Number(key) as ApprovalStatus)} />
-
-                <DemoControls toggles={[
-                    {
-                        name: 'panel-ribbons',
-                        label: 'showApprovalStatusRibbon',
-                        value: showApprovalStatusRibbon,
-                        onChange: setShowApprovalStatusRibbon
-                    },
-                    {
-                        name: 'panel-status-pill',
-                        label: 'showApprovalStatus',
-                        value: showApprovalStatus,
-                        onChange: setShowApprovalStatus
-                    },
-                    {
-                        name: 'panel-content-expanded',
-                        label: 'showContentExpanded',
-                        value: showContentExpanded,
-                        onChange: setShowContentExpanded
-                    },
-                    {
-                        name: 'panel-in-place-expansion',
-                        label: 'allowInPlaceExpansion (read-more toggles here)',
-                        value: allowInPlaceExpansion,
-                        onChange: setAllowInPlaceExpansion
-                    },
-                    {
-                        name: 'panel-editing',
-                        label: 'isEditingAllowed',
-                        value: isEditingAllowed,
-                        onChange: setIsEditingAllowed
-                    },
-                    {
-                        name: 'panel-moderated',
-                        label: 'isModeratedView',
-                        value: isModeratedView,
-                        onChange: setIsModeratedView
-                    },
-                    {
-                        name: 'panel-tags',
-                        label: 'showTagSection',
-                        value: showTagSection,
-                        onChange: setShowTagSection
-                    },
-                    {
-                        name: 'panel-bible-references',
-                        label: 'showBibleReferenceSection',
-                        value: showBibleReferenceSection,
-                        onChange: setShowBibleReferenceSection
-                    },
-                    {
-                        name: 'panel-reactions',
-                        label: 'showReactionSection',
-                        value: showReactionSection,
-                        onChange: setShowReactionSection
-                    },
-                    {
-                        name: 'panel-comments',
-                        label: 'showCommentsSection',
-                        value: showCommentsSection,
-                        onChange: setShowCommentsSection
-                    },
-                    {
-                        name: 'panel-share',
-                        label: 'showShareSection',
-                        value: showShareSection,
-                        onChange: setShowShareSection
-                    },
-                    {
-                        name: 'panel-save',
-                        label: 'showSaveSection',
-                        value: showSaveSection,
-                        onChange: setShowSaveSection
-                    }
-                ]} />
-
-                <LiveDemo title="Live — view">
-                    <DemoSecurityContext option={securityContext}>
-                        <ContentItemPanel
-                                contentItem={viewedDemoItem}
-                            showApprovalStatusRibbon={showApprovalStatusRibbon}
-                            showApprovalStatus={showApprovalStatus}
-                            showContentExpanded={showContentExpanded}
-                            truncateAt={160}
-                            allowInPlaceExpansion={allowInPlaceExpansion}
-                            isEditingAllowed={isEditingAllowed}
-                            isModeratedView={isModeratedView}
-                            showTagSection={showTagSection}
-                            showBibleReferenceSection={showBibleReferenceSection}
-                            showReactionSection={showReactionSection}
-                            showCommentsSection={showCommentsSection}
-                            showShareSection={showShareSection}
-                            showSaveSection={showSaveSection}
-                            onCommentsClick={(item) =>
-                                setLastEvent(`onCommentsClick(${item.id})`)}
-                            onShareClick={(item) =>
-                                setLastEvent(`onShareClick(${item.id})`)}
-                            onSaveClick={(item) =>
-                                setLastEvent(`onSaveClick(${item.id})`)}
-                            onModified={(item) =>
-                                setLastEvent(`onModified(${item.id})`)}
-                            onRemoved={(item) =>
-                                setLastEvent(`onRemoved(${item.id})`)}
-                            onModerateClick={(item) =>
-                                setLastEvent(`onModerateClick(${item.id})`)} />
-                    </DemoSecurityContext>
-                </LiveDemo>
+                <ContentItemPanelPlayground contentItem={demoItem} />
             </DocSection>
         </ComponentDoc>
     );
