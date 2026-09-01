@@ -20,9 +20,9 @@ import './contentItems.css';
 // keeps the pages; this panel appends nothing of its own), and the panel's whole contribution
 // to paging is noticing that its foot came into view and saying so.
 // The six SECTION SWITCHES thread through too (ContentItemSectionToggles) — like
-// isModeratedView and showApprovalStatusRibbon they are per-SURFACE decisions a page makes
+// showModerationSection and showApprovalStatusRibbon they are per-SURFACE decisions a page makes
 // once for every card, and ContentItemPanel owns what each means. The form-face props
-// (isEditingAllowed, onModified, validationIssues…) are deliberately NOT here: they
+// (showEditSection, onModified, validationIssues…) are deliberately NOT here: they
 // carry ONE item's write lifecycle, which no single list-level value can express — a
 // list row's edit is a navigation (onEditClick).
 export interface ContentItemResultsPanelProps
@@ -35,7 +35,7 @@ export interface ContentItemResultsPanelProps
     reactionOptions?: ReadonlyArray<ContentItemReactionOption>;
 
     // Threaded to every card — see ContentItemPanel, which owns what it means.
-    isModeratedView?: boolean;
+    showModerationSection?: boolean;
     showApprovalStatusRibbon?: boolean;
     showApprovalStatus?: boolean;
     showContentExpanded?: boolean;
@@ -67,7 +67,7 @@ export interface ContentItemResultsPanelProps
 export function ContentItemResultsPanel({
     contentItemCollection = [],
     reactionOptions = [],
-    isModeratedView = false,
+    showModerationSection = false,
     showApprovalStatusRibbon = false,
     showApprovalStatus = false,
     isLoading = false,
@@ -141,7 +141,7 @@ export function ContentItemResultsPanel({
                     key={contentItem.id}
                     contentItem={contentItem}
                     reactionOptions={reactionOptions}
-                    isModeratedView={isModeratedView}
+                    showModerationSection={showModerationSection}
                     showApprovalStatusRibbon={showApprovalStatusRibbon}
                     showApprovalStatus={showApprovalStatus}
                     {...itemEventsAndText} />

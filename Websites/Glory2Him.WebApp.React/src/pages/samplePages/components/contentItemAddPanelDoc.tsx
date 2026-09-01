@@ -132,18 +132,21 @@ export function ContentItemAddPanelDoc() {
                     {
                         name: 'is-loading',
                         label: 'isLoading (settings still arriving)',
+                    defaultValue: false,
                         value: isLoading,
                         onChange: setIsLoading
                     },
                     {
                         name: 'is-submitting',
                         label: 'isSubmitting (a write in flight)',
+                    defaultValue: false,
                         value: isSubmitting,
                         onChange: setIsSubmitting
                     },
                     {
                         name: 'api-issues',
                         label: 'validationIssues (an API readback)',
+                    defaultValue: false,
                         value: showsApiIssues,
                         onChange: setShowsApiIssues
                     }

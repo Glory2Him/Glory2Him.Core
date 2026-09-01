@@ -349,7 +349,7 @@ describe('ContentItemFormPanel', () => {
         // The read face left with the merge — the view templates own it — so an item IS
         // the editor here, and every old read-surface action gate is now the gate on the
         // editor itself: who may hold it (Save), and who may destroy from it (Delete).
-        it('should refuse the editor while isEditingAllowed is off, roles regardless', () => {
+        it('should refuse the editor while showEditSection is off, roles regardless', () => {
             // given: the owner, who is also an administrator — every gate below would pass
             signInAs(authState, ['Administrators']);
 
@@ -372,7 +372,7 @@ describe('ContentItemFormPanel', () => {
             renderWithAuth(
                 <ContentItemFormPanel
                     contentItem={itemWith()}
-                    isEditingAllowed
+                    showEditSection
                     contentItemSettingCollection={settings} />);
 
             // then
@@ -389,7 +389,7 @@ describe('ContentItemFormPanel', () => {
             renderWithAuth(
                 <ContentItemFormPanel
                     contentItem={itemWith({ approvalStatus: ApprovalStatus.Approved })}
-                    isEditingAllowed
+                    showEditSection
                     contentItemSettingCollection={settings} />);
 
             // then
@@ -407,7 +407,7 @@ describe('ContentItemFormPanel', () => {
                         createdBy: OtherId,
                         approvalStatus: ApprovalStatus.Submitted
                     })}
-                    isEditingAllowed
+                    showEditSection
                     contentItemSettingCollection={settings} />);
 
             // then
@@ -421,7 +421,7 @@ describe('ContentItemFormPanel', () => {
                         createdBy: OtherId,
                         approvalStatus: ApprovalStatus.Approved
                     })}
-                    isEditingAllowed
+                    showEditSection
                     contentItemSettingCollection={settings} />);
 
             // then
@@ -437,7 +437,7 @@ describe('ContentItemFormPanel', () => {
             renderWithAuth(
                 <ContentItemFormPanel
                     contentItem={itemWith({ createdBy: OtherId })}
-                    isEditingAllowed
+                    showEditSection
                     contentItemSettingCollection={settings} />);
 
             // then
@@ -453,7 +453,7 @@ describe('ContentItemFormPanel', () => {
             renderWithAuth(
                 <ContentItemFormPanel
                     contentItem={itemWith({ createdBy: OtherId })}
-                    isEditingAllowed
+                    showEditSection
                     contentItemSettingCollection={settings} />);
 
             // then
@@ -469,7 +469,7 @@ describe('ContentItemFormPanel', () => {
             renderWithAuth(
                 <ContentItemFormPanel
                     contentItem={itemWith({ createdBy: OtherId })}
-                    isEditingAllowed
+                    showEditSection
                     contentItemSettingCollection={settings} />);
 
             // then
@@ -484,7 +484,7 @@ describe('ContentItemFormPanel', () => {
             renderWithAuth(
                 <ContentItemFormPanel
                     contentItem={itemWith({ createdBy: OtherId })}
-                    isEditingAllowed
+                    showEditSection
                     contentItemSettingCollection={settings} />);
 
             // then
@@ -500,7 +500,7 @@ describe('ContentItemFormPanel', () => {
             renderWithAuth(
                 <ContentItemFormPanel
                     contentItem={itemWith()}
-                    isEditingAllowed
+                    showEditSection
                     contentItemSettingCollection={settings} />);
 
             // then
@@ -517,7 +517,7 @@ describe('ContentItemFormPanel', () => {
             renderWithAuth(
                 <ContentItemFormPanel
                     contentItem={contentItem}
-                    isEditingAllowed
+                    showEditSection
                     onRemoved={onRemoved}
                     contentItemSettingCollection={settings} />);
 
@@ -544,7 +544,7 @@ describe('ContentItemFormPanel', () => {
             renderWithAuth(
                 <ContentItemFormPanel
                     contentItem={itemWith()}
-                    isEditingAllowed
+                    showEditSection
                     onRemoved={onRemoved}
                     contentItemSettingCollection={settings} />);
 
@@ -608,7 +608,7 @@ describe('ContentItemFormPanel', () => {
             renderWithAuth(
                 <ContentItemFormPanel
                     contentItem={itemWith({ title: 'He carried me' })}
-                    isEditingAllowed
+                    showEditSection
                     onModified={onModified}
                     contentItemSettingCollection={[lowered]} />);
 
@@ -734,7 +734,7 @@ describe('ContentItemFormPanel', () => {
             renderWithAuth(
                 <ContentItemFormPanel
                     contentItem={itemWith()}
-                    isEditingAllowed
+                    showEditSection
                     onModified={onModified}
                     contentItemSettingCollection={settings} />);
 
@@ -805,7 +805,7 @@ describe('ContentItemFormPanel', () => {
                             hasTitle: false
                         })
                     })}
-                    isEditingAllowed
+                    showEditSection
                     contentItemSettingCollection={settings} />);
 
             expect(screen.queryByLabelText(/Title/)).not.toBeInTheDocument();
@@ -848,7 +848,7 @@ describe('ContentItemFormPanel', () => {
             renderWithAuth(
                 <ContentItemFormPanel
                     contentItem={itemWith()}
-                    isEditingAllowed
+                    showEditSection
                     contentItemSettingCollection={settings} />);
 
             // then
@@ -864,7 +864,7 @@ describe('ContentItemFormPanel', () => {
             renderWithAuth(
                 <ContentItemFormPanel
                     contentItem={itemWith()}
-                    isEditingAllowed
+                    showEditSection
                     contentItemSettingCollection={settings} />);
 
             // then: the edit face wears the SAME tile layout the add face does, but the
@@ -888,7 +888,7 @@ describe('ContentItemFormPanel', () => {
             renderWithAuth(
                 <ContentItemFormPanel
                     contentItem={itemWith()}
-                    isEditingAllowed
+                    showEditSection
                     onModified={onModified}
                     contentItemSettingCollection={settings} />);
 
@@ -916,7 +916,7 @@ describe('ContentItemFormPanel', () => {
             renderWithAuth(
                 <ContentItemFormPanel
                     contentItem={itemWith()}
-                    isEditingAllowed
+                    showEditSection
                     onCancelled={onCancelled}
                     contentItemSettingCollection={settings} />);
 
@@ -995,7 +995,7 @@ describe('ContentItemFormPanel', () => {
             renderWithAuth(
                 <ContentItemFormPanel
                     contentItem={itemWith()}
-                    isEditingAllowed
+                    showEditSection
                     contentItemSettingCollection={settings}
                     validationIssues={{ ContentType: ['Value is invalid'] }} />);
 
@@ -1111,7 +1111,7 @@ describe('ContentItemFormPanel', () => {
             renderWithAuth(
                 <ContentItemFormPanel
                     contentItem={itemWith()}
-                    isEditingAllowed
+                    showEditSection
                     contentItemSettingCollection={settings}
                     validationIssues={{ Content: ['Text is required'] }} />);
 
@@ -1140,7 +1140,7 @@ describe('ContentItemFormPanel', () => {
             renderWithAuth(
                 <ContentItemFormPanel
                     contentItem={quoteCarryingBoth}
-                    isEditingAllowed
+                    showEditSection
                     contentItemSettingCollection={[quoteSetting]} />);
 
             // then
@@ -1158,7 +1158,7 @@ describe('ContentItemFormPanel', () => {
             renderWithAuth(
                 <ContentItemFormPanel
                     contentItem={quoteCarryingBoth}
-                    isEditingAllowed
+                    showEditSection
                     onModified={onModified}
                     contentItemSettingCollection={[quoteSetting]} />);
 
@@ -1186,7 +1186,7 @@ describe('ContentItemFormPanel', () => {
             renderWithAuth(
                 <ContentItemFormPanel
                     contentItem={itemWith()}
-                    isEditingAllowed
+                    showEditSection
                     contentItemSettingCollection={[]} />);
 
             // then
@@ -1202,7 +1202,7 @@ describe('ContentItemFormPanel', () => {
             renderWithAuth(
                 <ContentItemFormPanel
                     contentItem={quoteCarryingBoth}
-                    isEditingAllowed
+                    showEditSection
                     contentItemSettingCollection={[quoteSetting]} />);
 
             // then
@@ -1314,7 +1314,7 @@ describe('ContentItemFormPanel', () => {
                         shareabilityBasis: ShareabilityBasis.PermissionGranted,
                         sharePermission: 'Emailed by the author'
                     })}
-                    isEditingAllowed
+                    showEditSection
                     onModified={onModified}
                     contentItemSettingCollection={settings} />);
 
@@ -1373,7 +1373,7 @@ describe('ContentItemFormPanel', () => {
                         contentType: ContentType.Quote,
                         title: 'A title the type no longer has'
                     })}
-                    isEditingAllowed
+                    showEditSection
                     onModified={onModified}
                     contentItemSettingCollection={[quoteSetting]} />);
 
@@ -1413,7 +1413,7 @@ describe('ContentItemFormPanel', () => {
             renderWithAuth(
                 <ContentItemFormPanel
                     contentItem={itemWith()}
-                    isEditingAllowed
+                    showEditSection
                     contentItemSettingCollection={[storySetting, override]} />);
 
             // then
@@ -1430,7 +1430,7 @@ describe('ContentItemFormPanel', () => {
             renderWithAuth(
                 <ContentItemFormPanel
                     contentItem={itemWith()}
-                    isEditingAllowed
+                    showEditSection
                     contentItemSettingCollection={[override, storySetting]} />);
 
             // then
@@ -1446,7 +1446,7 @@ describe('ContentItemFormPanel', () => {
             renderWithAuth(
                 <ContentItemFormPanel
                     contentItem={itemWith()}
-                    isEditingAllowed
+                    showEditSection
                     contentItemSettingCollection={[storySetting, override]} />);
 
             // then: the default still applies
@@ -1462,7 +1462,7 @@ describe('ContentItemFormPanel', () => {
             renderWithAuth(
                 <ContentItemFormPanel
                     contentItem={itemWith()}
-                    isEditingAllowed
+                    showEditSection
                     contentItemSettingCollection={[storySetting, override]} />);
 
             // then: the withdrawn override is not policy, so the default applies
@@ -1477,7 +1477,7 @@ describe('ContentItemFormPanel', () => {
             renderWithAuth(
                 <ContentItemFormPanel
                     contentItem={itemWith()}
-                    isEditingAllowed
+                    showEditSection
                     contentItemSettingCollection={[storySetting]} />);
 
             // then: the default's own name on the frozen selected tile, not the enum label
@@ -1547,7 +1547,7 @@ describe('ContentItemFormPanel', () => {
             renderWithAuth(
                 <ContentItemFormPanel
                     contentItem={itemWith({ contentType: ContentType.BlogPost })}
-                    isEditingAllowed
+                    showEditSection
                     contentItemSettingCollection={[blogSetting]} />);
 
             // then: not a contributable tile, but the item's own setting joins the frozen
@@ -1570,7 +1570,7 @@ describe('ContentItemFormPanel', () => {
             const view = renderWithAuth(
                 <ContentItemFormPanel
                     contentItem={itemWith()}
-                    isEditingAllowed
+                    showEditSection
                     contentItemSettingCollection={settings} />);
 
             await userEvent.clear(screen.getByLabelText(/^Story/));
@@ -1583,7 +1583,7 @@ describe('ContentItemFormPanel', () => {
                         id: 'content-item-2',
                         content: 'A different story entirely.'
                     })}
-                    isEditingAllowed
+                    showEditSection
                     contentItemSettingCollection={settings} />));
 
             // then
@@ -1804,7 +1804,7 @@ describe('ContentItemFormPanel', () => {
                         author: 'Grace Abara',
                         createdBy: OtherId
                     })}
-                    isEditingAllowed
+                    showEditSection
                     contentItemSettingCollection={settings} />);
 
             // then: prefilling here would sign her work with whoever opened the editor
@@ -1824,7 +1824,7 @@ describe('ContentItemFormPanel', () => {
                         author: '',
                         createdBy: OtherId
                     })}
-                    isEditingAllowed
+                    showEditSection
                     submittedByDisplayName="Grace Abara"
                     contentItemSettingCollection={settings} />);
 
@@ -1844,7 +1844,7 @@ describe('ContentItemFormPanel', () => {
             const { container } = renderWithAuth(
                 <ContentItemFormPanel
                     contentItem={itemWith()}
-                    isEditingAllowed
+                    showEditSection
                     contentItemSettingCollection={[renamed]} />);
 
             // then
@@ -1861,7 +1861,7 @@ describe('ContentItemFormPanel', () => {
             const { container, rerender } = renderWithAuth(
                 <ContentItemFormPanel
                     contentItem={itemWith()}
-                    isEditingAllowed
+                    showEditSection
                     contentItemSettingCollection={settings} />);
 
             expect(container.querySelector('.g2h-content-item-type-selected'))
@@ -1874,7 +1874,7 @@ describe('ContentItemFormPanel', () => {
                         id: 'content-item-2',
                         contentType: ContentType.Devotional
                     })}
-                    isEditingAllowed
+                    showEditSection
                     contentItemSettingCollection={settings} />));
 
             // then: nothing is wired between the type and the colour — the attribute IS the

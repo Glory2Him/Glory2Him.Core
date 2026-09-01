@@ -60,8 +60,8 @@ export function ContentItemPanelPlayground({
     const [showApprovalStatus, setShowApprovalStatus] = useState(true);
     const [showContentExpanded, setShowContentExpanded] = useState(false);
     const [allowInPlaceExpansion, setAllowInPlaceExpansion] = useState(true);
-    const [isEditingAllowed, setIsEditingAllowed] = useState(true);
-    const [isModeratedView, setIsModeratedView] = useState(false);
+    const [showEditSection, setShowEditSection] = useState(true);
+    const [showModerationSection, setShowModerationSection] = useState(false);
     const [showTagSection, setShowTagSection] = useState(true);
     const [showBibleReferenceSection, setShowBibleReferenceSection] = useState(true);
     const [showReactionSection, setShowReactionSection] = useState(true);
@@ -114,72 +114,84 @@ export function ContentItemPanelPlayground({
                 {
                     name: 'panel-ribbons',
                     label: 'showApprovalStatusRibbon',
+                    defaultValue: false,
                     value: showApprovalStatusRibbon,
                     onChange: setShowApprovalStatusRibbon
                 },
                 {
                     name: 'panel-status-pill',
                     label: 'showApprovalStatus',
+                    defaultValue: false,
                     value: showApprovalStatus,
                     onChange: setShowApprovalStatus
                 },
                 {
                     name: 'panel-content-expanded',
                     label: 'showContentExpanded',
+                    defaultValue: false,
                     value: showContentExpanded,
                     onChange: setShowContentExpanded
                 },
                 {
                     name: 'panel-in-place-expansion',
                     label: 'allowInPlaceExpansion (read-more toggles here)',
+                    defaultValue: false,
                     value: allowInPlaceExpansion,
                     onChange: setAllowInPlaceExpansion
                 },
                 {
                     name: 'panel-editing',
-                    label: 'isEditingAllowed',
-                    value: isEditingAllowed,
-                    onChange: setIsEditingAllowed
+                    label: 'showEditSection',
+                    defaultValue: false,
+                    value: showEditSection,
+                    onChange: setShowEditSection
                 },
                 {
                     name: 'panel-moderated',
-                    label: 'isModeratedView',
-                    value: isModeratedView,
-                    onChange: setIsModeratedView
+                    label: 'showModerationSection',
+                    defaultValue: false,
+                    value: showModerationSection,
+                    onChange: setShowModerationSection
                 },
                 {
                     name: 'panel-tags',
                     label: 'showTagSection',
+                    defaultValue: true,
                     value: showTagSection,
                     onChange: setShowTagSection
                 },
                 {
                     name: 'panel-bible-references',
                     label: 'showBibleReferenceSection',
+                    defaultValue: true,
                     value: showBibleReferenceSection,
                     onChange: setShowBibleReferenceSection
                 },
                 {
                     name: 'panel-reactions',
                     label: 'showReactionSection',
+                    defaultValue: true,
                     value: showReactionSection,
                     onChange: setShowReactionSection
                 },
                 {
                     name: 'panel-comments',
                     label: 'showCommentsSection',
+                    defaultValue: true,
                     value: showCommentsSection,
                     onChange: setShowCommentsSection
                 },
                 {
                     name: 'panel-share',
                     label: 'showShareSection',
+                    defaultValue: true,
                     value: showShareSection,
                     onChange: setShowShareSection
                 },
                 {
                     name: 'panel-save',
                     label: 'showSaveSection',
+                    defaultValue: true,
                     value: showSaveSection,
                     onChange: setShowSaveSection
                 }
@@ -199,8 +211,8 @@ export function ContentItemPanelPlayground({
                         showContentExpanded={showContentExpanded}
                         truncateAt={truncateAt}
                         allowInPlaceExpansion={allowInPlaceExpansion}
-                        isEditingAllowed={isEditingAllowed}
-                        isModeratedView={isModeratedView}
+                        showEditSection={showEditSection}
+                        showModerationSection={showModerationSection}
                         showTagSection={showTagSection}
                         showBibleReferenceSection={showBibleReferenceSection}
                         showReactionSection={showReactionSection}

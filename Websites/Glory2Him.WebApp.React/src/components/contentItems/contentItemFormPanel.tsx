@@ -136,7 +136,7 @@ export interface ContentItemFormPanelProps {
     // fall, and `mode="edit"` is refused back to `read`. It only ever subtracts: on, with no
     // qualifying role, still shows nothing. Add mode is not its concern — a consumer that does
     // not want an add surface does not render one.
-    isEditingAllowed?: boolean;
+    showEditSection?: boolean;
 
     // Whether the panel wears a corner ribbon naming the item's approval status: grey
     // Draft, yellow Submitted, green Approved, red Rejected — the colours in
@@ -266,7 +266,7 @@ export function ContentItemFormPanel({
     isLoading = false,
     isSubmitting = false,
     validationIssues,
-    isEditingAllowed = false,
+    showEditSection = false,
     showApprovalStatusRibbon = false,
     onAdded,
     onModified,
@@ -468,7 +468,7 @@ export function ContentItemFormPanel({
     // The owner amends at any status — the consumer decides whether that PUTs or forks (§3.4 rule
     // 16). The rest of the tier is confined to a live item: a decided one is terminal to them.
     const mayEdit =
-        isEditingAllowed
+        showEditSection
         && isAuthenticated
         && contentItem != null
         && isBlockedForSelectedType === false
@@ -476,7 +476,7 @@ export function ContentItemFormPanel({
             || (isAmendableStatus && holdsAnyRole(resolvedEditRoleList)));
 
     const mayDelete =
-        isEditingAllowed
+        showEditSection
         && isAuthenticated
         && contentItem != null
         && isBlockedForSelectedType === false

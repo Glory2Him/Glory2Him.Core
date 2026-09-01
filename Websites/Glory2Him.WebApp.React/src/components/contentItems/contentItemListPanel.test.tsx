@@ -323,7 +323,7 @@ describe('ContentItemListPanel', () => {
     });
 
     describe('the threaded card props', () => {
-        // The same rule isModeratedView and showApprovalStatusRibbon keep: a per-surface
+        // The same rule showModerationSection and showApprovalStatusRibbon keep: a per-surface
         // decision is made once at the root and threads to every card, while
         // ContentItemPanel owns what it means.
         it('should thread a section switch to every card', () => {

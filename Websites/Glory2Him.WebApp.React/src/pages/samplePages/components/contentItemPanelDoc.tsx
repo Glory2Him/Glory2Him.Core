@@ -8,12 +8,8 @@ import {
 
 import { ContentType } from '../../../models/foundations/contentItemSettings/contentType';
 
-import {
-    ApprovalStatus,
-    ContentItemSearchItem
-} from '../../../models/components/contentItems/contentItemSearchItem';
-
 import { useDocumentTitle } from '../../useDocumentTitle';
+import { demoStoryItem } from './shared/contentItemDemoData';
 
 import {
     contentItemElementShape,
@@ -63,11 +59,11 @@ import { ContentItemPanel } from '../../components/contentItems/contentItemPanel
 // as a search result does. One projection, one face, the whole family.
 <ContentItemPanel contentItem={searchItem} />
 
-// view + edit in place — with isEditingAllowed on and onModified wired, the
+// view + edit in place — with showEditSection on and onModified wired, the
 // owner's Edit affordance swaps the card for ContentItemEditPanel right here.
 <ContentItemPanel
     contentItem={searchItem}
-    isEditingAllowed
+    showEditSection
     onModified={(item) => saveAsync(item)}
     onRemoved={(item) => removeAsync(item)} />
 `;
@@ -77,10 +73,10 @@ const dispatchSample = `
 //
 //   onEditClick alone            → the event fires and the PAGE routes to its own
 //                                  edit surface (what every feed page does today)
-//   isEditingAllowed + onModified → Edit opens ContentItemEditPanel IN PLACE
+//   showEditSection + onModified → Edit opens ContentItemEditPanel IN PLACE
 //
 // mode="edit" lands the panel straight on the editor without the reader taking
-// Edit first — still subject to isEditingAllowed and the role gates.
+// Edit first — still subject to showEditSection and the role gates.
 `;
 
 const settingFor = (
@@ -131,29 +127,6 @@ const demoSettings: ReadonlyArray<ContentItemSetting> = [
     })
 ];
 
-const demoItem: ContentItemSearchItem = {
-    id: 'doc-demo-item',
-    contentType: ContentType.Story,
-    contentItemSetting: demoSettings[0],
-    title: 'He carried me through',
-    author: 'Grace Abara',
-    content:
-        'When the diagnosis came, I could not pray. But every morning there was '
-        + 'bread on the table and a verse in my inbox, and looking back I can see '
-        + 'that He was carrying me the whole way through it.',
-    shareabilityBasis: 3,
-    sharePermission: '',
-    approvalStatus: ApprovalStatus.Draft,
-    submittedById: 'doc-demo-user',
-    tags: ['providence', 'healing'],
-    bibleReferences: ['Deuteronomy 31:6'],
-    reactionSummary: [
-        { label: 'Amen', glyph: '\ud83d\ude4f', count: 12 },
-        { label: 'Love', glyph: '\u2764\ufe0f', count: 5 }
-    ],
-    commentCount: 4
-};
-
 const panelProps: ReadonlyArray<ComponentPropRow> = [
     {
         name: 'contentItem',
@@ -175,11 +148,11 @@ const panelProps: ReadonlyArray<ComponentPropRow> = [
         name: 'mode',
         type: "'add' | 'read' | 'edit'?",
         description: 'Lands the panel straight on a surface — edit opens the editor without '
-            + 'the reader taking Edit first, still subject to isEditingAllowed. Absent, the '
+            + 'the reader taking Edit first, still subject to showEditSection. Absent, the '
             + 'item decides: no item is add, an item reads until Edit is taken.'
     },
     {
-        name: 'isEditingAllowed',
+        name: 'showEditSection',
         type: 'boolean',
         defaultValue: 'false',
         description: 'The surface switch for the edit face, ahead of every role check. On, '
@@ -195,7 +168,7 @@ const panelProps: ReadonlyArray<ComponentPropRow> = [
             + 'api/Reactions (approved rows only). Empty means no Like control renders.'
     },
     {
-        name: 'isModeratedView',
+        name: 'showModerationSection',
         type: 'boolean',
         defaultValue: 'false',
         description: 'Marks the card as sitting on a MODERATED surface: Moderate stands '
@@ -408,11 +381,11 @@ export function ContentItemPanelDoc() {
                         carries, because the templates inherit it from the dispatcher. As
                         an owner, Edit swaps the card for the editor in place; Save swaps
                         the element back with the amendments; the moderation tier sees the
-                        shield, and <code>isModeratedView</code> restyles it into
+                        shield, and <code>showModerationSection</code> restyles it into
                         Edit&rsquo;s pencil, standing alone.
                     </>
                 }>
-                <ContentItemPanelPlayground contentItem={demoItem} />
+                <ContentItemPanelPlayground contentItem={demoStoryItem} />
             </DocSection>
         </ComponentDoc>
     );

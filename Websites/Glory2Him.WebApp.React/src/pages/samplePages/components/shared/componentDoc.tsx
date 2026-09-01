@@ -159,6 +159,10 @@ export interface DemoToggle {
     label: string;
     value: boolean;
     onChange: (value: boolean) => void;
+
+    // The component's own default for this prop, printed beside the label so the reader
+    // always knows which way the switch rests when a page says nothing.
+    defaultValue?: boolean;
 }
 
 export interface DemoControlsProps {
@@ -187,6 +191,11 @@ export function DemoControls({ title = 'Controls', toggles }: DemoControlsProps)
                                 className="form-check-label"
                                 htmlFor={`demo-toggle-${toggle.name}`}>
                                 {toggle.label}
+                                {toggle.defaultValue != null && (
+                                    <span className="small text-danger ms-1">
+                                        (Default: {String(toggle.defaultValue)})
+                                    </span>
+                                )}
                             </label>
                         </div>
                     </div>
@@ -271,6 +280,7 @@ export function DemoNumberInput({
                 className="small text-uppercase fw-bold text-body-secondary mb-2 d-block"
                 htmlFor={`demo-number-${name}`}>
                 {label}
+                <span className="text-danger ms-1">(Default: {defaultValue})</span>
             </label>
 
             <input

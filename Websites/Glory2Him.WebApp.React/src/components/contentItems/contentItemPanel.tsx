@@ -70,7 +70,7 @@ export interface ContentItemPanelProps
     contentItemSettingCollection?: ReadonlyArray<ContentItemSetting>;
 
     // Lands the panel straight on a surface — 'edit' opens the editor without the reader
-    // taking Edit first (still subject to isEditingAllowed). Absent, the item decides: no
+    // taking Edit first (still subject to showEditSection). Absent, the item decides: no
     // item is 'add', an item reads until Edit is taken.
     mode?: ContentItemPanelMode;
 
@@ -83,7 +83,7 @@ export interface ContentItemPanelProps
     // the card offers Edit to its submitter and Moderate (shield) to the moderation tier,
     // side by side. On, only Moderate renders, wearing Edit's pencil and label: on a surface
     // that IS moderation, the moderation action is simply what editing means.
-    isModeratedView?: boolean;
+    showModerationSection?: boolean;
 
     // Whether the card wears a corner ribbon naming its approval status — coloured by the
     // stylesheet off data-approval-status. Off by default: the public feed already says
@@ -114,7 +114,7 @@ export interface ContentItemPanelProps
     // editor by accident. On, the owner's Edit affordance opens ContentItemEditPanel IN PLACE
     // when the page listens on onModified/onRemoved; pages that route to a separate edit
     // surface keep wiring onEditClick instead.
-    isEditingAllowed?: boolean;
+    showEditSection?: boolean;
 
     // ── The form faces (add and edit) ─────────────────────────────────────────
     isLoading?: boolean;
@@ -170,10 +170,10 @@ export function ContentItemPanel({
     contentItemSettingCollection = [],
     mode,
     reactionOptions = [],
-    isModeratedView = false,
+    showModerationSection = false,
     showApprovalStatusRibbon = false,
     showApprovalStatus = false,
-    isEditingAllowed = false,
+    showEditSection = false,
     showContentExpanded = false,
     truncateAt = 400,
     allowInPlaceExpansion = false,
@@ -305,14 +305,14 @@ export function ContentItemPanel({
     // editor IN PLACE (this face); a page that wired onEditClick alone is routing to its own
     // edit surface and gets the event, exactly as before the merge.
     const opensEditorInPlace =
-        isEditingAllowed && (onModified != null || onRemoved != null);
+        showEditSection && (onModified != null || onRemoved != null);
 
     if ((mode === 'edit' || isEditorTaken) && opensEditorInPlace) {
         return (
             <ContentItemEditPanel
                 contentItem={toFormItem(contentItem)}
                 contentItemSettingCollection={contentItemSettingCollection}
-                isEditingAllowed={isEditingAllowed}
+                showEditSection={showEditSection}
                 isLoading={isLoading}
                 isSubmitting={isSubmitting}
                 validationIssues={validationIssues}
@@ -339,11 +339,11 @@ export function ContentItemPanel({
     }
 
     // ── The view face ─────────────────────────────────────────────────────────
-    // The isModeratedView matrix: an ordinary surface offers both, each to its own people; a
+    // The showModerationSection matrix: an ordinary surface offers both, each to its own people; a
     // moderated surface offers Moderate alone, wearing Edit's pencil and label — on a surface
     // that IS moderation, the moderation action is simply what editing means there.
     const showsEditButton =
-        isModeratedView === false
+        showModerationSection === false
         && viewerOwnsItem
         && isBlocked === false
         && (opensEditorInPlace || onEditClick != null);
@@ -361,8 +361,8 @@ export function ContentItemPanel({
             offeredReactions={offeredReactions}
             showsEditButton={showsEditButton}
             showsModerateButton={showsModerateButton}
-            moderateButtonIconCss={isModeratedView ? 'bi bi-pencil' : 'bi bi-shield'}
-            moderateButtonLabel={isModeratedView ? 'Edit' : 'Moderate'}
+            moderateButtonIconCss={showModerationSection ? 'bi bi-pencil' : 'bi bi-shield'}
+            moderateButtonLabel={showModerationSection ? 'Edit' : 'Moderate'}
             showApprovalStatusRibbon={showApprovalStatusRibbon}
             showApprovalStatus={showApprovalStatus}
             truncateAt={truncateAt}

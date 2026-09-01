@@ -63,7 +63,7 @@ const editProps: ReadonlyArray<ComponentPropRow> = [
             + 'its identity changes.'
     },
     {
-        name: 'isEditingAllowed',
+        name: 'showEditSection',
         type: 'boolean',
         defaultValue: 'false',
         description: 'The surface switch, ahead of every role check. Off, the editor refuses '
@@ -97,7 +97,7 @@ export function ContentItemEditPanelDoc() {
     useDocumentTitle('Content Item Edit Panel — Components — Glory 2 Him');
 
     const [securityContext, setSecurityContext] = useState(securityContextOptions[0]);
-    const [isEditingAllowed, setIsEditingAllowed] = useState(true);
+    const [showEditSection, setShowEditSection] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showApprovalStatusRibbon, setShowApprovalStatusRibbon] = useState(true);
     const [lastEvent, setLastEvent] = useState('');
@@ -151,7 +151,7 @@ export function ContentItemEditPanelDoc() {
                         gates, so the demo may honestly step into any viewer. The owner
                         edits at any status and holds Delete; the publisher tier edits a
                         live row without Delete; a reviewer is refused outright — and
-                        flipping <code>isEditingAllowed</code> off refuses everybody.
+                        flipping <code>showEditSection</code> off refuses everybody.
                         Last event:{' '}
                         <code>{lastEvent.length > 0 ? lastEvent : '(none yet)'}</code>
                     </>
@@ -163,19 +163,22 @@ export function ContentItemEditPanelDoc() {
                 <DemoControls toggles={[
                     {
                         name: 'is-editing-allowed',
-                        label: 'isEditingAllowed (the surface switch)',
-                        value: isEditingAllowed,
-                        onChange: setIsEditingAllowed
+                        label: 'showEditSection (the surface switch)',
+                    defaultValue: false,
+                        value: showEditSection,
+                        onChange: setShowEditSection
                     },
                     {
                         name: 'is-submitting',
                         label: 'isSubmitting (a write in flight)',
+                    defaultValue: false,
                         value: isSubmitting,
                         onChange: setIsSubmitting
                     },
                     {
                         name: 'show-approval-status-ribbon',
                         label: 'showApprovalStatusRibbon (status corner ribbon)',
+                    defaultValue: false,
                         value: showApprovalStatusRibbon,
                         onChange: setShowApprovalStatusRibbon
                     }
@@ -189,7 +192,7 @@ export function ContentItemEditPanelDoc() {
                                 createdBy: demoSubmitterIdFor(securityContext)
                             }}
                             contentItemSettingCollection={demoSettings}
-                            isEditingAllowed={isEditingAllowed}
+                            showEditSection={showEditSection}
                             isSubmitting={isSubmitting}
                             showApprovalStatusRibbon={showApprovalStatusRibbon}
                             onModified={(item) => setLastEvent(`onModified(${item.id})`)}

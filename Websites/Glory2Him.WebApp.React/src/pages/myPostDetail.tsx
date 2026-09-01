@@ -147,7 +147,7 @@ export function MyPostDetail() {
                                 facts must not appear twice on one screen. */}
                             <ContentItemPanel
                                 contentItem={searchItem}
-                                isEditingAllowed
+                                showEditSection
                                 showApprovalStatusRibbon
                                 showApprovalStatus
                                 showContentExpanded

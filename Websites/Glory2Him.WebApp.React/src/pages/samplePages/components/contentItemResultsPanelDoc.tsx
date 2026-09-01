@@ -53,7 +53,7 @@ const resultsProps: ReadonlyArray<ComponentPropRow> = [
             + 'more button as the fallback where IntersectionObserver is unavailable.'
     },
     {
-        name: 'isModeratedView / showApprovalStatusRibbon',
+        name: 'showModerationSection / showApprovalStatusRibbon',
         type: 'boolean',
         defaultValue: 'false',
         description: 'Threaded to every card — ContentItemPanel owns what each means.'
@@ -71,7 +71,7 @@ export function ContentItemResultsPanelDoc() {
     const [isLoading, setIsLoading] = useState(false);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [hasMore, setHasMore] = useState(false);
-    const [isModeratedView, setIsModeratedView] = useState(false);
+    const [showModerationSection, setShowModerationSection] = useState(false);
     const [showApprovalStatusRibbon, setShowApprovalStatusRibbon] = useState(false);
     const [loadMoreCount, setLoadMoreCount] = useState(0);
 
@@ -125,30 +125,35 @@ export function ContentItemResultsPanelDoc() {
                     {
                         name: 'is-loading',
                         label: 'isLoading (first page in flight)',
+                    defaultValue: false,
                         value: isLoading,
                         onChange: setIsLoading
                     },
                     {
                         name: 'is-loading-more',
                         label: 'isLoadingMore (next page in flight)',
+                    defaultValue: false,
                         value: isLoadingMore,
                         onChange: setIsLoadingMore
                     },
                     {
                         name: 'has-more',
                         label: 'hasMore (another page exists)',
+                    defaultValue: false,
                         value: hasMore,
                         onChange: setHasMore
                     },
                     {
                         name: 'is-moderated-view',
-                        label: 'isModeratedView (Moderate wears Edit’s clothes)',
-                        value: isModeratedView,
-                        onChange: setIsModeratedView
+                        label: 'showModerationSection (Moderate wears Edit’s clothes)',
+                    defaultValue: false,
+                        value: showModerationSection,
+                        onChange: setShowModerationSection
                     },
                     {
                         name: 'show-approval-status-ribbon',
                         label: 'showApprovalStatusRibbon (status corner ribbons)',
+                    defaultValue: false,
                         value: showApprovalStatusRibbon,
                         onChange: setShowApprovalStatusRibbon
                     }
@@ -160,7 +165,7 @@ export function ContentItemResultsPanelDoc() {
                         isLoading={isLoading}
                         isLoadingMore={isLoadingMore}
                         hasMore={hasMore}
-                        isModeratedView={isModeratedView}
+                        showModerationSection={showModerationSection}
                         showApprovalStatusRibbon={showApprovalStatusRibbon}
                         onLoadMore={() => setLoadMoreCount((count) => count + 1)} />
                 </LiveDemo>

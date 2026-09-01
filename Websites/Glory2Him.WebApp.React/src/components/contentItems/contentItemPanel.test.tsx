@@ -575,7 +575,7 @@ describe('ContentItemPanel', () => {
                 .not.toBeInTheDocument();
         });
 
-        // The isModeratedView matrix: the moderated surface offers Moderate ALONE, wearing
+        // The showModerationSection matrix: the moderated surface offers Moderate ALONE, wearing
         // Edit's pencil and label — on a surface that IS moderation, the moderation action
         // is simply what editing means there.
         it('should dress Moderate as Edit and stand it alone on a moderated view', async () => {
@@ -586,7 +586,7 @@ describe('ContentItemPanel', () => {
             const rendered = renderCard(
                 <ContentItemPanel
                     contentItem={ownItem}
-                    isModeratedView
+                    showModerationSection
                     onEditClick={onEditClick}
                     onModerateClick={onModerateClick} />);
 
@@ -912,7 +912,7 @@ describe('ContentItemPanel', () => {
             renderCard(
                 <ContentItemPanel
                     contentItem={ownItem}
-                    isEditingAllowed
+                    showEditSection
                     onModified={onModified} />);
 
             // when
@@ -938,7 +938,7 @@ describe('ContentItemPanel', () => {
             renderCard(
                 <ContentItemPanel
                     contentItem={ownItem}
-                    isEditingAllowed
+                    showEditSection
                     onModified={onModified} />);
 
             await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
@@ -965,7 +965,7 @@ describe('ContentItemPanel', () => {
             renderCard(
                 <ContentItemPanel
                     contentItem={ownItem}
-                    isEditingAllowed
+                    showEditSection
                     onModified={vi.fn()} />);
 
             await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
@@ -989,7 +989,7 @@ describe('ContentItemPanel', () => {
                 <ContentItemPanel
                     contentItem={ownItem}
                     mode="edit"
-                    isEditingAllowed
+                    showEditSection
                     onModified={vi.fn()} />);
 
             // then

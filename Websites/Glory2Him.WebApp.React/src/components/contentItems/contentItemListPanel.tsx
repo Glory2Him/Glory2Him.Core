@@ -40,9 +40,9 @@ import './contentItems.css';
 // reference, edit) pass straight through: where they lead is the page's decision, and the page
 // stamps the origin into router state so the destination can offer a true way back.
 // The six SECTION SWITCHES thread through too (ContentItemSectionToggles) — like
-// isModeratedView and showApprovalStatusRibbon they are per-SURFACE decisions a page makes
+// showModerationSection and showApprovalStatusRibbon they are per-SURFACE decisions a page makes
 // once for every card, and ContentItemPanel owns what each means. The form-face props
-// (isEditingAllowed, onModified, validationIssues…) are deliberately NOT here: they
+// (showEditSection, onModified, validationIssues…) are deliberately NOT here: they
 // carry ONE item's write lifecycle, which no single list-level value can express — a
 // list row's edit is a navigation (onEditClick).
 export interface ContentItemListPanelProps
@@ -78,7 +78,7 @@ export interface ContentItemListPanelProps
     // Whether this whole panel is a MODERATED surface. Off — the default — every card
     // offers Edit to its own submitter and Moderate (the shield) to the moderation tier.
     // On, Moderate stands alone on every card, wearing Edit's pencil and label.
-    isModeratedView?: boolean;
+    showModerationSection?: boolean;
 
     // Whether every card wears a corner ribbon naming its approval status: grey Draft,
     // yellow Submitted, green Approved, red Rejected — the colours in contentItems.css,
@@ -124,7 +124,7 @@ export function ContentItemListPanel({
     hasMore = false,
     onLoadMore,
     reactionOptions = [],
-    isModeratedView = false,
+    showModerationSection = false,
     showApprovalStatusRibbon = false,
     showApprovalStatus = false,
     cssClass = '',
@@ -245,7 +245,7 @@ export function ContentItemListPanel({
             <ContentItemResultsPanel
                 contentItemCollection={contentItemCollection}
                 reactionOptions={reactionOptions}
-                isModeratedView={isModeratedView}
+                showModerationSection={showModerationSection}
                 showApprovalStatusRibbon={showApprovalStatusRibbon}
                 showApprovalStatus={showApprovalStatus}
                 isLoading={isLoading}

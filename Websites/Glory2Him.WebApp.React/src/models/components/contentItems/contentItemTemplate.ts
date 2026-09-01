@@ -116,7 +116,7 @@ export interface ContentItemTemplateProps
     offeredReactions: ReadonlyArray<ContentItemReactionOption>;
 
     // The action-button decisions, made ONCE in the dispatching panel — ownership for Edit,
-    // the moderation tier for Moderate, and the isModeratedView styling — so a template only
+    // the moderation tier for Moderate, and the showModerationSection styling — so a template only
     // ever renders them. moderateButtonIconCss / moderateButtonLabel arrive resolved: the
     // shield and 'Moderate' on an ordinary surface, the pencil and 'Edit' on a moderated one
     // where Moderate stands alone wearing Edit's clothes.

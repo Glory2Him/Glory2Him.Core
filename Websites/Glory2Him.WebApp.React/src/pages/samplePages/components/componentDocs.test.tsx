@@ -204,7 +204,7 @@ describe('Component reference pages', () => {
             renderWithAuth(<ContentItemPanelDoc />);
 
             // then: the demo element renders as the card the feeds show
-            expect(screen.getByText('He carried me through')).toBeInTheDocument();
+            expect(screen.getByText('NASA Proves The Bible Is True')).toBeInTheDocument();
 
             const ribbon = document.querySelector('.g2h-approval-ribbon');
             expect(ribbon).not.toBeNull();
@@ -254,7 +254,8 @@ describe('Component reference pages', () => {
 
             // then: the card became the editor — anchored on the seeded Title field,
             // because the view card carries a bookmark control also named Save
-            expect(screen.getByLabelText(/Title/)).toHaveValue('He carried me through');
+            expect(screen.getByLabelText(/Title/))
+                .toHaveValue('NASA Proves The Bible Is True');
 
             // The add demo above carries a Cancel of its own; the editor's is the last.
             const cancels = screen.getAllByRole('button', { name: 'Cancel' });
@@ -325,13 +326,13 @@ describe('Component reference pages', () => {
             // given: the default template page, tags showing
             renderWithAuth(<ContentItemDefaultPanelDoc />);
 
-            expect(screen.getByText('#providence')).toBeInTheDocument();
+            expect(screen.getByText('#creation')).toBeInTheDocument();
 
             // when: the reader flips showTagSection off
-            await userEvent.click(screen.getByRole('switch', { name: 'showTagSection' }));
+            await userEvent.click(screen.getByRole('switch', { name: /^showTagSection/ }));
 
             // then: the demo re-rendered with the prop changed
-            expect(screen.queryByText('#providence')).not.toBeInTheDocument();
+            expect(screen.queryByText('#creation')).not.toBeInTheDocument();
         });
     });
 

@@ -135,7 +135,7 @@ export function ContentItemModerationPage() {
                         onReactionSelected={onReactionSelected}
                         onShareClick={onShareClick}
                         onSaveClick={onSaveClick}
-                        isModeratedView
+                        showModerationSection
                         showApprovalStatus
                         onModerateClick={moderateContentItem}
                         emptyText="Nothing is waiting for moderation. Well done."

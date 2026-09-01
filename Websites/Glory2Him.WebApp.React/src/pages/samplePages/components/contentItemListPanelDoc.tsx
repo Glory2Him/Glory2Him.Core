@@ -97,7 +97,7 @@ onBibleReferenceClick   wherever a reference leads on this surface
 onEditClick             SUBMITTER ONLY (submittedById is the viewer's account id): detail-in-edit
 onModerateClick         MODERATION TIER ONLY (Administrators, Reviewers, Publishers and their
                         ContentItem- / ContentItem-{ContentType}- scopes; ReadOnly vetoes):
-                        the moderation detail. isModeratedView=true renders Moderate ALONE,
+                        the moderation detail. showModerationSection=true renders Moderate ALONE,
                         wearing Edit's pencil and label
 
 // RENDER TOGGLES — the item panel keeps these for itself:
@@ -338,7 +338,7 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
             + '— with the ReadOnly veto asked first. Wears the shield and “Moderate”.'
     },
     {
-        name: 'isModeratedView',
+        name: 'showModerationSection',
         type: 'boolean',
         defaultValue: 'false',
         description: 'Marks the whole panel as a MODERATED surface. Off, cards offer Edit '
@@ -404,7 +404,7 @@ export function ContentItemListPanelDoc() {
     const [playgroundShowsSearchBar, setPlaygroundShowsSearchBar] = useState(true);
     const [playgroundSecurityContext, setPlaygroundSecurityContext] =
         useState(securityContextOptions[0]);
-    const [playgroundIsModeratedView, setPlaygroundIsModeratedView] = useState(false);
+    const [playgroundShowModerationSection, setPlaygroundShowModerationSection] = useState(false);
     const [playgroundShowsRibbons, setPlaygroundShowsRibbons] = useState(false);
     const [playgroundShowsStatus, setPlaygroundShowsStatus] = useState(true);
     const [playgroundShowsContentExpanded, setPlaygroundShowsContentExpanded] =
@@ -639,36 +639,41 @@ export function ContentItemListPanelDoc() {
                     {
                         name: 'search-show-bar',
                         label: 'showSearchBar',
+                    defaultValue: true,
                         value: playgroundShowsSearchBar,
                         onChange: setPlaygroundShowsSearchBar
                     },
                     {
                         name: 'search-moderated',
-                        label: 'isModeratedView (Moderate wears Edit\u2019s clothes)',
-                        value: playgroundIsModeratedView,
-                        onChange: setPlaygroundIsModeratedView
+                        label: 'showModerationSection (Moderate wears Edit\u2019s clothes)',
+                        value: playgroundShowModerationSection,
+                        onChange: setPlaygroundShowModerationSection
                     },
                     {
                         name: 'search-ribbons',
                         label: 'showApprovalStatusRibbon (status corner ribbons)',
+                    defaultValue: false,
                         value: playgroundShowsRibbons,
                         onChange: setPlaygroundShowsRibbons
                     },
                     {
                         name: 'search-status-pill',
                         label: 'showApprovalStatus (status pills)',
+                    defaultValue: false,
                         value: playgroundShowsStatus,
                         onChange: setPlaygroundShowsStatus
                     },
                     {
                         name: 'search-content-expanded',
                         label: 'showContentExpanded',
+                    defaultValue: false,
                         value: playgroundShowsContentExpanded,
                         onChange: setPlaygroundShowsContentExpanded
                     },
                     {
                         name: 'search-in-place-expansion',
                         label: 'allowInPlaceExpansion (read-more toggles here)',
+                    defaultValue: false,
                         value: playgroundAllowsInPlaceExpansion,
                         onChange: setPlaygroundAllowsInPlaceExpansion
                     }
@@ -696,7 +701,7 @@ export function ContentItemListPanelDoc() {
                             }))}
                             categorySettingCollection={demoSettings}
                             showSearchBar={playgroundShowsSearchBar}
-                            isModeratedView={playgroundIsModeratedView}
+                            showModerationSection={playgroundShowModerationSection}
                             showApprovalStatusRibbon={playgroundShowsRibbons}
                             showApprovalStatus={playgroundShowsStatus}
                             showContentExpanded={playgroundShowsContentExpanded}

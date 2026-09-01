@@ -274,7 +274,7 @@ describe('PostDetail', () => {
     });
 
     it('should offer no editing to the reader who contributed it', () => {
-        // given: isEditingAllowed is left off, which is the switch ahead of every role check
+        // given: showEditSection is left off, which is the switch ahead of every role check
         signInAs(authState);
 
         // when

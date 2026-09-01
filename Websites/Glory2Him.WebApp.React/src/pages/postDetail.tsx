@@ -16,7 +16,7 @@ import { useDocumentTitle } from './useDocumentTitle';
 // One content item, read. Where a contribution lands after it is submitted, and the permanent
 // address of the item afterwards.
 //
-// EDITING IS OFF HERE. isEditingAllowed is left at its default, the surface switch
+// EDITING IS OFF HERE. showEditSection is left at its default, the surface switch
 // ContentItemPanel puts ahead of every role check: no Edit, no route into the editor,
 // however the reader's roles fall. A public page that could never be turned into an edit
 // surface by a role change elsewhere is the point of that switch — an editing surface is a
