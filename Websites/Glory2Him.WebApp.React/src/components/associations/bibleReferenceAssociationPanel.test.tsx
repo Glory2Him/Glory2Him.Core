@@ -129,4 +129,41 @@ describe('BibleReferenceAssociationPanel', () => {
         expect(screen.getByRole('link', { name: /Romans 3:23/ }))
             .toHaveAttribute('href', '/BibleReferences/ROM.3.23');
     });
+
+    it('should let a BibleReference-scoped moderator decide without holding the global role', () => {
+        // given
+        signInAs(authState, ['BibleReference-Publishers']);
+
+        // when
+        renderWithAuth(
+            <BibleReferenceAssociationPanel
+                showModerationActions={true}
+                associationCollection={[{
+                    value: 'Romans 3:23',
+                    createdBy: 'another-user',
+                    approvalStatus: ApprovalStatus.Submitted
+                }]} />);
+
+        // then
+        expect(screen.getByRole('button', { name: 'Approve Romans 3:23' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Reject Romans 3:23' })).toBeInTheDocument();
+    });
+
+    it('should refuse a moderator scoped to a different entity type', () => {
+        // given
+        signInAs(authState, ['Tag-Publishers']);
+
+        // when
+        renderWithAuth(
+            <BibleReferenceAssociationPanel
+                showModerationActions={true}
+                associationCollection={[{
+                    value: 'Romans 3:23',
+                    createdBy: 'another-user',
+                    approvalStatus: ApprovalStatus.Submitted
+                }]} />);
+
+        // then: the reference is not even visible to a moderator this scope doesn't cover
+        expect(screen.queryByText(/Romans 3:23/)).not.toBeInTheDocument();
+    });
 });

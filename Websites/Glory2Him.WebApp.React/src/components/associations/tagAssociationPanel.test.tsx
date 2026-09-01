@@ -138,4 +138,41 @@ describe('TagAssociationPanel', () => {
         expect(screen.getByRole('button', { name: 'Approve test' })).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'Reject test' })).toBeInTheDocument();
     });
+
+    it('should let a Tag-scoped moderator decide without holding the global role', () => {
+        // given
+        signInAs(authState, ['Tag-Publishers']);
+
+        // when
+        renderWithAuth(
+            <TagAssociationPanel
+                showModerationActions={true}
+                associationCollection={[{
+                    value: 'test',
+                    createdBy: 'another-user',
+                    approvalStatus: ApprovalStatus.Submitted
+                }]} />);
+
+        // then
+        expect(screen.getByRole('button', { name: 'Approve test' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Reject test' })).toBeInTheDocument();
+    });
+
+    it('should refuse a moderator scoped to a different entity type', () => {
+        // given
+        signInAs(authState, ['BibleReference-Publishers']);
+
+        // when
+        renderWithAuth(
+            <TagAssociationPanel
+                showModerationActions={true}
+                associationCollection={[{
+                    value: 'test',
+                    createdBy: 'another-user',
+                    approvalStatus: ApprovalStatus.Submitted
+                }]} />);
+
+        // then: the tag is not even visible to a moderator this scope doesn't cover
+        expect(screen.queryByText('test')).not.toBeInTheDocument();
+    });
 });

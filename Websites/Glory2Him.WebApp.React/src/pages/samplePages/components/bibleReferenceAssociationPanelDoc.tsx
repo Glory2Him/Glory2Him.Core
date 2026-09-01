@@ -87,6 +87,13 @@ const defaultRows: ReadonlyArray<ComponentPropRow> = [
         description: 'Shown to a signed-out reader in place of the box.'
     },
     {
+        name: 'moderationRoles', type: 'string',
+        defaultValue:
+            "'Reviewers, Publishers, Administrators, BibleReference-Reviewers, "
+            + "BibleReference-Publishers'",
+        description: 'The global tier plus the BibleReference-scoped pair (§18.6).'
+    },
+    {
         name: 'showAdd / showRemove / showModeration', type: 'boolean', defaultValue: 'true',
         description: 'On by default so the bare component matches the post-detail panel.'
     }

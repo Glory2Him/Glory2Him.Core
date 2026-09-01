@@ -27,6 +27,11 @@ export function BibleReferenceAssociationPanel({
     chipHrefFor = referenceHref,
     loginButtonText = 'Login to suggest a bible reference',
     showAdd = true,
+    // §18.6: the global tier plus the BibleReference-scoped pair, so a moderator trusted with
+    // bible references alone — without holding the global Reviewers/Publishers role — can still
+    // decide on one.
+    moderationRoles =
+        'Reviewers, Publishers, Administrators, BibleReference-Reviewers, BibleReference-Publishers',
     ...rest
 }: BibleReferenceAssociationPanelProps) {
     return (
@@ -40,6 +45,7 @@ export function BibleReferenceAssociationPanel({
             chipHrefFor={chipHrefFor}
             loginButtonText={loginButtonText}
             showAdd={showAdd}
+            moderationRoles={moderationRoles}
             {...rest} />
     );
 }
