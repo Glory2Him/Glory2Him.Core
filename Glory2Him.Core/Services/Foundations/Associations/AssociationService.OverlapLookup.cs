@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -27,11 +27,12 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             CancellationToken cancellationToken = default) =>
             TryCatch(async () =>
             {
-                cancellationToken.ThrowIfCancellationRequested();
                 ValidateAssociationIsNotNull(association);
 
                 EventEnvelope<Association> envelope =
                     await this.eventEnvelopeBroker.CreateAsync(content: association);
+
+                cancellationToken.ThrowIfCancellationRequested();
 
                 ValidateUserIsNotGloballyBlockedFromContributing(envelope.SecurityContext);
                 ValidateOnFindAssociationByPair(association);

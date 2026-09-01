@@ -36,10 +36,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             await Assert.ThrowsAsync<OperationCanceledException>(
                 onApprovingTask.AsTask);
 
+            // approve is the one verb here that consults the access broker — it reaches
+            // MayDecideApprovalAsync through the shared transition do-work, so the guard has to be
+            // proven to fire ahead of that too. The two Setting verbs below take different
+            // do-work with no access gate, which is why they do not assert it.
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 

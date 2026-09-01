@@ -45,7 +45,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             await Assert.ThrowsAsync<OperationCanceledException>(
                 onSubmittingTask.AsTask);
 
+            // the clock is asserted alongside the rest: the submit do-work stamps a modified date
+            // on the happy path, so leaving it unasserted would let a guard that fires too late
+            // still pass this test.
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
@@ -208,9 +212,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             await Assert.ThrowsAsync<OperationCanceledException>(
                 onApprovingTask.AsTask);
 
+            // the audit stamp and the clock are asserted alongside the rest: the approve do-work
+            // reaches both on the happy path, so leaving them unasserted would let a guard that
+            // fires too late still pass this test.
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
-            this.accessBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
