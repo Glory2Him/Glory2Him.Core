@@ -342,6 +342,27 @@ describe('ContentItemListPanel', () => {
         });
     });
 
+    describe('the content-length trio, threaded', () => {
+        it('should carry truncateAt from the list to every card', () => {
+            const longItem = {
+                ...devotionalItem,
+                content: 'A body long enough to be cut by a tiny truncation point.'
+            };
+
+            render(
+                <ContentItemListPanel
+                    contentItemCollection={[longItem]}
+                    truncateAt={10}
+                    allowInPlaceExpansion
+                    showSearchBar={false} />);
+
+            // the cut applied on the card, and the in-place affordance with it — the
+            // whole trio travelled the tree
+            expect(screen.queryByText(/truncation point/)).not.toBeInTheDocument();
+            expect(screen.getByRole('button', { name: 'read more…' })).toBeInTheDocument();
+        });
+    });
+
     describe('the filter hooks', () => {
         it('should toggle the category on when the type badge is clicked', async () => {
             const onSearch = vi.fn();

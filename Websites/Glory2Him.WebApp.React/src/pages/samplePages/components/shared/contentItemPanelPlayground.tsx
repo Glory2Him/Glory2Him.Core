@@ -10,7 +10,12 @@ import {
     ContentItemFormItem
 } from '../../../../models/components/contentItems/contentItemFormItem';
 
-import { DemoControls, DemoRadioGroup, LiveDemo } from './componentDoc';
+import {
+    DemoControls,
+    DemoNumberInput,
+    DemoRadioGroup,
+    LiveDemo
+} from './componentDoc';
 
 import {
     DemoSecurityContext,
@@ -36,16 +41,15 @@ const ribbonStatusOptions = [
 
 export interface ContentItemPanelPlaygroundProps {
     contentItem: ContentItemSearchItem;
-
-    // Low enough that the demo items actually cut, so the read-more affordances show.
-    truncateAt?: number;
 }
 
 export function ContentItemPanelPlayground({
-    contentItem,
-    truncateAt = 160
+    contentItem
 }: ContentItemPanelPlaygroundProps) {
     const [lastEvent, setLastEvent] = useState('');
+
+    // The component's own default — type a smaller value to watch the cut move.
+    const [truncateAt, setTruncateAt] = useState(400);
 
     const [securityContext, setSecurityContext] = useState(securityContextOptions[0]);
 
@@ -98,6 +102,13 @@ export function ContentItemPanelPlayground({
                 options={ribbonStatusOptions}
                 selectedKey={String(ribbonStatus)}
                 onChange={(key) => setRibbonStatus(Number(key) as ApprovalStatus)} />
+
+            <DemoNumberInput
+                label="truncateAt"
+                name={`truncate-at-${contentItem.id}`}
+                value={truncateAt}
+                defaultValue={400}
+                onChange={setTruncateAt} />
 
             <DemoControls toggles={[
                 {

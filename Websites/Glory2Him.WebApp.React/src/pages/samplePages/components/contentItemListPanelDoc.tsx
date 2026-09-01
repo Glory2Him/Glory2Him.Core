@@ -30,6 +30,7 @@ import {
     ComponentDoc,
     ComponentPropRow,
     DemoControls,
+    DemoNumberInput,
     DocSection,
     LiveDemo,
     PropsTable
@@ -401,6 +402,11 @@ export function ContentItemListPanelDoc() {
     const [playgroundIsModeratedView, setPlaygroundIsModeratedView] = useState(false);
     const [playgroundShowsRibbons, setPlaygroundShowsRibbons] = useState(false);
     const [playgroundShowsStatus, setPlaygroundShowsStatus] = useState(true);
+    const [playgroundShowsContentExpanded, setPlaygroundShowsContentExpanded] =
+        useState(false);
+    const [playgroundAllowsInPlaceExpansion, setPlaygroundAllowsInPlaceExpansion] =
+        useState(true);
+    const [playgroundTruncateAt, setPlaygroundTruncateAt] = useState(400);
 
     const quoteItems: ReadonlyArray<ContentItemSearchItem> = [
         demoItems[0],
@@ -633,8 +639,27 @@ export function ContentItemListPanelDoc() {
                         label: 'showApprovalStatus (status pills)',
                         value: playgroundShowsStatus,
                         onChange: setPlaygroundShowsStatus
+                    },
+                    {
+                        name: 'search-content-expanded',
+                        label: 'showContentExpanded',
+                        value: playgroundShowsContentExpanded,
+                        onChange: setPlaygroundShowsContentExpanded
+                    },
+                    {
+                        name: 'search-in-place-expansion',
+                        label: 'allowInPlaceExpansion (read-more toggles here)',
+                        value: playgroundAllowsInPlaceExpansion,
+                        onChange: setPlaygroundAllowsInPlaceExpansion
                     }
                 ]} />
+
+                <DemoNumberInput
+                    label="truncateAt"
+                    name="list-truncate-at"
+                    value={playgroundTruncateAt}
+                    defaultValue={400}
+                    onChange={setPlaygroundTruncateAt} />
 
                 <LiveDemo title="Live — the playground">
                     {/* statusItems, not demoItems: a ribbon needs a status to wear, and
@@ -654,6 +679,9 @@ export function ContentItemListPanelDoc() {
                             isModeratedView={playgroundIsModeratedView}
                             showApprovalStatusRibbon={playgroundShowsRibbons}
                             showApprovalStatus={playgroundShowsStatus}
+                            showContentExpanded={playgroundShowsContentExpanded}
+                            truncateAt={playgroundTruncateAt}
+                            allowInPlaceExpansion={playgroundAllowsInPlaceExpansion}
                             onEditClick={(item) => setLastEvent(`onEditClick(${item.id})`)}
                             onModerateClick={(item) =>
                                 setLastEvent(`onModerateClick(${item.id})`)} />

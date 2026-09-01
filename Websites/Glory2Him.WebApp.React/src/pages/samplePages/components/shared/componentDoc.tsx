@@ -246,3 +246,47 @@ export function DemoRadioGroup({
         </div>
     );
 }
+
+// A LIVE NUMBER BOX, the DemoControls' sibling for a numeric prop — type a value and the
+// demo re-renders under it. An emptied or unparseable box falls back to the default rather
+// than handing the component NaN.
+export interface DemoNumberInputProps {
+    label: string;
+    name: string;
+    value: number;
+    defaultValue: number;
+    onChange: (value: number) => void;
+}
+
+export function DemoNumberInput({
+    label,
+    name,
+    value,
+    defaultValue,
+    onChange
+}: DemoNumberInputProps) {
+    return (
+        <div className="border rounded-3 p-3 mb-3">
+            <label
+                className="small text-uppercase fw-bold text-body-secondary mb-2 d-block"
+                htmlFor={`demo-number-${name}`}>
+                {label}
+            </label>
+
+            <input
+                className="form-control"
+                style={{ maxWidth: '10rem' }}
+                type="number"
+                id={`demo-number-${name}`}
+                value={value}
+                min={1}
+                onChange={(event) => {
+                    const parsed = Number(event.target.value);
+
+                    onChange(Number.isFinite(parsed) && parsed > 0
+                        ? parsed
+                        : defaultValue);
+                }} />
+        </div>
+    );
+}
