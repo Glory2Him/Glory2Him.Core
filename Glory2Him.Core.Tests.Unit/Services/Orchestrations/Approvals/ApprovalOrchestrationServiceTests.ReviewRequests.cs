@@ -63,6 +63,38 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(blockedUsers.ToList());
 
+        // The scope as it comes back when the entity behind the approval could not be read —
+        // the subject carries no content type and says so, which is the whole point of the
+        // flag: an ABSENT content type and an UNKNOWN one must not be treated alike.
+        private void SetupUnresolvedReviewerScope(Guid approvalId)
+        {
+            SetupReviewerScope(approvalId: approvalId, contentType: null);
+
+            this.accessBrokerMock.Setup(broker =>
+                broker.RetrieveApprovalReviewerScopeByIdAsync(
+                    approvalId,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(new ApprovalReviewerScope
+                        {
+                            ApprovalId = approvalId,
+                            ApprovalStatus = ApprovalStatus.Submitted,
+                            EntityCreatedBy = Guid.NewGuid().ToString(),
+
+                            RoleSubjects = new[]
+                            {
+                                new RoleSubject
+                                {
+                                    EntityType = nameof(EntityType.ContentItem),
+                                    ContentType = null,
+                                    IsEntityUnresolved = true,
+                                }
+                            },
+
+                            ActiveReviewerUserIds = Array.Empty<string>(),
+                            ActiveRequests = Array.Empty<ActiveReviewRequest>(),
+                        });
+        }
+
         private void SetupReviewerScope(
             Guid approvalId,
             ApprovalStatus approvalStatus = ApprovalStatus.Submitted,

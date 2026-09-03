@@ -627,15 +627,25 @@ namespace G2H.Security.Client.Services.Foundations.Access
         // veto failing to compose it would hand a narrowly sanctioned user an orphaned approval
         // their coarse tier never covered — open, and in the one direction a veto may not err.
         //
+        // ANY scoped block bars, not merely one prefixed with this subject's entity type.
+        // Unresolved means the SCOPE could not be established, so which sanction covers the
+        // row is exactly what is unknown — and an association reports the fallback subject
+        // `Association`, an entity type that issues no scoped roles at all, so a prefix match
+        // on it could never fire however the sanctions are spelled.
+        //
+        // It over-applies by exactly one step — a Tag sanction bars an orphaned ContentItem
+        // approval — and that is the direction a veto must err. The state is transient and
+        // rare: an approval outliving the entity it hangs off.
+        //
         // Matched by the §18.6 naming convention rather than by an enum, for the reason this
         // whole package takes strings: the entity and content types are the consuming
-        // application's vocabulary and the reference runs the other way. The same ordinal
-        // suffix match the approval services already identify a scoped role by.
+        // application's vocabulary and the reference runs the other way. The bare global
+        // `ReadOnly` carries no hyphen, so the suffix match reaches only the scoped names —
+        // the global one is already asked directly by IsBlockedFromSubjects.
         private static bool IsNarrowBlockUndecidableFor(AccessActor actor, RoleSubject subject) =>
             subject.IsEntityUnresolved
                 && actor.Roles.Any(role =>
-                    role.StartsWith($"{subject.EntityType}-", StringComparison.Ordinal)
-                        && role.EndsWith(RoleNames.ReadOnlySuffix, StringComparison.Ordinal));
+                    role.EndsWith(RoleNames.ReadOnlySuffix, StringComparison.Ordinal));
 
         // One sentence for all three scopes. Which of them fired is the sanction's own detail
         // and names nothing the actor can act on — no scope of it is appealable here.

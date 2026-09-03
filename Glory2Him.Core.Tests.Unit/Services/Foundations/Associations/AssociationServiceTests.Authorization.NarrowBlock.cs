@@ -280,8 +280,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // endpoint is not an undecidable narrow tier — it is the absence of one. Failing
             // closed there would bar a narrowly sanctioned contributor from every association
             // in the system, which is the over-application this branch is scoped to avoid.
+            //
+            // The caller holds a Tag-scoped block name on purpose. It is a name nothing seeds
+            // and no gate composes — but it is exactly what the fail-closed scan WOULD find if
+            // the entity-type guard were deleted, so this case fails when the guard goes. A
+            // caller holding only the ContentItem sanction would pass either way and assert
+            // nothing about the scoping.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(
-                Roles.ReadOnlyFor(EntityType.ContentItem, ContentType.Quote));
+                Roles.ReadOnlyFor(EntityType.ContentItem, ContentType.Quote),
+                Roles.ReadOnlyFor(EntityType.Tag, ContentType.Quote));
 
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 

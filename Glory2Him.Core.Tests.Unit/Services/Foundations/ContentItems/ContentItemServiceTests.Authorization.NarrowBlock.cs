@@ -74,6 +74,18 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         public static TheoryData<string> GrantsOnARowTheBlockDoesNotCover() =>
             GrantsTheBlockOutranks();
 
+        /// <summary>
+        /// The block written at each of its three widths against a Quote row. All three cover
+        /// it, so a gate composing only one of them leaves the other two unenforced.
+        /// </summary>
+        public static TheoryData<string> BlocksCoveringAQuote() =>
+            new TheoryData<string>
+            {
+                Roles.ReadOnly,
+                Roles.ContentItemReadOnly,
+                Roles.ReadOnlyFor(EntityType.ContentItem, BlockedContentType),
+            };
+
         private static ContentItemValidationException ExpectedBlockedException() =>
             new ContentItemValidationException(
                 message: "Content item validation error occurred, fix the errors and try again.",
@@ -487,6 +499,117 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                     storageContentItem,
                     It.IsAny<CancellationToken>()),
                 Times.Once);
+        }
+
+        // ── APPROVAL TRANSITION: the write that makes content public ───────────────
+
+        [Theory]
+        [MemberData(nameof(BlocksCoveringAQuote))]
+        public async Task ShouldRefuseTheApprovalTransitionWhenABlockCoversTheStoredRowAsync(
+            string blockCoveringTheRow)
+        {
+            // given: an administrator, who is the widest caller this verb admits and the only
+            // one an override lets past a terminal row (§8.6 HR-4). This is the single highest
+            // stakes gate in the service — the only path by which a content item becomes
+            // publicly visible — and the veto sits ahead of the publisher tier, the
+            // Administrators override AND the access decision below them all.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(
+                Roles.Administrators,
+                blockCoveringTheRow);
+
+            Guid contentItemId = Guid.NewGuid();
+            ContentItem inputContentItem = CreateApprovalDecision(contentItemId);
+
+            ContentItem storageContentItem = CreateRandomContentItem();
+            storageContentItem.Id = contentItemId;
+            storageContentItem.ContentType = BlockedContentType;
+            storageContentItem.IsDeleted = false;
+            storageContentItem.ApprovalStatus = ApprovalStatus.Submitted;
+            storageContentItem.IsPublished = false;
+            storageContentItem.PublishDate = null;
+
+            ContentItemValidationException expectedException = ExpectedBlockedException();
+
+            SetupContentItemStorageRead(storageContentItem);
+
+            // when
+            ValueTask<ContentItem> transitionTask =
+                this.contentItemService.TransitionContentItemApprovalAsync(
+                    inputContentItem,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemValidationException actualException =
+                await Assert.ThrowsAsync<ContentItemValidationException>(
+                    transitionTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedException);
+
+            // Refused BEFORE the policy is ever consulted — the veto answers on the row alone,
+            // so a blocked caller learns nothing about the approval's configuration (§14.5).
+            this.accessBrokerMock.Verify(broker =>
+                broker.MayDecideApprovalAsync(
+                    It.IsAny<ApprovalDecisionQuery>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateContentItemAsync(
+                    It.IsAny<ContentItem>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        [Fact]
+        public async Task ShouldRefuseReopeningATerminalRowWhenTheNarrowBlockCoversItAsync()
+        {
+            // given: the re-open branch, which is the one an access decision never reaches —
+            // a target of Submitted returns before any policy question is asked, so the veto is
+            // the ONLY gate standing between a blocked administrator and a terminal row they
+            // may not touch (§8.6 HR-4).
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(
+                Roles.Administrators,
+                QuoteBlock);
+
+            Guid contentItemId = Guid.NewGuid();
+
+            var inputContentItem = new ContentItem
+            {
+                Id = contentItemId,
+                ApprovalStatus = ApprovalStatus.Submitted,
+                IsPublished = false,
+                PublishDate = null,
+            };
+
+            ContentItem storageContentItem = CreateRandomContentItem();
+            storageContentItem.Id = contentItemId;
+            storageContentItem.ContentType = BlockedContentType;
+            storageContentItem.IsDeleted = false;
+            storageContentItem.ApprovalStatus = ApprovalStatus.Approved;
+            storageContentItem.IsPublished = true;
+
+            ContentItemValidationException expectedException = ExpectedBlockedException();
+
+            SetupContentItemStorageRead(storageContentItem);
+
+            // when
+            ValueTask<ContentItem> transitionTask =
+                this.contentItemService.TransitionContentItemApprovalAsync(
+                    inputContentItem,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemValidationException actualException =
+                await Assert.ThrowsAsync<ContentItemValidationException>(
+                    transitionTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateContentItemAsync(
+                    It.IsAny<ContentItem>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
         }
 
         // ── UNPUBLISH: the write that takes content off the site ───────────────────

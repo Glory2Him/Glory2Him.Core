@@ -191,6 +191,81 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         }
 
         [Fact]
+        public async Task ShouldComposeEveryScopedBlockNameWhenTheSubjectIsUnresolvedAsync()
+        {
+            // given: an approval outliving the content item it hangs off. The gatherer could
+            // not read the entity, so the subject carries no content type and says so with
+            // IsEntityUnresolved. IAccessClient fails CLOSED on that and refuses the vote — so
+            // this read has to fail closed too, or it offers a candidate whose vote the server
+            // then refuses, which is the unanswerable invitation §7.9 rule 3 forbids.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
+            IEnumerable<string> capturedRoleNames = null;
+
+            SetupUnresolvedReviewerScope(approvalId: Guid.NewGuid());
+            SetupReviewTierMembers();
+
+            this.identityUserServiceMock.Setup(service =>
+                service.RetrieveIdentityUsersInRolesAsync(
+                    It.Is<IEnumerable<string>>(roleNames =>
+                        roleNames.Contains(Roles.ReadOnly)),
+                    It.IsAny<CancellationToken>()))
+                        .Callback<IEnumerable<string>, CancellationToken>(
+                            (roleNames, token) => capturedRoleNames = roleNames)
+                        .ReturnsAsync(new List<IdentityUser>());
+
+            // when
+            await this.approvalOrchestrationService.RetrieveReviewerCandidatesAsync(
+                EntityType.ContentItem,
+                Guid.NewGuid(),
+                TestContext.Current.CancellationToken);
+
+            // then: every block name the vocabulary can mint, walked from the enums so the set
+            // cannot drift from them.
+            var expectedRoleNames = new List<string> { Roles.ReadOnly };
+
+            foreach (EntityType entityType in Enum.GetValues<EntityType>())
+            {
+                expectedRoleNames.Add(Roles.ReadOnlyFor(entityType));
+            }
+
+            foreach (ContentType contentType in Enum.GetValues<ContentType>())
+            {
+                expectedRoleNames.Add(Roles.ReadOnlyFor(EntityType.ContentItem, contentType));
+            }
+
+            capturedRoleNames.Should().BeEquivalentTo(expectedRoleNames);
+        }
+
+        [Fact]
+        public async Task ShouldExcludeANarrowlyBlockedUserFromCandidatesWhenTheSubjectIsUnresolvedAsync()
+        {
+            // given: the behaviour the composition above exists for. Before it, this user was
+            // offered as a candidate and could be invited, and only their VOTE was refused.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
+            Guid blockedId = Guid.NewGuid();
+            Guid freshId = Guid.NewGuid();
+
+            SetupUnresolvedReviewerScope(approvalId: Guid.NewGuid());
+
+            SetupReviewTierMembers(
+                CreateIdentityUser(blockedId, preferredName: "Blocked"),
+                CreateIdentityUser(freshId, preferredName: "Fresh"));
+
+            SetupBlockedUsers(CreateIdentityUser(blockedId, preferredName: "Blocked"));
+
+            // when
+            IReadOnlyList<ReviewerCandidate> candidates =
+                await this.approvalOrchestrationService.RetrieveReviewerCandidatesAsync(
+                    EntityType.ContentItem,
+                    Guid.NewGuid(),
+                    TestContext.Current.CancellationToken);
+
+            // then
+            candidates.Select(candidate => candidate.UserId)
+                .Should().BeEquivalentTo(new[] { freshId.ToString() });
+        }
+
+        [Fact]
         public async Task ShouldThrowOnRequestIfTheInvitedUserIsBlockedForTheEntityAsync()
         {
             // given: somebody can hold a grant and a block together, so being IN the tier is not

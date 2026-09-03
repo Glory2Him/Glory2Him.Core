@@ -228,8 +228,16 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             // re-opens and there is no sweep to build.
             //
             // The conditions evaluation is where that is observable: it takes no actor at all,
-            // which is the structural reason the block cannot reach backwards. This case pins
-            // that, so a future "recompute the totals when a role changes" cannot land quietly.
+            // which is the structural reason the block cannot reach backwards.
+            //
+            // Read this for what it is. ApprovalConditionsRequest has no Actor and no
+            // RoleSubjects members, so nothing this branch wrote can regress it — it is a
+            // STRUCTURAL pin, not a veto pin, and it holds only while that request type stays
+            // actor-free. That is the property worth guarding: the day somebody threads an
+            // actor into the conditions evaluation, retroactive sanctioning becomes expressible
+            // and this case is where the argument against it is written down. The veto's own
+            // half of the rule — no NEW or CHANGED vote once blocked — is pinned separately by
+            // ShouldRefuseChangingAStandingReviewOnceTheBlockAppliesAsync above.
             string blockedReviewerUserId = GetRandomString();
 
             ApprovalPolicy policy = CreateRandomApprovalPolicy(
@@ -458,6 +466,78 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             DecideApprovalRequest decideApprovalRequest = CreateRandomDecideApprovalRequest(
                 actor: actor,
                 roleSubjects: UnresolvedContentItemSubject());
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayDecideApprovalAsync(decideApprovalRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeTrue();
+            actualVerdict.DenialReason.Should().Be(AccessDenialReason.None);
+        }
+
+        [Fact]
+        public async Task ShouldRefuseAnUnresolvedSubjectForAnyScopedBlockNotOnlyItsOwnEntityTypeAsync()
+        {
+            // given: the association fallback. When the association itself cannot be read the
+            // gatherer can name no endpoint, so the subject it emits is the literal
+            // "Association" — an entity type that issues no scoped roles at all (Roles.cs mints
+            // no Association-Reviewers, and SeedData excludes it). A rule that matched only
+            // roles prefixed with the subject's own entity type could therefore NEVER fire
+            // here, however the sanctions are spelled, and the fail-closed branch would be
+            // decoration. Unresolved means the SCOPE is what is unknown, so any scoped block
+            // the actor holds may cover it.
+            AccessActor blockedActor = CreateRandomAccessActor(
+                roles: new List<string>
+                {
+                    RoleNames.ReadOnlyFor(ContentItemEntityType, QuoteContentType),
+                    RoleNames.Publishers,
+                });
+
+            DecideApprovalRequest decideApprovalRequest = CreateRandomDecideApprovalRequest(
+                actor: blockedActor,
+                roleSubjects: new List<RoleSubject>
+                {
+                    new RoleSubject
+                    {
+                        EntityType = "Association",
+                        ContentType = null,
+                        IsEntityUnresolved = true,
+                    },
+                });
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayDecideApprovalAsync(decideApprovalRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeFalse();
+
+            actualVerdict.DenialReason.Should()
+                .Be(AccessDenialReason.BlockedByReadOnlyRole);
+        }
+
+        [Fact]
+        public async Task ShouldNotRefuseAnUnresolvedSubjectForTheGlobalBlockSpellingAloneAsync()
+        {
+            // given: the bare global "ReadOnly" carries no hyphen, so the suffix match reaches
+            // only the SCOPED names. An actor holding it is already refused by the first clause
+            // of IsBlockedFromSubjects; an actor holding none of them must still get through,
+            // or an unresolved subject would refuse everybody rather than only the sanctioned.
+            AccessActor actor = CreateRandomAccessActor(
+                roles: new List<string> { RoleNames.Publishers, RoleNames.Reviewers });
+
+            DecideApprovalRequest decideApprovalRequest = CreateRandomDecideApprovalRequest(
+                actor: actor,
+                roleSubjects: new List<RoleSubject>
+                {
+                    new RoleSubject
+                    {
+                        EntityType = "Association",
+                        ContentType = null,
+                        IsEntityUnresolved = true,
+                    },
+                });
 
             // when
             AccessVerdict actualVerdict =

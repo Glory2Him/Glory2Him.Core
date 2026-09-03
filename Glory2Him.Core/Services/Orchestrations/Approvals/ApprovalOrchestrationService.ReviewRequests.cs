@@ -473,7 +473,26 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
 
             foreach (RoleSubject roleSubject in roleSubjects ?? Array.Empty<RoleSubject>())
             {
-                if (string.IsNullOrWhiteSpace(roleSubject?.EntityType))
+                if (roleSubject is null)
+                {
+                    continue;
+                }
+
+                // The subject's scope could not be established, so which sanction covers it is
+                // exactly what is unknown — every scoped block goes on the list. This is the
+                // name-list form of the rule IAccessClient applies to the same flag
+                // (IsNarrowBlockUndecidableFor), and the two have to agree: where the client
+                // fails CLOSED and refuses the vote, this read failing OPEN would keep offering
+                // the person as a candidate and let them be invited, which is precisely the
+                // unanswerable invitation §7.9 rule 3 exists to prevent.
+                if (roleSubject.IsEntityUnresolved)
+                {
+                    roleNames.AddRange(EveryScopedBlockRoleName());
+
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(roleSubject.EntityType))
                 {
                     continue;
                 }
@@ -488,6 +507,24 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             }
 
             return roleNames.Distinct(StringComparer.Ordinal).ToList();
+        }
+
+        // Every block name the vocabulary can mint: the entity-scoped one for each entity type,
+        // and the content-type-scoped one for each ContentType — ContentItem being the only
+        // entity type that carries one (§18.6 rule 5). Walked from the enums rather than listed,
+        // for the reason SeedData walks them: the enum IS the set, and writing it out twice is
+        // what lets the two disagree.
+        private static IEnumerable<string> EveryScopedBlockRoleName()
+        {
+            foreach (EntityType entityType in Enum.GetValues<EntityType>())
+            {
+                yield return Roles.ReadOnlyFor(entityType);
+            }
+
+            foreach (ContentType contentType in Enum.GetValues<ContentType>())
+            {
+                yield return Roles.ReadOnlyFor(EntityType.ContentItem, contentType);
+            }
         }
 
         // Who those names belong to. Role membership lives in the Identity store and nowhere

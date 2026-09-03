@@ -558,16 +558,13 @@ namespace Glory2Him.Core.Brokers.Securities
                             null)
                         : (association.CreatedBy, new List<RoleSubject>
                         {
-                            new RoleSubject
-                            {
-                                EntityType = association.EntityAType.ToString(),
-                                ContentType = association.EntityAContentType?.ToString(),
-                            },
-                            new RoleSubject
-                            {
-                                EntityType = association.EntityBType.ToString(),
-                                ContentType = association.EntityBContentType?.ToString(),
-                            },
+                            EndpointSubject(
+                                association.EntityAType,
+                                association.EntityAContentType),
+
+                            EndpointSubject(
+                                association.EntityBType,
+                                association.EntityBContentType),
                         }, association.ConfidenceScore);
 
                 default:
@@ -679,6 +676,26 @@ namespace Glory2Him.Core.Brokers.Securities
         /// The ordinary one-subject case: an entity is authorised from itself. Only
         /// <c>Association</c> departs from this, and it composes its pair inline.
         /// </summary>
+        // One endpoint of an association, and the flag is why this is not an inline object
+        // initialiser any more. A ContentItem endpoint carrying a NULL content type is not an
+        // endpoint without a narrow tier — it is one whose narrow tier cannot be decided,
+        // because the value is the orchestration's to derive and the foundation's own
+        // `Association-Adding` address admits a null (§14.7 A′.1). Reported as absent, the
+        // veto would go silent on exactly the omitted-null step-around that
+        // AssociationService.IsNarrowBlockUndecidableFor fails closed on — and the approval
+        // surface has no endpoint gate of its own to catch it.
+        private static RoleSubject EndpointSubject(
+            EntityType entityType,
+            ContentType? contentType) =>
+            new RoleSubject
+            {
+                EntityType = entityType.ToString(),
+                ContentType = contentType?.ToString(),
+
+                IsEntityUnresolved =
+                    entityType == EntityType.ContentItem && contentType.HasValue is false,
+            };
+
         private static IReadOnlyList<RoleSubject> SubjectsFor(
             EntityType entityType,
             ContentType? contentType,
