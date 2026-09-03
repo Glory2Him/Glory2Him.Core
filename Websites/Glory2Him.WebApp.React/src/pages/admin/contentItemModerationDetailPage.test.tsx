@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, useLocation } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ContentItemModerationDetailPage } from './contentItemModerationDetailPage';
 import { AuthProvider } from '../../components/securitys/authProvider';
@@ -9,6 +9,13 @@ import { ContentType } from '../../models/foundations/contentItemSettings/conten
 import { ApprovalStatus } from '../../models/components/contentItems/contentItemFormItem';
 import { ShareabilityBasis } from '../../models/components/contentItems/contentItemFormItem';
 import { createAuthState, signInAs } from '../../tests/testAuth';
+
+import {
+    ApprovalReview,
+    ApprovalReviewRequest,
+    ApprovalVerdict,
+    ReviewerCandidate
+} from '../../models/foundations/approvals/approval';
 
 // ONE ITEM UNDER MODERATION, in the admin shell. The reads are mocked at their own boundary;
 // what this suite pins is what the PAGE owns — the way back to the queue, the moderated face it
@@ -46,6 +53,31 @@ vi.mock('../../services/foundations/contributorService', () => ({
     }
 }));
 
+// The APPROVAL ROUND, mocked at the service boundary like every other read on this page. The
+// hook above it does the chaining; what this suite cares about is that the page asks for the
+// round of the item in the URL and hands what comes back to the panel.
+let approvalVerdict: ApprovalVerdict | undefined;
+let approvalReviews: ApprovalReview[] = [];
+let reviewRequests: ApprovalReviewRequest[] = [];
+let reviewerCandidates: ReviewerCandidate[] = [];
+let verdictAskedFor: ReadonlyArray<string> = [];
+
+vi.mock('../../services/foundations/approvalService', () => ({
+    approvalService: {
+        useGetApprovalVerdict: (entityType: string, entityId: string) => {
+            verdictAskedFor = [entityType, entityId];
+
+            return { data: approvalVerdict, isLoading: false };
+        },
+        useGetApprovalReviews: () => ({ data: approvalReviews, isLoading: false }),
+        useGetReviewerCandidates: () => ({ data: reviewerCandidates }),
+        useGetReviewRequests: () => ({ data: reviewRequests }),
+        useGetReviewerDisplayNames: () => ({
+            data: [{ userId: 'user-john', displayName: 'John' }]
+        })
+    }
+}));
+
 const draftQuote: ContentItem = {
     id: 'quote-1',
     contentType: ContentType.Quote,
@@ -80,21 +112,53 @@ const LocationProbe = () => {
     return <span data-testid="location">{location.pathname}{location.search}</span>;
 };
 
+// Rendered THROUGH its route, not beside one: the page reads the item's id off the URL, and a
+// bare element would hand it an empty string while every mocked read answered anyway — a harness
+// that passed whether or not the id was threaded at all.
 const renderPage = (state?: { from: string }) =>
     render(
         <MemoryRouter
             initialEntries={[{ pathname: '/Admin/Posts/quote-1', state }]}>
             <AuthProvider>
-                <ContentItemModerationDetailPage />
+                <Routes>
+                    <Route
+                        path="/Admin/Posts/:contentItemId"
+                        element={<ContentItemModerationDetailPage />} />
+
+                    {/* The queue itself is another page's subject; it is declared here only so
+                        that walking back lands somewhere rather than on an unmatched route. */}
+                    <Route path="/Admin/Posts" element={null} />
+                </Routes>
             </AuthProvider>
             <LocationProbe />
         </MemoryRouter>);
 
 const landedOn = (): string | null => screen.getByTestId('location').textContent;
 
+const submittedVerdict: ApprovalVerdict = {
+    approvalId: 'approval-1',
+    entityType: 0,
+    entityId: 'quote-1',
+    approvalStatus: ApprovalStatus.Submitted,
+    blockReasons: [
+        { code: 1, message: 'At least 3 approving review(s) is required by reviewers.' }
+    ],
+    isBlocked: true,
+    isBypassAllowedForCurrentUser: false,
+    canApprove: false,
+    approvalCount: 1,
+    requiredNumberOfApprovals: 3,
+    unresolvedApprovalCommentCount: 0
+};
+
 describe('ContentItemModerationDetailPage', () => {
     beforeEach(() => {
         contentItem = draftQuote;
+        approvalVerdict = undefined;
+        approvalReviews = [];
+        reviewRequests = [];
+        reviewerCandidates = [];
+        verdictAskedFor = [];
         signInAs(authState, ['Administrators']);
     });
 
@@ -194,6 +258,79 @@ describe('ContentItemModerationDetailPage', () => {
         // then
         expect(rightColumn.textContent).toContain('Approval Reviews');
         expect(rightColumn.textContent).toContain('Review Outcome');
+    });
+
+    /// THE ROUND IS READ, not invented. The page asks for the approval of the item in the URL
+    /// and hands what comes back to the panel — the verdict's reasons, the votes cast, and who
+    /// is still being waited on.
+    it('should ask for the round of the item in the url', () => {
+        // when
+        renderPage();
+
+        // then
+        expect(verdictAskedFor).toEqual(['ContentItem', 'quote-1']);
+    });
+
+    it('should show the round the approval endpoints answer with', () => {
+        // given
+        contentItem = { ...draftQuote, approvalStatus: ApprovalStatus.Submitted };
+        approvalVerdict = submittedVerdict;
+
+        approvalReviews = [{
+            id: 'review-1',
+            approvalId: 'approval-1',
+            statusId: ApprovalStatus.Approved,
+            comment: '',
+            createdBy: 'user-john',
+            createdWhen: '2026-07-02T00:00:00Z',
+            isDeleted: false
+        }];
+
+        reviewRequests = [{
+            id: 'request-1',
+            approvalId: 'approval-1',
+            requestedUserId: 'user-mary',
+            requestedUserDisplayName: 'Mary Adeyemi',
+            isDeleted: false
+        }];
+
+        // when
+        renderPage();
+
+        // then: the vote that was cast, named by the display-name read
+        expect(screen.getByText('John')).toBeInTheDocument();
+        expect(screen.getByText('Approved')).toBeInTheDocument();
+
+        // the invitation still outstanding
+        expect(screen.getByText('Mary Adeyemi')).toBeInTheDocument();
+        expect(screen.getByText('Requested')).toBeInTheDocument();
+
+        // and the verdict's own reason, verbatim
+        expect(screen.getByText(
+            'At least 3 approving review(s) is required by reviewers.')).toBeInTheDocument();
+    });
+
+    /// A post with no approval row 404s, and so does a caller outside the moderation tier
+    /// (§14.5 rule 1) — both leave the verdict undefined. Nothing is then claimed about the
+    /// round: no block reasons, and no approve, because the verdict is the only thing entitled
+    /// to say whether approving is allowed. Reject survives, which is the panel's own rule —
+    /// a direct reject needs no conditions and no bypass (§12.5.3 rule 13).
+    it('should claim nothing about a round the verdict would not answer for', async () => {
+        // given: submitted, so nothing but the missing verdict is holding the controls back
+        contentItem = { ...draftQuote, approvalStatus: ApprovalStatus.Submitted };
+        approvalVerdict = undefined;
+
+        // when
+        renderPage();
+
+        // then: no reasons invented
+        expect(screen.queryByText('Approval is blocked')).not.toBeInTheDocument();
+
+        // and approving is refused while rejecting stands
+        await userEvent.click(screen.getByRole('button', { name: 'Set approval status' }));
+
+        expect(screen.getByRole('button', { name: /Approve this item/ })).toBeDisabled();
+        expect(screen.getByRole('button', { name: /Reject this item/ })).toBeEnabled();
     });
 
     /// The panel's gates read the STORED row — the item's owner and its status — so the page

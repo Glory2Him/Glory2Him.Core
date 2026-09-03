@@ -7,6 +7,8 @@ import { ContentItemPanel } from '../../components/contentItems/contentItemPanel
 import { ReviewPanel } from '../../components/approvals/reviewPanel';
 import { Spinner } from '../../components/coreUI/spinner';
 import { ContentType } from '../../models/foundations/contentItemSettings/contentType';
+import { EntityTypeName } from '../../models/foundations/approvals/approval';
+import { useApprovalRound } from '../../hooks/useApprovalRound';
 
 import {
     BibleReferenceAssociationPanel
@@ -110,6 +112,18 @@ export const ContentItemModerationDetailPage = () => {
 
     const goBack = () => navigate(backRoute);
 
+    // THE ROUND, off the approval endpoints. A refusal is an answer here: a post with no
+    // approval row and a caller outside the moderation tier both leave the verdict undefined,
+    // and the panel reads that as "no verdict" — the round shown read-only rather than a
+    // decision surface nobody is entitled to.
+    const {
+        approvalVerdict,
+        approvalReviewCollection,
+        requestedReviewerCollection,
+        reviewerCandidateCollection,
+        isLoading: isRoundLoading
+    } = useApprovalRound(EntityTypeName.ContentItem, contentItemId);
+
     // The association WRITES arrive with #318; until then the boxes answer honestly rather than
     // silently dropping what a moderator typed. Same posture as /myposts/{id}.
     const suggestTag = () => toastSuccess('Suggesting tags is coming soon.');
@@ -207,17 +221,25 @@ export const ContentItemModerationDetailPage = () => {
                                 ContentItem-{Type}-Reviewers from, and a renamed type must not
                                 silently shed its role names.
 
-                                THE ROUND ITSELF IS NOT READ YET. Reviews, requests, candidates
-                                and the per-caller verdict all need the approval exposers (#350),
-                                so the collections are empty and no verdict is passed — the panel
-                                then shows the status and no decision controls, which is honest,
-                                rather than a decision surface over data nobody fetched. */}
+                                THE ROUND IS READ, not invented: the verdict, the votes cast,
+                                who is still being waited on, and who else may be asked all come
+                                off the approval endpoints. The panel does no fetching of its own
+                                — props in, events out — so the assembling is this page's job,
+                                done once in useApprovalRound.
+
+                                THE DECISION AND VOTE WRITES ARE NOT WIRED YET, so the controls
+                                a moderator's tier earns will raise their events and nothing
+                                will follow. That is the next piece, not a silent gap. */}
                             <ReviewPanel
                                 entityType="ContentItem"
                                 contentType={ContentType[contentItem.contentType] ?? ''}
                                 entityOwnerId={contentItem.createdBy}
                                 approvalStatus={contentItem.approvalStatus}
-                                approvalReviewCollection={[]}
+                                approvalVerdict={approvalVerdict}
+                                approvalReviewCollection={approvalReviewCollection}
+                                requestedReviewerCollection={requestedReviewerCollection}
+                                reviewerCandidateCollection={reviewerCandidateCollection}
+                                isLoading={isRoundLoading}
                                 showBorder />
                         </div>
                     </div>
