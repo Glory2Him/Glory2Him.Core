@@ -308,7 +308,7 @@ namespace Glory2Him.WebApp.Controllers.Approvals
         }
 
         /// <summary>
-        /// What the given account ids are called (§16.7.4) — the review panel's one name
+        /// What everybody this round names is called (§16.7.4) — the review panel's one name
         /// resolver.
         ///
         /// <para><b>The gap it closes.</b> An <c>ApprovalReview</c> row names its reviewer by
@@ -323,39 +323,44 @@ namespace Glory2Him.WebApp.Controllers.Approvals
         /// the review read would have answered that surface and left the next to invent its own,
         /// and three lookups are three chances to render one person under two names.</para>
         ///
-        /// <para><b>That it is not keyed on a round is a separate choice, and an open one.</b> It
-        /// does not follow from the paragraph above — the surfaces the panel renders all belong to
-        /// the same round — and §16.7.4 records composing this tier gate with an entity gate as
-        /// the better posture, still to be settled.</para>
-        ///
-        /// <para>The ids ride the query string, repeated, for the same reason the invitation's
-        /// <c>requestedUserId</c> does: they are the whole request, and a body would make a plain
-        /// read into a POST. The batch is capped in the orchestration and an oversized one is a
-        /// <c>400</c> rather than a truncated <c>200</c> — though the transport refuses a long
-        /// batch first: repeated ids on the query string exhaust IIS's 2048-character limit at
-        /// roughly 45 ids and Kestrel's 8KB request line at roughly 180, both as a refusal rather
-        /// than a truncation. A caller wanting many names pages.</para>
+        /// <para><b>Keyed on the round, like every other operation here.</b> The set it names is
+        /// built from the approval's review rows — dismissed and soft-deleted included, since the
+        /// panel renders those — and its outstanding invitations, and nothing else: the review
+        /// tier is not read here, because a caller that supplies no ids gives a tier read nothing
+        /// to admit and it would only repeat <c>ReviewerCandidates</c>, which this panel already
+        /// calls for names of its own. So the tier gate composes with an entity gate instead of
+        /// standing alone: a <c>Tag-Reviewer</c> can name the people a tag round involves and
+        /// nobody else. The caller names no ids, which is what leaves nothing to probe with, no
+        /// batch to cap, and no route parameter that is not part of the key.</para>
         ///
         /// <para>Bare <c>[Authorize]</c> and the tier decided beneath, matching the candidates
         /// read: the admitted set is suffix-matched across every entity and content type (§18.6),
         /// so no fixed <c>Roles = ...</c> list could express it. No <c>Conflict</c> or
         /// <c>Locked</c> clause — this performs SELECTs only.</para>
         /// </summary>
-        [HttpGet("ReviewerDisplayNames")]
+        [HttpGet("{entityType}/{entityId}/ReviewerDisplayNames")]
         [Authorize]
         public async ValueTask<ActionResult<IReadOnlyList<ReviewerDisplayName>>>
             GetReviewerDisplayNamesAsync(
-                [FromQuery] string[] userIds,
+                EntityType entityType,
+                Guid entityId,
                 CancellationToken cancellationToken)
         {
             try
             {
                 IReadOnlyList<ReviewerDisplayName> reviewerDisplayNames =
                     await this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
-                        userIds,
+                        entityType,
+                        entityId,
                         cancellationToken);
 
                 return Ok(reviewerDisplayNames);
+            }
+            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
+                when (approvalOrchestrationValidationException.InnerException
+                    is NotFoundApprovalOrchestrationException)
+            {
+                return NotFound(approvalOrchestrationValidationException.InnerException);
             }
             catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
                 when (approvalOrchestrationValidationException.InnerException

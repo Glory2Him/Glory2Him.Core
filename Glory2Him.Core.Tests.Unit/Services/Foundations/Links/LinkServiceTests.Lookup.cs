@@ -356,5 +356,59 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             // then
             await Assert.ThrowsAsync<LinkValidationException>(probeTask.AsTask);
         }
+
+        [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnFindHighestVersionInGroupIfCancellationRequestedAsync()
+        {
+            // given
+            Guid someGroupId = Guid.NewGuid();
+            var cancellationToken = new CancellationToken(canceled: true);
+
+            // when
+            ValueTask<int> findTask =
+                this.linkService.FindHighestVersionInGroupAsync(
+                    someGroupId,
+                    cancellationToken);
+
+            // then
+            await Assert.ThrowsAsync<OperationCanceledException>(findTask.AsTask);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAllLinksAsync(It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            // pins WHERE the guard sits, not merely that it exists. The operation mints an
+            // envelope before it reads anything, so a guard that drifted below that await would
+            // still surface OperationCanceledException and still satisfy the storage assertion
+            // above — this is the assertion that catches the drift.
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnFindPublishedSiblingIfCancellationRequestedAsync()
+        {
+            // given
+            Guid someLinkId = Guid.NewGuid();
+            EventEnvelope<Link> inboundEnvelope = CreateProbeEnvelope(someLinkId);
+            var cancellationToken = new CancellationToken(canceled: true);
+
+            // when
+            ValueTask<Guid?> probeTask =
+                this.linkService.FindPublishedSiblingLinkIdAsync(
+                    linkId: someLinkId,
+                    inboundEnvelope: inboundEnvelope,
+                    cancellationToken: cancellationToken);
+
+            // then
+            await Assert.ThrowsAsync<OperationCanceledException>(probeTask.AsTask);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectLinkByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAllLinksAsync(It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
     }
 }
