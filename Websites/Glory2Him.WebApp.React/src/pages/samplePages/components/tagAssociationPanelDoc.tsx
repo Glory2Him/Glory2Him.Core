@@ -117,7 +117,7 @@ const defaultRows: ReadonlyArray<ComponentPropRow> = [
     },
     {
         name: 'showModerationActions', type: 'boolean', defaultValue: 'false',
-        description: 'Off is the safe posture: read-only, except that a contributor may still withdraw their own unapproved tag. Switch it on for a moderation surface to add Reject and Approve, gated by moderationRoles.'
+        description: 'Off is the safe posture: read-only, except that a contributor may still withdraw their own unapproved tag. Switch it on for a moderation surface and the full matrix applies — Remove to removeRoles, Reject and Approve to moderationRoles.'
     }
 ];
 
