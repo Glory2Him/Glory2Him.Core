@@ -1030,7 +1030,24 @@ describe('AssociationPanel', () => {
             expect(onAdd).toHaveBeenNthCalledWith(2, 'hope');
         });
 
-        it('should offer no add button beside the box — Enter is the way in', () => {
+        it('should offer the add button beside the box, labelled by the caller', () => {
+            // given
+            signInAs(authState);
+
+            // when
+            renderWithAuth(
+                <AssociationPanel
+                    title="Tags"
+                    showAdd={true}
+                    addButtonText="Add tag"
+                    addPlaceholderText="Start typing a tag…" />);
+
+            // then
+            expect(screen.getByPlaceholderText('Start typing a tag…')).toBeInTheDocument();
+            expect(screen.getByRole('button', { name: 'Add tag' })).toBeInTheDocument();
+        });
+
+        it('should offer the add button on its default label without being asked', () => {
             // given
             signInAs(authState);
 
@@ -1042,8 +1059,58 @@ describe('AssociationPanel', () => {
                     addPlaceholderText="Start typing a tag…" />);
 
             // then
-            expect(screen.getByPlaceholderText('Start typing a tag…')).toBeInTheDocument();
-            expect(screen.queryByRole('button', { name: 'Add' })).not.toBeInTheDocument();
+            expect(screen.getByRole('button', { name: 'Add' })).toBeInTheDocument();
+        });
+
+        it('should commit through the add button and clear the box', async () => {
+            // given
+            signInAs(authState);
+            const onAdd = vi.fn();
+
+            // when
+            renderWithAuth(
+                <AssociationPanel
+                    title="Tags"
+                    showAdd={true}
+                    addPlaceholderText="Start typing a tag…"
+                    onAdd={onAdd} />);
+
+            const input = screen.getByPlaceholderText('Start typing a tag…');
+            await userEvent.type(input, 'hope');
+            await userEvent.click(screen.getByRole('button', { name: 'Add' }));
+
+            // then
+            expect(onAdd).toHaveBeenCalledTimes(1);
+            expect(onAdd).toHaveBeenCalledWith('hope');
+            expect(input).toHaveValue('');
+        });
+
+        /// The two ways in share ONE commit path, so the separating, normalizing and duplicate
+        /// checks cannot drift apart between them — a list typed and then clicked must land
+        /// exactly as the same list typed and then Entered.
+        it('should separate a list committed through the button just as Enter does', async () => {
+            // given
+            signInAs(authState);
+            const onAdd = vi.fn();
+
+            // when
+            renderWithAuth(
+                <AssociationPanel
+                    title="Tags"
+                    showAdd={true}
+                    addPlaceholderText="Start typing a tag…"
+                    associationCollection={[approvedItem('Faith')]}
+                    onAdd={onAdd} />);
+
+            await userEvent.type(
+                screen.getByPlaceholderText('Start typing a tag…'), 'faith, healing; hope');
+
+            await userEvent.click(screen.getByRole('button', { name: 'Add' }));
+
+            // then: the duplicate is dropped and the other two arrive one call each
+            expect(onAdd).toHaveBeenCalledTimes(2);
+            expect(onAdd).toHaveBeenNthCalledWith(1, 'healing');
+            expect(onAdd).toHaveBeenNthCalledWith(2, 'hope');
         });
     });
 

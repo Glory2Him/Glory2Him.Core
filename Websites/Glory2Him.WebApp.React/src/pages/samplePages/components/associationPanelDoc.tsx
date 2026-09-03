@@ -194,8 +194,12 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
         description: 'Caps what can be typed, matching the storage cap.'
     },
     {
+        name: 'addButtonText', type: 'string', defaultValue: "'Add'",
+        description: 'Label on the add button beside the box. The button and Enter share one commit path, so both raise onAdd the same way.'
+    },
+    {
         name: 'onAdd', type: '(value: string) => void', defaultValue: '—',
-        description: 'Raised once per association on Enter, after the normalize and duplicate checks. A comma or a semicolon separates several in one box, so "faith, healing" raises it twice. Nothing is appended internally, and a handler appending to state must do so functionally.'
+        description: 'Raised once per association by Enter and by the add button, after the normalize and duplicate checks. A comma or a semicolon separates several in one box, so "faith, healing" raises it twice. Nothing is appended internally, and a handler appending to state must do so functionally.'
     },
     {
         name: 'normalizeAddedValue', type: '(raw: string) => string', defaultValue: 'trim',

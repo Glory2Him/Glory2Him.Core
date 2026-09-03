@@ -123,11 +123,13 @@ export interface AssociationPanelProps {
     suggestDescription?: string;
     addPlaceholderText?: string;
     addMaxLength?: number;
+    addButtonText?: string;
 
-    // Raised once PER ASSOCIATION on Enter, after that value has been normalized and found not
-    // to be a duplicate. One box can hold SEVERAL: a comma or a semicolon separates them, so
-    // "faith, healing" arrives as two calls, and "grace and faith; love" as two more — the words
-    // inside a value are left alone, which is why only those two characters separate.
+    // Raised once PER ASSOCIATION by Enter AND by the add button, which share one commit path,
+    // after that value has been normalized and found not to be a duplicate. One box can hold
+    // SEVERAL: a comma or a semicolon separates them, so "faith, healing" arrives as two calls,
+    // and "grace and faith; love" as two more — the words inside a value are left alone, which
+    // is why only those two characters separate.
     //
     // The PARENT owns the collection: nothing is appended here, so an optimistic chip and a
     // server round-trip are both the caller's call. A handler that appends to state MUST do so
@@ -199,6 +201,7 @@ export function AssociationPanel({
     suggestDescription = '',
     addPlaceholderText = '',
     addMaxLength = 100,
+    addButtonText = 'Add',
     onAdd,
     normalizeAddedValue = (rawValue: string) => rawValue.trim(),
     loginHref,
@@ -373,6 +376,8 @@ export function AssociationPanel({
         });
     };
 
+    // The button's other half. Both ways in call commitDraft, so the separating, normalizing
+    // and duplicate checks cannot drift apart between them.
     const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
         if (event.key === 'Enter') {
             // Enter inside a form would submit the page before the value is ever read.
@@ -497,7 +502,7 @@ export function AssociationPanel({
             )}
 
             {mayAdd && (
-                <div className="mb-2">
+                <div className="d-flex gap-2 mb-2">
                     <input
                         className="form-control"
                         type="text"
@@ -507,6 +512,13 @@ export function AssociationPanel({
                         onChange={(event) => setDraft(event.target.value)}
                         onKeyDown={onKeyDown}
                         aria-label={suggestTitle.length > 0 ? suggestTitle : `Add to ${title}`} />
+
+                    <button
+                        type="button"
+                        className="btn btn-primary mb-0 text-nowrap"
+                        onClick={commitDraft}>
+                        {addButtonText}
+                    </button>
                 </div>
             )}
 
