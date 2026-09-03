@@ -100,7 +100,7 @@ namespace Glory2Him.WebApp.Data.Migrations
         private static string AffectedRows =>
             IsIllegalUserName("affected.[UserName]")
                 + @"
-                       AND affected.[NormalizedUserName] <> N'ADMIN'";
+                       AND ISNULL(affected.[NormalizedUserName], N'') <> N'ADMIN'";
 
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -130,17 +130,21 @@ namespace Glory2Him.WebApp.Data.Migrations
             // account with an unusable username, are both worse than stopping and saying so.
             migrationBuilder.Sql(
                 $@"DECLARE @strandedIds nvarchar(max) = (
-                       SELECT STRING_AGG(CONVERT(nvarchar(36), affected.[Id]), N', ')
+                       SELECT STRING_AGG(CONVERT(nvarchar(max), affected.[Id]), N', ')
                        FROM [AspNetUsers] affected
                        WHERE {AffectedRows}
-                           AND NULLIF(REPLACE(REPLACE(REPLACE(
-                               affected.[NormalizedEmail],
-                               CHAR(9), N''), CHAR(10), N''), CHAR(13), N''), N'') IS NULL);
+                           AND (affected.[NormalizedEmail] IS NULL
+                               OR affected.[NormalizedEmail] NOT LIKE N'%[A-Za-z0-9]%'));
+
+                   DECLARE @strandedCount int = (
+                       SELECT COUNT(*) FROM STRING_SPLIT(@strandedIds, N','));
 
                    IF @strandedIds IS NOT NULL
                    BEGIN
                        DECLARE @strandedMessage nvarchar(2048) = CONCAT(
-                           N'Issue #378: these accounts need a username rename but have no email address to sign in with afterwards, so renaming them would lock them out. Give each one an address, or remove the account, then deploy again. AspNetUsers.Id: ',
+                           N'Issue #378: a username rename would lock these accounts out, because they have no email address left to sign in with once the username is gone. Give each one an address (AspNetUsers.NormalizedEmail is the column the sign-in lookup matches, and it is NOT maintained by writing Email alone), or remove the account, then deploy again. Blocked: ',
+                           CONVERT(nvarchar(12), @strandedCount),
+                           N' account(s), of which the first few are listed here: ',
                            LEFT(@strandedIds, 1200));
 
                        THROW 50378, @strandedMessage, 1;
@@ -159,7 +163,7 @@ namespace Glory2Him.WebApp.Data.Migrations
             // duplicate exactly as it found it.
             migrationBuilder.Sql(
                 $@"DECLARE @sharedIds nvarchar(max) = (
-                       SELECT STRING_AGG(CONVERT(nvarchar(36), affected.[Id]), N', ')
+                       SELECT STRING_AGG(CONVERT(nvarchar(max), affected.[Id]), N', ')
                        FROM [AspNetUsers] affected
                        WHERE {AffectedRows}
                            AND affected.[NormalizedEmail] IS NOT NULL
@@ -169,10 +173,15 @@ namespace Glory2Him.WebApp.Data.Migrations
                                WHERE other.[Id] <> affected.[Id]
                                    AND other.[NormalizedEmail] = affected.[NormalizedEmail]));
 
+                   DECLARE @sharedCount int = (
+                       SELECT COUNT(*) FROM STRING_SPLIT(@sharedIds, N','));
+
                    IF @sharedIds IS NOT NULL
                    BEGIN
                        DECLARE @sharedMessage nvarchar(2048) = CONCAT(
-                           N'Issue #378: these accounts need a username rename but share an email address with another account, and sign-in by address cannot tell them apart once the username is gone. Resolve the duplicate, then deploy again. AspNetUsers.Id: ',
+                           N'Issue #378: a username rename would leave these accounts reachable only by an email address they share with another account, and the sign-in lookup cannot tell two such accounts apart. Resolve the duplicate, then deploy again. Blocked: ',
+                           CONVERT(nvarchar(12), @sharedCount),
+                           N' account(s), of which the first few are listed here: ',
                            LEFT(@sharedIds, 1200));
 
                        THROW 50379, @sharedMessage, 1;
