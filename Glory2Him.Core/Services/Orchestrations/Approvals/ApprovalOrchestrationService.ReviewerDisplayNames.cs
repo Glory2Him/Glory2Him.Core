@@ -29,16 +29,24 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
     /// Publisher who is not an administrator - precisely the tier the review panel exists for -
     /// could render their own name and nobody else's.</para>
     ///
-    /// <para><b>One resolver rather than a projection per surface.</b> The panel needs names for
-    /// reviewers, for invited people and for candidates; a display name hung off the review read
-    /// would have answered the first and left the next to invent its own, and three lookups are
-    /// three chances to render one person under two names. Everything here composes the name
-    /// through ComposeDisplayName, the same method the candidates read uses.</para>
+    /// <para><b>One composition rather than a projection per surface.</b> The panel needs names
+    /// for reviewers and for invited people; a display name hung off the review read would have
+    /// answered the first and left the next to invent its own. Candidates carry their names on
+    /// their own read, because eligibility and naming are one question there - and both surfaces
+    /// compose through ComposeDisplayName, which is what actually stops one person rendering
+    /// under two names, rather than the number of round trips.</para>
     ///
     /// <para><b>Keyed on the ROUND, like every other operation on the controller.</b> The tier
     /// gate no longer stands alone: it composes with an entity gate, so a Tag-Reviewer can name
     /// only the people a tag round involves rather than any account id in the directory. The
     /// posture the unscoped form used to borrow from the candidates read now actually holds.</para>
+    ///
+    /// <para><b>The round, and never the tier.</b> The answer is exactly the people the round
+    /// involved - everybody with a review row on it, dismissed and soft-deleted included, plus
+    /// everybody still invited - resolved in ONE identity read that applies no role filter and
+    /// no disabled filter. Who COULD be invited is a different question with its own route, and
+    /// answering it here would only put every global moderator into a Tag-Reviewer's
+    /// response.</para>
     ///
     /// <para>It sits beside the invitation operations rather than in a foundation for the reason
     /// they do: WHO may enumerate users is an approval-workflow decision (7.9 rule 2), and the
@@ -61,76 +69,70 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                     onSecurityContext: ValidateUserMayRequestApprovalReviews,
                     cancellationToken: cancellationToken);
 
-                // The tier members are read FIRST, and they arrive as whole accounts rather than
-                // as ids. That is what keeps the round-scoped form at one identity read in the
-                // ordinary case: the same rows that admit a candidate to the answer also carry
-                // the name, so nothing is looked up twice.
-                IReadOnlyList<IdentityUser> tierMembers =
-                    await this.identityUserService.RetrieveIdentityUsersInRolesAsync(
-                        roleNames: ComposeReviewTierRoleNames(scope.RoleSubjects),
-                        cancellationToken: cancellationToken);
+                // THE ROUND'S OWN PEOPLE, and nobody else. The review rows are taken RECORDED
+                // rather than active: a dismissed or withdrawn verdict is still shown, so its
+                // author still needs a name, and the reviewer who voted and then lost the role
+                // is exactly the case this resolver exists for. The outstanding invitations
+                // join them because a panel draws an invited person before they have answered
+                // anything.
+                //
+                // THE REVIEW TIER IS DELIBERATELY NOT READ HERE. It belonged to the id-keyed
+                // form, where the caller supplied the ids and the tier decided which of them
+                // were legal to answer. Keyed on the round the caller supplies none, so a tier
+                // read admits nobody - its only remaining effect is to add every global
+                // Publisher, Reviewer and Administrator to the answer, which is what
+                // GET .../ReviewerCandidates already returns, display names included, to the
+                // same panel. Dropping it also finishes what re-keying this route began: the
+                // people a Tag-Reviewer can name are the ones the round involved, not the whole
+                // moderator directory.
+                var roundUserIds = new HashSet<string>(
+                    scope.RecordedReviewerUserIds,
+                    StringComparer.Ordinal);
 
-                var namedUsers = new Dictionary<string, IdentityUser>(StringComparer.Ordinal);
+                roundUserIds.UnionWith(
+                    scope.ActiveRequests.Select(activeRequest => activeRequest.RequestedUserId));
 
-                foreach (IdentityUser tierMember in tierMembers)
-                {
-                    namedUsers[tierMember.Id.ToString()] = tierMember;
-                }
-
-                // The round's own people, which is the half the tier read cannot supply. The
-                // review rows are taken RECORDED rather than active: a dismissed or withdrawn
-                // verdict is still rendered, so its author still needs a name, and it is exactly
-                // the reviewer who voted and then lost the role that this resolver exists for.
-                var roundUserIds = new HashSet<string>(StringComparer.Ordinal);
-
-                foreach (string reviewerUserId in scope.RecordedReviewerUserIds)
-                {
-                    roundUserIds.Add(reviewerUserId);
-                }
-
-                foreach (ActiveReviewRequest activeRequest in scope.ActiveRequests)
-                {
-                    roundUserIds.Add(activeRequest.RequestedUserId);
-                }
-
-                // A second identity read, and ONLY for the people the tier read could not name -
-                // somebody who has left the tier or been disabled since they took part. It
-                // applies no role filter and no disabled filter, because their id came off a row
-                // this round already stores, so the account is part of the record whatever has
-                // happened to it since. Filtering by the tier is precisely what left a departed
-                // reviewer with no name at all.
-                List<string> unnamedRoundUserIds = roundUserIds
-                    .Where(roundUserId =>
-                        string.IsNullOrWhiteSpace(roundUserId) is false
-                            && namedUsers.ContainsKey(roundUserId) is false)
+                // The broker drops blank CreatedBy values as it gathers, but RequestedUserId
+                // arrives off the invitation row exactly as stored, so the blank filter belongs
+                // here rather than being left to the identity read's own parse: what is handed
+                // over should be the round's statement of who it holds, not a set that is
+                // non-empty while naming nobody.
+                List<string> roundReviewerUserIds = roundUserIds
+                    .Where(roundUserId => string.IsNullOrWhiteSpace(roundUserId) is false)
                     .ToList();
 
-                if (unnamedRoundUserIds.Count > 0)
-                {
-                    IReadOnlyList<IdentityUser> departedUsers =
-                        await this.identityUserService.RetrieveIdentityUsersByIdsAsync(
-                            userIds: unnamedRoundUserIds,
-                            cancellationToken: cancellationToken);
-
-                    foreach (IdentityUser departedUser in departedUsers)
-                    {
-                        namedUsers[departedUser.Id.ToString()] = departedUser;
-                    }
-                }
+                // ONE identity read, always, asked for exactly these ids. It applies no role
+                // filter and no disabled filter, because every id came off a row this round
+                // already stores - the account is part of the record whatever has happened to
+                // it since, and filtering by the tier is precisely what left a departed
+                // reviewer with no name at all. An empty set is not an invitation to name
+                // everybody: the foundation fails closed and answers nothing with nothing.
+                IReadOnlyList<IdentityUser> roundUsers =
+                    await this.identityUserService.RetrieveIdentityUsersByIdsAsync(
+                        userIds: roundReviewerUserIds,
+                        cancellationToken: cancellationToken);
 
                 // Ids naming nobody are simply absent - a deleted account leaves a shorter list
-                // and the surface renders its own fallback, where an error would let one departed
-                // person break a whole panel. They fall out here rather than being filtered for:
-                // an id that resolved to no account never entered the dictionary.
-                return namedUsers
-                    .Select(namedUser => new ReviewerDisplayName
+                // and the surface renders its own fallback, where an error would let one
+                // departed person break a whole panel. They fall out here rather than being
+                // filtered for: an id that resolved to no account comes back from no read.
+                //
+                // Ordered by the rendered name, culture-aware like the candidates read so the
+                // two sit together in the picker, then by id - two accounts sharing a display
+                // name is ordinary, and without the tiebreak their order would be whatever the
+                // store happened to return.
+                return roundUsers
+                    .Select(roundUser => new ReviewerDisplayName
                     {
-                        UserId = namedUser.Value.Id.ToString(),
-                        DisplayName = ComposeDisplayName(namedUser.Value),
+                        UserId = roundUser.Id.ToString(),
+                        DisplayName = ComposeDisplayName(roundUser),
                     })
                     .OrderBy(
                         reviewerDisplayName => reviewerDisplayName.DisplayName,
                         StringComparer.CurrentCultureIgnoreCase)
+                    .ThenBy(
+                        reviewerDisplayName => reviewerDisplayName.UserId,
+                        StringComparer.Ordinal)
                     .ToList();
             });
     }

@@ -41,15 +41,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             Guid invitedId = Guid.NewGuid();
             SetupReviewerScope(approvalId: approvalId);
 
-            this.identityUserServiceMock.Setup(service =>
-                service.RetrieveIdentityUsersInRolesAsync(
-                    It.IsAny<System.Collections.Generic.IEnumerable<string>>(),
-                    It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(new System.Collections.Generic.List<
-                            Glory2Him.Core.Models.Foundations.IdentityUsers.IdentityUser>
-                        {
-                            CreateIdentityUser(invitedId, preferredName: "Mary"),
-                        });
+            SetupTierMembers(CreateIdentityUser(invitedId, preferredName: "Mary"));
 
             var foundationValidationException = new ApprovalReviewRequestValidationException(
                 message: "Approval review request validation error occurred, " +
@@ -89,15 +81,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             Guid invitedId = Guid.NewGuid();
             SetupReviewerScope(approvalId: approvalId);
 
-            this.identityUserServiceMock.Setup(service =>
-                service.RetrieveIdentityUsersInRolesAsync(
-                    It.IsAny<System.Collections.Generic.IEnumerable<string>>(),
-                    It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(new System.Collections.Generic.List<
-                            Glory2Him.Core.Models.Foundations.IdentityUsers.IdentityUser>
-                        {
-                            CreateIdentityUser(invitedId, preferredName: "Mary"),
-                        });
+            SetupTierMembers(CreateIdentityUser(invitedId, preferredName: "Mary"));
 
             var alreadyExists = new AlreadyExistsApprovalReviewRequestException(
                 message: "Approval review request already exists, " +

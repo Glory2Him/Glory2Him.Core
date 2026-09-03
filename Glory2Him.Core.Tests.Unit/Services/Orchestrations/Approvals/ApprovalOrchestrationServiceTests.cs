@@ -99,20 +99,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
                             }));
 
-            // The name resolver reads no approval, so it mints its envelope over the id list
-            // itself - there is no entity to hang one off, and the envelope is wanted for its
-            // security context alone.
-            this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(It.IsAny<IReadOnlyList<string>>()))
-                    .Returns((IReadOnlyList<string> content) =>
-                        new ValueTask<EventEnvelope<IReadOnlyList<string>>>(
-                            new EventEnvelope<IReadOnlyList<string>>
-                            {
-                                Content = content,
-                                SecurityContext = this.ambientSecurityContext,
-                                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
-                            }));
-
             // Valid by default. Tests about verification override it; every other
             // test would otherwise be asserting the guard rather than its own subject.
             this.envelopeIntegrityBrokerMock.Setup(broker =>

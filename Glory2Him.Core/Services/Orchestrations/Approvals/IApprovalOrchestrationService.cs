@@ -153,18 +153,21 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         ///
         /// <para><b>The round is the answer's boundary, and it is also the gate.</b> The set is
         /// built from the approval's review rows — <b>dismissed and soft-deleted ones
-        /// included</b>, because a panel renders those and their authors still need naming — its
-        /// outstanding invitations, and the entity's review tier. That covers every surface the
-        /// panel draws, and it means the tier gate composes with an entity gate rather than
-        /// standing alone: a <c>Tag-Reviewer</c> can name the people a tag round involves and
-        /// nobody else. The caller names no ids of its own, so there is nothing to probe with and
-        /// no batch to bound.</para>
+        /// included</b>, because a panel renders those and their authors still need naming — and
+        /// its outstanding invitations. The review TIER is deliberately not part of it: a caller
+        /// that supplies no ids gives a tier read nothing to admit, so it would only re-answer
+        /// <c>ReviewerCandidates</c>, which the panel already asks and which already carries
+        /// display names. What is left is what makes the tier gate compose with an entity gate
+        /// rather than stand alone: a <c>Tag-Reviewer</c> can name the people a tag round
+        /// involves and nobody else. The caller names no ids of its own, so there is nothing to
+        /// probe with and no batch to bound.</para>
         ///
-        /// <para><b>No role filter and no disabled filter over the round's own people.</b> Their
-        /// ids came off rows this approval already stores, so the account belongs to the record
-        /// whatever has happened to it since — which is the whole point, since the reviewer who
-        /// voted and then lost the role is the case that started this. Ids naming nobody are
-        /// absent rather than an error, so one deleted account cannot blank a panel.</para>
+        /// <para><b>No role filter and no disabled filter, in the ONE identity read there is.</b>
+        /// Every id came off a row this approval already stores, so the account belongs to the
+        /// record whatever has happened to it since — which is the whole point, since the
+        /// reviewer who voted and then lost the role is the case that started this. Ids naming
+        /// nobody are absent rather than an error, so one deleted account cannot blank a
+        /// panel.</para>
         ///
         /// <para>A <b>user-enumeration surface</b>, so §16.7.4's posture governs it rather than
         /// being re-derived: the requesting tier (§7.9 rule 2) and nobody else, an account id and

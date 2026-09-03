@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -325,11 +325,13 @@ namespace Glory2Him.WebApp.Controllers.Approvals
         ///
         /// <para><b>Keyed on the round, like every other operation here.</b> The set it names is
         /// built from the approval's review rows — dismissed and soft-deleted included, since the
-        /// panel renders those — its outstanding invitations, and the entity's review tier, which
-        /// is every surface the panel draws. So the tier gate composes with an entity gate
-        /// instead of standing alone: a <c>Tag-Reviewer</c> can name the people a tag round
-        /// involves and nobody else. The caller names no ids, which is what leaves nothing to
-        /// probe with, no batch to cap, and no route parameter that is not part of the key.</para>
+        /// panel renders those — and its outstanding invitations, and nothing else: the review
+        /// tier is not read here, because a caller that supplies no ids gives a tier read nothing
+        /// to admit and it would only repeat <c>ReviewerCandidates</c>, which this panel already
+        /// calls for names of its own. So the tier gate composes with an entity gate instead of
+        /// standing alone: a <c>Tag-Reviewer</c> can name the people a tag round involves and
+        /// nobody else. The caller names no ids, which is what leaves nothing to probe with, no
+        /// batch to cap, and no route parameter that is not part of the key.</para>
         ///
         /// <para>Bare <c>[Authorize]</c> and the tier decided beneath, matching the candidates
         /// read: the admitted set is suffix-matched across every entity and content type (§18.6),

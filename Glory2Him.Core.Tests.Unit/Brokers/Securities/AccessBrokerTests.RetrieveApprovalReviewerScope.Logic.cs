@@ -38,7 +38,8 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
         /// The scope reports its reviewers TWICE, filtered and unfiltered, and the two sets must
         /// come apart. Invitability (§7.9 rules 4 and 5) turns on a review that still stands, so a
         /// dismissed or withdrawn one releases the person; who the round INVOLVED is released by
-        /// nothing, and it is what the §16.7.4 name resolver's legal set is built from.
+        /// nothing, and with the active requests beside it that unfiltered set is the WHOLE of
+        /// what the §16.7.4 name resolver names - that resolver reads no tier.
         ///
         /// <para>Only settled here. The orchestration's tests mock <c>IAccessBroker</c>, so they
         /// can assert what the resolver does with the two sets but never that the broker fills

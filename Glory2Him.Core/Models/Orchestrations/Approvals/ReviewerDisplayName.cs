@@ -18,16 +18,19 @@ namespace Glory2Him.Core.Models.Orchestrations.Approvals
     /// user-enumeration answers, and 16.7.4 already ruled how one of those is exposed: the
     /// requesting tier, an account id and a display name, and nothing a caller could mine. They
     /// stay separate TYPES because they answer different questions - a candidate is somebody who
-    /// may be invited, and this is somebody the round names at all - and collapsing them would
-    /// let a resolver's output be mistaken for an eligibility list. The two sets overlap without
-    /// being the same: the entity's owner is named here and is never a candidate, and a reviewer
-    /// who has since left the tier is named here and is in neither.</para>
+    /// may be invited, and this is somebody the round already involved - and collapsing them
+    /// would let a resolver's output be mistaken for an eligibility list. Neither set contains
+    /// the other: a candidate who has not yet reviewed and has not been invited is not named
+    /// here at all, and a reviewer who has since left the tier is named here and is not a
+    /// candidate.</para>
     ///
     /// <para><b>Why it is not a projection on the review read.</b> The panel needs names for
     /// reviewers, for invited people and for candidates. A display name hung off ApprovalReview
     /// would answer the first surface and leave the next to invent its own, and three lookups are
-    /// three chances to disagree. One resolver, asked once for the round the panel is drawing,
-    /// keeps the composition in a single place.</para>
+    /// three chances to disagree. This one is asked once for the round the panel is drawing, the
+    /// candidates read carries its own names because eligibility and naming are one question
+    /// there, and BOTH compose through the same method - which is what keeps a person rendering
+    /// under one name, rather than the number of round trips.</para>
     ///
     /// <para><b>And not a denormalised column either.</b> Storing the name on the row at write
     /// time - the trade ApprovalReviewRequest.RequestedUserDisplayName already made - leaves every

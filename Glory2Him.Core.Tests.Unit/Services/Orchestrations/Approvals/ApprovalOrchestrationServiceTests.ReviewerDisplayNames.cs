@@ -27,26 +27,37 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 {
     public partial class ApprovalOrchestrationServiceTests
     {
-        private void SetupTierMembers(params IdentityUser[] identityUsers) =>
-            this.identityUserServiceMock.Setup(service =>
-                service.RetrieveIdentityUsersInRolesAsync(
-                    It.IsAny<IEnumerable<string>>(),
-                    It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(identityUsers.ToList());
-
+        // Answers only for ids it was actually ASKED about, which is what the real read does and
+        // what lets a test prove the resolver never REQUESTED somebody rather than merely never
+        // rendering them. A stub that hands back its whole list whatever it was given cannot fail
+        // when a source branch is deleted, and this is the only window the resolver's tests have
+        // onto the identity store.
         private void SetupResolvedIdentityUsers(params IdentityUser[] identityUsers) =>
             this.identityUserServiceMock.Setup(service =>
                 service.RetrieveIdentityUsersByIdsAsync(
                     It.IsAny<IEnumerable<string>>(),
                     It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(identityUsers.ToList());
+                        .ReturnsAsync((IEnumerable<string> userIds, CancellationToken token) =>
+                            identityUsers
+                                .Where(identityUser => userIds.Contains(
+                                    identityUser.Id.ToString(),
+                                    StringComparer.Ordinal))
+                                .ToList());
 
         /// <summary>
-        /// The set is the ROUND's, drawn from all three places the panel draws from - the review
-        /// rows, the outstanding invitations and the review tier. The id is echoed back beside the
-        /// name so a caller joins the answer onto the rows it already holds without depending on
-        /// ordering, and the name is composed by the same rule the candidates read uses, which is
-        /// what stops two surfaces rendering one person under two names.
+        /// The set is the ROUND's, and now the round's ALONE - the review rows and the outstanding
+        /// invitations, resolved in a single read.
+        ///
+        /// <para><b>A tier member who took no part is absent.</b> Naming them was the tier read's
+        /// only remaining effect once the caller stopped supplying ids to intersect against, and
+        /// it duplicated ReviewerCandidates - which the same panel already calls, and which
+        /// already returns display names. A Tag-Reviewer can now name the people a tag round
+        /// involves and not the whole moderator directory.</para>
+        ///
+        /// <para>The id is echoed back beside the name so a caller joins the answer onto rows it
+        /// already holds without depending on ordering, and the name is composed by the same rule
+        /// the candidates read uses - which is what stops two surfaces rendering one person under
+        /// two names.</para>
         /// </summary>
         [Fact]
         public async Task ShouldNameEverybodyTheRoundInvolvesAsync()
@@ -56,7 +67,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             Guid approvalId = Guid.NewGuid();
             Guid reviewerId = Guid.NewGuid();
             Guid invitedId = Guid.NewGuid();
-            Guid candidateId = Guid.NewGuid();
+            Guid tierMemberId = Guid.NewGuid();
 
             SetupReviewerScope(
                 approvalId: approvalId,
@@ -70,8 +81,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     }
                 });
 
-            SetupTierMembers(
-                CreateIdentityUser(candidateId, preferredName: "Zoe"),
+            // Zoe is resolvable - the store would name her the moment anybody asked. She took no
+            // part in this round, so the resolver must never ask: she is exactly the person the
+            // retired tier read used to add, and exactly the person ReviewerCandidates answers
+            // for.
+            SetupResolvedIdentityUsers(
+                CreateIdentityUser(tierMemberId, preferredName: "Zoe"),
                 CreateIdentityUser(reviewerId, preferredName: "Adam"),
                 CreateIdentityUser(invitedId, preferredName: "Mary"));
 
@@ -82,20 +97,29 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     Guid.NewGuid(),
                     TestContext.Current.CancellationToken);
 
-            // then: ordered by name, the way the picker renders them
+            // then: ordered by name the way the picker renders them, and Zoe is not among them -
+            // Equal rather than ContainInOrder, because the absence is half the claim
             reviewerDisplayNames.Select(name => (name.UserId, name.DisplayName))
-                .Should().ContainInOrder(
+                .Should().Equal(
                     (reviewerId.ToString(), "Adam"),
-                    (invitedId.ToString(), "Mary"),
-                    (candidateId.ToString(), "Zoe"));
+                    (invitedId.ToString(), "Mary"));
+
+            // and: ONE identity read, always. VerifyNoOtherCalls is the guard that the tier read
+            // has not crept back - it fails on any identity call this Verify did not cover.
+            this.identityUserServiceMock.Verify(service =>
+                service.RetrieveIdentityUsersByIdsAsync(
+                    It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.identityUserServiceMock.VerifyNoOtherCalls();
         }
 
         /// <summary>
         /// <b>The case the resolver exists for.</b> A reviewer who voted and then lost the role,
-        /// or whose account was disabled, is absent from the tier read - which is exactly why the
-        /// candidates read could never name them. Their id is still stamped on the review row, so
-        /// the round admits them, and a second lookup applying no role filter and no disabled
-        /// filter names them.
+        /// or whose account was disabled, is absent from the review tier - which is exactly why
+        /// the candidates read could never name them. Their id is still stamped on the review row,
+        /// so the round admits them, and the resolution read applies no role filter and no
+        /// disabled filter.
         /// </summary>
         [Fact]
         public async Task ShouldNameAReviewerWhoHasSinceLeftTheTierAsync()
@@ -108,8 +132,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             SetupReviewerScope(
                 approvalId: approvalId,
                 activeReviewerUserIds: new[] { departedId.ToString() });
-
-            SetupTierMembers();
 
             IdentityUser departedUser = CreateIdentityUser(
                 departedId,
@@ -134,6 +156,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                         userIds.Single() == departedId.ToString()),
                     It.IsAny<CancellationToken>()),
                 Times.Once);
+
+            this.identityUserServiceMock.VerifyNoOtherCalls();
         }
 
         /// <summary>
@@ -156,8 +180,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 activeReviewerUserIds: Array.Empty<string>(),
                 recordedReviewerUserIds: new[] { dismissedReviewerId.ToString() });
 
-            SetupTierMembers();
-
             SetupResolvedIdentityUsers(
                 CreateIdentityUser(dismissedReviewerId, preferredName: "Dismissed"));
 
@@ -173,22 +195,29 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         }
 
         /// <summary>
-        /// One identity read in the ordinary case. The tier read returns whole accounts, so the
-        /// same rows that admit a candidate also carry the name; nobody the round involves is
-        /// looked up twice, and the second read is spent only on people the tier no longer holds.
+        /// <b>The invitation branch, carrying its own weight.</b> Somebody asked to review but not
+        /// yet answering appears on no review row at all, so <c>RecordedReviewerUserIds</c> cannot
+        /// reach them - <c>ActiveRequests</c> is the only thing that admits them to the answer, and
+        /// the panel's Requested heading is empty without it.
+        ///
+        /// <para>Nothing proved that while the tier read stood. Every test involving an invited
+        /// person also listed them as a tier member, so the loop could have been deleted with the
+        /// suite green. This one is built so it cannot be: the round holds no reviews whatsoever,
+        /// and the invitee is DISABLED - the roles read filters disabled accounts out, so no tier
+        /// read could ever have named them either.</para>
         /// </summary>
         [Fact]
-        public async Task ShouldNotLookUpAgainAnybodyTheTierReadAlreadyNamedAsync()
+        public async Task ShouldNameSomebodyKnownOnlyFromAnOutstandingInvitationAsync()
         {
-            // given
+            // given: a round with no review rows on it at all - the invitation is the whole of it
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             Guid approvalId = Guid.NewGuid();
-            Guid reviewerId = Guid.NewGuid();
             Guid invitedId = Guid.NewGuid();
 
             SetupReviewerScope(
                 approvalId: approvalId,
-                activeReviewerUserIds: new[] { reviewerId.ToString() },
+                activeReviewerUserIds: Array.Empty<string>(),
+                recordedReviewerUserIds: Array.Empty<string>(),
                 activeRequests: new[]
                 {
                     new ActiveReviewRequest
@@ -198,9 +227,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     }
                 });
 
-            SetupTierMembers(
-                CreateIdentityUser(reviewerId, preferredName: "Adam"),
-                CreateIdentityUser(invitedId, preferredName: "Mary"));
+            // Disabled on purpose: this is somebody the tier read could never have produced, so
+            // the invitation is doing the admitting and nothing else can be credited for it.
+            IdentityUser invitedUser = CreateIdentityUser(invitedId, preferredName: "Invited");
+            invitedUser.IsDisabled = true;
+            SetupResolvedIdentityUsers(invitedUser);
 
             // when
             IReadOnlyList<ReviewerDisplayName> reviewerDisplayNames =
@@ -210,12 +241,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     TestContext.Current.CancellationToken);
 
             // then
-            reviewerDisplayNames.Should().HaveCount(2);
+            reviewerDisplayNames.Select(name => (name.UserId, name.DisplayName))
+                .Should().Equal((invitedId.ToString(), "Invited"));
 
+            // and: the id reached the store because the invitation put it there, and for no other
+            // reason - delete that union and this Verify sees an empty set
             this.identityUserServiceMock.Verify(service =>
                 service.RetrieveIdentityUsersByIdsAsync(
-                    It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()),
-                Times.Never);
+                    It.Is<IEnumerable<string>>(userIds =>
+                        userIds.Single() == invitedId.ToString()),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.identityUserServiceMock.VerifyNoOtherCalls();
         }
 
         /// <summary>
@@ -236,7 +274,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 approvalId: approvalId,
                 activeReviewerUserIds: new[] { knownId.ToString(), deletedId.ToString() });
 
-            SetupTierMembers();
             SetupResolvedIdentityUsers(CreateIdentityUser(knownId, preferredName: "Known"));
 
             // when
@@ -246,15 +283,29 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     Guid.NewGuid(),
                     TestContext.Current.CancellationToken);
 
-            // then
+            // then: the deleted id WAS asked about - it just named nobody
             reviewerDisplayNames.Select(name => name.UserId)
                 .Should().BeEquivalentTo(new[] { knownId.ToString() });
+
+            this.identityUserServiceMock.Verify(service =>
+                service.RetrieveIdentityUsersByIdsAsync(
+                    It.Is<IEnumerable<string>>(userIds =>
+                        userIds.Contains(deletedId.ToString())),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
         }
 
         /// <summary>
-        /// One person appearing on the round more than once - as a reviewer and as an outstanding
-        /// invitation, and as a tier member besides - is one name, not three. The surfaces overlap
-        /// by design, so the resolver has to collapse them.
+        /// One person appearing on the round twice - as a reviewer and as an outstanding
+        /// invitation - is one name, not two. The two sources overlap by design: rule 6 retires an
+        /// invitation only once its target answers, so between the vote and the retirement both
+        /// hold them, and a failed retirement leaves them there indefinitely.
+        ///
+        /// <para>The collapse now happens on the way IN rather than on the way out. With the tier
+        /// read gone there is no dictionary of already-named people to absorb a duplicate, so the
+        /// round's id set is the only thing standing between a repeated id and a repeated row in
+        /// the query the identity store is handed - which is why this asserts what was ASKED for,
+        /// not just what came back.</para>
         /// </summary>
         [Fact]
         public async Task ShouldNameSomebodyOnceHoweverManySurfacesHoldThemAsync()
@@ -276,7 +327,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     }
                 });
 
-            SetupTierMembers(CreateIdentityUser(everywhereId, preferredName: "Everywhere"));
+            SetupResolvedIdentityUsers(
+                CreateIdentityUser(everywhereId, preferredName: "Everywhere"));
 
             // when
             IReadOnlyList<ReviewerDisplayName> reviewerDisplayNames =
@@ -287,24 +339,38 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // then
             reviewerDisplayNames.Single().DisplayName.Should().Be("Everywhere");
+
+            // and: the store was asked for them ONCE, not twice
+            this.identityUserServiceMock.Verify(service =>
+                service.RetrieveIdentityUsersByIdsAsync(
+                    It.Is<IEnumerable<string>>(userIds =>
+                        userIds.Count() == 1
+                            && userIds.Single() == everywhereId.ToString()),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
         }
 
         /// <summary>
         /// <b>The round is the gate as well as the boundary.</b> Nobody outside it is named, so a
-        /// holder of any review-tier role can no longer resolve an arbitrary account id - which is
-        /// the composition of the tier gate with an entity gate that 16.7.4 asked for and the
-        /// unscoped form could not provide.
+        /// holder of any review-tier role can no longer resolve an arbitrary account id - the
+        /// composition of the tier gate with an entity gate that 16.7.4 asked for and the unscoped
+        /// form could not provide.
+        ///
+        /// <para>Removing the tier read is what finally made that true rather than merely claimed.
+        /// While it stood, every global Publisher, Reviewer and Administrator came back whatever
+        /// the round held, so "only the people this round involves" described the intention and
+        /// not the response.</para>
         /// </summary>
         [Fact]
         public async Task ShouldNameNobodyOutsideTheRoundAsync()
         {
-            // given
+            // given: a round that involves nobody, and a store that WOULD name a stranger the
+            // moment it was asked for one
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             Guid approvalId = Guid.NewGuid();
             Guid strangerId = Guid.NewGuid();
 
             SetupReviewerScope(approvalId: approvalId);
-            SetupTierMembers();
             SetupResolvedIdentityUsers(CreateIdentityUser(strangerId, preferredName: "Stranger"));
 
             // when
@@ -314,13 +380,21 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     Guid.NewGuid(),
                     TestContext.Current.CancellationToken);
 
-            // then: an empty round names nobody, and the resolution read is never even reached
+            // then
             reviewerDisplayNames.Should().BeEmpty();
 
+            // and: the one read asked for NOBODY. The empty answer is the round's doing, not the
+            // store's - an id set the resolver never built cannot leak a name, whoever the store
+            // would have been willing to resolve.
+            // `== false` rather than the house `is false`: this lambda becomes an expression
+            // tree, and a pattern match is illegal in one (CS8122).
             this.identityUserServiceMock.Verify(service =>
                 service.RetrieveIdentityUsersByIdsAsync(
-                    It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()),
-                Times.Never);
+                    It.Is<IEnumerable<string>>(userIds => userIds.Any() == false),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.identityUserServiceMock.VerifyNoOtherCalls();
         }
 
         /// <summary>
@@ -354,12 +428,33 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             this.identityUserServiceMock.VerifyNoOtherCalls();
         }
 
+        // The two halves of the key, each broken on its own so the failure a case reports is the
+        // rule that case exists for. Guid.Empty was the only one the resolver ever asserted; the
+        // entityType rule sat beside it unexercised, which is to say it could have been deleted
+        // with the suite green.
+        public static TheoryData<EntityType, Guid, string> InvalidReviewerDisplayNameKeys() =>
+            new TheoryData<EntityType, Guid, string>
+            {
+                { EntityType.ContentItem, Guid.Empty, "EntityId" },
+                { (EntityType)97, Guid.NewGuid(), nameof(EntityType) },
+            };
+
         /// <summary>
-        /// The shape rule that replaced the batch ceiling. An unusable key names no round, so
+        /// The shape rules that replaced the batch ceiling. An unusable key names no round, so
         /// there is nobody to resolve and the identity store is never asked.
+        ///
+        /// <para>BOTH halves, because both are rules. An integer outside the enum is refused
+        /// rather than probed for: no stored approval can carry it, and letting it through would
+        /// produce a not-found sentence naming a type that does not exist. Each case asserts the
+        /// parameter it expects to be blamed for, so neither can pass on the other's failure - the
+        /// mistake a bare BeOfType invites.</para>
         /// </summary>
-        [Fact]
-        public async Task ShouldThrowValidationOnResolveIfTheEntityKeyIsInvalidAsync()
+        [Theory]
+        [MemberData(nameof(InvalidReviewerDisplayNameKeys))]
+        public async Task ShouldThrowValidationOnResolveIfTheEntityKeyIsInvalidAsync(
+            EntityType entityType,
+            Guid entityId,
+            string expectedParameter)
         {
             // given
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
@@ -367,8 +462,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             // when
             ValueTask<IReadOnlyList<ReviewerDisplayName>> resolveTask =
                 this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
-                    EntityType.ContentItem,
-                    Guid.Empty,
+                    entityType,
+                    entityId,
                     TestContext.Current.CancellationToken);
 
             ApprovalOrchestrationValidationException actualException =
@@ -378,6 +473,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             // then
             actualException.InnerException.Should()
                 .BeOfType<InvalidApprovalOrchestrationException>();
+
+            // and: the rule that refused is the one this case broke, and it is the ONLY one - the
+            // other half of the key was perfectly good
+            actualException.InnerException.Data.Keys.Cast<string>()
+                .Should().Equal(expectedParameter);
 
             this.identityUserServiceMock.VerifyNoOtherCalls();
         }

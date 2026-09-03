@@ -39,6 +39,21 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 UserName = "someone",
             };
 
+        // The review tier's membership, for the two operations that still ask for it - the
+        // candidates read and the invitation's rule 3 eligibility check. It lives here rather
+        // than beside either because both are covered from this file's fixtures, and because a
+        // stub spelled out at every call site is longer than the assertion it exists to enable.
+        //
+        // A test whose SUBJECT is the role names asked for cannot use this: it needs a Callback
+        // to capture the argument, and a helper that swallowed it would hide the very thing under
+        // test.
+        private void SetupTierMembers(params IdentityUser[] identityUsers) =>
+            this.identityUserServiceMock.Setup(service =>
+                service.RetrieveIdentityUsersInRolesAsync(
+                    It.IsAny<IEnumerable<string>>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(identityUsers.ToList());
+
         private void SetupReviewerScope(
             Guid approvalId,
             ApprovalStatus approvalStatus = ApprovalStatus.Submitted,
@@ -133,17 +148,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     }
                 });
 
-            this.identityUserServiceMock.Setup(service =>
-                service.RetrieveIdentityUsersInRolesAsync(
-                    It.IsAny<IEnumerable<string>>(),
-                    It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(new List<IdentityUser>
-                        {
-                            CreateIdentityUser(ownerId, preferredName: "Owner"),
-                            CreateIdentityUser(reviewedId, preferredName: "Reviewed"),
-                            CreateIdentityUser(invitedId, preferredName: "Invited"),
-                            CreateIdentityUser(freshId, preferredName: "Fresh"),
-                        });
+            SetupTierMembers(
+                CreateIdentityUser(ownerId, preferredName: "Owner"),
+                CreateIdentityUser(reviewedId, preferredName: "Reviewed"),
+                CreateIdentityUser(invitedId, preferredName: "Invited"),
+                CreateIdentityUser(freshId, preferredName: "Fresh"));
 
             // when
             IReadOnlyList<ReviewerCandidate> candidates =
