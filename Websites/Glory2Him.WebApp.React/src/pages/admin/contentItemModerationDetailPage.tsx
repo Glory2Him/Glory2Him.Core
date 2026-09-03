@@ -1,9 +1,20 @@
 import { useMemo } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { toastSuccess } from '../../brokers/toastBroker.success';
 import { Breadcrumb } from '../../components/coreUI/breadcrumb';
 import { Button } from '../../components/coreUI/button';
 import { ContentItemPanel } from '../../components/contentItems/contentItemPanel';
+import { ReviewPanel } from '../../components/approvals/reviewPanel';
 import { Spinner } from '../../components/coreUI/spinner';
+import { ContentType } from '../../models/foundations/contentItemSettings/contentType';
+
+import {
+    BibleReferenceAssociationPanel
+} from '../../components/associations/bibleReferenceAssociationPanel';
+
+import {
+    TagAssociationPanel
+} from '../../components/associations/tagAssociationPanel';
 import { BreadcrumbItem } from '../../models/coreUI/breadcrumbItem';
 import { contentItemService } from '../../services/foundations/contentItemService';
 import { contentItemSettingService } from '../../services/foundations/contentItemSettingService';
@@ -99,6 +110,13 @@ export const ContentItemModerationDetailPage = () => {
 
     const goBack = () => navigate(backRoute);
 
+    // The association WRITES arrive with #318; until then the boxes answer honestly rather than
+    // silently dropping what a moderator typed. Same posture as /myposts/{id}.
+    const suggestTag = () => toastSuccess('Suggesting tags is coming soon.');
+
+    const suggestBibleReference = () =>
+        toastSuccess('Suggesting bible references is coming soon.');
+
     return (
         <>
             <div className="d-flex flex-wrap justify-content-between align-items-center mb-3">
@@ -111,7 +129,7 @@ export const ContentItemModerationDetailPage = () => {
                 <div className="text-center py-5">
                     <Spinner />
                 </div>
-            ) : isError || searchItem == null ? (
+            ) : isError || contentItem == null || searchItem == null ? (
                 <>
                     <div className="alert alert-danger" role="alert">
                         We could not load this post right now. It may have been removed, or it
@@ -132,12 +150,77 @@ export const ContentItemModerationDetailPage = () => {
                         </Button>
                     </div>
 
-                    {/* The whole item, uncut: a moderator rules on what is actually there, so
-                        there is no read-more to leave half of it unread. */}
-                    <ContentItemPanel
-                        contentItem={searchItem}
-                        showContentExpanded
-                        showApprovalStatus />
+                    {/* WHAT IS BEING JUDGED on the left, WHO IS JUDGING IT on the right. The
+                        item and the facts attached to it read as one column, and the round —
+                        who has voted, why approval is blocked, the decision itself — stands
+                        beside them rather than under a scroll. */}
+                    <div className="row g-4">
+                        <div className="col-lg-7">
+                            {/* THE MODERATED FACE OF THE CARD. showModerationSection says this
+                                surface IS moderation, so the card offers no Edit of its own; the
+                                ribbon names the status in the corner; and the content is uncut,
+                                because a moderator rules on what is actually there rather than
+                                on a truncation.
+
+                                The pill beside the type chip is OFF against the ribbon — one
+                                card saying "Draft" twice reads as two different facts about the
+                                row — and the in-card tag and reference sections are off because
+                                those two panels render in full below, and the same facts must
+                                not appear twice on one screen. Both are the calls /myposts/{id}
+                                makes for the same pairing. */}
+                            <ContentItemPanel
+                                contentItem={searchItem}
+                                showModerationSection
+                                showApprovalStatusRibbon
+                                showApprovalStatus={false}
+                                showContentExpanded
+                                showTagSection={false}
+                                showBibleReferenceSection={false}
+                                contentItemSettingCollection={contentItemSettings ?? []} />
+
+                            {/* BELOW THE ITEM, not beside it: tags and references are facts
+                                ABOUT the thing being judged, so they belong in its column. The
+                                collections are honestly empty until #318 gives associations an
+                                exposer — the item's id is here off the URL, which is where that
+                                read keys in. */}
+                            <TagAssociationPanel
+                                associationCollection={[]}
+                                onAdd={suggestTag}
+                                showBorder
+                                cssClass="mt-4" />
+
+                            <BibleReferenceAssociationPanel
+                                associationCollection={[]}
+                                onAdd={suggestBibleReference}
+                                showBorder
+                                cssClass="mt-4" />
+                        </div>
+
+                        <div className="col-lg-5">
+                            {/* THE ROUND. entityOwnerId and approvalStatus come off the stored
+                                item, so the panel's own gates — nobody reviews their own
+                                submission, a terminal round is frozen — decide against the real
+                                row rather than against anything this page invents.
+
+                                contentType is the enum MEMBER NAME, never the setting's
+                                editable ContentTypeName: it is what §18.6 composes
+                                ContentItem-{Type}-Reviewers from, and a renamed type must not
+                                silently shed its role names.
+
+                                THE ROUND ITSELF IS NOT READ YET. Reviews, requests, candidates
+                                and the per-caller verdict all need the approval exposers (#350),
+                                so the collections are empty and no verdict is passed — the panel
+                                then shows the status and no decision controls, which is honest,
+                                rather than a decision surface over data nobody fetched. */}
+                            <ReviewPanel
+                                entityType="ContentItem"
+                                contentType={ContentType[contentItem.contentType] ?? ''}
+                                entityOwnerId={contentItem.createdBy}
+                                approvalStatus={contentItem.approvalStatus}
+                                approvalReviewCollection={[]}
+                                showBorder />
+                        </div>
+                    </div>
                 </>
             )}
         </>
