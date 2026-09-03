@@ -3,30 +3,30 @@
 /* The menu's fold control, standing at the head of the CONTENT beside the page's own title —
    never inside the menu, which would take the control away with the thing it folds.
 
+   IT FLOATS rather than taking a column. A column of its own would indent every page in the
+   shell past one icon; floated, only the title's line makes room for it and everything below —
+   the rule, the cards, a table — starts at the content's own left edge, level with the icon.
+   The title row is a flex container, so it shifts beside the float rather than flowing under
+   it, and the float is shorter than that row, so nothing after it is affected.
+
    A .btn-link rather than a bordered button: it is chrome, not an action on the page, and a box
    around it would read as a third thing to press beside the title and the breadcrumb. Colour
    stays the theme's body colour so it follows light and dark mode.
 
-   The top margin is optical, not structural: the flex row aligns to the top, and the glyph's
-   own box is shorter than the h3 line beside it, so without the nudge it hangs above the
-   title's cap height rather than sitting on its line. */
+   The top margin is optical, not structural: the glyph's own box is shorter than the h3 line
+   beside it, so without the nudge it hangs above the title's cap height rather than sitting on
+   its line. */
 .g2h-sidebar-toggle {
+    float: left;
+    margin-top: 0.22rem;
+    margin-right: 0.75rem;
     text-decoration: none;
     font-size: 1.25rem;
     line-height: 1;
-    margin-top: 0.22rem;
 }
 
 .g2h-sidebar-toggle:hover,
 .g2h-sidebar-toggle:focus-visible {
     text-decoration: none;
     opacity: 0.7;
-}
-
-/* THE FLEX CHILD MUST BE ALLOWED TO SHRINK. A flex item's default min-width is auto, which is
-   its CONTENT's width — so one wide descendant (a data table, an unbroken title, a code block)
-   would grow this column past the row and push the toggle out of view instead of scrolling
-   inside itself. Every page in the shell renders through here, so the guard belongs here. */
-.g2h-sidebar-content {
-    min-width: 0;
 }

@@ -18,6 +18,11 @@ import "./sidebarLayout.css";
 // of the content column instead, beside the page's own title, where it is in the same place
 // whichever state the menu is in.
 //
+// IT IS NOT A COLUMN OF ITS OWN. Given one, everything on every page would be indented past it
+// for the sake of one icon. It floats at the head of the content instead: the page's title line
+// flows beside it, and the rule and cards below start at the content's own left edge, level with
+// the icon itself. The float clears within the title's line, which is taller than the icon.
+//
 // THE CHOICE IS REMEMBERED, per browser. Someone who folds the menu to read a long post is
 // still reading it after the next navigation, and a preference that reset on every refresh
 // would be worse than not offering one. localStorage is guarded both ways — a private window,
@@ -70,26 +75,18 @@ export default function SidebarLayout(): ReactElement {
 
                     {/* Content */}
                     <div className={isMenuShown ? "col-lg-9" : "col-12"}>
-                        {/* The toggle leads the page rather than sitting above it: align-items
-                            start keeps it on the title's line, and the Outlet takes the rest of
-                            the width through flex-grow. min-width-0 is what stops a wide child
-                            — a table, a long unbroken title — from pushing the button off. */}
-                        <div className="d-flex align-items-start gap-3">
-                            <button
-                                type="button"
-                                className="btn btn-link p-0 text-body g2h-sidebar-toggle"
-                                onClick={toggleMenu}
-                                aria-controls={menuId}
-                                aria-expanded={isMenuShown}
-                                aria-label={toggleLabel}
-                                title={toggleLabel}>
-                                <i className="bi bi-list" aria-hidden="true"></i>
-                            </button>
+                        <button
+                            type="button"
+                            className="btn btn-link p-0 text-body g2h-sidebar-toggle"
+                            onClick={toggleMenu}
+                            aria-controls={menuId}
+                            aria-expanded={isMenuShown}
+                            aria-label={toggleLabel}
+                            title={toggleLabel}>
+                            <i className="bi bi-list" aria-hidden="true"></i>
+                        </button>
 
-                            <div className="flex-grow-1 g2h-sidebar-content">
-                                <Outlet />
-                            </div>
-                        </div>
+                        <Outlet />
                     </div>
                 </div>
             </div>
