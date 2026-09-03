@@ -7,8 +7,8 @@ import { AuthProvider } from '../securitys/authProvider';
 import { createAuthState, signInAs } from '../../tests/testAuth';
 
 // The admin shell's fold control. What this suite pins is what the LAYOUT owns: the menu folds
-// away, the content takes back the width it was occupying, the way to unfold it survives, and
-// the choice outlives a remount.
+// to its icons, the content takes back the width it was occupying, the way to unfold it
+// survives, and the choice outlives a remount.
 const authState = createAuthState();
 
 vi.mock('../../services/foundations/accountService', () => ({
@@ -77,19 +77,42 @@ describe('SidebarLayout', () => {
             .toHaveAttribute('aria-expanded', 'true');
     });
 
-    /// Links that a screen reader can still reach while nobody else can see them are worse than
-    /// absent, so the menu is unmounted rather than hidden.
-    it('should take the menu links away rather than merely hiding them', async () => {
-        // given: the menu carries Dashboard more than once — the area's own and the sample
-        // pages' — so the count is what matters, not a single match
-        renderLayout();
-        expect(screen.getAllByRole('link', { name: /Dashboard/ }).length).toBeGreaterThan(0);
+    /// FOLDING COSTS WORDS, NOT DESTINATIONS. The rail is the same menu — every leaf it had is
+    /// still one click away, named by its tooltip instead of by text beside it.
+    it('should keep every destination when folded, as an icon named by its tooltip',
+        async () => {
+            // given: the menu carries Dashboard more than once — the area's own and the sample
+            // pages' — so the count is what matters, not a single match
+            renderLayout();
+            const shownCount = screen.getAllByRole('link', { name: /Dashboard/ }).length;
+            expect(shownCount).toBeGreaterThan(0);
 
-        // when
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Collapse the menu' }));
+
+            // then: still there, and still reachable by the same name
+            const folded = screen.getAllByRole('link', { name: /Dashboard/ });
+            expect(folded).toHaveLength(shownCount);
+
+            // the title IS the tooltip, and the text beside the icon is gone
+            expect(folded[0]).toHaveAttribute('title');
+            expect(folded[0].textContent).toBe('');
+        });
+
+    /// A rail cannot nest — there is no room beside an icon for what hangs off it — so a group
+    /// asks for the menu back rather than pretending to open in place.
+    it('should give the menu back when a folded group is taken', async () => {
+        // given
+        renderLayout();
         await userEvent.click(screen.getByRole('button', { name: 'Collapse the menu' }));
 
+        // when
+        await userEvent.click(
+            screen.getByRole('button', { name: /Components — expand the menu/ }));
+
         // then
-        expect(screen.queryAllByRole('link', { name: /Dashboard/ })).toHaveLength(0);
+        expect(screen.getByRole('button', { name: 'Collapse the menu' })).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: /Content Item Settings/ })).toBeInTheDocument();
     });
 
     /// Someone who folds the menu to read a long post is still reading it after the next

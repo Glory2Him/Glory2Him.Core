@@ -8,10 +8,11 @@ import "./sidebarLayout.css";
 // Use it as a react-router layout route nested under Root — its children render in the Outlet:
 //   { element: <SidebarLayout />, children: [{ path: "Dashboard", element: <Dashboard /> }] }
 //
-// THE MENU FOLDS AWAY. An admin surface is a working surface — a moderation queue, a settings
-// table, a post being read in full — and the menu is navigation, not part of the work. Folded,
-// its quarter of the row goes to the content rather than being left as a gutter, which is the
-// whole point of the control: the toggle stays put so there is always a way back.
+// THE MENU FOLDS TO A RAIL. An admin surface is a working surface — a moderation queue, a
+// settings table, a post being read in full — and the menu is navigation, not part of the work.
+// Folded, its quarter of the row goes to the content and it keeps only its icons, each named by
+// a tooltip: every destination is still one click away, so folding costs reach rather than
+// buying width with it.
 //
 // THE CHOICE IS REMEMBERED, per browser. Someone who folds the menu to read a long post is
 // still reading it after the next navigation, and a preference that reset on every refresh
@@ -74,14 +75,18 @@ export default function SidebarLayout(): ReactElement {
                                 </button>
                             </div>
 
-                            {/* Unmounted rather than hidden: the menu is a tree of links, and
-                                links that are on screen to a screen reader but invisible to
-                                everyone else are worse than absent. */}
-                            {isMenuShown && (
-                                <div id={menuId}>
-                                    <NavMenu />
-                                </div>
-                            )}
+                            {/* The SAME menu either way — folded it renders as the icon rail,
+                                so nothing is dropped from it and no destination goes missing
+                                with the words. A group cannot open inside a rail, so its icon
+                                asks for the menu back instead. */}
+                            <div id={menuId}>
+                                <NavMenu
+                                    isCollapsed={isMenuShown === false}
+                                    onExpandRequested={() => {
+                                        setIsMenuShown(true);
+                                        writeMenuPreference(true);
+                                    }} />
+                            </div>
                         </div>
                     </aside>
 
