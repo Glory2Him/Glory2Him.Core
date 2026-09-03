@@ -327,6 +327,59 @@ describe('ReviewPanel', () => {
             expect(screen.getByText('Loading…')).toBeInTheDocument();
             expect(screen.queryByText('John')).not.toBeInTheDocument();
         });
+
+        /// The outcome is DERIVED from the rows and the verdict, so it cannot be stated while
+        /// they are still arriving: a pill reading "awaiting approval" over a round that turns
+        /// out to be blocked, and an approve control the caller may not be allowed, are both
+        /// claims nobody has computed yet.
+        it('should hold back the whole outcome while loading, not only the rows', () => {
+            // given
+            signInAs(authState, ['Publishers']);
+
+            // when
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    isLoading={true}
+                    approvalReviewCollection={[johnApproved]}
+                    approvalVerdict={blockedVerdict({
+                        isBypassAllowedForCurrentUser: true
+                    })} />);
+
+            // then
+            expect(screen.queryByRole('heading', { name: 'Review Outcome' }))
+                .not.toBeInTheDocument();
+
+            expect(statusPillText()).toBeUndefined();
+
+            expect(screen.queryByText(
+                'At least 3 approving review(s) is required by reviewers.'))
+                .not.toBeInTheDocument();
+
+            expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+
+            expect(screen.queryByRole('button', { name: 'Set approval status' }))
+                .not.toBeInTheDocument();
+        });
+
+        it('should show the outcome again once the load is done', () => {
+            // given
+            signInAs(authState, ['Publishers']);
+
+            // when
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    isLoading={false}
+                    approvalReviewCollection={[johnApproved]}
+                    approvalVerdict={blockedVerdict()} />);
+
+            // then
+            expect(screen.getByRole('heading', { name: 'Review Outcome' })).toBeInTheDocument();
+            expect(statusPillText()).toBe('Awaiting approval');
+        });
     });
 
     describe('review requests', () => {
@@ -1122,6 +1175,61 @@ describe('ReviewPanel', () => {
             expect(onApprovalStatusChanged).toHaveBeenCalledWith(
                 ApprovalDecision.Approve, true, 'Launch day exception');
         });
+
+        /// A disabled button explains nothing on its own. The empty box is the reason Submit is
+        /// shut, so the box has to say so rather than leaving the caller to guess.
+        it('should mark the reason box as the thing holding submit shut, then clear it',
+            async () => {
+                // given
+                signInAs(authState, ['Publishers']);
+
+                renderWithAuth(
+                    <ReviewPanel
+                        entityType="ContentItem"
+                        approvalStatus={ApprovalStatus.Submitted}
+                        approvalVerdict={blockedVerdict({
+                            isBypassAllowedForCurrentUser: true
+                        })} />);
+
+                const reasonBoxName = 'Reason for bypassing the approval requirements';
+
+                // when: the bypass is ticked but no decision chosen yet
+                await userEvent.click(screen.getByRole('checkbox'));
+
+                // then: nothing is being held up yet, so the box is not scolded for being empty
+                expect(screen.getByRole('textbox', { name: reasonBoxName }))
+                    .not.toHaveClass('is-invalid');
+
+                expect(screen.queryByText('Give a reason for the bypass before submitting.'))
+                    .not.toBeInTheDocument();
+
+                // when: Approve is chosen against the empty box
+                await userEvent.click(
+                    screen.getByRole('button', { name: 'Set approval status' }));
+
+                await userEvent.click(
+                    screen.getByRole('button', { name: /Approve this item/ }));
+
+                // then
+                expect(screen.getByRole('button', { name: 'Submit' })).toBeDisabled();
+                expect(screen.getByRole('textbox', { name: reasonBoxName }))
+                    .toHaveClass('is-invalid');
+
+                expect(screen.getByText('Give a reason for the bypass before submitting.'))
+                    .toBeInTheDocument();
+
+                // when: the reason is given
+                await userEvent.type(
+                    screen.getByRole('textbox', { name: reasonBoxName }), 'Launch day exception');
+
+                // then
+                expect(screen.getByRole('button', { name: 'Submit' })).toBeEnabled();
+                expect(screen.getByRole('textbox', { name: reasonBoxName }))
+                    .not.toHaveClass('is-invalid');
+
+                expect(screen.queryByText('Give a reason for the bypass before submitting.'))
+                    .not.toBeInTheDocument();
+            });
     });
 
     describe('read-only', () => {
