@@ -935,41 +935,6 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
             isBindRequired.Should().BeTrue();
         }
 
-        /// <summary>
-        /// <c>[FromQuery]</c> is load-bearing on this one parameter and on no other in the
-        /// controller, which is exactly what makes it easy to lose. Every other <c>[FromQuery]</c>
-        /// here decorates a simple type, where <c>[ApiController]</c> would infer the query string
-        /// anyway and the attribute really is redundant — so a reasonable sweep that removed the
-        /// redundant ones would be right everywhere except here. <c>string[]</c> is a COMPLEX type
-        /// to the binder, so without the attribute it infers a request BODY, and a GET has none:
-        /// the endpoint would bind an empty array for every caller and answer 200 with no names.
-        ///
-        /// <para>Nothing else catches it. The five tests above invoke the action as a plain method
-        /// call, so model binding never runs in this suite, and the removal compiles. This asserts
-        /// the attribute directly, the same way the decision's <c>[BindRequired]</c> is asserted
-        /// above and for the same reason — a silent binding change is the failure mode neither a
-        /// compiler nor a green suite reports.</para>
-        /// </summary>
-        [Fact]
-        public void GetReviewerDisplayNamesShouldBindTheUserIdsFromTheQueryString()
-        {
-            // Given
-            MethodInfo methodInfo = typeof(ApprovalsController)
-                .GetMethod(nameof(ApprovalsController.GetReviewerDisplayNamesAsync));
-
-            ParameterInfo userIdsParameter = methodInfo
-                .GetParameters()
-                .Single(parameter => parameter.Name == "userIds");
-
-            // When
-            bool isBoundFromQuery = userIdsParameter
-                .GetCustomAttributes(typeof(FromQueryAttribute), inherit: true)
-                .Any();
-
-            // Then
-            isBoundFromQuery.Should().BeTrue();
-        }
-
         private ValueTask<ActionResult<ApprovalOutcome>> PostSomeDecisionAsync() =>
             this.approvalsController.PostApprovalDecisionAsync(
                 GetRandomEntityType(),
@@ -1202,42 +1167,44 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
         /// account id, and until this route the only thing that named other people was
         /// <c>/api/admin/users</c> behind <c>Administrators</c> — so a <c>Publisher</c> who is not
         /// an administrator could render their own name and nobody else's.
+        ///
+        /// <para>Keyed on the round, so the entity key is what travels and the caller names no
+        /// ids of its own — which is what leaves nothing to probe with and no batch to cap.</para>
         /// </summary>
         [Fact]
         public async Task ShouldReturnDisplayNamesOnGetReviewerDisplayNamesAsync()
         {
             // given
-            string[] randomUserIds = new[]
-            {
-                Guid.NewGuid().ToString(),
-                Guid.NewGuid().ToString(),
-            };
+            EntityType randomEntityType = GetRandomEntityType();
+            Guid randomEntityId = Guid.NewGuid();
 
             IReadOnlyList<ReviewerDisplayName> randomReviewerDisplayNames =
                 new List<ReviewerDisplayName>
                 {
                     new ReviewerDisplayName
                     {
-                        UserId = randomUserIds[0],
+                        UserId = Guid.NewGuid().ToString(),
                         DisplayName = GetRandomString(),
                     },
                     new ReviewerDisplayName
                     {
-                        UserId = randomUserIds[1],
+                        UserId = Guid.NewGuid().ToString(),
                         DisplayName = GetRandomString(),
                     },
                 };
 
             this.approvalOrchestrationServiceMock.Setup(service =>
                 service.RetrieveReviewerDisplayNamesAsync(
-                    It.IsAny<IEnumerable<string>>(),
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(randomReviewerDisplayNames);
 
             // when
             ActionResult<IReadOnlyList<ReviewerDisplayName>> actualActionResult =
                 await this.approvalsController.GetReviewerDisplayNamesAsync(
-                    randomUserIds,
+                    randomEntityType,
+                    randomEntityId,
                     default);
 
             // then
@@ -1248,7 +1215,8 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
 
             this.approvalOrchestrationServiceMock.Verify(service =>
                 service.RetrieveReviewerDisplayNamesAsync(
-                    randomUserIds,
+                    randomEntityType,
+                    randomEntityId,
                     It.IsAny<CancellationToken>()),
                         Times.Once);
 
@@ -1256,13 +1224,14 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
         }
 
         /// <summary>
-        /// Covers the batch cap, which is refused rather than truncated.
+        /// Covers the entity key's shape rule, which is all the resolver validates now that the
+        /// round has replaced the caller-supplied batch.
         ///
-        /// <para>NOT the tier gate, despite both arriving as an
-        /// <c>ApprovalOrchestrationValidationException</c>: a refusal wraps an
-        /// <c>UnauthorizedApprovalOrchestrationException</c>, and the action catches that shape
-        /// FIRST and answers <c>401</c>, so it can never reach this <c>400</c> arm. The gate is
-        /// pinned by its own test below.</para>
+        /// <para>NOT the tier gate and NOT the missing round, despite all three arriving as an
+        /// <c>ApprovalOrchestrationValidationException</c>: those wrap an
+        /// <c>UnauthorizedApprovalOrchestrationException</c> and a
+        /// <c>NotFoundApprovalOrchestrationException</c>, and the action catches both shapes
+        /// FIRST, so neither can reach this <c>400</c> arm. Each is pinned by its own test.</para>
         /// </summary>
         [Theory]
         [MemberData(nameof(ValidationExceptions))]
@@ -1279,14 +1248,16 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
 
             this.approvalOrchestrationServiceMock.Setup(service =>
                 service.RetrieveReviewerDisplayNamesAsync(
-                    It.IsAny<IEnumerable<string>>(),
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()))
                         .ThrowsAsync(validationException);
 
             // when
             ActionResult<IReadOnlyList<ReviewerDisplayName>> actualActionResult =
                 await this.approvalsController.GetReviewerDisplayNamesAsync(
-                    new[] { Guid.NewGuid().ToString() },
+                    GetRandomEntityType(),
+                    Guid.NewGuid(),
                     default);
 
             // then
@@ -1294,7 +1265,8 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
 
             this.approvalOrchestrationServiceMock.Verify(service =>
                 service.RetrieveReviewerDisplayNamesAsync(
-                    It.IsAny<IEnumerable<string>>(),
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()),
                         Times.Once);
 
@@ -1321,14 +1293,16 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
 
             this.approvalOrchestrationServiceMock.Setup(service =>
                 service.RetrieveReviewerDisplayNamesAsync(
-                    It.IsAny<IEnumerable<string>>(),
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()))
                         .ThrowsAsync(validationException);
 
             // when
             ActionResult<IReadOnlyList<ReviewerDisplayName>> actualActionResult =
                 await this.approvalsController.GetReviewerDisplayNamesAsync(
-                    new[] { Guid.NewGuid().ToString() },
+                    GetRandomEntityType(),
+                    Guid.NewGuid(),
                     default);
 
             // then
@@ -1336,7 +1310,63 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
 
             this.approvalOrchestrationServiceMock.Verify(service =>
                 service.RetrieveReviewerDisplayNamesAsync(
-                    It.IsAny<IEnumerable<string>>(),
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        /// <summary>
+        /// A missing round is a <c>404</c>, the same as on every other operation keyed on the
+        /// entity — and a new arm, since the unscoped resolver read no approval and so had no
+        /// not-found case at all. It reaches the caller as the same outer type as the <c>400</c>
+        /// and the <c>401</c> above, told apart only by the <c>when</c> filter.
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnNotFoundOnGetReviewerDisplayNamesIfApprovalDoesNotExistAsync()
+        {
+            // given
+            string someMessage = GetRandomString();
+
+            var notFoundApprovalOrchestrationException =
+                new NotFoundApprovalOrchestrationException(
+                    message: someMessage);
+
+            var approvalOrchestrationValidationException =
+                new ApprovalOrchestrationValidationException(
+                    message: someMessage,
+                    innerException: notFoundApprovalOrchestrationException);
+
+            NotFoundObjectResult expectedNotFoundObjectResult =
+                NotFound(notFoundApprovalOrchestrationException);
+
+            var expectedActionResult =
+                new ActionResult<IReadOnlyList<ReviewerDisplayName>>(
+                    expectedNotFoundObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.RetrieveReviewerDisplayNamesAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(approvalOrchestrationValidationException);
+
+            // when
+            ActionResult<IReadOnlyList<ReviewerDisplayName>> actualActionResult =
+                await this.approvalsController.GetReviewerDisplayNamesAsync(
+                    GetRandomEntityType(),
+                    Guid.NewGuid(),
+                    default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.RetrieveReviewerDisplayNamesAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()),
                         Times.Once);
 
@@ -1359,14 +1389,16 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
 
             this.approvalOrchestrationServiceMock.Setup(service =>
                 service.RetrieveReviewerDisplayNamesAsync(
-                    It.IsAny<IEnumerable<string>>(),
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()))
                         .ThrowsAsync(dependencyException);
 
             // when
             ActionResult<IReadOnlyList<ReviewerDisplayName>> actualActionResult =
                 await this.approvalsController.GetReviewerDisplayNamesAsync(
-                    new[] { Guid.NewGuid().ToString() },
+                    GetRandomEntityType(),
+                    Guid.NewGuid(),
                     default);
 
             // then
@@ -1374,7 +1406,8 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
 
             this.approvalOrchestrationServiceMock.Verify(service =>
                 service.RetrieveReviewerDisplayNamesAsync(
-                    It.IsAny<IEnumerable<string>>(),
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()),
                         Times.Once);
 
@@ -1397,14 +1430,16 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
 
             this.approvalOrchestrationServiceMock.Setup(service =>
                 service.RetrieveReviewerDisplayNamesAsync(
-                    It.IsAny<IEnumerable<string>>(),
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()))
                         .ThrowsAsync(serverException);
 
             // when
             ActionResult<IReadOnlyList<ReviewerDisplayName>> actualActionResult =
                 await this.approvalsController.GetReviewerDisplayNamesAsync(
-                    new[] { Guid.NewGuid().ToString() },
+                    GetRandomEntityType(),
+                    Guid.NewGuid(),
                     default);
 
             // then
@@ -1412,7 +1447,8 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
 
             this.approvalOrchestrationServiceMock.Verify(service =>
                 service.RetrieveReviewerDisplayNamesAsync(
-                    It.IsAny<IEnumerable<string>>(),
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()),
                         Times.Once);
 

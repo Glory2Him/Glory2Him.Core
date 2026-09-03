@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { scopedModerationRoles } from '../../../components/associations/associationRoles';
 import { BibleReferenceAssociationPanel } from '../../../components/associations/bibleReferenceAssociationPanel';
 import {
     ApprovalStatus,
@@ -20,9 +21,28 @@ import {
     DemoSecurityContext,
     demoOtherSubmitterId,
     demoViewerId,
+    SecurityContextOption,
     SecurityContextSection,
     securityContextOptions
 } from './shared/securityContextDemo';
+
+// The two personas the shared list has no reason to carry for every doc page — this component's
+// own §18.6 scoped tier, so the Live demo can actually show a BibleReference-scoped-only
+// moderator deciding without holding the global role.
+const bibleReferenceSecurityContextOptions: ReadonlyArray<SecurityContextOption> = [
+    {
+        key: 'bibleReference-reviewer',
+        label: 'I am a BibleReference-scoped reviewer (not owner)',
+        roles: ['BibleReference-Reviewers'],
+        isOwner: false
+    },
+    {
+        key: 'bibleReference-publisher',
+        label: 'I am a BibleReference-scoped publisher (not owner)',
+        roles: ['BibleReference-Publishers'],
+        isOwner: false
+    }
+];
 
 const minimalSample = `
 import { BibleReferenceAssociationPanel } from '../../components/associations/bibleReferenceAssociationPanel';
@@ -87,8 +107,17 @@ const defaultRows: ReadonlyArray<ComponentPropRow> = [
         description: 'Shown to a signed-out reader in place of the box.'
     },
     {
-        name: 'showAdd / showRemove / showModeration', type: 'boolean', defaultValue: 'true',
+        name: 'moderationRoles', type: 'string (csv)',
+        defaultValue: `'${scopedModerationRoles('BibleReference')}'`,
+        description: 'The global tier plus the BibleReference-scoped pair (§18.6).'
+    },
+    {
+        name: 'showAdd', type: 'boolean', defaultValue: 'true',
         description: 'On by default so the bare component matches the post-detail panel.'
+    },
+    {
+        name: 'showModerationActions', type: 'boolean', defaultValue: 'false',
+        description: 'Off is the safe posture: read-only, except that a contributor may still withdraw their own unapproved reference. Switch it on for a moderation surface and the full matrix applies — Remove to removeRoles, Reject and Approve to moderationRoles.'
     }
 ];
 
@@ -144,7 +173,8 @@ export const BibleReferenceAssociationPanelDoc = () => {
                 lead="Wired to local state. The last reference is yours and still waiting, so it shows the hourglass in place of the book — and the controls step the same panel through every viewer and surface switch.">
                 <SecurityContextSection
                     selected={securityContext}
-                    onChange={setSecurityContext} />
+                    onChange={setSecurityContext}
+                    extraOptions={bibleReferenceSecurityContextOptions} />
 
                 <DemoControls toggles={[
                     {

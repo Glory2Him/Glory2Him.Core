@@ -39,22 +39,31 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 UserName = "someone",
             };
 
-        // The two identity reads, told apart. Both the candidates read and the request path ask
-        // the identity store TWICE - once for the review tier, once for the ReadOnly veto (18.6
+        // The review tier's membership, for the two operations that still ask for it - the
+        // candidates read and the invitation's rule 3 eligibility check. It lives here rather
+        // than beside either because both are covered from this file's fixtures, and because a
+        // stub spelled out at every call site is longer than the assertion it exists to enable.
+        //
+        // A test whose SUBJECT is the role names asked for cannot use this: it needs a Callback
+        // to capture the argument, and a helper that swallowed it would hide the very thing under
+        // test.
+        //
+        // THE MATCHER IS NOT It.IsAny, and that is load-bearing. Both operations now ask the
+        // identity store TWICE - once for the review tier, once for the ReadOnly veto (18.6
         // rule 2) - and both calls land on this one method. The global ReadOnly is the one name
-        // that only ever appears in the veto's list, so it is what separates them: a test
-        // stubbing "the tier read" with It.IsAny would answer the veto read with the same people
-        // and subtract every candidate it had just offered.
-        private void SetupReviewTierMembers(params IdentityUser[] tierMembers) =>
+        // that only ever appears in the veto's list, so it is what tells them apart. Stubbing
+        // "the tier read" with It.IsAny would answer the veto read with the same people and
+        // subtract every candidate it had just offered.
+        private void SetupTierMembers(params IdentityUser[] identityUsers) =>
             this.identityUserServiceMock.Setup(service =>
                 service.RetrieveIdentityUsersInRolesAsync(
                     It.Is<IEnumerable<string>>(roleNames =>
                         !roleNames.Contains(Roles.ReadOnly)),
                     It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(tierMembers.ToList());
+                        .ReturnsAsync(identityUsers.ToList());
 
         // Nobody, by default - set in the constructor so every test starts unblocked, which is
-        // what makes a subtraction here visible as this issue's doing rather than the tier's.
+        // what makes a subtraction visible as the veto's doing rather than the tier's.
         private void SetupBlockedUsers(params IdentityUser[] blockedUsers) =>
             this.identityUserServiceMock.Setup(service =>
                 service.RetrieveIdentityUsersInRolesAsync(
@@ -63,9 +72,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(blockedUsers.ToList());
 
-        // The scope as it comes back when the entity behind the approval could not be read —
-        // the subject carries no content type and says so, which is the whole point of the
-        // flag: an ABSENT content type and an UNKNOWN one must not be treated alike.
+        // The scope as it comes back when the entity behind the approval could not be read -
+        // the subject names its entity type but carries no content type, and says so with the
+        // flag. An ABSENT content type and an UNKNOWN one must not be treated alike.
         private void SetupUnresolvedReviewerScope(Guid approvalId)
         {
             SetupReviewerScope(approvalId: approvalId, contentType: null);
@@ -91,6 +100,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                             },
 
                             ActiveReviewerUserIds = Array.Empty<string>(),
+                            RecordedReviewerUserIds = Array.Empty<string>(),
                             ActiveRequests = Array.Empty<ActiveReviewRequest>(),
                         });
         }
@@ -101,6 +111,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             string entityCreatedBy = "the-entity-owner",
             IReadOnlyList<string> activeReviewerUserIds = null,
             IReadOnlyList<ActiveReviewRequest> activeRequests = null,
+            IReadOnlyList<string> recordedReviewerUserIds = null,
             string contentType = null)
         {
             this.approvalServiceMock.Setup(service =>
@@ -137,15 +148,27 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                             ActiveReviewerUserIds =
                                 activeReviewerUserIds ?? Array.Empty<string>(),
 
+                            // Defaulted to the active set, because every standing review is a
+                            // recorded one - the broker builds this field from the same rows with
+                            // nothing subtracted. A test that cares about the DIFFERENCE - a
+                            // dismissed or withdrawn verdict, which is the case the resolver
+                            // exists for - passes it explicitly.
+                            RecordedReviewerUserIds =
+                                recordedReviewerUserIds
+                                    ?? activeReviewerUserIds
+                                    ?? Array.Empty<string>(),
+
                             ActiveRequests =
                                 activeRequests ?? Array.Empty<ActiveReviewRequest>(),
                         });
         }
 
         /// <summary>
-        /// ONE subtraction, and only one: the entity's own author, because rule 3 refuses an
-        /// invitation aimed at them outright and listing them would offer a click that always
-        /// fails.
+        /// TWO subtractions, and only two: the entity's own author, and anyone a <c>ReadOnly</c>
+        /// in this entity's scope covers (§18.6 rule 2). Rule 3 refuses an invitation aimed at
+        /// either outright, so listing them would offer a click that always fails. This case
+        /// holds the block set empty and pins the owner half; the veto half is pinned in
+        /// ApprovalOrchestrationServiceTests.ReadOnlyVeto.
         ///
         /// <para>Everyone else in the tier stays, INCLUDING people who have already answered and
         /// people already invited. The read answers "who belongs to this round", not "who is not
@@ -178,7 +201,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     }
                 });
 
-            SetupReviewTierMembers(
+            SetupTierMembers(
                 CreateIdentityUser(ownerId, preferredName: "Owner"),
                 CreateIdentityUser(reviewedId, preferredName: "Reviewed"),
                 CreateIdentityUser(invitedId, preferredName: "Invited"),

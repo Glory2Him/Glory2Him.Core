@@ -41,7 +41,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             Guid invitedId = Guid.NewGuid();
             SetupReviewerScope(approvalId: approvalId);
 
-            SetupReviewTierMembers(CreateIdentityUser(invitedId, preferredName: "Mary"));
+            SetupTierMembers(CreateIdentityUser(invitedId, preferredName: "Mary"));
 
             var foundationValidationException = new ApprovalReviewRequestValidationException(
                 message: "Approval review request validation error occurred, " +
@@ -81,7 +81,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             Guid invitedId = Guid.NewGuid();
             SetupReviewerScope(approvalId: approvalId);
 
-            SetupReviewTierMembers(CreateIdentityUser(invitedId, preferredName: "Mary"));
+            SetupTierMembers(CreateIdentityUser(invitedId, preferredName: "Mary"));
 
             var alreadyExists = new AlreadyExistsApprovalReviewRequestException(
                 message: "Approval review request already exists, " +

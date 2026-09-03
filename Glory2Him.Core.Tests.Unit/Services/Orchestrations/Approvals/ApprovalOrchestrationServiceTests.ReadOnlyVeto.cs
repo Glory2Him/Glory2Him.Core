@@ -98,7 +98,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 entityCreatedBy: Guid.NewGuid().ToString(),
                 contentType: nameof(ContentType.Quote));
 
-            SetupReviewTierMembers(
+            SetupTierMembers(
                 CreateIdentityUser(blockedId, preferredName: "Blocked"),
                 CreateIdentityUser(freshId, preferredName: "Fresh"));
 
@@ -130,7 +130,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 approvalId: Guid.NewGuid(),
                 contentType: nameof(ContentType.Quote));
 
-            SetupReviewTierMembers();
+            SetupTierMembers();
 
             this.identityUserServiceMock.Setup(service =>
                 service.RetrieveIdentityUsersInRolesAsync(
@@ -165,7 +165,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             IEnumerable<string> capturedRoleNames = null;
 
             SetupReviewerScope(approvalId: Guid.NewGuid(), contentType: null);
-            SetupReviewTierMembers();
+            SetupTierMembers();
 
             this.identityUserServiceMock.Setup(service =>
                 service.RetrieveIdentityUsersInRolesAsync(
@@ -202,7 +202,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             IEnumerable<string> capturedRoleNames = null;
 
             SetupUnresolvedReviewerScope(approvalId: Guid.NewGuid());
-            SetupReviewTierMembers();
+            SetupTierMembers();
 
             this.identityUserServiceMock.Setup(service =>
                 service.RetrieveIdentityUsersInRolesAsync(
@@ -249,7 +249,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             SetupUnresolvedReviewerScope(approvalId: Guid.NewGuid());
 
-            SetupReviewTierMembers(
+            SetupTierMembers(
                 CreateIdentityUser(blockedId, preferredName: "Blocked"),
                 CreateIdentityUser(freshId, preferredName: "Fresh"));
 
@@ -294,7 +294,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 entityCreatedBy: Guid.NewGuid().ToString(),
                 contentType: nameof(ContentType.Quote));
 
-            SetupReviewTierMembers(CreateIdentityUser(blockedId, preferredName: "Blocked"));
+            SetupTierMembers(CreateIdentityUser(blockedId, preferredName: "Blocked"));
             SetupBlockedUsers(CreateIdentityUser(blockedId, preferredName: "Blocked"));
 
             // when

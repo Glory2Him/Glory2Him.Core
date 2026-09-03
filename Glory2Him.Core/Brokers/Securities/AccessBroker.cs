@@ -844,6 +844,17 @@ namespace Glory2Him.Core.Brokers.Securities
                 .Distinct()
                 .ToList();
 
+            // And the same rows again with nothing subtracted, because a different question is
+            // asked of them. The set above decides INVITABILITY, which a dismissed or withdrawn
+            // verdict releases; this one reports who the round INVOLVED, which nothing releases.
+            // The name resolver (§16.7.4) needs the second: a panel renders a dismissed review,
+            // so it must be able to name the person who wrote it.
+            List<string> recordedReviewerUserIds = snapshot.Reviews
+                .Select(review => review.CreatedBy)
+                .Where(createdBy => string.IsNullOrWhiteSpace(createdBy) is false)
+                .Distinct()
+                .ToList();
+
             // Unfiltered on purpose (see ActiveReviewRequest): the caller-facing read applies a
             // visibility filter, and deciding invitability from a filtered view would tell a
             // moderator that somebody is invitable and then collide with the uniqueness index.
@@ -868,6 +879,7 @@ namespace Glory2Him.Core.Brokers.Securities
                 EntityCreatedBy = entityCreatedBy,
                 RoleSubjects = roleSubjects,
                 ActiveReviewerUserIds = activeReviewerUserIds,
+                RecordedReviewerUserIds = recordedReviewerUserIds,
                 ActiveRequests = activeRequests,
             };
         }
