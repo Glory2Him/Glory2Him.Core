@@ -39,12 +39,28 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 UserName = "someone",
             };
 
+        // The review tier's membership, for the two operations that still ask for it - the
+        // candidates read and the invitation's rule 3 eligibility check. It lives here rather
+        // than beside either because both are covered from this file's fixtures, and because a
+        // stub spelled out at every call site is longer than the assertion it exists to enable.
+        //
+        // A test whose SUBJECT is the role names asked for cannot use this: it needs a Callback
+        // to capture the argument, and a helper that swallowed it would hide the very thing under
+        // test.
+        private void SetupTierMembers(params IdentityUser[] identityUsers) =>
+            this.identityUserServiceMock.Setup(service =>
+                service.RetrieveIdentityUsersInRolesAsync(
+                    It.IsAny<IEnumerable<string>>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(identityUsers.ToList());
+
         private void SetupReviewerScope(
             Guid approvalId,
             ApprovalStatus approvalStatus = ApprovalStatus.Submitted,
             string entityCreatedBy = "the-entity-owner",
             IReadOnlyList<string> activeReviewerUserIds = null,
             IReadOnlyList<ActiveReviewRequest> activeRequests = null,
+            IReadOnlyList<string> recordedReviewerUserIds = null,
             string contentType = null)
         {
             this.approvalServiceMock.Setup(service =>
@@ -80,6 +96,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
                             ActiveReviewerUserIds =
                                 activeReviewerUserIds ?? Array.Empty<string>(),
+
+                            // Defaulted to the active set, because every standing review is a
+                            // recorded one - the broker builds this field from the same rows with
+                            // nothing subtracted. A test that cares about the DIFFERENCE - a
+                            // dismissed or withdrawn verdict, which is the case the resolver
+                            // exists for - passes it explicitly.
+                            RecordedReviewerUserIds =
+                                recordedReviewerUserIds
+                                    ?? activeReviewerUserIds
+                                    ?? Array.Empty<string>(),
 
                             ActiveRequests =
                                 activeRequests ?? Array.Empty<ActiveReviewRequest>(),
@@ -122,17 +148,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     }
                 });
 
-            this.identityUserServiceMock.Setup(service =>
-                service.RetrieveIdentityUsersInRolesAsync(
-                    It.IsAny<IEnumerable<string>>(),
-                    It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(new List<IdentityUser>
-                        {
-                            CreateIdentityUser(ownerId, preferredName: "Owner"),
-                            CreateIdentityUser(reviewedId, preferredName: "Reviewed"),
-                            CreateIdentityUser(invitedId, preferredName: "Invited"),
-                            CreateIdentityUser(freshId, preferredName: "Fresh"),
-                        });
+            SetupTierMembers(
+                CreateIdentityUser(ownerId, preferredName: "Owner"),
+                CreateIdentityUser(reviewedId, preferredName: "Reviewed"),
+                CreateIdentityUser(invitedId, preferredName: "Invited"),
+                CreateIdentityUser(freshId, preferredName: "Fresh"));
 
             // when
             IReadOnlyList<ReviewerCandidate> candidates =
