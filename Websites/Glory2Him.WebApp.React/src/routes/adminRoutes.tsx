@@ -5,6 +5,10 @@ import securityPoints from '../securityMatrix';
 import { Dashboard } from '../pages/dashboard';
 import { ContentItemSettingDetailPage } from '../pages/admin/contentItemSettingDetailPage';
 import { ContentItemSettingsPage } from '../pages/admin/contentItemSettingsPage';
+import {
+    ContentItemModerationDetailPage
+} from '../pages/admin/contentItemModerationDetailPage';
+
 import { ContentItemModerationPage } from '../pages/admin/contentItemModerationPage';
 import { PostDetailPage } from '../pages/admin/postDetailPage';
 import { PostsPage } from '../pages/admin/postsPage';
@@ -67,6 +71,21 @@ export const adminRoutes: RouteObject[] = [
                 element:
                     <SecuredRoute allowedRoles={securityPoints.contentItems.view}>
                         <ContentItemModerationPage />
+                    </SecuredRoute>,
+            },
+            {
+                // ONE ITEM FROM THE QUEUE, in the admin shell. A moderator stepping into a post
+                // is still working the admin area, so the queue leads here rather than out to
+                // the public /posts/{id} — which would swap the chrome, drop the sidebar and
+                // lose the filtered queue they were part-way through.
+                //
+                // Gated by the same point as the queue: reaching an item must take no more
+                // than reaching the list it sits in, and the foundation decides what this
+                // caller's roles actually reach against the stored row regardless (§14.5).
+                path: 'Admin/Posts/:contentItemId',
+                element:
+                    <SecuredRoute allowedRoles={securityPoints.contentItems.view}>
+                        <ContentItemModerationDetailPage />
                     </SecuredRoute>,
             },
             {
