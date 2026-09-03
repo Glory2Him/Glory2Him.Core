@@ -1,17 +1,32 @@
 /* ── SidebarLayout ────────────────────────────────────────────────────────── */
 
-/* The menu's fold control. A .btn-link rather than a bordered button: it sits inside the menu
-   card as a piece of that card's own chrome, the way the review panel's cog does, so a box
-   around it would read as a second control to press. No underline, and the size of the heading
-   it sits above. Colour stays the theme's body colour, so it follows light and dark mode. */
+/* The menu's fold control, standing at the head of the CONTENT beside the page's own title —
+   never inside the menu, which would take the control away with the thing it folds.
+
+   A .btn-link rather than a bordered button: it is chrome, not an action on the page, and a box
+   around it would read as a third thing to press beside the title and the breadcrumb. Colour
+   stays the theme's body colour so it follows light and dark mode.
+
+   The top margin is optical, not structural: the flex row aligns to the top, and the glyph's
+   own box is shorter than the h3 line beside it, so without the nudge it hangs above the
+   title's cap height rather than sitting on its line. */
 .g2h-sidebar-toggle {
     text-decoration: none;
     font-size: 1.25rem;
     line-height: 1;
+    margin-top: 0.22rem;
 }
 
 .g2h-sidebar-toggle:hover,
 .g2h-sidebar-toggle:focus-visible {
     text-decoration: none;
     opacity: 0.7;
+}
+
+/* THE FLEX CHILD MUST BE ALLOWED TO SHRINK. A flex item's default min-width is auto, which is
+   its CONTENT's width — so one wide descendant (a data table, an unbroken title, a code block)
+   would grow this column past the row and push the toggle out of view instead of scrolling
+   inside itself. Every page in the shell renders through here, so the guard belongs here. */
+.g2h-sidebar-content {
+    min-width: 0;
 }

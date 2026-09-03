@@ -8,11 +8,15 @@ import "./sidebarLayout.css";
 // Use it as a react-router layout route nested under Root — its children render in the Outlet:
 //   { element: <SidebarLayout />, children: [{ path: "Dashboard", element: <Dashboard /> }] }
 //
-// THE MENU FOLDS TO A RAIL. An admin surface is a working surface — a moderation queue, a
+// THE MENU FOLDS AWAY ENTIRELY. An admin surface is a working surface — a moderation queue, a
 // settings table, a post being read in full — and the menu is navigation, not part of the work.
-// Folded, its quarter of the row goes to the content and it keeps only its icons, each named by
-// a tooltip: every destination is still one click away, so folding costs reach rather than
-// buying width with it.
+// Folded, its whole column goes: no rail, no gutter, nothing left standing in the content's
+// way. Either the menu is there in full or it is not there at all.
+//
+// THE CONTROL LIVES IN THE CONTENT, not in the menu it folds. A control inside the panel would
+// go with it, and then there would be nothing left to press — which is why it sits at the head
+// of the content column instead, beside the page's own title, where it is in the same place
+// whichever state the menu is in.
 //
 // THE CHOICE IS REMEMBERED, per browser. Someone who folds the menu to read a long post is
 // still reading it after the next navigation, and a preference that reset on every refresh
@@ -54,45 +58,38 @@ export default function SidebarLayout(): ReactElement {
         <section className="py-4">
             <div className="container">
                 <div className="row g-4">
-                    {/* Sidebar. Folded it is col-auto — as wide as the toggle needs and no
-                        wider — so the content column takes the rest through col rather than a
-                        second fixed width that would have to be kept in step with this one. */}
-                    <aside className={isMenuShown ? "col-lg-3" : "col-auto"}>
-                        <div className="card card-body border p-3">
-                            <div
-                                className={`d-flex ${isMenuShown
-                                    ? "justify-content-end mb-2"
-                                    : "justify-content-center"}`}>
-                                <button
-                                    type="button"
-                                    className="btn btn-link p-0 text-body g2h-sidebar-toggle"
-                                    onClick={toggleMenu}
-                                    aria-controls={menuId}
-                                    aria-expanded={isMenuShown}
-                                    aria-label={toggleLabel}
-                                    title={toggleLabel}>
-                                    <i className="bi bi-list" aria-hidden="true"></i>
-                                </button>
+                    {/* Sidebar. Absent entirely when folded — not narrowed, not hidden — so the
+                        content column has the whole row rather than the row minus a stub. */}
+                    {isMenuShown && (
+                        <aside className="col-lg-3" id={menuId}>
+                            <div className="card card-body border p-3">
+                                <NavMenu />
                             </div>
-
-                            {/* The SAME menu either way — folded it renders as the icon rail,
-                                so nothing is dropped from it and no destination goes missing
-                                with the words. A group cannot open inside a rail, so its icon
-                                asks for the menu back instead. */}
-                            <div id={menuId}>
-                                <NavMenu
-                                    isCollapsed={isMenuShown === false}
-                                    onExpandRequested={() => {
-                                        setIsMenuShown(true);
-                                        writeMenuPreference(true);
-                                    }} />
-                            </div>
-                        </div>
-                    </aside>
+                        </aside>
+                    )}
 
                     {/* Content */}
-                    <div className={isMenuShown ? "col-lg-9" : "col"}>
-                        <Outlet />
+                    <div className={isMenuShown ? "col-lg-9" : "col-12"}>
+                        {/* The toggle leads the page rather than sitting above it: align-items
+                            start keeps it on the title's line, and the Outlet takes the rest of
+                            the width through flex-grow. min-width-0 is what stops a wide child
+                            — a table, a long unbroken title — from pushing the button off. */}
+                        <div className="d-flex align-items-start gap-3">
+                            <button
+                                type="button"
+                                className="btn btn-link p-0 text-body g2h-sidebar-toggle"
+                                onClick={toggleMenu}
+                                aria-controls={menuId}
+                                aria-expanded={isMenuShown}
+                                aria-label={toggleLabel}
+                                title={toggleLabel}>
+                                <i className="bi bi-list" aria-hidden="true"></i>
+                            </button>
+
+                            <div className="flex-grow-1 g2h-sidebar-content">
+                                <Outlet />
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
