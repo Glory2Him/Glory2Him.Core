@@ -1,3 +1,4 @@
+import { scopedModerationRoles } from './associationRoles';
 import { AssociationPanel, AssociationPanelProps } from './associationPanel';
 import { AssociationItem } from '../../models/components/associations/associationItem';
 
@@ -30,7 +31,7 @@ export function TagAssociationPanel({
     showAdd = true,
     // §18.6: the global tier plus the Tag-scoped pair, so a moderator trusted with tags alone
     // — without holding the global Reviewers/Publishers role — can still decide on one.
-    moderationRoles = 'Reviewers, Publishers, Administrators, Tag-Reviewers, Tag-Publishers',
+    moderationRoles = scopedModerationRoles('Tag'),
     ...rest
 }: TagAssociationPanelProps) {
     return (

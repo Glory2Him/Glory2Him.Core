@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { scopedModerationRoles } from '../../../components/associations/associationRoles';
 import { TagAssociationPanel } from '../../../components/associations/tagAssociationPanel';
 import {
     ApprovalStatus,
@@ -20,9 +21,28 @@ import {
     DemoSecurityContext,
     demoOtherSubmitterId,
     demoViewerId,
+    SecurityContextOption,
     SecurityContextSection,
     securityContextOptions
 } from './shared/securityContextDemo';
+
+// The two personas the shared list has no reason to carry for every doc page — this component's
+// own §18.6 scoped tier, so the Live demo can actually show a Tag-scoped-only moderator deciding
+// without holding the global role.
+const tagSecurityContextOptions: ReadonlyArray<SecurityContextOption> = [
+    {
+        key: 'tag-reviewer',
+        label: 'I am a Tag-scoped reviewer (not owner)',
+        roles: ['Tag-Reviewers'],
+        isOwner: false
+    },
+    {
+        key: 'tag-publisher',
+        label: 'I am a Tag-scoped publisher (not owner)',
+        roles: ['Tag-Publishers'],
+        isOwner: false
+    }
+];
 
 const minimalSample = `
 import { TagAssociationPanel } from '../../components/associations/tagAssociationPanel';
@@ -88,7 +108,7 @@ const defaultRows: ReadonlyArray<ComponentPropRow> = [
     },
     {
         name: 'moderationRoles', type: 'string (csv)',
-        defaultValue: "'Reviewers, Publishers, Administrators, Tag-Reviewers, Tag-Publishers'",
+        defaultValue: `'${scopedModerationRoles('Tag')}'`,
         description: 'The global tier plus the Tag-scoped pair (§18.6).'
     },
     {
@@ -97,8 +117,7 @@ const defaultRows: ReadonlyArray<ComponentPropRow> = [
     },
     {
         name: 'showModerationActions', type: 'boolean', defaultValue: 'false',
-        description: 'Off by default; switch on for a moderation surface to expose Remove, '
-            + 'Reject and Approve per moderationRoles/removeRoles.'
+        description: 'Off is the safe posture: read-only, except that a contributor may still withdraw their own unapproved tag. Switch it on for a moderation surface to add Reject and Approve, gated by moderationRoles.'
     }
 ];
 
@@ -145,7 +164,8 @@ export const TagAssociationPanelDoc = () => {
                 lead="Wired to local state. The last tag is yours and still waiting, so it carries the hourglass and a way to withdraw it — and the controls step the same panel through every viewer and surface switch.">
                 <SecurityContextSection
                     selected={securityContext}
-                    onChange={setSecurityContext} />
+                    onChange={setSecurityContext}
+                    extraOptions={tagSecurityContextOptions} />
 
                 <DemoControls toggles={[
                     {

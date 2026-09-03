@@ -1,3 +1,4 @@
+import { scopedModerationRoles } from './associationRoles';
 import { AssociationPanel, AssociationPanelProps } from './associationPanel';
 import { AssociationItem } from '../../models/components/associations/associationItem';
 import { bibleReferenceHref } from '../../services/views/bibleReferences/toUsfmReference';
@@ -30,8 +31,7 @@ export function BibleReferenceAssociationPanel({
     // §18.6: the global tier plus the BibleReference-scoped pair, so a moderator trusted with
     // bible references alone — without holding the global Reviewers/Publishers role — can still
     // decide on one.
-    moderationRoles =
-        'Reviewers, Publishers, Administrators, BibleReference-Reviewers, BibleReference-Publishers',
+    moderationRoles = scopedModerationRoles('BibleReference'),
     ...rest
 }: BibleReferenceAssociationPanelProps) {
     return (
