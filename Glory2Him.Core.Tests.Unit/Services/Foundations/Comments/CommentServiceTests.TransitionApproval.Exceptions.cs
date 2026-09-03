@@ -35,6 +35,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
             await Assert.ThrowsAsync<OperationCanceledException>(
                 transitionTask.AsTask);
 
+            // pins WHERE the guard sits, not merely that it exists. This verb mints an
+            // envelope as its first dependency call, so a guard that drifted below that
+            // await would still surface OperationCanceledException and still satisfy every
+            // assertion below - this is the one that catches the drift.
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+
             this.accessBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();

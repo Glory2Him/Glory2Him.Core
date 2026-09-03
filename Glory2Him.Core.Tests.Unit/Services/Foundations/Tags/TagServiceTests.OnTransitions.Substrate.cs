@@ -45,9 +45,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             await Assert.ThrowsAsync<OperationCanceledException>(
                 onSubmittingTask.AsTask);
 
-            // the clock is asserted alongside the rest: the submit do-work stamps a modified date
-            // on the happy path, so leaving it unasserted would let a guard that fires too late
-            // still pass this test.
+            // the clock is asserted alongside the rest: on the happy path this verb reaches
+            // IDateTimeBroker for the ProcessedEvents ProcessedAt stamp (TagService.Substrate.cs),
+            // so leaving it unasserted would let a guard that fires too late still pass. The
+            // modified-date stamp is NOT the clock's doing here - securityAuditBroker owns that.
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
