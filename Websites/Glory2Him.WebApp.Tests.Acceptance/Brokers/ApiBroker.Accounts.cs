@@ -58,6 +58,50 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
             return user;
         }
 
+        // Deliberately returns the RESULT rather than throwing, because the interesting case here
+        // is the refusal. Callers that need a successfully arranged user use AddUserAsync.
+        public async ValueTask<IdentityResult> TryAddUserAsync(
+            string userName,
+            string email,
+            string password)
+        {
+            using IServiceScope scope = this.webApplicationFactory.Services.CreateScope();
+
+            UserManager<AppUser> userManager =
+                scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
+
+            var user = new AppUser
+            {
+                Id = Guid.NewGuid(),
+                UserName = userName,
+                Email = email,
+                EmailConfirmed = true,
+                Name = string.Empty,
+                Surname = string.Empty,
+            };
+
+            IdentityResult result = await userManager.CreateAsync(user, password);
+
+            if (result.Succeeded)
+            {
+                await userManager.DeleteAsync(user);
+            }
+
+            return result;
+        }
+
+        // The exact set the host is running with, read back off the live options rather than
+        // restated — the point of the assertion is that the configured set is what we think.
+        public string GetAllowedUserNameCharacters()
+        {
+            using IServiceScope scope = this.webApplicationFactory.Services.CreateScope();
+
+            UserManager<AppUser> userManager =
+                scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
+
+            return userManager.Options.User.AllowedUserNameCharacters;
+        }
+
         // Base64Url-encoded, because that is the shape the endpoint decodes — the link in a
         // confirmation email carries it that way, and a raw token would be rejected before the
         // flow under test was reached.
