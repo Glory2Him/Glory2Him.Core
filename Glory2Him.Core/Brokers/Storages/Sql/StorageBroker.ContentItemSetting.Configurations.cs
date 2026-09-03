@@ -60,9 +60,17 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             // The default matches the entity's own, so a row inserted without one lands past
             // the curated seed values rather than at zero, where every unordered row would
             // otherwise pile up ahead of the types somebody chose the order of.
+            //
+            // ValueGeneratedNever is what lets a SEEDED zero survive (#395). HasDefaultValue on
+            // its own marks the property ValueGenerated.OnAdd, and on insert EF omits any value
+            // equal to the CLR default - so 0, the very value a curated order wants for the type
+            // that comes first, was the one value the column default overwrote with 1000. The
+            // default stays for raw-SQL inserts that name no column; EF now always sends what
+            // the entity holds.
             model.Property(contentItemSetting => contentItemSetting.SortOrder)
                 .IsRequired()
-                .HasDefaultValue(1000);
+                .HasDefaultValue(1000)
+                .ValueGeneratedNever();
 
             model.Property(contentItemSetting => contentItemSetting.TagsAllowed)
                 .IsRequired()
