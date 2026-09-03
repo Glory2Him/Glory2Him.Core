@@ -219,14 +219,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 Guid.NewGuid(),
                 TestContext.Current.CancellationToken);
 
-            // then: every block name the vocabulary can mint, walked from the enums so the set
-            // cannot drift from them.
-            var expectedRoleNames = new List<string> { Roles.ReadOnly };
-
-            foreach (EntityType entityType in Enum.GetValues<EntityType>())
+            // then: the subject NAMES its entity type — only the content type is undecidable —
+            // so the fail-closed set is that type's own block names and no others. A sanction on
+            // another entity type stays silent, exactly as IAccessClient decides it.
+            var expectedRoleNames = new List<string>
             {
-                expectedRoleNames.Add(Roles.ReadOnlyFor(entityType));
-            }
+                Roles.ReadOnly,
+                Roles.ReadOnlyFor(EntityType.ContentItem),
+            };
 
             foreach (ContentType contentType in Enum.GetValues<ContentType>())
             {
@@ -234,6 +234,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             }
 
             capturedRoleNames.Should().BeEquivalentTo(expectedRoleNames);
+
+            capturedRoleNames.Should().NotContain(Roles.ReadOnlyFor(EntityType.Tag));
         }
 
         [Fact]
@@ -251,7 +253,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 CreateIdentityUser(blockedId, preferredName: "Blocked"),
                 CreateIdentityUser(freshId, preferredName: "Fresh"));
 
-            SetupBlockedUsers(CreateIdentityUser(blockedId, preferredName: "Blocked"));
+            // The stub answers ONLY the fail-closed composition. A blanket SetupBlockedUsers
+            // would answer whatever names were asked, so this case would pass with the
+            // IsEntityUnresolved branch reverted and assert nothing it is named for.
+            this.identityUserServiceMock.Setup(service =>
+                service.RetrieveIdentityUsersInRolesAsync(
+                    It.Is<IEnumerable<string>>(roleNames =>
+                        roleNames.Contains(
+                            Roles.ReadOnlyFor(EntityType.ContentItem, ContentType.Quote))),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(new List<IdentityUser>
+                        {
+                            CreateIdentityUser(blockedId, preferredName: "Blocked"),
+                        });
 
             // when
             IReadOnlyList<ReviewerCandidate> candidates =

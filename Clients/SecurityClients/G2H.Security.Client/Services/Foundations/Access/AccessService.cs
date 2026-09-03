@@ -627,25 +627,42 @@ namespace G2H.Security.Client.Services.Foundations.Access
         // veto failing to compose it would hand a narrowly sanctioned user an orphaned approval
         // their coarse tier never covered — open, and in the one direction a veto may not err.
         //
-        // ANY scoped block bars, not merely one prefixed with this subject's entity type.
-        // Unresolved means the SCOPE could not be established, so which sanction covers the
-        // row is exactly what is unknown — and an association reports the fallback subject
-        // `Association`, an entity type that issues no scoped roles at all, so a prefix match
-        // on it could never fire however the sanctions are spelled.
+        // Unresolved comes in TWO shapes and they are not the same question.
         //
-        // It over-applies by exactly one step — a Tag sanction bars an orphaned ContentItem
-        // approval — and that is the direction a veto must err. The state is transient and
-        // rare: an approval outliving the entity it hangs off.
+        // A NAMED subject whose content type could not be decided — an association endpoint
+        // that is a ContentItem carrying no content type, or a content item that could not be
+        // read — still says which entity type is in play. Only that type's own block names can
+        // cover it, so a sanction on any other entity type stays SILENT, exactly as §18.6
+        // rule 2 requires and exactly as AssociationService.IsNarrowBlockUndecidableFor decides
+        // the same question one layer down. The two have to agree.
+        //
+        // An UNNAMEABLE subject — the gatherer could not read the row at all, so it cannot say
+        // which entity types are even in play, and reports a blank entity type to say so — is
+        // the case where any scoped block may cover it. Restricting that one to its own name
+        // would restrict it to nothing.
         //
         // Matched by the §18.6 naming convention rather than by an enum, for the reason this
         // whole package takes strings: the entity and content types are the consuming
         // application's vocabulary and the reference runs the other way. The bare global
         // `ReadOnly` carries no hyphen, so the suffix match reaches only the scoped names —
         // the global one is already asked directly by IsBlockedFromSubjects.
-        private static bool IsNarrowBlockUndecidableFor(AccessActor actor, RoleSubject subject) =>
-            subject.IsEntityUnresolved
-                && actor.Roles.Any(role =>
-                    role.EndsWith(RoleNames.ReadOnlySuffix, StringComparison.Ordinal));
+        private static bool IsNarrowBlockUndecidableFor(AccessActor actor, RoleSubject subject)
+        {
+            if (subject.IsEntityUnresolved is false)
+            {
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(subject.EntityType) is false)
+            {
+                return actor.Roles.Any(role =>
+                    role.StartsWith($"{subject.EntityType}-", StringComparison.Ordinal)
+                        && role.EndsWith(RoleNames.ReadOnlySuffix, StringComparison.Ordinal));
+            }
+
+            return actor.Roles.Any(role =>
+                role.EndsWith(RoleNames.ReadOnlySuffix, StringComparison.Ordinal));
+        }
 
         // One sentence for all three scopes. Which of them fired is the sanction's own detail
         // and names nothing the actor can act on — no scope of it is appealable here.

@@ -64,8 +64,9 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                         roleNames: ComposeReviewTierRoleNames(scope.RoleSubjects),
                         cancellationToken: cancellationToken);
 
-                // ONE subtraction, and only one: the entity's own author. They cannot review
-                // their own work (rule 3, HR-1), so an invitation aimed at them is refused
+                // TWO subtractions, and only two: the entity's own author, and anyone a
+                // ReadOnly in this entity's scope covers (§18.6 rule 2, added with the narrow
+                // block). Neither can review, so an invitation aimed at either is refused
                 // outright - offering the row would be offering a click that always fails.
                 //
                 // People who have ALREADY ANSWERED, and people already invited, are deliberately
@@ -478,14 +479,11 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                     continue;
                 }
 
-                // The subject's scope could not be established, so which sanction covers it is
-                // exactly what is unknown — every scoped block goes on the list. This is the
-                // name-list form of the rule IAccessClient applies to the same flag
-                // (IsNarrowBlockUndecidableFor), and the two have to agree: where the client
-                // fails CLOSED and refuses the vote, this read failing OPEN would keep offering
-                // the person as a candidate and let them be invited, which is precisely the
-                // unanswerable invitation §7.9 rule 3 exists to prevent.
-                if (roleSubject.IsEntityUnresolved)
+                // An UNNAMEABLE subject — the gatherer could not read the row at all and reports
+                // a blank entity type to say so. Every scoped block goes on the list, because
+                // which entity types are even in play is what could not be established.
+                if (roleSubject.IsEntityUnresolved
+                    && string.IsNullOrWhiteSpace(roleSubject.EntityType))
                 {
                     roleNames.AddRange(EveryScopedBlockRoleName());
 
@@ -494,6 +492,28 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
 
                 if (string.IsNullOrWhiteSpace(roleSubject.EntityType))
                 {
+                    continue;
+                }
+
+                // A NAMED subject whose content type could not be decided: that entity type's
+                // own block names, and no others. Narrowed the same way IAccessClient narrows
+                // it (IsNarrowBlockUndecidableFor), because the two readings of this one flag
+                // have to agree in BOTH directions — failing open here offers a candidate the
+                // client would refuse (the unanswerable invitation §7.9 rule 3 forbids), and
+                // failing closed here drops a candidate the client would admit, silently
+                // shrinking the reviewer pool.
+                if (roleSubject.IsEntityUnresolved)
+                {
+                    roleNames.Add(RoleNames.ReadOnlyFor(roleSubject.EntityType));
+
+                    foreach (ContentType contentType in Enum.GetValues<ContentType>())
+                    {
+                        roleNames.Add(
+                            RoleNames.ReadOnlyFor(
+                                roleSubject.EntityType,
+                                contentType.ToString()));
+                    }
+
                     continue;
                 }
 

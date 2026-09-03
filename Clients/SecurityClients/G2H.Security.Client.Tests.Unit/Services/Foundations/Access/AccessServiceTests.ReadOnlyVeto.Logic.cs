@@ -480,13 +480,11 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
         public async Task ShouldRefuseAnUnresolvedSubjectForAnyScopedBlockNotOnlyItsOwnEntityTypeAsync()
         {
             // given: the association fallback. When the association itself cannot be read the
-            // gatherer can name no endpoint, so the subject it emits is the literal
-            // "Association" — an entity type that issues no scoped roles at all (Roles.cs mints
-            // no Association-Reviewers, and SeedData excludes it). A rule that matched only
-            // roles prefixed with the subject's own entity type could therefore NEVER fire
-            // here, however the sanctions are spelled, and the fail-closed branch would be
-            // decoration. Unresolved means the SCOPE is what is unknown, so any scoped block
-            // the actor holds may cover it.
+            // gatherer can name no endpoint, so the subject it emits is UNNAMEABLE — a blank
+            // entity type. That is the case where the scope itself is unknown, so any scoped
+            // block the actor holds may cover it. (It used to borrow the name "Association",
+            // an entity type that issues no scoped roles at all — which made the fail-closed
+            // branch decoration, since it restricts to the named type's own roles.)
             AccessActor blockedActor = CreateRandomAccessActor(
                 roles: new List<string>
                 {
@@ -500,7 +498,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 {
                     new RoleSubject
                     {
-                        EntityType = "Association",
+                        EntityType = string.Empty,
                         ContentType = null,
                         IsEntityUnresolved = true,
                     },
@@ -515,6 +513,36 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
 
             actualVerdict.DenialReason.Should()
                 .Be(AccessDenialReason.BlockedByReadOnlyRole);
+        }
+
+        [Fact]
+        public async Task ShouldRefuseAnUnresolvedNamedSubjectOnlyForItsOwnEntityTypesBlocksAsync()
+        {
+            // given: an association endpoint that IS a content item and whose content type
+            // could not be decided. The entity type is KNOWN, so only ContentItem's own block
+            // names can cover it — a Tag sanction provably cannot, and §18.6 rule 2 requires a
+            // block to be silent outside its scope. Failing closed on every scoped name would
+            // bar this actor permanently, because the endpoint's null content type is a stored
+            // column pinned against storage on modify: nothing ever backfills it.
+            AccessActor actor = CreateRandomAccessActor(
+                roles: new List<string>
+                {
+                    RoleNames.ReadOnlyFor("Tag"),
+                    RoleNames.ReadOnlyFor("Tag", QuoteContentType),
+                    RoleNames.Publishers,
+                });
+
+            DecideApprovalRequest decideApprovalRequest = CreateRandomDecideApprovalRequest(
+                actor: actor,
+                roleSubjects: UnresolvedContentItemSubject());
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayDecideApprovalAsync(decideApprovalRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeTrue();
+            actualVerdict.DenialReason.Should().Be(AccessDenialReason.None);
         }
 
         [Fact]
@@ -533,7 +561,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 {
                     new RoleSubject
                     {
-                        EntityType = "Association",
+                        EntityType = string.Empty,
                         ContentType = null,
                         IsEntityUnresolved = true,
                     },
