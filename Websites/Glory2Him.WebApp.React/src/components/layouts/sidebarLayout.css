@@ -1,0 +1,17 @@
+/* ── SidebarLayout ────────────────────────────────────────────────────────── */
+
+/* The menu's fold control. A .btn-link rather than a bordered button: it sits inside the menu
+   card as a piece of that card's own chrome, the way the review panel's cog does, so a box
+   around it would read as a second control to press. No underline, and the size of the heading
+   it sits above. Colour stays the theme's body colour, so it follows light and dark mode. */
+.g2h-sidebar-toggle {
+    text-decoration: none;
+    font-size: 1.25rem;
+    line-height: 1;
+}
+
+.g2h-sidebar-toggle:hover,
+.g2h-sidebar-toggle:focus-visible {
+    text-decoration: none;
+    opacity: 0.7;
+}
