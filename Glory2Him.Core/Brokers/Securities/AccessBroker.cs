@@ -490,9 +490,18 @@ namespace Glory2Him.Core.Brokers.Securities
                     var contentItem =
                         await this.storageBroker.SelectContentItemByIdAsync(entityId, cancellationToken);
 
+                    // ContentItem is the one arm whose subject carries a content type, so it is
+                    // the one arm where a missing row leaves the narrow tier UNDECIDABLE rather
+                    // than absent — an approval outliving a hard-removed item is the case. The
+                    // flag says which of the two it is, so the veto can fail closed where an
+                    // absent content type would otherwise read as "no narrow block applies"
+                    // (§18.6 rule 2). Every other arm has no narrow tier to lose.
                     return (
                         contentItem?.CreatedBy ?? string.Empty,
-                        SubjectsFor(entityType, contentItem?.ContentType),
+                        SubjectsFor(
+                            entityType,
+                            contentItem?.ContentType,
+                            isEntityUnresolved: contentItem is null),
                         null);
 
                 case EntityType.Tag:
@@ -541,7 +550,12 @@ namespace Glory2Him.Core.Brokers.Securities
                     // for a role nobody can hold, which is what the row below falls back to when
                     // the association is missing, deliberately.
                     return association is null
-                        ? (string.Empty, SubjectsFor(entityType, contentType: null), null)
+                        ? (string.Empty,
+                            SubjectsFor(
+                                entityType,
+                                contentType: null,
+                                isEntityUnresolved: true),
+                            null)
                         : (association.CreatedBy, new List<RoleSubject>
                         {
                             new RoleSubject
@@ -667,13 +681,15 @@ namespace Glory2Him.Core.Brokers.Securities
         /// </summary>
         private static IReadOnlyList<RoleSubject> SubjectsFor(
             EntityType entityType,
-            ContentType? contentType) =>
+            ContentType? contentType,
+            bool isEntityUnresolved = false) =>
             new List<RoleSubject>
             {
                 new RoleSubject
                 {
                     EntityType = entityType.ToString(),
                     ContentType = contentType?.ToString(),
+                    IsEntityUnresolved = isEntityUnresolved,
                 },
             };
 

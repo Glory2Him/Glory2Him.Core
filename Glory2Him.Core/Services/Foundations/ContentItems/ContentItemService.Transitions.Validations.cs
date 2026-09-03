@@ -69,6 +69,39 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             }
         }
 
+        // Unpublishing is a WRITE, so the veto covers it at all three tiers (§18.6 rule 2).
+        // Without this it was the one content-item write path that asked no block role at all —
+        // and it is the one that takes published content off the site, which is exactly the act
+        // a sanction exists to stop. The same argument the hard remove is gated on: a block that
+        // stops the reversible act and not this one is the wrong way round.
+        //
+        // Asked against the STORED row, and skipped entirely for the system identity — that is
+        // the publication swap moving an incumbent aside (§9.7.7 rule 7), which holds no roles by
+        // construction and is not the party this refuses.
+        private static void ValidateUserIsNotBlockedFromUnpublishing(
+            SecurityContext securityContext,
+            ContentItem storageContentItem)
+        {
+            if (securityContext.IsSystemIdentity)
+            {
+                return;
+            }
+
+            bool isBlocked =
+                securityContext.Roles.Contains(Roles.ReadOnly)
+                    || securityContext.Roles.Contains(Roles.ContentItemReadOnly);
+
+            if (isBlocked)
+            {
+                throw new UnauthorizedContentItemException(
+                    message: "The current user is blocked from contributing content items.");
+            }
+
+            ValidateUserIsNotBlockedFromContentType(
+                securityContext,
+                storageContentItem.ContentType);
+        }
+
         private static void ValidateOnTransitionContentItemApproval(ContentItem contentItem) =>
             Validate(
                 message: "Content item is invalid, fix the errors and try again.",

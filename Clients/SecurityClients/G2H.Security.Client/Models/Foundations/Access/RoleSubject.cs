@@ -41,5 +41,24 @@ namespace G2H.Security.Client.Models.Foundations.Access
         /// <c>ContentItem</c>.
         /// </summary>
         public required string? ContentType { get; init; }
+
+        /// <summary>
+        /// True when the gatherer could not read the entity this subject describes, so
+        /// <see cref="ContentType"/> is <b>unknown</b> rather than absent.
+        ///
+        /// <para>The two cases look identical on the wire and must not be treated alike. A
+        /// <c>Tag</c> subject legitimately carries no content type — only <c>ContentItem</c> has
+        /// one (§18.6 rule 5) — and there the narrow tier simply does not exist. A content item
+        /// that has been hard-removed out from under its approval carries none either, and there
+        /// the narrow tier exists but cannot be decided.</para>
+        ///
+        /// <para>That distinction only matters to the BLOCK. A grant that cannot be composed
+        /// fails closed on its own: the actor is left needing a wider role. A block that cannot
+        /// be composed would fail OPEN, handing a sanctioned user back the very approval whose
+        /// entity is gone — so the veto reads this flag and refuses instead. Not required, and
+        /// false by default: a gatherer that never sets it describes entities it actually
+        /// read.</para>
+        /// </summary>
+        public bool IsEntityUnresolved { get; init; }
     }
 }

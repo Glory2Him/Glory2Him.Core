@@ -201,6 +201,118 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 Times.Once);
         }
 
+        // ── The undecidable narrow tier ────────────────────────────────────
+
+        [Fact]
+        public async Task ShouldBlockContributionWhenAContentItemEndpointCarriesNoContentTypeAsync()
+        {
+            // given: the dodge this closes, and it needs no lie — just an omission. A null
+            // content type is LEGAL on a ContentItem endpoint at this layer (the value is
+            // derived by the orchestration, and validation admits a null), so without the
+            // fail-closed branch a caller could step around every narrow block there is by
+            // leaving the field out, with no knowledge of which types the sanction covers.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(
+                Roles.ReadOnlyFor(EntityType.ContentItem, ContentType.Quote));
+
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            Association inputAssociation = CreateSeriesQuoteAssociation(randomDateTimeOffset);
+            inputAssociation.EntityAContentType = null;
+            inputAssociation.EntityBContentType = null;
+
+            AssociationValidationException expectedException = ExpectedEndpointBlockException();
+
+            // when
+            ValueTask<Association> addAssociationTask =
+                this.associationService.AddAssociationAsync(
+                    inputAssociation,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationValidationException>(
+                    addAssociationTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertAssociationAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        [Fact]
+        public async Task ShouldNotBlockContributionWhenAnEndpointCarriesNoContentTypeAndNoNarrowBlockIsHeldAsync()
+        {
+            // given: the fail-closed branch costs an UNSANCTIONED caller nothing. It fires only
+            // for somebody the narrow tier actually covers, so a null content type stays the
+            // ordinary case for everybody else.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(
+                Roles.ContentItemReviewers);
+
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            Association inputAssociation = CreateSeriesQuoteAssociation(randomDateTimeOffset);
+            inputAssociation.EntityAContentType = null;
+            inputAssociation.EntityBContentType = null;
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(inputAssociation, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(inputAssociation);
+
+            // when
+            ValueTask<Association> addAssociationTask =
+                this.associationService.AddAssociationAsync(
+                    inputAssociation,
+                    TestContext.Current.CancellationToken);
+
+            await Record.ExceptionAsync(addAssociationTask.AsTask);
+
+            // then
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyAddAuditValuesAsync(inputAssociation, It.IsAny<SecurityContext>()),
+                Times.Once);
+        }
+
+        [Fact]
+        public async Task ShouldNotBlockContributionWhenANonContentItemEndpointCarriesNoContentTypeAsync()
+        {
+            // given: only ContentItem carries a content type (§18.6 rule 5), so a null on a Tag
+            // endpoint is not an undecidable narrow tier — it is the absence of one. Failing
+            // closed there would bar a narrowly sanctioned contributor from every association
+            // in the system, which is the over-application this branch is scoped to avoid.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(
+                Roles.ReadOnlyFor(EntityType.ContentItem, ContentType.Quote));
+
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+
+            Association inputAssociation =
+                CreateAssociationFiller(randomDateTimeOffset).Create();
+
+            inputAssociation.EntityAType = EntityType.Tag;
+            inputAssociation.EntityAKeyId = Guid.NewGuid();
+            inputAssociation.EntityAContentType = null;
+            inputAssociation.EntityBType = EntityType.BibleReference;
+            inputAssociation.EntityBKeyId = Guid.NewGuid();
+            inputAssociation.EntityBContentType = null;
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(inputAssociation, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(inputAssociation);
+
+            // when
+            ValueTask<Association> addAssociationTask =
+                this.associationService.AddAssociationAsync(
+                    inputAssociation,
+                    TestContext.Current.CancellationToken);
+
+            await Record.ExceptionAsync(addAssociationTask.AsTask);
+
+            // then
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyAddAuditValuesAsync(inputAssociation, It.IsAny<SecurityContext>()),
+                Times.Once);
+        }
+
         [Fact]
         public async Task ShouldBlockRemoveWhenTheNarrowBlockCoversAStoredEndpointAsync()
         {

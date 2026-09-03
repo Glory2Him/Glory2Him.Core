@@ -126,9 +126,44 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 return true;
             }
 
-            return contentType.HasValue
-                && securityContext.Roles.Contains(
+            if (contentType.HasValue)
+            {
+                return securityContext.Roles.Contains(
                     Roles.ReadOnlyFor(entityType, contentType.Value));
+            }
+
+            return IsNarrowBlockUndecidableFor(securityContext, entityType);
+        }
+
+        // The endpoint CAN carry a content type and does not — so the narrow tier cannot be
+        // composed at all, and this fails CLOSED for anyone the narrow tier covers.
+        //
+        // A null content type is legal on a ContentItem endpoint at this layer: the value is
+        // DERIVED from the resolved endpoint by the orchestration (§18.6 — "derived on write and
+        // never accepted from a caller", precisely because it is an authorization input), and
+        // this service is single-entity and may not resolve an endpoint to derive it for itself
+        // (§14.3). Add validation therefore admits a null. Without this branch, omitting the
+        // field on the public `Association-Adding` address would step around every narrow block
+        // there is — no lie needed, and no knowledge of which content types the sanction covers.
+        //
+        // It costs a narrow-blocked contributor nothing on the orchestration path, where the
+        // value is always derived and present, so §18.6 rule 2's "silent outside its scope" still
+        // holds for every caller who arrives the ordinary way. What remains open is a DECLARED
+        // but false content type on the foundation's own address; that needs the endpoint
+        // resolved to detect and is recorded as the known gap in §14.7 posture A′.
+        private static bool IsNarrowBlockUndecidableFor(
+            SecurityContext securityContext,
+            EntityType entityType)
+        {
+            // ContentItem is the only entity type that carries one (§18.6 rule 5), so a null
+            // anywhere else is the ordinary case and says nothing.
+            if (entityType != EntityType.ContentItem)
+            {
+                return false;
+            }
+
+            return Enum.GetValues<ContentType>().Any(candidate =>
+                securityContext.Roles.Contains(Roles.ReadOnlyFor(entityType, candidate)));
         }
 
         // the global moderation roles, which grant review over every entity type

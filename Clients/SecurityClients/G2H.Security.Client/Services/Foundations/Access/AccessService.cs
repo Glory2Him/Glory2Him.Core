@@ -609,11 +609,33 @@ namespace G2H.Security.Client.Services.Foundations.Access
             AccessActor actor,
             IReadOnlyList<RoleSubject> roleSubjects) =>
             actor.Roles.Contains(RoleNames.ReadOnly)
-                || roleSubjects.Any(subject => HasScopedRole(
-                    actor,
-                    subject,
-                    RoleNames.ReadOnlyFor,
-                    RoleNames.ReadOnlyFor));
+                || roleSubjects.Any(subject =>
+                    HasScopedRole(
+                        actor,
+                        subject,
+                        RoleNames.ReadOnlyFor,
+                        RoleNames.ReadOnlyFor)
+                            || IsNarrowBlockUndecidableFor(actor, subject));
+
+        // A subject whose entity could not be read carries no content type, so the narrow name
+        // cannot be composed — and a block that cannot be composed must not become a block that
+        // does not apply. This fails CLOSED: an actor holding ANY scoped block for that entity
+        // type is refused while the entity behind the approval is unresolvable.
+        //
+        // The asymmetry with the grants is the point. HasScopedRole failing to compose the
+        // narrow name costs the actor a tier and leaves them needing a wider role — closed. The
+        // veto failing to compose it would hand a narrowly sanctioned user an orphaned approval
+        // their coarse tier never covered — open, and in the one direction a veto may not err.
+        //
+        // Matched by the §18.6 naming convention rather than by an enum, for the reason this
+        // whole package takes strings: the entity and content types are the consuming
+        // application's vocabulary and the reference runs the other way. The same ordinal
+        // suffix match the approval services already identify a scoped role by.
+        private static bool IsNarrowBlockUndecidableFor(AccessActor actor, RoleSubject subject) =>
+            subject.IsEntityUnresolved
+                && actor.Roles.Any(role =>
+                    role.StartsWith($"{subject.EntityType}-", StringComparison.Ordinal)
+                        && role.EndsWith(RoleNames.ReadOnlySuffix, StringComparison.Ordinal));
 
         // One sentence for all three scopes. Which of them fired is the sanction's own detail
         // and names nothing the actor can act on — no scope of it is appealable here.

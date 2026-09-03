@@ -404,6 +404,99 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
 
         // ── Associations: one endpoint admits, one endpoint bars ─────────────────────
 
+        // ── The unresolved entity: unknown is not the same as absent ────────────────
+
+        private static IReadOnlyList<RoleSubject> UnresolvedContentItemSubject() =>
+            new List<RoleSubject>
+            {
+                new RoleSubject
+                {
+                    EntityType = ContentItemEntityType,
+                    ContentType = null,
+                    IsEntityUnresolved = true,
+                },
+            };
+
+        [Fact]
+        public async Task ShouldRefuseDecidingWhenTheEntityIsUnresolvedAndANarrowBlockIsHeldAsync()
+        {
+            // given: the content item behind this approval was hard-removed, so the gatherer
+            // could not read its content type and the narrow name cannot be composed. Failing
+            // open here would hand a narrowly sanctioned user an orphaned approval their coarse
+            // tier never covered — the one direction a veto may not err.
+            AccessActor blockedActor = CreateRandomAccessActor(
+                roles: new List<string>
+                {
+                    RoleNames.ReadOnlyFor(ContentItemEntityType, QuoteContentType),
+                    RoleNames.Publishers,
+                });
+
+            DecideApprovalRequest decideApprovalRequest = CreateRandomDecideApprovalRequest(
+                actor: blockedActor,
+                roleSubjects: UnresolvedContentItemSubject());
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayDecideApprovalAsync(decideApprovalRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeFalse();
+
+            actualVerdict.DenialReason.Should()
+                .Be(AccessDenialReason.BlockedByReadOnlyRole);
+        }
+
+        [Fact]
+        public async Task ShouldPermitDecidingWhenTheEntityIsUnresolvedAndNoBlockIsHeldAsync()
+        {
+            // given: the fail-closed branch fires only for somebody the narrow tier covers. An
+            // unsanctioned publisher still clears up an orphaned approval, so this does not turn
+            // a missing row into a refusal for everyone.
+            AccessActor actor = CreateRandomAccessActor(
+                roles: new List<string> { RoleNames.Publishers });
+
+            DecideApprovalRequest decideApprovalRequest = CreateRandomDecideApprovalRequest(
+                actor: actor,
+                roleSubjects: UnresolvedContentItemSubject());
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayDecideApprovalAsync(decideApprovalRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeTrue();
+            actualVerdict.DenialReason.Should().Be(AccessDenialReason.None);
+        }
+
+        [Fact]
+        public async Task ShouldNotTreatAnAbsentContentTypeAsUnresolvedOnAnEntityThatCarriesNoneAsync()
+        {
+            // given: a Tag subject legitimately carries no content type, and the flag is what
+            // separates that from a content item nobody could read. Without the flag this same
+            // shape would bar a Tag reviewer holding an unrelated ContentItem sanction.
+            AccessActor actor = CreateRandomAccessActor(
+                roles: new List<string>
+                {
+                    RoleNames.ReadOnlyFor(ContentItemEntityType, QuoteContentType),
+                    RoleNames.ReviewersFor("Tag"),
+                });
+
+            RecordReviewRequest recordReviewRequest = CreateRandomRecordReviewRequest(
+                actor: actor,
+                roleSubjects: new List<RoleSubject>
+                {
+                    new RoleSubject { EntityType = "Tag", ContentType = null },
+                });
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayRecordApprovalReviewAsync(recordReviewRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeTrue();
+            actualVerdict.DenialReason.Should().Be(AccessDenialReason.None);
+        }
+
         public static TheoryData<string, string> BlockedEndpointAgainstGrantedEndpoint() =>
             new TheoryData<string, string>
             {

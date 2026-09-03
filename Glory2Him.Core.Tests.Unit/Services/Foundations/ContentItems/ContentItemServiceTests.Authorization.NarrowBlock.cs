@@ -489,6 +489,103 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 Times.Once);
         }
 
+        // ── UNPUBLISH: the write that takes content off the site ───────────────────
+
+        public static TheoryData<string> BlocksCoveringAStory() =>
+            new TheoryData<string>
+            {
+                Roles.ReadOnly,
+                Roles.ContentItemReadOnly,
+                Roles.ReadOnlyFor(EntityType.ContentItem, ContentType.Story),
+            };
+
+        [Theory]
+        [MemberData(nameof(BlocksCoveringAStory))]
+        public async Task ShouldRefuseUnpublishWhenABlockCoversTheStoredRowAsync(
+            string blockCoveringTheRow)
+        {
+            // given: an administrator — the only human this verb admits — holding a block that
+            // covers the row. Unpublishing takes published content off the site, which is the
+            // act a sanction exists to stop, and all three scopes are exercised because this
+            // path previously asked none of them.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(
+                Roles.Administrators,
+                blockCoveringTheRow);
+
+            ContentItem storageContentItem = CreateUnpublishStorageContentItem();
+            ContentItemValidationException expectedException = ExpectedBlockedException();
+
+            SetupContentItemStorageRead(storageContentItem);
+
+            // when
+            ValueTask<ContentItem> unpublishContentItemTask =
+                this.contentItemService.UnpublishContentItemByIdAsync(
+                    storageContentItem.Id,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemValidationException actualException =
+                await Assert.ThrowsAsync<ContentItemValidationException>(
+                    unpublishContentItemTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateContentItemAsync(
+                    It.IsAny<ContentItem>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        [Fact]
+        public async Task ShouldNotRefuseUnpublishWhenTheBlockNamesADifferentContentTypeAsync()
+        {
+            // given: the stored row is a Story, the block covers Quotes. Silent, not weakened.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(
+                Roles.Administrators,
+                QuoteBlock);
+
+            ContentItem storageContentItem = CreateUnpublishStorageContentItem();
+
+            // when
+            ContentItem savedContentItem =
+                await CaptureSavedContentItemOnUnpublishAsync(storageContentItem);
+
+            // then
+            savedContentItem.Should().NotBeNull();
+            savedContentItem.IsPublished.Should().BeFalse();
+        }
+
+        [Fact]
+        public async Task ShouldNotRefuseUnpublishUnderTheSystemIdentityDespiteABlockAsync()
+        {
+            // given: the publication swap moving an incumbent aside (§9.7.7 rule 7). The system
+            // identity holds no roles by construction, so it can never be the party the veto
+            // refuses — but the swap runs on a context CHAINED from the caller's, so a roled
+            // context reaching here with the flag set must still be let through or approving a
+            // story would fail for anyone sanctioned on any content type.
+            this.ambientSecurityContext = new SecurityContext
+            {
+                IsAuthenticated = true,
+                IsSystemIdentity = true,
+
+                Roles = new[]
+                {
+                    Roles.ReadOnlyFor(EntityType.ContentItem, ContentType.Story),
+                },
+            };
+
+            ContentItem storageContentItem = CreateUnpublishStorageContentItem();
+
+            // when
+            ContentItem savedContentItem =
+                await CaptureSavedContentItemOnUnpublishAsync(storageContentItem);
+
+            // then
+            savedContentItem.Should().NotBeNull();
+            savedContentItem.IsPublished.Should().BeFalse();
+        }
+
         // ── SUBMIT: a status-only write is still a write ─────────────────────────────
 
         [Fact]
