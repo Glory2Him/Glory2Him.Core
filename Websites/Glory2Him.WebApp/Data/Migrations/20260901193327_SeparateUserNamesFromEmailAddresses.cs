@@ -49,10 +49,12 @@ namespace Glory2Him.WebApp.Data.Migrations
     /// set <c>PortalRegistration</c> installs: the form used here wrongly accepts zero of them.</para>
     ///
     /// <para>TWO PRECONDITIONS RUN BEFORE ANYTHING IS WRITTEN, so a database this migration cannot
-    /// repair correctly is refused whole rather than half-rewritten. Each throws with what the
-    /// operator has to decide, because none of them has an answer a migration is entitled to invent:
-    /// an account with no address to fall back on, and an address that does not identify one
-    /// account, are both questions about who a person is.</para>
+    /// repair correctly is refused whole rather than half-rewritten. Each throws with the ids of the
+    /// accounts concerned and with what the operator has to decide, because neither has an answer a
+    /// migration is entitled to invent: an account with no address to fall back on, and an address
+    /// that does not identify one account, are both questions about who a person is. Both read
+    /// <c>NormalizedEmail</c> rather than <c>Email</c> — that is the column <c>FindByEmailAsync</c>
+    /// matches, and the two are independent.</para>
     ///
     /// <para>TWO PASSES, AND THE ORDER IS THE POINT. The first claims the email's local part —
     /// <c>christo@example.org</c> becomes <c>christo</c> — because the renamed username is what
@@ -87,7 +89,10 @@ namespace Glory2Him.WebApp.Data.Migrations
         // the set", pinned to a binary collation and with the dash leading, for the two reasons the
         // class summary gives. Every test below composes from here so none of them can drift.
         private static string IsIllegalUserName(string columnExpression) =>
-            $@"{columnExpression} COLLATE Latin1_General_BIN2 LIKE N'%[^-a-zA-Z0-9._+]%'";
+            $@"({columnExpression} IS NULL
+                           OR {columnExpression} = N''
+                           OR {columnExpression} COLLATE Latin1_General_BIN2
+                               LIKE N'%[^-a-zA-Z0-9._+]%')";
 
         // The rows this migration owes a rename. Not "contains @": the test is the one Identity
         // itself will apply, so a row this migration leaves behind is exactly a row the application
@@ -108,23 +113,37 @@ namespace Glory2Him.WebApp.Data.Migrations
             // they could type. Pass two would happily do that — its candidate is derived from the
             // row's id, so it does not care whether the Email column has anything in it.
             //
-            // Deliberately NOT "the address must contain '@'". A row whose Email column holds
-            // something odd still resolves through FindByEmailAsync, because that lookup matches
-            // NormalizedEmail rather than parsing an address — so refusing it would stop a deploy
-            // over an account that signs in perfectly well. The provable stranding is an empty
-            // column, and that is all this refuses.
+            // IT IS NormalizedEmail THAT IS CHECKED, NOT Email, because NormalizedEmail is the
+            // column FindByEmailAsync actually matches. The two are independent columns and nothing
+            // in SQL keeps them in step, so guarding Email would pass a row whose NormalizedEmail is
+            // null — stranded exactly as if it had no address at all.
+            //
+            // Deliberately NOT "the address must contain '@'". A row whose address column holds
+            // something odd still resolves, because the lookup matches a normalized string rather
+            // than parsing an address — so refusing it would stop a deploy over an account that
+            // signs in perfectly well. The provable stranding is an empty column, and that is all
+            // this refuses. Tabs, newlines and carriage returns are stripped before the emptiness
+            // test because LTRIM/RTRIM removes spaces ONLY; trailing spaces need no stripping,
+            // because SQL Server's = ignores them.
             //
             // There is no repair a migration could choose here. Inventing an address, or leaving the
             // account with an unusable username, are both worse than stopping and saying so.
             migrationBuilder.Sql(
-                $@"IF EXISTS (
-                       SELECT 1
+                $@"DECLARE @strandedIds nvarchar(max) = (
+                       SELECT STRING_AGG(CONVERT(nvarchar(36), affected.[Id]), N', ')
                        FROM [AspNetUsers] affected
                        WHERE {AffectedRows}
-                           AND (affected.[Email] IS NULL
-                               OR LTRIM(RTRIM(affected.[Email])) = N''))
+                           AND NULLIF(REPLACE(REPLACE(REPLACE(
+                               affected.[NormalizedEmail],
+                               CHAR(9), N''), CHAR(10), N''), CHAR(13), N''), N'') IS NULL);
+
+                   IF @strandedIds IS NOT NULL
                    BEGIN
-                       THROW 50378, N'Issue #378: an account whose username must be renamed has no usable email address, and sign-in falls back to the address once the username is gone. Give it an address, or remove the account, then deploy again.', 1;
+                       DECLARE @strandedMessage nvarchar(2048) = CONCAT(
+                           N'Issue #378: these accounts need a username rename but have no email address to sign in with afterwards, so renaming them would lock them out. Give each one an address, or remove the account, then deploy again. AspNetUsers.Id: ',
+                           LEFT(@strandedIds, 1200));
+
+                       THROW 50378, @strandedMessage, 1;
                    END;");
 
             // PRECONDITION TWO — the address it falls back to has to identify ONE account.
@@ -139,8 +158,8 @@ namespace Glory2Him.WebApp.Data.Migrations
             // it refuses only the rows whose safety would depend on the answer, and leaves every other
             // duplicate exactly as it found it.
             migrationBuilder.Sql(
-                $@"IF EXISTS (
-                       SELECT 1
+                $@"DECLARE @sharedIds nvarchar(max) = (
+                       SELECT STRING_AGG(CONVERT(nvarchar(36), affected.[Id]), N', ')
                        FROM [AspNetUsers] affected
                        WHERE {AffectedRows}
                            AND affected.[NormalizedEmail] IS NOT NULL
@@ -148,9 +167,15 @@ namespace Glory2Him.WebApp.Data.Migrations
                                SELECT 1
                                FROM [AspNetUsers] other
                                WHERE other.[Id] <> affected.[Id]
-                                   AND other.[NormalizedEmail] = affected.[NormalizedEmail]))
+                                   AND other.[NormalizedEmail] = affected.[NormalizedEmail]));
+
+                   IF @sharedIds IS NOT NULL
                    BEGIN
-                       THROW 50379, N'Issue #378: an account whose username must be renamed shares its email address with another account, and sign-in by address cannot tell them apart once the username is gone. Resolve the duplicate, then deploy again.', 1;
+                       DECLARE @sharedMessage nvarchar(2048) = CONCAT(
+                           N'Issue #378: these accounts need a username rename but share an email address with another account, and sign-in by address cannot tell them apart once the username is gone. Resolve the duplicate, then deploy again. AspNetUsers.Id: ',
+                           LEFT(@sharedIds, 1200));
+
+                       THROW 50379, @sharedMessage, 1;
                    END;");
 
             // Pass one — the email's local part, where it is legal, long enough and unclaimed.
@@ -225,9 +250,16 @@ namespace Glory2Him.WebApp.Data.Migrations
         ///
         /// <para>Nobody is stranded by that, and precondition one is what makes the claim true
         /// rather than hopeful: sign-in falls back from <c>FindByNameAsync</c> to
-        /// <c>FindByEmailAsync</c> (<c>AccountApiEndpoints</c>), and no row is renamed unless it
-        /// has an address that reaches it. A renamed account still signs in with the address it
-        /// always used — on the old build as much as the new one.</para>
+        /// <c>FindByEmailAsync</c> (<c>AccountApiEndpoints</c>), and no row is renamed unless its
+        /// <c>NormalizedEmail</c> — the column that lookup actually matches, rather than the
+        /// <c>Email</c> beside it — is non-empty. A renamed account still signs in with the address
+        /// it always used, on the old build as much as the new one.</para>
+        ///
+        /// <para>What that does NOT promise is that the address stays unique afterwards. Nothing in
+        /// the application enforces uniqueness (design §18.3.1 leaves <c>RequireUniqueEmail</c>
+        /// open), so precondition two is a gate at this moment rather than an invariant: a
+        /// duplicate created later can re-break an account this migration renamed. Closing that
+        /// needs the ruling, not another migration.</para>
         /// </summary>
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
