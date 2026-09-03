@@ -116,6 +116,54 @@ describe('BibleReferenceAssociationPanel', () => {
         expect(pendingChip?.querySelector('i.bi-book')).toBeNull();
     });
 
+    it('should separate a semicolon-separated list of references', async () => {
+        // given
+        signInAs(authState);
+        const onAdd = vi.fn();
+
+        // when
+        renderWithAuth(<BibleReferenceAssociationPanel onAdd={onAdd} />);
+
+        await userEvent.type(
+            screen.getByPlaceholderText('e.g. Romans 3:23…'),
+            'Romans 3:23; John 3:16{Enter}');
+
+        // then: the colon inside a reference is not a separator — only the semicolon is
+        expect(onAdd).toHaveBeenCalledTimes(2);
+        expect(onAdd).toHaveBeenNthCalledWith(1, 'Romans 3:23');
+        expect(onAdd).toHaveBeenNthCalledWith(2, 'John 3:16');
+    });
+
+    it('should thread the remove and decision hooks through to the panel', async () => {
+        // given
+        signInAs(authState, ['Administrators']);
+        const onRemove = vi.fn();
+        const onApprove = vi.fn();
+        const onReject = vi.fn();
+
+        // when
+        renderWithAuth(
+            <BibleReferenceAssociationPanel
+                showModerationActions={true}
+                onRemove={onRemove}
+                onApprove={onApprove}
+                onReject={onReject}
+                associationCollection={[{
+                    value: 'Romans 3:23',
+                    createdBy: 'another-user',
+                    approvalStatus: ApprovalStatus.Submitted
+                }]} />);
+
+        await userEvent.click(screen.getByRole('button', { name: 'Remove Romans 3:23' }));
+        await userEvent.click(screen.getByRole('button', { name: 'Reject Romans 3:23' }));
+        await userEvent.click(screen.getByRole('button', { name: 'Approve Romans 3:23' }));
+
+        // then
+        expect(onRemove).toHaveBeenCalledWith(expect.objectContaining({ value: 'Romans 3:23' }));
+        expect(onReject).toHaveBeenCalledWith(expect.objectContaining({ value: 'Romans 3:23' }));
+        expect(onApprove).toHaveBeenCalledWith(expect.objectContaining({ value: 'Romans 3:23' }));
+    });
+
     it('should let a caller override a default without giving up the rest', () => {
         // when
         renderWithAuth(

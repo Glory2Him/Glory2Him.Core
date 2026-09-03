@@ -177,7 +177,7 @@ export const TagAssociationPanelDoc = () => {
                             showModerationActions={showModerationActions}
                             showBorder={showBorder}
                             isLoading={isLoading}
-                            onAdd={(value) => setTags([...tags, {
+                            onAdd={(value) => setTags((previous) => [...previous, {
                                 id: value,
                                 value,
                                 createdBy: demoViewerId,

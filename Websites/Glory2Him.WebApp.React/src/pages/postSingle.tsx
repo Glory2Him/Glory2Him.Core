@@ -202,7 +202,8 @@ export const PostSingle = () => {
                                     ...suggestedTags
                                 ]}
                                 onAdd={(value) =>
-                                    setSuggestedTags([...suggestedTags, asSuggestion(value)])}
+                                    setSuggestedTags((previous) =>
+                                        [...previous, asSuggestion(value)])}
                                 onRemove={(item) =>
                                     setSuggestedTags(withoutAssociationValue(suggestedTags, item))} />
 
@@ -216,8 +217,8 @@ export const PostSingle = () => {
                                     ...suggestedReferences
                                 ]}
                                 onAdd={(value) =>
-                                    setSuggestedReferences([
-                                        ...suggestedReferences,
+                                    setSuggestedReferences((previous) => [
+                                        ...previous,
                                         asSuggestion(value)
                                     ])}
                                 onRemove={(item) =>

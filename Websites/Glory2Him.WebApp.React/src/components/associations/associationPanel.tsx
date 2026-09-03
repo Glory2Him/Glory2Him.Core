@@ -123,15 +123,20 @@ export interface AssociationPanelProps {
     suggestDescription?: string;
     addPlaceholderText?: string;
     addMaxLength?: number;
-    showAddButton?: boolean;
-    addButtonText?: string;
 
-    // Called with the normalized value once, on Enter or the add button. The PARENT owns the
-    // collection: nothing is appended here, so an optimistic chip and a server round-trip are
-    // both the caller's call.
+    // Raised once PER ASSOCIATION on Enter, after that value has been normalized and found not
+    // to be a duplicate. One box can hold SEVERAL: a comma or a semicolon separates them, so
+    // "faith, healing" arrives as two calls, and "grace and faith; love" as two more — the words
+    // inside a value are left alone, which is why only those two characters separate.
+    //
+    // The PARENT owns the collection: nothing is appended here, so an optimistic chip and a
+    // server round-trip are both the caller's call. A handler that appends to state MUST do so
+    // functionally — setItems(previous => [...previous, one]) — because several calls land in
+    // the same tick and a stale closure would keep only the last of them.
     onAdd?: (value: string) => void;
 
-    // Applied before the duplicate check and before onAdd. Defaults to a trim.
+    // Applied to each separated value, before the duplicate check and before onAdd. Defaults to
+    // a trim.
     normalizeAddedValue?: (rawValue: string) => string;
 
     // ── Login ─────────────────────────────────────────────────────────────────
@@ -142,6 +147,11 @@ export interface AssociationPanelProps {
     loginButtonCssClass?: string;
     loginButtonOnClick?: () => void;
 }
+
+// One box, possibly several associations. A comma and a semicolon separate; nothing else does,
+// so "grace and faith" stays one association, spaces and conjunction intact, and a bible
+// reference keeps the colons and dashes it is written with.
+const separateValues = (rawValue: string): ReadonlyArray<string> => rawValue.split(/[,;]/);
 
 const parseRoles = (roles: string): ReadonlyArray<string> =>
     roles
@@ -189,8 +199,6 @@ export function AssociationPanel({
     suggestDescription = '',
     addPlaceholderText = '',
     addMaxLength = 100,
-    showAddButton = false,
-    addButtonText = 'Add',
     onAdd,
     normalizeAddedValue = (rawValue: string) => rawValue.trim(),
     loginHref,
@@ -336,25 +344,33 @@ export function AssociationPanel({
 
     const visibleItems = associationCollection.filter(isVisible);
 
+    // Each separated value is judged on its OWN, so one that is empty or already listed costs
+    // the others nothing: "faith, , Faith, healing" adds faith and healing and quietly drops the
+    // blank and the repeat. The box clears either way — whatever was typed has been dealt with.
     const commitDraft = () => {
-        const value = normalizeAddedValue(draft);
-
         setDraft('');
 
-        if (value.length === 0) {
-            return;
-        }
+        const accepted: string[] = [];
 
-        // The whole collection is checked, not just the visible slice — a suggestion the reader
-        // cannot see is still a duplicate.
-        const alreadyListed = associationCollection.some(
-            (item) => item.value.toLowerCase() === value.toLowerCase());
+        const isAlreadyListed = (value: string): boolean =>
+            // The whole collection is checked, not just the visible slice — a suggestion the
+            // reader cannot see is still a duplicate — and so is anything this same commit has
+            // already accepted, which is what makes "faith, faith" a single addition.
+            associationCollection.some(
+                (item) => item.value.toLowerCase() === value.toLowerCase())
+            || accepted.some(
+                (acceptedValue) => acceptedValue.toLowerCase() === value.toLowerCase());
 
-        if (alreadyListed) {
-            return;
-        }
+        separateValues(draft).forEach((separatedValue) => {
+            const value = normalizeAddedValue(separatedValue);
 
-        onAdd?.(value);
+            if (value.length === 0 || isAlreadyListed(value)) {
+                return;
+            }
+
+            accepted.push(value);
+            onAdd?.(value);
+        });
     };
 
     const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -481,7 +497,7 @@ export function AssociationPanel({
             )}
 
             {mayAdd && (
-                <div className="d-flex gap-2 mb-2">
+                <div className="mb-2">
                     <input
                         className="form-control"
                         type="text"
@@ -491,15 +507,6 @@ export function AssociationPanel({
                         onChange={(event) => setDraft(event.target.value)}
                         onKeyDown={onKeyDown}
                         aria-label={suggestTitle.length > 0 ? suggestTitle : `Add to ${title}`} />
-
-                    {showAddButton && (
-                        <button
-                            type="button"
-                            className="btn btn-primary mb-0 text-nowrap"
-                            onClick={commitDraft}>
-                            {addButtonText}
-                        </button>
-                    )}
                 </div>
             )}
 

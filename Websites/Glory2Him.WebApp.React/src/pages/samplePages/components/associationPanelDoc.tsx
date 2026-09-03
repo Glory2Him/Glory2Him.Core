@@ -194,17 +194,12 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
         description: 'Caps what can be typed, matching the storage cap.'
     },
     {
-        name: 'showAddButton / addButtonText', type: 'boolean / string',
-        defaultValue: "false / 'Add'",
-        description: 'An explicit add button beside the box. Enter commits either way.'
-    },
-    {
         name: 'onAdd', type: '(value: string) => void', defaultValue: '—',
-        description: 'Raised once with the normalized value, after the duplicate and empty checks. Nothing is appended internally.'
+        description: 'Raised once per association on Enter, after the normalize and duplicate checks. A comma or a semicolon separates several in one box, so "faith, healing" raises it twice. Nothing is appended internally, and a handler appending to state must do so functionally.'
     },
     {
         name: 'normalizeAddedValue', type: '(raw: string) => string', defaultValue: 'trim',
-        description: 'Applied before the duplicate check and before onAdd.'
+        description: 'Applied to each separated value, before the duplicate check and before onAdd.'
     },
     {
         name: 'loginHref', type: 'string', defaultValue: 'current path',
@@ -257,7 +252,6 @@ export const AssociationPanelDoc = () => {
     const [showBorder, setShowBorder] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [showAdd, setShowAdd] = useState(true);
-    const [showAddButton, setShowAddButton] = useState(false);
     const [showModerationActions, setShowModerationActions] = useState(true);
     const [addMaxLength, setAddMaxLength] = useState(100);
 
@@ -324,13 +318,6 @@ export const AssociationPanelDoc = () => {
                         onChange: setShowAdd
                     },
                     {
-                        name: 'association-add-button',
-                        label: 'showAddButton',
-                        defaultValue: false,
-                        value: showAddButton,
-                        onChange: setShowAddButton
-                    },
-                    {
                         name: 'association-moderation',
                         label: 'showModerationActions',
                         defaultValue: false,
@@ -368,7 +355,6 @@ export const AssociationPanelDoc = () => {
                             chipPrefixText="#"
                             chipHrefFor={(item) => `/Search?q=${encodeURIComponent(item.value)}`}
                             showAdd={showAdd}
-                            showAddButton={showAddButton}
                             showModerationActions={showModerationActions}
                             showBorder={showBorder}
                             isLoading={isLoading}
@@ -378,7 +364,7 @@ export const AssociationPanelDoc = () => {
                             addPlaceholderText="Start typing a tag…"
                             emptyText="No tags yet."
                             normalizeAddedValue={(raw) => raw.trim().replace(/^#+/, '')}
-                            onAdd={(value) => setItems([...items, {
+                            onAdd={(value) => setItems((previous) => [...previous, {
                                 id: value,
                                 value,
                                 createdBy: demoViewerId,

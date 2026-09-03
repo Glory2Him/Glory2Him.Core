@@ -76,6 +76,53 @@ describe('TagAssociationPanel', () => {
         expect(onAdd).toHaveBeenCalledWith('miracles');
     });
 
+    it('should separate a tag list and strip the hash from each of them', async () => {
+        // given
+        signInAs(authState);
+        const onAdd = vi.fn();
+
+        // when
+        renderWithAuth(<TagAssociationPanel onAdd={onAdd} />);
+
+        await userEvent.type(
+            screen.getByPlaceholderText('Start typing a tag…'), '#faith, #healing{Enter}');
+
+        // then
+        expect(onAdd).toHaveBeenCalledTimes(2);
+        expect(onAdd).toHaveBeenNthCalledWith(1, 'faith');
+        expect(onAdd).toHaveBeenNthCalledWith(2, 'healing');
+    });
+
+    it('should thread the remove and decision hooks through to the panel', async () => {
+        // given
+        signInAs(authState, ['Administrators']);
+        const onRemove = vi.fn();
+        const onApprove = vi.fn();
+        const onReject = vi.fn();
+
+        // when
+        renderWithAuth(
+            <TagAssociationPanel
+                showModerationActions={true}
+                onRemove={onRemove}
+                onApprove={onApprove}
+                onReject={onReject}
+                associationCollection={[{
+                    value: 'test',
+                    createdBy: 'another-user',
+                    approvalStatus: ApprovalStatus.Submitted
+                }]} />);
+
+        await userEvent.click(screen.getByRole('button', { name: 'Remove test' }));
+        await userEvent.click(screen.getByRole('button', { name: 'Reject test' }));
+        await userEvent.click(screen.getByRole('button', { name: 'Approve test' }));
+
+        // then
+        expect(onRemove).toHaveBeenCalledWith(expect.objectContaining({ value: 'test' }));
+        expect(onReject).toHaveBeenCalledWith(expect.objectContaining({ value: 'test' }));
+        expect(onApprove).toHaveBeenCalledWith(expect.objectContaining({ value: 'test' }));
+    });
+
     it('should offer the tag-specific login prompt to an anonymous reader', () => {
         // given
         signOut(authState);

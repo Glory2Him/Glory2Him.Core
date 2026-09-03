@@ -186,7 +186,7 @@ export const BibleReferenceAssociationPanelDoc = () => {
                             showModerationActions={showModerationActions}
                             showBorder={showBorder}
                             isLoading={isLoading}
-                            onAdd={(value) => setReferences([...references, {
+                            onAdd={(value) => setReferences((previous) => [...previous, {
                                 id: value,
                                 value,
                                 createdBy: demoViewerId,
