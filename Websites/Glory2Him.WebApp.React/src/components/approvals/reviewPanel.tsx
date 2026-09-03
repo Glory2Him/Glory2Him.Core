@@ -412,14 +412,31 @@ export function ReviewPanel({
         setSelectedDecision(undefined);
     }, [verdictSignature]);
 
-    // Gated on the STATUS as well as the verdict. approvalStatus is the canonical prop that
-    // freezes this panel, and a consumer refreshing after a decision can hand over the new status
-    // with a verdict fetched a moment earlier — which would paint block reasons over a round
-    // that is already settled.
-    const isBlocked = isSubmitted && approvalVerdict?.isBlocked === true;
+    // A ROUND IS OPEN WHILE THE ENTITY IS DRAFT OR SUBMITTED. Draft belongs here, and this
+    // used to admit Submitted alone — which threw away the one reason §16.7.2 added
+    // BlockedDueToDraftStatus to carry: "This item has not been submitted for review yet.
+    // Submit it to start the approval process." Core composes that reason first and alone for a
+    // draft, precisely so a UI can state it and send somebody to advance the item; the panel
+    // then dropped it and showed a bare "Awaiting approval" pill instead.
+    //
+    // What the guard is actually FOR is a settled round: a consumer refreshing after a decision
+    // can hand over a terminal status with a verdict fetched a moment earlier, and painting
+    // block reasons over that states an outcome already overtaken. So it names the states in
+    // which a round is still open, and Approved, Rejected and Dismissed are what it excludes.
+    const isRoundOpen =
+        approvalStatus === ApprovalStatus.Draft
+        || approvalStatus === ApprovalStatus.Submitted;
 
+    const isBlocked = isRoundOpen && approvalVerdict?.isBlocked === true;
+
+    // BYPASS IS SUBMITTED-ONLY, said outright rather than inherited. It was already shut on a
+    // draft, but only through mayDecide happening to require isSubmitted — a guard that holds
+    // by accident of another one is a guard nobody can find, and this is a rule in its own
+    // right: a bypass waives the CONDITIONS of a round (§9.7.5), and a draft has no round to
+    // waive. Nothing rescues an item nobody has offered; it has to be submitted first.
     const showBypassCheckbox =
         mayDecide
+        && isSubmitted
         && isBlocked
         && approvalVerdict?.isBypassAllowedForCurrentUser === true;
 

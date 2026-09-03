@@ -1232,6 +1232,82 @@ describe('ReviewPanel', () => {
             });
     });
 
+    describe('a draft round', () => {
+        /// THE ONE REASON §16.7.2 ADDED BlockedDueToDraftStatus TO CARRY. Core composes it first
+        /// and alone for a draft entity — the conditions are not merely unmet, they have not been
+        /// asked — and its message is the action to take. A panel that dropped it left a bare
+        /// "Awaiting approval" pill and no way to learn why nothing was happening.
+        it('should state the draft block reason rather than swallowing it', () => {
+            // given
+            signInAs(authState, ['Administrators']);
+
+            // when
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Draft}
+                    approvalVerdict={verdictWith({
+                        approvalStatus: ApprovalStatus.Draft,
+                        isBlocked: true,
+                        canApprove: false,
+                        blockReasons: [{
+                            code: 8,
+                            message: 'This item has not been submitted for review yet. '
+                                + 'Submit it to start the approval process.'
+                        }]
+                    })} />);
+
+            // then
+            expect(screen.getByText('Approval is blocked')).toBeInTheDocument();
+
+            expect(screen.getByText(
+                'This item has not been submitted for review yet. '
+                + 'Submit it to start the approval process.')).toBeInTheDocument();
+        });
+
+        /// A bypass waives the CONDITIONS of a round (§9.7.5), and a draft has no round to
+        /// waive — nothing rescues an item nobody has offered. It must be submitted first.
+        it('should refuse the bypass on a draft even where the verdict allows one', () => {
+            // given
+            signInAs(authState, ['Administrators']);
+
+            // when
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Draft}
+                    approvalVerdict={blockedVerdict({
+                        approvalStatus: ApprovalStatus.Draft,
+                        isBypassAllowedForCurrentUser: true
+                    })} />);
+
+            // then
+            expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+        });
+
+        /// The guard the draft change relaxed is really about a SETTLED round: a consumer
+        /// refreshing after a decision can hand over a terminal status with a verdict fetched a
+        /// moment earlier, and reasons painted over that state an outcome already overtaken.
+        it.each([
+            ['Approved', ApprovalStatus.Approved],
+            ['Rejected', ApprovalStatus.Rejected],
+            ['Dismissed', ApprovalStatus.Dismissed]
+        ])('should still paint no reasons over a %s round', (_name, status) => {
+            // given
+            signInAs(authState, ['Administrators']);
+
+            // when
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={status as ApprovalStatus}
+                    approvalVerdict={blockedVerdict()} />);
+
+            // then
+            expect(screen.queryByText('Approval is blocked')).not.toBeInTheDocument();
+        });
+    });
+
     describe('read-only', () => {
         it('should show reviews and the status pill, and no controls, to a roleless reader', () => {
             // given
