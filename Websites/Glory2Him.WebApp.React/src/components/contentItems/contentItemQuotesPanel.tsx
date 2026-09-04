@@ -20,20 +20,29 @@ import './contentItems.css';
 // supplies a quote image — the projection deliberately gives Quote no placeholder — so the light
 // block is what ships, and the hero face is already here for the day real images land (§4.9).
 export function ContentItemQuotesPanel(props: ContentItemTemplateProps) {
-    const { contentItem, onTitleClick } = props;
+    const { contentItem, allowTitleClick, onTitleClick } = props;
 
     const hasImage = (contentItem.imageUrl ?? '').length > 0;
 
     // A quote carries no title, so the CONTENT is the way into the detail surface — the same
-    // destination onTitleClick names on every other card.
-    const quoteText = (
+    // destination onTitleClick names on every other card, under the same switch: where the
+    // surface disallows the title click, the quote stands as plain text.
+    const quoteWords = (
+        <>
+            {contentItem.content}
+            {(contentItem.author ?? '').length > 0 && <> — {contentItem.author}</>}
+        </>
+    );
+
+    const quoteText = allowTitleClick && onTitleClick != null ? (
         <button
             type="button"
             className="btn btn-link text-reset fw-bold p-0 mb-0 text-start"
-            onClick={() => onTitleClick?.(contentItem)}>
-            {contentItem.content}
-            {(contentItem.author ?? '').length > 0 && <> — {contentItem.author}</>}
+            onClick={() => onTitleClick(contentItem)}>
+            {quoteWords}
         </button>
+    ) : (
+        <span className="fw-bold">{quoteWords}</span>
     );
 
     const quoteBlock = hasImage ? (

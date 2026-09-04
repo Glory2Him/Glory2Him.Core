@@ -362,12 +362,31 @@ describe('ContentItemPanel', () => {
             expect(onContentTypeClick).toHaveBeenCalledWith(devotionalItem);
         });
 
-        it('should raise onTitleClick from the title', async () => {
+        // The title is a control only where the SURFACE allows it: a panel standing alone
+        // is the detail surface, so allowTitleClick is off by default and the title stands
+        // as plain heading text even with a listener wired — no button, no underline.
+        it('should stand the title as plain text by default even with onTitleClick wired', () => {
             const onTitleClick = vi.fn();
 
             renderCard(
                 <ContentItemPanel
                     contentItem={devotionalItem}
+                    onTitleClick={onTitleClick} />);
+
+            expect(screen.getByRole('heading', { name: 'Walking daily in grace' }))
+                .toBeInTheDocument();
+
+            expect(screen.queryByRole('button', { name: 'Walking daily in grace' }))
+                .not.toBeInTheDocument();
+        });
+
+        it('should raise onTitleClick from the title where the surface allows it', async () => {
+            const onTitleClick = vi.fn();
+
+            renderCard(
+                <ContentItemPanel
+                    contentItem={devotionalItem}
+                    allowTitleClick
                     onTitleClick={onTitleClick} />);
 
             await userEvent.click(
@@ -376,17 +395,40 @@ describe('ContentItemPanel', () => {
             expect(onTitleClick).toHaveBeenCalledWith(devotionalItem);
         });
 
-        // A quote has no title, so its CONTENT is the way in — the same destination.
-        it('should raise onTitleClick from the quote itself', async () => {
+        it('should stand the title as plain text when allowed but nobody is listening', () => {
+            renderCard(<ContentItemPanel contentItem={devotionalItem} allowTitleClick />);
+
+            expect(screen.queryByRole('button', { name: 'Walking daily in grace' }))
+                .not.toBeInTheDocument();
+        });
+
+        // A quote has no title, so its CONTENT is the way in — the same destination, under
+        // the same switch.
+        it('should raise onTitleClick from the quote itself where the surface allows it', async () => {
             const onTitleClick = vi.fn();
 
             renderCard(
-                <ContentItemPanel contentItem={quoteItem} onTitleClick={onTitleClick} />);
+                <ContentItemPanel
+                    contentItem={quoteItem}
+                    allowTitleClick
+                    onTitleClick={onTitleClick} />);
 
             await userEvent.click(
                 screen.getByRole('button', { name: new RegExp('coincidences happen') }));
 
             expect(onTitleClick).toHaveBeenCalledWith(quoteItem);
+        });
+
+        it('should stand the quote as plain text by default even with onTitleClick wired', () => {
+            const onTitleClick = vi.fn();
+
+            renderCard(
+                <ContentItemPanel contentItem={quoteItem} onTitleClick={onTitleClick} />);
+
+            expect(screen.getByText(new RegExp('coincidences happen'))).toBeInTheDocument();
+
+            expect(screen.queryByRole('button', { name: new RegExp('coincidences happen') }))
+                .not.toBeInTheDocument();
         });
 
         it('should raise onSubmittedByClick and onAuthorClick as two different people', async () => {

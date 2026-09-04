@@ -20,19 +20,22 @@ import './contentItems.css';
 // dark hero where there is an image — the face the design's mock draws — and the quiet light
 // block where there is not, which is what ships until real header images land (§4.9).
 export function ContentItemVerseImagePanel(props: ContentItemTemplateProps) {
-    const { contentItem, onTitleClick } = props;
+    const { contentItem, allowTitleClick, onTitleClick } = props;
 
     const hasImage = (contentItem.imageUrl ?? '').length > 0;
 
     // A verse image carries no title, so the VERSE is the way into the detail surface — the same
-    // destination onTitleClick names on every other card.
-    const verseText = (
+    // destination onTitleClick names on every other card, under the same switch: where the
+    // surface disallows the title click, the verse stands as plain text.
+    const verseText = allowTitleClick && onTitleClick != null ? (
         <button
             type="button"
             className="btn btn-link text-reset fw-bold p-0 mb-0 text-start"
-            onClick={() => onTitleClick?.(contentItem)}>
+            onClick={() => onTitleClick(contentItem)}>
             {contentItem.content}
         </button>
+    ) : (
+        <span className="fw-bold">{contentItem.content}</span>
     );
 
     const verseBlock = hasImage ? (

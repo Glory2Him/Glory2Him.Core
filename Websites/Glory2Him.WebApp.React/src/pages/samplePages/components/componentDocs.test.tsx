@@ -347,9 +347,10 @@ describe('Component reference pages', () => {
             // when: Edit is taken on the view demo
             await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
 
-            // then: the card became the editor — anchored on the seeded Title field,
-            // because the view card carries a bookmark control also named Save
-            expect(screen.getByLabelText(/Title/))
+            // then: the card became the editor — anchored on the seeded Title TEXTBOX,
+            // because the view card carries a bookmark control also named Save and the
+            // playground carries an allowTitleClick switch whose label also says Title
+            expect(screen.getByRole('textbox', { name: /Title/ }))
                 .toHaveValue('NASA Proves The Bible Is True');
 
             // The add demo above carries a Cancel of its own; the editor's is the last.
@@ -357,7 +358,7 @@ describe('Component reference pages', () => {
             await userEvent.click(cancels[cancels.length - 1]);
 
             // and Cancel brings the card back
-            expect(screen.queryByLabelText(/Title/)).not.toBeInTheDocument();
+            expect(screen.queryByRole('textbox', { name: /Title/ })).not.toBeInTheDocument();
             expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
         });
     });
