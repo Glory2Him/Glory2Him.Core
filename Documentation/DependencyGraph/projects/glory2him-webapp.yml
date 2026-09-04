@@ -818,9 +818,6 @@ components:
       - from: "POST …/confirm-email-change"
         to: EXT.Identity
         method: UserManager.ChangeEmailAsync
-      - from: "POST …/confirm-email-change"
-        to: EXT.Identity
-        method: UserManager.SetUserNameAsync
       - from: "GET …/register-confirmation"
         to: EXT.Identity
         method: UserManager.GenerateEmailConfirmationTokenAsync

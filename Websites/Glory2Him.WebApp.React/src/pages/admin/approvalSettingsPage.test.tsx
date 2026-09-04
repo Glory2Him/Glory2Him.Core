@@ -186,6 +186,54 @@ describe('ApprovalSettingsPage', () => {
             expect(screen.getByText('Not required')).toBeInTheDocument();
             expect(screen.queryByText('2 required')).not.toBeInTheDocument();
         });
+
+        // EVERY GATE THE DETAIL PAGE EDITS, LISTED HERE. A summary that omits one reads as a
+        // full account of the effective policy while a gate nobody can see is holding items
+        // shut — the zero-score gate is editable on the detail page and was the one missing.
+        it('should show a pill for every gate the policy can hold an item shut with', () => {
+            // given
+            approvalSettings = [createApprovalSetting()];
+
+            // when
+            renderPageAt();
+
+            // then
+            const table = within(screen.getByRole('table'));
+
+            [
+                'Auto-approve',
+                'Self-approval',
+                'Blocks on reject',
+                'Blocks on zero score',
+                'Comments resolved',
+                'Re-approve on change',
+                'No bypass'
+            ].forEach(gate => expect(table.getByText(gate)).toBeInTheDocument());
+        });
+
+        // The pill is always drawn; only its styling says which way the gate is set, so on and
+        // off are pinned in both directions rather than by presence alone.
+        it('should show the zero score gate as on when the policy blocks on it', () => {
+            // given
+            approvalSettings = [createApprovalSetting({ blockOnZeroApprovalScore: true })];
+
+            // when
+            renderPageAt();
+
+            // then
+            expect(screen.getByText('Blocks on zero score')).toHaveClass('bg-primary-subtle');
+        });
+
+        it('should show the zero score gate as off when the policy does not block on it', () => {
+            // given
+            approvalSettings = [createApprovalSetting({ blockOnZeroApprovalScore: false })];
+
+            // when
+            renderPageAt();
+
+            // then
+            expect(screen.getByText('Blocks on zero score')).toHaveClass('bg-body-secondary');
+        });
     });
 
     describe('an empty section', () => {

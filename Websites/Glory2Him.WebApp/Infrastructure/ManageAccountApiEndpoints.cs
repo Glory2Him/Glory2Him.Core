@@ -649,16 +649,16 @@ namespace Glory2Him.WebApp.Infrastructure
                     return Results.Ok(new { Message = "Error changing email." });
                 }
 
-                // In our UI email and user name are one and the same, so when we
-                // update the email we need to update the user name.
-                IdentityResult setUserNameResult =
-                    await userManager.SetUserNameAsync(user, confirmRequest.Email);
-
-                if (!setUserNameResult.Succeeded)
-                {
-                    return Results.Ok(new { Message = "Error changing user name." });
-                }
-
+                // A confirmed email change changes the email and nothing else. This used to also
+                // call SetUserNameAsync with the new address, on the premise that "in our UI email
+                // and user name are one and the same" - a premise design §18.3.1 overrules: the
+                // username is shown to other people wherever the site names who submitted or
+                // reviewed something, so writing an address into it publishes that address.
+                //
+                // Nothing is lost by not doing it. Signing in with the new email still works,
+                // because /api/accounts/login falls back from FindByNameAsync to FindByEmailAsync.
+                //
+                // The re-sign-in stays: the email claim in the cookie did change.
                 await signInManager.RefreshSignInAsync(user);
 
                 return Results.Ok(new

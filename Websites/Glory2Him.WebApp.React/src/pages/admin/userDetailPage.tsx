@@ -20,6 +20,15 @@ import { extractApiErrorMessage } from './apiErrorMessage';
 
 const usersRoute = '/Admin/Users';
 
+// Design §18.3.1 — a username may never be an email address, because every display name in the
+// system falls back to the username, so an account with no personal details set publishes it.
+const prohibitedUsernameCharacter = '@';
+
+const prohibitedUsernameMessage =
+    'A username may not contain "@". Usernames and email addresses are separate values: the '
+    + 'username is shown to other people wherever the site names who submitted or reviewed '
+    + 'something, so an email address used as one becomes public.';
+
 const emptyEditModel: UpdateUserRequest = {
     userName: '',
     email: '',
@@ -171,10 +180,22 @@ export const UserDetailPage = () => {
         }
     };
 
-    const saveProfileAsync = () =>
-        runAsync(
+    // Mirrors UserNameRule on the server (design §18.3.1), which refuses this too. The point of
+    // repeating it here is the message: without it the administrator gets Identity's own
+    // "Username 'x@y.org' is invalid, can only contain letters or digits", which says nothing
+    // about why the rule exists or that it is deliberate.
+    const saveProfileAsync = () => {
+        if (editModel.userName.includes(prohibitedUsernameCharacter)) {
+            clearNotices();
+            setActionError(prohibitedUsernameMessage);
+
+            return Promise.resolve();
+        }
+
+        return runAsync(
             () => updateUser.mutateAsync({ userId, request: editModel }),
             'Profile updated.');
+    };
 
     const addRoleAsync = () => {
         if (selectedRoleToAdd == null || selectedRoleToAdd.trim().length === 0) {
@@ -322,6 +343,9 @@ export const UserDetailPage = () => {
                             <div className="col-md-6">
                                 <FormText label="Username" value={editModel.userName}
                                     onValueChange={(value) => setEditModel({ ...editModel, userName: value })} />
+                                <small className="form-text d-block mt-n3 mb-3">
+                                    Shown to other people. It may not be an email address.
+                                </small>
                             </div>
                             <div className="col-md-6">
                                 <FormText label="Email" value={editModel.email}

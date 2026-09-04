@@ -78,15 +78,38 @@ namespace Glory2Him.WebApp.Data
             IQueryable<ApprovalSetting> existingApprovalSettings =
                 await storageBroker.SelectAllApprovalSettingsAsync();
 
+            // ONE READ, NOT ONE PER ROW. The scopes this seed repairs — ContentType null and
+            // IsDeleted false — are a single narrow slice, at most one row per scope, so it is
+            // materialized once and matched in memory rather than asked of the database inside
+            // the loop. A query per seeded row is a query per member of a set that only grows.
+            List<ApprovalSetting> liveDefaults =
+                await existingApprovalSettings
+                    .Where(approvalSetting =>
+                        approvalSetting.ContentType == null
+                        && approvalSetting.IsDeleted == false)
+                    .ToListAsync();
+
+            // KEYED ON THE SCOPE, which is the pair (§8.4) rather than the entity type alone:
+            // the global row has no entity type at all, and Association carries a personal row
+            // beside its default. An EntityType-keyed dictionary would collapse those two and
+            // silently re-insert whichever it dropped, every restart.
+            //
+            // Grouped rather than keyed straight into a dictionary, and first taken from each
+            // group: each tier's filtered unique index already forbids a second live row for a
+            // scope, but a duplicate that reached the table anyway is not the seed's to throw
+            // over at host startup — the read it replaces took the first and moved on.
+            Dictionary<(EntityType? EntityType, bool? IsPersonal), ApprovalSetting> liveDefaultsByScope =
+                liveDefaults
+                    .GroupBy(approvalSetting =>
+                        (approvalSetting.EntityType, approvalSetting.IsPersonal))
+                    .ToDictionary(group => group.Key, group => group.First());
+
             foreach (ApprovalSetting defaultApprovalSetting in
                 BuildDefaultApprovalSettings(DateTimeOffset.UtcNow))
             {
-                ApprovalSetting liveDefault = await existingApprovalSettings.FirstOrDefaultAsync(
-                    approvalSetting =>
-                        approvalSetting.EntityType == defaultApprovalSetting.EntityType
-                        && approvalSetting.ContentType == null
-                        && approvalSetting.IsPersonal == defaultApprovalSetting.IsPersonal
-                        && approvalSetting.IsDeleted == false);
+                liveDefaultsByScope.TryGetValue(
+                    (defaultApprovalSetting.EntityType, defaultApprovalSetting.IsPersonal),
+                    out ApprovalSetting liveDefault);
 
                 if (liveDefault is null)
                 {
