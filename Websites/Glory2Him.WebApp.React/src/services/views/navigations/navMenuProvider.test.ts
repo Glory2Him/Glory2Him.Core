@@ -78,7 +78,7 @@ describe('navMenuProvider Admin section', () => {
 
         // then
         expect(children.map((child) => child.title))
-            .toEqual(['Users', 'Content Item Settings', 'Posts']);
+            .toEqual(['Users', 'Content Item Settings', 'Approval Settings', 'Posts']);
     });
 
     it('should point each admin entry at its route', () => {
@@ -89,6 +89,7 @@ describe('navMenuProvider Admin section', () => {
         expect(children.map((child) => child.href)).toEqual([
             'Admin/Users',
             'Admin/ContentItemSettings',
+            'Admin/ApprovalSettings',
             'Admin/Posts'
         ]);
     });
