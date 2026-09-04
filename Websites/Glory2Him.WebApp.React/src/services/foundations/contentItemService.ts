@@ -104,6 +104,20 @@ export const contentItemService = {
     // validation readback and a toast naming what is actually wrong — so the generic
     // "An unknown error has occurred" from the global mutation cache would be a second, less
     // useful toast on top of it.
+    // The modify write behind every editing surface. suppressGlobalErrorToast for the same
+    // reason the add has it: the API is the authority on what an item must carry, so a 400 is
+    // marked up on the form the caller is looking at rather than thrown at them as a toast.
+    useModifyContentItem: () => {
+        const contentItemBroker = new ContentItemBroker();
+
+        return useMutation({
+            meta: { suppressGlobalErrorToast: true },
+
+            mutationFn: async (contentItem: ContentItem) =>
+                await contentItemBroker.PutContentItemAsync(contentItem)
+        });
+    },
+
     useAddContentItem: () => {
         const contentItemBroker = new ContentItemBroker();
 

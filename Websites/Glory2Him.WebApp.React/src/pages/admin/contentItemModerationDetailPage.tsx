@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toastSuccess } from '../../brokers/toastBroker.success';
 import { Breadcrumb } from '../../components/coreUI/breadcrumb';
 import { Button } from '../../components/coreUI/button';
 import { ContentItemPanel } from '../../components/contentItems/contentItemPanel';
+import { ContentItemEditPanel } from '../../components/contentItems/contentItemEditPanel';
 import { ReviewPanel } from '../../components/approvals/reviewPanel';
 import { Spinner } from '../../components/coreUI/spinner';
 import { ContentType } from '../../models/foundations/contentItemSettings/contentType';
@@ -31,6 +32,22 @@ import {
 import {
     toContentItemSearchItem
 } from '../../services/views/contentItems/toContentItemSearchItem';
+
+import {
+    toContentItemFormItem,
+    toContentItemModifyRequest
+} from '../../services/views/contentItems/toContentItemFormItem';
+
+import { toastError } from '../../brokers/toastBroker.error';
+
+import {
+    ContentItemFormItem,
+    ContentItemValidationIssues
+} from '../../models/components/contentItems/contentItemFormItem';
+
+import {
+    toContentItemApiFailure
+} from '../../services/views/contentItems/toContentItemApiFailure';
 
 // ONE ITEM FROM THE MODERATION QUEUE, at /Admin/Posts/{id}. The queue's Moderate leads HERE
 // rather than to /posts/{id}: a moderator who steps into an item is still working the admin
@@ -112,6 +129,42 @@ export const ContentItemModerationDetailPage = () => {
 
     const goBack = () => navigate(backRoute);
 
+    // MODERATING IS WHAT EDITING MEANS HERE. showModerationSection puts the card's one action
+    // under the moderation tier and labels it Edit, and taking it opens the editor in place
+    // rather than navigating — this page IS the destination, so there is nowhere for it to go.
+    //
+    // It is also the only way a draft advances. §9.2 rule 3's carve-out lets the owner or the
+    // publishing tier move Draft ↔ Submitted through a modify, and until somebody does the
+    // round cannot open at all — which is exactly what the draft block reason beside it says.
+    const [isEditing, setIsEditing] = useState(false);
+    const [validationIssues, setValidationIssues] =
+        useState<ContentItemValidationIssues | undefined>();
+
+    const modifyContentItem = contentItemService.useModifyContentItem();
+
+    // The API is the authority on what an item must carry, so nothing is pre-judged here: the
+    // edit goes, and whatever comes back marks up the form the moderator is looking at.
+    const saveChangesAsync = async (formItem: ContentItemFormItem) => {
+        if (contentItem == null) {
+            return;
+        }
+
+        setValidationIssues(undefined);
+
+        try {
+            await modifyContentItem.mutateAsync(
+                toContentItemModifyRequest(contentItem, formItem));
+
+            setIsEditing(false);
+        } catch (error) {
+            const failure = toContentItemApiFailure(
+                error, 'We could not save this post right now. Please try again later.');
+
+            setValidationIssues(failure.validationIssues);
+            toastError(failure.message);
+        }
+    };
+
     // THE ROUND, off the approval endpoints. A refusal is an answer here: a post with no
     // approval row and a caller outside the moderation tier both leave the verdict undefined,
     // and the panel reads that as "no verdict" — the round shown read-only rather than a
@@ -182,15 +235,36 @@ export const ContentItemModerationDetailPage = () => {
                                 those two panels render in full below, and the same facts must
                                 not appear twice on one screen. Both are the calls /myposts/{id}
                                 makes for the same pairing. */}
-                            <ContentItemPanel
-                                contentItem={searchItem}
-                                showModerationSection
-                                showApprovalStatusRibbon
-                                showApprovalStatus={false}
-                                showContentExpanded
-                                showTagSection={false}
-                                showBibleReferenceSection={false}
-                                contentItemSettingCollection={contentItemSettings ?? []} />
+                            {isEditing ? (
+                                /* showEditSection here is the EDITOR's own surface switch, not
+                                   the read card's. It is off on the card below so that card's
+                                   one action is the moderation Edit rather than the owner's;
+                                   on the editor it must be on, because the form panel refuses
+                                   mode="edit" back to read without it. */
+                                <ContentItemEditPanel
+                                    contentItem={toContentItemFormItem(contentItem)}
+                                    showEditSection
+                                    showApprovalStatusRibbon
+                                    validationIssues={validationIssues}
+                                    isSubmitting={modifyContentItem.isPending}
+                                    onModified={saveChangesAsync}
+                                    onCancelled={() => {
+                                        setValidationIssues(undefined);
+                                        setIsEditing(false);
+                                    }}
+                                    contentItemSettingCollection={contentItemSettings ?? []} />
+                            ) : (
+                                <ContentItemPanel
+                                    contentItem={searchItem}
+                                    showModerationSection
+                                    showApprovalStatusRibbon
+                                    showApprovalStatus={false}
+                                    showContentExpanded
+                                    showTagSection={false}
+                                    showBibleReferenceSection={false}
+                                    onModerateClick={() => setIsEditing(true)}
+                                    contentItemSettingCollection={contentItemSettings ?? []} />
+                            )}
 
                             {/* BELOW THE ITEM, not beside it: tags and references are facts
                                 ABOUT the thing being judged, so they belong in its column. The

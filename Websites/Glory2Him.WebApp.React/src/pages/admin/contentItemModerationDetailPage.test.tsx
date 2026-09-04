@@ -6,6 +6,10 @@ import { ContentItemModerationDetailPage } from './contentItemModerationDetailPa
 import { AuthProvider } from '../../components/securitys/authProvider';
 import { ContentItem } from '../../models/foundations/contentItems/contentItem';
 import { ContentType } from '../../models/foundations/contentItemSettings/contentType';
+
+import {
+    ContentItemSetting
+} from '../../models/foundations/contentItemSettings/contentItemSetting';
 import { ApprovalStatus } from '../../models/components/contentItems/contentItemFormItem';
 import { ShareabilityBasis } from '../../models/components/contentItems/contentItemFormItem';
 import { createAuthState, signInAs } from '../../tests/testAuth';
@@ -30,20 +34,63 @@ vi.mock('../../services/foundations/accountService', () => ({
     }
 }));
 
+const modifiedWith = vi.fn();
+
 vi.mock('../../services/foundations/contentItemService', () => ({
     contentItemService: {
         useGetContentItemById: () => ({
             data: contentItem,
             isLoading: false,
             isError: false
+        }),
+
+        useModifyContentItem: () => ({
+            mutateAsync: modifiedWith,
+            isPending: false
         })
     }
 }));
 
+// The editor SHAPES ITSELF from the setting (§6.4) — which fields exist at all is the type's
+// call — so a settings-less mock would open a form with nothing in it and prove nothing.
+const quoteSetting: ContentItemSetting = {
+    id: 'setting-quote',
+    contentType: ContentType.Quote,
+    contentItemId: null,
+    contentTypeName: 'Quote',
+    contentTypeDescription: 'A quote',
+    contentTypeIconCssClass: 'bi-chat-quote',
+    sortOrder: ContentType.Quote,
+    hasTitle: false,
+    hasAuthor: true,
+    isAvailableAsGeneralUserContribution: true,
+    tagsAllowed: true,
+    showTags: true,
+    reactionsAllowed: true,
+    showReactions: true,
+    linksAllowed: true,
+    showLinks: true,
+    attachmentsAllowed: true,
+    showAttachments: true,
+    commentsAllowed: true,
+    showComments: true,
+    bibleReferenceAllowed: true,
+    showBibleReferences: true,
+    limitReactionsToLoveOnly: false,
+    createdBy: 'seed',
+    createdWhen: '2026-01-01T00:00:00+00:00',
+    updatedBy: 'seed',
+    updatedWhen: '2026-01-01T00:00:00+00:00',
+    deletedBy: null,
+    deletedWhen: null,
+    isDeleted: false,
+    deletionReason: null
+};
+
 vi.mock('../../services/foundations/contentItemSettingService', () => ({
     contentItemSettingService: {
-        useGetDefaults: () => ({ data: [] }),
-        useGetEffectiveSettingsFor: () => ({ data: [] })
+        useGetDefaults: () => ({ data: [quoteSetting] }),
+        useGetEffectiveSettingsFor: () => ({ data: [quoteSetting] })
     }
 }));
 
@@ -159,6 +206,8 @@ describe('ContentItemModerationDetailPage', () => {
         reviewRequests = [];
         reviewerCandidates = [];
         verdictAskedFor = [];
+        modifiedWith.mockReset();
+        modifiedWith.mockResolvedValue(undefined);
         signInAs(authState, ['Administrators']);
     });
 
@@ -199,10 +248,9 @@ describe('ContentItemModerationDetailPage', () => {
         expect(landedOn()).toBe('/Admin/Posts?type=Quote');
     });
 
-    /// THE MODERATED FACE. showModerationSection says the surface IS moderation, so the card
-    /// offers no Edit of its own — there is nowhere for it to lead from the page it is already
-    /// on — and the ribbon names the status in the corner.
-    it('should wear the ribbon and offer no edit of its own', () => {
+    /// THE MODERATED FACE. showModerationSection puts the card's one action under the
+    /// moderation tier and labels it Edit; the ribbon names the status in the corner.
+    it('should wear the ribbon and offer the moderator its edit', () => {
         // when
         const { container } = renderPage();
 
@@ -210,7 +258,68 @@ describe('ContentItemModerationDetailPage', () => {
         expect(container.querySelector('.g2h-approval-ribbon'))
             .toHaveAttribute('data-approval-status', 'Draft');
 
-        expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
+    });
+
+    /// EDITING HAPPENS IN PLACE. This page is already the destination, so the affordance opens
+    /// the editor here rather than navigating anywhere.
+    it('should open the editor in place when the moderator takes Edit', async () => {
+        // given
+        renderPage();
+
+        // when
+        await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
+
+        // then: the stored content, seeded into a form, and the page has not moved
+        expect(screen.getByDisplayValue('Character is what you are in the dark.'))
+            .toBeInTheDocument();
+
+        expect(landedOn()).toBe('/Admin/Posts/quote-1');
+    });
+
+    it('should put the item back as it was when the edit is cancelled', async () => {
+        // given
+        renderPage();
+        await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
+
+        // when
+        await userEvent.click(screen.getByRole('button', { name: /Cancel/ }));
+
+        // then
+        expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
+        expect(modifiedWith).not.toHaveBeenCalled();
+    });
+
+    /// THE WHOLE ROW GOES BACK, with the edit over the top. PUT api/ContentItems binds a
+    /// ContentItem and pins the non-content fields by COMPARISON against storage, so a partial
+    /// would arrive as a default in every field the form does not carry — and default is a
+    /// legal value for most of them.
+    it('should send the stored row with the edit laid over it', async () => {
+        // given
+        renderPage();
+        await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
+
+        const contentBox = screen.getByDisplayValue('Character is what you are in the dark.');
+        await userEvent.clear(contentBox);
+        await userEvent.type(contentBox, 'Character is what you are in the dark, always.');
+
+        // when
+        await userEvent.click(screen.getByRole('button', { name: /Save/ }));
+
+        // then
+        expect(modifiedWith).toHaveBeenCalledTimes(1);
+
+        expect(modifiedWith).toHaveBeenCalledWith(expect.objectContaining({
+            // the edit
+            content: 'Character is what you are in the dark, always.',
+
+            // and the identity and audit the row arrived with, untouched
+            id: 'quote-1',
+            groupId: 'group-1',
+            contentHash: 'hash-1',
+            version: 1,
+            createdBy: 'user-1'
+        }));
     });
 
     /// One card must not state the same fact twice: the ribbon already names the status, so the
