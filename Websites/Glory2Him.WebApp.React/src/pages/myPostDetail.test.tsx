@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MyPostDetail } from './myPostDetail';
@@ -8,6 +9,7 @@ import { ContentType } from '../models/foundations/contentItemSettings/contentTy
 import { ApprovalStatus } from '../models/components/contentItems/contentItemFormItem';
 import { ShareabilityBasis } from '../models/components/contentItems/contentItemFormItem';
 import { createAuthState, signInAs } from '../tests/testAuth';
+import { testContentItemSetting } from '../tests/testContentItemSettings';
 
 // The contributor's own detail surface: the way back to their list, the item on the left, and
 // the association surfaces beside it. The reads are mocked at their own boundary; what this
@@ -22,20 +24,32 @@ vi.mock('../services/foundations/accountService', () => ({
     }
 }));
 
+const modifiedWith = vi.fn();
+
 vi.mock('../services/foundations/contentItemService', () => ({
     contentItemService: {
         useGetContentItemById: () => ({
             data: contentItem,
             isLoading: false,
             isError: false
+        }),
+
+        useModifyContentItem: () => ({
+            mutateAsync: modifiedWith,
+            isPending: false
         })
     }
 }));
 
+// A quote carries no title, so the editor shapes itself without one — and with a setting at
+// all, which an empty list would not give it.
+const quoteSetting =
+    testContentItemSetting(ContentType.Quote, 'Quote', { hasTitle: false });
+
 vi.mock('../services/foundations/contentItemSettingService', () => ({
     contentItemSettingService: {
-        useGetDefaults: () => ({ data: [] }),
-        useGetEffectiveSettingsFor: () => ({ data: [] })
+        useGetDefaults: () => ({ data: [quoteSetting] }),
+        useGetEffectiveSettingsFor: () => ({ data: [quoteSetting] })
     }
 }));
 
@@ -77,6 +91,8 @@ const renderPage = (initialEntry: Parameters<typeof MemoryRouter>[0]['initialEnt
 describe('MyPostDetail', () => {
     beforeEach(() => {
         contentItem = draftQuote;
+        modifiedWith.mockReset();
+        modifiedWith.mockResolvedValue(undefined);
         signInAs(authState, ['Users']);
     });
 
@@ -136,5 +152,34 @@ describe('MyPostDetail', () => {
         // the match is a fragment rather than the whole line
         expect(screen.getByText(/Character is what you are in the dark\./))
             .toBeInTheDocument();
+    });
+
+    /// THE SAVE IS REAL, and it replaced a local merge that could only ever carry the fields
+    /// somebody remembered to list. That list held the content fields and not approvalStatus,
+    /// so a contributor offering a draft for review watched the card go on saying Draft. The
+    /// write now goes to the server and the row is re-read, status and all.
+    it('should send the whole row with the amendment over it', async () => {
+        // given
+        renderPage();
+        await userEvent.click(screen.getByRole('button', { name: /Edit/ }));
+
+        const contentBox =
+            screen.getByDisplayValue('Character is what you are in the dark.');
+
+        await userEvent.clear(contentBox);
+        await userEvent.type(contentBox, 'Character is what you are in the dark, always.');
+
+        // when
+        await userEvent.click(screen.getByRole('button', { name: /Save/ }));
+
+        // then
+        expect(modifiedWith).toHaveBeenCalledTimes(1);
+
+        expect(modifiedWith).toHaveBeenCalledWith(expect.objectContaining({
+            content: 'Character is what you are in the dark, always.',
+            id: 'quote-1',
+            groupId: 'group-1',
+            createdBy: 'user-1'
+        }));
     });
 });

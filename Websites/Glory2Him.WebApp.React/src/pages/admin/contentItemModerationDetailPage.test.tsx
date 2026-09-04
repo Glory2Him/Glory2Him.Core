@@ -6,13 +6,10 @@ import { ContentItemModerationDetailPage } from './contentItemModerationDetailPa
 import { AuthProvider } from '../../components/securitys/authProvider';
 import { ContentItem } from '../../models/foundations/contentItems/contentItem';
 import { ContentType } from '../../models/foundations/contentItemSettings/contentType';
-
-import {
-    ContentItemSetting
-} from '../../models/foundations/contentItemSettings/contentItemSetting';
 import { ApprovalStatus } from '../../models/components/contentItems/contentItemFormItem';
 import { ShareabilityBasis } from '../../models/components/contentItems/contentItemFormItem';
 import { createAuthState, signInAs } from '../../tests/testAuth';
+import { testContentItemSetting } from '../../tests/testContentItemSettings';
 
 import {
     ApprovalReview,
@@ -59,39 +56,8 @@ vi.mock('../../services/foundations/contentItemService', () => ({
 
 // The editor SHAPES ITSELF from the setting (§6.4) — which fields exist at all is the type's
 // call — so a settings-less mock would open a form with nothing in it and prove nothing.
-const quoteSetting: ContentItemSetting = {
-    id: 'setting-quote',
-    contentType: ContentType.Quote,
-    contentItemId: null,
-    contentTypeName: 'Quote',
-    contentTypeDescription: 'A quote',
-    contentTypeIconCssClass: 'bi-chat-quote',
-    sortOrder: ContentType.Quote,
-    hasTitle: false,
-    hasAuthor: true,
-    isAvailableAsGeneralUserContribution: true,
-    tagsAllowed: true,
-    showTags: true,
-    reactionsAllowed: true,
-    showReactions: true,
-    linksAllowed: true,
-    showLinks: true,
-    attachmentsAllowed: true,
-    showAttachments: true,
-    commentsAllowed: true,
-    showComments: true,
-    bibleReferenceAllowed: true,
-    showBibleReferences: true,
-    limitReactionsToLoveOnly: false,
-    createdBy: 'seed',
-    createdWhen: '2026-01-01T00:00:00+00:00',
-    updatedBy: 'seed',
-    updatedWhen: '2026-01-01T00:00:00+00:00',
-    deletedBy: null,
-    deletedWhen: null,
-    isDeleted: false,
-    deletionReason: null
-};
+const quoteSetting =
+    testContentItemSetting(ContentType.Quote, 'Quote', { hasTitle: false });
 
 vi.mock('../../services/foundations/contentItemSettingService', () => ({
     contentItemSettingService: {
