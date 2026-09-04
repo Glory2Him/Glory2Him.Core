@@ -327,6 +327,59 @@ describe('ReviewPanel', () => {
             expect(screen.getByText('Loading…')).toBeInTheDocument();
             expect(screen.queryByText('John')).not.toBeInTheDocument();
         });
+
+        /// The outcome is DERIVED from the rows and the verdict, so it cannot be stated while
+        /// they are still arriving: a pill reading "awaiting approval" over a round that turns
+        /// out to be blocked, and an approve control the caller may not be allowed, are both
+        /// claims nobody has computed yet.
+        it('should hold back the whole outcome while loading, not only the rows', () => {
+            // given
+            signInAs(authState, ['Publishers']);
+
+            // when
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    isLoading={true}
+                    approvalReviewCollection={[johnApproved]}
+                    approvalVerdict={blockedVerdict({
+                        isBypassAllowedForCurrentUser: true
+                    })} />);
+
+            // then
+            expect(screen.queryByRole('heading', { name: 'Review Outcome' }))
+                .not.toBeInTheDocument();
+
+            expect(statusPillText()).toBeUndefined();
+
+            expect(screen.queryByText(
+                'At least 3 approving review(s) is required by reviewers.'))
+                .not.toBeInTheDocument();
+
+            expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+
+            expect(screen.queryByRole('button', { name: 'Set approval status' }))
+                .not.toBeInTheDocument();
+        });
+
+        it('should show the outcome again once the load is done', () => {
+            // given
+            signInAs(authState, ['Publishers']);
+
+            // when
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    isLoading={false}
+                    approvalReviewCollection={[johnApproved]}
+                    approvalVerdict={blockedVerdict()} />);
+
+            // then
+            expect(screen.getByRole('heading', { name: 'Review Outcome' })).toBeInTheDocument();
+            expect(statusPillText()).toBe('Awaiting approval');
+        });
     });
 
     describe('review requests', () => {
@@ -1121,6 +1174,137 @@ describe('ReviewPanel', () => {
 
             expect(onApprovalStatusChanged).toHaveBeenCalledWith(
                 ApprovalDecision.Approve, true, 'Launch day exception');
+        });
+
+        /// A disabled button explains nothing on its own. The empty box is the reason Submit is
+        /// shut, so the box has to say so rather than leaving the caller to guess.
+        it('should mark the reason box as the thing holding submit shut, then clear it',
+            async () => {
+                // given
+                signInAs(authState, ['Publishers']);
+
+                renderWithAuth(
+                    <ReviewPanel
+                        entityType="ContentItem"
+                        approvalStatus={ApprovalStatus.Submitted}
+                        approvalVerdict={blockedVerdict({
+                            isBypassAllowedForCurrentUser: true
+                        })} />);
+
+                const reasonBoxName = 'Reason for bypassing the approval requirements';
+
+                // when: the bypass is ticked but no decision chosen yet
+                await userEvent.click(screen.getByRole('checkbox'));
+
+                // then: nothing is being held up yet, so the box is not scolded for being empty
+                expect(screen.getByRole('textbox', { name: reasonBoxName }))
+                    .not.toHaveClass('is-invalid');
+
+                expect(screen.queryByText('Give a reason for the bypass before submitting.'))
+                    .not.toBeInTheDocument();
+
+                // when: Approve is chosen against the empty box
+                await userEvent.click(
+                    screen.getByRole('button', { name: 'Set approval status' }));
+
+                await userEvent.click(
+                    screen.getByRole('button', { name: /Approve this item/ }));
+
+                // then
+                expect(screen.getByRole('button', { name: 'Submit' })).toBeDisabled();
+                expect(screen.getByRole('textbox', { name: reasonBoxName }))
+                    .toHaveClass('is-invalid');
+
+                expect(screen.getByText('Give a reason for the bypass before submitting.'))
+                    .toBeInTheDocument();
+
+                // when: the reason is given
+                await userEvent.type(
+                    screen.getByRole('textbox', { name: reasonBoxName }), 'Launch day exception');
+
+                // then
+                expect(screen.getByRole('button', { name: 'Submit' })).toBeEnabled();
+                expect(screen.getByRole('textbox', { name: reasonBoxName }))
+                    .not.toHaveClass('is-invalid');
+
+                expect(screen.queryByText('Give a reason for the bypass before submitting.'))
+                    .not.toBeInTheDocument();
+            });
+    });
+
+    describe('a draft round', () => {
+        /// THE ONE REASON §16.7.2 ADDED BlockedDueToDraftStatus TO CARRY. Core composes it first
+        /// and alone for a draft entity — the conditions are not merely unmet, they have not been
+        /// asked — and its message is the action to take. A panel that dropped it left a bare
+        /// "Awaiting approval" pill and no way to learn why nothing was happening.
+        it('should state the draft block reason rather than swallowing it', () => {
+            // given
+            signInAs(authState, ['Administrators']);
+
+            // when
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Draft}
+                    approvalVerdict={verdictWith({
+                        approvalStatus: ApprovalStatus.Draft,
+                        isBlocked: true,
+                        canApprove: false,
+                        blockReasons: [{
+                            code: 8,
+                            message: 'This item has not been submitted for review yet. '
+                                + 'Submit it to start the approval process.'
+                        }]
+                    })} />);
+
+            // then
+            expect(screen.getByText('Approval is blocked')).toBeInTheDocument();
+
+            expect(screen.getByText(
+                'This item has not been submitted for review yet. '
+                + 'Submit it to start the approval process.')).toBeInTheDocument();
+        });
+
+        /// A bypass waives the CONDITIONS of a round (§9.7.5), and a draft has no round to
+        /// waive — nothing rescues an item nobody has offered. It must be submitted first.
+        it('should refuse the bypass on a draft even where the verdict allows one', () => {
+            // given
+            signInAs(authState, ['Administrators']);
+
+            // when
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Draft}
+                    approvalVerdict={blockedVerdict({
+                        approvalStatus: ApprovalStatus.Draft,
+                        isBypassAllowedForCurrentUser: true
+                    })} />);
+
+            // then
+            expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+        });
+
+        /// The guard the draft change relaxed is really about a SETTLED round: a consumer
+        /// refreshing after a decision can hand over a terminal status with a verdict fetched a
+        /// moment earlier, and reasons painted over that state an outcome already overtaken.
+        it.each([
+            ['Approved', ApprovalStatus.Approved],
+            ['Rejected', ApprovalStatus.Rejected],
+            ['Dismissed', ApprovalStatus.Dismissed]
+        ])('should still paint no reasons over a %s round', (_name, status) => {
+            // given
+            signInAs(authState, ['Administrators']);
+
+            // when
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={status as ApprovalStatus}
+                    approvalVerdict={blockedVerdict()} />);
+
+            // then
+            expect(screen.queryByText('Approval is blocked')).not.toBeInTheDocument();
         });
     });
 

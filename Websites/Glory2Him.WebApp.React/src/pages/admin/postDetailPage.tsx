@@ -18,7 +18,7 @@ import { extractApiErrorMessage } from './apiErrorMessage';
 // Ported from the Blazor Admin/PostDetailPage: the editor binds field-by-field. The "New" route
 // renders the same page without a post id, which is what tells it that it is creating.
 
-const postsRoute = '/Admin/SamplePosts';
+const postsRoute = '/SamplePages/Posts';
 
 const badgeOptions: SelectOption[] = [
     { value: 'text-bg-primary', text: 'Primary' },

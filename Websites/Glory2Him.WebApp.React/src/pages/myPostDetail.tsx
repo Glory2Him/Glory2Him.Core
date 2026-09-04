@@ -9,9 +9,13 @@ import { Spinner } from '../components/coreUI/spinner';
 import { contentItemService } from '../services/foundations/contentItemService';
 import { contentItemSettingService } from '../services/foundations/contentItemSettingService';
 import { toContentItemSearchItem } from '../services/views/contentItems/toContentItemSearchItem';
+import { toContentItemModifyRequest } from '../services/views/contentItems/toContentItemFormItem';
+import { toContentItemApiFailure } from '../services/views/contentItems/toContentItemApiFailure';
+import { toastError } from '../brokers/toastBroker.error';
 
 import {
-    ContentItemFormItem
+    ContentItemFormItem,
+    ContentItemValidationIssues
 } from '../models/components/contentItems/contentItemFormItem';
 
 import {
@@ -47,39 +51,48 @@ export function MyPostDetail() {
         contentItemSettingService.useGetEffectiveSettingsFor(
             contentItemId.length > 0 ? [contentItemId] : []);
 
-    // The SAME self-contained element a list surface would carry — one projection for the
-    // whole family. showContentExpanded on the panel keeps the full content standing: a
-    // cut with a read-more that leads here would point at itself.
-    // THE ONE-ELEMENT SWAP, done locally: a save closes the editor and the card shows the
-    // amendments because this page swapped its element. The modify WRITE lands with its own
-    // service — until then the toast says plainly that the changes live on this page only.
-    const [amendedItem, setAmendedItem] = useState<ContentItemFormItem | null>(null);
+    // THE SAVE IS REAL, and that is what retired the local swap this page used to do. It held
+    // the amended fields in state and merged them over the projection, because there was no
+    // modify write to call — and a merge is only ever as complete as the list of fields somebody
+    // remembered to put in it. That list carried the content fields and NOT approvalStatus, so
+    // offering a draft for review left the card still reading Draft.
+    //
+    // Nothing is merged now: the write invalidates the row and the card re-renders from what
+    // storage actually holds, status included.
+    const modifyContentItem = contentItemService.useModifyContentItem();
 
-    const saveChanges = (item: ContentItemFormItem) => {
-        setAmendedItem(item);
+    const [validationIssues, setValidationIssues] =
+        useState<ContentItemValidationIssues | undefined>();
 
-        toastSuccess(
-            'Your changes show here for now — saving to the server is coming soon.');
+    // The API is the authority on what an item must carry, so nothing is pre-judged here: the
+    // edit goes, and whatever comes back marks up the form the contributor is looking at.
+    const saveChangesAsync = async (item: ContentItemFormItem) => {
+        if (contentItem == null) {
+            return;
+        }
+
+        setValidationIssues(undefined);
+
+        try {
+            await modifyContentItem.mutateAsync(
+                toContentItemModifyRequest(contentItem, item));
+        } catch (error) {
+            const failure = toContentItemApiFailure(
+                error, 'We could not save your changes right now. Please try again later.');
+
+            setValidationIssues(failure.validationIssues);
+            toastError(failure.message);
+        }
     };
 
+    // The SAME self-contained element a list surface would carry — one projection for the
+    // whole family. showContentExpanded on the panel keeps the full content standing: a cut
+    // with a read-more that leads here would point at itself.
     const searchItem = useMemo(
         () => contentItem == null
             ? undefined
-            : {
-                ...toContentItemSearchItem(contentItem, contentItemSettings ?? []),
-
-                // The swapped-in amendments, where a save made some.
-                ...(amendedItem == null
-                    ? {}
-                    : {
-                        title: amendedItem.title,
-                        author: amendedItem.author,
-                        content: amendedItem.content,
-                        shareabilityBasis: amendedItem.shareabilityBasis,
-                        sharePermission: amendedItem.sharePermission
-                    })
-            },
-        [contentItem, contentItemSettings, amendedItem]);
+            : toContentItemSearchItem(contentItem, contentItemSettings ?? []),
+        [contentItem, contentItemSettings]);
 
     // The same resolver and hasTitle rule the panel applies — see postDetail, which this page
     // mirrors: an earlier hand-rolled copy of this logic drifted immediately.
@@ -158,7 +171,9 @@ export function MyPostDetail() {
                                 showContentExpanded
                                 showTagSection={false}
                                 showBibleReferenceSection={false}
-                                onModified={saveChanges}
+                                onModified={saveChangesAsync}
+                                validationIssues={validationIssues}
+                                isSubmitting={modifyContentItem.isPending}
                                 contentItemSettingCollection={contentItemSettings ?? []} />
                         </div>
 

@@ -1,6 +1,8 @@
 import { ComponentType, ReactElement, Suspense, lazy } from 'react';
 import { RouteObject } from 'react-router-dom';
 import SidebarLayout from '../components/layouts/sidebarLayout';
+import { PostDetailPage } from '../pages/admin/postDetailPage';
+import { PostsPage } from '../pages/admin/postsPage';
 import { SecuredRoute } from '../components/securitys/securedRoutes';
 import { Spinner } from '../components/coreUI/spinner';
 import securityPoints from '../securityMatrix';
@@ -309,4 +311,29 @@ export const samplePagesRoutes: RouteObject[] = [
         path: 'SamplePages/Dashboard',
         element: secured(<DashboardSample />),
     },
+
+            {
+                // THE DEMO POST TABLE. Moved off Admin/SamplePosts, where it sat beside the real
+                // moderation queue with only the word "sample" telling them apart. Same page,
+                // same security points — it is the address that was wrong, not the surface.
+                path: 'SamplePages/Posts',
+                element:
+                    <SecuredRoute allowedRoles={securityPoints.posts.view}>
+                        <PostsPage />
+                    </SecuredRoute>,
+            },
+            {
+                path: 'SamplePages/Posts/New',
+                element:
+                    <SecuredRoute allowedRoles={securityPoints.posts.add}>
+                        <PostDetailPage />
+                    </SecuredRoute>,
+            },
+            {
+                path: 'SamplePages/Posts/:postId',
+                element:
+                    <SecuredRoute allowedRoles={securityPoints.posts.edit}>
+                        <PostDetailPage />
+                    </SecuredRoute>,
+            },
 ];

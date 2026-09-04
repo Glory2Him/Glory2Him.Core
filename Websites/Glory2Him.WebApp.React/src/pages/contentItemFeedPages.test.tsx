@@ -1,6 +1,7 @@
 import { ReactElement } from 'react';
 import { render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import userEvent from '@testing-library/user-event';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Home } from './home';
 import { MyPosts } from './myPosts';
@@ -95,10 +96,22 @@ const contentItemFor = (overrides: Partial<ContentItem> = {}): ContentItem => ({
     ...overrides
 });
 
+// Where a click LANDED. The pages navigate rather than link, so the address is the only
+// evidence of where a card leads — and on the admin surface it is the whole point.
+const LocationProbe = () => {
+    const location = useLocation();
+
+    return <span data-testid="location">{location.pathname}</span>;
+};
+
+const landedOn = (): string | null =>
+    screen.getByTestId('location').textContent;
+
 const renderPage = (page: ReactElement, initialUrl = '/') =>
     render(
         <MemoryRouter initialEntries={[initialUrl]}>
             <AuthProvider>{page}</AuthProvider>
+            <LocationProbe />
         </MemoryRouter>);
 
 describe('The content item feed pages', () => {
@@ -232,6 +245,87 @@ describe('The content item feed pages', () => {
             // then
             expect(screen.getByRole('heading', { name: 'Posts awaiting moderation', level: 1 }))
                 .toBeInTheDocument();
+        });
+
+        /// A moderator who steps into a post is still working the queue. The public route would
+        /// swap the chrome out from under them and lose the filtered page they were part-way
+        /// through, so every way into an item from here keeps the admin address.
+        it('should keep Edit inside the admin area rather than the public post route',
+            async () => {
+                // given
+                signInAs(authState, ['Administrators']);
+                renderPage(<ContentItemModerationPage />, '/Admin/Posts');
+
+                // when
+                await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
+
+                // then
+                expect(landedOn()).toBe('/Admin/Posts/devotional-1');
+                expect(landedOn()).not.toBe('/posts/devotional-1');
+            });
+
+        it('should send the card title to the same admin address as Edit', async () => {
+            // given
+            signInAs(authState, ['Administrators']);
+            renderPage(<ContentItemModerationPage />, '/Admin/Posts');
+
+            // when
+            await userEvent.click(
+                screen.getByRole('button', { name: 'Grace for the ordinary Tuesday' }));
+
+            // then
+            expect(landedOn()).toBe('/Admin/Posts/devotional-1');
+        });
+
+        /// Every row the panel renders is already a card, so framing the panel in another one
+        /// is chrome inside chrome — a second border and card-body padding narrowing every row
+        /// for nothing. The public feeds render this same panel bare.
+        it('should render the panel bare, without a card around the cards', () => {
+            // given
+            signInAs(authState, ['Administrators']);
+
+            // when
+            const { container } = renderPage(
+                <ContentItemModerationPage />, '/Admin/Posts');
+
+            // then
+            expect(container.querySelector('.g2h-content-item-list-panel'))
+                .toBeInTheDocument();
+
+            expect(container.querySelector('.card-body > .g2h-content-item-list-panel'))
+                .toBeNull();
+        });
+    });
+
+    /// MODERATING IS ADMIN WORK. Every feed that offers it sends the moderator to the item's
+    /// admin address — the public page is a reading surface with no moderation controls on it,
+    /// so a moderator sent there arrived nowhere useful. The origin rides in state either way,
+    /// which is what gives the admin page a true way back to the feed they left.
+    describe('the moderate destination', () => {
+        beforeEach(() => {
+            signInAs(authState, ['Administrators']);
+        });
+
+        it('should send a moderator from the home feed to the admin address', async () => {
+            // given
+            renderPage(<Home />);
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Moderate' }));
+
+            // then
+            expect(landedOn()).toBe('/Admin/Posts/devotional-1');
+        });
+
+        it('should send a moderator from my posts to the admin address', async () => {
+            // given
+            renderPage(<MyPosts />, '/myposts');
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Moderate' }));
+
+            // then
+            expect(landedOn()).toBe('/Admin/Posts/devotional-1');
         });
     });
 });

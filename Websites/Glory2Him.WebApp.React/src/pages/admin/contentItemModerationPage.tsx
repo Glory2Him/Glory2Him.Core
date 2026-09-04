@@ -2,7 +2,6 @@ import { useMemo } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { ContentItemListPanel } from '../../components/contentItems/contentItemListPanel';
 import { Breadcrumb } from '../../components/coreUI/breadcrumb';
-import { Card } from '../../components/coreUI/card';
 import { BreadcrumbItem } from '../../models/coreUI/breadcrumbItem';
 import { useContentItemEngagement } from '../../hooks/useContentItemEngagement';
 
@@ -93,18 +92,25 @@ export function ContentItemModerationPage() {
     const search = (searched: ContentItemSearchCriteria) =>
         setSearchParams(toContentItemSearchParams(searched));
 
-    // The detail destination is /posts/{id} FOR NOW — the moderation detail surface is #350's
-    // work, and this builder's parameter is where it plugs in when it exists.
-    const feedNavigation = buildContentItemFeedNavigation(navigate, location);
+    // EVERY WAY INTO AN ITEM FROM HERE stays in the admin area — the title, the read-more,
+    // the comment link and Moderate alike. This is the builder's detail parameter doing the job
+    // it exists for: one destination for the whole card, so a moderator cannot fall out of the
+    // queue by clicking the heading instead of the pencil.
+    const feedNavigation = buildContentItemFeedNavigation(
+        navigate, location, (item) => `/Admin/Posts/${item.id}`);
 
     const { reactionOptions, onReactionSelected, onShareClick, onSaveClick, withViewerReactions } =
         useContentItemEngagement();
 
-    // The moderation detail surface is #350's work; until it exists Moderate leads to the
-    // item with the intent in state. This page is the MODERATED view, so every card offers
-    // Moderate alone, wearing Edit's pencil and label.
+    // MODERATE STAYS IN THE ADMIN AREA. It leads to the item's admin address, never to the
+    // public /posts/{id}: a moderator who steps into a post from here is still working the
+    // queue, and the public route would swap the chrome out from under them and lose the
+    // filtered page they were part-way through.
+    //
+    // The intent still rides in state for the surface #350 will build there. The origin rides
+    // with it, so the way back is the queue as they left it rather than a guess at history.
     const moderateContentItem = (item: { id: string }) =>
-        navigate(`/posts/${item.id}`, {
+        navigate(`/Admin/Posts/${item.id}`, {
             state: { from: `${location.pathname}${location.search}`, moderate: true }
         });
 
@@ -115,33 +121,36 @@ export function ContentItemModerationPage() {
                 <Breadcrumb items={crumbs} />
             </div>
 
-            <Card>
-                {isError ? (
-                    <div className="alert alert-danger mb-0" role="alert">
-                        We could not load the moderation queue right now. Please try again later.
-                    </div>
-                ) : (
-                    <ContentItemListPanel
-                        ariaLabel="Posts awaiting moderation"
-                        contentItemCollection={withViewerReactions(contentItems)}
-                        categorySettingCollection={contentItemSettings ?? []}
-                        criteria={criteria}
-                        onSearch={search}
-                        isLoading={isLoading}
-                        isLoadingMore={isFetchingNextPage}
-                        hasMore={hasNextPage}
-                        onLoadMore={fetchNextPage}
-                        reactionOptions={reactionOptions}
-                        onReactionSelected={onReactionSelected}
-                        onShareClick={onShareClick}
-                        onSaveClick={onSaveClick}
-                        showModerationSection
-                        showApprovalStatus
-                        onModerateClick={moderateContentItem}
-                        emptyText="Nothing is waiting for moderation. Well done."
-                        {...feedNavigation} />
-                )}
-            </Card>
+            {/* NO CARD AROUND THE PANEL. Every row the panel renders is already a card, so a
+                card around them is chrome inside chrome: a second border, and card-body padding
+                on both sides that narrows every quote and title for nothing. The public feeds
+                (home, /posts, /myposts) render this same panel bare, and the queue is the same
+                family in the admin shell — not a different one that needs framing. */}
+            {isError ? (
+                <div className="alert alert-danger" role="alert">
+                    We could not load the moderation queue right now. Please try again later.
+                </div>
+            ) : (
+                <ContentItemListPanel
+                    ariaLabel="Posts awaiting moderation"
+                    contentItemCollection={withViewerReactions(contentItems)}
+                    categorySettingCollection={contentItemSettings ?? []}
+                    criteria={criteria}
+                    onSearch={search}
+                    isLoading={isLoading}
+                    isLoadingMore={isFetchingNextPage}
+                    hasMore={hasNextPage}
+                    onLoadMore={fetchNextPage}
+                    reactionOptions={reactionOptions}
+                    onReactionSelected={onReactionSelected}
+                    onShareClick={onShareClick}
+                    onSaveClick={onSaveClick}
+                    showModerationSection
+                    showApprovalStatus
+                    onModerateClick={moderateContentItem}
+                    emptyText="Nothing is waiting for moderation. Well done."
+                    {...feedNavigation} />
+            )}
         </>
     );
 }
