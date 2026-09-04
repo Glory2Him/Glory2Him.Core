@@ -15,7 +15,7 @@ import { postService } from '../../services/foundations/postService';
 
 const crumbs: BreadcrumbItem[] = [
     { title: 'Admin' },
-    { title: 'Sample Posts', href: '/Admin/SamplePosts', isActive: true },
+    { title: 'Sample Posts', href: '/SamplePages/Posts', isActive: true },
 ];
 
 const columns: DataTableColumn<PostView>[] = [
@@ -55,8 +55,8 @@ export const PostsPage = () => {
     }, []);
 
     // Creating and editing both happen on their own addressable page, so the list only routes.
-    const createPost = () => navigate('/Admin/SamplePosts/New');
-    const editPost = (postId: string) => navigate(`/Admin/SamplePosts/${postId}`);
+    const createPost = () => navigate('/SamplePages/Posts/New');
+    const editPost = (postId: string) => navigate(`/SamplePages/Posts/${postId}`);
 
     return (
         <>

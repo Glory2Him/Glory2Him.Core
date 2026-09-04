@@ -133,7 +133,7 @@ export default function UserMenuComponent(): ReactElement {
                     <li><Link className="dropdown-item d-flex align-items-center" to="/Account/Manage/Email"><i className="bi bi-gear fa-fw me-2"></i>Settings</Link></li>
                     <li><Link className="dropdown-item d-flex align-items-center" to="/Account/Manage/ChangePassword"><i className="bi bi-shield-lock fa-fw me-2"></i>Password</Link></li>
                     <SecuredComponent allowedRoles={securityPoints.admin.view}>
-                        <li><Link className="dropdown-item d-flex align-items-center" to="/Admin/SamplePosts"><i className="bi bi-files fa-fw me-2"></i>Projects</Link></li>
+                        <li><Link className="dropdown-item d-flex align-items-center" to="/SamplePages/Posts"><i className="bi bi-files fa-fw me-2"></i>Projects</Link></li>
                     </SecuredComponent>
 
                     <li><hr className="dropdown-divider" /></li>

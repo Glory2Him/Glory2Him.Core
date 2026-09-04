@@ -10,8 +10,6 @@ import {
 } from '../pages/admin/contentItemModerationDetailPage';
 
 import { ContentItemModerationPage } from '../pages/admin/contentItemModerationPage';
-import { PostDetailPage } from '../pages/admin/postDetailPage';
-import { PostsPage } from '../pages/admin/postsPage';
 import { UserDetailPage } from '../pages/admin/userDetailPage';
 import { UsersPage } from '../pages/admin/usersPage';
 
@@ -86,27 +84,6 @@ export const adminRoutes: RouteObject[] = [
                 element:
                     <SecuredRoute allowedRoles={securityPoints.contentItems.view}>
                         <ContentItemModerationDetailPage />
-                    </SecuredRoute>,
-            },
-            {
-                path: 'Admin/SamplePosts',
-                element:
-                    <SecuredRoute allowedRoles={securityPoints.posts.view}>
-                        <PostsPage />
-                    </SecuredRoute>,
-            },
-            {
-                path: 'Admin/SamplePosts/New',
-                element:
-                    <SecuredRoute allowedRoles={securityPoints.posts.add}>
-                        <PostDetailPage />
-                    </SecuredRoute>,
-            },
-            {
-                path: 'Admin/SamplePosts/:postId',
-                element:
-                    <SecuredRoute allowedRoles={securityPoints.posts.edit}>
-                        <PostDetailPage />
                     </SecuredRoute>,
             },
         ],
