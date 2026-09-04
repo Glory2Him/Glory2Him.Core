@@ -126,15 +126,33 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
 
             if (approvalMatch is null)
             {
-                // Born Draft, never Submitted. Only the submit action moves it (§9.2), so
-                // creating one at Submitted here would let content enter review without anyone
-                // having offered it (§9.7.2 rule 1).
+                // OPENED AT THE STATUS THE ENTITY WAS CREATED AT (§9.2 rules 1–2): a create at
+                // Submitted creates the approval at Submitted and enters review immediately; a
+                // create at Draft creates it at Draft, and the flow stops there (§9.7.3 rule
+                // 1). Read off the entity's own row, never inferred — and anything else,
+                // including a row that could not be read, opens at Draft: nothing enters
+                // review on a status nobody offered.
+                ApprovalStatus? entityApprovalStatus =
+                    await this.accessBroker.RetrieveEntityApprovalStatusAsync(
+                        entityType: entityType,
+                        entityId: entityId,
+                        cancellationToken: cancellationToken);
+
+                ApprovalStatus openingStatus = entityApprovalStatus == ApprovalStatus.Submitted
+                    ? ApprovalStatus.Submitted
+                    : ApprovalStatus.Draft;
+
+                // THE ID IS MINTED HERE. The foundation stamps the audit fields itself but
+                // refuses an empty Id, so a row handed over without one was refused on every
+                // add this flow ever made — and every unit test mocked the foundation, so the
+                // round that never opened was never seen to fail.
                 return await this.approvalService.AddApprovalAsync(
                     approval: new Approval
                     {
+                        Id = Guid.NewGuid(),
                         EntityType = entityType,
                         EntityId = entityId,
-                        ApprovalStatus = ApprovalStatus.Draft,
+                        ApprovalStatus = openingStatus,
                     },
                     cancellationToken: cancellationToken);
             }

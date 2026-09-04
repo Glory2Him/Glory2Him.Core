@@ -13,6 +13,7 @@ using System.Text.RegularExpressions;
 using Glory2Him.Core.Brokers.Hashes;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.WebApp.Models.Foundations.Users;
 using Microsoft.AspNetCore.Identity;
@@ -91,7 +92,54 @@ namespace Glory2Him.WebApp.Data
                     await storageBroker.InsertContentItemAsync(contentItem);
                 }
             }
+
+            // EACH ITEM'S ROUND, beside it. Every read a moderation screen makes keys on the
+            // Approval (§16.7.2), and §9.8 makes the approval the source of truth the entity's
+            // status merely mirrors — so a seeded item with no approval is an item the screen
+            // cannot say anything about. The added flow would have opened the round had a fact
+            // been published, and no fact is published for a row written straight to storage.
+            //
+            // Checked SEPARATELY from the item, because databases seeded before this existed
+            // have the items and not the rounds: an item that is already there still gets its
+            // approval on the next start.
+            foreach (Approval approval in BuildSeedApprovals(seedContentItems))
+            {
+                bool alreadySeeded = await storageBroker.ExistsApprovalAsync(approval.Id);
+
+                if (alreadySeeded is false)
+                {
+                    await storageBroker.InsertApprovalAsync(approval);
+                }
+            }
         }
+
+        // One Approval per seeded item, at the item's own status — the value §9.8 requires the
+        // two to share — and stamped as the item is, by the same contributor at the same
+        // moment. Nothing here is a bypass: a seeded Approved row is shipped approved, exactly
+        // as ReactionSeedData ships its vocabulary. INTERNAL for the same reason the items are.
+        internal static IReadOnlyList<Approval> BuildSeedApprovals(
+            IReadOnlyList<ContentItem> seedContentItems) =>
+            seedContentItems
+                .Select(contentItem => new Approval
+                {
+                    Id = ApprovalIdFor(contentItem.Id),
+                    EntityType = EntityType.ContentItem,
+                    EntityId = contentItem.Id,
+                    ApprovalStatus = contentItem.ApprovalStatus,
+                    IsApprovedByBypass = false,
+                    ApprovedByBypassReason = null,
+                    IsDeleted = false,
+                    CreatedBy = contentItem.CreatedBy,
+                    CreatedWhen = contentItem.CreatedWhen,
+                    UpdatedBy = contentItem.UpdatedBy,
+                    UpdatedWhen = contentItem.UpdatedWhen
+                })
+                .ToList();
+
+        // The item's own id under a different prefix: deterministic, so a restart finds the
+        // round it wrote last time, and readable, so a table dump pairs the two at a glance.
+        internal static Guid ApprovalIdFor(Guid contentItemId) =>
+            new($"6b3a9c21-8e54-4a78-9d2f-{contentItemId.ToString("N")[^12..]}");
 
         // THE MATRIX ITSELF, separated from the writing of it. INTERNAL rather than private so
         // ContentItemSeedTests can pin the 32 slots, their identifiers and their published state

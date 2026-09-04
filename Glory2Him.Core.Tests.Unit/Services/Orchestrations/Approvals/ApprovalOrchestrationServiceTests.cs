@@ -267,6 +267,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                         .ReturnsAsync(bypassVerdict);
         }
 
+        private void SetupEntityApprovalStatus(
+            EntityType entityType,
+            Guid entityId,
+            ApprovalStatus? entityApprovalStatus) =>
+            this.accessBrokerMock.Setup(broker =>
+                broker.RetrieveEntityApprovalStatusAsync(
+                    entityType,
+                    entityId,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(entityApprovalStatus);
+
         private void SetupApprovalProbe(ApprovalEntityMatch approvalMatch) =>
             this.approvalServiceMock.Setup(service =>
                 service.FindApprovalByEntityAsync(
