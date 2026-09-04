@@ -72,6 +72,41 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(blockedUsers.ToList());
 
+        // The scope as it comes back when the entity could not be NAMED at all - the shape
+        // AccessBroker's missing-association fallback emits. Distinct from the fixture below,
+        // and the distinction is the whole point: that one names ContentItem and loses only the
+        // content type, this one loses the entity type as well, and ComposeBlockRoleNames takes
+        // a different arm for each.
+        private void SetupUnnameableReviewerScope(Guid approvalId)
+        {
+            SetupReviewerScope(approvalId: approvalId, contentType: null);
+
+            this.accessBrokerMock.Setup(broker =>
+                broker.RetrieveApprovalReviewerScopeByIdAsync(
+                    approvalId,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(new ApprovalReviewerScope
+                        {
+                            ApprovalId = approvalId,
+                            ApprovalStatus = ApprovalStatus.Submitted,
+                            EntityCreatedBy = Guid.NewGuid().ToString(),
+
+                            RoleSubjects = new[]
+                            {
+                                new RoleSubject
+                                {
+                                    EntityType = string.Empty,
+                                    ContentType = null,
+                                    IsEntityUnresolved = true,
+                                }
+                            },
+
+                            ActiveReviewerUserIds = Array.Empty<string>(),
+                            RecordedReviewerUserIds = Array.Empty<string>(),
+                            ActiveRequests = Array.Empty<ActiveReviewRequest>(),
+                        });
+        }
+
         // The scope as it comes back when the entity behind the approval could not be read -
         // the subject names its entity type but carries no content type, and says so with the
         // flag. An ABSENT content type and an UNKNOWN one must not be treated alike.

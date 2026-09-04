@@ -239,6 +239,59 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         }
 
         [Fact]
+        public async Task ShouldComposeEveryScopedBlockNameWhenTheSubjectCannotBeNamedAsync()
+        {
+            // given: the approval hangs off an association the gatherer could not read, so it
+            // can name neither endpoint and reports a blank entity type. Which entity types are
+            // even in play is what could not be established, so every scoped block goes on the
+            // list — the arm IAccessClient mirrors by matching any scoped ReadOnly.
+            //
+            // The assertion that matters is a block name for an entity type the subject NEVER
+            // NAMED. Without it this case is satisfied by the named-subject arm too, which is
+            // exactly how the arm went untested: the only fixture setting the flag also named
+            // ContentItem, so the test pointing at this branch never reached it and the branch
+            // could be deleted with the whole suite green.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
+            IEnumerable<string> capturedRoleNames = null;
+
+            SetupUnnameableReviewerScope(approvalId: Guid.NewGuid());
+            SetupTierMembers();
+
+            this.identityUserServiceMock.Setup(service =>
+                service.RetrieveIdentityUsersInRolesAsync(
+                    It.Is<IEnumerable<string>>(roleNames =>
+                        roleNames.Contains(Roles.ReadOnly)),
+                    It.IsAny<CancellationToken>()))
+                        .Callback<IEnumerable<string>, CancellationToken>(
+                            (roleNames, token) => capturedRoleNames = roleNames)
+                        .ReturnsAsync(new List<IdentityUser>());
+
+            // when
+            await this.approvalOrchestrationService.RetrieveReviewerCandidatesAsync(
+                EntityType.Association,
+                Guid.NewGuid(),
+                TestContext.Current.CancellationToken);
+
+            // then
+            var expectedRoleNames = new List<string> { Roles.ReadOnly };
+
+            foreach (EntityType entityType in Enum.GetValues<EntityType>())
+            {
+                expectedRoleNames.Add(Roles.ReadOnlyFor(entityType));
+            }
+
+            foreach (ContentType contentType in Enum.GetValues<ContentType>())
+            {
+                expectedRoleNames.Add(Roles.ReadOnlyFor(EntityType.ContentItem, contentType));
+            }
+
+            capturedRoleNames.Should().BeEquivalentTo(expectedRoleNames);
+
+            // The one assertion the named-subject arm cannot satisfy.
+            capturedRoleNames.Should().Contain(Roles.ReadOnlyFor(EntityType.Tag));
+        }
+
+        [Fact]
         public async Task ShouldExcludeANarrowlyBlockedUserFromCandidatesWhenTheSubjectIsUnresolvedAsync()
         {
             // given: the behaviour the composition above exists for. Before it, this user was
