@@ -77,6 +77,24 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Data
         internal static readonly Guid UntouchedId =
             Guid.Parse("aaaa0005-0000-0000-0000-000000000005");
 
+        /// <summary>
+        /// Two rows whose <c>NormalizedUserName</c> was never populated — what a raw SQL insert or
+        /// a legacy import that filled <c>UserName</c> alone leaves behind. <c>UserNameIndex</c> is
+        /// FILTERED (<c>WHERE NormalizedUserName IS NOT NULL</c>), so more than one such row is
+        /// legal, and both addresses share the local part <c>drew</c>.
+        ///
+        /// <para>This pair is the reason the rehearsal exists. The migration's ADMIN exclusion is
+        /// UNKNOWN for a NULL normalized name, so before <see cref="NeedsRename"/> was shared these
+        /// two were selected for rename by the outer statement and invisible to the rival subquery
+        /// that decides whether either may take the contested name — and both took it, against a
+        /// unique index.</para>
+        /// </summary>
+        internal static readonly Guid NullNormalizedFirstId =
+            Guid.Parse("aaaa0006-0000-0000-0000-000000000006");
+
+        internal static readonly Guid NullNormalizedSecondId =
+            Guid.Parse("aaaa0007-0000-0000-0000-000000000007");
+
         internal static readonly Guid BlockedWithoutEmailId =
             Guid.Parse("bbbb0001-0000-0000-0000-000000000001");
 
@@ -86,11 +104,22 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Data
 
         internal IReadOnlyDictionary<Guid, string> UserNamesById => this.userNamesById;
 
+        /// <summary>
+        /// Carried alongside the plain name because <c>NormalizedUserName</c> is the column the
+        /// sign-in lookup resolves against — a row renamed in one and not the other would look
+        /// repaired in the admin UI and match nothing at the gate.
+        /// </summary>
+        internal IReadOnlyDictionary<Guid, string> NormalizedUserNamesById =>
+            this.normalizedUserNamesById;
+
         internal string BlockedFailureMessage { get; private set; } = string.Empty;
 
         internal static int BlockedAccounts => BlockedAccountCount;
 
         private readonly Dictionary<Guid, string> userNamesById = new Dictionary<Guid, string>();
+
+        private readonly Dictionary<Guid, string> normalizedUserNamesById =
+            new Dictionary<Guid, string>();
 
         public async ValueTask InitializeAsync()
         {
@@ -160,7 +189,9 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Data
                 CreateUser(CollidesOnLocalPartId, "chris@a.example", "chris@a.example"),
                 CreateUser(RivalForLocalPartId, "chris@b.example", "chris@b.example"),
                 CreateUser(AccentedLocalPartId, "jose@old.example", AccentedLocalPart + "@new.example"),
-                CreateUser(UntouchedId, "already.legal-1_x", "already@legal.example"));
+                CreateUser(UntouchedId, "already.legal-1_x", "already@legal.example"),
+                CreateUserWithoutNormalizedName(NullNormalizedFirstId, "drew@a.example"),
+                CreateUserWithoutNormalizedName(NullNormalizedSecondId, "drew@b.example"));
 
             await securityDbContext.SaveChangesAsync();
         }
@@ -209,7 +240,18 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Data
             foreach (AppUser user in users)
             {
                 this.userNamesById[user.Id] = user.UserName ?? string.Empty;
+                this.normalizedUserNamesById[user.Id] = user.NormalizedUserName ?? string.Empty;
             }
+        }
+
+        // NormalizedUserName left NULL on purpose. UserManager could never produce this; a direct
+        // insert can, and the filtered unique index permits any number of them.
+        private static AppUser CreateUserWithoutNormalizedName(Guid userId, string userName)
+        {
+            AppUser user = CreateUser(userId, userName, $"{userName}");
+            user.NormalizedUserName = null;
+
+            return user;
         }
 
         private static AppUser CreateUser(Guid userId, string userName, string? email) =>

@@ -12,6 +12,7 @@
 using System.Linq;
 using FluentAssertions;
 using Glory2Him.WebApp.Models.Foundations.Users;
+using Glory2Him.WebApp.Tests.Acceptance.Brokers;
 using Xunit;
 
 namespace Glory2Him.WebApp.Tests.Acceptance.Data
@@ -25,6 +26,13 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Data
     /// these prove the migration repairs the ones already stored, and refuses the database it
     /// cannot repair.</para>
     /// </summary>
+    // ApiBroker's collection fixture DROPS EVERY CATALOGUE in AcceptanceDatabaseBroker.DatabaseNames
+    // in its constructor — including the two this rehearsal creates. Without this attribute the
+    // class forms its own xUnit collection and runs concurrently with that drop: measured, the drop
+    // and this rehearsal's CREATE DATABASE were 439 ms apart on one run, with the host's own create
+    // interleaved between them. RoleVocabularyMigrationTests carries the same attribute for the
+    // same reason.
+    [Collection(nameof(ApiTestCollection))]
     public class UserNameRenameMigrationTests
         : IClassFixture<UserNameRenameMigrationRehearsal>
     {
@@ -110,6 +118,43 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Data
             actualUserNames.Should().OnlyContain(userName =>
                 userName.Length > 0 && userName.All(character =>
                     allowedCharacters.Contains(character)));
+        }
+
+        // Both halves or neither. NormalizedUserName is what the sign-in lookup matches, so a row
+        // renamed in UserName alone would look repaired and match nothing.
+        [Fact]
+        public void ShouldCarryEveryRenameIntoTheNormalizedColumnToo()
+        {
+            // given . when
+            var actual = this.rehearsal.UserNamesById;
+            var actualNormalized = this.rehearsal.NormalizedUserNamesById;
+
+            // then
+            actual.Should().NotBeEmpty();
+
+            foreach (var renamed in actual)
+            {
+                actualNormalized[renamed.Key].Should().Be(renamed.Value.ToUpperInvariant());
+            }
+        }
+
+        // The population the ISNULL in NeedsRename admits: NormalizedUserName never populated, so
+        // the ADMIN exclusion answers UNKNOWN. Both rows want "drew", and UserNameIndex is unique
+        // — so if the rival subquery cannot see them, the migration dies on the index.
+        [Fact]
+        public void ShouldResolveACollisionBetweenTwoRowsWhoseNormalizedNameWasNeverSet()
+        {
+            // given . when
+            string first =
+                this.rehearsal.UserNamesById[UserNameRenameMigrationRehearsal.NullNormalizedFirstId];
+
+            string second =
+                this.rehearsal.UserNamesById[UserNameRenameMigrationRehearsal.NullNormalizedSecondId];
+
+            // then
+            first.Should().NotBe("drew");
+            second.Should().NotBe("drew");
+            first.Should().NotBe(second);
         }
 
         // A rename takes the username away, so the address is all that is left to sign in with.

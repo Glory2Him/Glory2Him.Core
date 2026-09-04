@@ -62,7 +62,9 @@ namespace Glory2Him.WebApp.Data.Migrations
     /// taken only when it is already a legal username and genuinely free, checked against every
     /// existing row AND against the other rows this same statement is about to rename, which is
     /// the collision <c>UserNameIndex</c> would otherwise refuse: <c>chris@a.org</c> and
-    /// <c>chris@b.org</c> both want <c>chris</c>. The second pass takes whatever the first left
+    /// <c>chris@b.org</c> both want <c>chris</c>. Both sides of that check compose from
+    /// <see cref="NeedsRename"/>, so "which rows are about to be renamed" cannot mean one thing in
+    /// the outer statement and another in the subquery that guards it. The second pass takes whatever the first left
     /// and derives a name from the row's own id, which cannot collide with anything.</para>
     ///
     /// <para>NOT DERIVED FROM Name/Surname, though <c>SuggestUsernamesAsync</c> exists and does
@@ -94,13 +96,39 @@ namespace Glory2Him.WebApp.Data.Migrations
                            OR {columnExpression} COLLATE Latin1_General_BIN2
                                LIKE N'%[^-a-zA-Z0-9._+]%')";
 
-        // The rows this migration owes a rename. Not "contains @": the test is the one Identity
-        // itself will apply, so a row this migration leaves behind is exactly a row the application
-        // cannot write to.
-        private static string AffectedRows =>
-            IsIllegalUserName("affected.[UserName]")
-                + @"
-                       AND ISNULL(affected.[NormalizedUserName], N'') <> N'ADMIN'";
+        // The rows this migration owes a rename, for ANY alias. Not "contains @": the test is the
+        // one Identity itself will apply, so a row this migration leaves behind is exactly a row
+        // the application cannot write to.
+        //
+        // Parameterised by alias because this predicate is asked in five places, and it has twice
+        // now been edited in four of them - leaving `rival` behind, which is precisely the sibling
+        // that decides whether two rows may claim the same name. ISNULL is load-bearing:
+        // NormalizedUserName is nullable, NULL <> N'ADMIN' is UNKNOWN, and a row that answers
+        // UNKNOWN silently drops out of whichever test forgot it.
+        private static string NeedsRename(string alias) =>
+            IsIllegalUserName($"{alias}.[UserName]")
+                + $@"
+                       AND ISNULL({alias}.[NormalizedUserName], N'') <> N'ADMIN'";
+
+        private static string AffectedRows => NeedsRename("affected");
+
+        // "This row has no address left to sign in with", for any alias.
+        //
+        // NormalizedEmail, NOT Email: that is the column FindByEmailAsync matches, and the two are
+        // independent - nothing in SQL keeps them in step.
+        //
+        // It ERRS TOWARDS ALLOWING, deliberately. An earlier form asked whether the value contained
+        // a Latin alphanumeric, which refused a wholly non-Latin address that resolves perfectly
+        // well and stopped the deploy over a working account. Refusing a real account is worse than
+        // renaming an odd one, so the test is emptiness and nothing more. The strip list is not
+        // exhaustive over Unicode whitespace and is not trying to be; leading and trailing spaces
+        // need no stripping because SQL Server's = ignores them.
+        private static string HasNoUsableEmail(string alias) =>
+            $@"({alias}.[NormalizedEmail] IS NULL
+                               OR REPLACE(REPLACE(REPLACE(REPLACE(
+                                   {alias}.[NormalizedEmail],
+                                   NCHAR(9), N''), NCHAR(10), N''), NCHAR(13), N''), NCHAR(160), N'')
+                                   = N'')";
 
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -113,18 +141,9 @@ namespace Glory2Him.WebApp.Data.Migrations
             // they could type. Pass two would happily do that — its candidate is derived from the
             // row's id, so it does not care whether the Email column has anything in it.
             //
-            // IT IS NormalizedEmail THAT IS CHECKED, NOT Email, because NormalizedEmail is the
-            // column FindByEmailAsync actually matches. The two are independent columns and nothing
-            // in SQL keeps them in step, so guarding Email would pass a row whose NormalizedEmail is
-            // null — stranded exactly as if it had no address at all.
-            //
-            // Deliberately NOT "the address must contain '@'". A row whose address column holds
-            // something odd still resolves, because the lookup matches a normalized string rather
-            // than parsing an address — so refusing it would stop a deploy over an account that
-            // signs in perfectly well. The provable stranding is an empty column, and that is all
-            // this refuses. Tabs, newlines and carriage returns are stripped before the emptiness
-            // test because LTRIM/RTRIM removes spaces ONLY; trailing spaces need no stripping,
-            // because SQL Server's = ignores them.
+            // What counts as "no address" is HasNoUsableEmail, and the reasoning for the column it
+            // reads and for how little it refuses lives on that helper rather than being restated
+            // here - restating it is how this comment came to describe code that had been deleted.
             //
             // There is no repair a migration could choose here. Inventing an address, or leaving the
             // account with an unusable username, are both worse than stopping and saying so.
@@ -133,11 +152,13 @@ namespace Glory2Him.WebApp.Data.Migrations
                        SELECT STRING_AGG(CONVERT(nvarchar(max), affected.[Id]), N', ')
                        FROM [AspNetUsers] affected
                        WHERE {AffectedRows}
-                           AND (affected.[NormalizedEmail] IS NULL
-                               OR affected.[NormalizedEmail] NOT LIKE N'%[A-Za-z0-9]%'));
+                           AND {HasNoUsableEmail("affected")});
 
                    DECLARE @strandedCount int = (
-                       SELECT COUNT(*) FROM STRING_SPLIT(@strandedIds, N','));
+                       SELECT COUNT(*)
+                       FROM [AspNetUsers] affected
+                       WHERE {AffectedRows}
+                           AND {HasNoUsableEmail("affected")});
 
                    IF @strandedIds IS NOT NULL
                    BEGIN
@@ -174,7 +195,15 @@ namespace Glory2Him.WebApp.Data.Migrations
                                    AND other.[NormalizedEmail] = affected.[NormalizedEmail]));
 
                    DECLARE @sharedCount int = (
-                       SELECT COUNT(*) FROM STRING_SPLIT(@sharedIds, N','));
+                       SELECT COUNT(*)
+                       FROM [AspNetUsers] affected
+                       WHERE {AffectedRows}
+                           AND affected.[NormalizedEmail] IS NOT NULL
+                           AND EXISTS (
+                               SELECT 1
+                               FROM [AspNetUsers] other
+                               WHERE other.[Id] <> affected.[Id]
+                                   AND other.[NormalizedEmail] = affected.[NormalizedEmail]));
 
                    IF @sharedIds IS NOT NULL
                    BEGIN
@@ -215,8 +244,7 @@ namespace Glory2Him.WebApp.Data.Migrations
                            SELECT 1
                            FROM [AspNetUsers] rival
                            WHERE rival.[Id] <> affected.[Id]
-                               AND {IsIllegalUserName("rival.[UserName]")}
-                               AND rival.[NormalizedUserName] <> N'ADMIN'
+                               AND {NeedsRename("rival")}
                                AND UPPER(LEFT(
                                    rival.[Email],
                                    NULLIF(CHARINDEX(N'@', rival.[Email]), 0) - 1))

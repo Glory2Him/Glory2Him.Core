@@ -18,7 +18,7 @@ using Microsoft.Extensions.Configuration;
 namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
 {
     /// <summary>
-    /// The five databases this suite runs against, and their whole lifecycle.
+    /// The seven databases this suite runs against, and their whole lifecycle.
     ///
     /// <para>The acceptance host boots the real portal, so it touches every store the portal
     /// has: Core's schema, the EventHighway substrate, and Identity. Before this existed the
