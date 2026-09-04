@@ -79,6 +79,28 @@ describe('SidebarLayout', () => {
             .toHaveAttribute('aria-expanded', 'true');
     });
 
+    /// AN ARIA RELATIONSHIP TO NOTHING IS WORSE THAN NONE. The menu is unmounted when folded,
+    /// so naming it in aria-controls then points a screen reader at an element that is not in
+    /// the document. aria-expanded carries the state in both directions regardless.
+    it('should name the menu in aria-controls only while there is one', async () => {
+        // given
+        renderLayout();
+        const shownToggle = screen.getByRole('button', { name: 'Collapse the menu' });
+        const menuId = shownToggle.getAttribute('aria-controls');
+
+        // then: shown, it names an element that is actually there
+        expect(menuId).toBeTruthy();
+        expect(document.getElementById(menuId as string)).toBeInTheDocument();
+
+        // when
+        await userEvent.click(shownToggle);
+
+        // then: folded, it names nothing rather than something absent
+        const foldedToggle = screen.getByRole('button', { name: 'Expand the menu' });
+        expect(foldedToggle).not.toHaveAttribute('aria-controls');
+        expect(foldedToggle).toHaveAttribute('aria-expanded', 'false');
+    });
+
     /// Links that a screen reader can still reach while nobody else can see them are worse
     /// than absent, so the menu goes rather than being hidden — and comes back whole.
     it('should take the menu links away and bring them all back', async () => {

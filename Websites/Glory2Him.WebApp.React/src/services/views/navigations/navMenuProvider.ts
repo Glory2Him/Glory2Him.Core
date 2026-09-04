@@ -164,6 +164,11 @@ const getFullNavMenu = (): NavItem[] => [
                 roles: administratorsOnly, requiresAuth: true
             },
             {
+                title: "Approval Settings", icon: "bi-shield-check",
+                href: "Admin/ApprovalSettings",
+                roles: administratorsOnly, requiresAuth: true
+            },
+            {
                 title: "Posts", icon: "bi-file-earmark-text", href: "Admin/Posts",
                 roles: administratorsOnly, requiresAuth: true
             },

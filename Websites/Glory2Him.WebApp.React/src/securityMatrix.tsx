@@ -11,6 +11,12 @@ const securityPoints = {
         edit: ['Administrators'],
         delete: ['Administrators'],
     },
+    approvalSettings: {
+        view: ['Administrators'],
+        add: ['Administrators'],
+        edit: ['Administrators'],
+        delete: ['Administrators'],
+    },
     posts: {
         view: ['Administrators'],
         add: ['Administrators'],

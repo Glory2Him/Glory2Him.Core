@@ -3,6 +3,8 @@ import SidebarLayout from '../components/layouts/sidebarLayout';
 import { SecuredRoute } from '../components/securitys/securedRoutes';
 import securityPoints from '../securityMatrix';
 import { Dashboard } from '../pages/dashboard';
+import { ApprovalSettingDetailPage } from '../pages/admin/approvalSettingDetailPage';
+import { ApprovalSettingsPage } from '../pages/admin/approvalSettingsPage';
 import { ContentItemSettingDetailPage } from '../pages/admin/contentItemSettingDetailPage';
 import { ContentItemSettingsPage } from '../pages/admin/contentItemSettingsPage';
 import {
@@ -53,6 +55,31 @@ export const adminRoutes: RouteObject[] = [
                 element:
                     <SecuredRoute allowedRoles={securityPoints.contentItemSettings.edit}>
                         <ContentItemSettingDetailPage />
+                    </SecuredRoute>,
+            },
+            {
+                path: 'Admin/ApprovalSettings',
+                element:
+                    <SecuredRoute allowedRoles={securityPoints.approvalSettings.view}>
+                        <ApprovalSettingsPage />
+                    </SecuredRoute>,
+            },
+            {
+                // CREATE IS ITS OWN ROUTE, ahead of the id route: the host seeds the
+                // entity-type defaults, but a content-type policy is an administrator's to
+                // write, and adding a policy is a different permission from amending one. A
+                // static segment outranks a dynamic one, so New never reads as an id.
+                path: 'Admin/ApprovalSettings/New',
+                element:
+                    <SecuredRoute allowedRoles={securityPoints.approvalSettings.add}>
+                        <ApprovalSettingDetailPage isNew />
+                    </SecuredRoute>,
+            },
+            {
+                path: 'Admin/ApprovalSettings/:approvalSettingId',
+                element:
+                    <SecuredRoute allowedRoles={securityPoints.approvalSettings.edit}>
+                        <ApprovalSettingDetailPage />
                     </SecuredRoute>,
             },
             {

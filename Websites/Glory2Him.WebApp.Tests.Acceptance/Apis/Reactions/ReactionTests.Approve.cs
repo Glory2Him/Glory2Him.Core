@@ -29,6 +29,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Reactions
             // given
             string authorUserId = Guid.NewGuid().ToString();
             string reviewerUserId = Guid.NewGuid().ToString();
+            string secondReviewerUserId = Guid.NewGuid().ToString();
 
             CoreReaction submittedReaction =
                 await this.apiBroker.InsertSubmittedReactionAsync(authorUserId);
@@ -39,6 +40,12 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Reactions
 
             ApprovalReview approvalReview =
                 await this.apiBroker.InsertApprovedReviewAsync(approval.Id, reviewerUserId);
+
+            // The seeded default policy requires TWO approvals (ApprovalSettingSeedData), each
+            // from a reviewer who is not the author — one standing approval leaves the round
+            // one short and the transition is refused rather than made.
+            ApprovalReview secondApprovalReview =
+                await this.apiBroker.InsertApprovedReviewAsync(approval.Id, secondReviewerUserId);
 
             Reaction inputReaction = await this.apiBroker.GetReactionByIdAsync(submittedReaction.Id);
             inputReaction.ApprovalStatus = ApprovalStatus.Approved;
@@ -63,6 +70,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Reactions
                 // In FK order, and outside the assertions — the arranged rows have no owning
                 // endpoint, so a failure here would orphan an Approval and an ApprovalReview in
                 // a database nothing else resets.
+                await this.apiBroker.RemoveApprovalReviewAsync(secondApprovalReview);
                 await this.apiBroker.RemoveApprovalReviewAsync(approvalReview);
                 await this.apiBroker.RemoveApprovalAsync(approval);
                 await this.apiBroker.RemoveCoreReactionAsync(

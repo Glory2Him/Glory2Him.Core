@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -79,6 +79,45 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             actualVerdict.BlockReasons.Single().Message.Should().Be(
                 "Your account is restricted to read-only for this content, so you cannot "
                     + "review or approve it.");
+        }
+
+        /// THE ONE SUBTRACTION IS THE AUTHOR, and it is theirs alone. A tier member who did not
+        /// write the content is offered however they hold their tier — including an
+        /// Administrator, since Administrators are named in the candidate roles alongside
+        /// Reviewers and Publishers. Pinned because the live picker read empty for an
+        /// administrator looking at their own contribution while a second administrator existed,
+        /// and "the author is subtracted" is only the right answer if it subtracts nobody else.
+        [Fact]
+        public async Task ShouldOfferAnAdministratorWhoDidNotWriteTheContentAsync()
+        {
+            // given: one administrator wrote the content, another did not. The subtraction is
+            // keyed on the ENTITY's author, not on whoever is looking.
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext(Roles.Administrators);
+
+            Guid authorId = Guid.NewGuid();
+            Guid otherAdministratorId = Guid.NewGuid();
+
+            SetupReviewerScope(
+                approvalId: Guid.NewGuid(),
+                entityCreatedBy: authorId.ToString(),
+                contentType: nameof(ContentType.Quote));
+
+            SetupTierMembers(
+                CreateIdentityUser(authorId, preferredName: "The Author"),
+                CreateIdentityUser(otherAdministratorId, preferredName: "The Other Admin"));
+
+            // when
+            IReadOnlyList<ReviewerCandidate> candidates =
+                await this.approvalOrchestrationService.RetrieveReviewerCandidatesAsync(
+                    EntityType.ContentItem,
+                    Guid.NewGuid(),
+                    TestContext.Current.CancellationToken);
+
+            // then: the author is gone and the other administrator is offered
+            candidates.Select(candidate => candidate.UserId)
+                .Should().ContainSingle()
+                .Which.Should().Be(otherAdministratorId.ToString());
         }
 
         [Fact]

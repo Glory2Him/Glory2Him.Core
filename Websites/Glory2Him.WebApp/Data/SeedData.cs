@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -206,6 +206,33 @@ namespace Glory2Him.WebApp.Data
                 name: "Christo",
                 surname: "du Toit",
                 dateOfBirth: new DateOnly(1977, 10, 8));
+
+            // THE REVIEW TIER NEEDS PEOPLE IN IT. The reviewer picker offers whoever holds a
+            // review-tier role MINUS the entity's own author (§7.9 rule 3, HR-1) — so on a
+            // database whose only tiered accounts are administrators, an administrator looking
+            // at their own contribution is offered nobody at all and the panel reads "No
+            // eligible reviewers found" while working exactly as designed.
+            //
+            // Seeded as Reviewers rather than Publishers on purpose: HR-3 bars the review tier
+            // from setting an approval status, so these four can vote on a round and never
+            // decide it, which is the distinction the moderation surface exists to show.
+            foreach ((string userName, string firstName) in new[]
+            {
+                ("jdutoit", "Joshua"),
+                ("mdutoit", "Miya"),
+                ("edutoit", "Esme"),
+                ("tdutoit", "Trish"),
+            })
+            {
+                await EnsureUserAsync(
+                    userManager,
+                    userName: userName,
+                    password: "P@ssword!",
+                    roleNames: new[] { Roles.Reviewers },
+                    email: $"{userName}@g2h.org",
+                    name: firstName,
+                    surname: "du Toit");
+            }
         }
 
         // LocalDB creates databases with AUTO_CLOSE ON (inherited from the model database), which
@@ -272,7 +299,21 @@ namespace Glory2Him.WebApp.Data
                     DateOfBirth = dateOfBirth
                 };
 
-                await userManager.CreateAsync(user, password);
+                // THE RESULT IS THE ONLY THING THAT SAYS WHY. Identity reports a refused
+                // create — a password the policy rejects, a duplicate name or email — as a
+                // FAILED result rather than an exception, so discarding it leaves a seeder that
+                // reports success and creates nobody. That is not a hypothetical: four seeded
+                // reviewers were silently absent, and with the outer retry swallowing and
+                // stdout logging off there was nothing anywhere to read.
+                IdentityResult createResult = await userManager.CreateAsync(user, password);
+
+                if (createResult.Succeeded is false)
+                {
+                    throw new InvalidOperationException(
+                        $"Seeding user '{userName}' failed: "
+                            + string.Join("; ", createResult.Errors.Select(
+                                error => $"{error.Code} {error.Description}")));
+                }
             }
 
             // Deliberately outside the creation branch. Membership used to be granted only to
@@ -292,7 +333,15 @@ namespace Glory2Him.WebApp.Data
         {
             if ((await userManager.IsInRoleAsync(user, roleName)) is false)
             {
-                await userManager.AddToRoleAsync(user, roleName);
+                IdentityResult roleResult = await userManager.AddToRoleAsync(user, roleName);
+
+                if (roleResult.Succeeded is false)
+                {
+                    throw new InvalidOperationException(
+                        $"Granting '{roleName}' to '{user.UserName}' failed: "
+                            + string.Join("; ", roleResult.Errors.Select(
+                                error => $"{error.Code} {error.Description}")));
+                }
             }
         }
     }

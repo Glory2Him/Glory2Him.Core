@@ -10,7 +10,10 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Linq;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Enums;
+using Microsoft.EntityFrameworkCore;
 using CoreApprovalSetting = Glory2Him.Core.Models.Foundations.ApprovalSettings.ApprovalSetting;
 
 namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
@@ -30,9 +33,12 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
     /// see it. With only eight <c>EntityType</c> members to hand round, it also keeps the supply
     /// of free scopes honest.</para>
     ///
-    /// <para>There is deliberately no insert arrangement. This exposer has no approval round to
-    /// open — <c>ApprovalSetting</c> carries no <c>ApprovalStatus</c> at all — so every row this
-    /// suite needs can be created through the endpoint under test.</para>
+    /// <para>The insert arrangement below exists for the default tier alone, and not to arrange
+    /// ordinary rows: <c>ApprovalSettingSeedData</c> seeds one default per entity type at
+    /// startup, so a test that needs a default slot free has to take the seeded incumbent out
+    /// and put it back exactly as it was. Everything else this suite needs is created through
+    /// the endpoint under test — this exposer has no approval round to open,
+    /// <c>ApprovalSetting</c> carrying no <c>ApprovalStatus</c> at all.</para>
     /// </summary>
     public partial class ApiBroker
     {
@@ -50,5 +56,36 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
                 await this.storageBroker.DeleteApprovalSettingAsync(storedApprovalSetting);
             }
         }
+
+        /// <summary>
+        /// The LIVE entity-type default, whatever its id — <c>ApprovalSettingSeedData</c> mints a
+        /// fresh <c>Guid</c> per environment, so it can only be found by its scope.
+        ///
+        /// <para>The <c>IsDeleted</c> term is not decoration. <c>UX_ApprovalSettings_EntityTypeDefault</c>
+        /// constrains live rows only (#326), so a scope may hold one live default alongside
+        /// soft-deleted predecessors and the scope alone no longer names a single row.</para>
+        /// </summary>
+        public async ValueTask<CoreApprovalSetting> GetCoreDefaultApprovalSettingAsync(
+            EntityType entityType)
+        {
+            IQueryable<CoreApprovalSetting> allApprovalSettings =
+                await this.storageBroker.SelectAllApprovalSettingsAsync();
+
+            return await allApprovalSettings.FirstOrDefaultAsync(
+                approvalSetting =>
+                    approvalSetting.EntityType == entityType
+                    && approvalSetting.ContentType == null
+                    && approvalSetting.IsDeleted == false);
+        }
+
+        /// <summary>
+        /// Writes a row beneath HTTP, audit fields and id included. Two callers, and they are
+        /// opposite halves of the same test: it puts the seeded default back exactly as it was
+        /// after freeing its slot, and it arranges the soft-deleted predecessor in the tier the
+        /// suite can no longer post to.
+        /// </summary>
+        public async ValueTask<CoreApprovalSetting> InsertCoreApprovalSettingAsync(
+            CoreApprovalSetting approvalSetting) =>
+            await this.storageBroker.InsertApprovalSettingAsync(approvalSetting);
     }
 }

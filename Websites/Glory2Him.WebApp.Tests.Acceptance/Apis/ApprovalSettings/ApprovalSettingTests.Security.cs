@@ -16,6 +16,7 @@ using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Securities;
 using Glory2Him.WebApp.Tests.Acceptance.Models.ApprovalSettings;
 using RESTFulSense.Exceptions;
+using CoreApprovalSetting = Glory2Him.Core.Models.Foundations.ApprovalSettings.ApprovalSetting;
 
 namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalSettings
 {
@@ -246,16 +247,19 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalSettings
         /// <summary>
         /// §8.4 policy resolution depends on there being at most one setting per scope, and
         /// <c>UX_ApprovalSettings_EntityTypeDefault</c> is what makes that true rather than
-        /// hoped-for. A second default for the same entity type is the ordinary way a caller
-        /// reaches this.
+        /// hoped-for.
+        ///
+        /// <para>Nothing is arranged: the incumbent is the default <c>ApprovalSettingSeedData</c>
+        /// seeds for every entity type at startup, so the duplicate collides with the seeded row.
+        /// Arranging one of our own would be refused as the very conflict this asserts, and a
+        /// test whose arrangement is what fails is a test that reads as an exposer regression.</para>
         /// </summary>
         [Fact]
         public async Task ShouldReturnConflictOnPostIfEntityTypeAlreadyHasADefaultAsync()
         {
             // given
-            ApprovalSetting existingApprovalSetting = await PostRandomApprovalSettingAsync();
             ApprovalSetting duplicateApprovalSetting = CreateRandomApprovalSetting();
-            duplicateApprovalSetting.EntityType = existingApprovalSetting.EntityType;
+            duplicateApprovalSetting.EntityType = EntityType.Tag;
             duplicateApprovalSetting.ContentType = null;
 
             try
@@ -269,9 +273,8 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalSettings
             }
             finally
             {
-                await this.apiBroker.RemoveCoreApprovalSettingByIdAsync(
-                    existingApprovalSetting.Id);
-
+                // A no-op when the post was refused as it should be, and the teardown that
+                // matters when it was not.
                 await this.apiBroker.RemoveCoreApprovalSettingByIdAsync(
                     duplicateApprovalSetting.Id);
             }
@@ -369,16 +372,34 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalSettings
         /// <c>ShouldAllowPostWhenUsfmIsHeldOnlyByASoftDeletedRowAsync</c> on
         /// <c>BibleReference</c>. If either filter is ever narrowed back, this test fails.</para>
         /// </summary>
+        /// <para>This is the default tier, so the slot has to be freed before anything can be
+        /// written to it — every entity type's default is taken at startup by
+        /// <c>ApprovalSettingSeedData</c>. The seeded row is lifted out physically and put back
+        /// byte-for-byte in the teardown; the seed restores a missing LIVE default on the next
+        /// startup, but nothing restarts mid-suite, so the teardown is what the following tests
+        /// depend on. The predecessor is arranged beneath HTTP because the tier it needs to sit
+        /// in is the one the suite can no longer post to.</para>
         [Fact]
         public async Task ShouldAllowPostWhenEntityTypeDefaultIsHeldOnlyByASoftDeletedRowAsync()
         {
             // given
-            ApprovalSetting removedApprovalSetting = await PostRandomApprovalSettingAsync();
-            await this.apiBroker.DeleteApprovalSettingByIdAsync(removedApprovalSetting.Id);
+            CoreApprovalSetting seededDefault =
+                await this.apiBroker.GetCoreDefaultApprovalSettingAsync(EntityType.Link);
+
+            CoreApprovalSetting softDeletedDefault =
+                CreateSoftDeletedCoreDefaultApprovalSetting(EntityType.Link);
 
             ApprovalSetting reusedScopeApprovalSetting = CreateRandomApprovalSetting();
-            reusedScopeApprovalSetting.EntityType = removedApprovalSetting.EntityType;
+            reusedScopeApprovalSetting.EntityType = EntityType.Link;
             reusedScopeApprovalSetting.ContentType = null;
+
+            // The predecessor goes in while the seeded row still holds the slot, which is only
+            // safe because the index constrains live rows alone — the arrangement and the
+            // assertion rest on the same term. The seeded row then leaves the slot on the LAST
+            // line before the try, so every call that could throw while the slot is empty is
+            // covered by the restore in the finally.
+            await this.apiBroker.InsertCoreApprovalSettingAsync(softDeletedDefault);
+            await this.apiBroker.RemoveCoreApprovalSettingByIdAsync(seededDefault.Id);
 
             try
             {
@@ -387,16 +408,17 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalSettings
                     await this.apiBroker.PostApprovalSettingAsync(reusedScopeApprovalSetting);
 
                 // then
-                actualApprovalSetting.EntityType.Should().Be(removedApprovalSetting.EntityType);
+                actualApprovalSetting.EntityType.Should().Be(EntityType.Link);
                 actualApprovalSetting.ContentType.Should().BeNull();
             }
             finally
             {
-                await this.apiBroker.RemoveCoreApprovalSettingByIdAsync(
-                    removedApprovalSetting.Id);
+                await this.apiBroker.RemoveCoreApprovalSettingByIdAsync(softDeletedDefault.Id);
 
                 await this.apiBroker.RemoveCoreApprovalSettingByIdAsync(
                     reusedScopeApprovalSetting.Id);
+
+                await this.apiBroker.InsertCoreApprovalSettingAsync(seededDefault);
             }
         }
 
