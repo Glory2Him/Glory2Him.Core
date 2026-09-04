@@ -921,7 +921,7 @@ describe('AssociationPanel', () => {
             expect(onAdd).not.toHaveBeenCalled();
         });
 
-        it('should commit through the add button when one is shown', async () => {
+        it('should separate a comma-separated box into one call per association', async () => {
             // given
             signInAs(authState);
             const onAdd = vi.fn();
@@ -931,20 +931,127 @@ describe('AssociationPanel', () => {
                 <AssociationPanel
                     title="Tags"
                     showAdd={true}
-                    showAddButton={true}
-                    addButtonText="Add tag"
                     addPlaceholderText="Start typing a tag…"
                     onAdd={onAdd} />);
 
-            await userEvent.type(screen.getByPlaceholderText('Start typing a tag…'), 'hope');
-            await userEvent.click(screen.getByRole('button', { name: 'Add tag' }));
+            const input = screen.getByPlaceholderText('Start typing a tag…');
+            await userEvent.type(input, 'faith, healing{Enter}');
+
+            // then
+            expect(onAdd).toHaveBeenCalledTimes(2);
+            expect(onAdd).toHaveBeenNthCalledWith(1, 'faith');
+            expect(onAdd).toHaveBeenNthCalledWith(2, 'healing');
+            expect(input).toHaveValue('');
+        });
+
+        it('should separate on a semicolon and leave the words inside a value alone', async () => {
+            // given
+            signInAs(authState);
+            const onAdd = vi.fn();
+
+            // when
+            renderWithAuth(
+                <AssociationPanel
+                    title="Tags"
+                    showAdd={true}
+                    addPlaceholderText="Start typing a tag…"
+                    onAdd={onAdd} />);
+
+            await userEvent.type(
+                screen.getByPlaceholderText('Start typing a tag…'),
+                'grace and faith; love{Enter}');
+
+            // then: "and" is part of the association, not a separator
+            expect(onAdd).toHaveBeenCalledTimes(2);
+            expect(onAdd).toHaveBeenNthCalledWith(1, 'grace and faith');
+            expect(onAdd).toHaveBeenNthCalledWith(2, 'love');
+        });
+
+        it('should drop the blanks and the repeats and still add the rest', async () => {
+            // given
+            signInAs(authState);
+            const onAdd = vi.fn();
+
+            // when
+            renderWithAuth(
+                <AssociationPanel
+                    title="Tags"
+                    showAdd={true}
+                    addPlaceholderText="Start typing a tag…"
+                    onAdd={onAdd} />);
+
+            await userEvent.type(
+                screen.getByPlaceholderText('Start typing a tag…'),
+                'faith, , Faith; healing,{Enter}');
+
+            // then
+            expect(onAdd).toHaveBeenCalledTimes(2);
+            expect(onAdd).toHaveBeenNthCalledWith(1, 'faith');
+            expect(onAdd).toHaveBeenNthCalledWith(2, 'healing');
+        });
+
+        it('should refuse the value already listed without costing the others', async () => {
+            // given
+            signInAs(authState);
+            const onAdd = vi.fn();
+
+            // when
+            renderWithAuth(
+                <AssociationPanel
+                    title="Tags"
+                    showAdd={true}
+                    addPlaceholderText="Start typing a tag…"
+                    associationCollection={[approvedItem('Faith')]}
+                    onAdd={onAdd} />);
+
+            await userEvent.type(
+                screen.getByPlaceholderText('Start typing a tag…'), 'faith, healing{Enter}');
 
             // then
             expect(onAdd).toHaveBeenCalledTimes(1);
-            expect(onAdd).toHaveBeenCalledWith('hope');
+            expect(onAdd).toHaveBeenCalledWith('healing');
         });
 
-        it('should not render an add button unless one is asked for', () => {
+        it('should normalize each separated value rather than the box as a whole', async () => {
+            // given
+            signInAs(authState);
+            const onAdd = vi.fn();
+
+            // when
+            renderWithAuth(
+                <AssociationPanel
+                    title="Tags"
+                    showAdd={true}
+                    addPlaceholderText="Start typing a tag…"
+                    normalizeAddedValue={(rawValue) => rawValue.trim().replace(/^#+/, '')}
+                    onAdd={onAdd} />);
+
+            await userEvent.type(
+                screen.getByPlaceholderText('Start typing a tag…'), '  #faith ; #hope  {Enter}');
+
+            // then
+            expect(onAdd).toHaveBeenNthCalledWith(1, 'faith');
+            expect(onAdd).toHaveBeenNthCalledWith(2, 'hope');
+        });
+
+        it('should offer the add button beside the box, labelled by the caller', () => {
+            // given
+            signInAs(authState);
+
+            // when
+            renderWithAuth(
+                <AssociationPanel
+                    title="Tags"
+                    showAdd={true}
+                    addButtonText="Add tag"
+                    addPlaceholderText="Start typing a tag…" />);
+
+            // then
+            expect(screen.getByPlaceholderText('Start typing a tag…')).toBeInTheDocument();
+            expect(screen.getByRole('button', { name: 'Add tag' })).toBeInTheDocument();
+        });
+
+        it('should offer the add button on its default label without being asked', () => {
             // given
             signInAs(authState);
 
@@ -956,7 +1063,58 @@ describe('AssociationPanel', () => {
                     addPlaceholderText="Start typing a tag…" />);
 
             // then
-            expect(screen.queryByRole('button', { name: 'Add' })).not.toBeInTheDocument();
+            expect(screen.getByRole('button', { name: 'Add' })).toBeInTheDocument();
+        });
+
+        it('should commit through the add button and clear the box', async () => {
+            // given
+            signInAs(authState);
+            const onAdd = vi.fn();
+
+            // when
+            renderWithAuth(
+                <AssociationPanel
+                    title="Tags"
+                    showAdd={true}
+                    addPlaceholderText="Start typing a tag…"
+                    onAdd={onAdd} />);
+
+            const input = screen.getByPlaceholderText('Start typing a tag…');
+            await userEvent.type(input, 'hope');
+            await userEvent.click(screen.getByRole('button', { name: 'Add' }));
+
+            // then
+            expect(onAdd).toHaveBeenCalledTimes(1);
+            expect(onAdd).toHaveBeenCalledWith('hope');
+            expect(input).toHaveValue('');
+        });
+
+        /// The two ways in share ONE commit path, so the separating, normalizing and duplicate
+        /// checks cannot drift apart between them — a list typed and then clicked must land
+        /// exactly as the same list typed and then Entered.
+        it('should separate a list committed through the button just as Enter does', async () => {
+            // given
+            signInAs(authState);
+            const onAdd = vi.fn();
+
+            // when
+            renderWithAuth(
+                <AssociationPanel
+                    title="Tags"
+                    showAdd={true}
+                    addPlaceholderText="Start typing a tag…"
+                    associationCollection={[approvedItem('Faith')]}
+                    onAdd={onAdd} />);
+
+            await userEvent.type(
+                screen.getByPlaceholderText('Start typing a tag…'), 'faith, healing; hope');
+
+            await userEvent.click(screen.getByRole('button', { name: 'Add' }));
+
+            // then: the duplicate is dropped and the other two arrive one call each
+            expect(onAdd).toHaveBeenCalledTimes(2);
+            expect(onAdd).toHaveBeenNthCalledWith(1, 'healing');
+            expect(onAdd).toHaveBeenNthCalledWith(2, 'hope');
         });
     });
 

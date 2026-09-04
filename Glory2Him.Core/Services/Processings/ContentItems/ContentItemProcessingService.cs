@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -773,6 +773,24 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
             // so it travels with the content fields rather than with the approval members.
             targetContentItem.ShareabilityBasis = sourceContentItem.ShareabilityBasis;
             targetContentItem.SharePermission = sourceContentItem.SharePermission;
+
+            // THE ONE APPROVAL MEMBER THAT TRAVELS, and the single narrow exception to the
+            // content-only rule (design §9.2 rules 3-6, §9.7.1 rule 2). A later submission is
+            // often inseparable from the edit that made the work ready, and splitting them would
+            // publish two facts for one act — so the Draft <-> Submitted pair rides the modify.
+            //
+            // NOTHING IS DECIDED HERE. This carries the caller's value; the FOUNDATION rules on
+            // it, comparing input against storage and refusing anything that is not the
+            // permitted pair from a caller entitled to move it
+            // (IsNotAPermittedStatusChangeOnModify, gated on the eligibility
+            // ValidateUserCanModifyStorageContentItemAsync works out). A verdict — Approved or
+            // Rejected — still belongs to the approval transition alone, so that reviews in
+            // flight are not silently invalidated by an edit.
+            //
+            // Withholding it here made that whole carve-out unreachable: the stored status
+            // arrived at the foundation unchanged, matched itself, and passed — so a draft could
+            // never be offered for review through any route the API exposes.
+            targetContentItem.ApprovalStatus = sourceContentItem.ApprovalStatus;
 
             targetContentItem.ContentHash = contentHash;
         }

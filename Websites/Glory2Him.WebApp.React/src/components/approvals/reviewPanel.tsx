@@ -154,6 +154,11 @@ export interface ReviewPanelProps {
     withdrawRequestTooltip?: string;
     bypassLabelText?: string;
     bypassReasonPlaceholderText?: string;
+
+    // Shown under the reason box, and only while that empty box is the one thing holding Submit
+    // shut. A disabled button explains nothing on its own.
+    bypassReasonRequiredText?: string;
+
     setStatusText?: string;
     approveOptionText?: string;
     approveOptionDescription?: string;
@@ -236,6 +241,7 @@ export function ReviewPanel({
     withdrawRequestTooltip = 'Withdraw review request',
     bypassLabelText = 'Approve without waiting for requirements to be met (bypass rules)',
     bypassReasonPlaceholderText = 'Reason for bypassing the approval requirements',
+    bypassReasonRequiredText = 'Give a reason for the bypass before submitting.',
     setStatusText = 'Set approval status',
     approveOptionText = 'Approve this item',
     approveOptionDescription = 'Approve this item based on the Reviewer votes',
@@ -253,13 +259,14 @@ export function ReviewPanel({
     dismissedPillCssClass = 'btn-secondary',
     blockedIconCssClass = 'bi-exclamation-circle-fill text-danger',
     bypassCssClass = 'text-danger',
-    setStatusCssClass = 'btn-dark',
+    setStatusCssClass = 'g2h-review-status-select',
     approveSelectionCssClass = 'btn-success',
     rejectSelectionCssClass = 'btn-danger'
 }: ReviewPanelProps) {
     const { isAuthenticated, user, userRoles } = useAuth();
     const headingId = useId();
     const outcomeHeadingId = useId();
+    const bypassReasonMessageId = useId();
 
     // All three menus are ours rather than Bootstrap's, so dismissal, labelling and focus come
     // from one shared hook instead of being written out three times — see useDismissableMenu for
@@ -405,14 +412,31 @@ export function ReviewPanel({
         setSelectedDecision(undefined);
     }, [verdictSignature]);
 
-    // Gated on the STATUS as well as the verdict. approvalStatus is the canonical prop that
-    // freezes this panel, and a consumer refreshing after a decision can hand over the new status
-    // with a verdict fetched a moment earlier — which would paint block reasons over a round
-    // that is already settled.
-    const isBlocked = isSubmitted && approvalVerdict?.isBlocked === true;
+    // A ROUND IS OPEN WHILE THE ENTITY IS DRAFT OR SUBMITTED. Draft belongs here, and this
+    // used to admit Submitted alone — which threw away the one reason §16.7.2 added
+    // BlockedDueToDraftStatus to carry: "This item has not been submitted for review yet.
+    // Submit it to start the approval process." Core composes that reason first and alone for a
+    // draft, precisely so a UI can state it and send somebody to advance the item; the panel
+    // then dropped it and showed a bare "Awaiting approval" pill instead.
+    //
+    // What the guard is actually FOR is a settled round: a consumer refreshing after a decision
+    // can hand over a terminal status with a verdict fetched a moment earlier, and painting
+    // block reasons over that states an outcome already overtaken. So it names the states in
+    // which a round is still open, and Approved, Rejected and Dismissed are what it excludes.
+    const isRoundOpen =
+        approvalStatus === ApprovalStatus.Draft
+        || approvalStatus === ApprovalStatus.Submitted;
 
+    const isBlocked = isRoundOpen && approvalVerdict?.isBlocked === true;
+
+    // BYPASS IS SUBMITTED-ONLY, said outright rather than inherited. It was already shut on a
+    // draft, but only through mayDecide happening to require isSubmitted — a guard that holds
+    // by accident of another one is a guard nobody can find, and this is a rule in its own
+    // right: a bypass waives the CONDITIONS of a round (§9.7.5), and a draft has no round to
+    // waive. Nothing rescues an item nobody has offered; it has to be submitted first.
     const showBypassCheckbox =
         mayDecide
+        && isSubmitted
         && isBlocked
         && approvalVerdict?.isBypassAllowedForCurrentUser === true;
 
@@ -431,10 +455,12 @@ export function ReviewPanel({
 
     // An unexplained bypass is refused by the server before any policy is read, so Submit holds
     // until the reason exists rather than letting the click round-trip into a 400.
+    const isBypassReasonMissing = isBypassApprove && bypassReason.trim().length === 0;
+
     const maySubmitDecision =
         selectedDecision != null
         && (selectedDecision === ApprovalDecision.Reject || mayApproveNow)
-        && (isBypassApprove === false || bypassReason.trim().length > 0);
+        && isBypassReasonMissing === false;
 
     const onBypassToggled = (checked: boolean) => {
         setIsBypassChecked(checked);
@@ -930,101 +956,133 @@ export function ReviewPanel({
                 </div>
             )}
 
-            <h4 className="mb-3" id={outcomeHeadingId}>{outcomeTitleText}</h4>
-
-            {isBlocked && (
-                <div className="d-flex mb-3 g2h-review-blocked" role="status">
-                    <i className={`bi ${blockedIconCssClass} fs-3 me-2`} aria-hidden="true"></i>
-                    <div>
-                        <span className="fw-bold d-block">{blockedTitleText}</span>
-                        {approvalVerdict?.blockReasons.map((reason) => (
-                            <span className="small text-muted d-block" key={reason.code}>
-                                {reason.message}
-                            </span>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            <div className={`btn ${pill.pillCssClass} w-100 mb-3 g2h-review-status-pill`}>
-                <i className={`bi ${pill.iconCssClass} me-2 small`} aria-hidden="true"></i>
-                {pill.text}
-            </div>
-
-            {showBypassCheckbox && (
-                <div className={`form-check mb-3 ${bypassCssClass}`}>
-                    <input
-                        type="checkbox"
-                        className="form-check-input"
-                        id={`${headingId}-bypass`}
-                        checked={isBypassChecked}
-                        onChange={(event) => onBypassToggled(event.target.checked)} />
-                    <label className="form-check-label" htmlFor={`${headingId}-bypass`}>
-                        {bypassLabelText}
-                    </label>
-                </div>
-            )}
-
-            {showBypassCheckbox && isBypassChecked && (
-                <input
-                    type="text"
-                    className="form-control mb-3"
-                    placeholder={bypassReasonPlaceholderText}
-                    aria-label={bypassReasonPlaceholderText}
-                    value={bypassReason}
-                    onChange={(event) => setBypassReason(event.target.value)} />
-            )}
-
-            {mayDecide && (
+            {/* THE WHOLE OUTCOME WAITS ON THE LOAD. Every part of it — the blocked reasons,
+                the status pill, the bypass and the decision controls — is read off rows and a
+                verdict that have not arrived yet, so painting any of it mid-load states an
+                outcome nobody has computed: an unblocked-looking pill over a round that turns
+                out to be blocked, and a decision control the caller may not be allowed. */}
+            {isLoading === false && (
                 <>
-                    <div className="dropdown" ref={decisionMenu.containerRef}>
-                        <button
-                            type="button"
-                            id={decisionMenu.triggerId}
-                            ref={decisionMenu.triggerRef}
-                            className={`btn w-100 dropdown-toggle d-flex justify-content-between align-items-center ${decisionSelection?.selectionCssClass ?? setStatusCssClass} mb-0`}
-                            aria-controls={decisionMenu.isOpen ? decisionMenu.menuId : undefined}
-                            aria-expanded={decisionMenu.isOpen}
-                            onClick={decisionMenu.toggle}>
-                            {decisionSelection?.text ?? setStatusText}
-                        </button>
+                    <h4 className="mb-3" id={outcomeHeadingId}>{outcomeTitleText}</h4>
 
-                        {decisionMenu.isOpen && (
-                            <div
-                                id={decisionMenu.menuId}
-                                ref={decisionMenu.menuRef}
-                                tabIndex={-1}
-                                aria-labelledby={decisionMenu.triggerId}
-                                className="dropdown-menu show shadow w-100">
-                                <button
-                                    type="button"
-                                    className="dropdown-item"
-                                    disabled={mayApproveNow === false}
-                                    onClick={() => chooseDecision(ApprovalDecision.Approve)}>
-                                    <span className="fw-bold d-block">{approveOptionText}</span>
-                                    <small className="text-muted">{approveOptionDescription}</small>
-                                </button>
-
-                                <button
-                                    type="button"
-                                    className="dropdown-item"
-                                    onClick={() => chooseDecision(ApprovalDecision.Reject)}>
-                                    <span className="fw-bold d-block">{rejectOptionText}</span>
-                                    <small className="text-muted">{rejectOptionDescription}</small>
-                                </button>
+                    {isBlocked && (
+                        <div className="d-flex mb-3 g2h-review-blocked" role="status">
+                            <i
+                                className={`bi ${blockedIconCssClass} fs-3 me-2`}
+                                aria-hidden="true"></i>
+                            <div>
+                                <span className="fw-bold d-block">{blockedTitleText}</span>
+                                {approvalVerdict?.blockReasons.map((reason) => (
+                                    <span className="small text-muted d-block" key={reason.code}>
+                                        {reason.message}
+                                    </span>
+                                ))}
                             </div>
-                        )}
+                        </div>
+                    )}
+
+                    <div className={`btn ${pill.pillCssClass} w-100 mb-3 g2h-review-status-pill`}>
+                        <i
+                            className={`bi ${pill.iconCssClass} me-2 small`}
+                            aria-hidden="true"></i>
+                        {pill.text}
                     </div>
 
-                    {decisionSelection != null && (
-                        <button
-                            type="button"
-                            className={`btn w-100 mt-2 mb-0 ${decisionSelection.selectionCssClass}`}
-                            disabled={maySubmitDecision === false}
-                            onClick={submitDecision}>
-                            {submitButtonText}
-                        </button>
+                    {showBypassCheckbox && (
+                        <div className={`form-check mb-3 ${bypassCssClass}`}>
+                            <input
+                                type="checkbox"
+                                className="form-check-input"
+                                id={`${headingId}-bypass`}
+                                checked={isBypassChecked}
+                                onChange={(event) => onBypassToggled(event.target.checked)} />
+                            <label className="form-check-label" htmlFor={`${headingId}-bypass`}>
+                                {bypassLabelText}
+                            </label>
+                        </div>
                     )}
+
+                    {showBypassCheckbox && isBypassChecked && (
+                        <div className="mb-3">
+                            <input
+                                type="text"
+                                className={isBypassReasonMissing
+                                    ? 'form-control is-invalid'
+                                    : 'form-control'}
+                                placeholder={bypassReasonPlaceholderText}
+                                aria-label={bypassReasonPlaceholderText}
+                                aria-required="true"
+                                aria-describedby={
+                                    isBypassReasonMissing ? bypassReasonMessageId : undefined}
+                                value={bypassReason}
+                                onChange={(event) => setBypassReason(event.target.value)} />
+
+                            {/* Said only once the empty box is genuinely the thing in the way —
+                                the bypass ticked AND Approve chosen — so it reads as the answer
+                                to "why is Submit dead?" rather than as a scolding for a box the
+                                caller has only just been shown. */}
+                            {isBypassReasonMissing && (
+                                <div
+                                    id={bypassReasonMessageId}
+                                    className="invalid-feedback d-block">
+                                    {bypassReasonRequiredText}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                {mayDecide && (
+                    <>
+                        <div className="dropdown" ref={decisionMenu.containerRef}>
+                            <button
+                                type="button"
+                                id={decisionMenu.triggerId}
+                                ref={decisionMenu.triggerRef}
+                                className={`btn w-100 dropdown-toggle d-flex justify-content-between align-items-center ${decisionSelection?.selectionCssClass ?? setStatusCssClass} mb-0`}
+                                aria-controls={decisionMenu.isOpen ? decisionMenu.menuId : undefined}
+                                aria-expanded={decisionMenu.isOpen}
+                                onClick={decisionMenu.toggle}>
+                                {decisionSelection?.text ?? setStatusText}
+                            </button>
+
+                            {decisionMenu.isOpen && (
+                                <div
+                                    id={decisionMenu.menuId}
+                                    ref={decisionMenu.menuRef}
+                                    tabIndex={-1}
+                                    aria-labelledby={decisionMenu.triggerId}
+                                    className="dropdown-menu show shadow w-100">
+                                    <button
+                                        type="button"
+                                        className="dropdown-item"
+                                        disabled={mayApproveNow === false}
+                                        onClick={() => chooseDecision(ApprovalDecision.Approve)}>
+                                        <span className="fw-bold d-block">{approveOptionText}</span>
+                                        <small className="text-muted">{approveOptionDescription}</small>
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className="dropdown-item"
+                                        onClick={() => chooseDecision(ApprovalDecision.Reject)}>
+                                        <span className="fw-bold d-block">{rejectOptionText}</span>
+                                        <small className="text-muted">{rejectOptionDescription}</small>
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        {decisionSelection != null && (
+                            <button
+                                type="button"
+                                className={`btn w-100 mt-2 mb-0 ${decisionSelection.selectionCssClass}`}
+                                disabled={maySubmitDecision === false}
+                                onClick={submitDecision}>
+                                {submitButtonText}
+                            </button>
+                        )}
+                    </>
+                )}
                 </>
             )}
         </section>

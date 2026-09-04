@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -461,13 +461,78 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        /// THE ROUND THAT WAS NEVER OPENED, repaired rather than reported. Two ways in leave an
+        /// entity without an approval: seed data written straight to the storage broker, which
+        /// publishes no fact at all, and a fact that does not land. Both leave every read here
+        /// answering NotFound to a caller who can do nothing about it.
+        ///
+        /// The added flow is RE-RUN rather than the row inserted, because the row alone is not
+        /// what was lost — §9.7.3 resolves the approval and evaluates it, so a round that should
+        /// already have auto-approved does so now.
+        [Fact]
+        public async Task ShouldOpenTheRoundOnRetrieveVerdictIfTheEntityHasNoApprovalYetAsync()
+        {
+            // given: no approval occupies the key, but the entity is real
+            EntityType inputEntityType = EntityType.ContentItem;
+            Guid inputEntityId = Guid.NewGuid();
+            string entityAuthorUserId = GetRandomString();
+
+            SetupApprovalProbe(null);
+
+            this.accessBrokerMock.Setup(broker =>
+                broker.RetrieveEntityAuthorAsync(
+                    inputEntityType,
+                    inputEntityId,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(entityAuthorUserId);
+
+            // Born Draft, so the added flow stops there (§9.7.3 rule 1) — which is the behaviour
+            // under test, not the round's own outcome.
+            var openedApproval = new Approval
+            {
+                Id = Guid.NewGuid(),
+                EntityType = inputEntityType,
+                EntityId = inputEntityId,
+                ApprovalStatus = ApprovalStatus.Draft
+            };
+
+            this.approvalServiceMock.Setup(service =>
+                service.AddApprovalAsync(
+                    It.IsAny<Approval>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(openedApproval);
+
+            // when
+            ValueTask<ApprovalVerdict> retrieveVerdictTask =
+                this.approvalOrchestrationService.RetrieveApprovalVerdictAsync(
+                    inputEntityType,
+                    inputEntityId,
+                    TestContext.Current.CancellationToken);
+
+            // then: the probe is still mocked empty, so the read ends honestly — what matters
+            // is that it TRIED to open the round first.
+            await Assert.ThrowsAsync<ApprovalOrchestrationValidationException>(
+                retrieveVerdictTask.AsTask);
+
+            // then: the added flow ran, which is what opens the round — the approval is added
+            // rather than merely probed for a second time
+            this.approvalServiceMock.Verify(service =>
+                service.AddApprovalAsync(
+                    It.Is<Approval>(approval =>
+                        approval.EntityType == inputEntityType
+                            && approval.EntityId == inputEntityId),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
         [Fact]
         public async Task ShouldThrowValidationExceptionOnRetrieveVerdictIfNoApprovalOccupiesTheKeyAndLogItAsync()
         {
-            // given: the unfiltered probe finds the pair unoccupied. Reported as not-found rather
-            // than as an empty verdict, because a caller that cannot tell "no approval exists"
-            // from "an approval exists and nothing blocks it" would render an enabled approve
-            // button for a row with no approval behind it.
+            // given: the unfiltered probe finds the pair unoccupied, and the ENTITY does not
+            // exist either — so there is nothing to repair and the read gives up honestly.
+            // Reported as not-found rather than as an empty verdict, because a caller that
+            // cannot tell "no approval exists" from "an approval exists and nothing blocks it"
+            // would render an enabled approve button for a row with no approval behind it.
             //
             // The type is BibleReference and the id fresh, so the message is proved to name the
             // key that was asked about rather than a default.
@@ -503,6 +568,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
+            // The entity probe IS asked — it is what decides whether a missing round is worth
+            // repairing — and answers with nothing, so the added flow is never run.
+            this.accessBrokerMock.Verify(broker =>
+                broker.RetrieveEntityAuthorAsync(
+                    inputEntityType,
+                    inputEntityId,
+                    It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.accessBrokerMock.Verify(broker =>

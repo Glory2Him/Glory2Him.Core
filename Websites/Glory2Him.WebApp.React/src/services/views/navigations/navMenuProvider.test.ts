@@ -78,7 +78,7 @@ describe('navMenuProvider Admin section', () => {
 
         // then
         expect(children.map((child) => child.title))
-            .toEqual(['Users', 'Content Item Settings', 'Posts', 'Sample Posts']);
+            .toEqual(['Users', 'Content Item Settings', 'Posts']);
     });
 
     it('should point each admin entry at its route', () => {
@@ -89,9 +89,20 @@ describe('navMenuProvider Admin section', () => {
         expect(children.map((child) => child.href)).toEqual([
             'Admin/Users',
             'Admin/ContentItemSettings',
-            'Admin/Posts',
-            'Admin/SamplePosts'
+            'Admin/Posts'
         ]);
+    });
+
+    /// THE DEMO POST TABLE IS A SAMPLE, and sat here beside the real moderation queue with
+    /// only the word "sample" telling the two apart. Picking the wrong one put an administrator
+    /// in a table of Blogzine fixtures believing it was their content.
+    it('should keep the sample post table with the samples, not with admin', () => {
+        // when
+        const adminTitles =
+            (getAdminSection()?.children ?? []).map((child) => child.title);
+
+        // then
+        expect(adminTitles).not.toContain('Sample Posts');
     });
 
     it('should restrict every admin entry to administrators', () => {
