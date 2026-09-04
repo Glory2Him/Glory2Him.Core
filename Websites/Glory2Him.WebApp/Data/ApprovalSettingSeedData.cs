@@ -75,14 +75,31 @@ namespace Glory2Him.WebApp.Data
             IQueryable<ApprovalSetting> existingApprovalSettings =
                 await storageBroker.SelectAllApprovalSettingsAsync();
 
+            // ONE READ, NOT ONE PER MEMBER. The scope this seed repairs — ContentType null and
+            // IsDeleted false — is a single narrow slice, at most one row per EntityType, so it
+            // is materialized once and matched in memory rather than asked of the database inside
+            // the loop. A query per enum member is a query per member of a set that only grows.
+            List<ApprovalSetting> liveDefaults =
+                await existingApprovalSettings
+                    .Where(approvalSetting =>
+                        approvalSetting.ContentType == null
+                        && approvalSetting.IsDeleted == false)
+                    .ToListAsync();
+
+            // Grouped rather than keyed straight into a dictionary, and first taken from each
+            // group: UX_ApprovalSettings_EntityTypeDefault already forbids a second live default
+            // for an entity type, but a duplicate that reached the table anyway is not the seed's
+            // to throw over at host startup — the read it replaces took the first and moved on.
+            Dictionary<EntityType, ApprovalSetting> liveDefaultsByEntityType = liveDefaults
+                .GroupBy(approvalSetting => approvalSetting.EntityType)
+                .ToDictionary(group => group.Key, group => group.First());
+
             foreach (ApprovalSetting defaultApprovalSetting in
                 BuildDefaultApprovalSettings(DateTimeOffset.UtcNow))
             {
-                ApprovalSetting liveDefault = await existingApprovalSettings.FirstOrDefaultAsync(
-                    approvalSetting =>
-                        approvalSetting.EntityType == defaultApprovalSetting.EntityType
-                        && approvalSetting.ContentType == null
-                        && approvalSetting.IsDeleted == false);
+                liveDefaultsByEntityType.TryGetValue(
+                    defaultApprovalSetting.EntityType,
+                    out ApprovalSetting liveDefault);
 
                 if (liveDefault is null)
                 {

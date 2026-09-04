@@ -114,6 +114,8 @@ export const ApprovalSettingsPage = () => {
                         .autoApproveIfAllApprovalRequirementsMet)}
                     {featurePill('Self-approval', approvalSetting.allowSelfApproval)}
                     {featurePill('Blocks on reject', approvalSetting.blockOnReject)}
+                    {featurePill('Blocks on zero score', approvalSetting
+                        .blockOnZeroApprovalScore)}
                     {featurePill('Comments resolved', approvalSetting
                         .requireReviewCommentResolutionBeforeApprovals)}
                     {featurePill('Re-approve on change', approvalSetting
