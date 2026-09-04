@@ -61,12 +61,25 @@ button.g2h-association-chip-label {
     border-radius: 0;
     font-size: inherit;
     line-height: inherit;
+
+    /* The theme gives every .btn a 6px bottom margin. The chip wrapper cancels its own with
+       mb-0; without the same reset here an action button stops 6px short of the chip's bottom
+       edge, leaving a strip of the pill showing underneath it rather than filling the height. */
+    margin-bottom: 0;
 }
 
 /* An item that has not been approved yet: same colour so it still reads as part of the set, but
    outlined rather than filled and slightly faded, so approved and pending are never confused.
-   Carried over from SuggestionPanel, whose look this panel replaces. */
+   Carried over from SuggestionPanel, whose look this panel replaces.
+
+   The fade lands on the LABEL rather than on the wrapper, because opacity on the wrapper forms a
+   group its children cannot escape: the action buttons would then render paler on a pending chip
+   than the identical buttons on an approved one, making Remove look like two different controls
+   depending on the status of the chip it sits on. Status is the label's story to tell. */
 .g2h-association-chip-pending {
     border-style: dashed;
+}
+
+.g2h-association-chip-pending .g2h-association-chip-label {
     opacity: 0.75;
 }

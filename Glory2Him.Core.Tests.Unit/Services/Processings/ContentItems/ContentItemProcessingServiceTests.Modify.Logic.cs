@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -27,6 +27,62 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
 {
     public partial class ContentItemProcessingServiceTests
     {
+        // THE ONLY ROUTE INTO A REVIEW ROUND THE API EXPOSES. §9.2 rule 3 names two ways an
+        // entity moves between Draft and Submitted, and the dedicated verb is not lifted onto
+        // this service (#316) — so the modify carve-out is the whole of it. Withholding the
+        // status here left a draft with no way to ever be offered for review.
+        [Fact]
+        public async Task ShouldCarryTheSubmitCarveOutOnModifyAsync()
+        {
+            // given: the owner offers a draft for review as part of the edit that readied it
+            ContentItem inputContentItem = CreateRandomContentItem();
+            inputContentItem.ApprovalStatus = ApprovalStatus.Submitted;
+            string actorUserId = GetRandomString();
+
+            ContentItem storageContentItem = CreateRandomStorageContentItem(
+                contentItemId: inputContentItem.Id,
+                approvalStatus: ApprovalStatus.Draft,
+                createdBy: actorUserId);
+
+            SecurityContext securityContext = CreateAuthenticatedSecurityContext();
+
+            EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
+                contentItem: inputContentItem,
+                securityContext: securityContext);
+
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateAsync(inputContentItem))
+                    .ReturnsAsync(inboundEnvelope);
+
+            this.contentItemServiceMock.Setup(service =>
+                service.RetrieveContentItemByIdAsync(
+                    inputContentItem.Id, It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageContentItem);
+
+            SetupGroupTip(storageContentItem, isTheGroupTip: true);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(securityContext))
+                    .ReturnsAsync(actorUserId);
+
+            this.contentItemServiceMock.Setup(service =>
+                service.ModifyContentItemAsync(
+                    It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageContentItem);
+
+            // when
+            await this.contentItemProcessingService.ModifyContentItemAsync(
+                inputContentItem, default);
+
+            // then: the caller's Submitted reaches the foundation, which is what rules on it
+            this.contentItemServiceMock.Verify(service =>
+                service.ModifyContentItemAsync(
+                    It.Is<ContentItem>(item =>
+                        item.ApprovalStatus == ApprovalStatus.Submitted),
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+        }
+
         [Theory]
         [InlineData(ApprovalStatus.Draft)]
         [InlineData(ApprovalStatus.Submitted)]
@@ -57,6 +113,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             expectedMappedContentItem.Content = inputContentItem.Content;
             expectedMappedContentItem.ShareabilityBasis = inputContentItem.ShareabilityBasis;
             expectedMappedContentItem.SharePermission = inputContentItem.SharePermission;
+
+            // CARRIED, not pinned: the Draft <-> Submitted carve-out rides the modify (§9.2
+            // rules 3-6), and ruling on it is the foundation's — it compares input against
+            // storage and refuses anything that is not the permitted pair from an entitled
+            // caller (§8.6.1).
+            expectedMappedContentItem.ApprovalStatus = inputContentItem.ApprovalStatus;
+
             expectedMappedContentItem.ContentHash = expectedContentHash;
             ContentItem updatedContentItem = expectedMappedContentItem.DeepClone();
             ContentItem expectedContentItem = updatedContentItem.DeepClone();
@@ -196,6 +259,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             expectedMappedContentItem.Content = inputContentItem.Content;
             expectedMappedContentItem.ShareabilityBasis = inputContentItem.ShareabilityBasis;
             expectedMappedContentItem.SharePermission = inputContentItem.SharePermission;
+
+            // CARRIED, not pinned: the Draft <-> Submitted carve-out rides the modify (§9.2
+            // rules 3-6), and ruling on it is the foundation's — it compares input against
+            // storage and refuses anything that is not the permitted pair from an entitled
+            // caller (§8.6.1).
+            expectedMappedContentItem.ApprovalStatus = inputContentItem.ApprovalStatus;
+
             expectedMappedContentItem.ContentHash = expectedContentHash;
             ContentItem updatedContentItem = expectedMappedContentItem.DeepClone();
 

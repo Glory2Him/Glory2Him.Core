@@ -141,7 +141,8 @@ export function BibleReference({
                                 ...suggestedTags
                             ]}
                             onAdd={(value) =>
-                                setSuggestedTags([...suggestedTags, asSuggestion(value)])}
+                                setSuggestedTags((previous) =>
+                                    [...previous, asSuggestion(value)])}
                             onRemove={(item) =>
                                 setSuggestedTags(withoutAssociationValue(suggestedTags, item))} />
 
@@ -156,8 +157,8 @@ export function BibleReference({
                                 ...suggestedReferences
                             ]}
                             onAdd={(value) =>
-                                setSuggestedReferences([
-                                    ...suggestedReferences,
+                                setSuggestedReferences((previous) => [
+                                    ...previous,
                                     asSuggestion(value)
                                 ])}
                             onRemove={(item) =>

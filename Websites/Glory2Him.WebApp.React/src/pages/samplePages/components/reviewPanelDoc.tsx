@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ReviewPanel } from '../../../components/approvals/reviewPanel';
 import {
+    ApprovalBlockReasonItem,
     ApprovalDecision,
     ApprovalReviewItem,
     ApprovalStatus,
@@ -165,13 +166,15 @@ const approvalStatusOptions = [
     { key: String(ApprovalStatus.Dismissed), label: 'Dismissed (terminal)' }
 ] as const;
 
-// What the server's per-caller verdict says — including saying nothing at all, which is what
-// a viewer outside the moderation tier gets (§16.7.2).
+// What the server's per-caller verdict says. Blocked-or-not is no longer a choice here: the
+// playground DERIVES it from the votes on the board, so casting one and watching a reason
+// disappear is the thing the page is for. What stays a choice is the one answer no amount of
+// voting can produce — whether this particular caller is allowed to bypass — plus saying
+// nothing at all, which is what a viewer outside the moderation tier gets (§16.7.2).
 const verdictOptions = [
     { key: 'none', label: 'No verdict (viewer outside the moderation tier)' },
-    { key: 'unblocked', label: 'Unblocked — canApprove' },
-    { key: 'blocked-bypass', label: 'Blocked — bypass available to this caller' },
-    { key: 'blocked', label: 'Blocked — no bypass for this caller' }
+    { key: 'bypass', label: 'Live verdict — bypass available to this caller' },
+    { key: 'no-bypass', label: 'Live verdict — no bypass for this caller' }
 ] as const;
 
 const propRows: ReadonlyArray<ComponentPropRow> = [
@@ -393,29 +396,74 @@ export function ReviewPanelDoc() {
     const [playgroundShowBorder, setPlaygroundShowBorder] = useState(true);
     const [playgroundIsLoading, setPlaygroundIsLoading] = useState(false);
     const [playgroundIsCandidatesLoading, setPlaygroundIsCandidatesLoading] = useState(false);
-    const [playgroundViewerHasVoted, setPlaygroundViewerHasVoted] = useState(false);
     const [playgroundMaxRequests, setPlaygroundMaxRequests] = useState(15);
 
-    // The chosen verdict, re-stamped with the chosen status so the two boards cannot
-    // contradict each other on screen.
-    const playgroundVerdict: ApprovalVerdictItem | undefined =
-        playgroundVerdictKey === 'unblocked'
-            ? { ...unblockedVerdict, approvalStatus: playgroundStatus }
-            : playgroundVerdictKey === 'blocked-bypass'
-                ? { ...blockedVerdict, approvalStatus: playgroundStatus }
-                : playgroundVerdictKey === 'blocked'
-                    ? {
-                        ...blockedVerdict,
-                        approvalStatus: playgroundStatus,
-                        isBypassAllowedForCurrentUser: false
-                    }
-                    : undefined;
+    // The viewer's own vote is STATE the panel drives, not a fixture: onReviewStatusChanged
+    // lands here, the row re-renders carrying it, and the verdict below recounts. That round
+    // trip is the whole point — a vote that only logged an event could never clear a reason.
+    const [playgroundViewerVote, setPlaygroundViewerVote] =
+        useState<ApprovalStatus | undefined>();
+
+    // The two demo conditions a vote cannot change on its own, so the reader can take the round
+    // all the way to unblocked: how many approvals this content type asks for, and whether a
+    // review comment is still open.
+    const [playgroundRequiredApprovals, setPlaygroundRequiredApprovals] = useState(3);
+    const [playgroundHasOpenComment, setPlaygroundHasOpenComment] = useState(true);
 
     const playgroundViewerReview: ApprovalReviewItem = {
         reviewerUserId: demoViewerId,
         reviewerDisplayName: 'Demo Viewer',
-        vote: ApprovalStatus.Approved
+        vote: playgroundViewerVote ?? ApprovalStatus.Approved
     };
+
+    const playgroundReviews: ReadonlyArray<ApprovalReviewItem> =
+        playgroundViewerVote != null ? [john, playgroundViewerReview] : [john];
+
+    const playgroundApprovalCount = playgroundReviews
+        .filter((review) => review.vote === ApprovalStatus.Approved).length;
+
+    const playgroundOpenCommentCount = playgroundHasOpenComment ? 1 : 0;
+
+    // The three conditions §16.7.2 answers with, recomputed on every render from what is
+    // actually on the board. The codes match the AccessDenialReason values the real verdict
+    // carries, and the approvals message quotes the current requirement — which is exactly the
+    // wording change the panel's bypass reset exists to catch.
+    const playgroundBlockReasons: ReadonlyArray<ApprovalBlockReasonItem> = [
+        playgroundApprovalCount < playgroundRequiredApprovals
+            ? {
+                code: 1,
+                message: `At least ${playgroundRequiredApprovals} approving review(s) is `
+                    + 'required by reviewers.'
+            }
+            : undefined,
+        playgroundReviews.some((review) => review.vote === ApprovalStatus.Rejected)
+            ? { code: 2, message: 'A rejected review is blocking approval.' }
+            : undefined,
+        playgroundOpenCommentCount > 0
+            ? { code: 3, message: 'All review comments must be resolved.' }
+            : undefined
+    ].filter((reason): reason is ApprovalBlockReasonItem => reason != null);
+
+    const playgroundIsBlocked = playgroundBlockReasons.length > 0;
+
+    // Derived, not chosen — apart from the bypass grant, which is the server's answer about this
+    // caller rather than about the round. canApprove folds HR-2 the way the real one does: the
+    // owner of the submission never approves it, however clear the conditions are.
+    const playgroundVerdict: ApprovalVerdictItem | undefined =
+        playgroundVerdictKey === 'none'
+            ? undefined
+            : {
+                approvalId: 'approval-1',
+                approvalStatus: playgroundStatus,
+                blockReasons: playgroundBlockReasons,
+                isBlocked: playgroundIsBlocked,
+                isBypassAllowedForCurrentUser: playgroundVerdictKey === 'bypass',
+                canApprove: playgroundIsBlocked === false
+                    && playgroundSecurityContext.isOwner === false,
+                approvalCount: playgroundApprovalCount,
+                requiredNumberOfApprovals: playgroundRequiredApprovals,
+                unresolvedApprovalCommentCount: playgroundOpenCommentCount
+            };
 
     const describeDecision = (
         decision: ApprovalDecision,
@@ -427,6 +475,21 @@ export function ReviewPanelDoc() {
             + (decision === ApprovalDecision.Approve ? 'Approve' : 'Reject')
             + ', bypass=' + isBypassRequested
             + ', reason="' + bypassReason + '")');
+
+    // A consumer's job, done here so the reader can watch it: a submitted decision closes the
+    // round, and the panel freezes on the terminal status the way it would against a real
+    // service. The status radio moves with it, and moving it back reopens the round.
+    const settleRound = (
+        decision: ApprovalDecision,
+        isBypassRequested: boolean,
+        bypassReason: string
+    ) => {
+        describeDecision(decision, isBypassRequested, bypassReason);
+
+        setPlaygroundStatus(decision === ApprovalDecision.Approve
+            ? ApprovalStatus.Approved
+            : ApprovalStatus.Rejected);
+    };
 
     return (
         <ComponentDoc
@@ -735,8 +798,16 @@ export function ReviewPanelDoc() {
                     {
                         name: 'review-viewer-has-voted',
                         label: 'the viewer has already voted (demo data, not a prop)',
-                        value: playgroundViewerHasVoted,
-                        onChange: setPlaygroundViewerHasVoted
+                        value: playgroundViewerVote != null,
+                        onChange: (hasVoted) =>
+                            setPlaygroundViewerVote(
+                                hasVoted ? ApprovalStatus.Approved : undefined)
+                    },
+                    {
+                        name: 'review-open-comment',
+                        label: 'a review comment is still open (demo data, not a prop)',
+                        value: playgroundHasOpenComment,
+                        onChange: setPlaygroundHasOpenComment
                     },
                     {
                         name: 'review-border',
@@ -768,6 +839,13 @@ export function ReviewPanelDoc() {
                     defaultValue={15}
                     onChange={setPlaygroundMaxRequests} />
 
+                <DemoNumberInput
+                    label="approvals required (demo data, not a prop)"
+                    name="review-required-approvals"
+                    value={playgroundRequiredApprovals}
+                    defaultValue={3}
+                    onChange={setPlaygroundRequiredApprovals} />
+
                 <LiveDemo>
                     <DemoSecurityContext option={playgroundSecurityContext}>
                         <ReviewPanel
@@ -775,9 +853,7 @@ export function ReviewPanelDoc() {
                             contentType="Blog"
                             entityOwnerId={demoSubmitterIdFor(playgroundSecurityContext)}
                             approvalStatus={playgroundStatus}
-                            approvalReviewCollection={playgroundViewerHasVoted
-                                ? [john, playgroundViewerReview]
-                                : [john]}
+                            approvalReviewCollection={playgroundReviews}
                             requestedReviewerCollection={[mary]}
                             reviewerCandidateCollection={[johnCandidate, mary, paul]}
                             suggestedReviewerCollection={[christo]}
@@ -786,13 +862,16 @@ export function ReviewPanelDoc() {
                             isLoading={playgroundIsLoading}
                             isCandidatesLoading={playgroundIsCandidatesLoading}
                             showBorder={playgroundShowBorder}
-                            onApprovalStatusChanged={describeDecision}
-                            onReviewStatusChanged={(vote) =>
+                            onApprovalStatusChanged={settleRound}
+                            onReviewStatusChanged={(vote) => {
+                                setPlaygroundViewerVote(vote);
+
                                 setLastEvent('onReviewStatusChanged('
                                     + (vote === ApprovalStatus.Approved
                                         ? 'Approved'
                                         : 'Rejected')
-                                    + ')')}
+                                    + ')');
+                            }}
                             onReviewerLookupRequested={() =>
                                 setLastEvent('onReviewerLookupRequested()')}
                             onReviewRequested={(candidate) =>

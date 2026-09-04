@@ -48,6 +48,35 @@ class ContentItemBroker {
         return result.data as ContentItem;
     }
 
+    // THE WHOLE ENTITY GOES BACK, not a patch. PUT api/ContentItems binds a ContentItem and
+    // the server maps the permitted fields off it (§9.7.1 rule 2), pinning the rest against
+    // storage by COMPARISON — so a field omitted here arrives as its default and is read as an
+    // attempt to change it, and `default` is a legal value for most of them.
+    async PutContentItemAsync(contentItem: ContentItem): Promise<ContentItem> {
+        const result = await this.apiBroker.PutAsync(this.relativeContentItemsUrl, contentItem);
+
+        return result.data as ContentItem;
+    }
+
+    // A SOFT delete: the row keeps its place and its history — DeletedBy, DeletedWhen and
+    // DeletionReason are stamped and the approval status is left alone — so this is a takedown,
+    // not an erasure, and never an approval step (§9.7.6). The reason is optional on the wire
+    // and omitted when nobody typed one, rather than sent as an empty string.
+    async DeleteContentItemByIdAsync(
+        contentItemId: string,
+        deletionReason?: string): Promise<ContentItem> {
+        const reason = (deletionReason ?? '').trim();
+
+        const url = reason.length > 0
+            ? `${this.relativeContentItemsUrl}/${contentItemId}`
+                + `?deletionReason=${encodeURIComponent(reason)}`
+            : `${this.relativeContentItemsUrl}/${contentItemId}`;
+
+        const result = await this.apiBroker.DeleteAsync(url);
+
+        return result.data as ContentItem;
+    }
+
     async GetContentItemByIdAsync(contentItemId: string): Promise<ContentItem> {
         const url = `${this.relativeContentItemsUrl}/${contentItemId}`;
         const result = await this.apiBroker.GetAsync(url);

@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AssociationPanelDoc } from './associationPanelDoc';
@@ -678,12 +678,12 @@ describe('Component reference pages', () => {
             // given: the playground opens as the submitter with no verdict — the read-only floor
             renderWithAuth(<ReviewPanelDoc />);
 
-            // when: a publisher who does not own the submission, under a blocked verdict
+            // when: a publisher who does not own the submission, under a live verdict
             await userEvent.click(
                 screen.getByRole('radio', { name: 'I am a publisher (not owner)' }));
 
             await userEvent.click(screen.getByRole('radio',
-                { name: 'Blocked — bypass available to this caller' }));
+                { name: 'Live verdict — bypass available to this caller' }));
 
             // then: the playground added a decision control and a cog to the fixed demos
             expect(screen.getAllByRole('button', { name: 'Set approval status' }))
@@ -692,9 +692,58 @@ describe('Component reference pages', () => {
             expect(screen.getAllByRole('button', { name: 'Request a review' }))
                 .toHaveLength(5);
 
-            // and its block reasons render beside the blocked demo's own
-            expect(screen.getAllByText('A rejected review is blocking approval.'))
+            // and its reasons are DERIVED from its own board rather than picked: one approving
+            // vote on record against three asked for, and a comment still open. Each renders
+            // beside the fixed blocked demo's own copy.
+            expect(screen.getAllByText(
+                'At least 3 approving review(s) is required by reviewers.')).toHaveLength(2);
+
+            expect(screen.getAllByText('All review comments must be resolved.'))
                 .toHaveLength(2);
+
+            // nobody has rejected on the playground, so that reason is the fixed demo's alone
+            expect(screen.getAllByText('A rejected review is blocking approval.'))
+                .toHaveLength(1);
+        });
+
+        /// The playground exists to be STEPPED THROUGH: a vote has to land in the round and the
+        /// verdict has to recount, or the block reasons are scenery and the reader can never
+        /// reach the approve that sits behind them.
+        it('should clear a playground block reason as the round comes to satisfy it', async () => {
+            // given: a publisher who does not own the submission, under a live verdict
+            renderWithAuth(<ReviewPanelDoc />);
+
+            await userEvent.click(
+                screen.getByRole('radio', { name: 'I am a publisher (not owner)' }));
+
+            await userEvent.click(screen.getByRole('radio',
+                { name: 'Live verdict — no bypass for this caller' }));
+
+            // when: two approvals are asked for, and John's is the only one on record
+            // fireEvent rather than userEvent: the box falls back to its default the moment it
+            // is emptied, so a clear-then-type would append to the restored 3 and ask for 32.
+            fireEvent.change(
+                screen.getByLabelText(/approvals required/), { target: { value: '2' } });
+
+            // then: the reason quotes the requirement as it now stands
+            expect(screen.getByText(
+                'At least 2 approving review(s) is required by reviewers.')).toBeInTheDocument();
+
+            // when: the viewer casts the vote that carries it, and the comment is resolved
+            await userEvent.click(
+                screen.getByRole('switch', { name: /the viewer has already voted/ }));
+
+            await userEvent.click(
+                screen.getByRole('switch', { name: /a review comment is still open/ }));
+
+            // then: nothing on the playground blocks any more — the remaining copies of the
+            // comment reason belong to the fixed blocked demo, which has its own verdict
+            expect(screen.queryByText(
+                'At least 2 approving review(s) is required by reviewers.'))
+                .not.toBeInTheDocument();
+
+            expect(screen.getAllByText('All review comments must be resolved.'))
+                .toHaveLength(1);
         });
 
         it('should freeze the playground when the status board turns the round terminal', async () => {

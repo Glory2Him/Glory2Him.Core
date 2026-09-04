@@ -128,6 +128,12 @@ const samplePagesSection: NavItem = {
             ]
         },
         sample("Dashboard", "SamplePages/Dashboard", "bi-speedometer2"),
+
+        // The demo Post table. It sat under ADMIN, beside the real moderation queue, where the
+        // only thing separating "Posts" from "Sample Posts" was the word sample — and picking
+        // the wrong one put an administrator in a table of Blogzine fixtures believing it was
+        // their content. It is a sample, so it lives with the samples.
+        sample("Sample Posts", "SamplePages/Posts", "bi-files"),
     ]
 };
 
@@ -159,10 +165,6 @@ const getFullNavMenu = (): NavItem[] => [
             },
             {
                 title: "Posts", icon: "bi-file-earmark-text", href: "Admin/Posts",
-                roles: administratorsOnly, requiresAuth: true
-            },
-            {
-                title: "Sample Posts", icon: "bi-files", href: "Admin/SamplePosts",
                 roles: administratorsOnly, requiresAuth: true
             },
         ]

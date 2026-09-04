@@ -91,15 +91,18 @@ export function Posts() {
 
     // Edit renders only for the item's own submitter and Moderate only for the moderation
     // tier — ContentItemPanel decides both from the signed-in identity, so this page
-    // just says where each leads. The moderation detail surface is #350's work; until it
-    // exists Moderate leads to the item with the intent in state, as Edit does.
+    // just says where each leads.
+    // MODERATE LEAVES THE PUBLIC SIDE, and leads to the item's ADMIN address. Moderating is
+    // admin work and the public page is a reading surface carrying no moderation controls at
+    // all, so a moderator sent there arrived nowhere useful. The origin rides in state either
+    // way, so the way back is the feed they left, as they left it.
     const editContentItem = (item: { id: string }) =>
         navigate(`/posts/${item.id}`, {
             state: { from: `${location.pathname}${location.search}`, edit: true }
         });
 
     const moderateContentItem = (item: { id: string }) =>
-        navigate(`/posts/${item.id}`, {
+        navigate(`/Admin/Posts/${item.id}`, {
             state: { from: `${location.pathname}${location.search}`, moderate: true }
         });
 

@@ -96,15 +96,19 @@ export function MyPosts() {
 
     // Straight to the item; the detail surface's edit mode is its own work, so for now Edit
     // and the title share a destination and the origin (and intent) ride along in state.
-    // Moderate (a moderator reading their own posts still moderates) leads the same way
-    // until #350 builds the moderation detail.
+    //
+    // MODERATE LEAVES THIS SURFACE (a moderator reading their own posts still moderates)
+    // and leads to the item's ADMIN address. Moderating is
+    // admin work and the public page is a reading surface carrying no moderation controls at
+    // all, so a moderator sent there arrived nowhere useful. The origin rides in state either
+    // way, so the way back is the feed they left, as they left it.
     const editContentItem = (item: { id: string }) =>
         navigate(`/myposts/${item.id}`, {
             state: { from: `${location.pathname}${location.search}`, edit: true }
         });
 
     const moderateContentItem = (item: { id: string }) =>
-        navigate(`/posts/${item.id}`, {
+        navigate(`/Admin/Posts/${item.id}`, {
             state: { from: `${location.pathname}${location.search}`, moderate: true }
         });
 

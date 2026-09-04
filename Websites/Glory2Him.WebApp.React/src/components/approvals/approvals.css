@@ -95,3 +95,30 @@ section.g2h-review-panel {
     width: 1rem;
     flex: 0 0 1rem;
 }
+
+/* THE DECISION TRIGGER AT REST IS A FORM CONTROL, not a filled button. Nothing has been chosen
+   yet, so a solid bar reads as a thing to press — and pressing it does not decide anything, it
+   opens a list. It borrows the form-control palette instead: body background, the same border,
+   the same radius, and secondary-colour text for what is really a placeholder — so it matches
+   the reason box directly above it. The moment a decision IS chosen the caller's selection class
+   takes over and the control fills with the verdict's colour, which is when a solid bar is right.
+
+   Set through the .btn custom properties rather than as flat declarations so every state the
+   theme derives — hover, active, focus ring — follows from one place and keeps working in dark
+   mode, where these tokens resolve to the dark palette on their own. */
+.g2h-review-status-select {
+    /* --bs-gray-500 is the token the theme paints .form-control::placeholder with, so the
+       resting label lands on exactly the grey of the reason box above it rather than near it. */
+    --bs-btn-color: var(--bs-gray-500);
+    --bs-btn-bg: var(--bs-body-bg);
+    --bs-btn-border-color: var(--bs-border-color);
+    --bs-btn-hover-color: var(--bs-body-color);
+    --bs-btn-hover-bg: var(--bs-body-bg);
+    --bs-btn-hover-border-color: var(--bs-border-color);
+    --bs-btn-active-color: var(--bs-body-color);
+    --bs-btn-active-bg: var(--bs-body-bg);
+    --bs-btn-active-border-color: var(--bs-border-color);
+    --bs-btn-border-radius: var(--bs-border-radius);
+    font-weight: 400;
+    text-transform: none;
+}
