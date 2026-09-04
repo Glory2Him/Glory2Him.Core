@@ -1,4 +1,9 @@
-import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query';
+import {
+    useInfiniteQuery,
+    useMutation,
+    useQuery,
+    useQueryClient
+} from '@tanstack/react-query';
 import ContentItemBroker from '../../brokers/apiBroker.contentItems';
 
 import {
@@ -107,14 +112,39 @@ export const contentItemService = {
     // The modify write behind every editing surface. suppressGlobalErrorToast for the same
     // reason the add has it: the API is the authority on what an item must carry, so a 400 is
     // marked up on the form the caller is looking at rather than thrown at them as a toast.
+    //
+    // WHAT IT INVALIDATES IS THE POINT. A surface that closes its editor and re-renders from a
+    // cache nobody told about the write shows the reader their own change reverting in front of
+    // them — the row is saved and the page says otherwise, which is worse than not saving.
     useModifyContentItem: () => {
         const contentItemBroker = new ContentItemBroker();
+        const queryClient = useQueryClient();
 
         return useMutation({
             meta: { suppressGlobalErrorToast: true },
 
             mutationFn: async (contentItem: ContentItem) =>
-                await contentItemBroker.PutContentItemAsync(contentItem)
+                await contentItemBroker.PutContentItemAsync(contentItem),
+
+            onSuccess: (_, contentItem) => {
+                queryClient.invalidateQueries({
+                    queryKey: ['ContentItemsGetById', contentItem.id]
+                });
+
+                // Every feed and queue reading this row. The key carries the search criteria, so
+                // the prefix is matched rather than any one of them reconstructed — a moderation
+                // queue filtered one way and a journal filtered another both hold this item.
+                queryClient.invalidateQueries({ queryKey: ['ContentItemsSearch'] });
+
+                // THE ROUND MOVES WITH THE ROW. A modify carries the Draft <-> Submitted
+                // carve-out (§9.2 rules 3-6), so the verdict this item was blocked by — and the
+                // reasons it gave — are answered afresh the moment the status changes. Left
+                // alone they would go on reporting a draft that has just been offered.
+                queryClient.invalidateQueries({ queryKey: ['ApprovalVerdict'] });
+                queryClient.invalidateQueries({ queryKey: ['ApprovalReviews'] });
+                queryClient.invalidateQueries({ queryKey: ['ReviewerCandidates'] });
+                queryClient.invalidateQueries({ queryKey: ['ReviewRequests'] });
+            }
         });
     },
 
