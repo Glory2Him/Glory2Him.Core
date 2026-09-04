@@ -69,6 +69,39 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             }
         }
 
+        // Unpublishing is a WRITE, so the veto covers it at all three tiers (§18.6 rule 2).
+        // Without this it was the one content-item write path that asked no block role at all —
+        // and it is the one that takes published content off the site, which is exactly the act
+        // a sanction exists to stop. The same argument the hard remove is gated on: a block that
+        // stops the reversible act and not this one is the wrong way round.
+        //
+        // Asked against the STORED row, and skipped entirely for the system identity — that is
+        // the publication swap moving an incumbent aside (§9.7.7 rule 7), which holds no roles by
+        // construction and is not the party this refuses.
+        private static void ValidateUserIsNotBlockedFromUnpublishing(
+            SecurityContext securityContext,
+            ContentItem storageContentItem)
+        {
+            if (securityContext.IsSystemIdentity)
+            {
+                return;
+            }
+
+            bool isBlocked =
+                securityContext.Roles.Contains(Roles.ReadOnly)
+                    || securityContext.Roles.Contains(Roles.ContentItemReadOnly);
+
+            if (isBlocked)
+            {
+                throw new UnauthorizedContentItemException(
+                    message: "The current user is blocked from contributing content items.");
+            }
+
+            ValidateUserIsNotBlockedFromContentType(
+                securityContext,
+                storageContentItem.ContentType);
+        }
+
         private static void ValidateOnTransitionContentItemApproval(ContentItem contentItem) =>
             Validate(
                 message: "Content item is invalid, fix the errors and try again.",
@@ -124,6 +157,12 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             ContentItem storageContentItem,
             SecurityContext securityContext)
         {
+            // Submitting is a write, so the veto is asked of the stored type first — ahead of
+            // the owner branch and of the publisher tier alike (§18.6 rule 2).
+            ValidateUserIsNotBlockedFromContentType(
+                securityContext,
+                storageContentItem.ContentType);
+
             string actorUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
 
             bool isOwner =
@@ -176,6 +215,15 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             bool isSystemIdentity,
             CancellationToken cancellationToken)
         {
+            // The veto, before every grant this method goes on to weigh — the publisher tier,
+            // the Administrators override, and the access decision below them all. A block on
+            // this content type refuses the transition however wide the caller's role
+            // (§18.6 rule 2). The workflow's own system identity carries no roles, so it is
+            // never the party this refuses.
+            ValidateUserIsNotBlockedFromContentType(
+                securityContext,
+                storageContentItem.ContentType);
+
             // Resolved from the STORED status, never the caller's copy — the same reason the
             // author and the content type are. A caller-supplied status would be
             // self-certification: anyone could present an approved row as Submitted and decide

@@ -29,6 +29,30 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
         // ── OnSubmitting ─────────────────────────────────────────────────────────────────────
 
         [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnSubmittingCommentEventIfCancellationRequestedAsync()
+        {
+            // given
+            EventEnvelope<Comment> requestEnvelope = CreateRandomCommentRequestEnvelope();
+            var cancellationToken = new CancellationToken(canceled: true);
+
+            // when
+            ValueTask<EventEnvelope<Comment>?> onSubmittingTask =
+                this.commentService.OnSubmittingCommentAsync(
+                    requestEnvelope,
+                    cancellationToken);
+
+            // then
+            await Assert.ThrowsAsync<OperationCanceledException>(
+                onSubmittingTask.AsTask);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
         public async Task ShouldSubmitOnSubmittingCommentEventAsync()
         {
             // given: the event path carries the id in the envelope; the do-work reads only the
@@ -161,6 +185,31 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
         }
 
         // ── OnApproving ──────────────────────────────────────────────────────────────────────
+
+        [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnApprovingCommentEventIfCancellationRequestedAsync()
+        {
+            // given
+            EventEnvelope<Comment> requestEnvelope = CreateRandomCommentRequestEnvelope();
+            var cancellationToken = new CancellationToken(canceled: true);
+
+            // when
+            ValueTask<EventEnvelope<Comment>?> onApprovingTask =
+                this.commentService.OnApprovingCommentAsync(
+                    requestEnvelope,
+                    cancellationToken);
+
+            // then
+            await Assert.ThrowsAsync<OperationCanceledException>(
+                onApprovingTask.AsTask);
+
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
 
         [Fact]
         public async Task ShouldApproveOnApprovingCommentEventAsync()

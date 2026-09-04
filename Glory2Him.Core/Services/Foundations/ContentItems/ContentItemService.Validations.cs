@@ -46,6 +46,46 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             }
         }
 
+        // The same gate asked of a KNOWN content type, so the narrow third tier of the block
+        // can be composed (design §18.6 rule 2). The two coarse names above cover every row
+        // whatever its type; this one has to be told which row is being written.
+        private static void ValidateUserIsAllowedToContribute(
+            SecurityContext securityContext,
+            ContentType contentType)
+        {
+            ValidateUserIsAllowedToContribute(securityContext);
+            ValidateUserIsNotBlockedFromContentType(securityContext, contentType);
+        }
+
+        // The veto, at its narrowest scope. It is asked FIRST on every write path and no grant
+        // answers it: not ContentItem-Quote-Publishers, not ContentItem-Publishers, not
+        // Publishers, not Administrators, and not the owner — a block that a wide enough role
+        // escaped would be a block nobody could rely on (design §18.6 rule 2).
+        //
+        // That is the mirror image of rule 4 rather than a contradiction of it. Grants widen
+        // UPWARD: the narrow ContentItem-Quote-Reviewers satisfies a check the coarse
+        // ContentItem-Reviewers satisfies too. Blocks are absolute DOWNWARD: within the scope
+        // they cover nothing overrides them, and outside it they are simply not asked — a
+        // ContentItem-Quote-ReadOnly holder writes stories exactly as before.
+        //
+        // The content type it is asked about is always the one on the row being WRITTEN, which
+        // on every modify path means the STORED row. ContentType is create-only (§12.4.1 rule
+        // 7a), so reading it off the caller's copy would let a blocked contributor relabel
+        // their edit as a type they are not blocked from and walk straight past this.
+        private static void ValidateUserIsNotBlockedFromContentType(
+            SecurityContext securityContext,
+            ContentType contentType)
+        {
+            bool isBlocked = securityContext.Roles.Contains(
+                Roles.ReadOnlyFor(EntityType.ContentItem, contentType));
+
+            if (isBlocked)
+            {
+                throw new UnauthorizedContentItemException(
+                    message: "The current user is blocked from contributing content items.");
+            }
+        }
+
         // Null-check first (a malformed event), then verify the integrity signature against the
         // event name this handler serves and the request direction. The signature is what makes
         // the envelope's SecurityContext trustworthy on the event path: without it a caller who can
@@ -145,6 +185,13 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             ContentItem storageContentItem,
             SecurityContext securityContext)
         {
+            // The veto, against the STORED type, and ahead of the owner branch on purpose:
+            // a contributor sanctioned on this content type may no longer edit even their own
+            // rows, and the ownership carve-out below is a grant like any other (§18.6 rule 2).
+            ValidateUserIsNotBlockedFromContentType(
+                securityContext,
+                storageContentItem.ContentType);
+
             string actorUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
 
             bool isOwner =
@@ -215,6 +262,15 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             ContentItem storageContentItem,
             SecurityContext securityContext)
         {
+            // Withdrawal is a write too, so the veto covers it — and it covers the holder's
+            // OWN rows. The consequence is deliberate: a sanctioned contributor cannot take
+            // their own content down, and removing it needs an unblocked owner-or-Administrators
+            // path instead. That is what keeps the rule total within its scope rather than
+            // leaving one branch on which a block is negotiable (§18.6 rule 2).
+            ValidateUserIsNotBlockedFromContentType(
+                securityContext,
+                storageContentItem.ContentType);
+
             string actorUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
 
             bool isOwner =

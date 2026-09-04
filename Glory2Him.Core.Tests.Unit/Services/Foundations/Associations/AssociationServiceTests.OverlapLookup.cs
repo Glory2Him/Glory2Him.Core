@@ -459,5 +459,35 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()),
                 Times.Never);
         }
+
+        [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnFindOverlappingAssociationIfCancellationRequestedAsync()
+        {
+            // given
+            Association incoming = CreateContentItemTagPair(
+                Guid.NewGuid(), contentItemKeyId: Guid.NewGuid(), Scope.AllVersions, tagKeyId: Guid.NewGuid());
+
+            var cancellationToken = new CancellationToken(canceled: true);
+
+            // when
+            ValueTask<AssociationPairMatch?> findTask =
+                this.associationService.FindOverlappingAssociationAsync(
+                    incoming,
+                    excludedAssociationId: null,
+                    cancellationToken);
+
+            // then
+            await Assert.ThrowsAsync<OperationCanceledException>(findTask.AsTask);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            // pins WHERE the guard sits, not merely that it exists. The operation mints an
+            // envelope before it reads anything, so a guard that drifted below that await would
+            // still surface OperationCanceledException and still satisfy the storage assertion
+            // above — this is the assertion that catches the drift.
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }

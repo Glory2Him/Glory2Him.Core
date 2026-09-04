@@ -140,8 +140,8 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// What the given account ids are CALLED (§16.7.4) — the one name resolver every review
-        /// surface asks, rather than a display-name projection per surface.
+        /// What everybody THIS ROUND names is CALLED (§16.7.4) — the one name resolver every
+        /// review surface asks, rather than a display-name projection per surface.
         ///
         /// <para><b>The gap it closes.</b> <c>ApprovalReview</c> carries <c>CreatedBy</c>, which
         /// is an account id, and the only route that named other people was
@@ -151,22 +151,36 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         /// it returns who is in scope for the round, so somebody who reviewed and then lost the
         /// role vanishes from it entirely.</para>
         ///
-        /// <para><b>No role filter and no disabled filter.</b> Every id a caller sends comes off a
-        /// row it has already been given, so the account belongs to the record whatever has
-        /// happened to it since. Ids naming nobody come back absent rather than as an error.</para>
+        /// <para><b>The round is the answer's boundary, and it is also the gate.</b> The set is
+        /// built from the approval's review rows — <b>dismissed and soft-deleted ones
+        /// included</b>, because a panel renders those and their authors still need naming — and
+        /// its outstanding invitations. The review TIER is deliberately not part of it: a caller
+        /// that supplies no ids gives a tier read nothing to admit, so it would only re-answer
+        /// <c>ReviewerCandidates</c>, which the panel already asks and which already carries
+        /// display names. What is left is what makes the tier gate compose with an entity gate
+        /// rather than stand alone: a <c>Tag-Reviewer</c> can name the people a tag round
+        /// involves and nobody else. The caller names no ids of its own, so there is nothing to
+        /// probe with and no batch to bound.</para>
+        ///
+        /// <para><b>No role filter and no disabled filter, in the ONE identity read there is.</b>
+        /// Every id came off a row this approval already stores, so the account belongs to the
+        /// record whatever has happened to it since — which is the whole point, since the
+        /// reviewer who voted and then lost the role is the case that started this. Ids naming
+        /// nobody are absent rather than an error, so one deleted account cannot blank a
+        /// panel.</para>
         ///
         /// <para>A <b>user-enumeration surface</b>, so §16.7.4's posture governs it rather than
         /// being re-derived: the requesting tier (§7.9 rule 2) and nobody else, an account id and
-        /// a display name and nothing else. It is bounded as well — a batch naming more than 200
-        /// distinct ACCOUNTS is refused rather than truncated, so a caller is never quietly told
-        /// less than it asked for. The count is taken after the ids are parsed, because a GUID has
-        /// several equal spellings and counting raw text would refuse a caller who asked about 200
-        /// people using 201 spellings of them. The id echoed back is read off the resolved row, so
-        /// it is always canonical whatever was sent — a caller holding ids in another spelling
-        /// normalises its own side to join on the answer.</para>
+        /// a display name and nothing else. Ids are echoed back so a caller can join the answer
+        /// onto the rows it holds without depending on ordering.</para>
+        ///
+        /// <para>Throws <c>NotFoundApprovalOrchestrationException</c> when no approval occupies
+        /// the key, the same as the candidates read — there is no round, so there is nobody it
+        /// names.</para>
         /// </summary>
         ValueTask<IReadOnlyList<ReviewerDisplayName>> RetrieveReviewerDisplayNamesAsync(
-            IEnumerable<string> userIds,
+            EntityType entityType,
+            Guid entityId,
             CancellationToken cancellationToken = default);
 
         /// <summary>

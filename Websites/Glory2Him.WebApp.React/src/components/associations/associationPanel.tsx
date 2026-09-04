@@ -1,6 +1,7 @@
 import { KeyboardEvent, ReactElement, ReactNode, useId, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../securitys/authProvider';
+import { GlobalModerationRoles } from './associationRoles';
 import {
     ApprovalStatus,
     AssociationItem
@@ -182,7 +183,7 @@ export function AssociationPanel({
     rejectIconCssClass = 'bi-slash-circle',
     approveButtonCssClass = 'btn-success',
     rejectButtonCssClass = 'btn-warning',
-    moderationRoles = 'Reviewers, Publishers, Administrators',
+    moderationRoles = GlobalModerationRoles,
     showAdd = false,
     addRoles = '',
     suggestTitle = '',
