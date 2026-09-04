@@ -30,6 +30,16 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                         sql:
                             $"({nameof(ApprovalSetting.ContentType)} IS NULL OR " +
                             $"{nameof(ApprovalSetting.EntityType)} = N'{nameof(EntityType.ContentItem)}')");
+
+                    // design §8.4: IsPersonal may be populated only when EntityType = Association.
+                    // The same shape as the constraint above, for the same reason — the
+                    // personality of a row is a property of an association's UserId (§4.2) and
+                    // means nothing on any other entity type.
+                    tableBuilder.HasCheckConstraint(
+                        name: "CK_ApprovalSetting_IsPersonalRequiresAssociation",
+                        sql:
+                            $"({nameof(ApprovalSetting.IsPersonal)} IS NULL OR " +
+                            $"{nameof(ApprovalSetting.EntityType)} = N'{nameof(EntityType.Association)}')");
                 });
 
             model.HasKey(approvalSetting => approvalSetting.Id);
@@ -37,15 +47,20 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             model.Property(approvalSetting => approvalSetting.Id)
                  .IsRequired();
 
+            // NULLABLE, and that is the global tier (design §8.4): a row with no entity type
+            // is the one every entity-type default narrows.
             model.Property(approvalSetting => approvalSetting.EntityType)
                  .HasConversion<string>()
                  .HasMaxLength(64)
-                 .IsRequired();
+                 .IsRequired(false);
 
             model.Property(approvalSetting => approvalSetting.ContentType)
                  .HasConversion<string>()
                  .HasMaxLength(32)
                  .IsUnicode(true)
+                 .IsRequired(false);
+
+            model.Property(approvalSetting => approvalSetting.IsPersonal)
                  .IsRequired(false);
 
             model.Property(approvalSetting => approvalSetting.RequireApprovals)
@@ -125,21 +140,49 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             // eight EntityType members with one default slot each; a trapped one could never be
             // re-created.
 
-            // 1) at most one LIVE entity-type-level default (ContentType IS NULL)
-            model.HasIndex(approvalSetting => approvalSetting.EntityType)
+            // 1) at most one LIVE global default (EntityType IS NULL). The key column is all
+            //    NULL on every row this filter admits, and NULL equals NULL under unique-index
+            //    semantics — which is exactly what makes it a single slot rather than none.
+            //
+            //    NAMED IN THE CALL, as is the next one: EF keys an index on its property list,
+            //    so two HasIndex calls over the same column silently replace each other unless
+            //    the name is part of the definition. The first cut of this lost the global
+            //    index that way and the migration never created it.
+            model.HasIndex(
+                     approvalSetting => approvalSetting.EntityType,
+                     "UX_ApprovalSettings_GlobalDefault")
                  .IsUnique()
                  .HasFilter(
-                     $"[{nameof(ApprovalSetting.ContentType)}] IS NULL AND " +
-                     $"[{nameof(ApprovalSetting.IsDeleted)}] = 0")
-                 .HasDatabaseName("UX_ApprovalSettings_EntityTypeDefault");
+                     $"[{nameof(ApprovalSetting.EntityType)}] IS NULL AND " +
+                     $"[{nameof(ApprovalSetting.IsDeleted)}] = 0");
 
-            // 2) at most one LIVE row per (EntityType, ContentType) when ContentType is populated
+            // 2) at most one LIVE entity-type-level default (no narrowing on either axis)
+            model.HasIndex(
+                     approvalSetting => approvalSetting.EntityType,
+                     "UX_ApprovalSettings_EntityTypeDefault")
+                 .IsUnique()
+                 .HasFilter(
+                     $"[{nameof(ApprovalSetting.EntityType)}] IS NOT NULL AND " +
+                     $"[{nameof(ApprovalSetting.ContentType)}] IS NULL AND " +
+                     $"[{nameof(ApprovalSetting.IsPersonal)}] IS NULL AND " +
+                     $"[{nameof(ApprovalSetting.IsDeleted)}] = 0");
+
+            // 3) at most one LIVE row per (EntityType, ContentType) when ContentType is populated
             model.HasIndex(approvalSetting => new { approvalSetting.EntityType, approvalSetting.ContentType })
                  .IsUnique()
                  .HasFilter(
                      $"[{nameof(ApprovalSetting.ContentType)}] IS NOT NULL AND " +
                      $"[{nameof(ApprovalSetting.IsDeleted)}] = 0")
                  .HasDatabaseName("UX_ApprovalSettings_EntityTypeContentType");
+
+            // 4) at most one LIVE row per (EntityType, IsPersonal) when IsPersonal is populated —
+            //    one personal and one editorial policy for associations, at most.
+            model.HasIndex(approvalSetting => new { approvalSetting.EntityType, approvalSetting.IsPersonal })
+                 .IsUnique()
+                 .HasFilter(
+                     $"[{nameof(ApprovalSetting.IsPersonal)}] IS NOT NULL AND " +
+                     $"[{nameof(ApprovalSetting.IsDeleted)}] = 0")
+                 .HasDatabaseName("UX_ApprovalSettings_AssociationPersonality");
         }
     }
 }

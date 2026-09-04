@@ -265,6 +265,7 @@ namespace Glory2Him.Core.Services.Foundations.Links
                     // A link has no confidence score — that is an association's input. The
                     // decision engine treats a null score as "no score to weigh".
                     ConfidenceScore = null,
+                    IsPersonal = null,
 
                     Decision = link.ApprovalStatus == ApprovalStatus.Rejected
                         ? ApprovalDecision.Reject

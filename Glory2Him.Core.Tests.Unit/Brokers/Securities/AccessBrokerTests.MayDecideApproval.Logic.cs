@@ -387,11 +387,35 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                 IsDeleted = false,
             };
 
+            // The GLOBAL row travels with the entity type's own (§8.4): it is the tier the
+            // entity-type default narrows, and a decision that never saw it could not fall
+            // back to it.
+            var globalSetting = new ApprovalSetting
+            {
+                Id = Guid.NewGuid(),
+                EntityType = null,
+                ContentType = null,
+                IsPersonal = null,
+                RequiredNumberOfApprovals = 7,
+                IsDeleted = false,
+            };
+
+            var deletedGlobalSetting = new ApprovalSetting
+            {
+                Id = Guid.NewGuid(),
+                EntityType = null,
+                ContentType = null,
+                IsPersonal = null,
+                IsDeleted = true,
+            };
+
             SetupApprovalSettings(
                 narrowSetting,
                 defaultTierSetting,
                 deletedSetting,
-                otherEntityTypeSetting);
+                otherEntityTypeSetting,
+                globalSetting,
+                deletedGlobalSetting);
 
             ApprovalDecisionQuery approvalDecisionQuery = CreateApprovalDecisionQuery(
                 entityType: EntityType.ContentItem,
@@ -404,10 +428,18 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                 TestContext.Current.CancellationToken);
 
             // then
-            this.capturedDecideApprovalRequest.CandidatePolicies.Should().HaveCount(2);
+            this.capturedDecideApprovalRequest.CandidatePolicies.Should().HaveCount(3);
 
             this.capturedDecideApprovalRequest.CandidatePolicies
-                .Should().ContainSingle(policy => policy.ContentType == null);
+                .Should().ContainSingle(policy =>
+                    policy.EntityType == "ContentItem" && policy.ContentType == null);
+
+            ApprovalPolicy globalPolicy = this.capturedDecideApprovalRequest.CandidatePolicies
+                .Single(policy => policy.EntityType == null);
+
+            globalPolicy.ContentType.Should().BeNull();
+            globalPolicy.IsPersonal.Should().BeNull();
+            globalPolicy.RequiredNumberOfApprovals.Should().Be(7);
 
             ApprovalPolicy narrowPolicy = this.capturedDecideApprovalRequest.CandidatePolicies
                 .Single(policy => policy.ContentType == "Story");

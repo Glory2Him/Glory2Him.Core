@@ -61,6 +61,13 @@ namespace G2H.Security.Client.Models.Foundations.Access
         public required string? ContentType { get; init; }
 
         /// <summary>
+        /// The personality half of the policy key: whether the entity is a personal association
+        /// (its <c>UserId</c> is set) — null for anything that is not an association, where the
+        /// tier does not exist.
+        /// </summary>
+        public required bool? IsPersonal { get; init; }
+
+        /// <summary>
         /// The <c>CreatedBy</c> of the content being decided on. HR-2 compares the actor against
         /// this.
         /// </summary>

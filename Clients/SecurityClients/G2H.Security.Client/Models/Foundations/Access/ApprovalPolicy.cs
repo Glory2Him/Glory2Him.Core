@@ -23,9 +23,17 @@ namespace G2H.Security.Client.Models.Foundations.Access
     public class ApprovalPolicy
     {
         /// <summary>
-        /// The entity type this row governs.
+        /// The entity type this row governs, or null for the global default tier — "every
+        /// entity type" (§8.4).
         /// </summary>
-        public required string EntityType { get; init; }
+        public required string? EntityType { get; init; }
+
+        /// <summary>
+        /// Whether this row is narrowed to personal associations (true) or editorial ones
+        /// (false), or null for "every association". Meaningful only on the Association entity
+        /// type (§8.4).
+        /// </summary>
+        public required bool? IsPersonal { get; init; }
 
         /// <summary>
         /// The content type this row is narrowed to, or null for the entity-type default tier —

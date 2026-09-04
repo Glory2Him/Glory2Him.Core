@@ -226,6 +226,7 @@ namespace Glory2Him.Core.Services.Foundations.Tags
                     // A tag has no confidence score — that is an association's input. The
                     // decision engine treats a null score as "no score to weigh".
                     ConfidenceScore = null,
+                    IsPersonal = null,
 
                     Decision = tag.ApprovalStatus == ApprovalStatus.Rejected
                         ? ApprovalDecision.Reject

@@ -230,5 +230,249 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             actualVerdict.ApprovalCount.Should().Be(1);
             actualVerdict.RequiredNumberOfApprovals.Should().Be(1);
         }
+
+        // ── The global tier (§8.4 tier 4) ─────────────────────────────────────────────────
+
+        [Fact]
+        public async Task ShouldResolveTheGlobalDefaultWhenNoRowNamesTheEntityTypeAsync()
+        {
+            // given
+            string entityType = GetRandomString();
+
+            ApprovalPolicy globalDefault = CreateRandomApprovalPolicy(
+                isGlobal: true,
+                requiredNumberOfApprovals: 5);
+
+            ApprovalPolicy otherEntityTypeDefault = CreateRandomApprovalPolicy(
+                entityType: GetRandomString(),
+                requiredNumberOfApprovals: 9);
+
+            ApprovalConditionsRequest approvalConditionsRequest =
+                CreateRandomApprovalConditionsRequest(
+                    candidatePolicies: new List<ApprovalPolicy>
+                    {
+                        otherEntityTypeDefault,
+                        globalDefault,
+                    },
+                    entityType: entityType,
+                    contentType: null);
+
+            // when
+            ApprovalConditionsVerdict actualVerdict =
+                await this.accessService.EvaluateApprovalConditionsAsync(
+                    approvalConditionsRequest);
+
+            // then
+            actualVerdict.RequiredNumberOfApprovals.Should().Be(5);
+        }
+
+        [Fact]
+        public async Task ShouldResolveTheEntityTypeDefaultOverTheGlobalDefaultAsync()
+        {
+            // given
+            string entityType = GetRandomString();
+
+            ApprovalPolicy globalDefault = CreateRandomApprovalPolicy(
+                isGlobal: true,
+                requiredNumberOfApprovals: 5);
+
+            ApprovalPolicy entityTypeDefault = CreateRandomApprovalPolicy(
+                entityType: entityType,
+                requiredNumberOfApprovals: 2);
+
+            ApprovalConditionsRequest approvalConditionsRequest =
+                CreateRandomApprovalConditionsRequest(
+                    candidatePolicies: new List<ApprovalPolicy>
+                    {
+                        globalDefault,
+                        entityTypeDefault,
+                    },
+                    entityType: entityType,
+                    contentType: null);
+
+            // when
+            ApprovalConditionsVerdict actualVerdict =
+                await this.accessService.EvaluateApprovalConditionsAsync(
+                    approvalConditionsRequest);
+
+            // then
+            actualVerdict.RequiredNumberOfApprovals.Should().Be(2);
+        }
+
+        /// <summary>
+        /// The global row is a stored policy, not the fail-closed fallback: where it exists it
+        /// answers, and the system default of §8.4 rule 2 is never consulted.
+        /// </summary>
+        [Fact]
+        public async Task ShouldResolveTheGlobalDefaultAheadOfTheSystemDefaultAsync()
+        {
+            // given: the global row asks for no approvals, which the system default never does
+            ApprovalPolicy globalDefault = CreateRandomApprovalPolicy(
+                isGlobal: true,
+                requireApprovals: false);
+
+            ApprovalConditionsRequest approvalConditionsRequest =
+                CreateRandomApprovalConditionsRequest(
+                    candidatePolicies: new List<ApprovalPolicy> { globalDefault },
+                    entityType: GetRandomString(),
+                    contentType: null);
+
+            // when
+            ApprovalConditionsVerdict actualVerdict =
+                await this.accessService.EvaluateApprovalConditionsAsync(
+                    approvalConditionsRequest);
+
+            // then
+            actualVerdict.AreConditionsMet.Should().BeTrue();
+            actualVerdict.RequiredNumberOfApprovals.Should().Be(0);
+        }
+
+        // ── The personality tier (§8.4 tier 2, associations) ─────────────────────────────
+
+        [Fact]
+        public async Task ShouldResolveThePersonalRowOverTheEntityTypeDefaultForAPersonalEntityAsync()
+        {
+            // given
+            string entityType = GetRandomString();
+
+            ApprovalPolicy entityTypeDefault = CreateRandomApprovalPolicy(
+                entityType: entityType,
+                requiredNumberOfApprovals: 2);
+
+            ApprovalPolicy personalRow = CreateRandomApprovalPolicy(
+                entityType: entityType,
+                isPersonal: true,
+                requireApprovals: false,
+                autoApproveIfAllApprovalRequirementsMet: true);
+
+            ApprovalConditionsRequest approvalConditionsRequest =
+                CreateRandomApprovalConditionsRequest(
+                    candidatePolicies: new List<ApprovalPolicy>
+                    {
+                        entityTypeDefault,
+                        personalRow,
+                    },
+                    entityType: entityType,
+                    contentType: null,
+                    isPersonal: true);
+
+            // when
+            ApprovalConditionsVerdict actualVerdict =
+                await this.accessService.EvaluateApprovalConditionsAsync(
+                    approvalConditionsRequest);
+
+            // then: a user's own reaction opens and closes its round on submit (§8.5 rules 1, 6)
+            actualVerdict.AreConditionsMet.Should().BeTrue();
+            actualVerdict.ShouldAutoApprove.Should().BeTrue();
+        }
+
+        /// <summary>
+        /// The personal row governs personal associations ONLY. An editorial association — one
+        /// with no UserId — takes the entity-type default, however the personal row is set.
+        /// </summary>
+        [Fact]
+        public async Task ShouldNotResolveThePersonalRowForAnEditorialEntityAsync()
+        {
+            // given
+            string entityType = GetRandomString();
+
+            ApprovalPolicy entityTypeDefault = CreateRandomApprovalPolicy(
+                entityType: entityType,
+                requiredNumberOfApprovals: 2);
+
+            ApprovalPolicy personalRow = CreateRandomApprovalPolicy(
+                entityType: entityType,
+                isPersonal: true,
+                requireApprovals: false);
+
+            ApprovalConditionsRequest approvalConditionsRequest =
+                CreateRandomApprovalConditionsRequest(
+                    candidatePolicies: new List<ApprovalPolicy>
+                    {
+                        personalRow,
+                        entityTypeDefault,
+                    },
+                    entityType: entityType,
+                    contentType: null,
+                    isPersonal: false);
+
+            // when
+            ApprovalConditionsVerdict actualVerdict =
+                await this.accessService.EvaluateApprovalConditionsAsync(
+                    approvalConditionsRequest);
+
+            // then
+            actualVerdict.RequiredNumberOfApprovals.Should().Be(2);
+        }
+
+        /// <summary>
+        /// An entity with NO personality — anything that is not an association — never
+        /// matches a personality row, personal or editorial, even one for its own entity type.
+        /// </summary>
+        [Fact]
+        public async Task ShouldNotResolveAPersonalityRowForAnEntityWithNoPersonalityAsync()
+        {
+            // given
+            string entityType = GetRandomString();
+
+            ApprovalPolicy entityTypeDefault = CreateRandomApprovalPolicy(
+                entityType: entityType,
+                requiredNumberOfApprovals: 3);
+
+            ApprovalPolicy editorialRow = CreateRandomApprovalPolicy(
+                entityType: entityType,
+                isPersonal: false,
+                requiredNumberOfApprovals: 8);
+
+            ApprovalConditionsRequest approvalConditionsRequest =
+                CreateRandomApprovalConditionsRequest(
+                    candidatePolicies: new List<ApprovalPolicy>
+                    {
+                        editorialRow,
+                        entityTypeDefault,
+                    },
+                    entityType: entityType,
+                    contentType: null,
+                    isPersonal: null);
+
+            // when
+            ApprovalConditionsVerdict actualVerdict =
+                await this.accessService.EvaluateApprovalConditionsAsync(
+                    approvalConditionsRequest);
+
+            // then
+            actualVerdict.RequiredNumberOfApprovals.Should().Be(3);
+        }
+
+        /// <summary>
+        /// A personal association whose entity type has no personal row still resolves through
+        /// the entity-type default and then the global one — the tier is skipped, not the whole
+        /// hierarchy.
+        /// </summary>
+        [Fact]
+        public async Task ShouldFallPastAnAbsentPersonalityRowToTheEntityTypeDefaultAsync()
+        {
+            // given
+            string entityType = GetRandomString();
+
+            ApprovalPolicy entityTypeDefault = CreateRandomApprovalPolicy(
+                entityType: entityType,
+                requiredNumberOfApprovals: 4);
+
+            ApprovalConditionsRequest approvalConditionsRequest =
+                CreateRandomApprovalConditionsRequest(
+                    candidatePolicies: new List<ApprovalPolicy> { entityTypeDefault },
+                    entityType: entityType,
+                    contentType: null,
+                    isPersonal: true);
+
+            // when
+            ApprovalConditionsVerdict actualVerdict =
+                await this.accessService.EvaluateApprovalConditionsAsync(
+                    approvalConditionsRequest);
+
+            // then
+            actualVerdict.RequiredNumberOfApprovals.Should().Be(4);
+        }
     }
 }

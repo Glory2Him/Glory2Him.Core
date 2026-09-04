@@ -393,6 +393,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             Guid entityId,
             SecurityContext securityContext,
             ContentType? contentType = null,
+            bool? isPersonal = null,
             IReadOnlyList<RoleSubject> roleSubjects = null,
             string entityCreatedBy = null,
             decimal? confidenceScore = null,
@@ -404,6 +405,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                 EntityType = entityType,
                 EntityId = entityId,
                 ContentType = contentType,
+                IsPersonal = isPersonal,
                 RoleSubjects = roleSubjects ?? new List<RoleSubject>
                 {
                     new RoleSubject

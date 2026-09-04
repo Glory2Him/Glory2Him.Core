@@ -181,6 +181,12 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalSettings
                 .OnProperty(approvalSetting => approvalSetting.ContentType)
                     .Use(new Func<ContentType?>(() => GetUnusedContentType()))
 
+                // Pinned, not left to the filler: a random bool? lands true on a ContentItem
+                // row, and CK_ApprovalSetting_IsPersonalRequiresAssociation refuses it — every
+                // ordinary post in the suite would 400 on a scope it never meant to state.
+                .OnProperty(approvalSetting => approvalSetting.IsPersonal)
+                    .Use((bool?)null)
+
                 // A plausible policy rather than a random one, so the reader of a failure never
                 // has to work out that the fixture was the problem.
                 .OnProperty(approvalSetting => approvalSetting.RequireApprovals).Use(true)

@@ -38,12 +38,41 @@ export const entityTypeLabels: Readonly<Record<EntityType, string>> = {
     [EntityType.Association]: 'Association',
 };
 
-// ONLY ContentItem CARRIES A CONTENT TYPE (design §8.4). Every other entity type must leave it
-// null, and the database enforces that with a CHECK constraint rather than the service — so a
-// bad pair comes back as a dependency failure with no field to hang it on. The form prevents it
-// instead of explaining it afterwards.
-export const allowsContentTypeScope = (entityType: EntityType): boolean =>
+// ONLY ContentItem CARRIES A CONTENT TYPE, and ONLY Association A PERSONALITY (design §8.4).
+// Every other entity type must leave them null, and the database enforces both with CHECK
+// constraints rather than the service — so a bad pair comes back as a dependency failure with
+// no field to hang it on. The form prevents it instead of explaining it afterwards.
+export const allowsContentTypeScope = (entityType: EntityType | null): boolean =>
     entityType === EntityType.ContentItem;
+
+export const allowsPersonalScope = (entityType: EntityType | null): boolean =>
+    entityType === EntityType.Association;
+
+// The heading a row is known by. Null is the global tier, which has no member to name.
+export const entityTypeLabelOf = (entityType: EntityType | null): string =>
+    entityType == null ? 'Every entity type' : entityTypeLabels[entityType] ?? 'Unknown';
+
+// What narrows a row below its entity type, said the way the admin surface says it — or what
+// tier the row IS, when nothing narrows it.
+export const scopeLabelOf = (approvalSetting: {
+    entityType: EntityType | null;
+    contentType: ContentType | null;
+    isPersonal: boolean | null;
+}): string => {
+    if (approvalSetting.entityType == null) {
+        return 'The global default';
+    }
+
+    if (approvalSetting.isPersonal === true) {
+        return 'Personal associations only';
+    }
+
+    if (approvalSetting.isPersonal === false) {
+        return 'Editorial associations only';
+    }
+
+    return 'Default for the entity type';
+};
 
 // Wire shape of api/ApprovalSettings, camelCased by the host's default System.Text.Json policy.
 //
@@ -57,11 +86,18 @@ export type ApprovalSetting = {
     id: string;
 
     // ── Scope (§8.4) ──────────────────────────────────────────────────────────
-    entityType: EntityType;
+    // Null means "every entity type" — the global default tier, the one row every entity-type
+    // default narrows and the last stored row before the fail-closed system default.
+    entityType: EntityType | null;
 
     // Null means "every content type of this entity type" — the entity-type default tier. A row
-    // naming a content type beats it for that type.
+    // naming a content type beats it for that type. Legal on ContentItem only.
     contentType: ContentType | null;
+
+    // Whether the row governs personal associations (the row's UserId is set — a user's own
+    // reaction, §4.2) or editorial ones. Null means "every association". Legal on Association
+    // only.
+    isPersonal: boolean | null;
 
     // ── Policy ────────────────────────────────────────────────────────────────
     requireApprovals: boolean;
@@ -93,6 +129,7 @@ export const newApprovalSetting = (id: string): ApprovalSetting => ({
     id,
     entityType: EntityType.ContentItem,
     contentType: null,
+    isPersonal: null,
     requireApprovals: true,
     requiredNumberOfApprovals: 2,
     autoApproveIfAllApprovalRequirementsMet: false,

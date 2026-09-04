@@ -466,5 +466,125 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalSettings
                     reusedPairApprovalSetting.Id);
             }
         }
+
+        /// <summary>
+        /// <c>UX_ApprovalSettings_GlobalDefault</c>: one live global row, and the seed holds it.
+        /// The key column is NULL on every row the filter admits, and NULL equals NULL under
+        /// unique-index semantics — that is what makes the slot singular rather than absent,
+        /// and it is asserted here because it is the least obvious line in the configuration.
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnConflictOnPostIfAGlobalDefaultAlreadyExistsAsync()
+        {
+            // given
+            ApprovalSetting duplicateGlobalDefault = CreateRandomApprovalSetting();
+            duplicateGlobalDefault.EntityType = null;
+            duplicateGlobalDefault.ContentType = null;
+            duplicateGlobalDefault.IsPersonal = null;
+
+            try
+            {
+                // when
+                var postTask =
+                    this.apiBroker.PostApprovalSettingAsync(duplicateGlobalDefault).AsTask();
+
+                // then
+                await Assert.ThrowsAsync<HttpResponseConflictException>(() => postTask);
+            }
+            finally
+            {
+                await this.apiBroker.RemoveCoreApprovalSettingByIdAsync(
+                    duplicateGlobalDefault.Id);
+            }
+        }
+
+        /// <summary>
+        /// <c>UX_ApprovalSettings_AssociationPersonality</c>: one live row per personality, and
+        /// the seed holds the personal one. The editorial slot is free and is left free — the
+        /// duplicate below is the personal one, so the conflict comes from the seeded row.
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnConflictOnPostIfPersonalAssociationsAlreadyHaveARowAsync()
+        {
+            // given
+            ApprovalSetting duplicatePersonalRow = CreateRandomApprovalSetting();
+            duplicatePersonalRow.EntityType = EntityType.Association;
+            duplicatePersonalRow.ContentType = null;
+            duplicatePersonalRow.IsPersonal = true;
+
+            try
+            {
+                // when
+                var postTask =
+                    this.apiBroker.PostApprovalSettingAsync(duplicatePersonalRow).AsTask();
+
+                // then
+                await Assert.ThrowsAsync<HttpResponseConflictException>(() => postTask);
+            }
+            finally
+            {
+                await this.apiBroker.RemoveCoreApprovalSettingByIdAsync(duplicatePersonalRow.Id);
+            }
+        }
+
+        /// <summary>
+        /// The editorial half of the personality tier is a genuinely separate slot from the
+        /// personal one and from the Association default the seed also holds — so a row for it
+        /// is admitted alongside both.
+        /// </summary>
+        [Fact]
+        public async Task ShouldAllowPostOfAnEditorialAssociationRowBesideThePersonalOneAsync()
+        {
+            // given
+            ApprovalSetting editorialRow = CreateRandomApprovalSetting();
+            editorialRow.EntityType = EntityType.Association;
+            editorialRow.ContentType = null;
+            editorialRow.IsPersonal = false;
+
+            try
+            {
+                // when
+                ApprovalSetting actualApprovalSetting =
+                    await this.apiBroker.PostApprovalSettingAsync(editorialRow);
+
+                // then
+                actualApprovalSetting.EntityType.Should().Be(EntityType.Association);
+                actualApprovalSetting.IsPersonal.Should().BeFalse();
+            }
+            finally
+            {
+                await this.apiBroker.RemoveCoreApprovalSettingByIdAsync(editorialRow.Id);
+            }
+        }
+
+        /// <summary>
+        /// <c>CK_ApprovalSetting_IsPersonalRequiresAssociation</c>, asserted from the outside for
+        /// the same reason its content-type sibling is: it is a database check constraint, so
+        /// no unit test of the service would exercise it.
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnBadRequestOnPostIfIsPersonalIsSetForANonAssociationAsync()
+        {
+            // given
+            ApprovalSetting invalidApprovalSetting = CreateRandomApprovalSetting();
+            invalidApprovalSetting.EntityType = EntityType.Tag;
+            invalidApprovalSetting.ContentType = null;
+            invalidApprovalSetting.IsPersonal = true;
+
+            try
+            {
+                // when
+                var postTask =
+                    this.apiBroker.PostApprovalSettingAsync(invalidApprovalSetting).AsTask();
+
+                // then
+                await Assert.ThrowsAsync<HttpResponseBadRequestException>(() => postTask);
+            }
+            finally
+            {
+                await this.apiBroker.RemoveCoreApprovalSettingByIdAsync(
+                    invalidApprovalSetting.Id);
+            }
+        }
     }
 }

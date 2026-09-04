@@ -35,9 +35,13 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 IsAuthenticated = isAuthenticated,
             };
 
+        // entityType null means a RANDOM one, as every test has always read it; the global tier
+        // is asked for explicitly through isGlobal so no existing test silently changes tier.
         private static ApprovalPolicy CreateRandomApprovalPolicy(
             string? entityType = null,
             string? contentType = null,
+            bool? isPersonal = null,
+            bool isGlobal = false,
             bool requireApprovals = true,
             int requiredNumberOfApprovals = 1,
             bool autoApproveIfAllApprovalRequirementsMet = false,
@@ -49,8 +53,9 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             bool doNotAllowBypassingSettings = false) =>
             new ApprovalPolicy
             {
-                EntityType = entityType ?? GetRandomString(),
+                EntityType = isGlobal ? null : entityType ?? GetRandomString(),
                 ContentType = contentType,
+                IsPersonal = isPersonal,
                 RequireApprovals = requireApprovals,
                 RequiredNumberOfApprovals = requiredNumberOfApprovals,
                 AutoApproveIfAllApprovalRequirementsMet = autoApproveIfAllApprovalRequirementsMet,
@@ -137,6 +142,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             IReadOnlyList<ApprovalPolicy>? candidatePolicies = null,
             string? entityType = null,
             string? contentType = null,
+            bool? isPersonal = null,
             IReadOnlyList<ReviewRecord>? reviews = null,
             IReadOnlyList<ApprovalCommentRecord>? comments = null,
             decimal? confidenceScore = null) =>
@@ -145,6 +151,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 CandidatePolicies = candidatePolicies ?? new List<ApprovalPolicy>(),
                 EntityType = entityType ?? GetRandomString(),
                 ContentType = contentType,
+                IsPersonal = isPersonal,
                 Reviews = reviews ?? new List<ReviewRecord>(),
                 ApprovalComments = comments ?? new List<ApprovalCommentRecord>(),
                 ConfidenceScore = confidenceScore,
@@ -161,6 +168,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 candidatePolicies: new List<ApprovalPolicy> { approvalPolicy },
                 entityType: approvalPolicy.EntityType,
                 contentType: approvalPolicy.ContentType,
+                isPersonal: approvalPolicy.IsPersonal,
                 reviews: reviews,
                 comments: comments,
                 confidenceScore: confidenceScore);
@@ -224,8 +232,9 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 Decision = decision,
                 RoleSubjects = roleSubjects ?? new List<RoleSubject>(),
                 CandidatePolicies = new List<ApprovalPolicy> { resolvedPolicy },
-                EntityType = resolvedPolicy.EntityType,
+                EntityType = resolvedPolicy.EntityType!,
                 ContentType = resolvedPolicy.ContentType,
+                IsPersonal = resolvedPolicy.IsPersonal,
                 EntityCreatedBy = entityCreatedBy ?? GetRandomString(),
                 ApprovalState = approvalState,
                 Reviews = reviews ?? new List<ReviewRecord>(),
