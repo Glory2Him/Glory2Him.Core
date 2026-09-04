@@ -300,7 +300,12 @@ namespace Glory2Him.Core.Brokers.Securities
             // Everything below is resolved off the STORED approval's target. A payload naming a
             // different entity could otherwise move the question onto rows the caller does hold
             // a role for — the same reason the amend gate reads storage.
-            (string entityCreatedBy, IReadOnlyList<RoleSubject> roleSubjects, decimal? confidenceScore, bool? isPersonal, _, bool? isEntityDeleted) =
+            (string entityCreatedBy,
+                IReadOnlyList<RoleSubject> roleSubjects,
+                decimal? confidenceScore,
+                bool? isPersonal,
+                _,
+                bool? isEntityDeleted) =
                 await ResolveEntityAsync(
                     maybeApproval.EntityType,
                     maybeApproval.EntityId,
@@ -514,7 +519,13 @@ namespace Glory2Him.Core.Brokers.Securities
         // §14.5 rule 3 has a soft-deleted entity not found for every caller, Administrators
         // included, so "deleted" and "not there" are one answer to everything that asks — see
         // IsEntityVisibleAsync, which is the form the gates actually want.
-        private async ValueTask<(string CreatedBy, IReadOnlyList<RoleSubject> RoleSubjects, decimal? ConfidenceScore, bool? IsPersonal, ApprovalStatus? EntityApprovalStatus, bool? IsEntityDeleted)> ResolveEntityAsync(
+        private async ValueTask<(
+            string CreatedBy,
+            IReadOnlyList<RoleSubject> RoleSubjects,
+            decimal? ConfidenceScore,
+            bool? IsPersonal,
+            ApprovalStatus? EntityApprovalStatus,
+            bool? IsEntityDeleted)> ResolveEntityAsync(
             EntityType entityType,
             Guid entityId,
             CancellationToken cancellationToken)
@@ -545,13 +556,21 @@ namespace Glory2Him.Core.Brokers.Securities
                 case EntityType.Tag:
                     var tag = await this.storageBroker.SelectTagByIdAsync(entityId, cancellationToken);
 
-                    return (tag?.CreatedBy ?? string.Empty, SubjectsFor(entityType, contentType: null), null, null, tag?.ApprovalStatus, tag?.IsDeleted);
+                    return (
+                        tag?.CreatedBy ?? string.Empty,
+                        SubjectsFor(entityType, contentType: null), null, null,
+                        tag?.ApprovalStatus,
+                        tag?.IsDeleted);
 
                 case EntityType.Reaction:
                     var reaction =
                         await this.storageBroker.SelectReactionByIdAsync(entityId, cancellationToken);
 
-                    return (reaction?.CreatedBy ?? string.Empty, SubjectsFor(entityType, contentType: null), null, null, reaction?.ApprovalStatus, reaction?.IsDeleted);
+                    return (
+                        reaction?.CreatedBy ?? string.Empty,
+                        SubjectsFor(entityType, contentType: null), null, null,
+                        reaction?.ApprovalStatus,
+                        reaction?.IsDeleted);
 
                 case EntityType.BibleReference:
                     var bibleReference =
@@ -567,18 +586,30 @@ namespace Glory2Him.Core.Brokers.Securities
                     var comment =
                         await this.storageBroker.SelectCommentByIdAsync(entityId, cancellationToken);
 
-                    return (comment?.CreatedBy ?? string.Empty, SubjectsFor(entityType, contentType: null), null, null, comment?.ApprovalStatus, comment?.IsDeleted);
+                    return (
+                        comment?.CreatedBy ?? string.Empty,
+                        SubjectsFor(entityType, contentType: null), null, null,
+                        comment?.ApprovalStatus,
+                        comment?.IsDeleted);
 
                 case EntityType.Link:
                     var link = await this.storageBroker.SelectLinkByIdAsync(entityId, cancellationToken);
 
-                    return (link?.CreatedBy ?? string.Empty, SubjectsFor(entityType, contentType: null), null, null, link?.ApprovalStatus, link?.IsDeleted);
+                    return (
+                        link?.CreatedBy ?? string.Empty,
+                        SubjectsFor(entityType, contentType: null), null, null,
+                        link?.ApprovalStatus,
+                        link?.IsDeleted);
 
                 case EntityType.Attachment:
                     var attachment =
                         await this.storageBroker.SelectAttachmentByIdAsync(entityId, cancellationToken);
 
-                    return (attachment?.CreatedBy ?? string.Empty, SubjectsFor(entityType, contentType: null), null, null, attachment?.ApprovalStatus, attachment?.IsDeleted);
+                    return (
+                        attachment?.CreatedBy ?? string.Empty,
+                        SubjectsFor(entityType, contentType: null), null, null,
+                        attachment?.ApprovalStatus,
+                        attachment?.IsDeleted);
 
                 case EntityType.Association:
                     var association =
