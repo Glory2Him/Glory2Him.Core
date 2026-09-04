@@ -3547,6 +3547,31 @@ ASP.NET Core Identity provides:
 6. Cookie-based authentication for the React frontend hosted within the same ASP.NET app.
 7. JWT bearer token support for API consumers.
 
+#### 18.3.1 A Username Is Never an Email Address
+
+**A username and an email address are two different values, and a username may never contain `@`.**
+
+The reason is a leak, not tidiness. Every display name in the system is composed the same way — preferred name, else "Name Surname", else **the username** — so an account that has set no personal details is shown to other people by its username wherever the site names who submitted or reviewed something. `ApprovalReviewRequest.RequestedUserDisplayName` (§7.9) even stores the result, so a name composed once outlives the account it came from. If a username may be an address, that whole chain publishes addresses.
+
+The rule is the broad form deliberately. "A username may not equal *this account's own* email" would still let somebody register with a colleague's address as their username and leak it just as effectively, so the constraint is on the shape of the value, not on a comparison against a second field.
+
+**What this buys is the fallback itself.** The chain is allowed to end at the username, and does — an unnamed account keeps a name a moderator can recognise in a reviewer picker, which is what §16.7.4 requires. It is safe because of this rule, and only because of it: the guarantee lives in the data, not in the composer.
+
+**Enforced in three places, one of which is the data:**
+
+| Where | What it does |
+| --- | --- |
+| Registration, and the administrator's user edit | The two paths that write a username. Both refuse `@` through one shared rule, so they cannot drift, and both explain why rather than reporting a name as "taken". |
+| Identity's `User.AllowedUserNameCharacters` | The framework's own default list, narrowed by removing `@`. Nothing routed through `UserManager` can write one past the services above. |
+| The stored rows | Enforcing the rule going forward does not clean what is already there, and the fallback holds whatever the row holds. Existing identity rows and existing stored display names are both remediated by migration. |
+
+The identity migration tests each row against **the same character set Identity itself will apply**, not against `@` alone — a guard that asked the narrower question would certify a row the application cannot write to. Where it cannot remediate an account safely it **stops the deploy** rather than choosing for you, because both of its refusals are questions about who a person is rather than about data: an account with no address left to sign in with once its username is taken away, and an address shared by two accounts, which cannot identify either of them afterwards. The second is the one place the unsettled `RequireUniqueEmail` question below has teeth — the migration refuses only the rows whose safety would depend on the answer, and leaves every other duplicate alone.
+
+Signing in is unaffected: sign-in resolves a username first and falls back to the email address, so a person may still sign in with either. That fallback is also why the confirmed-email-change flow does **not** rewrite the username — changing an address changes the address and nothing else.
+
+The related concern of whether two accounts may share an email address (`RequireUniqueEmail`, and the uniqueness of `EmailIndex`) is **not settled here** — it is a question about the email column, and this section is about the username one.
+
+
 ### 18.4 OpenIddict
 
 OpenIddict layers OAuth 2.0 and OpenID Connect on top of ASP.NET Core Identity.

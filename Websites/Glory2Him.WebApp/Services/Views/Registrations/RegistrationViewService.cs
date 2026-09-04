@@ -11,6 +11,7 @@
 
 using Glory2Him.WebApp.Brokers.Accounts;
 using Glory2Him.WebApp.Brokers.Loggings;
+using Glory2Him.WebApp.Models.Foundations.Users;
 
 namespace Glory2Him.WebApp.Services.Views.Registrations
 {
@@ -36,6 +37,14 @@ namespace Glory2Him.WebApp.Services.Views.Registrations
             {
                 if (string.IsNullOrWhiteSpace(userName)
                     || userName.Trim().Length < MinUsernameLength)
+                {
+                    return false;
+                }
+
+                // A username carrying '@' is not available to anybody, taken or not (§18.3.1). The
+                // check goes here rather than only at the endpoint so the live availability tick
+                // and the submit-time re-check answer the same question.
+                if (UserNameRule.IsAllowed(userName.Trim()) is false)
                 {
                     return false;
                 }

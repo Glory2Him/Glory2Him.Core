@@ -96,6 +96,52 @@ namespace Glory2Him.WebApp.Tests.Unit.Services.Views.Registrations
             inUse.Should().BeTrue();
         }
 
+        // Design §18.3.1 — a username may never be an email address, because every display name
+        // in the system falls back to the username, so an account with no personal details set
+        // publishes whatever is in it. The theory covers the plain address, the address the
+        // "narrow" rule would have allowed (somebody ELSE's, which leaks just as effectively),
+        // and a name that merely carries an '@' without being an address at all.
+        [Theory]
+        [InlineData("someone@glory2him.local")]
+        [InlineData("a.colleague@another.example")]
+        [InlineData("not@nemail")]
+        public async Task ShouldReportUnavailableForUsernameCarryingAnAtSign(string userName)
+        {
+            // given . when
+            bool available = await this.registrationViewService.IsUsernameAvailableAsync(userName);
+
+            // then
+            available.Should().BeFalse();
+
+            // No lookup at all: it is not free-but-taken, it is a name nobody may hold, and
+            // asking the store would invite "it is available" for the first person to try it.
+            this.accountBrokerMock.Verify(broker =>
+                broker.UsernameExistsAsync(It.IsAny<string>()),
+                    Times.Never);
+        }
+
+        [Fact]
+        public async Task ShouldNeverSuggestAUsernameCarryingAnAtSign()
+        {
+            // given: every candidate is free, so nothing is filtered for being taken and the
+            // suggester is free to offer whatever it composes
+            this.accountBrokerMock.Setup(broker =>
+                broker.UsernameExistsAsync(It.IsAny<string>()))
+                    .ReturnsAsync(false);
+
+            // when: the person's own details already carry an address
+            List<string> suggestions =
+                await this.registrationViewService.SuggestUsernamesAsync(
+                    name: "chris@work.example",
+                    surname: "du Toit",
+                    preferredName: "chris@work.example",
+                    count: 6);
+
+            // then: the suggester may not hand back the very thing the rule refuses
+            suggestions.Should().NotBeEmpty();
+            suggestions.Should().OnlyContain(suggestion => !suggestion.Contains('@'));
+        }
+
         [Fact]
         public async Task ShouldSuggestAvailableUsernamesFromNameAndSurname()
         {

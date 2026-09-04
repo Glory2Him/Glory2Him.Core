@@ -18,10 +18,25 @@ export const UserProfile = (): ReactElement => {
                     <Card>
                         <Card.Body>
                             <ListGroup variant="flush">
+                                {/*
+                                    Two rows, not one. This used to read "Username / Email" and
+                                    show whichever was set — wording from the days when the two
+                                    were deliberately the same value. Design §18.3.1 rules that
+                                    they never are: the username is public wherever the site names
+                                    who submitted or reviewed something, and the email is not.
+                                    Labelling them as interchangeable is what teaches somebody to
+                                    type their address into the username box.
+                                */}
                                 <ListGroup.Item>
                                     <div className="d-flex justify-content-between align-items-center">
-                                        <div className="fw-bold">Username / Email</div>
-                                        <div>{user?.email || user?.userName}</div>
+                                        <div className="fw-bold">Username</div>
+                                        <div>{user?.userName}</div>
+                                    </div>
+                                </ListGroup.Item>
+                                <ListGroup.Item>
+                                    <div className="d-flex justify-content-between align-items-center">
+                                        <div className="fw-bold">Email</div>
+                                        <div>{user?.email}</div>
                                     </div>
                                 </ListGroup.Item>
                                 <ListGroup.Item>
