@@ -829,6 +829,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 Times.Once);
 
             VerifyNoFlowsGuardsApprovalWrite();
+            // The entity's status is read so the round can follow a §9.2 carve-out.
+            this.accessBrokerMock.Verify(broker =>
+                broker.RetrieveEntityApprovalStatusAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
             this.accessBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
@@ -915,6 +923,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 Times.Once);
 
             VerifyNoFlowsGuardsApprovalWrite();
+            // The entity's status is read so the round can follow a §9.2 carve-out.
+            this.accessBrokerMock.Verify(broker =>
+                broker.RetrieveEntityApprovalStatusAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
             this.accessBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }

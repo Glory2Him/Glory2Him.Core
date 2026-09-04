@@ -45,10 +45,20 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 // single-row entity's edit is refused at the foundation before any fact is
                 // published. Neither can arrive here.
                 //
-                // Every -Modified reaching this point is a content change by construction, so
-                // there is no field-comparison gate: approval state is writable only through the
-                // transition verb, which publishes -Approved/-Rejected/-Submitted and never
+                // ONE approval-state change CAN arrive on a -Modified, and it is the §9.2 rule 3
+                // carve-out: the owner or the publishing tier moving the entity between Draft and
+                // Submitted through the general modify — an edit and its submission as one act.
+                // §9.2 rule 6 has the approval moved in the same branch, and §9.8 forbids the two
+                // to stay divergent, so the round follows the entity before anything is
+                // evaluated on it. Every OTHER field of approval state stays writable only
+                // through the transition verb, which publishes -Approved/-Rejected and never
                 // -Modified.
+                approval = await FollowEntityBetweenDraftAndSubmittedAsync(
+                    approval: approval,
+                    entityType: entityType,
+                    entityId: entityId,
+                    cancellationToken: cancellationToken);
+
                 ApprovalConditionsVerdict conditions =
                     await this.accessBroker.EvaluateApprovalConditionsByIdAsync(
                         approvalId: approval.Id,
@@ -57,10 +67,11 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 ValidateStorageApprovalConditionsResolved(
                     conditions, entityType, entityId);
 
-                // The status is deliberately NOT moved. A Draft stays Draft — this flow may never
-                // write Submitted onto one, because submitting is somebody's decision to offer
-                // the content, not a side effect of editing it (§9.2). And a Submitted row stays
-                // Submitted: the edit re-opens the round rather than withdrawing it.
+                // Beyond the carve-out above, the status is NOT moved by an edit. A Draft the
+                // owner left at Draft stays Draft — this flow never writes Submitted onto one of
+                // its own accord, because submitting is somebody's decision to offer the content,
+                // not a side effect of editing it (§9.2). And a Submitted row stays Submitted:
+                // the edit re-opens the round rather than withdrawing it.
                 //
                 // ENFORCED as of #287's review, in TWO places. Until then this paragraph was the
                 // only thing between a Draft round and EvaluateApprovalAsync, which approves
@@ -98,6 +109,51 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                     approval: approval,
                     cancellationToken: cancellationToken);
             });
+
+        // §9.2 rules 3 and 6, §9.8: the carve-out moves the ENTITY between Draft and Submitted
+        // through a modify, in either direction, and the approval is moved with it. Only that
+        // pair. A round anywhere else — decided, dismissed — is left where the workflow put it,
+        // and an entity whose status could not be read, or is not an entry status, moves nothing:
+        // the round never follows a status nobody could see.
+        //
+        // Written as the WORKFLOW (System attribution), because the foundation's caller tiers
+        // are about who may set approval state by hand, and this is the workflow keeping §9.8
+        // true for a change the owner was entitled to make on the entity.
+        private async ValueTask<Approval> FollowEntityBetweenDraftAndSubmittedAsync(
+            Approval approval,
+            EntityType entityType,
+            Guid entityId,
+            CancellationToken cancellationToken)
+        {
+            bool isRoundAtEntryStatus =
+                approval.ApprovalStatus is ApprovalStatus.Draft or ApprovalStatus.Submitted;
+
+            if (isRoundAtEntryStatus is false)
+            {
+                return approval;
+            }
+
+            ApprovalStatus? entityApprovalStatus =
+                await this.accessBroker.RetrieveEntityApprovalStatusAsync(
+                    entityType: entityType,
+                    entityId: entityId,
+                    cancellationToken: cancellationToken);
+
+            bool isEntityAtEntryStatus =
+                entityApprovalStatus is ApprovalStatus.Draft or ApprovalStatus.Submitted;
+
+            if (isEntityAtEntryStatus is false || entityApprovalStatus == approval.ApprovalStatus)
+            {
+                return approval;
+            }
+
+            approval.ApprovalStatus = entityApprovalStatus.Value;
+
+            return await this.approvalService.ModifyApprovalAsync(
+                approval: approval,
+                attribution: WorkflowAttribution.System,
+                cancellationToken: cancellationToken);
+        }
 
         public ValueTask<ApprovalOutcome> ProcessApprovalInputsChangedAsync(
             Guid approvalId,

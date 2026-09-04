@@ -17,6 +17,7 @@ using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.WebApp.Tests.Acceptance.Models.Approvals;
 using CoreContentItem = Glory2Him.Core.Models.Foundations.ContentItems.ContentItem;
+using WireContentItem = Glory2Him.WebApp.Tests.Acceptance.Models.ContentItems.ContentItem;
 
 namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Approvals
 {
@@ -121,6 +122,71 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Approvals
                 }
 
                 await this.apiBroker.RemoveCoreContentItemByIdAsync(submitted.Id);
+            }
+        }
+
+        /// <summary>
+        /// THE MODERATOR'S NEXT CLICK: the draft is submitted through the edit form, which is the
+        /// §9.2 rule 3 carve-out on the general modify. §9.2 rule 6 has the round move with it,
+        /// so the verdict stops saying "not submitted yet" and starts reporting the policy.
+        /// </summary>
+        [Fact]
+        public async Task ShouldReportASubmissionMadeThroughTheModifyCarveOutAgainstThePolicyAsync()
+        {
+            // given: a seeded-style draft, its round opened by the first read
+            string authorUserId = Guid.NewGuid().ToString();
+
+            CoreContentItem draft = await this.apiBroker.InsertContentItemVersionAsync(
+                groupId: Guid.NewGuid(),
+                version: 1,
+                approvalStatus: ApprovalStatus.Draft,
+                isPublished: false,
+                authorUserId: authorUserId);
+
+            try
+            {
+                ApprovalVerdict draftVerdict =
+                    await this.apiBroker.GetApprovalVerdictAsync(EntityType.ContentItem, draft.Id);
+
+                draftVerdict.ApprovalStatus.Should().Be((int)ApprovalStatus.Draft);
+
+                // when: the administrator — in the publishing tier, so entitled to the carve-out
+                // (§9.2 rule 4) — submits it through the same modify the edit form uses
+                WireContentItem submitted = await this.apiBroker.GetContentItemByIdAsync(draft.Id);
+                submitted.ApprovalStatus = ApprovalStatus.Submitted;
+                await this.apiBroker.PutContentItemAsync(submitted);
+
+                ApprovalVerdict submittedVerdict =
+                    await this.apiBroker.GetApprovalVerdictAsync(EntityType.ContentItem, draft.Id);
+
+                // then: the round followed the entity, and the policy now speaks
+                submittedVerdict.ApprovalStatus.Should().Be((int)ApprovalStatus.Submitted);
+
+                submittedVerdict.BlockReasons.Should().NotContain(reason =>
+                    reason.Code == (int)AccessDenialReason.BlockedDueToDraftStatus);
+
+                submittedVerdict.BlockReasons.Should().Contain(reason =>
+                    reason.Code == (int)AccessDenialReason.ApprovalThresholdNotMet);
+
+                submittedVerdict.RequiredNumberOfApprovals.Should().Be(2);
+                submittedVerdict.IsBypassAllowedForCurrentUser.Should().BeTrue();
+
+                Approval storedApproval = await this.apiBroker.GetCoreApprovalByEntityAsync(
+                    EntityType.ContentItem, draft.Id);
+
+                storedApproval.ApprovalStatus.Should().Be(ApprovalStatus.Submitted);
+            }
+            finally
+            {
+                Approval approval = await this.apiBroker.GetCoreApprovalByEntityAsync(
+                    EntityType.ContentItem, draft.Id);
+
+                if (approval is not null)
+                {
+                    await this.apiBroker.RemoveApprovalAsync(approval);
+                }
+
+                await this.apiBroker.RemoveCoreContentItemByIdAsync(draft.Id);
             }
         }
     }

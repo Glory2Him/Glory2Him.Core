@@ -849,6 +849,115 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     + "decision to make on it — however permissive the policy");
         }
 
+        /// <summary>
+        /// §9.2 rules 3 and 6, §9.8: the carve-out moves the ENTITY between Draft and Submitted
+        /// through a modify, and the round follows it in the same branch — in either direction.
+        /// A submission is then evaluated as one; a withdrawal is not evaluated at all.
+        /// </summary>
+        [Theory]
+        [InlineData(ApprovalStatus.Draft, ApprovalStatus.Submitted)]
+        [InlineData(ApprovalStatus.Submitted, ApprovalStatus.Draft)]
+        public async Task ShouldMoveTheRoundWithTheEntityWhenTheCarveOutMovedItAsync(
+            ApprovalStatus storedApprovalStatus,
+            ApprovalStatus entityApprovalStatus)
+        {
+            // given: a LIVE round at one end of the pair, and an entity the owner has just moved
+            // to the other end through the general modify
+            var approvalId = Guid.NewGuid();
+            var entityId = Guid.NewGuid();
+
+            Approval storageApproval = CreateFlowApproval(
+                approvalId: approvalId,
+                entityId: entityId,
+                entityType: EntityType.Link,
+                approvalStatus: storedApprovalStatus);
+
+            SetupApprovalProbe(CreateApprovalMatch(storedApprovalStatus, approvalId));
+            List<Approval> savedApprovals = SetupFlowApprovalRow(storageApproval);
+            SetupEntityApprovalStatus(EntityType.Link, entityId, entityApprovalStatus);
+
+            SetupFlowConditionsReads(
+                firstConditions: CreateFlowConditions(
+                    shouldResetStaleReviewsOnChange: false,
+                    blockReasons: new List<AccessDenialReason>
+                    {
+                        AccessDenialReason.ApprovalThresholdNotMet,
+                    }),
+                secondConditions: CreateFlowConditions());
+
+            // when
+            ApprovalOutcome actualOutcome =
+                await this.approvalOrchestrationService.ProcessEntityModifiedAsync(
+                    EntityType.Link,
+                    entityId,
+                    TestContext.Current.CancellationToken);
+
+            // then: ONE write, the follow, carrying the entity's status — as the workflow
+            savedApprovals.Should().ContainSingle().Subject
+                .ApprovalStatus.Should().Be(entityApprovalStatus);
+
+            this.approvalServiceMock.Verify(service =>
+                service.ModifyApprovalAsync(
+                    It.Is<Approval>(approval =>
+                        approval.Id == approvalId
+                            && approval.ApprovalStatus == entityApprovalStatus),
+                    WorkflowAttribution.System,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            actualOutcome.ApprovalStatus.Should().Be(entityApprovalStatus);
+        }
+
+        /// <summary>
+        /// Only the Draft ↔ Submitted pair follows, and only when the entity actually sits at one
+        /// of them: a status that could not be read, one that agrees with the round already, or
+        /// one no modify may carry (a terminal status, §9.7.1) moves nothing.
+        /// </summary>
+        [Theory]
+        [InlineData(ApprovalStatus.Draft, null)]
+        [InlineData(ApprovalStatus.Draft, ApprovalStatus.Draft)]
+        [InlineData(ApprovalStatus.Draft, ApprovalStatus.Approved)]
+        [InlineData(ApprovalStatus.Submitted, ApprovalStatus.Submitted)]
+        [InlineData(ApprovalStatus.Submitted, ApprovalStatus.Rejected)]
+        public async Task ShouldNotMoveTheRoundWhenTheEntityDidNotCrossThePairAsync(
+            ApprovalStatus storedApprovalStatus,
+            ApprovalStatus? entityApprovalStatus)
+        {
+            // given
+            var approvalId = Guid.NewGuid();
+            var entityId = Guid.NewGuid();
+
+            Approval storageApproval = CreateFlowApproval(
+                approvalId: approvalId,
+                entityId: entityId,
+                entityType: EntityType.Link,
+                approvalStatus: storedApprovalStatus);
+
+            SetupApprovalProbe(CreateApprovalMatch(storedApprovalStatus, approvalId));
+            List<Approval> savedApprovals = SetupFlowApprovalRow(storageApproval);
+            SetupEntityApprovalStatus(EntityType.Link, entityId, entityApprovalStatus);
+
+            SetupFlowConditionsReads(
+                firstConditions: CreateFlowConditions(
+                    shouldResetStaleReviewsOnChange: false,
+                    blockReasons: new List<AccessDenialReason>
+                    {
+                        AccessDenialReason.ApprovalThresholdNotMet,
+                    }),
+                secondConditions: CreateFlowConditions());
+
+            // when
+            ApprovalOutcome actualOutcome =
+                await this.approvalOrchestrationService.ProcessEntityModifiedAsync(
+                    EntityType.Link,
+                    entityId,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            savedApprovals.Should().BeEmpty();
+            actualOutcome.ApprovalStatus.Should().Be(storedApprovalStatus);
+        }
+
         private static ApprovalConditionsVerdict CreateFlowConditions(
             bool areConditionsMet = false,
             bool shouldAutoApprove = false,
