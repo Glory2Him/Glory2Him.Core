@@ -26,7 +26,20 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
     /// </summary>
     public partial class ApiBroker
     {
-        public async ValueTask<CoreTag> InsertSubmittedTagAsync(string authorUserId)
+        public async ValueTask<CoreTag> InsertSubmittedTagAsync(string authorUserId) =>
+            await InsertTagAtAsync(authorUserId, ApprovalStatus.Submitted);
+
+        /// <summary>
+        /// A DRAFT, for the submit verb to have something to move. Beneath HTTP because the
+        /// endpoint's own add is what opens the round, and the point of the test that uses this
+        /// is a round that was never opened.
+        /// </summary>
+        public async ValueTask<CoreTag> InsertDraftTagAsync(string authorUserId) =>
+            await InsertTagAtAsync(authorUserId, ApprovalStatus.Draft);
+
+        private async ValueTask<CoreTag> InsertTagAtAsync(
+            string authorUserId,
+            ApprovalStatus approvalStatus)
         {
             DateTimeOffset now = DateTimeOffset.UtcNow;
 
@@ -34,7 +47,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
             {
                 Id = Guid.NewGuid(),
                 Name = Guid.NewGuid().ToString("N").Substring(0, 30),
-                ApprovalStatus = ApprovalStatus.Submitted,
+                ApprovalStatus = approvalStatus,
                 IsPublished = false,
                 IsDeleted = false,
                 CreatedBy = authorUserId,

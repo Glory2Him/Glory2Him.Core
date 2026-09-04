@@ -28,6 +28,13 @@ namespace Glory2Him.Core.Models.Configurations
         // bookkeeping writes as well as the amendment (§10.17 rule 2). The other five have
         // nothing above their foundation, so the foundation fact IS the top-layer fact.
         //
+        // -SUBMITTED, for all seven, and ALWAYS the foundation's address. The submit verb is
+        // a foundation transition on every entity (§9.2 rule 3) — ContentItem and Link included,
+        // whose Added and Modified facts come from their processing tier — so unlike those two
+        // pairs there is no tier split here: the foundation fact IS the top-layer fact, because
+        // no layer above it takes part in a submission. The reaction is the modified flow's,
+        // which follows the round across the Draft/Submitted pair before evaluating (§9.7.4).
+        //
         // No -Removed subscription for any of the seven ENTITIES. A takedown is not a
         // moderation step and must never re-open an approval (§9.7.6).
         //
@@ -35,6 +42,48 @@ namespace Glory2Him.Core.Models.Configurations
         // ApprovalReview or an ApprovalComment moves the threshold rather than withdrawing a
         // subject, so those removals are subscribed. Their soft and hard removals share one
         // address, so one subscription each covers both.
+
+        public static readonly Guid ApprovalOrchestrationOnTagSubmittedSubscriptionId =
+            new Guid("01a0e17c-3a20-7d41-9e12-6f0c5b3a1d01");
+
+        public const string ApprovalOrchestrationOnTagSubmittedSubscriptionName =
+            "ApprovalOrchestrationService.OnTagSubmitted";
+
+        public static readonly Guid ApprovalOrchestrationOnContentItemSubmittedSubscriptionId =
+            new Guid("01a0e17c-3a21-7e52-8f23-7a1d6c4b2e02");
+
+        public const string ApprovalOrchestrationOnContentItemSubmittedSubscriptionName =
+            "ApprovalOrchestrationService.OnContentItemSubmitted";
+
+        public static readonly Guid ApprovalOrchestrationOnLinkSubmittedSubscriptionId =
+            new Guid("01a0e17c-3a22-7f63-9a34-8b2e7d5c3f03");
+
+        public const string ApprovalOrchestrationOnLinkSubmittedSubscriptionName =
+            "ApprovalOrchestrationService.OnLinkSubmitted";
+
+        public static readonly Guid ApprovalOrchestrationOnCommentSubmittedSubscriptionId =
+            new Guid("01a0e17c-3a23-7074-8b45-9c3f8e6d4a04");
+
+        public const string ApprovalOrchestrationOnCommentSubmittedSubscriptionName =
+            "ApprovalOrchestrationService.OnCommentSubmitted";
+
+        public static readonly Guid ApprovalOrchestrationOnReactionSubmittedSubscriptionId =
+            new Guid("01a0e17c-3a24-7185-9c56-ad4a9f7e5b05");
+
+        public const string ApprovalOrchestrationOnReactionSubmittedSubscriptionName =
+            "ApprovalOrchestrationService.OnReactionSubmitted";
+
+        public static readonly Guid ApprovalOrchestrationOnBibleReferenceSubmittedSubscriptionId =
+            new Guid("01a0e17c-3a25-7296-8d67-be5baa8f6c06");
+
+        public const string ApprovalOrchestrationOnBibleReferenceSubmittedSubscriptionName =
+            "ApprovalOrchestrationService.OnBibleReferenceSubmitted";
+
+        public static readonly Guid ApprovalOrchestrationOnAssociationSubmittedSubscriptionId =
+            new Guid("01a0e17c-3a26-73a7-9e78-cf6cbb9a7d07");
+
+        public const string ApprovalOrchestrationOnAssociationSubmittedSubscriptionName =
+            "ApprovalOrchestrationService.OnAssociationSubmitted";
 
         public static readonly Guid ApprovalOrchestrationOnApprovalReviewAddedSubscriptionId =
             new Guid("01a0e17c-4b12-754e-b0d4-1e2525193391");

@@ -200,6 +200,90 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 react: ProcessEntityModifiedAsync,
                 cancellationToken: cancellationToken);
 
+        // ── The submit verb's ear ─────────────────────────────────────────────────────
+        //
+        // -SUBMITTED for all seven, and every one on the FOUNDATION's name. The submit verb is a
+        // foundation transition on every approvable entity (§9.2 rule 3), ContentItem and Link
+        // included — their Added and Modified facts come from the processing tier and read
+        // "...Processing..." above, but nothing above the foundation takes part in a submission,
+        // so the foundation fact is the top-layer fact and the bare name is what the publisher
+        // signed. A "ContentItemProcessingSubmitted" here would verify nothing, ever.
+        //
+        // Each reacts as a MODIFICATION. The modified flow's first act is to follow the round
+        // across the Draft/Submitted pair to wherever the entity now sits (§9.2 rule 6, §9.8),
+        // and then to evaluate — which is exactly what a submission needs, and why this is not
+        // a third flow with its own gates to keep in step.
+
+        public ValueTask<EventEnvelope<Tag>?> OnTagSubmittedAsync(
+            EventEnvelope<Tag> envelope,
+            CancellationToken cancellationToken = default) =>
+            ReactToEntityFactAsync(
+                envelope: envelope,
+                entityType: EntityType.Tag,
+                eventName: "TagSubmitted",
+                react: ProcessEntityModifiedAsync,
+                cancellationToken: cancellationToken);
+
+        public ValueTask<EventEnvelope<ContentItem>?> OnContentItemSubmittedAsync(
+            EventEnvelope<ContentItem> envelope,
+            CancellationToken cancellationToken = default) =>
+            ReactToEntityFactAsync(
+                envelope: envelope,
+                entityType: EntityType.ContentItem,
+                eventName: "ContentItemSubmitted",
+                react: ProcessEntityModifiedAsync,
+                cancellationToken: cancellationToken);
+
+        public ValueTask<EventEnvelope<Link>?> OnLinkSubmittedAsync(
+            EventEnvelope<Link> envelope,
+            CancellationToken cancellationToken = default) =>
+            ReactToEntityFactAsync(
+                envelope: envelope,
+                entityType: EntityType.Link,
+                eventName: "LinkSubmitted",
+                react: ProcessEntityModifiedAsync,
+                cancellationToken: cancellationToken);
+
+        public ValueTask<EventEnvelope<Comment>?> OnCommentSubmittedAsync(
+            EventEnvelope<Comment> envelope,
+            CancellationToken cancellationToken = default) =>
+            ReactToEntityFactAsync(
+                envelope: envelope,
+                entityType: EntityType.Comment,
+                eventName: "CommentSubmitted",
+                react: ProcessEntityModifiedAsync,
+                cancellationToken: cancellationToken);
+
+        public ValueTask<EventEnvelope<Reaction>?> OnReactionSubmittedAsync(
+            EventEnvelope<Reaction> envelope,
+            CancellationToken cancellationToken = default) =>
+            ReactToEntityFactAsync(
+                envelope: envelope,
+                entityType: EntityType.Reaction,
+                eventName: "ReactionSubmitted",
+                react: ProcessEntityModifiedAsync,
+                cancellationToken: cancellationToken);
+
+        public ValueTask<EventEnvelope<BibleReference>?> OnBibleReferenceSubmittedAsync(
+            EventEnvelope<BibleReference> envelope,
+            CancellationToken cancellationToken = default) =>
+            ReactToEntityFactAsync(
+                envelope: envelope,
+                entityType: EntityType.BibleReference,
+                eventName: "BibleReferenceSubmitted",
+                react: ProcessEntityModifiedAsync,
+                cancellationToken: cancellationToken);
+
+        public ValueTask<EventEnvelope<Association>?> OnAssociationSubmittedAsync(
+            EventEnvelope<Association> envelope,
+            CancellationToken cancellationToken = default) =>
+            ReactToEntityFactAsync(
+                envelope: envelope,
+                entityType: EntityType.Association,
+                eventName: "AssociationSubmitted",
+                react: ProcessEntityModifiedAsync,
+                cancellationToken: cancellationToken);
+
         // ── The workflow records' ears (§10.17(a)) ────────────────────────────────────
         //
         // EVERY fact address on ApprovalReview and ApprovalComment has a subscriber, because

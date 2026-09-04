@@ -1461,6 +1461,73 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 expectedHandler:
                     this.approvalOrchestrationServiceMock.Object.OnAssociationModifiedAsync);
 
+            // -Submitted, all seven on the FOUNDATION subscribe — ContentItem and Link included,
+            // whose Added/Modified pairs go through the processing one. The helper chosen here IS
+            // the assertion: a registration on the processing address would verify nothing.
+
+            VerifyTagSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnTagSubmittedSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnTagSubmittedSubscriptionName,
+                expectedOperation: TagEventOperation.Submitted,
+                expectedHandler:
+                    this.approvalOrchestrationServiceMock.Object.OnTagSubmittedAsync);
+
+            VerifyContentItemSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnContentItemSubmittedSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnContentItemSubmittedSubscriptionName,
+                expectedOperation: ContentItemEventOperation.Submitted,
+                expectedHandler:
+                    this.approvalOrchestrationServiceMock.Object.OnContentItemSubmittedAsync);
+
+            VerifyLinkSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnLinkSubmittedSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnLinkSubmittedSubscriptionName,
+                expectedOperation: LinkEventOperation.Submitted,
+                expectedHandler:
+                    this.approvalOrchestrationServiceMock.Object.OnLinkSubmittedAsync);
+
+            VerifyCommentSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnCommentSubmittedSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnCommentSubmittedSubscriptionName,
+                expectedOperation: CommentEventOperation.Submitted,
+                expectedHandler:
+                    this.approvalOrchestrationServiceMock.Object.OnCommentSubmittedAsync);
+
+            VerifyReactionSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnReactionSubmittedSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnReactionSubmittedSubscriptionName,
+                expectedOperation: ReactionEventOperation.Submitted,
+                expectedHandler:
+                    this.approvalOrchestrationServiceMock.Object.OnReactionSubmittedAsync);
+
+            VerifyBibleReferenceSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnBibleReferenceSubmittedSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnBibleReferenceSubmittedSubscriptionName,
+                expectedOperation: BibleReferenceEventOperation.Submitted,
+                expectedHandler:
+                    this.approvalOrchestrationServiceMock.Object.OnBibleReferenceSubmittedAsync);
+
+            VerifyAssociationSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnAssociationSubmittedSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnAssociationSubmittedSubscriptionName,
+                expectedOperation: AssociationEventOperation.Submitted,
+                expectedHandler:
+                    this.approvalOrchestrationServiceMock.Object.OnAssociationSubmittedAsync);
+
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
             this.approvalServiceMock.VerifyNoOtherCalls();
