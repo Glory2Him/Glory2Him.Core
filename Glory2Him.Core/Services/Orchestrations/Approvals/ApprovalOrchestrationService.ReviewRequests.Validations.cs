@@ -185,6 +185,23 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             }
         }
 
+        // Separate from the tier check above, and reported separately, because the two say
+        // different things: one says the person was never eligible, this one says they were
+        // and have since been restrained. Both refuse, and neither dissolves quietly — rule 4's
+        // idempotence covers invitations that are redundant, not ones that can never be
+        // answered.
+        private static void ValidateRequestedUserIsNotBlocked(
+            ISet<string> blockedUserIds,
+            string requestedUserId)
+        {
+            if (blockedUserIds.Contains(requestedUserId))
+            {
+                throw new InvalidApprovalOrchestrationException(
+                    message: $"User {requestedUserId} is restricted to read-only for this "
+                        + "entity and cannot review it.");
+            }
+        }
+
         private static dynamic IsInvalid(string text) => new
         {
             Condition = string.IsNullOrWhiteSpace(text),

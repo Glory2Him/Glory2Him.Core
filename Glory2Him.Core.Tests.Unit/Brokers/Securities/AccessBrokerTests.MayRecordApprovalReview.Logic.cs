@@ -19,7 +19,9 @@ using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
+using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.Approvals;
+using Glory2Him.Core.Models.Foundations.ContentItems;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
@@ -137,6 +139,137 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
         }
 
         /// <summary>
+        /// A subject the gatherer could not fully READ says so, and the flag is the only thing
+        /// that separates an ABSENT content type from an UNKNOWN one. A <c>Tag</c> subject
+        /// legitimately carries none — only <c>ContentItem</c> has a narrow tier (§18.6 rule 5)
+        /// — where a content item nobody could read has one that cannot be decided. Reported
+        /// alike, the veto would go silent on the second (§18.6 rule 2).
+        ///
+        /// <para>Nothing else in the suite reads this flag off a subject the broker built, so
+        /// without these cases both places it is set could be deleted and every test would stay
+        /// green.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldFlagAContentItemSubjectUnresolvedWhenTheRowCannotBeReadAsync()
+        {
+            // given: the approval outlives the content item it hangs off.
+            Guid approvalId = Guid.NewGuid();
+            Guid entityId = Guid.NewGuid();
+
+            Approval approval = CreateApproval(
+                approvalId,
+                EntityType.ContentItem,
+                entityId,
+                ApprovalStatus.Submitted);
+
+            SetupApprovalById(approval);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectContentItemByIdAsync(entityId, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync((ContentItem)null);
+
+            // when
+            await this.accessBroker.MayRecordApprovalReviewAsync(
+                approvalId,
+                isAmendingOwnReview: false,
+                CreateAuthenticatedSecurityContext(),
+                TestContext.Current.CancellationToken);
+
+            // then
+            RoleSubject subject =
+                this.capturedRecordReviewRequest.RoleSubjects.Should().ContainSingle().Subject;
+
+            subject.EntityType.Should().Be(nameof(EntityType.ContentItem));
+            subject.ContentType.Should().BeNull();
+            subject.IsEntityUnresolved.Should().BeTrue();
+        }
+
+        [Fact]
+        public async Task ShouldNotFlagASubjectUnresolvedWhenTheRowWasReadAsync()
+        {
+            // given: the mirror. A row that WAS read is decided, whatever its content type —
+            // otherwise the flag would fire on every ordinary approval and the veto would
+            // refuse every scoped-block holder everywhere.
+            Guid approvalId = Guid.NewGuid();
+            Guid entityId = Guid.NewGuid();
+
+            Approval approval = CreateApproval(
+                approvalId,
+                EntityType.ContentItem,
+                entityId,
+                ApprovalStatus.Submitted);
+
+            SetupApprovalById(approval);
+            SetupEntityAuthor(EntityType.ContentItem, entityId, createdBy: "the-entity-author");
+
+            // when
+            await this.accessBroker.MayRecordApprovalReviewAsync(
+                approvalId,
+                isAmendingOwnReview: false,
+                CreateAuthenticatedSecurityContext(),
+                TestContext.Current.CancellationToken);
+
+            // then
+            RoleSubject subject =
+                this.capturedRecordReviewRequest.RoleSubjects.Should().ContainSingle().Subject;
+
+            subject.ContentType.Should().Be(nameof(ContentType.Testimony));
+            subject.IsEntityUnresolved.Should().BeFalse();
+        }
+
+        [Fact]
+        public async Task ShouldFlagOnlyTheAssociationEndpointWhoseNarrowTierCannotBeDecidedAsync()
+        {
+            // given: a Series-Quote style row where ONE ContentItem endpoint carries no content
+            // type — a shape the foundation's own Association-Adding address admits (§14.7
+            // A′.1). The flagged endpoint is the one whose narrow tier is undecidable; the
+            // BibleReference endpoint has no narrow tier to lose and must NOT be flagged, or a
+            // sanction that cannot cover it would bar the actor anyway.
+            Guid approvalId = Guid.NewGuid();
+            Guid entityId = Guid.NewGuid();
+
+            Approval approval = CreateApproval(
+                approvalId,
+                EntityType.Association,
+                entityId,
+                ApprovalStatus.Submitted);
+
+            SetupApprovalById(approval);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAssociationByIdAsync(entityId, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(new Association
+                    {
+                        Id = entityId,
+                        CreatedBy = "the-entity-author",
+                        EntityAType = EntityType.ContentItem,
+                        EntityAContentType = null,
+                        EntityBType = EntityType.BibleReference,
+                        EntityBContentType = null,
+                    });
+
+            // when
+            await this.accessBroker.MayRecordApprovalReviewAsync(
+                approvalId,
+                isAmendingOwnReview: false,
+                CreateAuthenticatedSecurityContext(),
+                TestContext.Current.CancellationToken);
+
+            // then
+            this.capturedRecordReviewRequest.RoleSubjects.Should().SatisfyRespectively(
+                first =>
+                {
+                    first.EntityType.Should().Be(nameof(EntityType.ContentItem));
+                    first.IsEntityUnresolved.Should().BeTrue();
+                },
+                second =>
+                {
+                    second.EntityType.Should().Be(nameof(EntityType.BibleReference));
+                    second.IsEntityUnresolved.Should().BeFalse();
+                });
+        }
+
+        /// <summary>
         /// An association is authorised from its two endpoints and from nothing else (§14.7
         /// posture A′ rule 2), so the decision must name both and holding a role for either is
         /// enough.
@@ -209,14 +342,21 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
         }
 
         /// <summary>
-        /// A missing association leaves no endpoints to derive, so the fallback is the coarse
-        /// <c>Association</c> subject — which no role can match, because none is issued. That is
-        /// the fail-closed answer stated positively: the gate refuses on role grounds rather than
-        /// silently emitting an empty subject list, which
-        /// <c>HasReviewTier</c>'s <c>.Any()</c> would read as "no scoped route" and skip past.
+        /// A missing association leaves no endpoints to derive, so the fallback subject is
+        /// <b>unnameable</b>: a blank entity type, flagged unresolved. It still emits a subject
+        /// rather than an empty list, because <c>HasReviewTier</c>'s <c>.Any()</c> reads an
+        /// empty list as "no scoped route" and skips past — the gate must refuse on role
+        /// grounds, positively.
+        ///
+        /// <para><b>The blank name is load-bearing, and it used to be <c>Association</c>.</b>
+        /// That was fail-closed for the GRANTS — no role matches a name nothing issues — but
+        /// the veto's fail-closed branch restricts itself to the subject's own entity type when
+        /// one is named, so naming <c>Association</c> there restricted it to nothing. Blank says
+        /// what is actually true: the scope could not be established, so any scoped sanction the
+        /// actor holds may cover it (§18.6 rule 2).</para>
         /// </summary>
         [Fact]
-        public async Task ShouldFallBackToTheCoarseSubjectWhenTheAssociationIsMissingOnRecordReviewAsync()
+        public async Task ShouldFallBackToAnUnnameableSubjectWhenTheAssociationIsMissingOnRecordReviewAsync()
         {
             // given
             Guid approvalId = Guid.NewGuid();
@@ -242,10 +382,12 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                 TestContext.Current.CancellationToken);
 
             // then
-            this.capturedRecordReviewRequest.RoleSubjects.Should().ContainSingle();
+            RoleSubject fallbackSubject =
+                this.capturedRecordReviewRequest.RoleSubjects.Should().ContainSingle().Subject;
 
-            this.capturedRecordReviewRequest.RoleSubjects.Single().EntityType
-                .Should().Be(nameof(EntityType.Association));
+            fallbackSubject.EntityType.Should().BeEmpty();
+            fallbackSubject.ContentType.Should().BeNull();
+            fallbackSubject.IsEntityUnresolved.Should().BeTrue();
 
             this.capturedRecordReviewRequest.EntityCreatedBy.Should().BeEmpty();
         }

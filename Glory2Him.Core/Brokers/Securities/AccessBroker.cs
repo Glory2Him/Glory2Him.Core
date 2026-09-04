@@ -490,9 +490,18 @@ namespace Glory2Him.Core.Brokers.Securities
                     var contentItem =
                         await this.storageBroker.SelectContentItemByIdAsync(entityId, cancellationToken);
 
+                    // ContentItem is the one arm whose subject carries a content type, so it is
+                    // the one arm where a missing row leaves the narrow tier UNDECIDABLE rather
+                    // than absent — an approval outliving a hard-removed item is the case. The
+                    // flag says which of the two it is, so the veto can fail closed where an
+                    // absent content type would otherwise read as "no narrow block applies"
+                    // (§18.6 rule 2). Every other arm has no narrow tier to lose.
                     return (
                         contentItem?.CreatedBy ?? string.Empty,
-                        SubjectsFor(entityType, contentItem?.ContentType),
+                        SubjectsFor(
+                            entityType,
+                            contentItem?.ContentType,
+                            isEntityUnresolved: contentItem is null),
                         null);
 
                 case EntityType.Tag:
@@ -540,20 +549,34 @@ namespace Glory2Him.Core.Brokers.Securities
                     // "Association-Reviewers" — so composing a subject from Association would ask
                     // for a role nobody can hold, which is what the row below falls back to when
                     // the association is missing, deliberately.
+                    // The association could not be read, so neither endpoint can be NAMED —
+                    // and an unnameable scope is a different fact from a known scope whose
+                    // content type is unknown. A blank entity type states it: the veto reads
+                    // that as "any scoped block may cover this", where a named subject
+                    // restricts to that type's own names. Borrowing `Association` here would
+                    // name an entity type that issues no scoped roles at all, which restricts
+                    // the veto to nothing.
                     return association is null
-                        ? (string.Empty, SubjectsFor(entityType, contentType: null), null)
+                        ? (string.Empty,
+                            new List<RoleSubject>
+                            {
+                                new RoleSubject
+                                {
+                                    EntityType = string.Empty,
+                                    ContentType = null,
+                                    IsEntityUnresolved = true,
+                                },
+                            },
+                            null)
                         : (association.CreatedBy, new List<RoleSubject>
                         {
-                            new RoleSubject
-                            {
-                                EntityType = association.EntityAType.ToString(),
-                                ContentType = association.EntityAContentType?.ToString(),
-                            },
-                            new RoleSubject
-                            {
-                                EntityType = association.EntityBType.ToString(),
-                                ContentType = association.EntityBContentType?.ToString(),
-                            },
+                            EndpointSubject(
+                                association.EntityAType,
+                                association.EntityAContentType),
+
+                            EndpointSubject(
+                                association.EntityBType,
+                                association.EntityBContentType),
                         }, association.ConfidenceScore);
 
                 default:
@@ -661,19 +684,42 @@ namespace Glory2Him.Core.Brokers.Securities
                         entity.Id == approval.EntityId && entity.CreatedBy == authorUserId)));
         }
 
+        // One endpoint of an association, and the flag is why this is not an inline object
+        // initialiser any more. A ContentItem endpoint carrying a NULL content type is not an
+        // endpoint without a narrow tier — it is one whose narrow tier cannot be decided,
+        // because the value is the orchestration's to derive and the foundation's own
+        // `Association-Adding` address admits a null (§14.7 A′.1). Reported as absent, the
+        // veto would go silent on exactly the omitted-null step-around that
+        // AssociationService.IsNarrowBlockUndecidableFor fails closed on — and the approval
+        // surface has no endpoint gate of its own to catch it.
+        private static RoleSubject EndpointSubject(
+            EntityType entityType,
+            ContentType? contentType) =>
+            new RoleSubject
+            {
+                EntityType = entityType.ToString(),
+                ContentType = contentType?.ToString(),
+
+                IsEntityUnresolved =
+                    entityType == EntityType.ContentItem && contentType.HasValue is false,
+            };
+
         /// <summary>
         /// The ordinary one-subject case: an entity is authorised from itself. Only
-        /// <c>Association</c> departs from this, and it composes its pair inline.
+        /// <c>Association</c> departs from this, and it composes its pair from
+        /// <see cref="EndpointSubject"/>.
         /// </summary>
         private static IReadOnlyList<RoleSubject> SubjectsFor(
             EntityType entityType,
-            ContentType? contentType) =>
+            ContentType? contentType,
+            bool isEntityUnresolved = false) =>
             new List<RoleSubject>
             {
                 new RoleSubject
                 {
                     EntityType = entityType.ToString(),
                     ContentType = contentType?.ToString(),
+                    IsEntityUnresolved = isEntityUnresolved,
                 },
             };
 

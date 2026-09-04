@@ -157,6 +157,17 @@ namespace G2H.Security.Client.Services.Foundations.Access
                     "Actor is not authenticated or carries no resolvable user id.");
             }
 
+            // The veto, and it comes BEFORE the owner branch rather than after it. A block
+            // covers the holder's OWN rows: somebody sanctioned on a content type may no longer
+            // amend the approval of a quote they submitted themselves, and the owner admit
+            // below is a grant like any other (§18.6 rule 2).
+            if (IsBlockedFromSubjects(request.Actor, request.RoleSubjects))
+            {
+                return Refuse(
+                    AccessDenialReason.BlockedByReadOnlyRole,
+                    BlockedBySanctionExplanation);
+            }
+
             // Owner OR review tier — §14.7 posture D rule 3 admits the submitter to their own
             // approval so they can resubmit it, and they hold no role by construction. Both
             // halves are decided HERE rather than one here and one in the caller: two throwing
@@ -265,6 +276,17 @@ namespace G2H.Security.Client.Services.Foundations.Access
                     "Actor is not authenticated or carries no resolvable user id.");
             }
 
+            // A vote already CAST stands: blocking somebody is not retroactive, nothing
+            // recomputes when a role is assigned, and no approval in flight silently re-opens.
+            // What the veto governs is what they may do NEXT — no new vote, and no change to
+            // the one they already hold (§18.6 rule 2).
+            if (IsBlockedFromSubjects(request.Actor, request.RoleSubjects))
+            {
+                return Refuse(
+                    AccessDenialReason.BlockedByReadOnlyRole,
+                    BlockedBySanctionExplanation);
+            }
+
             if (HasReviewTier(request.Actor, request.RoleSubjects) is false)
             {
                 return Refuse(
@@ -312,6 +334,19 @@ namespace G2H.Security.Client.Services.Foundations.Access
                 return Refuse(
                     AccessDenialReason.NotAuthenticated,
                     "Actor is not authenticated or carries no resolvable user id.");
+            }
+
+            // The veto, ahead of every tier below — including the Administrators branch inside
+            // HasPublisherTier, which is the one a future refactor is most likely to hoist into
+            // an early allow. A blocked caller is refused the decision whatever they hold
+            // (§18.6 rule 2). The verdict's per-caller CanApprove is this same answer, so
+            // reporting it here is also what stops a review panel offering a decision control
+            // the server would then refuse (§16.7.2).
+            if (IsBlockedFromSubjects(request.Actor, request.RoleSubjects))
+            {
+                return Refuse(
+                    AccessDenialReason.BlockedByReadOnlyRole,
+                    BlockedBySanctionExplanation);
             }
 
             // HR-3. The publisher tier is checked rather than "not a reviewer", so a user with
@@ -551,6 +586,88 @@ namespace G2H.Security.Client.Services.Foundations.Access
                 entityType,
                 contentType);
         }
+
+        // ── The ReadOnly veto (§18.6 rule 2) ──────────────────────────────────
+        //
+        // It reads the same RoleSubject list the tiers below do — the OTHER WAY ROUND. For a
+        // grant, holding a matching role for any ONE subject admits; for a block, holding one
+        // bars. That symmetry is what lets one list serve both, and it is why the association
+        // case needs no branch of its own: one endpoint admits, one endpoint bars.
+        //
+        // Asked BEFORE eligibility on every decision that carries subjects, and unlike the tier
+        // checks it cannot be satisfied by a wider role. No grant outranks it — not
+        // ContentItem-Quote-Publishers, not ContentItem-Publishers, not Publishers, not
+        // Administrators, and not being the entity's own author. A block whose scope does not
+        // cover the subject is silent rather than weakened: it is simply not asked.
+        //
+        // The SCOPED half of the veto lives here rather than in the approval foundations
+        // because an Approval carries an EntityType and an EntityId but no content type, and a
+        // foundation may not resolve the entity behind it (§14.3). By the time a request
+        // reaches this decision its subjects are resolved, so the narrow name can be composed.
+        // Tier 1 keeps the global ReadOnly check it has always had (§12.3.1, §14.7 A′.3).
+        private static bool IsBlockedFromSubjects(
+            AccessActor actor,
+            IReadOnlyList<RoleSubject> roleSubjects) =>
+            actor.Roles.Contains(RoleNames.ReadOnly)
+                || roleSubjects.Any(subject =>
+                    HasScopedRole(
+                        actor,
+                        subject,
+                        RoleNames.ReadOnlyFor,
+                        RoleNames.ReadOnlyFor)
+                            || IsNarrowBlockUndecidableFor(actor, subject));
+
+        // A subject whose entity could not be read carries no content type, so the narrow name
+        // cannot be composed — and a block that cannot be composed must not become a block that
+        // does not apply. This fails CLOSED: an actor holding ANY scoped block for that entity
+        // type is refused while the entity behind the approval is unresolvable.
+        //
+        // The asymmetry with the grants is the point. HasScopedRole failing to compose the
+        // narrow name costs the actor a tier and leaves them needing a wider role — closed. The
+        // veto failing to compose it would hand a narrowly sanctioned user an orphaned approval
+        // their coarse tier never covered — open, and in the one direction a veto may not err.
+        //
+        // Unresolved comes in TWO shapes and they are not the same question.
+        //
+        // A NAMED subject whose content type could not be decided — an association endpoint
+        // that is a ContentItem carrying no content type, or a content item that could not be
+        // read — still says which entity type is in play. Only that type's own block names can
+        // cover it, so a sanction on any other entity type stays SILENT, exactly as §18.6
+        // rule 2 requires and exactly as AssociationService.IsNarrowBlockUndecidableFor decides
+        // the same question one layer down. The two have to agree.
+        //
+        // An UNNAMEABLE subject — the gatherer could not read the row at all, so it cannot say
+        // which entity types are even in play, and reports a blank entity type to say so — is
+        // the case where any scoped block may cover it. Restricting that one to its own name
+        // would restrict it to nothing.
+        //
+        // Matched by the §18.6 naming convention rather than by an enum, for the reason this
+        // whole package takes strings: the entity and content types are the consuming
+        // application's vocabulary and the reference runs the other way. The bare global
+        // `ReadOnly` carries no hyphen, so the suffix match reaches only the scoped names —
+        // the global one is already asked directly by IsBlockedFromSubjects.
+        private static bool IsNarrowBlockUndecidableFor(AccessActor actor, RoleSubject subject)
+        {
+            if (subject.IsEntityUnresolved is false)
+            {
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(subject.EntityType) is false)
+            {
+                return actor.Roles.Any(role =>
+                    role.StartsWith($"{subject.EntityType}-", StringComparison.Ordinal)
+                        && role.EndsWith(RoleNames.ReadOnlySuffix, StringComparison.Ordinal));
+            }
+
+            return actor.Roles.Any(role =>
+                role.EndsWith(RoleNames.ReadOnlySuffix, StringComparison.Ordinal));
+        }
+
+        // One sentence for all three scopes. Which of them fired is the sanction's own detail
+        // and names nothing the actor can act on — no scope of it is appealable here.
+        private const string BlockedBySanctionExplanation =
+            "Actor holds a ReadOnly role covering this entity; no role overrides it.";
 
         // ── Role tiers (§8.9, §18.6) ─────────────────────────────────────────────────────────
         //

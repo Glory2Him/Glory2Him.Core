@@ -64,6 +64,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 new Mock<IApprovalReviewRequestWorkflowService>();
 
             this.identityUserServiceMock = new Mock<IIdentityUserService>();
+
+            // Nobody is blocked unless a test says so. Without this the veto read would answer
+            // null and every candidates and request test would fault on the subtraction rather
+            // than on its own subject.
+            SetupBlockedUsers();
             this.accessBrokerMock = new Mock<IAccessBroker>();
             this.eventEnvelopeBrokerMock = new Mock<IEventEnvelopeBroker>();
             this.eventBrokerMock = new Mock<IEventBroker>();

@@ -145,5 +145,23 @@ namespace G2H.Security.Client.Models.Foundations.Access
         /// whole point.</para>
         /// </summary>
         BlockedDueToDraftStatus = 20,
+
+        /// <summary>
+        /// A <c>ReadOnly</c> role whose scope covers this approval's entity bars the actor — the
+        /// global <c>ReadOnly</c>, a <c>%EntityType%-ReadOnly</c>, or the narrow
+        /// <c>%EntityType%-%ContentType%-ReadOnly</c> (§18.6 rule 2).
+        ///
+        /// <para>It is a VETO rather than a missing grant, and the distinction is the whole of
+        /// why it has its own reason. Every other role refusal above says the actor lacks
+        /// something a wider role would supply; this one says no role supplies it. It is
+        /// evaluated before eligibility and outranks every tier, <c>Administrators</c>
+        /// included, so it can never be reported alongside a tier reason — it is reached
+        /// first.</para>
+        ///
+        /// <para>It reports the block WITHOUT naming which of the three scopes fired. The
+        /// distinction is the sanction's own detail and tells the caller nothing they can act
+        /// on: no scope of it is appealable through this surface.</para>
+        /// </summary>
+        BlockedByReadOnlyRole = 21,
     }
 }
