@@ -131,11 +131,21 @@ namespace Glory2Him.WebApp.Data
             // (§4.2: UserId set) — is not editorial content and waits on nobody. The round
             // still opens; it closes itself on submission (§8.5 rules 1 and 6), so §9.8 holds
             // and nothing skips the approval record.
+            //
+            // EVERY GATE OFF, not only the approval count. A gate is a reason to hold a round
+            // shut for a reviewer to look at, and this round has no reviewer: a rejection
+            // nobody will file, a comment nobody will settle, a re-approval nobody will give
+            // and a score nobody will weigh would each leave a user's own reaction stuck on a
+            // condition the policy never meant to ask. Bypass stays permitted, as everywhere.
             ApprovalSetting personalAssociations =
                 BuildHousePolicy(seededWhen, EntityType.Association, isPersonal: true);
 
             personalAssociations.RequireApprovals = false;
             personalAssociations.AutoApproveIfAllApprovalRequirementsMet = true;
+            personalAssociations.BlockOnReject = false;
+            personalAssociations.BlockOnZeroApprovalScore = false;
+            personalAssociations.RequireReapprovalOnChange = false;
+            personalAssociations.RequireReviewCommentResolutionBeforeApprovals = false;
             approvalSettings.Add(personalAssociations);
 
             return approvalSettings;

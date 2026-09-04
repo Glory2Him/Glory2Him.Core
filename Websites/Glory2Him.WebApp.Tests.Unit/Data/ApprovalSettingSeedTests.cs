@@ -94,9 +94,13 @@ namespace Glory2Him.WebApp.Tests.Unit.Data
         /// row says "no approvals required" AND "approve automatically", never one without the
         /// other: the first alone leaves a round open for a human click nobody will make, and the
         /// second alone auto-approves nothing because the conditions are never met.
+        ///
+        /// <para>And every gate is off. A gate holds a round shut for a reviewer, and this round
+        /// has none — a standing rejection, an unsettled comment, a zero score or an edit would
+        /// each leave the reaction stuck on a condition nobody is there to clear.</para>
         /// </summary>
         [Fact]
-        public void ShouldSeedPersonalAssociationsAsApprovedOnSubmission()
+        public void ShouldSeedPersonalAssociationsAsApprovedOnSubmissionWithNoGate()
         {
             // when
             IReadOnlyList<ApprovalSetting> seededApprovalSettings = BuildSeed();
@@ -111,6 +115,12 @@ namespace Glory2Him.WebApp.Tests.Unit.Data
             personalAssociations.ContentType.Should().BeNull();
             personalAssociations.RequireApprovals.Should().BeFalse();
             personalAssociations.AutoApproveIfAllApprovalRequirementsMet.Should().BeTrue();
+            personalAssociations.BlockOnReject.Should().BeFalse();
+            personalAssociations.BlockOnZeroApprovalScore.Should().BeFalse();
+            personalAssociations.RequireReapprovalOnChange.Should().BeFalse();
+            personalAssociations.RequireReviewCommentResolutionBeforeApprovals.Should().BeFalse();
+            personalAssociations.AllowSelfApproval.Should().BeFalse();
+            personalAssociations.DoNotAllowBypassingSettings.Should().BeFalse();
         }
 
         /// <summary>
