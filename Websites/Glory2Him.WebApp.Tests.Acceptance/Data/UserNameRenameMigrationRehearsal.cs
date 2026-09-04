@@ -95,12 +95,42 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Data
         internal static readonly Guid NullNormalizedSecondId =
             Guid.Parse("aaaa0007-0000-0000-0000-000000000007");
 
+        /// <summary>
+        /// A working address written wholly in a non-Latin script. It MUST be renamed rather than
+        /// blocked: an earlier form of the blank-address test asked whether the value held a Latin
+        /// alphanumeric, which refused the whole deploy over an account that signs in perfectly
+        /// well. Nothing else in the arrangement would notice that form coming back.
+        /// </summary>
+        internal static readonly Guid NonLatinAddressId =
+            Guid.Parse("aaaa0008-0000-0000-0000-000000000008");
+
+        /// <summary>
+        /// The other side of the same test: a NormalizedEmail made ENTIRELY of an invisible
+        /// character (U+200B) is not an address anybody can type, so it must block the deploy. The
+        /// strip list once covered only tab, newline, carriage return and NBSP, which let this
+        /// value read as usable and stranded the account.
+        /// </summary>
+        internal static readonly Guid BlockedInvisibleAddressId =
+            Guid.Parse("bbbb0003-0000-0000-0000-000000000003");
+
         internal static readonly Guid BlockedWithoutEmailId =
             Guid.Parse("bbbb0001-0000-0000-0000-000000000001");
 
         // U+00E9. Written as a code point rather than a literal so no editor or encoding round-trip
         // can quietly turn it into a plain 'e' and take the test's teeth with it.
         private static readonly string AccentedLocalPart = "jos" + (char)0x00E9;
+
+        // Code points, not literals, so no editor or encoding round trip can quietly turn these
+        // into ASCII and take the tests' teeth with them.
+        // Cyrillic THROUGHOUT, including the top-level domain. An earlier version of this row
+        // ended ".ru", whose Latin letters made the over-broad predicate accept it - so the row
+        // sat in the arrangement proving nothing.
+        private static readonly string NonLatinAddress =
+            new string(new[] { (char)0x043F, (char)0x043E, (char)0x0447 })
+                + "@" + new string(new[] { (char)0x043F, (char)0x043E, (char)0x0447 })
+                + "." + new string(new[] { (char)0x0440, (char)0x0444 });
+
+        private static readonly string InvisibleOnlyAddress = new string((char)0x200B, 3);
 
         internal IReadOnlyDictionary<Guid, string> UserNamesById => this.userNamesById;
 
@@ -191,7 +221,8 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Data
                 CreateUser(AccentedLocalPartId, "jose@old.example", AccentedLocalPart + "@new.example"),
                 CreateUser(UntouchedId, "already.legal-1_x", "already@legal.example"),
                 CreateUserWithoutNormalizedName(NullNormalizedFirstId, "drew@a.example"),
-                CreateUserWithoutNormalizedName(NullNormalizedSecondId, "drew@b.example"));
+                CreateUserWithoutNormalizedName(NullNormalizedSecondId, "drew@b.example"),
+                CreateUser(NonLatinAddressId, "cyrillic@old.example", NonLatinAddress));
 
             await securityDbContext.SaveChangesAsync();
         }
@@ -217,7 +248,17 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Data
             securityDbContext.Users.Add(
                 CreateUser(BlockedWithoutEmailId, "nomail@x.example", email: null));
 
-            for (var index = 1; index < BlockedAccountCount; index++)
+            // Non-empty, and still no address: exercises the strip branch of the emptiness test
+            // rather than its IS NULL branch, which every other blocked row takes.
+            AppUser invisible =
+                CreateUser(BlockedInvisibleAddressId, "invisible@x.example", InvisibleOnlyAddress);
+
+            invisible.NormalizedEmail = InvisibleOnlyAddress;
+            securityDbContext.Users.Add(invisible);
+
+            // Two rows are already added above, so the filler stops short of the total: the
+            // assertion on the thrown count is exact, and a drift here would break it.
+            for (var index = 1; index < BlockedAccountCount - 1; index++)
             {
                 securityDbContext.Users.Add(
                     CreateUser(

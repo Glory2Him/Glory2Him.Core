@@ -157,6 +157,21 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Data
             first.Should().NotBe(second);
         }
 
+        // The blank-address test must not over-refuse. A wholly non-Latin address resolves through
+        // the sign-in lookup exactly like any other, so the account is renamed like any other; an
+        // earlier form of the test refused the whole deploy over it.
+        [Fact]
+        public void ShouldRenameRatherThanRefuseAnAccountWhoseAddressIsNonLatin()
+        {
+            // given . when
+            string actualUserName =
+                this.rehearsal.UserNamesById[UserNameRenameMigrationRehearsal.NonLatinAddressId];
+
+            // then: renamed, and the store migrated at all - a refusal would have failed every
+            // test in this class, since the whole rehearsal shares one migration.
+            actualUserName.Should().StartWith("user-");
+        }
+
         // A rename takes the username away, so the address is all that is left to sign in with.
         // A store holding an account with neither must stop the deploy rather than be repaired
         // into a lockout.
@@ -181,6 +196,13 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Data
             // hundreds of accounts must not read as though it were blocked by thirty-one.
             actualMessage.Should().Contain(
                 $"{UserNameRenameMigrationRehearsal.BlockedAccounts} account(s)");
+
+            // And the count includes the row whose address is non-empty but invisible, which takes
+            // the strip branch of the emptiness test rather than its IS NULL branch. Without it,
+            // deleting the strip entirely would leave every blocked-store assertion green.
+            actualMessage.Should().ContainEquivalentOf(
+                UserNameRenameMigrationRehearsal.BlockedInvisibleAddressId.ToString(),
+                because: "an address made only of invisible characters is not one anybody can type");
         }
     }
 }

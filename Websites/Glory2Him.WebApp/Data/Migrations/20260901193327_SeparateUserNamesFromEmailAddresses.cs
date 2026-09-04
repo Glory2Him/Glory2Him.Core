@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System.Linq;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -100,9 +101,12 @@ namespace Glory2Him.WebApp.Data.Migrations
         // one Identity itself will apply, so a row this migration leaves behind is exactly a row
         // the application cannot write to.
         //
-        // Parameterised by alias because this predicate is asked in five places, and it has twice
-        // now been edited in four of them - leaving `rival` behind, which is precisely the sibling
-        // that decides whether two rows may claim the same name. ISNULL is load-bearing:
+        // Parameterised by alias because this predicate is asked in every one of the five
+        // migrationBuilder.Sql statements below, and the previous round's ISNULL edit reached four
+        // of them through the shared AffectedRows property while pass one's `rival` half - a
+        // hand-written copy - kept the old semantics. That sibling is precisely the one deciding
+        // whether two rows may claim the same name, and the mismatch cost a unique-index violation.
+        // There is now ONE definition and two call sites. ISNULL is load-bearing:
         // NormalizedUserName is nullable, NULL <> N'ADMIN' is UNKNOWN, and a row that answers
         // UNKNOWN silently drops out of whichever test forgot it.
         private static string NeedsRename(string alias) =>
@@ -117,18 +121,41 @@ namespace Glory2Him.WebApp.Data.Migrations
         // NormalizedEmail, NOT Email: that is the column FindByEmailAsync matches, and the two are
         // independent - nothing in SQL keeps them in step.
         //
-        // It ERRS TOWARDS ALLOWING, deliberately. An earlier form asked whether the value contained
-        // a Latin alphanumeric, which refused a wholly non-Latin address that resolves perfectly
-        // well and stopped the deploy over a working account. Refusing a real account is worse than
-        // renaming an odd one, so the test is emptiness and nothing more. The strip list is not
-        // exhaustive over Unicode whitespace and is not trying to be; leading and trailing spaces
-        // need no stripping because SQL Server's = ignores them.
-        private static string HasNoUsableEmail(string alias) =>
+        // It ERRS TOWARDS ALLOWING, deliberately. An earlier form asked whether the value
+        // contained a Latin alphanumeric, which refused a wholly non-Latin address that resolves
+        // perfectly well and stopped the deploy over a working account. Refusing a real account is
+        // worse than renaming an odd one.
+        //
+        // IT IS AN EMPTINESS TEST, NOT A TYPEABILITY TEST, and the name says so. A NormalizedEmail
+        // that is non-empty but unmatchable - invisible residue beside a real address, or a value
+        // that has drifted out of step with Email - still passes here and still strands the
+        // account. Closing that needs a different question than "is there anything in the column".
+        //
+        // Spaces need no listing: the comparison is against N'', and a value that is nothing but
+        // spaces is all blank padding and compares equal to it wherever the spaces sit. Do NOT read
+        // that as "= ignores spaces" - under this database's SQL_Latin1_General_CP1_CI_AS, = ignores
+        // TRAILING blanks only, so N' A@B.ORG' <> N'A@B.ORG'.
+        //
+        // The invisible characters ARE listed, and the list and its replacement string are built
+        // from one array so they cannot fall out of step. An earlier form of this test stripped
+        // only tab, newline, carriage return and NBSP, which let a value made solely of (say) a
+        // zero-width space read as an address and strand the account it belonged to.
+        private static readonly int[] InvisibleCodePoints = new[]
+        {
+            9, 10, 11, 12, 13, 133, 160, 173,
+            8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199, 8200, 8201, 8202, 8203, 8204,
+            8232, 8233, 8239, 8287, 12288, 65279,
+        };
+
+        private static string InvisibleCharacters =>
+            string.Join(" + ", InvisibleCodePoints.Select(codePoint => $"NCHAR({codePoint})"));
+
+        private static string HasNoEmailToSignInWith(string alias) =>
             $@"({alias}.[NormalizedEmail] IS NULL
-                               OR REPLACE(REPLACE(REPLACE(REPLACE(
+                               OR TRANSLATE(
                                    {alias}.[NormalizedEmail],
-                                   NCHAR(9), N''), NCHAR(10), N''), NCHAR(13), N''), NCHAR(160), N'')
-                                   = N'')";
+                                   {InvisibleCharacters},
+                                   REPLICATE(N' ', {InvisibleCodePoints.Length})) = N'')";
 
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -141,7 +168,7 @@ namespace Glory2Him.WebApp.Data.Migrations
             // they could type. Pass two would happily do that — its candidate is derived from the
             // row's id, so it does not care whether the Email column has anything in it.
             //
-            // What counts as "no address" is HasNoUsableEmail, and the reasoning for the column it
+            // What counts as "no address" is HasNoEmailToSignInWith, and the reasoning for the column it
             // reads and for how little it refuses lives on that helper rather than being restated
             // here - restating it is how this comment came to describe code that had been deleted.
             //
@@ -152,13 +179,13 @@ namespace Glory2Him.WebApp.Data.Migrations
                        SELECT STRING_AGG(CONVERT(nvarchar(max), affected.[Id]), N', ')
                        FROM [AspNetUsers] affected
                        WHERE {AffectedRows}
-                           AND {HasNoUsableEmail("affected")});
+                           AND {HasNoEmailToSignInWith("affected")});
 
                    DECLARE @strandedCount int = (
                        SELECT COUNT(*)
                        FROM [AspNetUsers] affected
                        WHERE {AffectedRows}
-                           AND {HasNoUsableEmail("affected")});
+                           AND {HasNoEmailToSignInWith("affected")});
 
                    IF @strandedIds IS NOT NULL
                    BEGIN
