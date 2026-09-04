@@ -97,7 +97,8 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
             ApprovalStatus approvalStatus,
             bool isPublished,
             string authorUserId,
-            bool isDeleted = false)
+            bool isDeleted = false,
+            ContentType contentType = ContentType.Story)
         {
             DateTimeOffset now = DateTimeOffset.UtcNow;
 
@@ -106,7 +107,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
                 Id = Guid.NewGuid(),
                 GroupId = groupId,
                 Version = version,
-                ContentType = ContentType.Story,
+                ContentType = contentType,
                 Title = $"Version {version} of {groupId:N}",
                 Author = "Acceptance suite",
                 Content = $"Version {version} body {Guid.NewGuid():N}",

@@ -201,9 +201,15 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             }
         }
 
-        // §9.7.6 rule 3 / §14.5 rule 3. A removed subject is reported exactly as a missing one:
-        // the message names the entity rather than the takedown, so a decision route cannot be
-        // used to learn which rows used to exist.
+        // §9.7.6 rule 3 / §14.5 rule 3. A removed subject is reported exactly as a missing one —
+        // and "exactly" is load-bearing: the message is CHARACTER-FOR-CHARACTER the one
+        // ValidateStorageApprovalExists throws, because §14.5 rule 2 says exception messages
+        // surface outward to callers, so a message naming the ENTITY where the sibling names the
+        // APPROVAL is itself the denial reason. Two refusals a caller can tell apart are one
+        // refusal and one oracle: send a taken-down id and a random GUID, read the two bodies,
+        // and learn which id used to exist.
+        //
+        // If either sentence is ever reworded, reword both.
         private static void ValidateStorageEntityIsVisible(
             bool isEntityVisible,
             EntityType entityType,
@@ -212,7 +218,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             if (isEntityVisible is false)
             {
                 throw new NotFoundApprovalOrchestrationException(
-                    message: $"{entityType} not found with id: {entityId}.");
+                    message: $"Approval not found for {entityType} with id: {entityId}.");
             }
         }
 

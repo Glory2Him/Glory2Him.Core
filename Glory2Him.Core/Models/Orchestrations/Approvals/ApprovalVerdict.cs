@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -20,7 +20,8 @@ namespace Glory2Him.Core.Models.Orchestrations.Approvals
     /// What may happen to an approval right now, and everything stopping it, answered for the
     /// CURRENT caller (design §16.7.2).
     ///
-    /// <para>Read-only: producing one writes nothing, publishes nothing and grants nothing. It
+    /// <para>Producing one grants nothing and decides nothing, and writes only in one case: a
+    /// missing round is opened first so there is something to report on (§16.7.2). It
     /// is the same evaluation the approve path runs, asked without acting on the answer, so a
     /// caller can be shown why the button is disabled instead of discovering it by pressing
     /// it.</para>

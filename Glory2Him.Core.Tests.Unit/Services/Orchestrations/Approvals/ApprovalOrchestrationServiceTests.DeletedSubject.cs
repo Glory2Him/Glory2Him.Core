@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -193,7 +194,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     message: "Content item association orchestration validation error occurred, " +
                         "fix the errors and try again.",
                     innerException: new NotFoundApprovalOrchestrationException(
-                        message: $"{inputEntityType} not found with id: {inputEntityId}."));
+
+                        // CHARACTER-FOR-CHARACTER the sentence a missing approval gives. Two
+                        // refusals a caller can tell apart are one refusal and one oracle
+                        // (§14.5 rules 2-3), so the sameness is the assertion.
+                        message: $"Approval not found for {inputEntityType} with id: {inputEntityId}."));
 
             // when
             ValueTask<ApprovalOutcome> decideTask =
@@ -289,6 +294,217 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             this.eventEnvelopeBrokerMock.Verify(broker =>
                 broker.CreateSystemAsync(It.IsAny<ContentItem>()),
                 Times.Never);
+        }
+
+        /// <summary>
+        /// The case the first cut of this change MISSED, and the one a takedown actually produces:
+        /// the subject is removed but its round ALREADY EXISTS.
+        ///
+        /// <para>The visibility gate was originally reachable only through
+        /// <c>RepairMissingApprovalAsync</c>, which runs only when no approval occupies the key.
+        /// A takedown happens to an item that has already been through the flow, so it has a
+        /// round, so the gate was skipped and the read answered 200 with the whole verdict on a
+        /// tombstone. An id that never existed answered 404, which made the pair an oracle for
+        /// which rows used to exist (§14.5 rule 3).</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldRefuseTheVerdictForARemovedSubjectWhoseRoundAlreadyExistsAsync()
+        {
+            // given: the round is real, readable, and open - only the SUBJECT has gone
+            EntityType inputEntityType = EntityType.ContentItem;
+            Guid inputEntityId = Guid.NewGuid();
+
+            SetupApprovalProbe(CreateApprovalMatch());
+            SetupConditions(CreateMetConditions());
+            SetupEntityVisibility(isEntityVisible: false);
+
+            // when
+            ValueTask<ApprovalVerdict> retrieveVerdictTask =
+                this.approvalOrchestrationService.RetrieveApprovalVerdictAsync(
+                    inputEntityType,
+                    inputEntityId,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            await Assert.ThrowsAsync<ApprovalOrchestrationValidationException>(
+                retrieveVerdictTask.AsTask);
+
+            // and no verdict was composed from it - the policy side is never even asked, so
+            // nothing about the round leaks through counts or block reasons
+            this.accessBrokerMock.Verify(broker =>
+                broker.EvaluateApprovalConditionsByIdAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.accessBrokerMock.Verify(broker =>
+                broker.MayDecideApprovalByIdAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<ApprovalDecision>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<string>(),
+                    It.IsAny<SecurityContext>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        /// <summary>
+        /// §14.5 rules 2-3. The refusal for a removed subject and the refusal for a missing approval
+        /// must be the SAME sentence: exception messages surface outward to callers, so two
+        /// distinguishable refusals are one refusal and one oracle. Asserted rather than trusted,
+        /// because the two throws sit in different methods and nothing but a test keeps them equal.
+        /// </summary>
+        [Fact]
+        public async Task ShouldRefuseARemovedSubjectWithTheSameSentenceAMissingApprovalGivesAsync()
+        {
+            // given
+            EntityType inputEntityType = EntityType.Tag;
+            Guid removedSubjectId = Guid.NewGuid();
+            Guid neverExistedId = Guid.NewGuid();
+
+            SetupApprovalProbe(CreateApprovalMatch());
+            SetupEntityVisibility(isEntityVisible: false);
+
+            // when: the subject was taken down
+            ValueTask<ApprovalVerdict> removedSubjectTask =
+                this.approvalOrchestrationService.RetrieveApprovalVerdictAsync(
+                    inputEntityType,
+                    removedSubjectId,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalOrchestrationValidationException removedSubjectException =
+                await Assert.ThrowsAsync<ApprovalOrchestrationValidationException>(
+                    removedSubjectTask.AsTask);
+
+            // and: an id that never existed at all
+            SetupApprovalProbe(null);
+
+            ValueTask<ApprovalVerdict> neverExistedTask =
+                this.approvalOrchestrationService.RetrieveApprovalVerdictAsync(
+                    inputEntityType,
+                    neverExistedId,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalOrchestrationValidationException neverExistedException =
+                await Assert.ThrowsAsync<ApprovalOrchestrationValidationException>(
+                    neverExistedTask.AsTask);
+
+            // then: the two bodies differ only in the id, never in what they say happened
+            removedSubjectException.InnerException.Message
+                .Should().Be($"Approval not found for {inputEntityType} with id: {removedSubjectId}.");
+
+            neverExistedException.InnerException.Message
+                .Should().Be($"Approval not found for {inputEntityType} with id: {neverExistedId}.");
+        }
+
+        /// <summary>
+        /// §9.7.6 rule 3 names the approve, reject AND bypass operations. The standing-rejection
+        /// branch is the reject one, and it is reached BEFORE <c>EvaluateApprovalAsync</c> - the
+        /// flow returns straight into it - so the gate inside the evaluation never covered it.
+        ///
+        /// <para>Left ungated it writes the §9.8 divergence exactly: the approval moves to
+        /// <c>Rejected</c> and the command is published, the entity transition refuses the deleted
+        /// row, and the two are left apart with no reconcile pass - and a later restore resumes at
+        /// <c>Rejected</c> instead of the open round §9.7.6 promises.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldNotRejectARoundOnAStandingRejectionWhenTheSubjectHasBeenRemovedAsync()
+        {
+            // given: an open round whose conditions report a standing rejection, and a subject
+            // that has been taken down since the review was recorded
+            var openApproval = new Approval
+            {
+                Id = Guid.NewGuid(),
+                EntityType = EntityType.ContentItem,
+                EntityId = Guid.NewGuid(),
+                ApprovalStatus = ApprovalStatus.Submitted,
+            };
+
+            this.approvalServiceMock.Setup(service =>
+                service.RetrieveApprovalByIdAsync(
+                    openApproval.Id,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(openApproval);
+
+            SetupConditions(CreateBlockedConditions(
+                new List<AccessDenialReason> { AccessDenialReason.BlockedByRejection }));
+
+            SetupEntityVisibility(isEntityVisible: false);
+
+            // when
+            ApprovalOutcome actualOutcome =
+                await this.approvalOrchestrationService.ProcessApprovalInputsChangedAsync(
+                    approvalId: openApproval.Id,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            // then: the round is left OPEN rather than closed against a subject that has gone
+            actualOutcome.ApprovalStatus.Should().Be(ApprovalStatus.Submitted);
+            actualOutcome.IsEntitySyncRequested.Should().BeFalse();
+
+            this.approvalServiceMock.Verify(service =>
+                service.ModifyApprovalAsync(
+                    It.IsAny<Approval>(),
+                    It.IsAny<WorkflowAttribution>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateSystemAsync(It.IsAny<ContentItem>()),
+                Times.Never);
+        }
+
+        /// <summary>
+        /// The other half of the rejection gate: a LIVE subject still closes on a standing
+        /// rejection exactly as before, so the gate is seen to discriminate rather than to
+        /// disable the branch.
+        /// </summary>
+        [Fact]
+        public async Task ShouldStillRejectARoundOnAStandingRejectionWhenTheSubjectIsLiveAsync()
+        {
+            // given
+            var openApproval = new Approval
+            {
+                Id = Guid.NewGuid(),
+                EntityType = EntityType.ContentItem,
+                EntityId = Guid.NewGuid(),
+                ApprovalStatus = ApprovalStatus.Submitted,
+            };
+
+            this.approvalServiceMock.Setup(service =>
+                service.RetrieveApprovalByIdAsync(
+                    openApproval.Id,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(openApproval);
+
+            SetupConditions(CreateBlockedConditions(
+                new List<AccessDenialReason> { AccessDenialReason.BlockedByRejection }));
+
+            SetupEntityVisibility(isEntityVisible: true);
+
+            this.approvalServiceMock.Setup(service =>
+                service.ModifyApprovalAsync(
+                    It.IsAny<Approval>(),
+                    It.IsAny<WorkflowAttribution>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((Approval approval, WorkflowAttribution _, CancellationToken __) =>
+                            approval);
+
+            // when
+            ApprovalOutcome actualOutcome =
+                await this.approvalOrchestrationService.ProcessApprovalInputsChangedAsync(
+                    approvalId: openApproval.Id,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            actualOutcome.ApprovalStatus.Should().Be(ApprovalStatus.Rejected);
+
+            this.approvalServiceMock.Verify(service =>
+                service.ModifyApprovalAsync(
+                    It.Is<Approval>(approval =>
+                        approval.ApprovalStatus == ApprovalStatus.Rejected),
+                    WorkflowAttribution.System,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
         }
     }
 }

@@ -402,6 +402,17 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
 
             onSecurityContext(envelope.SecurityContext);
 
+            // The same visibility gate the verdict keeps, for the same reason (14.5 rule 3): the
+            // candidates, the display names and the outstanding requests all key on the entity,
+            // and a taken-down one must answer not-found on every one of them rather than only
+            // on the path that would have repaired a missing round.
+            bool isEntityVisible = await this.accessBroker.IsEntityVisibleAsync(
+                entityType: entityType,
+                entityId: entityId,
+                cancellationToken: cancellationToken);
+
+            ValidateStorageEntityIsVisible(isEntityVisible, entityType, entityId);
+
             // Unfiltered, for the same reason the verdict's lookup is: a soft-deleted approval
             // still occupies the key, and a filtered read would report "no approval" for one
             // that exists (9.7.2 rule 3).

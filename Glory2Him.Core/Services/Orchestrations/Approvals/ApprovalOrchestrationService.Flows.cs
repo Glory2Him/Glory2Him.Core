@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -227,6 +227,29 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             Approval approval,
             CancellationToken cancellationToken)
         {
+            // §9.7.6 rule 3 names the approve, reject AND bypass operations, and this is the
+            // reject one. It is reached BEFORE EvaluateApprovalAsync — the branch above returns
+            // straight into it — so the gate inside the evaluation never covered this path.
+            //
+            // The write it would otherwise make is the §9.8 divergence exactly: the approval
+            // moves to Rejected, the command is published, and the entity's own transition
+            // refuses the deleted row — leaving Approval = Rejected against an entity still at
+            // Submitted, with no reconcile pass to settle them, and a later restore resuming at
+            // Rejected instead of the open round §9.7.6 promises.
+            //
+            // Reached only where a review was recorded against a subject that has since been
+            // taken down, which is why the probe sits here rather than on the caller: it costs a
+            // read only where a rejection would actually be written.
+            bool isEntityVisible = await this.accessBroker.IsEntityVisibleAsync(
+                entityType: approval.EntityType,
+                entityId: approval.EntityId,
+                cancellationToken: cancellationToken);
+
+            if (isEntityVisible is false)
+            {
+                return DescribeOutcome(approval, isEntitySyncRequested: false);
+            }
+
             approval.ApprovalStatus = ApprovalStatus.Rejected;
             approval.IsApprovedByBypass = false;
             approval.ApprovedByBypassReason = null;
