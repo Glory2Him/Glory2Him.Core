@@ -296,4 +296,36 @@ describe('The content item feed pages', () => {
                 .toBeNull();
         });
     });
+
+    /// MODERATING IS ADMIN WORK. Every feed that offers it sends the moderator to the item's
+    /// admin address — the public page is a reading surface with no moderation controls on it,
+    /// so a moderator sent there arrived nowhere useful. The origin rides in state either way,
+    /// which is what gives the admin page a true way back to the feed they left.
+    describe('the moderate destination', () => {
+        beforeEach(() => {
+            signInAs(authState, ['Administrators']);
+        });
+
+        it('should send a moderator from the home feed to the admin address', async () => {
+            // given
+            renderPage(<Home />);
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Moderate' }));
+
+            // then
+            expect(landedOn()).toBe('/Admin/Posts/devotional-1');
+        });
+
+        it('should send a moderator from my posts to the admin address', async () => {
+            // given
+            renderPage(<MyPosts />, '/myposts');
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Moderate' }));
+
+            // then
+            expect(landedOn()).toBe('/Admin/Posts/devotional-1');
+        });
+    });
 });
