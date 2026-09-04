@@ -77,11 +77,19 @@ const templateProps: ReadonlyArray<ComponentPropRow> = [
             + 'for. A section renders only when both agree.'
     },
     {
+        name: 'allowTitleClick',
+        type: 'boolean',
+        description: 'Resolved by the dispatching panel: whether the title is a CONTROL at '
+            + 'all. The title renders as a button only when this is on AND onTitleClick is '
+            + 'listening; otherwise it stands as plain heading text with no underline, '
+            + 'which is what a detail surface wants.'
+    },
+    {
         name: 'onTitleClick / onReadMore / …',
         type: '(item) => void',
         description: 'The event hooks, unchanged across the family — a control renders only '
-            + 'where somebody is listening: no onTitleClick and the title stands as plain '
-            + 'heading text.'
+            + 'where the surface allows it and somebody is listening: no allowTitleClick or '
+            + 'no onTitleClick and the title stands as plain heading text.'
     }
 ];
 

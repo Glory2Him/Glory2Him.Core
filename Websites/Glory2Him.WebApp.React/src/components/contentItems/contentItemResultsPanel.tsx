@@ -36,6 +36,11 @@ export interface ContentItemResultsPanelProps
 
     // Threaded to every card — see ContentItemPanel, which owns what it means.
     showModerationSection?: boolean;
+
+    // ON BY DEFAULT here, off by default on ContentItemPanel: a listed card's title is the
+    // way into the detail surface, while a panel standing alone already is that surface.
+    allowTitleClick?: boolean;
+
     showApprovalStatusRibbon?: boolean;
     showApprovalStatus?: boolean;
     showContentExpanded?: boolean;
@@ -68,6 +73,7 @@ export function ContentItemResultsPanel({
     contentItemCollection = [],
     reactionOptions = [],
     showModerationSection = false,
+    allowTitleClick = true,
     showApprovalStatusRibbon = false,
     showApprovalStatus = false,
     isLoading = false,
@@ -142,6 +148,7 @@ export function ContentItemResultsPanel({
                     contentItem={contentItem}
                     reactionOptions={reactionOptions}
                     showModerationSection={showModerationSection}
+                    allowTitleClick={allowTitleClick}
                     showApprovalStatusRibbon={showApprovalStatusRibbon}
                     showApprovalStatus={showApprovalStatus}
                     {...itemEventsAndText} />
