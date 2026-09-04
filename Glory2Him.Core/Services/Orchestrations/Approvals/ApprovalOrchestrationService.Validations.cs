@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -198,6 +198,21 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             {
                 throw new NotFoundApprovalOrchestrationException(
                     message: $"Approval not found for {entityType} with id: {entityId}.");
+            }
+        }
+
+        // §9.7.6 rule 3 / §14.5 rule 3. A removed subject is reported exactly as a missing one:
+        // the message names the entity rather than the takedown, so a decision route cannot be
+        // used to learn which rows used to exist.
+        private static void ValidateStorageEntityIsVisible(
+            bool isEntityVisible,
+            EntityType entityType,
+            Guid entityId)
+        {
+            if (isEntityVisible is false)
+            {
+                throw new NotFoundApprovalOrchestrationException(
+                    message: $"{entityType} not found with id: {entityId}.");
             }
         }
 

@@ -466,25 +466,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         /// publishes no fact at all, and a fact that does not land. Both leave every read here
         /// answering NotFound to a caller who can do nothing about it.
         ///
-        /// The added flow is RE-RUN rather than the row inserted, because the row alone is not
-        /// what was lost — §9.7.3 resolves the approval and evaluates it, so a round that should
-        /// already have auto-approved does so now.
+        /// The round is OPENED and nothing more (#427). Re-running the whole added flow made a
+        /// GET a write that could also decide — under a permissive policy the evaluation drove
+        /// the fresh round to Approved and published the command — so the repair resolves and
+        /// stops. The outcome belongs to the fact the repair is standing in for.
         [Fact]
         public async Task ShouldOpenTheRoundOnRetrieveVerdictIfTheEntityHasNoApprovalYetAsync()
         {
-            // given: no approval occupies the key, but the entity is real
+            // given: no approval occupies the key, but the entity is real and visible
             EntityType inputEntityType = EntityType.ContentItem;
             Guid inputEntityId = Guid.NewGuid();
-            string entityAuthorUserId = GetRandomString();
 
             SetupApprovalProbe(null);
-
-            this.accessBrokerMock.Setup(broker =>
-                broker.RetrieveEntityAuthorAsync(
-                    inputEntityType,
-                    inputEntityId,
-                    It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(entityAuthorUserId);
+            SetupEntityVisibility(isEntityVisible: true);
 
             // The repair is gated on the entity still being IN PLAY as well as existing: a
             // decided row has no status a round could legally be opened at (§9.2 rules 1-2).
@@ -518,7 +512,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             await Assert.ThrowsAsync<ApprovalOrchestrationValidationException>(
                 retrieveVerdictTask.AsTask);
 
-            // then: the added flow ran, which is what opens the round — the approval is added
+            // then: the round was OPENED, which is the whole of what a read may do — the
+            // approval is added
             // rather than merely probed for a second time
             this.approvalServiceMock.Verify(service =>
                 service.AddApprovalAsync(
@@ -544,6 +539,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             Guid inputEntityId = Guid.NewGuid();
 
             SetupApprovalProbe(null);
+
+            // Nothing to repair, because there is no visible entity behind the key. Stated
+            // rather than left to the mock's default: the suite defaults the subject to VISIBLE,
+            // so a test about an entity that is not there has to say so.
+            SetupEntityVisibility(isEntityVisible: false);
 
             var notFoundApprovalOrchestrationException =
                 new NotFoundApprovalOrchestrationException(
@@ -575,9 +575,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 Times.Once);
 
             // The entity probe IS asked — it is what decides whether a missing round is worth
-            // repairing — and answers with nothing, so the added flow is never run.
+            // repairing — and answers that nothing is visible, so no round is opened. VISIBLE
+            // rather than merely present (#426): the author probe this replaced answered for a
+            // soft-deleted row exactly as it did before the takedown.
             this.accessBrokerMock.Verify(broker =>
-                broker.RetrieveEntityAuthorAsync(
+                broker.IsEntityVisibleAsync(
                     inputEntityType,
                     inputEntityId,
                     It.IsAny<CancellationToken>()),

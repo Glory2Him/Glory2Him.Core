@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -28,7 +28,8 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Approvals
         /// THE ROUND THAT WAS NEVER OPENED. Seed data is written straight to the storage broker,
         /// so no fact is ever published for it and no approval exists — and the moderation
         /// screen for such an item renders nothing at all, because every control on it hangs off
-        /// this read. The verdict is meant to REPAIR that (it re-runs the added flow), and this
+        /// this read. The verdict is meant to REPAIR that (it opens the round, and decides
+        /// nothing on it — §16.7.2), and this
         /// is the shape of the seeded database exactly: a draft, with no approval row.
         /// </summary>
         [Fact]

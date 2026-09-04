@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -96,7 +96,8 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
             int version,
             ApprovalStatus approvalStatus,
             bool isPublished,
-            string authorUserId)
+            string authorUserId,
+            bool isDeleted = false)
         {
             DateTimeOffset now = DateTimeOffset.UtcNow;
 
@@ -113,7 +114,13 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
                 ApprovalStatus = approvalStatus,
                 IsPublished = isPublished,
                 PublishDate = isPublished ? now : null,
-                IsDeleted = false,
+
+                // A TAKEDOWN, when a test asks for one. Removal never touches ApprovalStatus
+                // (§9.7.6), so a row inserted deleted keeps whatever status it was given - which
+                // is exactly the shape the approval-side gates have to refuse.
+                IsDeleted = isDeleted,
+                DeletedBy = isDeleted ? authorUserId : null,
+                DeletedWhen = isDeleted ? now : null,
                 CreatedBy = authorUserId,
                 CreatedWhen = now,
                 UpdatedBy = authorUserId,

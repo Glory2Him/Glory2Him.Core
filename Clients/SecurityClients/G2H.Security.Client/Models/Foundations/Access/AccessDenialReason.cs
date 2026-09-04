@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -163,5 +163,21 @@ namespace G2H.Security.Client.Models.Foundations.Access
         /// on: no scope of it is appealable through this surface.</para>
         /// </summary>
         BlockedByReadOnlyRole = 21,
+
+        /// <summary>
+        /// The entity the approval is about has been soft-deleted, so no decision may be applied
+        /// to its round (design 9.7.6 rule 3).
+        ///
+        /// <para>A takedown deliberately leaves the approval record alone, so the round survives
+        /// its subject and sits wherever the workflow left it. Deciding it afterwards would
+        /// approve a tombstone: the entity transition refuses a deleted row, so the approval
+        /// would move to <c>Approved</c> while the entity stayed where it was — the divergence
+        /// design 9.8 forbids, with nothing to reconcile it.</para>
+        ///
+        /// <para>It is reported only to a caller who already holds the publisher tier. Below
+        /// that tier the role refusal is reached first, so a takedown cannot be probed through
+        /// this reason (design 14.5 rule 1).</para>
+        /// </summary>
+        SubjectUnavailable = 22,
     }
 }

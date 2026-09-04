@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -79,6 +79,7 @@ namespace Glory2Him.Core.Brokers.Securities
                     IsPersonal = approvalDecisionQuery.IsPersonal,
                     EntityCreatedBy = approvalDecisionQuery.EntityCreatedBy,
                     ApprovalState = snapshot.State,
+                    IsSubjectDeleted = approvalDecisionQuery.IsSubjectDeleted,
                     Reviews = snapshot.Reviews,
                     ApprovalComments = snapshot.ApprovalComments,
                     ConfidenceScore = approvalDecisionQuery.ConfidenceScore,
@@ -211,7 +212,7 @@ namespace Glory2Him.Core.Brokers.Securities
 
             ApprovalReviewSnapshot snapshot = await GatherAsync(maybeApproval, cancellationToken);
 
-            (string entityCreatedBy, IReadOnlyList<RoleSubject> roleSubjects, _, _, _) = await ResolveEntityAsync(
+            (string entityCreatedBy, IReadOnlyList<RoleSubject> roleSubjects, _, _, _, _) = await ResolveEntityAsync(
                 maybeApproval.EntityType,
                 maybeApproval.EntityId,
                 cancellationToken);
@@ -252,7 +253,7 @@ namespace Glory2Him.Core.Brokers.Securities
             // Subjects only. The amendment decision reads neither the round nor the reviews, so
             // gathering them would be work whose result is discarded — and would invite a later
             // change to start consulting a window that posture D rule 3 exists to let callers move.
-            (string entityCreatedBy, IReadOnlyList<RoleSubject> roleSubjects, _, _, _) =
+            (string entityCreatedBy, IReadOnlyList<RoleSubject> roleSubjects, _, _, _, _) =
                 await ResolveEntityAsync(
                     maybeApproval.EntityType,
                     maybeApproval.EntityId,
@@ -299,7 +300,7 @@ namespace Glory2Him.Core.Brokers.Securities
             // Everything below is resolved off the STORED approval's target. A payload naming a
             // different entity could otherwise move the question onto rows the caller does hold
             // a role for — the same reason the amend gate reads storage.
-            (string entityCreatedBy, IReadOnlyList<RoleSubject> roleSubjects, decimal? confidenceScore, bool? isPersonal, _) =
+            (string entityCreatedBy, IReadOnlyList<RoleSubject> roleSubjects, decimal? confidenceScore, bool? isPersonal, _, bool? isEntityDeleted) =
                 await ResolveEntityAsync(
                     maybeApproval.EntityType,
                     maybeApproval.EntityId,
@@ -331,6 +332,13 @@ namespace Glory2Him.Core.Brokers.Securities
                     IsPersonal = isPersonal,
                     EntityCreatedBy = entityCreatedBy,
                     ApprovalState = snapshot.State,
+
+                    // §9.7.6 rule 3, gathered here because the approval row cannot answer it:
+                    // removal never touches the approval, so a taken-down entity leaves a round
+                    // still reading Submitted. Anything but a row that read back undeleted is
+                    // reported as deleted — an approval whose subject cannot be read at all is
+                    // no more decidable than one whose subject was taken down.
+                    IsSubjectDeleted = isEntityDeleted != false,
                     Reviews = snapshot.Reviews,
                     ApprovalComments = snapshot.ApprovalComments,
                     ConfidenceScore = confidenceScore,
@@ -500,7 +508,13 @@ namespace Glory2Him.Core.Brokers.Securities
         // The fifth is the row's own ApprovalStatus — what a round is opened AT (§9.2 rules
         // 1–2) — and null when the row could not be read, which the resolution treats as
         // Draft: nothing enters review on a status nobody could see.
-        private async ValueTask<(string CreatedBy, IReadOnlyList<RoleSubject> RoleSubjects, decimal? ConfidenceScore, bool? IsPersonal, ApprovalStatus? EntityApprovalStatus)> ResolveEntityAsync(
+        //
+        // The sixth is the row's own IsDeleted, and null when the row could not be read at all.
+        // The two are a pair of facts about VISIBILITY that every caller here fails closed on:
+        // §14.5 rule 3 has a soft-deleted entity not found for every caller, Administrators
+        // included, so "deleted" and "not there" are one answer to everything that asks — see
+        // IsEntityVisibleAsync, which is the form the gates actually want.
+        private async ValueTask<(string CreatedBy, IReadOnlyList<RoleSubject> RoleSubjects, decimal? ConfidenceScore, bool? IsPersonal, ApprovalStatus? EntityApprovalStatus, bool? IsEntityDeleted)> ResolveEntityAsync(
             EntityType entityType,
             Guid entityId,
             CancellationToken cancellationToken)
@@ -525,18 +539,19 @@ namespace Glory2Him.Core.Brokers.Securities
                             isEntityUnresolved: contentItem is null),
                         null,
                         null,
-                        contentItem?.ApprovalStatus);
+                        contentItem?.ApprovalStatus,
+                        contentItem?.IsDeleted);
 
                 case EntityType.Tag:
                     var tag = await this.storageBroker.SelectTagByIdAsync(entityId, cancellationToken);
 
-                    return (tag?.CreatedBy ?? string.Empty, SubjectsFor(entityType, contentType: null), null, null, tag?.ApprovalStatus);
+                    return (tag?.CreatedBy ?? string.Empty, SubjectsFor(entityType, contentType: null), null, null, tag?.ApprovalStatus, tag?.IsDeleted);
 
                 case EntityType.Reaction:
                     var reaction =
                         await this.storageBroker.SelectReactionByIdAsync(entityId, cancellationToken);
 
-                    return (reaction?.CreatedBy ?? string.Empty, SubjectsFor(entityType, contentType: null), null, null, reaction?.ApprovalStatus);
+                    return (reaction?.CreatedBy ?? string.Empty, SubjectsFor(entityType, contentType: null), null, null, reaction?.ApprovalStatus, reaction?.IsDeleted);
 
                 case EntityType.BibleReference:
                     var bibleReference =
@@ -545,24 +560,25 @@ namespace Glory2Him.Core.Brokers.Securities
                     return (
                         bibleReference?.CreatedBy ?? string.Empty,
                         SubjectsFor(entityType, contentType: null), null, null,
-                        bibleReference?.ApprovalStatus);
+                        bibleReference?.ApprovalStatus,
+                        bibleReference?.IsDeleted);
 
                 case EntityType.Comment:
                     var comment =
                         await this.storageBroker.SelectCommentByIdAsync(entityId, cancellationToken);
 
-                    return (comment?.CreatedBy ?? string.Empty, SubjectsFor(entityType, contentType: null), null, null, comment?.ApprovalStatus);
+                    return (comment?.CreatedBy ?? string.Empty, SubjectsFor(entityType, contentType: null), null, null, comment?.ApprovalStatus, comment?.IsDeleted);
 
                 case EntityType.Link:
                     var link = await this.storageBroker.SelectLinkByIdAsync(entityId, cancellationToken);
 
-                    return (link?.CreatedBy ?? string.Empty, SubjectsFor(entityType, contentType: null), null, null, link?.ApprovalStatus);
+                    return (link?.CreatedBy ?? string.Empty, SubjectsFor(entityType, contentType: null), null, null, link?.ApprovalStatus, link?.IsDeleted);
 
                 case EntityType.Attachment:
                     var attachment =
                         await this.storageBroker.SelectAttachmentByIdAsync(entityId, cancellationToken);
 
-                    return (attachment?.CreatedBy ?? string.Empty, SubjectsFor(entityType, contentType: null), null, null, attachment?.ApprovalStatus);
+                    return (attachment?.CreatedBy ?? string.Empty, SubjectsFor(entityType, contentType: null), null, null, attachment?.ApprovalStatus, attachment?.IsDeleted);
 
                 case EntityType.Association:
                     var association =
@@ -593,6 +609,7 @@ namespace Glory2Him.Core.Brokers.Securities
                             },
                             null,
                             null,
+                            null,
                             null)
                         : (association.CreatedBy, new List<RoleSubject>
                         {
@@ -604,7 +621,8 @@ namespace Glory2Him.Core.Brokers.Securities
                                 association.EntityBType,
                                 association.EntityBContentType),
                         }, association.ConfidenceScore, association.UserId is not null,
-                        association.ApprovalStatus);
+                        association.ApprovalStatus,
+                        association.IsDeleted);
 
                 default:
                     // A new EntityType member reaching here has no traversal, so the author is
@@ -621,7 +639,7 @@ namespace Glory2Him.Core.Brokers.Securities
                     // a blank author underneath. Association is the sole type with no scoped roles
                     // of its own; a future one is not. Add the case above rather than relying on
                     // this arm.
-                    return (string.Empty, SubjectsFor(entityType, contentType: null), null, null, null);
+                    return (string.Empty, SubjectsFor(entityType, contentType: null), null, null, null, null);
             }
         }
 
@@ -632,7 +650,7 @@ namespace Glory2Him.Core.Brokers.Securities
             Guid entityId,
             CancellationToken cancellationToken = default)
         {
-            (string entityCreatedBy, _, _, _, _) = await ResolveEntityAsync(
+            (string entityCreatedBy, _, _, _, _, _) = await ResolveEntityAsync(
                 entityType,
                 entityId,
                 cancellationToken);
@@ -640,12 +658,35 @@ namespace Glory2Him.Core.Brokers.Securities
             return entityCreatedBy;
         }
 
+        // VISIBLE, not merely present — the question §14.5 rule 3 actually asks. A gate that
+        // probes for a row instead gets "yes" for a taken-down entity, because this repository
+        // has no EF global query filters and the arms above are the raw by-id reads: nothing
+        // between them and the caller drops a soft-deleted row.
+        //
+        // Absent and deleted answer alike, and that is the posture rather than a shortcut: rule
+        // 3 makes a soft-deleted entity not found for EVERY caller, Administrators included, so
+        // the two are indistinguishable by design. A row that could not be read is reported
+        // invisible for the same reason a deleted one is — failing closed is the only safe
+        // direction when the subject behind an approval has gone.
+        public async ValueTask<bool> IsEntityVisibleAsync(
+            EntityType entityType,
+            Guid entityId,
+            CancellationToken cancellationToken = default)
+        {
+            (_, _, _, _, _, bool? isEntityDeleted) = await ResolveEntityAsync(
+                entityType,
+                entityId,
+                cancellationToken);
+
+            return isEntityDeleted == false;
+        }
+
         public async ValueTask<ApprovalStatus?> RetrieveEntityApprovalStatusAsync(
             EntityType entityType,
             Guid entityId,
             CancellationToken cancellationToken = default)
         {
-            (_, _, _, _, ApprovalStatus? entityApprovalStatus) = await ResolveEntityAsync(
+            (_, _, _, _, ApprovalStatus? entityApprovalStatus, _) = await ResolveEntityAsync(
                 entityType,
                 entityId,
                 cancellationToken);
@@ -817,7 +858,7 @@ namespace Glory2Him.Core.Brokers.Securities
                 return null;
             }
 
-            (_, IReadOnlyList<RoleSubject> roleSubjects, decimal? confidenceScore, bool? isPersonal, _) =
+            (_, IReadOnlyList<RoleSubject> roleSubjects, decimal? confidenceScore, bool? isPersonal, _, _) =
                 await ResolveEntityAsync(
                     maybeApproval.EntityType,
                     maybeApproval.EntityId,
@@ -864,7 +905,7 @@ namespace Glory2Him.Core.Brokers.Securities
                 return null;
             }
 
-            (string entityCreatedBy, IReadOnlyList<RoleSubject> roleSubjects, _, _, _) =
+            (string entityCreatedBy, IReadOnlyList<RoleSubject> roleSubjects, _, _, _, _) =
                 await ResolveEntityAsync(
                     maybeApproval.EntityType,
                     maybeApproval.EntityId,

@@ -56,28 +56,44 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         // broker, so no fact is ever published for it; and a fact that does not land leaves the
         // same gap for content contributed through the API.
         //
-        // RE-RUNNING THE ADDED FLOW is the repair rather than inserting the missing row,
-        // because the row alone is not what was lost: §9.7.3 resolves the approval AND evaluates
-        // it, so a round that should already have auto-approved does so now instead of sitting
-        // open forever behind a record nobody processed. ResolveApprovalAsync is a
-        // retrieve-or-add against a stable key (§9.7.2), so running it twice costs a read.
+        // IT OPENS THE ROUND AND STOPS THERE. Re-running the whole added flow was the earlier
+        // shape, and it made a GET a write that could also DECIDE: for an entity at Submitted
+        // under a policy with RequireApprovals = false and AutoApproveIfAllApprovalRequirementsMet
+        // = true — the shape the seed writes for the personal tier, and one an administrator can
+        // set on any tier — the evaluation drove the fresh round to Approved and published the
+        // -Approving command under the workflow identity, on a read nobody had audited as a
+        // decision.
         //
-        // GATED ON THE ENTITY EXISTING, and that gate is not optional. ProcessEntityAddedAsync
+        // The panel's whole reason for repairing is to have something to REPORT, and reporting
+        // needs the row rather than the outcome. So the repair resolves and returns: a round
+        // that should have auto-approved does so when its next real fact lands, which is the
+        // event the repair is standing in for in the first place. §16.7.2 says what this read
+        // may write, and §9.7.2 rule 1 names the read-triggered case beside the fact-triggered
+        // one.
+        //
+        // GATED ON THE ENTITY BEING VISIBLE, and that gate is not optional. ProcessEntityAddedAsync
         // validates the SHAPE of its arguments and nothing else, while the reads that call this
         // take an entity id straight off a route — so without the probe a caller could mint an
-        // approval for any GUID they cared to ask about. RetrieveEntityAuthorAsync is the one
-        // read that knows which table an EntityType points at, which is exactly the question.
+        // approval for any GUID they cared to ask about.
+        //
+        // VISIBLE rather than merely present, which is the question §14.5 rule 3 asks. The
+        // earlier gate gathered the entity's AUTHOR and let a non-empty answer through, and a
+        // soft-deleted row answers with its author exactly as it did before the takedown: the
+        // arms behind the probe are raw by-id reads and this repository has no EF global query
+        // filters. So a taken-down entity — which keeps its ApprovalStatus, because removal
+        // deliberately leaves the approval alone (§9.7.6) — passed both this gate and the
+        // still-in-play gate below, and a read minted a round for a tombstone.
         private async ValueTask RepairMissingApprovalAsync(
             EntityType entityType,
             Guid entityId,
             CancellationToken cancellationToken)
         {
-            string entityAuthorUserId = await this.accessBroker.RetrieveEntityAuthorAsync(
+            bool isEntityVisible = await this.accessBroker.IsEntityVisibleAsync(
                 entityType: entityType,
                 entityId: entityId,
                 cancellationToken: cancellationToken);
 
-            if (string.IsNullOrWhiteSpace(entityAuthorUserId))
+            if (isEntityVisible is false)
             {
                 return;
             }
@@ -106,7 +122,8 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 return;
             }
 
-            await ProcessEntityAddedAsync(
+            // Resolve only. No evaluation, no transition, no command — see the opening note.
+            await ResolveApprovalAsync(
                 entityType: entityType,
                 entityId: entityId,
                 cancellationToken: cancellationToken);
@@ -246,6 +263,25 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             if (isRoundOpen is false
                 || conditions.AreConditionsMet is false
                 || conditions.ShouldAutoApprove is false)
+            {
+                return DescribeOutcome(approval, isEntitySyncRequested: false);
+            }
+
+            // §9.7.6 rule 3, asked LAST so it costs a read only where an approval would actually
+            // be written. A takedown never touches the approval record, so a round whose subject
+            // has gone still reads Submitted and its conditions can still be met — a comment
+            // resolved or a review withdrawn after the takedown reaches exactly here.
+            //
+            // Approving it would write the divergence §9.8 forbids and leave it standing: the
+            // entity transition refuses a deleted row, so the approval would reach Approved
+            // while the entity stayed where it was, and no reconcile pass exists to settle them.
+            // The round is left open instead, which is what a restore resumes from (§9.7.6).
+            bool isEntityVisible = await this.accessBroker.IsEntityVisibleAsync(
+                entityType: approval.EntityType,
+                entityId: approval.EntityId,
+                cancellationToken: cancellationToken);
+
+            if (isEntityVisible is false)
             {
                 return DescribeOutcome(approval, isEntitySyncRequested: false);
             }

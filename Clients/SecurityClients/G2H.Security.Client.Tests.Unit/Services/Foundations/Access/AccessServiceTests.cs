@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -215,6 +215,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             IReadOnlyList<RoleSubject>? roleSubjects = null,
             string? entityCreatedBy = null,
             ApprovalState approvalState = ApprovalState.Submitted,
+            bool isSubjectDeleted = false,
             IReadOnlyList<ReviewRecord>? reviews = null,
             IReadOnlyList<ApprovalCommentRecord>? comments = null,
             decimal? confidenceScore = null,
@@ -237,6 +238,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 IsPersonal = resolvedPolicy.IsPersonal,
                 EntityCreatedBy = entityCreatedBy ?? GetRandomString(),
                 ApprovalState = approvalState,
+                IsSubjectDeleted = isSubjectDeleted,
                 Reviews = reviews ?? new List<ReviewRecord>(),
                 ApprovalComments = comments ?? new List<ApprovalCommentRecord>(),
                 ConfidenceScore = confidenceScore,

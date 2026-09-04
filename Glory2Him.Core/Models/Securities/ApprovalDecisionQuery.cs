@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -41,6 +41,18 @@ namespace Glory2Him.Core.Models.Securities
         /// <c>Approval</c>, which is the only route from an entity to its reviews.
         /// </summary>
         public required Guid EntityId { get; init; }
+
+        /// <summary>
+        /// Whether the row being decided on has been soft-deleted (design §9.7.6 rule 3). From
+        /// the STORED row the caller already loaded, never from the caller's copy.
+        ///
+        /// <para>Every caller on this route loads its transition target through a read that
+        /// refuses a deleted row first, so this is <c>false</c> by construction there. It is
+        /// carried anyway, and §14.6 rule 2 is why: a gate that relies on the unreachability of
+        /// its own bad input silently stops gating the day another route reaches it, and the
+        /// value costs nothing to supply from a row already in hand.</para>
+        /// </summary>
+        public required bool IsSubjectDeleted { get; init; }
 
         /// <summary>
         /// The content-type half of the policy key, or null for the entity-type default tier.

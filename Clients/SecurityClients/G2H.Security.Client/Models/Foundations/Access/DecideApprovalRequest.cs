@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -78,6 +78,21 @@ namespace G2H.Security.Client.Models.Foundations.Access
         /// <c>Submitted</c> (§9.7.5).
         /// </summary>
         public required ApprovalState ApprovalState { get; init; }
+
+        /// <summary>
+        /// Whether the entity this approval is about has been soft-deleted (§9.7.6 rule 3).
+        ///
+        /// <para>Removal never touches the approval record, so a taken-down entity leaves its
+        /// round standing at whatever status it held. This is the fact that stops the round
+        /// being decided afterwards — and it is a property of the SUBJECT, not of the approval:
+        /// <c>ApprovalState</c> would still read <c>Submitted</c>.</para>
+        ///
+        /// <para>An entity that could not be read at all reports <c>true</c> here for the same
+        /// reason a deleted one does: neither is a subject a decision may be applied to, and
+        /// failing closed is the only safe direction when the row behind an approval has
+        /// gone.</para>
+        /// </summary>
+        public required bool IsSubjectDeleted { get; init; }
 
         /// <summary>
         /// Every review on the approval, including dismissed and soft-deleted ones — read both to
