@@ -90,6 +90,30 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
                 (nameof(IApprovalOrchestrationService.OnAssociationModifiedAsync),
                     EntityType.Association, "AssociationModified", true),
+
+                // -Submitted: the foundation's name for ALL seven, ContentItem and Link included,
+                // and every one the modified flow.
+
+                (nameof(IApprovalOrchestrationService.OnTagSubmittedAsync),
+                    EntityType.Tag, "TagSubmitted", true),
+
+                (nameof(IApprovalOrchestrationService.OnContentItemSubmittedAsync),
+                    EntityType.ContentItem, "ContentItemSubmitted", true),
+
+                (nameof(IApprovalOrchestrationService.OnLinkSubmittedAsync),
+                    EntityType.Link, "LinkSubmitted", true),
+
+                (nameof(IApprovalOrchestrationService.OnCommentSubmittedAsync),
+                    EntityType.Comment, "CommentSubmitted", true),
+
+                (nameof(IApprovalOrchestrationService.OnReactionSubmittedAsync),
+                    EntityType.Reaction, "ReactionSubmitted", true),
+
+                (nameof(IApprovalOrchestrationService.OnBibleReferenceSubmittedAsync),
+                    EntityType.BibleReference, "BibleReferenceSubmitted", true),
+
+                (nameof(IApprovalOrchestrationService.OnAssociationSubmittedAsync),
+                    EntityType.Association, "AssociationSubmitted", true),
             };
 
         public static TheoryData<string, EntityType, string, bool> SubstrateEntityFactHandlers()
@@ -605,6 +629,48 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
                 case nameof(IApprovalOrchestrationService.OnAssociationModifiedAsync):
                     return await service.OnAssociationModifiedAsync(
+                        CreateSubstrateFactEnvelope(
+                            new Association { Id = entityId }, isEnvelopeNull, isContentNull),
+                        cancellationToken);
+
+                case nameof(IApprovalOrchestrationService.OnTagSubmittedAsync):
+                    return await service.OnTagSubmittedAsync(
+                        CreateSubstrateFactEnvelope(
+                            new Tag { Id = entityId }, isEnvelopeNull, isContentNull),
+                        cancellationToken);
+
+                case nameof(IApprovalOrchestrationService.OnContentItemSubmittedAsync):
+                    return await service.OnContentItemSubmittedAsync(
+                        CreateSubstrateFactEnvelope(
+                            new ContentItem { Id = entityId }, isEnvelopeNull, isContentNull),
+                        cancellationToken);
+
+                case nameof(IApprovalOrchestrationService.OnLinkSubmittedAsync):
+                    return await service.OnLinkSubmittedAsync(
+                        CreateSubstrateFactEnvelope(
+                            new Link { Id = entityId }, isEnvelopeNull, isContentNull),
+                        cancellationToken);
+
+                case nameof(IApprovalOrchestrationService.OnCommentSubmittedAsync):
+                    return await service.OnCommentSubmittedAsync(
+                        CreateSubstrateFactEnvelope(
+                            new Comment { Id = entityId }, isEnvelopeNull, isContentNull),
+                        cancellationToken);
+
+                case nameof(IApprovalOrchestrationService.OnReactionSubmittedAsync):
+                    return await service.OnReactionSubmittedAsync(
+                        CreateSubstrateFactEnvelope(
+                            new Reaction { Id = entityId }, isEnvelopeNull, isContentNull),
+                        cancellationToken);
+
+                case nameof(IApprovalOrchestrationService.OnBibleReferenceSubmittedAsync):
+                    return await service.OnBibleReferenceSubmittedAsync(
+                        CreateSubstrateFactEnvelope(
+                            new BibleReference { Id = entityId }, isEnvelopeNull, isContentNull),
+                        cancellationToken);
+
+                case nameof(IApprovalOrchestrationService.OnAssociationSubmittedAsync):
+                    return await service.OnAssociationSubmittedAsync(
                         CreateSubstrateFactEnvelope(
                             new Association { Id = entityId }, isEnvelopeNull, isContentNull),
                         cancellationToken);

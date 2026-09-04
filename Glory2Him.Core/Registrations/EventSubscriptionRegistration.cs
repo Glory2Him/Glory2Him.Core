@@ -1947,6 +1947,137 @@ namespace Glory2Him.Core.Registrations
                     Scoped<IApprovalOrchestrationService, Association>(
                         service => service.OnAssociationModifiedAsync),
                 cancellationToken: cancellationToken);
+
+            // -SUBMITTED, all seven on the FOUNDATION address. The submit verb is a foundation
+            // transition on every entity, so unlike the Added/Modified pairs above there is no
+            // processing tier to prefer for ContentItem and Link (§10.17 rule 1 picks the
+            // top-layer fact, and here the foundation's is the only one).
+
+            await this.eventBroker.SubscribeToTagEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnTagSubmittedSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnTagSubmittedSubscriptionName,
+
+                    Description = "Moves the tag's approval to Submitted when the submit " +
+                        "verb moves the tag, then evaluates the round."
+                },
+                operation: TagEventOperation.Submitted,
+                tagEventHandler:
+                    Scoped<IApprovalOrchestrationService, Tag>(
+                        service => service.OnTagSubmittedAsync),
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToContentItemEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnContentItemSubmittedSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnContentItemSubmittedSubscriptionName,
+
+                    Description = "Moves the content item's approval to Submitted when the submit " +
+                        "verb moves the content item, then evaluates the round."
+                },
+                operation: ContentItemEventOperation.Submitted,
+                contentItemEventHandler:
+                    Scoped<IApprovalOrchestrationService, ContentItem>(
+                        service => service.OnContentItemSubmittedAsync),
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToLinkEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnLinkSubmittedSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnLinkSubmittedSubscriptionName,
+
+                    Description = "Moves the link's approval to Submitted when the submit " +
+                        "verb moves the link, then evaluates the round."
+                },
+                operation: LinkEventOperation.Submitted,
+                linkEventHandler:
+                    Scoped<IApprovalOrchestrationService, Link>(
+                        service => service.OnLinkSubmittedAsync),
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToCommentEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnCommentSubmittedSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnCommentSubmittedSubscriptionName,
+
+                    Description = "Moves the comment's approval to Submitted when the submit " +
+                        "verb moves the comment, then evaluates the round."
+                },
+                operation: CommentEventOperation.Submitted,
+                commentEventHandler:
+                    Scoped<IApprovalOrchestrationService, Comment>(
+                        service => service.OnCommentSubmittedAsync),
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToReactionEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnReactionSubmittedSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnReactionSubmittedSubscriptionName,
+
+                    Description = "Moves the reaction's approval to Submitted when the submit " +
+                        "verb moves the reaction, then evaluates the round."
+                },
+                operation: ReactionEventOperation.Submitted,
+                reactionEventHandler:
+                    Scoped<IApprovalOrchestrationService, Reaction>(
+                        service => service.OnReactionSubmittedAsync),
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToBibleReferenceEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnBibleReferenceSubmittedSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnBibleReferenceSubmittedSubscriptionName,
+
+                    Description = "Moves the bible reference's approval to Submitted when the submit " +
+                        "verb moves the bible reference, then evaluates the round."
+                },
+                operation: BibleReferenceEventOperation.Submitted,
+                bibleReferenceEventHandler:
+                    Scoped<IApprovalOrchestrationService, BibleReference>(
+                        service => service.OnBibleReferenceSubmittedAsync),
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToAssociationEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnAssociationSubmittedSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnAssociationSubmittedSubscriptionName,
+
+                    Description = "Moves the association's approval to Submitted when the submit " +
+                        "verb moves the association, then evaluates the round."
+                },
+                operation: AssociationEventOperation.Submitted,
+                associationEventHandler:
+                    Scoped<IApprovalOrchestrationService, Association>(
+                        service => service.OnAssociationSubmittedAsync),
+                cancellationToken: cancellationToken);
         }
     }
 }

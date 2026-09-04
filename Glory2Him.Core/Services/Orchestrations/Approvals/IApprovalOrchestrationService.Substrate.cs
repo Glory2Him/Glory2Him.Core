@@ -92,6 +92,36 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             EventEnvelope<Association> envelope,
             CancellationToken cancellationToken = default);
 
+        // The submit verb's fact, one per entity (§9.2 rule 3). Each reacts as a modification:
+        // the round follows the entity to Submitted and is then evaluated (§9.7.4).
+        ValueTask<EventEnvelope<Tag>?> OnTagSubmittedAsync(
+            EventEnvelope<Tag> envelope,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<EventEnvelope<ContentItem>?> OnContentItemSubmittedAsync(
+            EventEnvelope<ContentItem> envelope,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<EventEnvelope<Link>?> OnLinkSubmittedAsync(
+            EventEnvelope<Link> envelope,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<EventEnvelope<Comment>?> OnCommentSubmittedAsync(
+            EventEnvelope<Comment> envelope,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<EventEnvelope<Reaction>?> OnReactionSubmittedAsync(
+            EventEnvelope<Reaction> envelope,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<EventEnvelope<BibleReference>?> OnBibleReferenceSubmittedAsync(
+            EventEnvelope<BibleReference> envelope,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<EventEnvelope<Association>?> OnAssociationSubmittedAsync(
+            EventEnvelope<Association> envelope,
+            CancellationToken cancellationToken = default);
+
         /// <summary>
         /// Reacts to a recorded approval review by evaluating the round it belongs to
         /// (design §9.7.5).

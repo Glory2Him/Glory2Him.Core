@@ -17,6 +17,7 @@ using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.WebApp.Tests.Acceptance.Models.Approvals;
 using CoreContentItem = Glory2Him.Core.Models.Foundations.ContentItems.ContentItem;
+using CoreTag = Glory2Him.Core.Models.Foundations.Tags.Tag;
 using WireContentItem = Glory2Him.WebApp.Tests.Acceptance.Models.ContentItems.ContentItem;
 
 namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Approvals
@@ -187,6 +188,67 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Approvals
                 }
 
                 await this.apiBroker.RemoveCoreContentItemByIdAsync(draft.Id);
+            }
+        }
+
+        /// <summary>
+        /// THE OTHER ROUTE TO SUBMITTED: the dedicated verb (§9.2 rule 3), which publishes
+        /// -Submitted rather than -Modified. Until #424 nothing subscribed to it, so a submission
+        /// through the verb moved the entity and left the round at Draft — the divergence §9.8
+        /// forbids, reported by the verdict as "not submitted yet" on an item that plainly was.
+        ///
+        /// <para>A Tag, because it is the entity whose verb has an HTTP surface AND whose fact is
+        /// signed with the bare foundation name; ContentItem's submit verb is not exposed over
+        /// HTTP yet, so it could not be driven from here.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldReportASubmissionMadeThroughTheVerbAgainstThePolicyAsync()
+        {
+            // given: a draft with no round; the first read opens it at Draft
+            string authorUserId = Guid.NewGuid().ToString();
+            CoreTag draft = await this.apiBroker.InsertDraftTagAsync(authorUserId);
+
+            try
+            {
+                ApprovalVerdict draftVerdict =
+                    await this.apiBroker.GetApprovalVerdictAsync(EntityType.Tag, draft.Id);
+
+                draftVerdict.ApprovalStatus.Should().Be((int)ApprovalStatus.Draft);
+
+                // when: the administrator — publishing tier, so entitled (§9.2 rule 4) — submits
+                // through the verb, whose -Submitted fact is delivered before the call returns
+                await this.apiBroker.SubmitTagByIdAsync(draft.Id);
+
+                ApprovalVerdict submittedVerdict =
+                    await this.apiBroker.GetApprovalVerdictAsync(EntityType.Tag, draft.Id);
+
+                // then: the round followed the entity, and the seeded policy now speaks
+                submittedVerdict.ApprovalStatus.Should().Be((int)ApprovalStatus.Submitted);
+
+                submittedVerdict.BlockReasons.Should().NotContain(reason =>
+                    reason.Code == (int)AccessDenialReason.BlockedDueToDraftStatus);
+
+                submittedVerdict.BlockReasons.Should().Contain(reason =>
+                    reason.Code == (int)AccessDenialReason.ApprovalThresholdNotMet);
+
+                submittedVerdict.RequiredNumberOfApprovals.Should().Be(2);
+
+                Approval storedApproval =
+                    await this.apiBroker.GetCoreApprovalByEntityAsync(EntityType.Tag, draft.Id);
+
+                storedApproval.ApprovalStatus.Should().Be(ApprovalStatus.Submitted);
+            }
+            finally
+            {
+                Approval approval =
+                    await this.apiBroker.GetCoreApprovalByEntityAsync(EntityType.Tag, draft.Id);
+
+                if (approval is not null)
+                {
+                    await this.apiBroker.RemoveApprovalAsync(approval);
+                }
+
+                await this.apiBroker.RemoveCoreTagByIdAsync(draft.Id);
             }
         }
     }
