@@ -6,10 +6,19 @@ import { extractApiErrorMessage } from './statusMessage';
 // Ported from Blazor's Account/Pages/Register.razor: real-time username availability +
 // suggestions and a friendly "email already registered" hint. On success it redirects to the
 // login page (the API does not auto-sign-in).
-type AvailabilityStatus = 'None' | 'Checking' | 'Available' | 'Taken';
+type AvailabilityStatus = 'None' | 'Checking' | 'Available' | 'Taken' | 'Prohibited';
 
 const debounceDelayMilliseconds = 450;
 const fallbackMinimumUsernameLength = 3;
+
+// Mirrors UserNameRule on the server (design §18.3.1). The server is the authority — this only
+// saves a round trip and lets the field go red as the "@" is typed. The wording is deliberately
+// the reason rather than the rule, because "not allowed" reads as an arbitrary restriction.
+const prohibitedUsernameCharacter = '@';
+
+const prohibitedUsernameMessage =
+    'A username may not contain "@". Your username is shown to other people wherever the site '
+    + 'names who submitted or reviewed something, so an email address used as one becomes public.';
 
 interface ValidationMessages {
     username?: string;
@@ -60,7 +69,7 @@ export function Register() {
 
     const usernameInputClass =
         usernameStatus === 'Available' ? 'form-control is-valid'
-            : usernameStatus === 'Taken' ? 'form-control is-invalid'
+            : usernameStatus === 'Taken' || usernameStatus === 'Prohibited' ? 'form-control is-invalid'
                 : 'form-control';
 
     const loginWithEmailUrl = `/Account/Login?username=${encodeURIComponent(email)}`;
@@ -77,6 +86,16 @@ export function Register() {
             const candidate = value.trim();
 
             try {
+                // Ahead of the length check, so typing an email address is refused for the right
+                // reason rather than sitting at 'None' until it happens to be long enough.
+                if (candidate.includes(prohibitedUsernameCharacter)) {
+                    if (sequence === usernameCheckSequence.current) {
+                        setUsernameStatus('Prohibited');
+                    }
+
+                    return;
+                }
+
                 if (candidate.length < fallbackMinimumUsernameLength) {
                     if (sequence === usernameCheckSequence.current) {
                         setUsernameStatus('None');
@@ -91,7 +110,9 @@ export function Register() {
                     return;
                 }
 
-                if (availability.isTooShort) {
+                if (availability.isProhibited) {
+                    setUsernameStatus('Prohibited');
+                } else if (availability.isTooShort) {
                     setUsernameStatus('None');
                 } else if (availability.isAvailable) {
                     setUsernameStatus('Available');
@@ -151,6 +172,8 @@ export function Register() {
 
         if (username.trim().length === 0) {
             messages.username = 'The Username field is required.';
+        } else if (username.includes(prohibitedUsernameCharacter)) {
+            messages.username = prohibitedUsernameMessage;
         } else if (username.trim().length < 3 || username.trim().length > 256) {
             messages.username =
                 'The field Username must be a string with a minimum length of 3 and a maximum length of 256.';
@@ -209,6 +232,15 @@ export function Register() {
         try {
             // Re-check on the server so a name taken between typing and submit is still caught.
             const availability = await checkUsername.mutateAsync(username.trim());
+
+            if (availability.isProhibited) {
+                setUsernameStatus('Prohibited');
+
+                setErrorMessage(
+                    availability.prohibitedReason ?? prohibitedUsernameMessage);
+
+                return;
+            }
 
             if (!availability.isAvailable) {
                 setUsernameStatus('Taken');
@@ -284,12 +316,22 @@ export function Register() {
                                             {usernameStatus === 'Available' && (
                                                 <i className="bi bi-check-circle-fill text-success"></i>
                                             )}
-                                            {usernameStatus === 'Taken' && (
+                                            {(usernameStatus === 'Taken' || usernameStatus === 'Prohibited') && (
                                                 <i className="bi bi-x-circle-fill text-danger"></i>
                                             )}
                                         </span>
                                     </div>
-                                    <small className="form-text">This is the name you will sign in with.</small>
+                                    <small className="form-text">
+                                        This is the name other people see, and the name you sign in
+                                        with. It is not your email address — you can sign in with
+                                        either.
+                                    </small>
+                                    {usernameStatus === 'Prohibited' && (
+                                        <div className="text-danger small mt-1" role="alert">
+                                            <i className="bi bi-exclamation-circle me-1"></i>
+                                            {prohibitedUsernameMessage}
+                                        </div>
+                                    )}
                                     {usernameStatus === 'Available' && (
                                         <div className="text-success small mt-1">
                                             <i className="bi bi-check2 me-1"></i>{username} is available

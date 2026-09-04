@@ -125,6 +125,15 @@ namespace Glory2Him.WebApp.Infrastructure
                 // (without it the page throws because IdentityUserPasskey is not in the model).
                 options.Stores.SchemaVersion = IdentitySchemaVersions.Version3;
 
+                // A username may never be an email address (design §18.3.1, UserNameRule). The
+                // services that mint one reject '@' with a message a person can act on; taking it
+                // out of Identity's own allowed set is the layer underneath, so no path - not a
+                // future endpoint, not a seeder - can write one past them. Identity's default list
+                // is narrowed rather than restated, so a framework update does not silently
+                // reinstate the character or drop an unrelated one.
+                options.User.AllowedUserNameCharacters =
+                    UserNameRule.WithoutProhibitedCharacter(options.User.AllowedUserNameCharacters);
+
                 // Default credentials are intentionally weak for first-run/demo purposes.
                 options.SignIn.RequireConfirmedAccount = false;
                 options.Password.RequireDigit = false;

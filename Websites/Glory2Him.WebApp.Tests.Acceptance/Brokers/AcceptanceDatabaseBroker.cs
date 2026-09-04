@@ -18,7 +18,7 @@ using Microsoft.Extensions.Configuration;
 namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
 {
     /// <summary>
-    /// The five databases this suite runs against, and their whole lifecycle.
+    /// The seven databases this suite runs against, and their whole lifecycle.
     ///
     /// <para>The acceptance host boots the real portal, so it touches every store the portal
     /// has: Core's schema, the EventHighway substrate, and Identity. Before this existed the
@@ -84,7 +84,9 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
             CatalogFor("Events"),
             CatalogFor("Security"),
             CatalogFor("SecurityRehearsal"),
-            CatalogFor("SecurityFallbackRehearsal")
+            CatalogFor("SecurityFallbackRehearsal"),
+            CatalogFor("UserNameRehearsal"),
+            CatalogFor("UserNameBlockedRehearsal")
         };
 
         // The drop MUST reach the same server the catalogues are created on. Both are derived
@@ -121,6 +123,23 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
         /// </summary>
         internal static string SecurityFallbackRehearsalConnectionString =>
             WithCatalog(ConnectionStringTemplate, DatabaseNames[4]);
+
+        /// <summary>
+        /// A SIXTH, for the username rename of #378 — the same reasoning as the two above, for a
+        /// different migration. It holds the rows the rename is expected to REWRITE.
+        /// </summary>
+        internal static string UserNameRehearsalConnectionString =>
+            WithCatalog(ConnectionStringTemplate, DatabaseNames[5]);
+
+        /// <summary>
+        /// A SEVENTH, and it exists because that migration's preconditions THROW.
+        ///
+        /// <para>A store holding a row the rename must refuse cannot also be migrated to head, so
+        /// the refusal cannot be arranged in the catalogue above without destroying it for every
+        /// other assertion. This one is built, deliberately failed, and read back as a failure.</para>
+        /// </summary>
+        internal static string UserNameBlockedRehearsalConnectionString =>
+            WithCatalog(ConnectionStringTemplate, DatabaseNames[6]);
 
         /// <summary>
         /// The resolved per-run connection strings, keyed by the PRODUCTION configuration keys

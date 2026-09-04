@@ -42,12 +42,27 @@ namespace Glory2Him.WebApp.Infrastructure
             {
                 string candidate = userName?.Trim() ?? string.Empty;
 
-                if (candidate.Length < registrationViewService.MinimumUsernameLength)
+                // The two answers are independent, so both are reported. "@" and "a@" are BOTH
+                // too short and prohibited, and answering only "too short" tells a caller that
+                // typing two more characters would fix it — which is false, and which a caller
+                // relying on this endpoint rather than its own copy of the rule cannot know.
+                // Reported separately from "taken" for the same reason: "someone already has
+                // that" is a lie about an address nobody may use (§18.3.1).
+                bool isProhibited = UserNameRule.IsAllowed(candidate) is false;
+                bool isTooShort = candidate.Length < registrationViewService.MinimumUsernameLength;
+
+                if (isProhibited || isTooShort)
                 {
                     return Results.Ok(new
                     {
                         IsAvailable = false,
-                        IsTooShort = true,
+                        IsTooShort = isTooShort,
+                        IsProhibited = isProhibited,
+
+                        ProhibitedReason = isProhibited
+                            ? (string?)UserNameRule.RejectionMessage
+                            : null,
+
                         MinimumLength = registrationViewService.MinimumUsernameLength,
                     });
                 }
@@ -59,6 +74,8 @@ namespace Glory2Him.WebApp.Infrastructure
                 {
                     IsAvailable = isAvailable,
                     IsTooShort = false,
+                    IsProhibited = false,
+                    ProhibitedReason = (string?)null,
                     MinimumLength = registrationViewService.MinimumUsernameLength,
                 });
             });
@@ -95,6 +112,18 @@ namespace Glory2Him.WebApp.Infrastructure
                 UserManager<AppUser> userManager,
                 IUserStore<AppUser> userStore) =>
             {
+                // The rule first, so a rejected name is told why rather than being reported as
+                // somebody else's (§18.3.1). IsUsernameAvailableAsync refuses it too — this is
+                // the message, not the guard.
+                if (UserNameRule.IsAllowed(request.UserName) is false)
+                {
+                    return Results.BadRequest(new
+                    {
+                        Message = UserNameRule.RejectionMessage,
+                        Errors = new[] { UserNameRule.RejectionMessage },
+                    });
+                }
+
                 // Re-check on the server so a name taken between typing and submit
                 // is still caught — same as the Blazor Register page.
                 if (!await registrationViewService.IsUsernameAvailableAsync(request.UserName))
