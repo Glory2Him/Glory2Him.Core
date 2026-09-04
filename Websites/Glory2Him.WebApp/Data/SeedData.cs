@@ -299,7 +299,21 @@ namespace Glory2Him.WebApp.Data
                     DateOfBirth = dateOfBirth
                 };
 
-                await userManager.CreateAsync(user, password);
+                // THE RESULT IS THE ONLY THING THAT SAYS WHY. Identity reports a refused
+                // create — a password the policy rejects, a duplicate name or email — as a
+                // FAILED result rather than an exception, so discarding it leaves a seeder that
+                // reports success and creates nobody. That is not a hypothetical: four seeded
+                // reviewers were silently absent, and with the outer retry swallowing and
+                // stdout logging off there was nothing anywhere to read.
+                IdentityResult createResult = await userManager.CreateAsync(user, password);
+
+                if (createResult.Succeeded is false)
+                {
+                    throw new InvalidOperationException(
+                        $"Seeding user '{userName}' failed: "
+                            + string.Join("; ", createResult.Errors.Select(
+                                error => $"{error.Code} {error.Description}")));
+                }
             }
 
             // Deliberately outside the creation branch. Membership used to be granted only to
@@ -319,7 +333,15 @@ namespace Glory2Him.WebApp.Data
         {
             if ((await userManager.IsInRoleAsync(user, roleName)) is false)
             {
-                await userManager.AddToRoleAsync(user, roleName);
+                IdentityResult roleResult = await userManager.AddToRoleAsync(user, roleName);
+
+                if (roleResult.Succeeded is false)
+                {
+                    throw new InvalidOperationException(
+                        $"Granting '{roleName}' to '{user.UserName}' failed: "
+                            + string.Join("; ", roleResult.Errors.Select(
+                                error => $"{error.Code} {error.Description}")));
+                }
             }
         }
     }
