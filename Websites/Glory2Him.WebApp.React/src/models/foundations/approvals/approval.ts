@@ -42,6 +42,11 @@ export type ApprovalVerdict = {
 
 // GET api/ApprovalReviews — one reviewer's recorded verdict. CreatedBy is the reviewer's ACCOUNT
 // ID and the row carries no name for them, which is what ReviewerDisplayName exists to answer.
+//
+// THE WHOLE ROW GOES BACK ON AN AMEND. A reviewer holds at most one active review on a round
+// (§7.7 rule 1), so changing a vote is a PUT of the row that was read, with the verdict
+// changed — never a second POST — and the foundation compares the audit fields against
+// storage before it accepts the write, so they travel too.
 export type ApprovalReview = {
     id: string;
     approvalId: string;
@@ -49,7 +54,32 @@ export type ApprovalReview = {
     comment: string;
     createdBy: string;
     createdWhen: string;
+    updatedBy: string;
+    updatedWhen: string;
     isDeleted: boolean;
+};
+
+// POST api/ApprovalReviews — a vote as the client composes it. NO AUDIT FIELDS, and that is
+// the contract rather than a convenience: the server stamps CreatedBy/When and UpdatedBy/When
+// from the caller's own identity (ApplyAddAuditValuesAsync) before it validates anything, so a
+// client has nothing true to put there — and an empty string in a DateTimeOffset is refused in
+// model binding, before the service ever sees the row, with a body that names no message. The
+// id IS the client's: the foundation refuses an empty Guid and never mints one.
+export type ApprovalReviewAddRequest = Pick<
+    ApprovalReview,
+    'id' | 'approvalId' | 'statusId' | 'comment' | 'isDeleted'>;
+
+// POST api/Approvals/{entityType}/{entityId}/Decision — what the round became. The entity's
+// own status follows through the workflow's transition command rather than in this response,
+// which is why a decision invalidates the item's reads as well as the round's.
+export type ApprovalOutcome = {
+    approvalId: string;
+    entityType: number;
+    entityId: string;
+    approvalStatus: ApprovalStatus;
+    isApprovedByBypass: boolean;
+    approvedByBypassReason: string | null;
+    isEntitySyncRequested: boolean;
 };
 
 // GET api/Approvals/{entityType}/{entityId}/ReviewerCandidates — the minimum a picker needs
@@ -69,8 +99,9 @@ export type ApprovalReviewRequest = {
     isDeleted: boolean;
 };
 
-// GET api/Approvals/ReviewerDisplayNames?userIds=… — the names behind the account ids a review
-// row carries. Asked in one round trip for the whole round rather than one per reviewer.
+// GET api/Approvals/{entityType}/{entityId}/ReviewerDisplayNames — the names behind the account
+// ids a review row carries, for everybody the round involved. Asked in one round trip keyed on
+// the round rather than on ids the client gathered.
 export type ReviewerDisplayName = {
     userId: string;
     displayName: string;

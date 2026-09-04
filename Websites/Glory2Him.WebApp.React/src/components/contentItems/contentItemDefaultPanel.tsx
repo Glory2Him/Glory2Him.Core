@@ -47,6 +47,7 @@ export function ContentItemDefaultPanel({
     isReactionPickerOpen,
     onReactionClick,
     onContentTypeClick,
+    allowTitleClick,
     onTitleClick,
     onSubmittedByClick,
     onAuthorClick,
@@ -215,11 +216,12 @@ export function ContentItemDefaultPanel({
                 <div className="align-self-center">
                     {badgeRow}
 
-                    {/* A control only where somebody is listening: on a detail surface the
-                        title leads nowhere, so it stands as plain heading text. */}
+                    {/* A control only where the surface allows it AND somebody is listening:
+                        on a detail surface the title leads nowhere, so it stands as plain
+                        heading text — no button, no underline. */}
                     {showsTitle && (
                         <h3 className="h5 mb-0">
-                            {onTitleClick != null ? (
+                            {allowTitleClick && onTitleClick != null ? (
                                 <button
                                     type="button"
                                     className="btn btn-link text-reset fw-bold p-0 mb-0 text-start"

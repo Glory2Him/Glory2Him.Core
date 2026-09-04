@@ -175,6 +175,16 @@ const panelProps: ReadonlyArray<ComponentPropRow> = [
             + 'alone, wearing Edit’s pencil and label.'
     },
     {
+        name: 'allowTitleClick',
+        type: 'boolean',
+        defaultValue: 'false',
+        description: 'Whether the title — the quote or verse on the faces without one — is '
+            + 'the way into the detail surface. Off, the default for a panel standing alone: '
+            + 'it already IS the detail, so the title stands as plain heading text with no '
+            + 'click and no underline even when onTitleClick is wired. Content Item List '
+            + 'Panel turns it on for every card it lists.'
+    },
+    {
         name: 'showApprovalStatusRibbon',
         type: 'boolean',
         defaultValue: 'false',

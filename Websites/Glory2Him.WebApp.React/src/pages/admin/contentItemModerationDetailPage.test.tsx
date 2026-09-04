@@ -6,6 +6,7 @@ import { ContentItemModerationDetailPage } from './contentItemModerationDetailPa
 import { AuthProvider } from '../../components/securitys/authProvider';
 import { ContentItem } from '../../models/foundations/contentItems/contentItem';
 import { ContentType } from '../../models/foundations/contentItemSettings/contentType';
+import { ApprovalDecision } from '../../models/components/approvals/approvalReviewItem';
 import { ApprovalStatus } from '../../models/components/contentItems/contentItemFormItem';
 import { ShareabilityBasis } from '../../models/components/contentItems/contentItemFormItem';
 import { createAuthState, signInAs } from '../../tests/testAuth';
@@ -33,6 +34,25 @@ vi.mock('../../services/foundations/accountService', () => ({
 
 const modifiedWith = vi.fn();
 const removedWith = vi.fn();
+
+// THE ROUND'S WRITES. Each is captured as the request the page composed, which is the whole
+// contract between a click on the panel and the endpoint behind it — the panel raises an event
+// with what the viewer chose, and the page is what turns that into an id, a scope and a row.
+const toastErrorSpy = vi.fn();
+const toastSuccessSpy = vi.fn();
+
+vi.mock('../../brokers/toastBroker.error', () => ({
+    toastError: (message: string) => toastErrorSpy(message)
+}));
+
+vi.mock('../../brokers/toastBroker.success', () => ({
+    toastSuccess: (message: string) => toastSuccessSpy(message)
+}));
+
+const castWith = vi.fn();
+const decidedWith = vi.fn();
+const requestedWith = vi.fn();
+const withdrawnWith = vi.fn();
 
 vi.mock('../../services/foundations/contentItemService', () => ({
     contentItemService: {
@@ -93,7 +113,12 @@ vi.mock('../../services/foundations/approvalService', () => ({
         useGetReviewRequests: () => ({ data: reviewRequests }),
         useGetReviewerDisplayNames: () => ({
             data: [{ userId: 'user-john', displayName: 'John' }]
-        })
+        }),
+
+        useCastApprovalReview: () => ({ mutateAsync: castWith, isPending: false }),
+        useDecideApproval: () => ({ mutateAsync: decidedWith, isPending: false }),
+        useRequestReview: () => ({ mutateAsync: requestedWith, isPending: false }),
+        useWithdrawReviewRequest: () => ({ mutateAsync: withdrawnWith, isPending: false })
     }
 }));
 
@@ -190,6 +215,15 @@ describe('ContentItemModerationDetailPage', () => {
         modifiedWith.mockResolvedValue(undefined);
         removedWith.mockReset();
         removedWith.mockResolvedValue(undefined);
+
+        for (const write of [castWith, decidedWith, requestedWith, withdrawnWith]) {
+            write.mockReset();
+            write.mockResolvedValue({ approvalId: 'approval-1' });
+        }
+
+        toastErrorSpy.mockReset();
+        toastSuccessSpy.mockReset();
+
         signInAs(authState, ['Administrators']);
     });
 
@@ -406,6 +440,8 @@ describe('ContentItemModerationDetailPage', () => {
             comment: '',
             createdBy: 'user-john',
             createdWhen: '2026-07-02T00:00:00Z',
+            updatedBy: 'user-john',
+            updatedWhen: '2026-07-02T00:00:00Z',
             isDeleted: false
         }];
 
@@ -501,5 +537,197 @@ describe('ContentItemModerationDetailPage', () => {
         // then
         expect(screen.getByRole('alert')).toBeInTheDocument();
         expect(screen.getByRole('button', { name: /Back to Posts/ })).toBeInTheDocument();
+    });
+
+    // ── THE WRITES ─────────────────────────────────────────────────────────────────
+    //
+    // The panel raises what the viewer CHOSE; the page is what turns that into a request the
+    // endpoint understands. So each of these asserts the request composed, against the verdict
+    // and the item the page holds — an id the panel never sees, a scope it never names.
+    describe('the writes', () => {
+        const openRoundByAnotherAuthor = () => {
+            contentItem = {
+                ...draftQuote,
+                createdBy: 'another-user',
+                approvalStatus: ApprovalStatus.Submitted
+            };
+
+            approvalVerdict = submittedVerdict;
+        };
+
+        /// A first vote is a POST: no standing review, so nothing to amend. The approval id
+        /// comes off the verdict, which is the only read that knows it.
+        it('should cast a first vote against the approval the verdict named', async () => {
+            // given
+            openRoundByAnotherAuthor();
+            renderPage();
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Vote...' }));
+            await userEvent.click(screen.getByRole('button', { name: /I am happy with this item/ }));
+
+            // then
+            expect(castWith).toHaveBeenCalledTimes(1);
+
+            expect(castWith).toHaveBeenCalledWith({
+                approvalId: 'approval-1',
+                vote: ApprovalStatus.Approved,
+                standingReview: undefined
+            });
+        });
+
+        /// A changed vote amends the viewer's OWN row (§7.7 rule 1) — matched by account id,
+        /// never by name, and handed over whole so the foundation can check its audit fields.
+        it('should amend the standing review when the viewer changes their vote', async () => {
+            // given
+            openRoundByAnotherAuthor();
+
+            const standing = {
+                id: 'review-mine',
+                approvalId: 'approval-1',
+                statusId: ApprovalStatus.Rejected,
+                comment: '',
+                createdBy: 'user-1',
+                createdWhen: '2026-07-02T00:00:00Z',
+                updatedBy: 'user-1',
+                updatedWhen: '2026-07-02T00:00:00Z',
+                isDeleted: false
+            };
+
+            approvalReviews = [standing];
+            renderPage();
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Rejected' }));
+            await userEvent.click(screen.getByRole('button', { name: /I am happy with this item/ }));
+
+            // then
+            expect(castWith).toHaveBeenCalledWith({
+                approvalId: 'approval-1',
+                vote: ApprovalStatus.Approved,
+                standingReview: standing
+            });
+        });
+
+        it('should send a plain rejection against the item in the url', async () => {
+            // given
+            openRoundByAnotherAuthor();
+            renderPage();
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Set approval status' }));
+            await userEvent.click(screen.getByRole('button', { name: /Reject this item/ }));
+            await userEvent.click(screen.getByRole('button', { name: 'Submit' }));
+
+            // then
+            expect(decidedWith).toHaveBeenCalledWith({
+                entityType: 'ContentItem',
+                entityId: 'quote-1',
+                decision: ApprovalDecision.Reject,
+                isBypassRequested: false,
+                bypassReason: ''
+            });
+        });
+
+        /// The bypass is a REQUEST with its reason; what lands on the row is the outcome's to
+        /// say. The page forwards both exactly as the panel gathered them.
+        it('should send a bypass approve with the reason the moderator gave', async () => {
+            // given
+            openRoundByAnotherAuthor();
+            approvalVerdict = { ...submittedVerdict, isBypassAllowedForCurrentUser: true };
+            renderPage();
+
+            // when
+            await userEvent.click(screen.getByRole('checkbox'));
+
+            await userEvent.type(
+                screen.getByLabelText('Reason for bypassing the approval requirements'),
+                'Verified against the printed edition.');
+
+            await userEvent.click(screen.getByRole('button', { name: 'Set approval status' }));
+            await userEvent.click(screen.getByRole('button', { name: /Approve this item/ }));
+            await userEvent.click(screen.getByRole('button', { name: 'Submit' }));
+
+            // then
+            expect(decidedWith).toHaveBeenCalledWith({
+                entityType: 'ContentItem',
+                entityId: 'quote-1',
+                decision: ApprovalDecision.Approve,
+                isBypassRequested: true,
+                bypassReason: 'Verified against the printed edition.'
+            });
+        });
+
+        it('should ask the chosen candidate to review the item in the url', async () => {
+            // given
+            openRoundByAnotherAuthor();
+            reviewerCandidates = [{ userId: 'user-mary', displayName: 'Mary Adeyemi' }];
+            renderPage();
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Request a review' }));
+            await userEvent.click(screen.getByRole('button', { name: /Mary/ }));
+
+            // then
+            expect(requestedWith).toHaveBeenCalledWith({
+                entityType: 'ContentItem',
+                entityId: 'quote-1',
+                requestedUserId: 'user-mary'
+            });
+        });
+
+        it('should withdraw an outstanding request when its row is picked again', async () => {
+            // given
+            openRoundByAnotherAuthor();
+            reviewerCandidates = [{ userId: 'user-mary', displayName: 'Mary Adeyemi' }];
+
+            reviewRequests = [{
+                id: 'request-1',
+                approvalId: 'approval-1',
+                requestedUserId: 'user-mary',
+                requestedUserDisplayName: 'Mary Adeyemi',
+                isDeleted: false
+            }];
+
+            renderPage();
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Request a review' }));
+            await userEvent.click(screen.getByRole('button', { name: /Mary/ }));
+
+            // then
+            expect(withdrawnWith).toHaveBeenCalledWith({
+                entityType: 'ContentItem',
+                entityId: 'quote-1',
+                requestedUserId: 'user-mary'
+            });
+
+            expect(requestedWith).not.toHaveBeenCalled();
+        });
+
+        /// A refusal is an ANSWER (§14.5): the server says why, and that reason — not a generic
+        /// failure — is what the moderator reads.
+        it('should show the reason the server gave when a write is refused', async () => {
+            // given
+            openRoundByAnotherAuthor();
+
+            decidedWith.mockRejectedValue({
+                isAxiosError: true,
+                response: { data: { message: 'Reviewers record verdicts but do not decide approvals.' } }
+            });
+
+            renderPage();
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Set approval status' }));
+            await userEvent.click(screen.getByRole('button', { name: /Reject this item/ }));
+            await userEvent.click(screen.getByRole('button', { name: 'Submit' }));
+
+            // then
+            expect(toastErrorSpy).toHaveBeenCalledWith(
+                'Reviewers record verdicts but do not decide approvals.');
+
+            expect(toastSuccessSpy).not.toHaveBeenCalled();
+        });
     });
 });

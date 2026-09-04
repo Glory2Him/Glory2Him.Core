@@ -86,6 +86,13 @@ export interface ContentItemPanelProps
     // that IS moderation, the moderation action is simply what editing means.
     showModerationSection?: boolean;
 
+    // Whether the title is a way into the detail surface. OFF BY DEFAULT: a panel standing
+    // on its own IS the detail surface, so its title is plain heading text with no click and
+    // no underline even when onTitleClick is wired. ContentItemListPanel turns it on for
+    // every card it lists — a listed title leads to the detail. On the quote and verse-image
+    // faces, which carry no title, the same switch governs the quote and the verse.
+    allowTitleClick?: boolean;
+
     // Whether the card wears a corner ribbon naming its approval status — coloured by the
     // stylesheet off data-approval-status. Off by default: the public feed already says
     // approved by existing.
@@ -179,6 +186,7 @@ export function ContentItemPanel({
     mode,
     reactionOptions = [],
     showModerationSection = false,
+    allowTitleClick = false,
     showApprovalStatusRibbon = false,
     showApprovalStatus = false,
     showEditSection = false,
@@ -374,6 +382,7 @@ export function ContentItemPanel({
             showsModerateButton={showsModerateButton}
             moderateButtonIconCss={showModerationSection ? 'bi bi-pencil' : 'bi bi-shield'}
             moderateButtonLabel={showModerationSection ? 'Edit' : 'Moderate'}
+            allowTitleClick={allowTitleClick}
             showApprovalStatusRibbon={showApprovalStatusRibbon}
             showApprovalStatus={showApprovalStatus}
             truncateAt={truncateAt}

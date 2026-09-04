@@ -62,6 +62,7 @@ export function ContentItemPanelPlayground({
     const [allowInPlaceExpansion, setAllowInPlaceExpansion] = useState(true);
     const [showEditSection, setShowEditSection] = useState(true);
     const [showModerationSection, setShowModerationSection] = useState(false);
+    const [allowTitleClick, setAllowTitleClick] = useState(false);
     const [showTagSection, setShowTagSection] = useState(true);
     const [showBibleReferenceSection, setShowBibleReferenceSection] = useState(true);
     const [showReactionSection, setShowReactionSection] = useState(true);
@@ -154,6 +155,13 @@ export function ContentItemPanelPlayground({
                     onChange: setShowModerationSection
                 },
                 {
+                    name: 'panel-title-click',
+                    label: 'allowTitleClick (the title is a way in)',
+                    defaultValue: false,
+                    value: allowTitleClick,
+                    onChange: setAllowTitleClick
+                },
+                {
                     name: 'panel-tags',
                     label: 'showTagSection',
                     defaultValue: true,
@@ -213,6 +221,8 @@ export function ContentItemPanelPlayground({
                         allowInPlaceExpansion={allowInPlaceExpansion}
                         showEditSection={showEditSection}
                         showModerationSection={showModerationSection}
+                        allowTitleClick={allowTitleClick}
+                        onTitleClick={(item) => setLastEvent(`onTitleClick(${item.id})`)}
                         showTagSection={showTagSection}
                         showBibleReferenceSection={showBibleReferenceSection}
                         showReactionSection={showReactionSection}

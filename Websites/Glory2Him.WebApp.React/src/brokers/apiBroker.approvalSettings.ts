@@ -1,5 +1,8 @@
 import ApiBroker from './apiBroker';
-import { ApprovalSetting } from '../models/foundations/approvalSettings/approvalSetting';
+import {
+    ApprovalSetting,
+    ApprovalSettingAddRequest
+} from '../models/foundations/approvalSettings/approvalSetting';
 
 // api/ApprovalSettings — the §8.4 policy rows the approval evaluation resolves against. Six
 // endpoints; this broker uses five of them (the hard delete is deliberately not offered to a UI).
@@ -37,8 +40,10 @@ class ApprovalSettingBroker {
     }
 
     // The id travels in the BODY, minted by the caller — the service refuses an empty Guid and
-    // never generates one of its own.
-    async AddApprovalSettingAsync(approvalSetting: ApprovalSetting): Promise<ApprovalSetting> {
+    // never generates one of its own. The audit fields do not travel: the server stamps them,
+    // and an empty one is refused in model binding (see ApprovalSettingAddRequest).
+    async AddApprovalSettingAsync(
+        approvalSetting: ApprovalSettingAddRequest): Promise<ApprovalSetting> {
         const result = await this.apiBroker.PostAsync(
             this.relativeApprovalSettingsUrl, approvalSetting);
 
