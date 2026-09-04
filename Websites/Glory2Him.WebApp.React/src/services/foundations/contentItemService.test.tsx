@@ -15,10 +15,12 @@ import {
 // mistake here: every page test mocks this module, so a mutation that saved and told no cache
 // would pass all of them while the reader watched their change revert on screen.
 const putContentItemAsync = vi.fn();
+const deleteContentItemByIdAsync = vi.fn();
 
 vi.mock('../../brokers/apiBroker.contentItems', () => ({
     default: class {
         PutContentItemAsync = putContentItemAsync;
+        DeleteContentItemByIdAsync = deleteContentItemByIdAsync;
     }
 }));
 
@@ -59,6 +61,7 @@ describe('contentItemService.useModifyContentItem', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         putContentItemAsync.mockResolvedValue(quote);
+        deleteContentItemByIdAsync.mockResolvedValue(quote);
         invalidated = [];
 
         queryClient = new QueryClient({
@@ -127,5 +130,23 @@ describe('contentItemService.useModifyContentItem', () => {
 
         // then
         expect(invalidated).toEqual([]);
+    });
+
+    /// A TAKEDOWN LEAVES THE SAME CACHES STALE as an edit: the row is gone from every feed and
+    /// queue that held it, and the round it was judged by is answering about something no
+    /// longer there.
+    it('should invalidate the item, its feeds and its round on a takedown', async () => {
+        // given
+        const { result } = renderHook(
+            () => contentItemService.useRemoveContentItem(), { wrapper });
+
+        // when
+        await result.current.mutateAsync({ contentItemId: 'quote-1' });
+        await waitFor(() => expect(invalidated.length).toBeGreaterThan(0));
+
+        // then
+        expect(invalidated).toContainEqual(['ContentItemsGetById', 'quote-1']);
+        expect(invalidated).toContainEqual(['ContentItemsSearch']);
+        expect(invalidated).toContainEqual(['ApprovalVerdict']);
     });
 });

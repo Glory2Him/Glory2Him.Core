@@ -148,6 +148,35 @@ export const contentItemService = {
         });
     },
 
+    // The takedown behind the editor's Delete. It invalidates exactly what the modify does:
+    // a removed row leaves every feed and queue that was holding it, and the round it was
+    // being judged by is answering about something no longer there.
+    useRemoveContentItem: () => {
+        const contentItemBroker = new ContentItemBroker();
+        const queryClient = useQueryClient();
+
+        return useMutation({
+            meta: { suppressGlobalErrorToast: true },
+
+            mutationFn: async (
+                request: { contentItemId: string; deletionReason?: string }) =>
+                await contentItemBroker.DeleteContentItemByIdAsync(
+                    request.contentItemId, request.deletionReason),
+
+            onSuccess: (_, request) => {
+                queryClient.invalidateQueries({
+                    queryKey: ['ContentItemsGetById', request.contentItemId]
+                });
+
+                queryClient.invalidateQueries({ queryKey: ['ContentItemsSearch'] });
+                queryClient.invalidateQueries({ queryKey: ['ApprovalVerdict'] });
+                queryClient.invalidateQueries({ queryKey: ['ApprovalReviews'] });
+                queryClient.invalidateQueries({ queryKey: ['ReviewerCandidates'] });
+                queryClient.invalidateQueries({ queryKey: ['ReviewRequests'] });
+            }
+        });
+    },
+
     useAddContentItem: () => {
         const contentItemBroker = new ContentItemBroker();
 

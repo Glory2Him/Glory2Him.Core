@@ -141,6 +141,28 @@ export const ContentItemModerationDetailPage = () => {
         useState<ContentItemValidationIssues | undefined>();
 
     const modifyContentItem = contentItemService.useModifyContentItem();
+    const removeContentItem = contentItemService.useRemoveContentItem();
+
+    // A TAKEDOWN LEAVES NOWHERE TO STAND. The row this page is about is gone, so staying on
+    // its address would show a removed item; the moderator goes back to the queue they came
+    // from — filtered as they left it, or the bare queue when they arrived by a pasted link.
+    //
+    // The panel confirms before it ever raises this, so there is no second prompt here.
+    const removeContentItemAsync = async () => {
+        if (contentItem == null) {
+            return;
+        }
+
+        try {
+            await removeContentItem.mutateAsync({ contentItemId: contentItem.id });
+            goBack();
+        } catch (error) {
+            const failure = toContentItemApiFailure(
+                error, 'We could not remove this post right now. Please try again later.');
+
+            toastError(failure.message);
+        }
+    };
 
     // The API is the authority on what an item must carry, so nothing is pre-judged here: the
     // edit goes, and whatever comes back marks up the form the moderator is looking at.
@@ -248,6 +270,7 @@ export const ContentItemModerationDetailPage = () => {
                                     validationIssues={validationIssues}
                                     isSubmitting={modifyContentItem.isPending}
                                     onModified={saveChangesAsync}
+                                    onRemoved={removeContentItemAsync}
                                     onCancelled={() => {
                                         setValidationIssues(undefined);
                                         setIsEditing(false);

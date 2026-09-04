@@ -58,6 +58,25 @@ class ContentItemBroker {
         return result.data as ContentItem;
     }
 
+    // A SOFT delete: the row keeps its place and its history — DeletedBy, DeletedWhen and
+    // DeletionReason are stamped and the approval status is left alone — so this is a takedown,
+    // not an erasure, and never an approval step (§9.7.6). The reason is optional on the wire
+    // and omitted when nobody typed one, rather than sent as an empty string.
+    async DeleteContentItemByIdAsync(
+        contentItemId: string,
+        deletionReason?: string): Promise<ContentItem> {
+        const reason = (deletionReason ?? '').trim();
+
+        const url = reason.length > 0
+            ? `${this.relativeContentItemsUrl}/${contentItemId}`
+                + `?deletionReason=${encodeURIComponent(reason)}`
+            : `${this.relativeContentItemsUrl}/${contentItemId}`;
+
+        const result = await this.apiBroker.DeleteAsync(url);
+
+        return result.data as ContentItem;
+    }
+
     async GetContentItemByIdAsync(contentItemId: string): Promise<ContentItem> {
         const url = `${this.relativeContentItemsUrl}/${contentItemId}`;
         const result = await this.apiBroker.GetAsync(url);

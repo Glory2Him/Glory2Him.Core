@@ -35,6 +35,7 @@ vi.mock('../../services/foundations/accountService', () => ({
 }));
 
 const modifiedWith = vi.fn();
+const removedWith = vi.fn();
 
 vi.mock('../../services/foundations/contentItemService', () => ({
     contentItemService: {
@@ -46,6 +47,11 @@ vi.mock('../../services/foundations/contentItemService', () => ({
 
         useModifyContentItem: () => ({
             mutateAsync: modifiedWith,
+            isPending: false
+        }),
+
+        useRemoveContentItem: () => ({
+            mutateAsync: removedWith,
             isPending: false
         })
     }
@@ -182,6 +188,14 @@ const renderPage = (state?: { from: string }) =>
 
 const landedOn = (): string | null => screen.getByTestId('location').textContent;
 
+// The panel's own confirmation wears the same word as the affordance that opened it, so the
+// two are told apart by position rather than by name — the dialog renders after the form.
+const confirmDeleteButton = (): HTMLElement => {
+    const deleteButtons = screen.getAllByRole('button', { name: /Delete/ });
+
+    return deleteButtons[deleteButtons.length - 1];
+};
+
 const submittedVerdict: ApprovalVerdict = {
     approvalId: 'approval-1',
     entityType: 0,
@@ -208,6 +222,8 @@ describe('ContentItemModerationDetailPage', () => {
         verdictAskedFor = [];
         modifiedWith.mockReset();
         modifiedWith.mockResolvedValue(undefined);
+        removedWith.mockReset();
+        removedWith.mockResolvedValue(undefined);
         signInAs(authState, ['Administrators']);
     });
 
@@ -367,6 +383,38 @@ describe('ContentItemModerationDetailPage', () => {
         // then
         expect(rightColumn.textContent).toContain('Approval Reviews');
         expect(rightColumn.textContent).toContain('Review Outcome');
+    });
+
+    /// A TAKEDOWN LEAVES NOWHERE TO STAND: the row this page is about is gone, so staying on
+    /// its address would show a removed item.
+    it('should take the item down and go back to the queue', async () => {
+        // given
+        renderPage({ from: '/Admin/Posts?type=Quote' });
+        await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
+
+        // when: the panel confirms for itself, and its dialog's button wears the same word
+        await userEvent.click(screen.getByRole('button', { name: /Delete/ }));
+        await userEvent.click(confirmDeleteButton());
+
+        // then
+        expect(removedWith).toHaveBeenCalledWith({ contentItemId: 'quote-1' });
+        expect(landedOn()).toBe('/Admin/Posts?type=Quote');
+    });
+
+    /// A takedown that FAILED has removed nothing, so the moderator stays where they are with
+    /// the item still in front of them rather than being sent to a queue that still holds it.
+    it('should keep the moderator on the item when the takedown fails', async () => {
+        // given
+        removedWith.mockRejectedValue(new Error('refused'));
+        renderPage();
+        await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
+
+        // when
+        await userEvent.click(screen.getByRole('button', { name: /Delete/ }));
+        await userEvent.click(confirmDeleteButton());
+
+        // then
+        expect(landedOn()).toBe('/Admin/Posts/quote-1');
     });
 
     /// THE ROUND IS READ, not invented. The page asks for the approval of the item in the URL
