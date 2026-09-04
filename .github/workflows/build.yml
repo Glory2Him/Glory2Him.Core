@@ -238,6 +238,9 @@ jobs:
     runs-on: ubuntu-latest
     needs:
     - publish_webapp
+    environment:
+      name: Development
+      url: ${{ steps.deploy_to_webapp.outputs.webapp-url }}
     steps:
     - name: Download artifact from publish job
       uses: actions/download-artifact@v4
@@ -250,6 +253,7 @@ jobs:
         tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_FAA97044B19A4630977F2C86C14AB5A4 }}
         subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_5C67A75889F64364850175AD19913AA1 }}
     - name: Deploy to Azure Web App
+      id: deploy_to_webapp
       uses: azure/webapps-deploy@v3
       with:
         app-name: g2h-dev
