@@ -75,11 +75,16 @@ export default function SidebarLayout(): ReactElement {
 
                     {/* Content */}
                     <div className={isMenuShown ? "col-lg-9" : "col-12"}>
+                        {/* aria-controls names the menu only while there IS one. The menu is
+                            unmounted when folded, so pointing at its id then would assert a
+                            relationship to an element not in the document — which a screen
+                            reader cannot follow and which says nothing true. aria-expanded
+                            carries the state either way. */}
                         <button
                             type="button"
                             className="btn btn-link p-0 text-body g2h-sidebar-toggle"
                             onClick={toggleMenu}
-                            aria-controls={menuId}
+                            aria-controls={isMenuShown ? menuId : undefined}
                             aria-expanded={isMenuShown}
                             aria-label={toggleLabel}
                             title={toggleLabel}>
