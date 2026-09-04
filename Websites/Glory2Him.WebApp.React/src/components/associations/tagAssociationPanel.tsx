@@ -1,3 +1,4 @@
+import { scopedModerationRoles } from './associationRoles';
 import { AssociationPanel, AssociationPanelProps } from './associationPanel';
 import { AssociationItem } from '../../models/components/associations/associationItem';
 
@@ -28,6 +29,9 @@ export function TagAssociationPanel({
     normalizeAddedValue = normalizeTag,
     loginButtonText = 'Login to suggest a tag',
     showAdd = true,
+    // §18.6: the global tier plus the Tag-scoped pair, so a moderator trusted with tags alone
+    // — without holding the global Reviewers/Publishers role — can still decide on one.
+    moderationRoles = scopedModerationRoles('Tag'),
     ...rest
 }: TagAssociationPanelProps) {
     return (
@@ -42,6 +46,7 @@ export function TagAssociationPanel({
             normalizeAddedValue={normalizeAddedValue}
             loginButtonText={loginButtonText}
             showAdd={showAdd}
+            moderationRoles={moderationRoles}
             {...rest} />
     );
 }

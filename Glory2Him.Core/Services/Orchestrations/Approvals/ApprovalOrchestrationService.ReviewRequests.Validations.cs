@@ -60,25 +60,16 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 (Rule: IsInvalid(entityType), Parameter: nameof(EntityType)),
                 (Rule: IsInvalid(entityId), Parameter: "EntityId"));
 
-        // The resolver's only shape rule, and it is a CEILING rather than a required-ness check.
-        // An empty ask is answered with an empty list - a panel holding no ids should not have to
-        // branch around calling - but an oversized one is refused outright rather than truncated,
-        // because a silently shortened answer would leave the caller rendering blanks it could
-        // not explain.
-        //
-        // It counts ACCOUNTS, which is why it takes parsed ids rather than the caller's strings. A
-        // GUID has several equal spellings, so counting raw text would refuse a caller who asked
-        // about 200 people using 201 spellings of them.
+        // The same two parameters the candidates read takes, and now the resolver's ONLY shape
+        // rule. The batch ceiling it used to carry is gone with the id list: the round decides
+        // how many people there are to name, so there is no caller-supplied set left to bound.
         private static void ValidateOnRetrieveReviewerDisplayNames(
-            IReadOnlyList<Guid> requestedUserIds)
-        {
-            if (requestedUserIds.Count > MaximumReviewerDisplayNameBatch)
-            {
-                throw new InvalidApprovalOrchestrationException(
-                    message: $"No more than {MaximumReviewerDisplayNameBatch} user ids may be "
-                        + "resolved in one request.");
-            }
-        }
+            EntityType entityType,
+            Guid entityId) =>
+            Validate(
+                message: "Approval orchestration request is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(entityType), Parameter: nameof(EntityType)),
+                (Rule: IsInvalid(entityId), Parameter: "EntityId"));
 
         private static void ValidateOnRequestApprovalReview(
             EntityType entityType,
@@ -191,6 +182,23 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 throw new InvalidApprovalOrchestrationException(
                     message: $"User {requestedUserId} does not hold a review role for this "
                         + "entity, or is not an active account.");
+            }
+        }
+
+        // Separate from the tier check above, and reported separately, because the two say
+        // different things: one says the person was never eligible, this one says they were
+        // and have since been restrained. Both refuse, and neither dissolves quietly — rule 4's
+        // idempotence covers invitations that are redundant, not ones that can never be
+        // answered.
+        private static void ValidateRequestedUserIsNotBlocked(
+            ISet<string> blockedUserIds,
+            string requestedUserId)
+        {
+            if (blockedUserIds.Contains(requestedUserId))
+            {
+                throw new InvalidApprovalOrchestrationException(
+                    message: $"User {requestedUserId} is restricted to read-only for this "
+                        + "entity and cannot review it.");
             }
         }
 

@@ -195,6 +195,22 @@ describe('Component reference pages', () => {
             expect(screen.queryByRole('button', { name: 'Approve test' }))
                 .not.toBeInTheDocument();
         });
+
+        it('should offer the same verdict pair to a Tag-scoped persona holding no global role', async () => {
+            // given: the page's own §18.6 persona, which the shared list does not carry
+            renderWithAuth(<TagAssociationPanelDoc />);
+
+            // when
+            await userEvent.click(
+                screen.getByRole('radio', { name: 'I am a Tag-scoped publisher (not owner)' }));
+
+            await userEvent.click(
+                screen.getByRole('switch', { name: /^showModerationActions/ }));
+
+            // then: the scoped tier alone earns the pair, which is the whole point of the default
+            expect(screen.getByRole('button', { name: 'Approve grace' })).toBeInTheDocument();
+            expect(screen.getByRole('button', { name: 'Reject grace' })).toBeInTheDocument();
+        });
     });
 
     describe('BibleReferenceAssociationPanelDoc', () => {
@@ -225,6 +241,25 @@ describe('Component reference pages', () => {
 
             expect(approvedChip?.querySelector('i.bi-book')).toBeInTheDocument();
             expect(pendingChip?.querySelector('i.bi-hourglass-split')).toBeInTheDocument();
+        });
+
+        it('should offer the verdict pair to a BibleReference-scoped persona holding no global role', async () => {
+            // given: the page's own §18.6 persona, which the shared list does not carry
+            renderWithAuth(<BibleReferenceAssociationPanelDoc />);
+
+            // when
+            await userEvent.click(screen.getByRole(
+                'radio', { name: 'I am a BibleReference-scoped publisher (not owner)' }));
+
+            await userEvent.click(
+                screen.getByRole('switch', { name: /^showModerationActions/ }));
+
+            // then: somebody else's pending passage earns the pair; the reader's own does not
+            expect(screen.getByRole('button', { name: 'Approve John 9:1-7' })).toBeInTheDocument();
+            expect(screen.getByRole('button', { name: 'Reject John 9:1-7' })).toBeInTheDocument();
+
+            expect(screen.queryByRole('button', { name: 'Approve Romans 3:23' }))
+                .not.toBeInTheDocument();
         });
     });
 

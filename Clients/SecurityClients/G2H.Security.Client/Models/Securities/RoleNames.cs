@@ -62,6 +62,19 @@ namespace G2H.Security.Client.Models.Securities
             $"{entityType}{ReadOnlySuffix}";
 
         /// <summary>
+        /// The content-type-scoped block role, for example
+        /// <c>ContentItem-Testimony-ReadOnly</c> — the narrow tier of the block, so a
+        /// contributor can be sanctioned on testimonies alone and left free on stories.
+        ///
+        /// <para>It composes exactly like the two grants, and reads the opposite way. A grant
+        /// widens upward — the narrow one satisfies a check the coarse one satisfies too — while
+        /// a block is absolute downward: within the scope it covers, no grant at any tier
+        /// overrides it, <c>Administrators</c> included (§18.6 rule 2).</para>
+        /// </summary>
+        public static string ReadOnlyFor(string entityType, string contentType) =>
+            $"{entityType}-{contentType}{ReadOnlySuffix}";
+
+        /// <summary>
         /// The entity-type-scoped review role, for example <c>Tag-Reviewers</c> — the coarse
         /// tier, granting review over every instance of the type.
         /// </summary>
@@ -88,9 +101,5 @@ namespace G2H.Security.Client.Models.Securities
         /// </summary>
         public static string PublishersFor(string entityType, string contentType) =>
             $"{entityType}-{contentType}{PublishersSuffix}";
-
-        // There is deliberately no ReadOnlyFor(entityType, contentType): the block role has no
-        // content-type tier, and offering the composition would invent a role nothing issues
-        // or checks.
     }
 }

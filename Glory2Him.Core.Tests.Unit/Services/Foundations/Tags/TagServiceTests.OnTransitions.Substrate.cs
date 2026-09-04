@@ -29,6 +29,34 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
         // ── OnSubmitting ─────────────────────────────────────────────────────────────────────
 
         [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnSubmittingTagEventIfCancellationRequestedAsync()
+        {
+            // given
+            EventEnvelope<Tag> requestEnvelope = CreateRandomTagRequestEnvelope();
+            var cancellationToken = new CancellationToken(canceled: true);
+
+            // when
+            ValueTask<EventEnvelope<Tag>?> onSubmittingTask =
+                this.tagService.OnSubmittingTagAsync(
+                    requestEnvelope,
+                    cancellationToken);
+
+            // then
+            await Assert.ThrowsAsync<OperationCanceledException>(
+                onSubmittingTask.AsTask);
+
+            // the clock is asserted alongside the rest: on the happy path this verb reaches
+            // IDateTimeBroker for the ProcessedEvents ProcessedAt stamp (TagService.Substrate.cs),
+            // so leaving it unasserted would let a guard that fires too late still pass. The
+            // modified-date stamp is NOT the clock's doing here - securityAuditBroker owns that.
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
         public async Task ShouldSubmitOnSubmittingTagEventAsync()
         {
             // given: the event path carries the id in the envelope; the do-work reads only the
@@ -161,6 +189,40 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
         }
 
         // ── OnApproving ──────────────────────────────────────────────────────────────────────
+
+        [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnApprovingTagEventIfCancellationRequestedAsync()
+        {
+            // given
+            var requestEnvelope = new EventEnvelope<Tag>
+            {
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers),
+                Content = CreateApprovalDecision(Guid.NewGuid()),
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            var cancellationToken = new CancellationToken(canceled: true);
+
+            // when
+            ValueTask<EventEnvelope<Tag>?> onApprovingTask =
+                this.tagService.OnApprovingTagAsync(
+                    requestEnvelope,
+                    cancellationToken);
+
+            // then
+            await Assert.ThrowsAsync<OperationCanceledException>(
+                onApprovingTask.AsTask);
+
+            // the audit stamp and the clock are asserted alongside the rest: the approve do-work
+            // reaches both on the happy path, so leaving them unasserted would let a guard that
+            // fires too late still pass this test.
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
 
         [Fact]
         public async Task ShouldApproveOnApprovingTagEventAsync()

@@ -49,19 +49,30 @@ export const demoSubmitterIdFor = (option: SecurityContextOption): string =>
 export interface SecurityContextSectionProps {
     selected: SecurityContextOption;
     onChange: (option: SecurityContextOption) => void;
+
+    // Appended after the six baseline personas, for a demo whose component recognizes further
+    // roles the shared list has no reason to carry for every consumer — an entity-scoped
+    // moderation tier, say. Empty by default, so every other doc page is unaffected.
+    extraOptions?: ReadonlyArray<SecurityContextOption>;
 }
 
-// The radio board — the shared DemoRadioGroup wearing the six people a demo can be.
-export function SecurityContextSection({ selected, onChange }: SecurityContextSectionProps) {
+// The radio board — the shared DemoRadioGroup wearing the people a demo can be: the six
+// baseline personas, plus whichever extra ones this particular component's page adds.
+export function SecurityContextSection({
+    selected,
+    onChange,
+    extraOptions = []
+}: SecurityContextSectionProps) {
+    const options = [...securityContextOptions, ...extraOptions];
+
     return (
         <DemoRadioGroup
             title="Security context"
             name="demo-security-context"
-            options={securityContextOptions}
+            options={options}
             selectedKey={selected.key}
             onChange={(key) => {
-                const option = securityContextOptions.find(
-                    (candidate) => candidate.key === key);
+                const option = options.find((candidate) => candidate.key === key);
 
                 if (option != null) {
                     onChange(option);

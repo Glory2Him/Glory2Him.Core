@@ -177,4 +177,69 @@ describe('BibleReferenceAssociationPanel', () => {
         expect(screen.getByRole('link', { name: /Romans 3:23/ }))
             .toHaveAttribute('href', '/BibleReferences/ROM.3.23');
     });
+
+    it('should offer a moderator both decisions on a reference somebody else suggested', () => {
+        // given
+        signInAs(authState, ['Administrators']);
+
+        // when
+        renderWithAuth(
+            <BibleReferenceAssociationPanel
+                showModerationActions={true}
+                associationCollection={[{
+                    value: 'Romans 3:23',
+                    createdBy: 'another-user',
+                    approvalStatus: ApprovalStatus.Submitted
+                }]} />);
+
+        // then
+        expect(screen.getByRole('button', { name: 'Approve Romans 3:23' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Reject Romans 3:23' })).toBeInTheDocument();
+    });
+
+    it('should let a BibleReference-scoped moderator decide without holding the global role', () => {
+        // given
+        signInAs(authState, ['BibleReference-Publishers']);
+
+        // when
+        renderWithAuth(
+            <BibleReferenceAssociationPanel
+                showModerationActions={true}
+                associationCollection={[{
+                    value: 'Romans 3:23',
+                    createdBy: 'another-user',
+                    approvalStatus: ApprovalStatus.Submitted
+                }]} />);
+
+        // then
+        expect(screen.getByRole('button', { name: 'Approve Romans 3:23' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Reject Romans 3:23' })).toBeInTheDocument();
+    });
+
+    it('should let a moderator scoped to a different entity type see but not decide', () => {
+        // given
+        signInAs(authState, ['Tag-Publishers']);
+
+        // when: viewAllRoles is widened to this test's role so the item renders regardless —
+        // isolating the moderation gate itself from the separate visibility gate, which would
+        // otherwise hide the item for the same reason and mask a bug in either one
+        renderWithAuth(
+            <BibleReferenceAssociationPanel
+                showModerationActions={true}
+                viewAllRoles="Tag-Publishers"
+                associationCollection={[{
+                    value: 'Romans 3:23',
+                    createdBy: 'another-user',
+                    approvalStatus: ApprovalStatus.Submitted
+                }]} />);
+
+        // then: visible, but this scope doesn't cover bible references, so no decision is offered
+        expect(screen.getByRole('link', { name: /Romans 3:23/ })).toBeInTheDocument();
+
+        expect(screen.queryByRole('button', { name: 'Approve Romans 3:23' }))
+            .not.toBeInTheDocument();
+
+        expect(screen.queryByRole('button', { name: 'Reject Romans 3:23' }))
+            .not.toBeInTheDocument();
+    });
 });

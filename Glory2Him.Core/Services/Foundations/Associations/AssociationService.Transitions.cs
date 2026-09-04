@@ -414,7 +414,9 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             ValidateUserIsNotBlockedFromEndpoints(
                 securityContext: securityContext,
                 firstEntityType: maybeAssociation.EntityAType,
-                secondEntityType: maybeAssociation.EntityBType);
+                firstContentType: maybeAssociation.EntityAContentType,
+                secondEntityType: maybeAssociation.EntityBType,
+                secondContentType: maybeAssociation.EntityBContentType);
 
             return maybeAssociation;
         }

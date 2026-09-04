@@ -185,4 +185,46 @@ describe('TagAssociationPanel', () => {
         expect(screen.getByRole('button', { name: 'Approve test' })).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'Reject test' })).toBeInTheDocument();
     });
+
+    it('should let a Tag-scoped moderator decide without holding the global role', () => {
+        // given
+        signInAs(authState, ['Tag-Publishers']);
+
+        // when
+        renderWithAuth(
+            <TagAssociationPanel
+                showModerationActions={true}
+                associationCollection={[{
+                    value: 'test',
+                    createdBy: 'another-user',
+                    approvalStatus: ApprovalStatus.Submitted
+                }]} />);
+
+        // then
+        expect(screen.getByRole('button', { name: 'Approve test' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Reject test' })).toBeInTheDocument();
+    });
+
+    it('should let a moderator scoped to a different entity type see but not decide', () => {
+        // given
+        signInAs(authState, ['BibleReference-Publishers']);
+
+        // when: viewAllRoles is widened to this test's role so the item renders regardless —
+        // isolating the moderation gate itself from the separate visibility gate, which would
+        // otherwise hide the item for the same reason and mask a bug in either one
+        renderWithAuth(
+            <TagAssociationPanel
+                showModerationActions={true}
+                viewAllRoles="BibleReference-Publishers"
+                associationCollection={[{
+                    value: 'test',
+                    createdBy: 'another-user',
+                    approvalStatus: ApprovalStatus.Submitted
+                }]} />);
+
+        // then: visible, but this scope doesn't cover tags, so no decision is offered
+        expect(screen.getByRole('link', { name: '#test' })).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Approve test' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Reject test' })).not.toBeInTheDocument();
+    });
 });

@@ -64,6 +64,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 new Mock<IApprovalReviewRequestWorkflowService>();
 
             this.identityUserServiceMock = new Mock<IIdentityUserService>();
+
+            // Nobody is blocked unless a test says so. Without this the veto read would answer
+            // null and every candidates and request test would fault on the subtraction rather
+            // than on its own subject.
+            SetupBlockedUsers();
             this.accessBrokerMock = new Mock<IAccessBroker>();
             this.eventEnvelopeBrokerMock = new Mock<IEventEnvelopeBroker>();
             this.eventBrokerMock = new Mock<IEventBroker>();
@@ -93,20 +98,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     .Returns((ApprovalReviewRequest content) =>
                         new ValueTask<EventEnvelope<ApprovalReviewRequest>>(
                             new EventEnvelope<ApprovalReviewRequest>
-                            {
-                                Content = content,
-                                SecurityContext = this.ambientSecurityContext,
-                                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
-                            }));
-
-            // The name resolver reads no approval, so it mints its envelope over the id list
-            // itself - there is no entity to hang one off, and the envelope is wanted for its
-            // security context alone.
-            this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(It.IsAny<IReadOnlyList<string>>()))
-                    .Returns((IReadOnlyList<string> content) =>
-                        new ValueTask<EventEnvelope<IReadOnlyList<string>>>(
-                            new EventEnvelope<IReadOnlyList<string>>
                             {
                                 Content = content,
                                 SecurityContext = this.ambientSecurityContext,

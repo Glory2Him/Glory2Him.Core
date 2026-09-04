@@ -16,12 +16,17 @@ namespace Glory2Him.Core.Models.Securities
 {
     /// <summary>
     /// Central catalogue of role names used for authorization checks (design §16.6).
-    /// Global roles apply across all entity types; granular <c>%EntityType%-*</c> roles
-    /// grant or block capability only for their own entity type. The global
-    /// <see cref="ReadOnly"/> role is the block role — when present it wins over every
-    /// other role and the user cannot contribute anywhere. It is the one capability whose
-    /// name stays singular: it names a state its holder is in, where the others name a
-    /// group of people and take the plural (§18.6).
+    /// Three tiers by three capabilities, with no gaps: global roles apply across all entity
+    /// types, granular <c>%EntityType%-*</c> roles apply to their own entity type, and
+    /// <c>ContentItem-%ContentType%-*</c> narrows further to one content type — the one entity
+    /// type carrying a content type (§18.6 rule 5).
+    ///
+    /// <para>The <c>ReadOnly</c> capability is the block, and it is a <b>veto</b> rather than a
+    /// missing grant: within the scope it covers it wins over every other role,
+    /// <see cref="Administrators"/> and the row's own author included, and outside that scope it
+    /// is silent (§18.6 rule 2). Grants widen upward, blocks are absolute downward. It is also
+    /// the one capability whose name stays singular: it names a state its holder is in, where the
+    /// others name a group of people and take the plural.</para>
     ///
     /// <para>This is a <b>typed façade over the convention, not a second copy of it.</b> The
     /// spelling itself lives in <see cref="RoleNames"/> in <c>G2H.Security.Client</c>, because
@@ -89,6 +94,20 @@ namespace Glory2Him.Core.Models.Securities
             RoleNames.ReadOnlyFor(entityType.ToString());
 
         /// <summary>
+        /// The content-type-scoped block role, for example
+        /// <c>ContentItem-Testimony-ReadOnly</c> — the narrow tier of the block, so a
+        /// contributor can be sanctioned on testimonies alone and left free on stories. Only
+        /// <c>ContentItem</c> has this granularity (design §18.6 rule 5).
+        ///
+        /// <para>It composes exactly like the two grants and reads the opposite way. A grant
+        /// widens upward — the narrow one satisfies a check the coarse one satisfies too —
+        /// while a block is absolute downward: within the scope it covers, no grant at any
+        /// tier overrides it, <see cref="Administrators"/> included (§18.6 rule 2).</para>
+        /// </summary>
+        public static string ReadOnlyFor(EntityType entityType, ContentType contentType) =>
+            RoleNames.ReadOnlyFor(entityType.ToString(), contentType.ToString());
+
+        /// <summary>
         /// The entity-type-scoped review role, for example <c>Tag-Reviewers</c> — the coarse
         /// tier, granting review over every instance of the type.
         /// </summary>
@@ -116,9 +135,5 @@ namespace Glory2Him.Core.Models.Securities
         /// </summary>
         public static string PublishersFor(EntityType entityType, ContentType contentType) =>
             RoleNames.PublishersFor(entityType.ToString(), contentType.ToString());
-
-        // There is deliberately no ReadOnlyFor(EntityType, ContentType): the block role has
-        // no content-type tier (design §18.6 lists only -Reviewers and -Publishers there), and
-        // offering the composition would invent a role nothing issues or checks.
     }
 }

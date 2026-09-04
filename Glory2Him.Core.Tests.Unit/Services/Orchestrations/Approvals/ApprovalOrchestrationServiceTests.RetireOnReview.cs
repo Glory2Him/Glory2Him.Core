@@ -70,6 +70,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                             EntityCreatedBy = "somebody-else",
                             RoleSubjects = Array.Empty<G2H.Security.Client.Models.Foundations.Access.RoleSubject>(),
                             ActiveReviewerUserIds = Array.Empty<string>(),
+                            RecordedReviewerUserIds = Array.Empty<string>(),
 
                             ActiveRequests = new[]
                             {
@@ -123,6 +124,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                             EntityCreatedBy = "somebody-else",
                             RoleSubjects = Array.Empty<G2H.Security.Client.Models.Foundations.Access.RoleSubject>(),
                             ActiveReviewerUserIds = Array.Empty<string>(),
+                            RecordedReviewerUserIds = Array.Empty<string>(),
                             ActiveRequests = Array.Empty<ActiveReviewRequest>(),
                         });
 
@@ -208,6 +210,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                             EntityCreatedBy = "somebody-else",
                             RoleSubjects = Array.Empty<G2H.Security.Client.Models.Foundations.Access.RoleSubject>(),
                             ActiveReviewerUserIds = Array.Empty<string>(),
+                            RecordedReviewerUserIds = Array.Empty<string>(),
 
                             ActiveRequests = new[]
                             {

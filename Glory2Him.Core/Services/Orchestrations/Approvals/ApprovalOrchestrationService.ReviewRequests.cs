@@ -64,8 +64,9 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                         roleNames: ComposeReviewTierRoleNames(scope.RoleSubjects),
                         cancellationToken: cancellationToken);
 
-                // ONE subtraction, and only one: the entity's own author. They cannot review
-                // their own work (rule 3, HR-1), so an invitation aimed at them is refused
+                // TWO subtractions, and only two: the entity's own author, and anyone a
+                // ReadOnly in this entity's scope covers (§18.6 rule 2, added with the narrow
+                // block). Neither can review, so an invitation aimed at either is refused
                 // outright - offering the row would be offering a click that always fails.
                 //
                 // People who have ALREADY ANSWERED, and people already invited, are deliberately
@@ -81,6 +82,16 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 {
                     excludedUserIds.Add(scope.EntityCreatedBy);
                 }
+
+                // A SECOND subtraction, and it is the veto rather than a tidy-up. Somebody a
+                // ReadOnly in this entity's scope covers cannot cast a vote at all (§18.6 rule
+                // 2), so offering them is offering a click that always fails — the same
+                // reasoning the owner is subtracted on. Unlike the two sets left in above, this
+                // one is not a state a moderator can resolve by asking again.
+                excludedUserIds.UnionWith(
+                    await RetrieveBlockedUserIdsAsync(
+                        roleSubjects: scope.RoleSubjects,
+                        cancellationToken: cancellationToken));
 
                 return tierMembers
                     .Where(member =>
@@ -164,6 +175,17 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                     .FirstOrDefault(member => member.Id.ToString() == requestedUserId);
 
                 ValidateRequestedUserIsInTheReviewTier(requestedUser, requestedUserId);
+
+                // And rule 3's other half, which the tier check cannot answer: a grant and a
+                // block can be held together, so somebody can be in the tier and still barred
+                // from voting (§18.6 rule 2). Refused rather than dissolved like a duplicate —
+                // an invitation nobody can answer is not an idempotent no-op, it is a round left
+                // waiting on a vote that can never arrive.
+                ValidateRequestedUserIsNotBlocked(
+                    blockedUserIds: await RetrieveBlockedUserIdsAsync(
+                        roleSubjects: scope.RoleSubjects,
+                        cancellationToken: cancellationToken),
+                    requestedUserId: requestedUserId);
 
                 var approvalReviewRequest = new ApprovalReviewRequest
                 {
@@ -453,6 +475,111 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             }
 
             return roleNames.Distinct(StringComparer.Ordinal).ToList();
+        }
+
+        // The veto's names, composed exactly as the tier's are and read the other way round: the
+        // global block, then the entity-scoped one per subject, then the content-type-scoped one
+        // where a subject carries a content type (18.6 rule 2). An association names both
+        // endpoints, so a block on either end bars the holder from the pairing — the mirror of
+        // one-endpoint-is-enough on the grant side.
+        private static IReadOnlyList<string> ComposeBlockRoleNames(
+            IReadOnlyList<RoleSubject> roleSubjects)
+        {
+            var roleNames = new List<string> { Roles.ReadOnly };
+
+            foreach (RoleSubject roleSubject in roleSubjects ?? Array.Empty<RoleSubject>())
+            {
+                if (roleSubject is null)
+                {
+                    continue;
+                }
+
+                // An UNNAMEABLE subject — the gatherer could not read the row at all and reports
+                // a blank entity type to say so. Every scoped block goes on the list, because
+                // which entity types are even in play is what could not be established.
+                if (roleSubject.IsEntityUnresolved
+                    && string.IsNullOrWhiteSpace(roleSubject.EntityType))
+                {
+                    roleNames.AddRange(EveryScopedBlockRoleName());
+
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(roleSubject.EntityType))
+                {
+                    continue;
+                }
+
+                // A NAMED subject whose content type could not be decided: that entity type's
+                // own block names, and no others. Narrowed the same way IAccessClient narrows
+                // it (IsNarrowBlockUndecidableFor), because the two readings of this one flag
+                // have to agree in BOTH directions — failing open here offers a candidate the
+                // client would refuse (the unanswerable invitation §7.9 rule 3 forbids), and
+                // failing closed here drops a candidate the client would admit, silently
+                // shrinking the reviewer pool.
+                if (roleSubject.IsEntityUnresolved)
+                {
+                    roleNames.Add(RoleNames.ReadOnlyFor(roleSubject.EntityType));
+
+                    foreach (ContentType contentType in Enum.GetValues<ContentType>())
+                    {
+                        roleNames.Add(
+                            RoleNames.ReadOnlyFor(
+                                roleSubject.EntityType,
+                                contentType.ToString()));
+                    }
+
+                    continue;
+                }
+
+                roleNames.Add(RoleNames.ReadOnlyFor(roleSubject.EntityType));
+
+                if (string.IsNullOrWhiteSpace(roleSubject.ContentType) is false)
+                {
+                    roleNames.Add(
+                        RoleNames.ReadOnlyFor(roleSubject.EntityType, roleSubject.ContentType));
+                }
+            }
+
+            return roleNames.Distinct(StringComparer.Ordinal).ToList();
+        }
+
+        // Every block name the vocabulary can mint: the entity-scoped one for each entity type,
+        // and the content-type-scoped one for each ContentType — ContentItem being the only
+        // entity type that carries one (§18.6 rule 5). Walked from the enums rather than listed,
+        // for the reason SeedData walks them: the enum IS the set, and writing it out twice is
+        // what lets the two disagree.
+        private static IEnumerable<string> EveryScopedBlockRoleName()
+        {
+            foreach (EntityType entityType in Enum.GetValues<EntityType>())
+            {
+                yield return Roles.ReadOnlyFor(entityType);
+            }
+
+            foreach (ContentType contentType in Enum.GetValues<ContentType>())
+            {
+                yield return Roles.ReadOnlyFor(EntityType.ContentItem, contentType);
+            }
+        }
+
+        // Who those names belong to. Role membership lives in the Identity store and nowhere
+        // else, so it is asked the same way the tier is — finished names in, members out.
+        //
+        // The list always carries the global ReadOnly, so it is never empty and never trips
+        // IdentityUserService's fail-closed guard, which would otherwise answer "nobody is
+        // blocked" for a composition bug and quietly restore every blocked person to the picker.
+        private async ValueTask<HashSet<string>> RetrieveBlockedUserIdsAsync(
+            IReadOnlyList<RoleSubject> roleSubjects,
+            CancellationToken cancellationToken)
+        {
+            IReadOnlyList<IdentityUser> blockedUsers =
+                await this.identityUserService.RetrieveIdentityUsersInRolesAsync(
+                    roleNames: ComposeBlockRoleNames(roleSubjects),
+                    cancellationToken: cancellationToken);
+
+            return new HashSet<string>(
+                blockedUsers.Select(blockedUser => blockedUser.Id.ToString()),
+                StringComparer.Ordinal);
         }
 
         // Presentation only, and never an identity. Preferred name first because it is what the

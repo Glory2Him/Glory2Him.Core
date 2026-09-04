@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { GlobalModerationRoles } from '../../../components/associations/associationRoles';
 import { AssociationPanel } from '../../../components/associations/associationPanel';
 import {
     ApprovalStatus,
@@ -161,7 +162,7 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
     },
     {
         name: 'moderationRoles', type: 'string (csv)',
-        defaultValue: "'Reviewers, Publishers, Administrators'",
+        defaultValue: `'${GlobalModerationRoles}'`,
         description: 'Who may decide. [OWNER] is ignored — owning the item suppresses the pair rather than granting it.'
     },
     {

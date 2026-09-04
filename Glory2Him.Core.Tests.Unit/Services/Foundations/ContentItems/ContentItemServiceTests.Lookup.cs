@@ -414,5 +414,49 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // then
             await Assert.ThrowsAsync<ContentItemValidationException>(probeTask.AsTask);
         }
+
+        [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnFindHighestVersionInGroupIfCancellationRequestedAsync()
+        {
+            // given
+            Guid someGroupId = Guid.NewGuid();
+            var cancellationToken = new CancellationToken(canceled: true);
+
+            // when
+            ValueTask<int> findHighestVersionTask =
+                this.contentItemService.FindHighestVersionInGroupAsync(
+                    someGroupId,
+                    cancellationToken);
+
+            // then
+            await Assert.ThrowsAsync<OperationCanceledException>(
+                findHighestVersionTask.AsTask);
+
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnFindPublishedSiblingIfCancellationRequestedAsync()
+        {
+            // given
+            var someContentItemId = Guid.NewGuid();
+            EventEnvelope<ContentItem> inboundEnvelope = CreateProbeEnvelope(someContentItemId);
+            var cancellationToken = new CancellationToken(canceled: true);
+
+            // when
+            ValueTask<Guid?> probeTask =
+                this.contentItemService.FindPublishedSiblingContentItemIdAsync(
+                    contentItemId: someContentItemId,
+                    inboundEnvelope: inboundEnvelope,
+                    cancellationToken: cancellationToken);
+
+            // then
+            await Assert.ThrowsAsync<OperationCanceledException>(probeTask.AsTask);
+
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }

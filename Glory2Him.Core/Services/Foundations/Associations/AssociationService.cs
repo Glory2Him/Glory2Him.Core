@@ -555,7 +555,9 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             ValidateUserIsNotBlockedFromEndpoints(
                 securityContext: inboundEnvelope.SecurityContext,
                 firstEntityType: maybeAssociation.EntityAType,
-                secondEntityType: maybeAssociation.EntityBType);
+                firstContentType: maybeAssociation.EntityAContentType,
+                secondEntityType: maybeAssociation.EntityBType,
+                secondContentType: maybeAssociation.EntityBContentType);
 
             // permission comes before the idempotent short-circuit, so an unauthorized
             // caller learns nothing about the row's deletion state
@@ -623,7 +625,9 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             ValidateUserIsNotBlockedFromEndpoints(
                 securityContext: inboundEnvelope.SecurityContext,
                 firstEntityType: maybeAssociation.EntityAType,
-                secondEntityType: maybeAssociation.EntityBType);
+                firstContentType: maybeAssociation.EntityAContentType,
+                secondEntityType: maybeAssociation.EntityBType,
+                secondContentType: maybeAssociation.EntityBContentType);
 
             Association deletedAssociation =
                 await this.storageBroker.DeleteAssociationAsync(

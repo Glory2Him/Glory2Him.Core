@@ -135,11 +135,14 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             // given
             string entityType = GetRandomString();
 
-            AccessActor readOnlyActor = CreateRandomAccessActor(
-                roles: new List<string> { RoleNames.ReadOnly });
+            // An UNROLED actor, not a ReadOnly one. ReadOnly is now the veto and is answered
+            // before any tier is asked (18.6 rule 2), so an actor holding it would be refused
+            // for the wrong reason and this test would stop proving anything about the tier.
+            AccessActor untieredActor = CreateRandomAccessActor(
+                roles: new List<string>());
 
             AmendApprovalRequest amendApprovalRequest = CreateRandomAmendApprovalRequest(
-                actor: readOnlyActor,
+                actor: untieredActor,
                 roleSubjects: new List<RoleSubject>
                 {
                     new RoleSubject { EntityType = entityType, ContentType = null },

@@ -674,14 +674,18 @@ describe('AssociationPanel', () => {
             // given
             signInAs(authState, ['Members']);
 
-            // when
+            // when: viewAllRoles is widened to this reader so the item renders regardless —
+            // isolating the moderation gate from the visibility gate, which reuses the same
+            // role list and would otherwise satisfy these assertions on its own
             renderWithAuth(
                 <AssociationPanel
                     title="Tags"
                     showModerationActions={true}
+                    viewAllRoles="Members"
                     associationCollection={[submittedItem('hope', OtherId)]} />);
 
-            // then
+            // then: visible, but no role to decide with
+            expect(screen.getByText('hope')).toBeInTheDocument();
             expect(screen.queryByRole('button', { name: /Approve hope/ })).not.toBeInTheDocument();
             expect(screen.queryByRole('button', { name: /Reject hope/ })).not.toBeInTheDocument();
         });
