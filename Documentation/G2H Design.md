@@ -1234,7 +1234,7 @@ Three consequences follow, and all are load-bearing:
 
 **Purpose.** Offer an automated first pass on an approval, driven by whatever `IConfidence` classification the entity already produces, surfaced through a reviewer identity — **Berean**, after Acts 17:11, "they examined the Scriptures every day to see if what Paul said was true" — rather than a generic "AI" label. Berean acts under a **system identity** (`SecurityContext.IsSystemIdentity = true`, the same concept `SecurityAuditBroker` already stamps `CreatedBy` from elsewhere in this document), not a granted role.
 
-**Settings and gating.** The three booleans in §8.2 form a strict chain: `IsAIApprovalReviewAllowed` requires `IsAIApprovalCommentAllowed`, which requires `IsAIApprovalInteractionsAllowed`. Berean may never file a review without a comment justifying it, and may never act at all with the top-level switch off. All three resolve through the normal §8.4 tiering (`(EntityType, ContentType)`), so AI participation can be enabled per content type exactly like every other approval policy.
+**Settings and gating.** The three booleans in §8.2 form a strict chain: `IsAIApprovalReviewAllowed` requires `IsAIApprovalCommentAllowed`, which requires `IsAIApprovalInteractionsAllowed`. Berean may never file a review without a comment justifying it, and may never act at all with the top-level switch off. All three resolve through the normal §8.4 tiering (`(EntityType, ContentType, IsPersonal)`), so AI participation can be enabled per content type exactly like every other approval policy.
 
 **Confidence is a single-direction scale, not a score-plus-direction pair.** High `ConfidenceScore` means agree/approve; low means disagree/reject. Given the resolved `AIApprovalConfidenceRejectionThreshold` and `AIApprovalConfidenceApprovalThreshold`:
 
@@ -2789,8 +2789,8 @@ Business Rules:
 Responsibilities:
 
 1. Subscribe to each approvable entity's **top-layer** `-Added` and `-Modified` facts, per §10.17 — the orchestration fact where one exists, the processing fact otherwise (`ContentItemProcessing-Added` / `-Modified` for `ContentItem`, `LinkProcessing-Added` / `-Modified` for `Link`). It does **not** subscribe to `-Removed`: a removal is a takedown, not a moderation step, and must never re-open or re-evaluate approval (§9.7.6).
-2. On receiving a `CreatedEvent`, check whether an approval record already exists for the entity. If none exists, create one with `ApprovalStatus = Draft` via `ApprovalService`.
-3. On receiving an `UpdatedEvent`, check whether an approval record exists for the entity. If none exists, create one with `ApprovalStatus = Draft`. If one exists, evaluate whether existing reviews must be dismissed based on the effective `ApprovalSetting.RequireReapprovalOnChange` policy.
+2. On receiving a `CreatedEvent`, check whether an approval record already exists for the entity. If none exists, create one via `ApprovalService` at the status §9.7.2 rule 1 resolves — the entity's own, which is `Submitted` for a create at `Submitted` and `Draft` otherwise.
+3. On receiving an `UpdatedEvent`, check whether an approval record exists for the entity. If none exists, create one as rule 2 does. If one exists, evaluate whether existing reviews must be dismissed based on the effective `ApprovalSetting.RequireReapprovalOnChange` policy.
 4. Orchestrate approval submission by moving `ApprovalStatus` from `Draft` to `Submitted`.
 5. React to a review or comment fact by **re-testing** whether the approval can now complete.
 

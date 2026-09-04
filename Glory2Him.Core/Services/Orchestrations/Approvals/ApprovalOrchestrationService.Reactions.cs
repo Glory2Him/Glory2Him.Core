@@ -82,6 +82,30 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 return;
             }
 
+            // AND GATED ON THE ENTITY STILL BEING IN PLAY. A round is opened at the entity's own
+            // status (§9.2 rules 1-2), and the foundation admits only Draft or Submitted on an
+            // add — so a DECIDED entity has no status this repair could legally open a round at,
+            // and opening one at Draft beneath an Approved row would write the divergence §9.8
+            // exists to forbid, permanently: the modified flow only follows the entity across
+            // the Draft/Submitted pair, so nothing would ever reconcile them again.
+            //
+            // A decided entity whose round was never recorded is a gap no read may paper over.
+            // Left unrepaired, the caller gets the honest NotFound instead of a fabricated round
+            // saying its content has not been submitted yet.
+            ApprovalStatus? entityApprovalStatus =
+                await this.accessBroker.RetrieveEntityApprovalStatusAsync(
+                    entityType: entityType,
+                    entityId: entityId,
+                    cancellationToken: cancellationToken);
+
+            bool isEntityInPlay =
+                entityApprovalStatus is ApprovalStatus.Draft or ApprovalStatus.Submitted;
+
+            if (isEntityInPlay is false)
+            {
+                return;
+            }
+
             await ProcessEntityAddedAsync(
                 entityType: entityType,
                 entityId: entityId,

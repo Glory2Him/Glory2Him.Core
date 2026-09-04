@@ -13,7 +13,10 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Foundations.Approvals;
+using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.Tags;
 using Moq;
@@ -99,6 +102,90 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
 
             // then
             actualStatus.Should().BeNull();
+        }
+
+        /// <summary>
+        /// The PERSONALITY half of the policy key (§8.4), which only an association has: it is
+        /// whether the stored row's UserId is set (§4.2). Asserted with BOTH values, because a
+        /// projection that hard-coded either would satisfy a one-sided test.
+        /// </summary>
+        [Theory]
+        [InlineData("a-user-id", true)]
+        [InlineData(null, false)]
+        public async Task ShouldCarryTheAssociationsPersonalityIntoTheDecisionAsync(
+            string associationUserId,
+            bool expectedIsPersonal)
+        {
+            // given
+            var approvalId = Guid.NewGuid();
+            var entityId = Guid.NewGuid();
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAssociationByIdAsync(entityId, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(new Association
+                    {
+                        Id = entityId,
+                        CreatedBy = GetRandomString(),
+                        UserId = associationUserId,
+                        EntityAType = EntityType.ContentItem,
+                        EntityAContentType = ContentType.Testimony,
+                        EntityBType = EntityType.Tag,
+                        EntityBContentType = null,
+                    });
+
+            SetupApprovalById(new Approval
+            {
+                Id = approvalId,
+                EntityType = EntityType.Association,
+                EntityId = entityId,
+                ApprovalStatus = ApprovalStatus.Submitted,
+            });
+
+            // when
+            await this.accessBroker.MayDecideApprovalByIdAsync(
+                approvalId: approvalId,
+                decision: ApprovalDecision.Approve,
+                isBypassRequested: false,
+                bypassReason: null,
+                securityContext: CreateAuthenticatedSecurityContext(),
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            this.capturedDecideApprovalRequest.IsPersonal.Should().Be(expectedIsPersonal);
+        }
+
+        /// <summary>
+        /// Every other entity type has no personality at all, and null is that fact — never
+        /// "editorial". A personality row must not match a content item.
+        /// </summary>
+        [Fact]
+        public async Task ShouldCarryNoPersonalityForAnEntityThatHasNoneAsync()
+        {
+            // given
+            var approvalId = Guid.NewGuid();
+            var entityId = Guid.NewGuid();
+
+            SetupEntityAuthor(EntityType.ContentItem, entityId, GetRandomString());
+
+            SetupApprovalById(new Approval
+            {
+                Id = approvalId,
+                EntityType = EntityType.ContentItem,
+                EntityId = entityId,
+                ApprovalStatus = ApprovalStatus.Submitted,
+            });
+
+            // when
+            await this.accessBroker.MayDecideApprovalByIdAsync(
+                approvalId: approvalId,
+                decision: ApprovalDecision.Approve,
+                isBypassRequested: false,
+                bypassReason: null,
+                securityContext: CreateAuthenticatedSecurityContext(),
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            this.capturedDecideApprovalRequest.IsPersonal.Should().BeNull();
         }
     }
 }

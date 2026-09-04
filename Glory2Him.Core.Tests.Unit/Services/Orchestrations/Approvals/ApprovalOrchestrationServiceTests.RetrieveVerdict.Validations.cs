@@ -486,6 +486,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(entityAuthorUserId);
 
+            // The repair is gated on the entity still being IN PLAY as well as existing: a
+            // decided row has no status a round could legally be opened at (§9.2 rules 1-2).
+            SetupEntityApprovalStatus(inputEntityType, inputEntityId, ApprovalStatus.Draft);
+
             // Born Draft, so the added flow stops there (§9.7.3 rule 1) — which is the behaviour
             // under test, not the round's own outcome.
             var openedApproval = new Approval

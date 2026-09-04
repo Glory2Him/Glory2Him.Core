@@ -25,21 +25,30 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                 tableBuilder =>
                 {
                     // design §8.4: ContentType may be populated only when EntityType = ContentItem
+                    //
+                    // THE `IS NOT NULL` TERM IS LOAD-BEARING, and was not needed while EntityType
+                    // was NOT NULL. A CHECK constraint passes on UNKNOWN, and `NULL = N'ContentItem'`
+                    // is UNKNOWN — so the moment the global tier made EntityType nullable, the
+                    // right-hand side stopped refusing anything and a row could be stored naming a
+                    // content type under no entity type at all. Nothing downstream would resolve
+                    // it, and it would hold the single global-default slot while doing so.
                     tableBuilder.HasCheckConstraint(
                         name: "CK_ApprovalSetting_ContentTypeRequiresContentItem",
                         sql:
                             $"({nameof(ApprovalSetting.ContentType)} IS NULL OR " +
-                            $"{nameof(ApprovalSetting.EntityType)} = N'{nameof(EntityType.ContentItem)}')");
+                            $"({nameof(ApprovalSetting.EntityType)} IS NOT NULL AND " +
+                            $"{nameof(ApprovalSetting.EntityType)} = N'{nameof(EntityType.ContentItem)}'))");
 
                     // design §8.4: IsPersonal may be populated only when EntityType = Association.
                     // The same shape as the constraint above, for the same reason — the
                     // personality of a row is a property of an association's UserId (§4.2) and
-                    // means nothing on any other entity type.
+                    // means nothing on any other entity type — and null-safe for the same reason.
                     tableBuilder.HasCheckConstraint(
                         name: "CK_ApprovalSetting_IsPersonalRequiresAssociation",
                         sql:
                             $"({nameof(ApprovalSetting.IsPersonal)} IS NULL OR " +
-                            $"{nameof(ApprovalSetting.EntityType)} = N'{nameof(EntityType.Association)}')");
+                            $"({nameof(ApprovalSetting.EntityType)} IS NOT NULL AND " +
+                            $"{nameof(ApprovalSetting.EntityType)} = N'{nameof(EntityType.Association)}'))");
                 });
 
             model.HasKey(approvalSetting => approvalSetting.Id);
