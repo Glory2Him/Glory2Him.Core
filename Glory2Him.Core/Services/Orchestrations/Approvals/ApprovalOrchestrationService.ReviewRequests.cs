@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -388,6 +388,21 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                     entityType: entityType,
                     entityId: entityId,
                     cancellationToken: cancellationToken);
+
+            // The same repair the verdict does, for the same reason: the picker and the
+            // outstanding-requests list both key on the approval, so an entity whose round was
+            // never opened answers NotFound to a moderator who can do nothing about it. Asked
+            // only when there is nothing there — a repair is the exception, and running its
+            // entity probe on every healthy read would buy a storage round trip per call.
+            if (maybeMatch is null)
+            {
+                await RepairMissingApprovalAsync(entityType, entityId, cancellationToken);
+
+                maybeMatch = await this.approvalService.FindApprovalByEntityAsync(
+                    entityType: entityType,
+                    entityId: entityId,
+                    cancellationToken: cancellationToken);
+            }
 
             ValidateStorageApprovalExists(maybeMatch, entityType, entityId);
 

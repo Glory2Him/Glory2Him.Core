@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -49,6 +49,44 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                     approval: approval,
                     cancellationToken: cancellationToken);
             });
+
+        // THE ROUND THAT WAS NEVER OPENED. Every read here keys on the Approval, so an entity
+        // without one answers NotFound to a caller who can do nothing about it — and two ways in
+        // leave entities in exactly that state. Seed data is written straight to the storage
+        // broker, so no fact is ever published for it; and a fact that does not land leaves the
+        // same gap for content contributed through the API.
+        //
+        // RE-RUNNING THE ADDED FLOW is the repair rather than inserting the missing row,
+        // because the row alone is not what was lost: §9.7.3 resolves the approval AND evaluates
+        // it, so a round that should already have auto-approved does so now instead of sitting
+        // open forever behind a record nobody processed. ResolveApprovalAsync is a
+        // retrieve-or-add against a stable key (§9.7.2), so running it twice costs a read.
+        //
+        // GATED ON THE ENTITY EXISTING, and that gate is not optional. ProcessEntityAddedAsync
+        // validates the SHAPE of its arguments and nothing else, while the reads that call this
+        // take an entity id straight off a route — so without the probe a caller could mint an
+        // approval for any GUID they cared to ask about. RetrieveEntityAuthorAsync is the one
+        // read that knows which table an EntityType points at, which is exactly the question.
+        private async ValueTask RepairMissingApprovalAsync(
+            EntityType entityType,
+            Guid entityId,
+            CancellationToken cancellationToken)
+        {
+            string entityAuthorUserId = await this.accessBroker.RetrieveEntityAuthorAsync(
+                entityType: entityType,
+                entityId: entityId,
+                cancellationToken: cancellationToken);
+
+            if (string.IsNullOrWhiteSpace(entityAuthorUserId))
+            {
+                return;
+            }
+
+            await ProcessEntityAddedAsync(
+                entityType: entityType,
+                entityId: entityId,
+                cancellationToken: cancellationToken);
+        }
 
         // Reads the conditions and evaluates against them. Every caller that has NOT just
         // changed the review set uses this; the modified flow reads twice on purpose.

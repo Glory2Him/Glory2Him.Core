@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -108,6 +108,20 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                         entityType: entityType,
                         entityId: entityId,
                         cancellationToken: cancellationToken);
+
+                // A round that was never opened is repaired rather than reported: the caller
+                // asked what may happen to this approval, and "there isn't one" is an answer
+                // they can do nothing with. Re-probed afterwards rather than trusted, so a
+                // repair that could not run still ends in the honest NotFound.
+                if (maybeMatch is null)
+                {
+                    await RepairMissingApprovalAsync(entityType, entityId, cancellationToken);
+
+                    maybeMatch = await this.approvalService.FindApprovalByEntityAsync(
+                        entityType: entityType,
+                        entityId: entityId,
+                        cancellationToken: cancellationToken);
+                }
 
                 ValidateStorageApprovalExists(maybeMatch, entityType, entityId);
 
