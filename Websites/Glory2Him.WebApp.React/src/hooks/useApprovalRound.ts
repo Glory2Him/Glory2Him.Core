@@ -20,10 +20,11 @@ import {
 // a round would otherwise write the same chain out again.
 //
 // THE CHAIN IS NOT A CHOICE. Only the verdict knows the approval's id: an ApprovalReview names
-// the approval it belongs to and nothing about the post it judges. So the verdict is read first,
-// the reviews wait on the id it returns, and the reviewer names wait on the account ids those
-// reviews carry. Two of the four reads are independent of that chain — the candidates and the
-// outstanding requests are asked per ENTITY — and they start immediately alongside it.
+// the approval it belongs to and nothing about the post it judges. So the verdict is read first
+// and the reviews wait on the id it returns. The other three reads are independent of that
+// chain — the candidates, the outstanding requests and the reviewer names are all asked per
+// ENTITY, the names because the server resolves who a round involved for itself — and they
+// start immediately alongside it.
 //
 // A REFUSAL IS AN ANSWER HERE. A post with no approval row 404s, and so does a caller outside
 // the moderation tier (§14.5 rule 1, so the endpoint cannot be used to probe what exists). Both
@@ -51,14 +52,10 @@ export const useApprovalRound = (
     const { data: reviewRequests } =
         approvalService.useGetReviewRequests(entityType, entityId, enabled);
 
-    // Every reviewer named ONCE, however many rows they hold. The read is by id, so asking for
-    // the same id twice would buy nothing and lengthen the URL.
-    const reviewerUserIds = useMemo(
-        () => Array.from(new Set((approvalReviews ?? []).map((review) => review.createdBy))),
-        [approvalReviews]);
-
+    // The names of everybody the round involved, resolved server-side off the round itself —
+    // so nothing here gathers ids off the reviews, and the read does not wait on them.
     const { data: reviewerDisplayNames } =
-        approvalService.useGetReviewerDisplayNames(reviewerUserIds, enabled);
+        approvalService.useGetReviewerDisplayNames(entityType, entityId, enabled);
 
     const approvalReviewCollection: ReadonlyArray<ApprovalReviewItem> = useMemo(
         () => (approvalReviews ?? []).map(
@@ -90,6 +87,11 @@ export const useApprovalRound = (
     return {
         approvalVerdict: approvalVerdictItem,
         approvalReviewCollection,
+
+        // THE ROWS THEMSELVES, beside their projection: a changed vote is a PUT of the row that
+        // was read (§7.7 rule 1), audit fields and all, and the projection deliberately carries
+        // none of that.
+        approvalReviews: approvalReviews ?? [],
         requestedReviewerCollection,
         reviewerCandidateCollection,
         isLoading

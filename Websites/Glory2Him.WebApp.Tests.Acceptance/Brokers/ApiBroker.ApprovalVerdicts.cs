@@ -36,6 +36,32 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
                 $"{approvalsRelativeUrl}/{entityType}/{entityId}/Verdict");
 
         /// <summary>
+        /// The decision (§16.7.3), keyed by the entity like the verdict. Everything rides the
+        /// query string, and the bypass is a REQUEST the outcome answers — what lands on the
+        /// row is decided against the policy and the caller's tier, never copied from here.
+        /// </summary>
+        public async ValueTask<ApprovalOutcome> PostApprovalDecisionAsync(
+            EntityType entityType,
+            Guid entityId,
+            string decision,
+            bool isBypassRequested = false,
+            string bypassReason = null)
+        {
+            string url =
+                $"{approvalsRelativeUrl}/{entityType}/{entityId}/Decision"
+                    + $"?decision={decision}&isBypassRequested={isBypassRequested}";
+
+            if (string.IsNullOrWhiteSpace(bypassReason) is false)
+            {
+                url += $"&bypassReason={Uri.EscapeDataString(bypassReason)}";
+            }
+
+            return await this.apiFactoryClient.PostContentAsync<object, ApprovalOutcome>(
+                url,
+                content: new object());
+        }
+
+        /// <summary>
         /// Unfiltered on purpose, like the orchestration's own probe (§9.7.2 rule 3): the key
         /// is occupied by a soft-deleted approval too, and a teardown has to reach it.
         /// </summary>
