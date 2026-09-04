@@ -66,16 +66,14 @@ class ApprovalBroker {
         return result.data as ApprovalReviewRequest[];
     }
 
-    // The names behind the account ids a review row carries — ONE round trip for the whole
-    // round, repeating the parameter rather than joining on a comma, which is how the host's
-    // string[] binder reads a query array and what keeps a name containing one intact.
+    // The names behind the account ids a review row carries — KEYED ON THE ROUND, like every
+    // other read on this controller. The server answers with exactly the people the round
+    // involved (every recorded review, every outstanding invitation) and takes no ids from
+    // the caller: which accounts may be named is the round's business, not the client's.
     async GetReviewerDisplayNamesAsync(
-        userIds: ReadonlyArray<string>): Promise<ReviewerDisplayName[]> {
-        const query = userIds
-            .map((userId) => `userIds=${encodeURIComponent(userId)}`)
-            .join('&');
-
-        const url = `${this.relativeApprovalsUrl}/ReviewerDisplayNames?${query}`;
+        entityType: EntityTypeName,
+        entityId: string): Promise<ReviewerDisplayName[]> {
+        const url = `${this.relativeApprovalsUrl}/${entityType}/${entityId}/ReviewerDisplayNames`;
         const result = await this.apiBroker.GetAsync(url);
 
         return result.data as ReviewerDisplayName[];

@@ -93,17 +93,21 @@ export const approvalService = {
         });
     },
 
-    // The ids are the KEY as well as the argument, sorted so the same set asked in a different
-    // order is the same cache entry rather than a second round trip for the same answer.
-    useGetReviewerDisplayNames: (userIds: ReadonlyArray<string>, enabled = true) => {
+    // Keyed on the ROUND like the candidates and requests beside it: the server names exactly
+    // the people the round involved, so there are no ids to gather first and the read starts
+    // alongside the verdict rather than waiting on the reviews. Its errors stay quiet: a
+    // missing name is rendered as the panel's fallback, never as a broken round.
+    useGetReviewerDisplayNames: (
+        entityType: EntityTypeName,
+        entityId: string,
+        enabled = true) => {
         const approvalBroker = new ApprovalBroker();
-        const sortedUserIds = [...userIds].sort();
 
         return useQuery<ReviewerDisplayName[]>({
-            queryKey: ['ReviewerDisplayNames', sortedUserIds],
+            queryKey: ['ReviewerDisplayNames', entityType, entityId],
             queryFn: async () =>
-                await approvalBroker.GetReviewerDisplayNamesAsync(sortedUserIds),
-            enabled: enabled && sortedUserIds.length > 0,
+                await approvalBroker.GetReviewerDisplayNamesAsync(entityType, entityId),
+            enabled: enabled && entityId.length > 0,
             retry: false,
             meta: { suppressGlobalErrorToast: true },
             staleTime: approvalStaleTime
@@ -225,9 +229,11 @@ export const approvalService = {
     }
 };
 
-// The four reads a round is made of, by prefix: the verdict and the candidates and requests
-// are keyed by entity, the reviews by approval. Prefix-matched rather than reconstructed, so a
-// write that knows only the approval's id still reaches the entity-keyed reads.
+// The five reads a round is made of, by prefix: the verdict, the candidates, the requests and
+// the reviewer names are keyed by entity, the reviews by approval. Prefix-matched rather than
+// reconstructed, so a write that knows only the approval's id still reaches the entity-keyed
+// reads. The names are in the set because a first vote or a fresh invitation adds a person the
+// round did not involve before, and the panel must name them the moment their row lands.
 const invalidateRound = (
     queryClient: ReturnType<typeof useQueryClient>,
     approvalId: string) => {
@@ -235,4 +241,5 @@ const invalidateRound = (
     queryClient.invalidateQueries({ queryKey: ['ApprovalReviews', approvalId] });
     queryClient.invalidateQueries({ queryKey: ['ReviewerCandidates'] });
     queryClient.invalidateQueries({ queryKey: ['ReviewRequests'] });
+    queryClient.invalidateQueries({ queryKey: ['ReviewerDisplayNames'] });
 };

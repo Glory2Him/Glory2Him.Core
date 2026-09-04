@@ -99,8 +99,9 @@ export type ApprovalReviewRequest = {
     isDeleted: boolean;
 };
 
-// GET api/Approvals/ReviewerDisplayNames?userIds=… — the names behind the account ids a review
-// row carries. Asked in one round trip for the whole round rather than one per reviewer.
+// GET api/Approvals/{entityType}/{entityId}/ReviewerDisplayNames — the names behind the account
+// ids a review row carries, for everybody the round involved. Asked in one round trip keyed on
+// the round rather than on ids the client gathered.
 export type ReviewerDisplayName = {
     userId: string;
     displayName: string;

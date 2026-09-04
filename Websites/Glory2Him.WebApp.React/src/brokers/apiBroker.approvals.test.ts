@@ -63,19 +63,19 @@ describe('ApprovalBroker', () => {
         expect(requestedUrl()).toBe('/api/approvals/ContentItem/item-1/ReviewRequests');
     });
 
-    /// ONE round trip for the whole round, and the parameter REPEATED rather than joined on a
-    /// comma: that is how the host's string[] binder reads a query array, and it is what keeps
-    /// an id containing a comma from being read as two.
-    it('should ask for every reviewer name in one request', async () => {
+    /// ONE round trip for the whole round, keyed on the ROUND rather than on ids the client
+    /// gathered: the server decides who a round involves, so the client hands it the entity
+    /// and nothing else — the retired id-keyed form is what left every reviewer Unknown.
+    it('should ask for every reviewer name in one request keyed on the round', async () => {
         // when
         await new ApprovalBroker()
-            .GetReviewerDisplayNamesAsync(['user-john', 'user-mary']);
+            .GetReviewerDisplayNamesAsync(EntityTypeName.ContentItem, 'item-1');
 
         // then
         expect(getAsync).toHaveBeenCalledTimes(1);
 
         expect(requestedUrl()).toBe(
-            '/api/approvals/ReviewerDisplayNames?userIds=user-john&userIds=user-mary');
+            '/api/approvals/ContentItem/item-1/ReviewerDisplayNames');
     });
 
     // ── Writes ────────────────────────────────────────────────────────────────
