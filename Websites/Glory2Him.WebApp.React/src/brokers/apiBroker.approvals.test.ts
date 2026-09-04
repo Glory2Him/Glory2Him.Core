@@ -80,24 +80,29 @@ describe('ApprovalBroker', () => {
 
     // ── Writes ────────────────────────────────────────────────────────────────
 
-    it('should post a vote as a review row to the foundation collection', async () => {
+    /// The audit fields are the SERVER's to stamp, and an empty one is refused in model binding
+    /// before any service sees the row — so the vote carries none. Asserted as the exact body,
+    /// not a subset, because a stray `createdWhen: ''` is precisely the regression.
+    it('should post a vote as a review row carrying no audit fields', async () => {
         // when
         await new ApprovalBroker().PostApprovalReviewAsync({
             id: 'review-1',
             approvalId: 'approval-1',
             statusId: 2,
             comment: '',
-            createdBy: '',
-            createdWhen: '',
-            updatedBy: '',
-            updatedWhen: '',
             isDeleted: false
         });
 
-        // then: the plain collection, the row in the body
+        // then: the plain collection, and ONLY what the client is entitled to say
         expect(postAsync.mock.calls[0][0]).toBe('/api/approvalreviews');
-        expect(postAsync.mock.calls[0][1]).toEqual(
-            expect.objectContaining({ id: 'review-1', approvalId: 'approval-1', statusId: 2 }));
+
+        expect(postAsync.mock.calls[0][1]).toEqual({
+            id: 'review-1',
+            approvalId: 'approval-1',
+            statusId: 2,
+            comment: '',
+            isDeleted: false
+        });
     });
 
     /// A changed vote amends the row that was read: the exposer routes on the body's id, and

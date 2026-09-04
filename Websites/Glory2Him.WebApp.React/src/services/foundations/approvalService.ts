@@ -142,10 +142,6 @@ export const approvalService = {
                     approvalId: request.approvalId,
                     statusId: request.vote,
                     comment: '',
-                    createdBy: '',
-                    createdWhen: '',
-                    updatedBy: '',
-                    updatedWhen: '',
                     isDeleted: false
                 })
                 : await approvalBroker.PutApprovalReviewAsync({

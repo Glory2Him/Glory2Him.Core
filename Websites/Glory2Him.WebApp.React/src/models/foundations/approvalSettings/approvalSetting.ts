@@ -120,6 +120,38 @@ export type ApprovalSetting = {
     isDeleted: boolean;
 };
 
+// POST api/ApprovalSettings — a new row as the client is entitled to compose it: the scope and
+// the policy, with an id of its own, and NO audit fields. The server stamps those from the
+// caller's identity before validating, and an empty string in a DateTimeOffset is refused in
+// model binding before any service sees the row — with a body that names no message.
+export type ApprovalSettingAddRequest = Omit<
+    ApprovalSetting,
+    'createdBy' | 'createdWhen' | 'updatedBy' | 'updatedWhen'>;
+
+// The create form edits a whole ApprovalSetting (it is also the edit form), so the audit
+// fields it carries are blanks. PICKED rather than spread-and-omitted: a field added to the
+// entity later lands here as a compile error to decide about, not as a value quietly sent.
+export const toApprovalSettingAddRequest = (
+    approvalSetting: ApprovalSetting): ApprovalSettingAddRequest => ({
+    id: approvalSetting.id,
+    entityType: approvalSetting.entityType,
+    contentType: approvalSetting.contentType,
+    isPersonal: approvalSetting.isPersonal,
+    requireApprovals: approvalSetting.requireApprovals,
+    requiredNumberOfApprovals: approvalSetting.requiredNumberOfApprovals,
+    autoApproveIfAllApprovalRequirementsMet: approvalSetting.autoApproveIfAllApprovalRequirementsMet,
+    allowSelfApproval: approvalSetting.allowSelfApproval,
+    blockOnReject: approvalSetting.blockOnReject,
+    blockOnZeroApprovalScore: approvalSetting.blockOnZeroApprovalScore,
+    requireReapprovalOnChange: approvalSetting.requireReapprovalOnChange,
+
+    requireReviewCommentResolutionBeforeApprovals:
+        approvalSetting.requireReviewCommentResolutionBeforeApprovals,
+
+    doNotAllowBypassingSettings: approvalSetting.doNotAllowBypassingSettings,
+    isDeleted: approvalSetting.isDeleted
+});
+
 // What a NEW row opens on: the HOUSE POLICY, the same nine values ApprovalSettingSeedData writes
 // for every entity-type default. A content-type row an administrator adds narrows a seeded
 // default, so it opens matching that default and the administrator changes only what they

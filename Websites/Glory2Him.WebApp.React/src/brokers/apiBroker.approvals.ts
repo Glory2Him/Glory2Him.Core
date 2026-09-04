@@ -3,6 +3,7 @@ import ApiBroker from './apiBroker';
 import {
     ApprovalOutcome,
     ApprovalReview,
+    ApprovalReviewAddRequest,
     ApprovalReviewRequest,
     ApprovalVerdict,
     EntityTypeName,
@@ -83,9 +84,11 @@ class ApprovalBroker {
     // ── Writes ────────────────────────────────────────────────────────────────
 
     // A VOTE IS A ROW. The id travels in the body, minted by the caller — the foundation
-    // refuses an empty Guid and never generates one — and the audit fields are stamped
-    // server-side from the caller's own identity, so nothing here claims who the reviewer is.
-    async PostApprovalReviewAsync(approvalReview: ApprovalReview): Promise<ApprovalReview> {
+    // refuses an empty Guid and never generates one — and the audit fields do NOT travel at
+    // all: the server stamps them from the caller's own identity, and an empty one is refused
+    // in model binding before any service sees the row (see ApprovalReviewAddRequest).
+    async PostApprovalReviewAsync(
+        approvalReview: ApprovalReviewAddRequest): Promise<ApprovalReview> {
         const result = await this.apiBroker.PostAsync(
             this.relativeApprovalReviewsUrl, approvalReview);
 

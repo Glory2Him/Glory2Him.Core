@@ -4,7 +4,8 @@ import ApprovalSettingBroker from './apiBroker.approvalSettings';
 
 import {
     ApprovalSetting,
-    EntityType
+    EntityType,
+    toApprovalSettingAddRequest
 } from '../models/foundations/approvalSettings/approvalSetting';
 
 // THE ADDRESSES api/ApprovalSettings ACTUALLY ANSWERS ON. None of these are visible on screen,
@@ -14,6 +15,7 @@ import {
 vi.mock('axios');
 
 const getAsync = vi.mocked(axios.get);
+const postAsync = vi.mocked(axios.post);
 const putAsync = vi.mocked(axios.put);
 const deleteAsync = vi.mocked(axios.delete);
 
@@ -47,6 +49,7 @@ describe('ApprovalSettingBroker', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         getAsync.mockResolvedValue({ data: [] } as never);
+        postAsync.mockResolvedValue({ data: approvalSetting } as never);
         putAsync.mockResolvedValue({ data: approvalSetting } as never);
         deleteAsync.mockResolvedValue({ data: approvalSetting } as never);
     });
@@ -70,6 +73,26 @@ describe('ApprovalSettingBroker', () => {
 
             // then
             expect(requestedUrl(getAsync)).toContain('$orderby=entityType,contentType');
+        });
+    });
+
+    describe('creating one', () => {
+        /// Asserted as the exact body: a stray `createdWhen: ''` is refused in model binding
+        /// before any service sees the row, and that is precisely the regression.
+        it('should post the scope and the policy and nothing about who or when', async () => {
+            // given
+            const addRequest = toApprovalSettingAddRequest(approvalSetting);
+
+            // when
+            await new ApprovalSettingBroker().AddApprovalSettingAsync(addRequest);
+
+            // then
+            expect(postAsync.mock.calls[0][0]).toBe('/api/approvalsettings');
+            expect(postAsync.mock.calls[0][1]).toEqual(addRequest);
+
+            for (const auditField of ['createdBy', 'createdWhen', 'updatedBy', 'updatedWhen']) {
+                expect(postAsync.mock.calls[0][1]).not.toHaveProperty(auditField);
+            }
         });
     });
 

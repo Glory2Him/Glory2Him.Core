@@ -59,6 +59,16 @@ export type ApprovalReview = {
     isDeleted: boolean;
 };
 
+// POST api/ApprovalReviews — a vote as the client composes it. NO AUDIT FIELDS, and that is
+// the contract rather than a convenience: the server stamps CreatedBy/When and UpdatedBy/When
+// from the caller's own identity (ApplyAddAuditValuesAsync) before it validates anything, so a
+// client has nothing true to put there — and an empty string in a DateTimeOffset is refused in
+// model binding, before the service ever sees the row, with a body that names no message. The
+// id IS the client's: the foundation refuses an empty Guid and never mints one.
+export type ApprovalReviewAddRequest = Pick<
+    ApprovalReview,
+    'id' | 'approvalId' | 'statusId' | 'comment' | 'isDeleted'>;
+
 // POST api/Approvals/{entityType}/{entityId}/Decision — what the round became. The entity's
 // own status follows through the workflow's transition command rather than in this response,
 // which is why a decision invalidates the item's reads as well as the round's.

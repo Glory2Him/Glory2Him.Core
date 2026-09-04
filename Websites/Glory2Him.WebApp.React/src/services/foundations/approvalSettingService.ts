@@ -1,6 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import ApprovalSettingBroker from '../../brokers/apiBroker.approvalSettings';
-import { ApprovalSetting } from '../../models/foundations/approvalSettings/approvalSetting';
+import {
+    ApprovalSetting,
+    toApprovalSettingAddRequest
+} from '../../models/foundations/approvalSettings/approvalSetting';
 
 // The §8.4 policy rows behind the approval evaluation. Every write invalidates the whole slice
 // AND the approval reads that resolve against it: changing how many approvals a content type
@@ -57,7 +60,8 @@ export const approvalSettingService = {
             meta: { suppressGlobalErrorToast: true },
 
             mutationFn: async (approvalSetting: ApprovalSetting) =>
-                await approvalSettingBroker.AddApprovalSettingAsync(approvalSetting),
+                await approvalSettingBroker.AddApprovalSettingAsync(
+                    toApprovalSettingAddRequest(approvalSetting)),
 
             onSuccess: (_, approvalSetting) =>
                 invalidateApprovalSettings(queryClient, approvalSetting.id)
