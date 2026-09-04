@@ -71,6 +71,13 @@ section.g2h-review-panel {
     top: 0;
 }
 
+/* The template's .dropdown-item is nowrap, which is right for a one-word menu and wrong for the
+   two-line rows here: a description such as "Approve this item based on the reviewer votes"
+   ran out of the menu and off the card. Every row in this panel wraps to the width it has. */
+.g2h-review-panel .dropdown-item {
+    white-space: normal;
+}
+
 /* The template capitalises every .dropdown-item, which mangles a name it does not own —
    "Christo du Toit" becomes "Christo Du Toit", and a suggestion reason becomes Title Case.
    A person's name is theirs as they typed it, so the rows opt out. */
