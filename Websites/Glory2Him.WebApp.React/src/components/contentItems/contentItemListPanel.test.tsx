@@ -353,6 +353,39 @@ describe('ContentItemListPanel', () => {
             expect(screen.queryByText('#grace')).not.toBeInTheDocument();
         });
 
+        // The list answers allowTitleClick for itself, and the other way from
+        // ContentItemPanel: a listed title is the way into the detail surface, so it is ON
+        // here by default and threads to every card.
+        it('should let a listed title lead to the detail by default', async () => {
+            const onTitleClick = vi.fn();
+
+            render(
+                <ContentItemListPanel
+                    contentItemCollection={[devotionalItem]}
+                    onTitleClick={onTitleClick}
+                    showSearchBar={false} />);
+
+            await userEvent.click(
+                screen.getByRole('button', { name: 'Walking daily in grace' }));
+
+            expect(onTitleClick).toHaveBeenCalledWith(devotionalItem);
+        });
+
+        it('should stand every title as plain text when the list disallows the click', () => {
+            render(
+                <ContentItemListPanel
+                    contentItemCollection={[devotionalItem]}
+                    allowTitleClick={false}
+                    onTitleClick={vi.fn()}
+                    showSearchBar={false} />);
+
+            expect(screen.getByRole('heading', { name: 'Walking daily in grace' }))
+                .toBeInTheDocument();
+
+            expect(screen.queryByRole('button', { name: 'Walking daily in grace' }))
+                .not.toBeInTheDocument();
+        });
+
         // The list answers editButtonText for itself. A listed card's pencil is a NAVIGATION,
         // so it says View; ContentItemPanel on its own opens an editor and keeps Edit, which
         // its own tests pin. One button, named for what it does on each surface.

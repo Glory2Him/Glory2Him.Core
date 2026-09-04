@@ -973,7 +973,9 @@ export function ReviewPanel({
                             <div>
                                 <span className="fw-bold d-block">{blockedTitleText}</span>
                                 {approvalVerdict?.blockReasons.map((reason) => (
-                                    <span className="small text-muted d-block" key={reason.code}>
+                                    <span
+                                        className="small d-block g2h-review-block-reason"
+                                        key={reason.code}>
                                         {reason.message}
                                     </span>
                                 ))}

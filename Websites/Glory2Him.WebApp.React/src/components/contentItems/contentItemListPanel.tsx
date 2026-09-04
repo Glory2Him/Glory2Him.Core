@@ -82,6 +82,12 @@ export interface ContentItemListPanelProps
     // On, Moderate stands alone on every card, wearing Edit's pencil and label.
     showModerationSection?: boolean;
 
+    // Whether every card's title is the way into the detail surface. ON BY DEFAULT — the
+    // opposite of ContentItemPanel's default, and deliberately: a listed title leads to the
+    // detail, while a panel standing alone already is the detail and its title leads
+    // nowhere. Off, every title stands as plain heading text even with onTitleClick wired.
+    allowTitleClick?: boolean;
+
     // Whether every card wears a corner ribbon naming its approval status: grey Draft,
     // yellow Submitted, green Approved, red Rejected — the colours in contentItems.css,
     // keyed by data-approval-status. Off by default.
@@ -127,6 +133,7 @@ export function ContentItemListPanel({
     onLoadMore,
     reactionOptions = [],
     showModerationSection = false,
+    allowTitleClick = true,
     showApprovalStatusRibbon = false,
     showApprovalStatus = false,
     cssClass = '',
@@ -256,6 +263,7 @@ export function ContentItemListPanel({
                 contentItemCollection={contentItemCollection}
                 reactionOptions={reactionOptions}
                 showModerationSection={showModerationSection}
+                allowTitleClick={allowTitleClick}
                 showApprovalStatusRibbon={showApprovalStatusRibbon}
                 showApprovalStatus={showApprovalStatus}
 

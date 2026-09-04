@@ -356,6 +356,16 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
             + 'moderation, the moderation action is simply what editing means there.'
     },
     {
+        name: 'allowTitleClick',
+        type: 'boolean',
+        defaultValue: 'true',
+        description: 'Whether every card’s title — the quote or verse on the faces without '
+            + 'one — is the way into the detail surface. On by default here, the opposite of '
+            + 'Content Item Panel’s default: a listed title leads to the detail, while a '
+            + 'panel standing alone already is the detail. Off, titles stand as plain heading '
+            + 'text even with onTitleClick wired.'
+    },
+    {
         name: 'showTagSection / showBibleReferenceSection / showReactionSection / '
             + 'showCommentsSection / showShareSection / showSaveSection',
         type: 'boolean',
@@ -415,6 +425,7 @@ export function ContentItemListPanelDoc() {
     const [playgroundSecurityContext, setPlaygroundSecurityContext] =
         useState(securityContextOptions[0]);
     const [playgroundShowModerationSection, setPlaygroundShowModerationSection] = useState(false);
+    const [playgroundAllowsTitleClick, setPlaygroundAllowsTitleClick] = useState(true);
     const [playgroundShowsRibbons, setPlaygroundShowsRibbons] = useState(false);
     const [playgroundShowsStatus, setPlaygroundShowsStatus] = useState(true);
     const [playgroundShowsContentExpanded, setPlaygroundShowsContentExpanded] =
@@ -660,6 +671,13 @@ export function ContentItemListPanelDoc() {
                         onChange: setPlaygroundShowModerationSection
                     },
                     {
+                        name: 'search-title-click',
+                        label: 'allowTitleClick (titles lead to the detail)',
+                        defaultValue: true,
+                        value: playgroundAllowsTitleClick,
+                        onChange: setPlaygroundAllowsTitleClick
+                    },
+                    {
                         name: 'search-ribbons',
                         label: 'showApprovalStatusRibbon (status corner ribbons)',
                     defaultValue: false,
@@ -712,6 +730,8 @@ export function ContentItemListPanelDoc() {
                             categorySettingCollection={demoSettings}
                             showSearchBar={playgroundShowsSearchBar}
                             showModerationSection={playgroundShowModerationSection}
+                            allowTitleClick={playgroundAllowsTitleClick}
+                            onTitleClick={(item) => setLastEvent(`onTitleClick(${item.id})`)}
                             showApprovalStatusRibbon={playgroundShowsRibbons}
                             showApprovalStatus={playgroundShowsStatus}
                             showContentExpanded={playgroundShowsContentExpanded}

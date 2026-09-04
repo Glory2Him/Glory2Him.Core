@@ -22,7 +22,8 @@ export interface ContentItemEvents {
     onContentTypeClick?: (item: ContentItemSearchItem) => void;
 
     // The way into the detail surface — WHICH detail surface is the page's decision: public
-    // detail, my-content detail, or moderation detail.
+    // detail, my-content detail, or moderation detail. Whether the title is a way in AT ALL
+    // is the surface's decision (allowTitleClick): a list allows it, a detail view does not.
     onTitleClick?: (item: ContentItemSearchItem) => void;
 
     // Sets the submitted-by criterion to this item's submitter.
@@ -133,6 +134,12 @@ export interface ContentItemTemplateProps
     showsModerateButton: boolean;
     moderateButtonIconCss: string;
     moderateButtonLabel: string;
+
+    // Whether the title (the quote or verse, on the faces that have no title) is a CONTROL:
+    // resolved by the dispatching panel from its allowTitleClick prop. A template renders
+    // the button only when this is on AND onTitleClick is listening; otherwise plain heading
+    // text, with no underline — a detail surface's title leads nowhere.
+    allowTitleClick: boolean;
 
     // Whether the card wears its approval-status corner ribbon — the surface's opt-in,
     // threaded down from ContentItemListPanel.
