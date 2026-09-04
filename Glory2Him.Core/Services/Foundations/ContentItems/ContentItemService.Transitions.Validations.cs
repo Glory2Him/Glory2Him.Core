@@ -314,6 +314,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     // A content item has no confidence score — that is an association's input.
                     // The decision engine treats a null score as "no score to weigh".
                     ConfidenceScore = null,
+                    IsPersonal = null,
 
                     Decision = contentItem.ApprovalStatus == ApprovalStatus.Rejected
                         ? ApprovalDecision.Reject

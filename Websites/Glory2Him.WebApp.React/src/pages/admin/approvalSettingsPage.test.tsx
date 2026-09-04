@@ -36,6 +36,7 @@ const createApprovalSetting = (
         id: settingId,
         entityType: EntityType.ContentItem,
         contentType: null,
+        isPersonal: null,
         requireApprovals: true,
         requiredNumberOfApprovals: 2,
         autoApproveIfAllApprovalRequirementsMet: false,
@@ -122,6 +123,40 @@ describe('ApprovalSettingsPage', () => {
             // then
             expect(screen.getByText('Testimony')).toBeInTheDocument();
             expect(screen.queryByText('Default for the entity type')).not.toBeInTheDocument();
+        });
+
+        it('should call the row with no entity type the global default', () => {
+            // given: the tier every entity-type default narrows
+            approvalSettings = [createApprovalSetting({ entityType: null })];
+
+            // when
+            renderPageAt();
+
+            // then
+            expect(screen.getByText('Every entity type')).toBeInTheDocument();
+            expect(screen.getByText('The global default')).toBeInTheDocument();
+        });
+
+        it('should say which associations a personality row governs', () => {
+            // given
+            approvalSettings = [
+                createApprovalSetting({
+                    entityType: EntityType.Association,
+                    isPersonal: true
+                }),
+                createApprovalSetting({
+                    id: '22222222-2222-2222-2222-222222222222',
+                    entityType: EntityType.Association,
+                    isPersonal: false
+                })
+            ];
+
+            // when
+            renderPageAt();
+
+            // then
+            expect(screen.getByText('Personal associations only')).toBeInTheDocument();
+            expect(screen.getByText('Editorial associations only')).toBeInTheDocument();
         });
 
         it('should say how many approvals a policy requires', () => {

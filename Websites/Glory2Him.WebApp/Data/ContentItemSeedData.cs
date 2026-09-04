@@ -10,9 +10,13 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System.Text.RegularExpressions;
+using System.Collections.Generic;
+using System.Linq;
+using Microsoft.EntityFrameworkCore;
 using Glory2Him.Core.Brokers.Hashes;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.WebApp.Models.Foundations.Users;
 using Microsoft.AspNetCore.Identity;
@@ -91,7 +95,71 @@ namespace Glory2Him.WebApp.Data
                     await storageBroker.InsertContentItemAsync(contentItem);
                 }
             }
+
+            // EACH ITEM'S ROUND, beside it. Every read a moderation screen makes keys on the
+            // Approval (§16.7.2), and §9.8 makes the approval the source of truth the entity's
+            // status merely mirrors — so a seeded item with no approval is an item the screen
+            // cannot say anything about. The added flow would have opened the round had a fact
+            // been published, and no fact is published for a row written straight to storage.
+            //
+            // Checked SEPARATELY from the item, because databases seeded before this existed
+            // have the items and not the rounds: an item that is already there still gets its
+            // approval on the next start.
+            // PROBED BY SCOPE, NOT BY ID, and the difference is the whole safety of this loop.
+            // UX_Approvals_EntityType_EntityId is what the table actually constrains, and the
+            // seed's own id is not the only id a round can have: the verdict read repairs a
+            // missing round with a FRESH Guid (§9.7.2), so an item somebody opened the
+            // moderation panel on already holds a round under an id this seed will never guess.
+            // An Exists-by-id probe misses it, inserts, and takes a unique-index violation —
+            // which InitializeCoreAsync retries five times and then SWALLOWS, leaving
+            // RegisterCoreEventSubstrateAsync unrun and the whole event substrate dormant.
+            //
+            // Read once and matched in memory, for the reason its sibling states: a query per
+            // seeded row is a query per member of a set that only grows.
+            IQueryable<Approval> existingApprovals = await storageBroker.SelectAllApprovalsAsync();
+
+            HashSet<Guid> contentItemsWithARound = (await existingApprovals
+                .Where(approval => approval.EntityType == EntityType.ContentItem)
+                .Select(approval => approval.EntityId)
+                .ToListAsync())
+                .ToHashSet();
+
+            foreach (Approval approval in BuildSeedApprovals(seedContentItems))
+            {
+                if (contentItemsWithARound.Contains(approval.EntityId) is false)
+                {
+                    await storageBroker.InsertApprovalAsync(approval);
+                }
+            }
         }
+
+        // One Approval per seeded item, at the item's own status — the value §9.8 requires the
+        // two to share — and stamped as the item is, by the same contributor at the same
+        // moment. Nothing here is a bypass: a seeded Approved row is shipped approved, exactly
+        // as ReactionSeedData ships its vocabulary. INTERNAL for the same reason the items are.
+        internal static IReadOnlyList<Approval> BuildSeedApprovals(
+            IReadOnlyList<ContentItem> seedContentItems) =>
+            seedContentItems
+                .Select(contentItem => new Approval
+                {
+                    Id = ApprovalIdFor(contentItem.Id),
+                    EntityType = EntityType.ContentItem,
+                    EntityId = contentItem.Id,
+                    ApprovalStatus = contentItem.ApprovalStatus,
+                    IsApprovedByBypass = false,
+                    ApprovedByBypassReason = null,
+                    IsDeleted = false,
+                    CreatedBy = contentItem.CreatedBy,
+                    CreatedWhen = contentItem.CreatedWhen,
+                    UpdatedBy = contentItem.UpdatedBy,
+                    UpdatedWhen = contentItem.UpdatedWhen
+                })
+                .ToList();
+
+        // The item's own id under a different prefix: deterministic, so a restart finds the
+        // round it wrote last time, and readable, so a table dump pairs the two at a glance.
+        internal static Guid ApprovalIdFor(Guid contentItemId) =>
+            new($"6b3a9c21-8e54-4a78-9d2f-{contentItemId.ToString("N")[^12..]}");
 
         // THE MATRIX ITSELF, separated from the writing of it. INTERNAL rather than private so
         // ContentItemSeedTests can pin the 32 slots, their identifiers and their published state

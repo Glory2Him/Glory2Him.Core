@@ -16,10 +16,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Glory2Him.WebApp.Data
 {
-    // Idempotent seed for the entity-type DEFAULT tier of the approval policy (design §8.4): one
-    // ApprovalSetting per EntityType member with ContentType null, so every approvable thing
-    // resolves a stated policy rather than falling through to the fail-closed system default.
-    // The sibling of ContentItemSettingSeedData, and shaped like it.
+    // Idempotent seed for the stored tiers of the approval policy (design §8.4): the GLOBAL
+    // default, one entity-type default per EntityType member, and the one narrowing row the
+    // house policy needs — personal associations, which open and close their round on submit
+    // (§8.5 rules 1 and 6) so a user's own reaction never waits on a review. Every approvable
+    // thing then resolves a stated policy rather than falling through to the fail-closed
+    // system default. The sibling of ContentItemSettingSeedData, and shaped like it.
     //
     // THE ENUM IS THE SET. Every row carries the same policy, so there is nothing per member to
     // hand-write and the seed walks Enum.GetValues<EntityType>() — the argument SeedData makes for
@@ -29,11 +31,12 @@ namespace Glory2Him.WebApp.Data
     // the path the moment it exists, and a policy that appears with the feature is one nobody
     // remembers to add.
     //
-    // REPAIR BY SCOPE, not by id. The probe is (EntityType, ContentType null, IsDeleted false) —
-    // the exact term UX_ApprovalSettings_EntityTypeDefault constrains — so a soft-deleted default
-    // is REPLACED rather than counted as present: §14.5 hides a deleted row from every caller and
-    // §8.4 excludes it from resolution, so counting it would leave that entity type without a
-    // live policy forever and nothing would say so. A LIVE row in the scope is left exactly as it
+    // REPAIR BY SCOPE, not by id. The probe is the row's own scope — (EntityType, ContentType,
+    // IsPersonal) with IsDeleted false — the exact term the tier's unique index constrains, so
+    // a soft-deleted default is REPLACED rather than counted as present: §14.5 hides a deleted
+    // row from every caller and §8.4 excludes it from resolution, so counting it would leave
+    // that scope without a live policy forever and nothing would say so. A LIVE row in the
+    // scope is left exactly as it
     // is, whatever its values: administrators are meant to edit these through the admin surface,
     // and a seed that overwrote would revert a deliberate decision on every restart. The seed
     // says so when it finds one that differs, at Information — divergence is legitimate, but an
@@ -75,10 +78,10 @@ namespace Glory2Him.WebApp.Data
             IQueryable<ApprovalSetting> existingApprovalSettings =
                 await storageBroker.SelectAllApprovalSettingsAsync();
 
-            // ONE READ, NOT ONE PER MEMBER. The scope this seed repairs — ContentType null and
-            // IsDeleted false — is a single narrow slice, at most one row per EntityType, so it
-            // is materialized once and matched in memory rather than asked of the database inside
-            // the loop. A query per enum member is a query per member of a set that only grows.
+            // ONE READ, NOT ONE PER ROW. The scopes this seed repairs — ContentType null and
+            // IsDeleted false — are a single narrow slice, at most one row per scope, so it is
+            // materialized once and matched in memory rather than asked of the database inside
+            // the loop. A query per seeded row is a query per member of a set that only grows.
             List<ApprovalSetting> liveDefaults =
                 await existingApprovalSettings
                     .Where(approvalSetting =>
@@ -86,19 +89,26 @@ namespace Glory2Him.WebApp.Data
                         && approvalSetting.IsDeleted == false)
                     .ToListAsync();
 
+            // KEYED ON THE SCOPE, which is the pair (§8.4) rather than the entity type alone:
+            // the global row has no entity type at all, and Association carries a personal row
+            // beside its default. An EntityType-keyed dictionary would collapse those two and
+            // silently re-insert whichever it dropped, every restart.
+            //
             // Grouped rather than keyed straight into a dictionary, and first taken from each
-            // group: UX_ApprovalSettings_EntityTypeDefault already forbids a second live default
-            // for an entity type, but a duplicate that reached the table anyway is not the seed's
-            // to throw over at host startup — the read it replaces took the first and moved on.
-            Dictionary<EntityType, ApprovalSetting> liveDefaultsByEntityType = liveDefaults
-                .GroupBy(approvalSetting => approvalSetting.EntityType)
-                .ToDictionary(group => group.Key, group => group.First());
+            // group: each tier's filtered unique index already forbids a second live row for a
+            // scope, but a duplicate that reached the table anyway is not the seed's to throw
+            // over at host startup — the read it replaces took the first and moved on.
+            Dictionary<(EntityType? EntityType, bool? IsPersonal), ApprovalSetting> liveDefaultsByScope =
+                liveDefaults
+                    .GroupBy(approvalSetting =>
+                        (approvalSetting.EntityType, approvalSetting.IsPersonal))
+                    .ToDictionary(group => group.Key, group => group.First());
 
             foreach (ApprovalSetting defaultApprovalSetting in
                 BuildDefaultApprovalSettings(DateTimeOffset.UtcNow))
             {
-                liveDefaultsByEntityType.TryGetValue(
-                    defaultApprovalSetting.EntityType,
+                liveDefaultsByScope.TryGetValue(
+                    (defaultApprovalSetting.EntityType, defaultApprovalSetting.IsPersonal),
                     out ApprovalSetting liveDefault);
 
                 if (liveDefault is null)
@@ -116,46 +126,93 @@ namespace Glory2Him.WebApp.Data
                     // so a throwing check would silence itself and take the Core endpoints down
                     // with it.
                     logger.LogInformation(
-                        "The live approval setting default for {EntityType} differs from the "
-                            + "shipped policy on {Fields}; leaving it as an administrator set it.",
-                        defaultApprovalSetting.EntityType,
+                        "The live approval setting for {Scope} differs from the shipped policy "
+                            + "on {Fields}; leaving it as an administrator set it.",
+                        DescribeScope(defaultApprovalSetting),
                         string.Join(", ", divergingFields));
                 }
             }
         }
 
-        // One default row per EntityType member. Internal so the unit test can pin the set to the
-        // enum and the values to the reviewed policy without a database.
+        // The stored tiers, least specific first: the global default, one default per
+        // EntityType member, and the personal-association row. Internal so the unit test can
+        // pin the set to the enum and the values to the reviewed policy without a database.
         internal static IReadOnlyList<ApprovalSetting> BuildDefaultApprovalSettings(
-            DateTimeOffset seededWhen) =>
-            Enum.GetValues<EntityType>()
-                .Select(entityType => new ApprovalSetting
-                {
-                    Id = Guid.NewGuid(),
-                    EntityType = entityType,
-                    ContentType = null,
-                    RequireApprovals = RequireApprovals,
-                    RequiredNumberOfApprovals = RequiredNumberOfApprovals,
-                    AutoApproveIfAllApprovalRequirementsMet = AutoApproveIfAllApprovalRequirementsMet,
-                    AllowSelfApproval = AllowSelfApproval,
-                    BlockOnReject = BlockOnReject,
-                    BlockOnZeroApprovalScore = BlockOnZeroApprovalScore,
-                    RequireReapprovalOnChange = RequireReapprovalOnChange,
+            DateTimeOffset seededWhen)
+        {
+            var approvalSettings = new List<ApprovalSetting>
+            {
+                BuildHousePolicy(seededWhen, entityType: null, isPersonal: null)
+            };
 
-                    RequireReviewCommentResolutionBeforeApprovals =
-                        RequireReviewCommentResolutionBeforeApprovals,
+            approvalSettings.AddRange(
+                Enum.GetValues<EntityType>()
+                    .Select(entityType =>
+                        BuildHousePolicy(seededWhen, entityType, isPersonal: null)));
 
-                    DoNotAllowBypassingSettings = DoNotAllowBypassingSettings,
-                    IsDeleted = false,
-                    DeletedBy = null,
-                    DeletedWhen = null,
-                    DeletionReason = null,
-                    CreatedBy = SeededBy,
-                    CreatedWhen = seededWhen,
-                    UpdatedBy = SeededBy,
-                    UpdatedWhen = seededWhen
-                })
-                .ToList();
+            // A PERSONAL association — a user's own reaction, a tag they keep for themselves
+            // (§4.2: UserId set) — is not editorial content and waits on nobody. The round
+            // still opens; it closes itself on submission (§8.5 rules 1 and 6), so §9.8 holds
+            // and nothing skips the approval record.
+            //
+            // EVERY GATE OFF, not only the approval count. A gate is a reason to hold a round
+            // shut for a reviewer to look at, and this round has no reviewer: a rejection
+            // nobody will file, a comment nobody will settle, a re-approval nobody will give
+            // and a score nobody will weigh would each leave a user's own reaction stuck on a
+            // condition the policy never meant to ask. Bypass stays permitted, as everywhere.
+            ApprovalSetting personalAssociations =
+                BuildHousePolicy(seededWhen, EntityType.Association, isPersonal: true);
+
+            personalAssociations.RequireApprovals = false;
+            personalAssociations.AutoApproveIfAllApprovalRequirementsMet = true;
+            personalAssociations.BlockOnReject = false;
+            personalAssociations.BlockOnZeroApprovalScore = false;
+            personalAssociations.RequireReapprovalOnChange = false;
+            personalAssociations.RequireReviewCommentResolutionBeforeApprovals = false;
+            approvalSettings.Add(personalAssociations);
+
+            return approvalSettings;
+        }
+
+        private static ApprovalSetting BuildHousePolicy(
+            DateTimeOffset seededWhen,
+            EntityType? entityType,
+            bool? isPersonal) =>
+            new ApprovalSetting
+            {
+                Id = Guid.NewGuid(),
+                EntityType = entityType,
+                ContentType = null,
+                IsPersonal = isPersonal,
+                RequireApprovals = RequireApprovals,
+                RequiredNumberOfApprovals = RequiredNumberOfApprovals,
+                AutoApproveIfAllApprovalRequirementsMet = AutoApproveIfAllApprovalRequirementsMet,
+                AllowSelfApproval = AllowSelfApproval,
+                BlockOnReject = BlockOnReject,
+                BlockOnZeroApprovalScore = BlockOnZeroApprovalScore,
+                RequireReapprovalOnChange = RequireReapprovalOnChange,
+
+                RequireReviewCommentResolutionBeforeApprovals =
+                    RequireReviewCommentResolutionBeforeApprovals,
+
+                DoNotAllowBypassingSettings = DoNotAllowBypassingSettings,
+                IsDeleted = false,
+                DeletedBy = null,
+                DeletedWhen = null,
+                DeletionReason = null,
+                CreatedBy = SeededBy,
+                CreatedWhen = seededWhen,
+                UpdatedBy = SeededBy,
+                UpdatedWhen = seededWhen
+            };
+
+        internal static string DescribeScope(ApprovalSetting approvalSetting) =>
+            approvalSetting.EntityType is null
+                ? "every entity type"
+                : approvalSetting.IsPersonal is null
+                    ? approvalSetting.EntityType.Value.ToString()
+                    : $"{approvalSetting.EntityType.Value} "
+                        + (approvalSetting.IsPersonal.Value ? "(personal)" : "(editorial)");
 
         // The nine policy fields, by name, where the live row disagrees with the shipped one.
         // Scope and audit fields are not policy and are not compared.

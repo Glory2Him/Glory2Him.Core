@@ -36,6 +36,7 @@ namespace G2H.Security.Client.Models.Foundations.Access
             {
                 EntityType = entityType,
                 ContentType = contentType,
+                IsPersonal = null,
 
                 // §8.4 rule 2, verbatim.
                 RequireApprovals = true,

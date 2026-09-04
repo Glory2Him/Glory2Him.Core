@@ -27,11 +27,13 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Models.ApprovalSettings
     {
         public Guid Id { get; set; }
 
-        // The scope. EntityType alone is the per-type DEFAULT; EntityType plus ContentType is an
-        // override. Each has its own filtered unique index, so exactly one row can occupy either
-        // scope (§8.4 policy resolution depends on that).
-        public EntityType EntityType { get; set; }
+        // The scope (§8.4). EntityType null is the GLOBAL default; EntityType alone is the
+        // per-type default; EntityType plus ContentType (ContentItem only) or plus IsPersonal
+        // (Association only) is a narrowing row. Each tier has its own filtered unique index, so
+        // exactly one live row can occupy any scope.
+        public EntityType? EntityType { get; set; }
         public ContentType? ContentType { get; set; }
+        public bool? IsPersonal { get; set; }
 
         // The policy itself (§8.2).
         public bool RequireApprovals { get; set; }

@@ -26,6 +26,7 @@ const approvalSetting: ApprovalSetting = {
     id: '11111111-1111-1111-1111-111111111111',
     entityType: EntityType.ContentItem,
     contentType: null,
+    isPersonal: null,
     requireApprovals: true,
     requiredNumberOfApprovals: 1,
     autoApproveIfAllApprovalRequirementsMet: false,

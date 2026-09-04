@@ -35,7 +35,8 @@ namespace G2H.Security.Client.Services.Foundations.Access
                 ApprovalPolicy policy = ResolvePolicy(
                     approvalConditionsRequest.CandidatePolicies,
                     approvalConditionsRequest.EntityType,
-                    approvalConditionsRequest.ContentType);
+                    approvalConditionsRequest.ContentType,
+                    approvalConditionsRequest.IsPersonal);
 
                 return new ValueTask<ApprovalConditionsVerdict>(
                     EvaluateConditions(
@@ -386,7 +387,8 @@ namespace G2H.Security.Client.Services.Foundations.Access
             ApprovalPolicy policy = ResolvePolicy(
                 request.CandidatePolicies,
                 request.EntityType,
-                request.ContentType);
+                request.ContentType,
+                request.IsPersonal);
 
             // A rejection withholds approval rather than granting it. Nothing is being waived,
             // so neither the threshold nor the bypass lock applies (§9.7.5) — and HR-2 does not
@@ -562,15 +564,22 @@ namespace G2H.Security.Client.Services.Foundations.Access
         // Specificity is a property of the MATCH, not of the values — a narrow row may
         // legitimately loosen policy, and a merge would let a narrow row that meant to loosen
         // one field silently inherit six others it never mentioned.
+        //
+        // The tiers, most specific first (§8.4): the narrowing row — content type for a content
+        // item, personality for an association; the two never compete, because no entity is
+        // both — then the entity-type default, then the global default, then the fail-closed
+        // system default when nothing at all resolves.
         private static ApprovalPolicy ResolvePolicy(
             IReadOnlyList<ApprovalPolicy> candidatePolicies,
             string entityType,
-            string? contentType)
+            string? contentType,
+            bool? isPersonal)
         {
             ApprovalPolicy? contentTypeTier = contentType is null
                 ? null
                 : candidatePolicies.FirstOrDefault(policy =>
-                    Matches(policy.EntityType, entityType)
+                    policy.EntityType is not null
+                        && Matches(policy.EntityType, entityType)
                         && policy.ContentType is not null
                         && Matches(policy.ContentType, contentType));
 
@@ -579,10 +588,38 @@ namespace G2H.Security.Client.Services.Foundations.Access
                 return contentTypeTier;
             }
 
-            ApprovalPolicy? entityTypeTier = candidatePolicies.FirstOrDefault(policy =>
-                Matches(policy.EntityType, entityType) && policy.ContentType is null);
+            // A personal row matches a personal entity and an editorial row an editorial one;
+            // neither matches an entity whose personality is unknown, which is every entity that
+            // is not an association.
+            ApprovalPolicy? personalityTier = isPersonal is null
+                ? null
+                : candidatePolicies.FirstOrDefault(policy =>
+                    policy.EntityType is not null
+                        && Matches(policy.EntityType, entityType)
+                        && policy.IsPersonal == isPersonal);
 
-            return entityTypeTier ?? ApprovalPolicyDefaults.SystemDefaultFor(
+            if (personalityTier is not null)
+            {
+                return personalityTier;
+            }
+
+            ApprovalPolicy? entityTypeTier = candidatePolicies.FirstOrDefault(policy =>
+                policy.EntityType is not null
+                    && Matches(policy.EntityType, entityType)
+                    && policy.ContentType is null
+                    && policy.IsPersonal is null);
+
+            if (entityTypeTier is not null)
+            {
+                return entityTypeTier;
+            }
+
+            ApprovalPolicy? globalTier = candidatePolicies.FirstOrDefault(policy =>
+                policy.EntityType is null
+                    && policy.ContentType is null
+                    && policy.IsPersonal is null);
+
+            return globalTier ?? ApprovalPolicyDefaults.SystemDefaultFor(
                 entityType,
                 contentType);
         }

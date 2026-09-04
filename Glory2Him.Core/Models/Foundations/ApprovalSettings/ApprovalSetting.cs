@@ -27,9 +27,11 @@ namespace Glory2Him.Core.Models.Foundations.ApprovalSettings
         public Guid Id { get; set; }
 
         /// <summary>
-        /// The entity type this approval setting applies to.
+        /// The entity type this approval setting applies to. Null means "every entity type" —
+        /// the global default tier, the one stored row the entity-type defaults narrow and the
+        /// last row before the fail-closed system default (design §8.4).
         /// </summary>
-        public EntityType EntityType { get; set; }
+        public EntityType? EntityType { get; set; }
 
         /// <summary>
         /// The content type this setting is scoped to, when <see cref="EntityType"/> is
@@ -37,6 +39,15 @@ namespace Glory2Him.Core.Models.Foundations.ApprovalSettings
         /// entity-type-default tier. Must be null for every other entity type (design §8.4).
         /// </summary>
         public ContentType? ContentType { get; set; }
+
+        /// <summary>
+        /// Whether this setting governs personal associations (<c>Association.UserId</c> set,
+        /// design §4.2) or editorial ones (<c>UserId</c> null), when <see cref="EntityType"/> is
+        /// <c>Association</c>. Null means "every association". Must be null for every other
+        /// entity type (design §8.4). It keys on the row's <c>UserId</c>, so a personal tag or
+        /// reaction matches whichever endpoint it sits on.
+        /// </summary>
+        public bool? IsPersonal { get; set; }
 
         /// <summary>
         /// When enabled, entity items require a number of approvals before they can be approved.

@@ -216,6 +216,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     It.IsAny<CancellationToken>()),
                 Times.Never);
 
+            // The entity's status is read to decide what the round opens at (§9.7.2 rule 1).
+            this.accessBrokerMock.Verify(broker =>
+                broker.RetrieveEntityApprovalStatusAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
             this.accessBrokerMock.VerifyNoOtherCalls();
             VerifyNoAddedExceptionsCommandPublished();
             this.loggingBrokerMock.VerifyNoOtherCalls();
@@ -271,6 +279,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     It.IsAny<WorkflowAttribution>(),
                     It.IsAny<CancellationToken>()),
                 Times.Never);
+
+            // The entity's status is read to decide what the round opens at (§9.7.2 rule 1).
+            this.accessBrokerMock.Verify(broker =>
+                broker.RetrieveEntityApprovalStatusAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
 
             this.accessBrokerMock.VerifyNoOtherCalls();
             VerifyNoAddedExceptionsCommandPublished();

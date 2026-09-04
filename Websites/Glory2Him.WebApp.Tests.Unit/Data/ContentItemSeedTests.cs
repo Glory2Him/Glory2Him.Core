@@ -16,6 +16,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Brokers.Hashes;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.WebApp.Data;
 using Moq;
@@ -313,6 +314,58 @@ namespace Glory2Him.WebApp.Tests.Unit.Data
                     because:
                         $"a {contentItem.ShareabilityBasis} row has no permission to detail");
             }
+        }
+
+        /// <summary>
+        /// Every seeded item ships with its round, at the item's own status (§9.8). A moderation
+        /// screen keys every read on the Approval, so an item without one is an item the screen
+        /// can say nothing about — which is how the seeded drafts rendered an empty panel.
+        /// </summary>
+        [Fact]
+        public async Task ShouldSeedAnApprovalForEveryItemAtTheItemsOwnStatus()
+        {
+            // given
+            IReadOnlyList<ContentItem> seedContentItems = await BuildSeedAsync();
+
+            // when
+            IReadOnlyList<Approval> seedApprovals =
+                ContentItemSeedData.BuildSeedApprovals(seedContentItems);
+
+            // then
+            seedApprovals.Should().HaveCount(seedContentItems.Count);
+
+            foreach (ContentItem contentItem in seedContentItems)
+            {
+                Approval approval = seedApprovals.Should().ContainSingle(
+                    candidate =>
+                        candidate.EntityType == EntityType.ContentItem
+                        && candidate.EntityId == contentItem.Id)
+                    .Subject;
+
+                approval.ApprovalStatus.Should().Be(contentItem.ApprovalStatus);
+                approval.IsApprovedByBypass.Should().BeFalse();
+                approval.IsDeleted.Should().BeFalse();
+                approval.CreatedBy.Should().Be(contentItem.CreatedBy);
+                approval.CreatedWhen.Should().Be(contentItem.CreatedWhen);
+            }
+
+            seedApprovals.Select(approval => approval.Id).Should().OnlyHaveUniqueItems();
+            seedApprovals.Should().NotContain(approval => approval.Id == Guid.Empty);
+        }
+
+        [Fact]
+        public async Task ShouldMintTheSameApprovalIdentifiersOnEveryRun()
+        {
+            // given
+            IReadOnlyList<ContentItem> seedContentItems = await BuildSeedAsync();
+
+            // when
+            IReadOnlyList<Approval> firstRun = ContentItemSeedData.BuildSeedApprovals(seedContentItems);
+            IReadOnlyList<Approval> secondRun = ContentItemSeedData.BuildSeedApprovals(seedContentItems);
+
+            // then
+            secondRun.Select(approval => approval.Id)
+                .Should().Equal(firstRun.Select(approval => approval.Id));
         }
     }
 }

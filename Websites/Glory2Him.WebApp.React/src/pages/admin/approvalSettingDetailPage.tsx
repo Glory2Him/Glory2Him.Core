@@ -18,11 +18,14 @@ import {
 
 import {
     allowsContentTypeScope,
+    allowsPersonalScope,
     ApprovalSetting,
     EntityType,
+    entityTypeLabelOf,
     entityTypeLabels,
     entityTypeMembers,
-    newApprovalSetting
+    newApprovalSetting,
+    scopeLabelOf
 } from '../../models/foundations/approvalSettings/approvalSetting';
 
 // ONE §8.4 POLICY ROW, created or amended. The same page does both, because the fields are the
@@ -144,7 +147,9 @@ export const ApprovalSettingDetailPage = ({ isNew = false }: { isNew?: boolean }
         ? 'New approval setting'
         : editModel == null
             ? 'Approval setting'
-            : `${entityTypeLabels[editModel.entityType] ?? 'Approval'} settings`;
+            : editModel.entityType == null
+                ? 'Global approval settings'
+                : `${entityTypeLabels[editModel.entityType] ?? 'Approval'} settings`;
 
     useDocumentTitle(`${heading} — Admin — Glory 2 Him`);
 
@@ -159,10 +164,12 @@ export const ApprovalSettingDetailPage = ({ isNew = false }: { isNew?: boolean }
 
     const goBack = () => navigate(backRoute);
 
-    // CHANGING THE ENTITY TYPE CAN INVALIDATE THE CONTENT TYPE, and the database enforces that
-    // pairing with a CHECK constraint rather than the service — so a bad pair comes back as a
-    // dependency failure with no field to hang it on. Clearing it here means that never happens.
-    const setEntityType = (entityType: EntityType) =>
+    // CHANGING THE ENTITY TYPE CAN INVALIDATE WHAT NARROWS IT — a content type belongs to
+    // ContentItem alone and a personality to Association alone — and the database enforces both
+    // pairings with CHECK constraints rather than the service, so a bad pair comes back as a
+    // dependency failure with no field to hang it on. Clearing them here means that never
+    // happens. Null is the global tier, which nothing narrows.
+    const setEntityType = (entityType: EntityType | null) =>
         setEditModel((current) =>
             current == null
                 ? current
@@ -171,6 +178,9 @@ export const ApprovalSettingDetailPage = ({ isNew = false }: { isNew?: boolean }
                     entityType,
                     contentType: allowsContentTypeScope(entityType)
                         ? current.contentType
+                        : null,
+                    isPersonal: allowsPersonalScope(entityType)
+                        ? current.isPersonal
                         : null
                 });
 
@@ -242,10 +252,15 @@ export const ApprovalSettingDetailPage = ({ isNew = false }: { isNew?: boolean }
                                     <select
                                         id="approval-entity-type"
                                         className="form-select"
-                                        value={editModel.entityType}
+                                        value={editModel.entityType ?? ''}
                                         onChange={(event) =>
                                             setEntityType(
-                                                Number(event.target.value) as EntityType)}>
+                                                event.target.value === ''
+                                                    ? null
+                                                    : Number(event.target.value) as EntityType)}>
+                                        <option value="">
+                                            Every entity type (the global default)
+                                        </option>
                                         {entityTypeMembers.map((entityType) => (
                                             <option key={entityType} value={entityType}>
                                                 {entityTypeLabels[entityType]}
@@ -254,49 +269,102 @@ export const ApprovalSettingDetailPage = ({ isNew = false }: { isNew?: boolean }
                                     </select>
                                 ) : (
                                     <p className="form-control-plaintext fw-semibold mb-0">
-                                        {entityTypeLabels[editModel.entityType] ?? 'Unknown'}
+                                        {entityTypeLabelOf(editModel.entityType)}
                                     </p>
                                 )}
                             </div>
 
-                            <div className="col-md-6">
-                                <label className="form-label" htmlFor="approval-content-type">
-                                    Content type
-                                </label>
+                            {/* WHAT NARROWS THE ROW below its entity type, and there is at most
+                                one thing that can: a content type on ContentItem, a personality
+                                on Association, nothing on anything else — so the column shows
+                                whichever applies rather than a picker that would be refused. */}
+                            {allowsContentTypeScope(editModel.entityType) ? (
+                                <div className="col-md-6">
+                                    <label className="form-label" htmlFor="approval-content-type">
+                                        Content type
+                                    </label>
 
-                                {isCreating && allowsContentTypeScope(editModel.entityType) ? (
-                                    <select
-                                        id="approval-content-type"
-                                        className="form-select"
-                                        value={editModel.contentType ?? ''}
-                                        onChange={(event) => setField(
-                                            'contentType',
-                                            event.target.value === ''
-                                                ? null
-                                                : Number(event.target.value) as ContentType)}>
-                                        <option value="">
-                                            Every content type (the default)
-                                        </option>
-                                        {contentTypeMembers.map((contentType) => (
-                                            <option key={contentType} value={contentType}>
-                                                {contentTypeLabels[contentType]}
+                                    {isCreating ? (
+                                        <select
+                                            id="approval-content-type"
+                                            className="form-select"
+                                            value={editModel.contentType ?? ''}
+                                            onChange={(event) => setField(
+                                                'contentType',
+                                                event.target.value === ''
+                                                    ? null
+                                                    : Number(event.target.value) as ContentType)}>
+                                            <option value="">
+                                                Every content type (the default)
                                             </option>
-                                        ))}
-                                    </select>
-                                ) : (
-                                    <p className="form-control-plaintext mb-0">
-                                        {editModel.contentType == null
-                                            ? 'Every content type (the default)'
-                                            : contentTypeLabels[editModel.contentType]}
-                                    </p>
-                                )}
+                                            {contentTypeMembers.map((contentType) => (
+                                                <option key={contentType} value={contentType}>
+                                                    {contentTypeLabels[contentType]}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    ) : (
+                                        <p className="form-control-plaintext mb-0">
+                                            {editModel.contentType == null
+                                                ? 'Every content type (the default)'
+                                                : contentTypeLabels[editModel.contentType]}
+                                        </p>
+                                    )}
+                                </div>
+                            ) : allowsPersonalScope(editModel.entityType) ? (
+                                <div className="col-md-6">
+                                    <label className="form-label" htmlFor="approval-personality">
+                                        Which associations
+                                    </label>
 
-                                {allowsContentTypeScope(editModel.entityType) === false && (
+                                    {isCreating ? (
+                                        <select
+                                            id="approval-personality"
+                                            className="form-select"
+                                            value={editModel.isPersonal == null
+                                                ? ''
+                                                : editModel.isPersonal ? 'personal' : 'editorial'}
+                                            onChange={(event) => setField(
+                                                'isPersonal',
+                                                event.target.value === ''
+                                                    ? null
+                                                    : event.target.value === 'personal')}>
+                                            <option value="">
+                                                Every association (the default)
+                                            </option>
+                                            <option value="personal">
+                                                Personal associations only
+                                            </option>
+                                            <option value="editorial">
+                                                Editorial associations only
+                                            </option>
+                                        </select>
+                                    ) : (
+                                        <p className="form-control-plaintext mb-0">
+                                            {editModel.isPersonal == null
+                                                ? 'Every association (the default)'
+                                                : scopeLabelOf(editModel)}
+                                        </p>
+                                    )}
+
                                     <div className="form-text">
-                                        Only content items are scoped by content type.
+                                        A personal association is one a user keeps for
+                                        themselves &mdash; their own reaction, their own tag on
+                                        something &mdash; whichever end of it the personal
+                                        entity sits on. Everything else is editorial.
                                     </div>
-                                )}
-                            </div>
+                                </div>
+                            ) : (
+                                <div className="col-md-6">
+                                    <label className="form-label">Narrowed by</label>
+                                    <p className="form-control-plaintext mb-0">Nothing</p>
+
+                                    <div className="form-text">
+                                        Only content items are narrowed by content type, and
+                                        only associations by personality.
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </Card>
 

@@ -24,6 +24,7 @@ using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Brokers.EventEnvelopes;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.ApprovalSettings;
 using Glory2Him.Core.Models.Foundations.ApprovalSettings.Exceptions;
 using Glory2Him.Core.Models.Securities;
@@ -314,6 +315,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
                 // than drawn: a posture-sensitive test must never depend on the draw. Tests
                 // that want a soft-deleted row set it explicitly.
                 .OnProperty(approvalSetting => approvalSetting.IsDeleted).Use(false)
+
+                // THE SCOPE IS PINNED TO A LEGAL ONE, and drawn scopes are why. §8.4 permits a
+                // content type only on ContentItem and a personality only on Association, and
+                // the filler fills the three fields independently — so a draw of
+                // (Tag, Story) is a shape the service now refuses, and every test that merely
+                // wanted a setting would fail on its fixture rather than on its subject.
+                // EntityType is left drawn: null (the global tier) and any member are all legal
+                // while nothing narrows them. A scope test sets what it means to exercise.
+                .OnProperty(approvalSetting => approvalSetting.ContentType).Use((ContentType?)null)
+                .OnProperty(approvalSetting => approvalSetting.IsPersonal).Use((bool?)null)
                 .OnProperty(approvalSetting => approvalSetting.CreatedBy).Use(userId)
                 .OnProperty(approvalSetting => approvalSetting.UpdatedBy).Use(userId);
 

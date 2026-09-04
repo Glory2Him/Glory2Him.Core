@@ -69,6 +69,7 @@ const createApprovalSetting = (
         id: settingId,
         entityType: EntityType.ContentItem,
         contentType: ContentType.Testimony,
+        isPersonal: null,
         requireApprovals: true,
         requiredNumberOfApprovals: 2,
         autoApproveIfAllApprovalRequirementsMet: false,
@@ -238,7 +239,7 @@ describe('ApprovalSettingDetailPage', () => {
                 })));
         });
 
-        it('should say why only some entity types are scoped by content type', async () => {
+        it('should say why only some entity types are narrowed', async () => {
             // given
             renderCreatePage();
 
@@ -247,8 +248,77 @@ describe('ApprovalSettingDetailPage', () => {
                 screen.getByLabelText('Entity type'), String(EntityType.Tag));
 
             // then
-            expect(screen.getByText('Only content items are scoped by content type.'))
-                .toBeInTheDocument();
+            expect(screen.getByText(
+                'Only content items are narrowed by content type, and only associations by '
+                    + 'personality.')).toBeInTheDocument();
+        });
+
+        // THE GLOBAL TIER (§8.4): entity type null, the one row every default narrows.
+        it('should write the global default when no entity type is chosen', async () => {
+            // given
+            renderCreatePage();
+
+            // when
+            await userEvent.selectOptions(screen.getByLabelText('Entity type'), '');
+            await userEvent.click(screen.getByRole('button', { name: 'Create setting' }));
+
+            // then
+            await waitFor(() =>
+                expect(added).toHaveBeenCalledWith(expect.objectContaining({
+                    entityType: null,
+                    contentType: null,
+                    isPersonal: null
+                })));
+        });
+
+        // THE PERSONALITY TIER (§8.4): offered for Association alone, and it is the row that
+        // lets a user's own reaction skip the review an editorial placement gets.
+        it('should offer the personality of an association and write it', async () => {
+            // given
+            renderCreatePage();
+
+            // when
+            await userEvent.selectOptions(
+                screen.getByLabelText('Entity type'), String(EntityType.Association));
+
+            await userEvent.selectOptions(
+                screen.getByLabelText('Which associations'), 'personal');
+
+            await userEvent.click(screen.getByRole('button', { name: 'Create setting' }));
+
+            // then
+            await waitFor(() =>
+                expect(added).toHaveBeenCalledWith(expect.objectContaining({
+                    entityType: EntityType.Association,
+                    contentType: null,
+                    isPersonal: true
+                })));
+        });
+
+        it('should drop a personality that the chosen entity type cannot carry', async () => {
+            // given
+            renderCreatePage();
+
+            await userEvent.selectOptions(
+                screen.getByLabelText('Entity type'), String(EntityType.Association));
+
+            await userEvent.selectOptions(
+                screen.getByLabelText('Which associations'), 'editorial');
+
+            // when
+            await userEvent.selectOptions(
+                screen.getByLabelText('Entity type'), String(EntityType.Comment));
+
+            // then
+            expect(screen.queryByLabelText('Which associations')).not.toBeInTheDocument();
+
+            await userEvent.click(screen.getByRole('button', { name: 'Create setting' }));
+
+            await waitFor(() =>
+                expect(added).toHaveBeenCalledWith(expect.objectContaining({
+                    entityType: EntityType.Comment,
+                    isPersonal: null
+                })));
         });
     });
 
@@ -265,6 +335,38 @@ describe('ApprovalSettingDetailPage', () => {
 
             expect(screen.getByText('Content item')).toBeInTheDocument();
             expect(screen.getByText('Testimony')).toBeInTheDocument();
+        });
+
+        it('should name the global default by what it is', () => {
+            // given
+            approvalSetting = createApprovalSetting({ entityType: null, contentType: null });
+
+            // when
+            renderEditPage();
+
+            // then
+            expect(screen.getByRole('heading', { name: 'Global approval settings' }))
+                .toBeInTheDocument();
+
+            expect(screen.getByText('Every entity type')).toBeInTheDocument();
+        });
+
+        it('should read a personality row back as plain text', () => {
+            // given
+            approvalSetting = createApprovalSetting({
+                entityType: EntityType.Association,
+                contentType: null,
+                isPersonal: true
+            });
+
+            // when
+            renderEditPage();
+
+            // then
+            expect(screen.queryByLabelText('Which associations')).not.toBeInstanceOf(
+                HTMLSelectElement);
+
+            expect(screen.getByText('Personal associations only')).toBeInTheDocument();
         });
 
         // THE WHOLE ROW GOES BACK. The foundation compares CreatedBy and CreatedWhen against

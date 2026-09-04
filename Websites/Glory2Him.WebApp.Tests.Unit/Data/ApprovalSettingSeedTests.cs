@@ -23,11 +23,13 @@ namespace Glory2Him.WebApp.Tests.Unit.Data
     /// Pins the seeded approval policy to the enum it is composed from, and to the reviewed
     /// values.
     ///
-    /// <para><b>Why this needs a test at all.</b> An entity type with no live default fails
-    /// SILENTLY: §8.4 resolution falls through to the fail-closed system default, which requires
-    /// one approval where the house policy requires two, and nothing logs the difference. The
-    /// seed is the only thing that puts the row there, so the seeded set is the last place anyone
-    /// would look when an entity type turns out to be approvable on one vote.</para>
+    /// <para><b>Why this needs a test at all.</b> A scope with no live row fails SILENTLY: §8.4
+    /// resolution falls through to the next tier, and past the global default to the
+    /// fail-closed system default, which requires one approval where the house policy requires
+    /// two — and nothing logs the difference. The seed is the only thing that puts the rows
+    /// there, so the seeded set is the last place anyone would look when an entity type turns
+    /// out to be approvable on one vote, or a user's own reaction turns out to be waiting on
+    /// two.</para>
     ///
     /// <para>Three of the nine values differ from the entity's own C# defaults
     /// (RequiredNumberOfApprovals, BlockOnReject, BlockOnZeroApprovalScore). A builder that
@@ -41,6 +43,9 @@ namespace Glory2Him.WebApp.Tests.Unit.Data
 
         private static IReadOnlyList<ApprovalSetting> BuildSeed() =>
             ApprovalSettingSeedData.BuildDefaultApprovalSettings(SeededWhen);
+
+        private static IEnumerable<ApprovalSetting> HousePolicyRows() =>
+            BuildSeed().Where(approvalSetting => approvalSetting.IsPersonal != true);
 
         [Fact]
         public void ShouldSeedOneDefaultForEveryEntityType()
@@ -57,21 +62,90 @@ namespace Glory2Him.WebApp.Tests.Unit.Data
                 seededApprovalSettings.Should().ContainSingle(
                     approvalSetting =>
                         approvalSetting.EntityType == entityType
-                        && approvalSetting.ContentType == null,
+                        && approvalSetting.ContentType == null
+                        && approvalSetting.IsPersonal == null,
                     because:
-                        $"{entityType} must resolve a stated policy rather than the "
-                            + "fail-closed system default (§8.4)");
+                        $"{entityType} must resolve a stated policy rather than fall through "
+                            + "the tiers (§8.4)");
             }
-
-            seededApprovalSettings.Should().HaveCount(expectedEntityTypes.Length);
         }
 
         /// <summary>
-        /// The default tier only. A content-type row is a narrower policy an administrator
-        /// chooses, not something shipped — and ContentType is legal on ContentItem alone.
+        /// The tier every entity-type default narrows, and the last stored row before the
+        /// fail-closed system default (§8.4). One, and exactly one.
         /// </summary>
         [Fact]
-        public void ShouldSeedNoContentTypeScopedRow()
+        public void ShouldSeedTheGlobalDefault()
+        {
+            // when
+            IReadOnlyList<ApprovalSetting> seededApprovalSettings = BuildSeed();
+
+            // then
+            seededApprovalSettings.Should().ContainSingle(
+                approvalSetting =>
+                    approvalSetting.EntityType == null
+                    && approvalSetting.ContentType == null
+                    && approvalSetting.IsPersonal == null);
+        }
+
+        /// <summary>
+        /// A user's own reaction is not editorial content and waits on nobody (§4.2, §8.4).
+        /// The round still opens — it closes itself on submission (§8.5 rules 1 and 6) — so the
+        /// row says "no approvals required" AND "approve automatically", never one without the
+        /// other: the first alone leaves a round open for a human click nobody will make, and the
+        /// second alone auto-approves nothing because the conditions are never met.
+        ///
+        /// <para>And every gate is off. A gate holds a round shut for a reviewer, and this round
+        /// has none — a standing rejection, an unsettled comment, a zero score or an edit would
+        /// each leave the reaction stuck on a condition nobody is there to clear.</para>
+        /// </summary>
+        [Fact]
+        public void ShouldSeedPersonalAssociationsAsApprovedOnSubmissionWithNoGate()
+        {
+            // when
+            IReadOnlyList<ApprovalSetting> seededApprovalSettings = BuildSeed();
+
+            // then
+            ApprovalSetting personalAssociations = seededApprovalSettings.Should().ContainSingle(
+                approvalSetting =>
+                    approvalSetting.EntityType == EntityType.Association
+                    && approvalSetting.IsPersonal == true)
+                .Subject;
+
+            personalAssociations.ContentType.Should().BeNull();
+            personalAssociations.RequireApprovals.Should().BeFalse();
+            personalAssociations.AutoApproveIfAllApprovalRequirementsMet.Should().BeTrue();
+            personalAssociations.BlockOnReject.Should().BeFalse();
+            personalAssociations.BlockOnZeroApprovalScore.Should().BeFalse();
+            personalAssociations.RequireReapprovalOnChange.Should().BeFalse();
+            personalAssociations.RequireReviewCommentResolutionBeforeApprovals.Should().BeFalse();
+            personalAssociations.AllowSelfApproval.Should().BeFalse();
+            personalAssociations.DoNotAllowBypassingSettings.Should().BeFalse();
+        }
+
+        /// <summary>
+        /// Editorial associations take the house policy through the Association default; no
+        /// separate editorial row is shipped, so an administrator narrowing one later narrows a
+        /// row that does not yet exist rather than editing one the seed will fight over.
+        /// </summary>
+        [Fact]
+        public void ShouldSeedNoEditorialAssociationRow()
+        {
+            // when
+            IReadOnlyList<ApprovalSetting> seededApprovalSettings = BuildSeed();
+
+            // then
+            seededApprovalSettings.Should().NotContain(
+                approvalSetting => approvalSetting.IsPersonal == false);
+        }
+
+        /// <summary>
+        /// No content-type row, and no personality on anything but Association: a content-type
+        /// row is a narrower policy an administrator chooses, and the check constraints refuse
+        /// the rest — a seed that tripped one would take Core initialisation down.
+        /// </summary>
+        [Fact]
+        public void ShouldSeedNoScopeTheStoreWouldRefuse()
         {
             // when
             IReadOnlyList<ApprovalSetting> seededApprovalSettings = BuildSeed();
@@ -79,16 +153,23 @@ namespace Glory2Him.WebApp.Tests.Unit.Data
             // then
             seededApprovalSettings.Should().OnlyContain(
                 approvalSetting => approvalSetting.ContentType == null);
+
+            seededApprovalSettings.Should().OnlyContain(
+                approvalSetting =>
+                    approvalSetting.IsPersonal == null
+                    || approvalSetting.EntityType == EntityType.Association);
+
+            seededApprovalSettings.Should().HaveCount(Enum.GetValues<EntityType>().Length + 2);
         }
 
         [Fact]
-        public void ShouldSeedTheReviewedPolicyOnEveryRow()
+        public void ShouldSeedTheReviewedPolicyOnEveryHousePolicyRow()
         {
             // when
-            IReadOnlyList<ApprovalSetting> seededApprovalSettings = BuildSeed();
+            IEnumerable<ApprovalSetting> housePolicyRows = HousePolicyRows();
 
             // then
-            foreach (ApprovalSetting approvalSetting in seededApprovalSettings)
+            foreach (ApprovalSetting approvalSetting in housePolicyRows)
             {
                 approvalSetting.RequireApprovals.Should().BeTrue();
                 approvalSetting.RequiredNumberOfApprovals.Should().Be(2);
@@ -145,6 +226,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Data
                 Id = Guid.NewGuid(),
                 EntityType = shipped.EntityType,
                 ContentType = shipped.ContentType,
+                IsPersonal = shipped.IsPersonal,
                 RequireApprovals = shipped.RequireApprovals,
                 RequiredNumberOfApprovals = 1,
                 AutoApproveIfAllApprovalRequirementsMet = shipped.AutoApproveIfAllApprovalRequirementsMet,
@@ -173,15 +255,44 @@ namespace Glory2Him.WebApp.Tests.Unit.Data
         public void ShouldReportNoDivergenceForARowMatchingTheShippedPolicy()
         {
             // given
-            IReadOnlyList<ApprovalSetting> seededApprovalSettings = BuildSeed();
-            ApprovalSetting shipped = seededApprovalSettings[0];
-            ApprovalSetting live = seededApprovalSettings[1];
+            List<ApprovalSetting> housePolicyRows = HousePolicyRows().ToList();
+            ApprovalSetting shipped = housePolicyRows[0];
+            ApprovalSetting live = housePolicyRows[1];
 
             // when: a different row with the same policy
             string[] divergingFields = ApprovalSettingSeedData.DescribeDivergence(live, shipped);
 
             // then
             divergingFields.Should().BeEmpty();
+        }
+
+        /// <summary>
+        /// The log line names the scope a reader can find in the admin surface, not a Guid.
+        /// </summary>
+        [Theory]
+        [InlineData(null, null, "every entity type")]
+        [InlineData(EntityType.Tag, null, "Tag")]
+        [InlineData(EntityType.Association, true, "Association (personal)")]
+        [InlineData(EntityType.Association, false, "Association (editorial)")]
+        public void ShouldDescribeAScopeByWhatItGoverns(
+            EntityType? entityType,
+            bool? isPersonal,
+            string expectedDescription)
+        {
+            // given
+            var approvalSetting = new ApprovalSetting
+            {
+                Id = Guid.NewGuid(),
+                EntityType = entityType,
+                ContentType = null,
+                IsPersonal = isPersonal
+            };
+
+            // when
+            string actualDescription = ApprovalSettingSeedData.DescribeScope(approvalSetting);
+
+            // then
+            actualDescription.Should().Be(expectedDescription);
         }
     }
 }

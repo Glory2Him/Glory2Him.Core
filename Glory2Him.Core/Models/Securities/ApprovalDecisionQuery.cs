@@ -49,6 +49,14 @@ namespace Glory2Him.Core.Models.Securities
         public required ContentType? ContentType { get; init; }
 
         /// <summary>
+        /// The personality half of the policy key (design §8.4): for an association, whether
+        /// its <c>UserId</c> is set; null for every other entity type, where the tier does not
+        /// exist. From STORAGE, like the author — the caller's copy does not decide which
+        /// policy judges it.
+        /// </summary>
+        public required bool? IsPersonal { get; init; }
+
+        /// <summary>
         /// Every subject the caller could be authorised through. Most entities name one, built
         /// from their own type; an association names both endpoints, because it is authorised
         /// from them rather than from itself.

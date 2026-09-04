@@ -12,6 +12,7 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ApprovalSettings;
@@ -73,6 +74,19 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettings
                 (Rule: IsGreaterThan(approvalSetting.UpdatedBy, 255),
                     Parameter: nameof(ApprovalSetting.UpdatedBy)),
 
+                // §8.4's SCOPE rules, refused here as well as by the two check constraints
+                // behind them. The constraints are the defence in depth (§14.6 rule 2) and
+                // surface as a dependency failure naming no field, which is precisely what a
+                // caller who mistyped a scope cannot act on. These name the field.
+                (Rule: NarrowsWithoutAnEntityType(approvalSetting),
+                    Parameter: nameof(ApprovalSetting.EntityType)),
+
+                (Rule: IsContentTypeOnANonContentItem(approvalSetting),
+                    Parameter: nameof(ApprovalSetting.ContentType)),
+
+                (Rule: IsPersonalityOnANonAssociation(approvalSetting),
+                    Parameter: nameof(ApprovalSetting.IsPersonal)),
+
                 (Rule: IsNotSame(
                         firstDate: approvalSetting.UpdatedWhen,
                         secondDate: approvalSetting.CreatedWhen,
@@ -114,6 +128,19 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettings
 
                 (Rule: IsGreaterThan(approvalSetting.UpdatedBy, 255),
                     Parameter: nameof(ApprovalSetting.UpdatedBy)),
+
+                // §8.4's SCOPE rules, refused here as well as by the two check constraints
+                // behind them. The constraints are the defence in depth (§14.6 rule 2) and
+                // surface as a dependency failure naming no field, which is precisely what a
+                // caller who mistyped a scope cannot act on. These name the field.
+                (Rule: NarrowsWithoutAnEntityType(approvalSetting),
+                    Parameter: nameof(ApprovalSetting.EntityType)),
+
+                (Rule: IsContentTypeOnANonContentItem(approvalSetting),
+                    Parameter: nameof(ApprovalSetting.ContentType)),
+
+                (Rule: IsPersonalityOnANonAssociation(approvalSetting),
+                    Parameter: nameof(ApprovalSetting.IsPersonal)),
 
                 (Rule: IsNotSame(
                         first: currentUserId,
@@ -220,6 +247,43 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettings
                 throw new NullApprovalSettingException(message: "Approval setting is null.");
             }
         }
+
+        // The GLOBAL tier narrows nothing, by definition: it is the row every entity-type
+        // default narrows, so a content type or a personality on it names a scope that cannot
+        // exist. Stated as its own rule rather than folded into the two below, because the
+        // field at fault is the missing entity type rather than the narrowing that exposed it.
+        private static dynamic NarrowsWithoutAnEntityType(ApprovalSetting approvalSetting) => new
+        {
+            Condition =
+                approvalSetting.EntityType is null
+                    && (approvalSetting.ContentType is not null
+                        || approvalSetting.IsPersonal is not null),
+
+            Message = "Entity type is required for a setting narrowed by content type or personality"
+        };
+
+        private static dynamic IsContentTypeOnANonContentItem(ApprovalSetting approvalSetting) => new
+        {
+            // Silent while the entity type is missing: NarrowsWithoutAnEntityType names that
+            // fault on the field that actually has it, and two messages for one mistake sends a
+            // caller to fix the wrong box.
+            Condition =
+                approvalSetting.ContentType is not null
+                    && approvalSetting.EntityType is not null
+                    && approvalSetting.EntityType != EntityType.ContentItem,
+
+            Message = "Content type is only valid on a content item setting"
+        };
+
+        private static dynamic IsPersonalityOnANonAssociation(ApprovalSetting approvalSetting) => new
+        {
+            Condition =
+                approvalSetting.IsPersonal is not null
+                    && approvalSetting.EntityType is not null
+                    && approvalSetting.EntityType != EntityType.Association,
+
+            Message = "Personal scope is only valid on an association setting"
+        };
 
         private static dynamic IsInvalid(Guid id) => new
         {

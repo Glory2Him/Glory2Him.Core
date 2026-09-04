@@ -4,6 +4,7 @@ using Glory2Him.Core.Brokers.Storages.Sql;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Glory2Him.Core.Migrations
 {
     [DbContext(typeof(StorageBroker))]
-    partial class StorageBrokerModelSnapshot : ModelSnapshot
+    [Migration("20260904175432_AddGlobalAndPersonalApprovalSettingTiers")]
+    partial class AddGlobalAndPersonalApprovalSettingTiers
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -323,9 +326,9 @@ namespace Glory2Him.Core.Migrations
 
                     b.ToTable("ApprovalSettings", null, t =>
                         {
-                            t.HasCheckConstraint("CK_ApprovalSetting_ContentTypeRequiresContentItem", "(ContentType IS NULL OR (EntityType IS NOT NULL AND EntityType = N'ContentItem'))");
+                            t.HasCheckConstraint("CK_ApprovalSetting_ContentTypeRequiresContentItem", "(ContentType IS NULL OR EntityType = N'ContentItem')");
 
-                            t.HasCheckConstraint("CK_ApprovalSetting_IsPersonalRequiresAssociation", "(IsPersonal IS NULL OR (EntityType IS NOT NULL AND EntityType = N'Association'))");
+                            t.HasCheckConstraint("CK_ApprovalSetting_IsPersonalRequiresAssociation", "(IsPersonal IS NULL OR EntityType = N'Association')");
                         });
                 });
 

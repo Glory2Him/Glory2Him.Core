@@ -13,7 +13,8 @@ import { useDocumentTitle } from '../useDocumentTitle';
 
 import {
     ApprovalSetting,
-    entityTypeLabels
+    entityTypeLabelOf,
+    scopeLabelOf
 } from '../../models/foundations/approvalSettings/approvalSetting';
 
 // THE APPROVAL POLICY, LISTED. Each row is one §8.4 setting: how many approvals a thing needs
@@ -38,10 +39,12 @@ const crumbs: BreadcrumbItem[] = [
     { title: 'Approval Settings', href: approvalSettingsRoute, isActive: true },
 ];
 
+// The second line of the scope column: a content type beats every other narrowing, because a
+// row that has one is a ContentItem row and nothing else narrows a content item.
 const scopeOf = (approvalSetting: ApprovalSetting): string =>
-    approvalSetting.contentType == null
-        ? 'Default for the entity type'
-        : contentTypeLabels[approvalSetting.contentType] ?? 'Content type';
+    approvalSetting.contentType != null
+        ? contentTypeLabels[approvalSetting.contentType] ?? 'Content type'
+        : scopeLabelOf(approvalSetting);
 
 const featurePill = (label: string, isOn: boolean) => (
     <span
@@ -78,12 +81,11 @@ export const ApprovalSettingsPage = () => {
             title: 'Applies to',
             sortable: true,
             value: (approvalSetting) =>
-                `${entityTypeLabels[approvalSetting.entityType] ?? 'Unknown'} `
-                    + scopeOf(approvalSetting),
+                `${entityTypeLabelOf(approvalSetting.entityType)} ${scopeOf(approvalSetting)}`,
             cellTemplate: (approvalSetting) => (
                 <>
                     <div className="fw-semibold">
-                        {entityTypeLabels[approvalSetting.entityType] ?? 'Unknown'}
+                        {entityTypeLabelOf(approvalSetting.entityType)}
                     </div>
                     <div className="small text-body-secondary">
                         {scopeOf(approvalSetting)}
@@ -136,9 +138,10 @@ export const ApprovalSettingsPage = () => {
 
             <p className="text-body-secondary">
                 One row per scope: how many approving reviews something needs, and which
-                conditions hold approval shut until they are met. A row naming a content type
-                beats the entity type&rsquo;s own default for that type; everything else falls
-                back to the default.
+                conditions hold approval shut until they are met. The most specific row wins
+                outright &mdash; a content type or a personality beats the entity type&rsquo;s
+                own default, which beats the global default &mdash; and nothing is merged
+                across rows.
             </p>
 
             <div className="d-flex justify-content-end mb-3">

@@ -251,11 +251,16 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                     EntityType = EntityType.Association,
                     EntityId = storageAssociation.Id,
 
-                    // An association's own policy tier is (Association, null). Its endpoints'
-                    // content types authorise the CALLER, they do not key the policy — and a
-                    // Testimony-to-Devotional row would make the narrow tier ambiguous anyway,
-                    // because neither endpoint is more specific than the other.
+                    // An association's own policy tier is keyed on its personality, never on
+                    // an endpoint's content type. The endpoints' content types authorise the
+                    // CALLER, they do not key the policy — and a Testimony-to-Devotional row
+                    // would make a content-type tier ambiguous anyway, because neither endpoint
+                    // is more specific than the other.
                     ContentType = null,
+
+                    // From STORAGE: a personal association is one whose UserId is set (§4.2),
+                    // and that is what selects the (Association, IsPersonal) tier (§8.4).
+                    IsPersonal = storageAssociation.UserId is not null,
 
                     // Both endpoints, because an association is authorised from them rather
                     // than from itself, and one is enough.

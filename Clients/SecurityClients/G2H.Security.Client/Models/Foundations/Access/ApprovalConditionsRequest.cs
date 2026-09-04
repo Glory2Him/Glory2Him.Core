@@ -44,6 +44,13 @@ namespace G2H.Security.Client.Models.Foundations.Access
         public required string? ContentType { get; init; }
 
         /// <summary>
+        /// The personality half of the policy key: whether the entity is a personal association
+        /// (its <c>UserId</c> is set) — null for anything that is not an association, where the
+        /// tier does not exist.
+        /// </summary>
+        public required bool? IsPersonal { get; init; }
+
+        /// <summary>
         /// Every review on the approval, including dismissed and soft-deleted ones. Which count
         /// is decided here (§8.5 rule 3), not by the caller.
         /// </summary>

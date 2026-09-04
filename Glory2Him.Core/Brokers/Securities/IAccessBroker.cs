@@ -95,6 +95,20 @@ namespace Glory2Him.Core.Brokers.Securities
             CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// The <c>ApprovalStatus</c> the entity's own row carries, or null when the row could not
+        /// be read. What the approval resolution (§9.7.2) opens a round AT: a create at
+        /// <c>Submitted</c> creates the approval at <c>Submitted</c> and a create at <c>Draft</c>
+        /// at <c>Draft</c> (§9.2 rules 1–2), and only the row knows which the caller asked for.
+        ///
+        /// <para>Read from STORAGE, like the author, and for the same reason: resolving it means
+        /// knowing which table an <c>EntityType</c> points at.</para>
+        /// </summary>
+        ValueTask<ApprovalStatus?> RetrieveEntityApprovalStatusAsync(
+            EntityType entityType,
+            Guid entityId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// <see cref="RetrieveEntityAuthorAsync"/> asked of a whole SET rather than one row:
         /// narrows an approvals query to those whose entity this actor authored. The collection
         /// half of §14.7 posture D rule 1's "authenticated callers see their own".

@@ -34,16 +34,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         [Fact]
         public async Task ShouldCreateTheApprovalAtDraftWhenTheEntityKeyIsUnoccupiedAsync()
         {
-            // given: nothing occupies (EntityType, EntityId), so resolution inserts. A newly
-            // created approval is born DRAFT and never Submitted — only the submit action moves
-            // it there (§9.7.2 rule 1), so creating one at Submitted would let content enter
-            // review without anyone having offered it. The insert is captured as a SNAPSHOT taken
-            // inside the call, because the service builds the row inline and the store's answer
-            // is a different object.
+            // given: nothing occupies (EntityType, EntityId), so resolution inserts, at the
+            // status the entity's own row carries (§9.7.2 rule 1, §9.2 rules 1–2) — a Draft
+            // here. The insert is captured as a SNAPSHOT taken inside the call, because the
+            // service builds the row inline and the store's answer is a different object.
             var createdApprovalId = Guid.NewGuid();
             var entityId = Guid.NewGuid();
 
             SetupApprovalProbe(approvalMatch: null);
+            SetupEntityApprovalStatus(EntityType.Link, entityId, ApprovalStatus.Draft);
 
             List<Approval> insertedApprovals =
                 SetupAddedApprovalInsert(createdApprovalId: createdApprovalId);
@@ -68,6 +67,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             // zero member — a row left at its default would match ContentItem for free.
             insertedApproval.EntityType.Should().Be(EntityType.Link);
             insertedApproval.EntityId.Should().Be(entityId);
+
+            // MINTED, not left empty. The foundation refuses an empty Id, and every add this
+            // flow ever made was refused for exactly that until it was asserted here.
+            insertedApproval.Id.Should().NotBe(Guid.Empty);
 
             this.approvalServiceMock.Verify(service =>
                 service.AddApprovalAsync(
@@ -287,6 +290,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()),
                 Times.Never);
+
+            // The entity's status is read to decide what the round opens at (§9.7.2 rule 1).
+            this.accessBrokerMock.Verify(broker =>
+                broker.RetrieveEntityApprovalStatusAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
 
             this.accessBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
@@ -806,5 +817,99 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                                 SecurityContext = new SecurityContext(),
                                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
                             }));
+
+        /// <summary>
+        /// §9.2 rule 1: a create at Submitted enters review immediately, so the round is opened
+        /// at Submitted and the added flow goes on to evaluate it rather than stopping at the
+        /// draft gate. This is the common path, and it was unreachable while every new round was
+        /// born Draft beneath a Submitted entity — the two divergent from the first moment.
+        /// </summary>
+        [Fact]
+        public async Task ShouldCreateTheApprovalAtSubmittedWhenTheEntityWasCreatedSubmittedAsync()
+        {
+            // given
+            var createdApprovalId = Guid.NewGuid();
+            var entityId = Guid.NewGuid();
+
+            SetupApprovalProbe(approvalMatch: null);
+            SetupEntityApprovalStatus(EntityType.Link, entityId, ApprovalStatus.Submitted);
+
+            List<Approval> insertedApprovals =
+                SetupAddedApprovalInsert(createdApprovalId: createdApprovalId);
+
+            SetupConditions(new ApprovalConditionsVerdict
+            {
+                AreConditionsMet = false,
+                ShouldAutoApprove = false,
+                ShouldResetStaleReviewsOnChange = true,
+                BlockReason = AccessDenialReason.ApprovalThresholdNotMet,
+                BlockReasons = new List<AccessDenialReason>
+                {
+                    AccessDenialReason.ApprovalThresholdNotMet
+                },
+                UnresolvedApprovalCommentCount = 0,
+                ApprovalCount = 0,
+                RequiredNumberOfApprovals = 2,
+                Explanation = "0 of 2 required approvals recorded."
+            });
+
+            // when
+            await this.approvalOrchestrationService.ProcessEntityAddedAsync(
+                EntityType.Link,
+                entityId,
+                TestContext.Current.CancellationToken);
+
+            // then
+            Approval insertedApproval = insertedApprovals.Should().ContainSingle().Subject;
+            insertedApproval.ApprovalStatus.Should().Be(ApprovalStatus.Submitted);
+            insertedApproval.Id.Should().NotBe(Guid.Empty);
+
+            // and the round IS evaluated — the draft gate does not fire on a submitted one
+            this.accessBrokerMock.Verify(broker =>
+                broker.EvaluateApprovalConditionsByIdAsync(
+                    createdApprovalId,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
+        /// <summary>
+        /// Nothing enters review on a status nobody offered. A row that could not be read, and
+        /// a row at a status no add may carry (§9.7.1: add is Draft or Submitted only), both
+        /// open at Draft — the foundation would refuse Approved outright, and inferring
+        /// Submitted would let content enter review without anyone having offered it.
+        /// </summary>
+        [Theory]
+        [InlineData(null)]
+        [InlineData(ApprovalStatus.Approved)]
+        [InlineData(ApprovalStatus.Rejected)]
+        [InlineData(ApprovalStatus.Dismissed)]
+        public async Task ShouldCreateTheApprovalAtDraftWhenTheEntityStatusIsNotAnEntryStatusAsync(
+            ApprovalStatus? entityApprovalStatus)
+        {
+            // given
+            var entityId = Guid.NewGuid();
+
+            SetupApprovalProbe(approvalMatch: null);
+            SetupEntityApprovalStatus(EntityType.Link, entityId, entityApprovalStatus);
+
+            List<Approval> insertedApprovals =
+                SetupAddedApprovalInsert(createdApprovalId: Guid.NewGuid());
+
+            // when
+            await this.approvalOrchestrationService.ProcessEntityAddedAsync(
+                EntityType.Link,
+                entityId,
+                TestContext.Current.CancellationToken);
+
+            // then
+            insertedApprovals.Should().ContainSingle().Subject
+                .ApprovalStatus.Should().Be(ApprovalStatus.Draft);
+
+            this.accessBrokerMock.Verify(broker =>
+                broker.EvaluateApprovalConditionsByIdAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
     }
 }
