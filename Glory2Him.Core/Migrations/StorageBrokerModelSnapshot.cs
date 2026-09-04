@@ -625,7 +625,6 @@ namespace Glory2Him.Core.Migrations
                         .HasColumnType("datetimeoffset");
 
                     b.Property<int>("Version")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("int")
                         .HasDefaultValue(1);
 
@@ -941,7 +940,6 @@ namespace Glory2Him.Core.Migrations
                         .HasDefaultValue(true);
 
                     b.Property<int>("SortOrder")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("int")
                         .HasDefaultValue(1000);
 
@@ -1070,7 +1068,6 @@ namespace Glory2Him.Core.Migrations
                         .HasColumnType("datetimeoffset");
 
                     b.Property<int>("Version")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("int")
                         .HasDefaultValue(1);
 
@@ -1183,7 +1180,6 @@ namespace Glory2Him.Core.Migrations
                         .HasColumnType("nvarchar(2048)");
 
                     b.Property<int>("Version")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("int")
                         .HasDefaultValue(1);
 

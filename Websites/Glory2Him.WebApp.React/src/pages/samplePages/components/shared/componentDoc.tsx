@@ -256,6 +256,46 @@ export function DemoRadioGroup({
     );
 }
 
+// A LIVE TEXT BOX, the DemoControls' sibling for a string prop — type and the demo
+// re-renders under it. An emptied box is a legitimate value for a string prop, so nothing
+// falls back. The default is printed only when it is short enough to read as a label —
+// a paragraph-length default belongs in the props table, not beside a switchboard.
+export interface DemoTextInputProps {
+    label: string;
+    name: string;
+    value: string;
+    defaultValue?: string;
+    onChange: (value: string) => void;
+}
+
+export function DemoTextInput({
+    label,
+    name,
+    value,
+    defaultValue,
+    onChange
+}: DemoTextInputProps) {
+    return (
+        <div className="border rounded-3 p-3 mb-3">
+            <label
+                className="small text-uppercase fw-bold text-body-secondary mb-2 d-block"
+                htmlFor={`demo-text-${name}`}>
+                {label}
+                {defaultValue != null && (
+                    <span className="text-danger ms-1">(Default: {defaultValue})</span>
+                )}
+            </label>
+
+            <input
+                className="form-control"
+                type="text"
+                id={`demo-text-${name}`}
+                value={value}
+                onChange={(event) => onChange(event.target.value)} />
+        </div>
+    );
+}
+
 // A LIVE NUMBER BOX, the DemoControls' sibling for a numeric prop — type a value and the
 // demo re-renders under it. An emptied or unparseable box falls back to the default rather
 // than handing the component NaN.

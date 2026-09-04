@@ -18,14 +18,19 @@ namespace Glory2Him.Core.Models.Orchestrations.Approvals
     /// user-enumeration answers, and 16.7.4 already ruled how one of those is exposed: the
     /// requesting tier, an account id and a display name, and nothing a caller could mine. They
     /// stay separate TYPES because they answer different questions - a candidate is somebody who
-    /// may be invited, and this is somebody the round already names - and collapsing them would
-    /// let a resolver's output be mistaken for an eligibility list.</para>
+    /// may be invited, and this is somebody the round already involved - and collapsing them
+    /// would let a resolver's output be mistaken for an eligibility list. Neither set contains
+    /// the other: a candidate who has not yet reviewed and has not been invited is not named
+    /// here at all, and a reviewer who has since left the tier is named here and is not a
+    /// candidate.</para>
     ///
     /// <para><b>Why it is not a projection on the review read.</b> The panel needs names for
     /// reviewers, for invited people and for candidates. A display name hung off ApprovalReview
     /// would answer the first surface and leave the next to invent its own, and three lookups are
-    /// three chances to disagree. One resolver, asked with whatever ids a surface is holding,
-    /// keeps the composition in a single place.</para>
+    /// three chances to disagree. This one is asked once for the round the panel is drawing, the
+    /// candidates read carries its own names because eligibility and naming are one question
+    /// there, and BOTH compose through the same method - which is what keeps a person rendering
+    /// under one name, rather than the number of round trips.</para>
     ///
     /// <para><b>And not a denormalised column either.</b> Storing the name on the row at write
     /// time - the trade ApprovalReviewRequest.RequestedUserDisplayName already made - leaves every
@@ -36,7 +41,7 @@ namespace Glory2Him.Core.Models.Orchestrations.Approvals
         /// <summary>
         /// The account id, echoed back so a caller can join the answer onto the rows it already
         /// holds without depending on ordering. Read off the resolved account, so it is always the
-        /// canonical form rather than whichever spelling was asked with.
+        /// canonical form - a caller holding an id in another spelling normalises its own side.
         /// </summary>
         public required string UserId { get; init; }
 

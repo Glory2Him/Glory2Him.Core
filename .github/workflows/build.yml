@@ -22,10 +22,31 @@ jobs:
       uses: actions/setup-dotnet@v5
       with:
         dotnet-version: 10.x
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        cache: npm
+        cache-dependency-path: Websites/Glory2Him.WebApp.React/package-lock.json
     - name: Restore
       run: dotnet restore
     - name: Build
       run: dotnet build --no-restore
+    - name: Restore React Dependencies
+      run: npm ci
+      working-directory: Websites/Glory2Him.WebApp.React
+    - name: Lint React App
+      run: npm run lint
+      working-directory: Websites/Glory2Him.WebApp.React
+    - name: Run React Unit Tests
+      run: npm run test
+      working-directory: Websites/Glory2Him.WebApp.React
+    # `npm run build` is `tsc -b && vite build`, so this type-checks BOTH tsconfig projects
+    # and then proves the bundle still builds. `dotnet build` cannot stand in for it: the
+    # esproj sets ShouldRunBuildScript=false, so it never runs npm.
+    - name: Build React App
+      run: npm run build
+      working-directory: Websites/Glory2Him.WebApp.React
     - name: Run Unit Tests
       run: >-
         $projects = Get-ChildItem -Path . -Filter "*Tests.Unit*.csproj" -Recurse

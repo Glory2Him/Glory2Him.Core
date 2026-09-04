@@ -29,6 +29,30 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
         // ── OnSubmitting ─────────────────────────────────────────────────────────────────────
 
         [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnSubmittingBibleReferenceEventIfCancellationRequestedAsync()
+        {
+            // given
+            EventEnvelope<BibleReference> requestEnvelope = CreateRandomBibleReferenceRequestEnvelope();
+            var cancellationToken = new CancellationToken(canceled: true);
+
+            // when
+            ValueTask<EventEnvelope<BibleReference>?> onSubmittingTask =
+                this.bibleReferenceService.OnSubmittingBibleReferenceAsync(
+                    requestEnvelope,
+                    cancellationToken);
+
+            // then
+            await Assert.ThrowsAsync<OperationCanceledException>(
+                onSubmittingTask.AsTask);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
         public async Task ShouldSubmitOnSubmittingBibleReferenceEventAsync()
         {
             // given: the event path carries the id in the envelope; the do-work reads only the
@@ -161,6 +185,31 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
         }
 
         // ── OnApproving ──────────────────────────────────────────────────────────────────────
+
+        [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnApprovingBibleReferenceEventIfCancellationRequestedAsync()
+        {
+            // given
+            EventEnvelope<BibleReference> requestEnvelope = CreateRandomBibleReferenceRequestEnvelope();
+            var cancellationToken = new CancellationToken(canceled: true);
+
+            // when
+            ValueTask<EventEnvelope<BibleReference>?> onApprovingTask =
+                this.bibleReferenceService.OnApprovingBibleReferenceAsync(
+                    requestEnvelope,
+                    cancellationToken);
+
+            // then
+            await Assert.ThrowsAsync<OperationCanceledException>(
+                onApprovingTask.AsTask);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
 
         [Fact]
         public async Task ShouldApproveOnApprovingBibleReferenceEventAsync()

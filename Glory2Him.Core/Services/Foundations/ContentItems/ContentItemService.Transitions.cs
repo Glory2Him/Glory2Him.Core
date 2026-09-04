@@ -312,6 +312,13 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
 
             ValidateStorageContentItem(maybeContentItem, contentItemId);
 
+            // The veto, now that the row and so its content type are known. Ahead of the
+            // idempotent short-circuit below, so a blocked caller learns nothing about the
+            // row's publication state on the way out.
+            ValidateUserIsNotBlockedFromUnpublishing(
+                inboundEnvelope.SecurityContext,
+                maybeContentItem);
+
             // Idempotent. The swap probes for an incumbent and may race another that
             // already cleared it; refusing here would fail an approval for work that
             // is already done.

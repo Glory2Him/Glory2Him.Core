@@ -13,10 +13,21 @@ import {
     CodeSample,
     ComponentDoc,
     ComponentPropRow,
+    DemoControls,
+    DemoNumberInput,
+    DemoRadioGroup,
     DocSection,
     LiveDemo,
     PropsTable
 } from './shared/componentDoc';
+
+import {
+    DemoSecurityContext,
+    demoSubmitterIdFor,
+    demoViewerId,
+    SecurityContextSection,
+    securityContextOptions
+} from './shared/securityContextDemo';
 
 const minimalSample = `
 import { ReviewPanel } from '../../components/approvals/reviewPanel';
@@ -144,6 +155,24 @@ const blockedVerdict: ApprovalVerdictItem = {
     requiredNumberOfApprovals: 3,
     unresolvedApprovalCommentCount: 1
 };
+
+// The four states an approval round can wear on the playground — the panel freezes on
+// anything terminal, which is exactly what the radio is for showing.
+const approvalStatusOptions = [
+    { key: String(ApprovalStatus.Submitted), label: 'Submitted (an open round)' },
+    { key: String(ApprovalStatus.Approved), label: 'Approved (terminal)' },
+    { key: String(ApprovalStatus.Rejected), label: 'Rejected (terminal)' },
+    { key: String(ApprovalStatus.Dismissed), label: 'Dismissed (terminal)' }
+] as const;
+
+// What the server's per-caller verdict says — including saying nothing at all, which is what
+// a viewer outside the moderation tier gets (§16.7.2).
+const verdictOptions = [
+    { key: 'none', label: 'No verdict (viewer outside the moderation tier)' },
+    { key: 'unblocked', label: 'Unblocked — canApprove' },
+    { key: 'blocked-bypass', label: 'Blocked — bypass available to this caller' },
+    { key: 'blocked', label: 'Blocked — no bypass for this caller' }
+] as const;
 
 const propRows: ReadonlyArray<ComponentPropRow> = [
     {
@@ -348,6 +377,43 @@ export function ReviewPanelDoc() {
     const viewerHasVoted: ApprovalReviewItem = {
         reviewerUserId: user?.userId ?? '',
         reviewerDisplayName: user?.displayName ?? 'You',
+        vote: ApprovalStatus.Approved
+    };
+
+    // The playground: one panel under a full control surface. Its viewer comes from the
+    // security context board rather than the page's real reader, so it carries its own
+    // "I have voted" row keyed to the demo viewer id.
+    const [playgroundSecurityContext, setPlaygroundSecurityContext] =
+        useState(securityContextOptions[0]);
+
+    const [playgroundStatus, setPlaygroundStatus] =
+        useState<ApprovalStatus>(ApprovalStatus.Submitted);
+
+    const [playgroundVerdictKey, setPlaygroundVerdictKey] = useState('none');
+    const [playgroundShowBorder, setPlaygroundShowBorder] = useState(true);
+    const [playgroundIsLoading, setPlaygroundIsLoading] = useState(false);
+    const [playgroundIsCandidatesLoading, setPlaygroundIsCandidatesLoading] = useState(false);
+    const [playgroundViewerHasVoted, setPlaygroundViewerHasVoted] = useState(false);
+    const [playgroundMaxRequests, setPlaygroundMaxRequests] = useState(15);
+
+    // The chosen verdict, re-stamped with the chosen status so the two boards cannot
+    // contradict each other on screen.
+    const playgroundVerdict: ApprovalVerdictItem | undefined =
+        playgroundVerdictKey === 'unblocked'
+            ? { ...unblockedVerdict, approvalStatus: playgroundStatus }
+            : playgroundVerdictKey === 'blocked-bypass'
+                ? { ...blockedVerdict, approvalStatus: playgroundStatus }
+                : playgroundVerdictKey === 'blocked'
+                    ? {
+                        ...blockedVerdict,
+                        approvalStatus: playgroundStatus,
+                        isBypassAllowedForCurrentUser: false
+                    }
+                    : undefined;
+
+    const playgroundViewerReview: ApprovalReviewItem = {
+        reviewerUserId: demoViewerId,
+        reviewerDisplayName: 'Demo Viewer',
         vote: ApprovalStatus.Approved
     };
 
@@ -631,6 +697,115 @@ export function ReviewPanelDoc() {
                     publisher to count it. <strong>Soft-deleted</strong> reviews are withdrawn,
                     and a withdrawn opinion is no opinion. A vote also supersedes an outstanding
                     request, so nobody is listed twice.
+                </p>
+            </DocSection>
+
+            <DocSection
+                title="Playground"
+                lead={
+                    <>
+                        One panel under the full control surface. The security context lends
+                        the roles, the ownership radio&rsquo;s <em>(owner)</em> variants make
+                        the demo submission yours &mdash; suppressing your vote control, since
+                        nobody reviews their own submission &mdash; and the verdict board
+                        stands in for what the server would answer this caller. The panel opens
+                        as the submitter with no verdict, which is the read-only floor; step
+                        into a reviewer or publisher and the controls the tier earns appear.
+                    </>
+                }>
+                <SecurityContextSection
+                    selected={playgroundSecurityContext}
+                    onChange={setPlaygroundSecurityContext} />
+
+                <DemoRadioGroup
+                    title="approvalStatus"
+                    name="review-playground-status"
+                    options={approvalStatusOptions}
+                    selectedKey={String(playgroundStatus)}
+                    onChange={(key) => setPlaygroundStatus(Number(key) as ApprovalStatus)} />
+
+                <DemoRadioGroup
+                    title="approvalVerdict"
+                    name="review-playground-verdict"
+                    options={verdictOptions}
+                    selectedKey={playgroundVerdictKey}
+                    onChange={setPlaygroundVerdictKey} />
+
+                <DemoControls toggles={[
+                    {
+                        name: 'review-viewer-has-voted',
+                        label: 'the viewer has already voted (demo data, not a prop)',
+                        value: playgroundViewerHasVoted,
+                        onChange: setPlaygroundViewerHasVoted
+                    },
+                    {
+                        name: 'review-border',
+                        label: 'showBorder',
+                        defaultValue: false,
+                        value: playgroundShowBorder,
+                        onChange: setPlaygroundShowBorder
+                    },
+                    {
+                        name: 'review-loading',
+                        label: 'isLoading',
+                        defaultValue: false,
+                        value: playgroundIsLoading,
+                        onChange: setPlaygroundIsLoading
+                    },
+                    {
+                        name: 'review-candidates-loading',
+                        label: 'isCandidatesLoading (inside the picker)',
+                        defaultValue: false,
+                        value: playgroundIsCandidatesLoading,
+                        onChange: setPlaygroundIsCandidatesLoading
+                    }
+                ]} />
+
+                <DemoNumberInput
+                    label="maxReviewerRequests"
+                    name="review-max-reviewer-requests"
+                    value={playgroundMaxRequests}
+                    defaultValue={15}
+                    onChange={setPlaygroundMaxRequests} />
+
+                <LiveDemo>
+                    <DemoSecurityContext option={playgroundSecurityContext}>
+                        <ReviewPanel
+                            entityType="ContentItem"
+                            contentType="Blog"
+                            entityOwnerId={demoSubmitterIdFor(playgroundSecurityContext)}
+                            approvalStatus={playgroundStatus}
+                            approvalReviewCollection={playgroundViewerHasVoted
+                                ? [john, playgroundViewerReview]
+                                : [john]}
+                            requestedReviewerCollection={[mary]}
+                            reviewerCandidateCollection={[johnCandidate, mary, paul]}
+                            suggestedReviewerCollection={[christo]}
+                            approvalVerdict={playgroundVerdict}
+                            maxReviewerRequests={playgroundMaxRequests}
+                            isLoading={playgroundIsLoading}
+                            isCandidatesLoading={playgroundIsCandidatesLoading}
+                            showBorder={playgroundShowBorder}
+                            onApprovalStatusChanged={describeDecision}
+                            onReviewStatusChanged={(vote) =>
+                                setLastEvent('onReviewStatusChanged('
+                                    + (vote === ApprovalStatus.Approved
+                                        ? 'Approved'
+                                        : 'Rejected')
+                                    + ')')}
+                            onReviewerLookupRequested={() =>
+                                setLastEvent('onReviewerLookupRequested()')}
+                            onReviewRequested={(candidate) =>
+                                setLastEvent('onReviewRequested(' + candidate.displayName + ')')}
+                            onReviewRequestWithdrawn={(candidate) =>
+                                setLastEvent(
+                                    'onReviewRequestWithdrawn(' + candidate.displayName + ')')} />
+                    </DemoSecurityContext>
+                </LiveDemo>
+
+                <p className="small text-body-secondary">
+                    Last event:{' '}
+                    <code>{lastEvent.length > 0 ? lastEvent : '(none yet)'}</code>
                 </p>
             </DocSection>
 

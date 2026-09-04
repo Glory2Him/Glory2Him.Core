@@ -22,7 +22,8 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
         /// <summary>
         /// Adds a new content item as version 1 of a new group (Flow 1). The caller must be
         /// authenticated and not blocked by the <c>ReadOnly</c> or <c>ContentItem-ReadOnly</c>
-        /// roles. When the normalized content duplicates an existing non-deleted item of the
+        /// roles, nor by <c>ContentItem-%ContentType%-ReadOnly</c> for the type being
+        /// written (§18.6 rule 2). When the normalized content duplicates an existing non-deleted item of the
         /// same content type (design §3.4.2), nothing is created and the call fails with an
         /// already-exists validation error. On success this service publishes its own
         /// <c>ContentItemProcessing-Added</c> completion fact, distinct from the
