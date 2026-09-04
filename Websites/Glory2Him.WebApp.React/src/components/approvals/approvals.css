@@ -122,3 +122,12 @@ section.g2h-review-panel {
     font-weight: 400;
     text-transform: none;
 }
+
+/* THE REASONS A ROUND IS SHUT are the one thing on the panel a moderator has to act on, and
+   .text-muted painted them too faint to read on white. --bs-secondary-color is Bootstrap's own
+   secondary text token — three-quarter-strength body colour in either theme — so it stays
+   readable in light mode and still drops back in dark, without a hand-picked grey that would
+   only be right in one of them. */
+.g2h-review-block-reason {
+    color: var(--bs-secondary-color);
+}

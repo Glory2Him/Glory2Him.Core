@@ -159,25 +159,31 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 .Be(AccessDenialReason.ApprovalNotOpenForReview);
         }
 
-        // §8.6 regardless-rule 1. No role and no setting relaxes it: a publisher who filed a
-        // review has spent their vote on this round.
-        [Fact]
-        public async Task ShouldRefuseDecidingAnApprovalWhenTheActorHoldsAnActiveReviewEvenAsAdminAsync()
+        // §8.6 regardless-rule 1. No setting relaxes it: a publisher who filed a review has
+        // spent their vote on this round, whatever AllowSelfApproval says — and the bypass
+        // does not reach it either, because it is refused before the bypass is considered.
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task ShouldRefuseDecidingAnApprovalWhenAPublisherHoldsAnActiveReviewAsync(
+            bool isBypassRequested)
         {
             // given
             string actorId = GetRandomString();
 
-            AccessActor adminHoldingAReview = CreateRandomAccessActor(
+            AccessActor publisherHoldingAReview = CreateRandomAccessActor(
                 userId: actorId,
-                roles: new List<string> { RoleNames.Administrators });
+                roles: new List<string> { RoleNames.Publishers });
 
             ApprovalPolicy permissiveApprovalPolicy = CreateRandomApprovalPolicy(
                 requireApprovals: false,
                 allowSelfApproval: true);
 
             DecideApprovalRequest decideApprovalRequest = CreateRandomDecideApprovalRequest(
-                actor: adminHoldingAReview,
+                actor: publisherHoldingAReview,
                 policy: permissiveApprovalPolicy,
+                isBypassRequested: isBypassRequested,
+                bypassReason: isBypassRequested ? GetRandomString() : null,
 
                 reviews: new List<ReviewRecord>
                 {
@@ -193,6 +199,45 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
 
             actualVerdict.DenialReason.Should()
                 .Be(AccessDenialReason.ReviewerOnThisRoundMayNotDecide);
+        }
+
+        // §8.6 regardless-rule 1's one exemption: an administrator who reviewed may still decide.
+        // On a small team they are often the only reviewer, and holding the bar against them
+        // would make every round they touch end in a bypass. The policy here is deliberately
+        // NOT permissive, so the permit below is the exemption and not AllowSelfApproval or a
+        // trivially-met threshold doing the work — the administrator's own review is what
+        // meets the threshold of one.
+        [Fact]
+        public async Task ShouldLetAnAdministratorDecideDespiteHoldingAnActiveReviewAsync()
+        {
+            // given
+            string actorId = GetRandomString();
+
+            AccessActor adminHoldingAReview = CreateRandomAccessActor(
+                userId: actorId,
+                roles: new List<string> { RoleNames.Administrators });
+
+            ApprovalPolicy strictApprovalPolicy = CreateRandomApprovalPolicy(
+                requireApprovals: true,
+                requiredNumberOfApprovals: 1,
+                allowSelfApproval: false);
+
+            DecideApprovalRequest decideApprovalRequest = CreateRandomDecideApprovalRequest(
+                actor: adminHoldingAReview,
+                policy: strictApprovalPolicy,
+
+                reviews: new List<ReviewRecord>
+                {
+                    CreateRandomReviewRecord(createdBy: actorId),
+                });
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayDecideApprovalAsync(decideApprovalRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeTrue();
+            actualVerdict.DenialReason.Should().Be(AccessDenialReason.None);
         }
 
         // HR-2.
