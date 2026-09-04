@@ -373,10 +373,19 @@ namespace G2H.Security.Client.Services.Foundations.Access
                         + "so there is no open round to decide.");
             }
 
-            // §8.6 regardless-rule 1. Checked BEFORE the self-approval setting, because no
-            // setting relaxes it: a publisher who filed a review has spent their vote on this
-            // round whatever AllowSelfApproval says.
-            if (HasActiveReviewBy(request.Reviews, request.Actor.UserId))
+            // §8.6 regardless-rule 1. Checked BEFORE the self-approval setting and before the
+            // bypass is considered, because no setting and no waiver relaxes it: a publisher who
+            // filed a review has spent their vote on this round whatever AllowSelfApproval says,
+            // and cannot bypass past it either.
+            //
+            // ADMINISTRATORS ARE EXEMPT, and that is the rule's own survival rather than a hole
+            // in it. On a small team the administrator is often the only reviewer, and holding
+            // the bar against them means every round they review can end only in a bypass —
+            // HR-4's accountability route made routine, and a waiver stamped on rows that
+            // needed none. Their review counts toward the threshold like any other; holding it
+            // simply does not bar them from applying the outcome.
+            if (HasActiveReviewBy(request.Reviews, request.Actor.UserId)
+                && IsAdministrator(request.Actor) is false)
             {
                 return Refuse(
                     AccessDenialReason.ReviewerOnThisRoundMayNotDecide,
@@ -722,6 +731,9 @@ namespace G2H.Security.Client.Services.Foundations.Access
                     subject,
                     RoleNames.ReviewersFor,
                     RoleNames.ReviewersFor));
+
+        private static bool IsAdministrator(AccessActor actor) =>
+            actor.Roles.Contains(RoleNames.Administrators);
 
         private static bool HasPublisherTier(
             AccessActor actor,
