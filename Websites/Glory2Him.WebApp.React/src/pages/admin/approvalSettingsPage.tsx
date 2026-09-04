@@ -26,9 +26,11 @@ import {
 // the server because a content item override exists per ITEM and the set is unbounded; this set
 // is bounded by entity types times content types, so it is read whole and DataTable pages it.
 //
-// CREATE IS THE PRIMARY ACTION HERE, which is the other thing that differs. Content item
-// settings are seeded, so that page only ever edits; nothing seeds approval settings, so this
-// one opens empty and the first useful thing it does is make a row.
+// CREATE IS THE PRIMARY ACTION HERE, which is the other thing that differs. The host seeds one
+// default per entity type (ApprovalSettingSeedData), so the page never opens empty on a
+// healthy environment — but a content-type policy that narrows a default is only ever an
+// administrator's to write, and that is what the action is for. The empty state stays, for
+// the environment where the seed has not run.
 const approvalSettingsRoute = '/Admin/ApprovalSettings';
 
 const crumbs: BreadcrumbItem[] = [
@@ -152,11 +154,12 @@ export const ApprovalSettingsPage = () => {
                         We could not load the approval settings right now. Please try again later.
                     </div>
                 ) : (approvalSettings?.length ?? 0) === 0 ? (
-                    // Not a failure, and said as such: nothing seeds these, so an empty table is
-                    // the honest first state rather than a sign something went wrong.
+                    // Said plainly rather than as a failure: the host seeds the defaults at
+                    // startup, so an empty table means that seed has not run here yet, and
+                    // until it does resolution falls through to the fail-closed system default.
                     <div className="alert alert-info mb-0" role="alert">
-                        No approval settings yet. Until one exists, nothing is required before an
-                        item can be approved.
+                        No approval settings yet. Until the defaults are seeded, every item is
+                        judged under the system default of one required approval.
                     </div>
                 ) : (
                     <DataTable

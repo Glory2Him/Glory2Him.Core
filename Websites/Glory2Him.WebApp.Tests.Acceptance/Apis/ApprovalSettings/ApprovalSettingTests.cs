@@ -17,6 +17,7 @@ using Glory2Him.Core.Models.Enums;
 using Glory2Him.WebApp.Tests.Acceptance.Brokers;
 using Glory2Him.WebApp.Tests.Acceptance.Models.ApprovalSettings;
 using Tynamix.ObjectFiller;
+using CoreApprovalSetting = Glory2Him.Core.Models.Foundations.ApprovalSettings.ApprovalSetting;
 
 namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalSettings
 {
@@ -37,21 +38,59 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalSettings
 
         /// <summary>
         /// Every scope this suite writes to has to be free, and both unique indexes are keyed on
-        /// <c>EntityType</c> — so two tests running against the same one collide even when
-        /// neither means to exercise the conflict.
+        /// the scope — so two tests writing the same one collide even when neither means to
+        /// exercise the conflict.
         ///
-        /// <para>The seed data and the rest of the suite use the real entity types, so this hands
-        /// out a distinct one per call and the suite never competes with itself. It is an
-        /// interlocked counter rather than a random pick because a random one repeats.</para>
+        /// <para><b>The default tier is fully taken.</b> <c>ApprovalSettingSeedData</c> seeds one
+        /// live default per <c>EntityType</c> member at startup, so every slot under
+        /// <c>UX_ApprovalSettings_EntityTypeDefault</c> is occupied before the first test runs —
+        /// the same move that pushed the ContentItemSettings suite off its default tier. The
+        /// filler therefore writes the CONTENT-TYPE tier instead: <c>ContentItem</c> paired with
+        /// a content type handed out one per call, which is the only pairing
+        /// <c>CK_ApprovalSetting_ContentTypeRequiresContentItem</c> admits. Nine slots, and the
+        /// suite holds at most four at once under its single collection, so it never competes
+        /// with itself. An interlocked counter rather than a random pick because a random one
+        /// repeats.</para>
+        ///
+        /// <para>The test that needs the default tier itself borrows a seeded row and puts it
+        /// back — see <c>ShouldAllowPostWhenEntityTypeDefaultIsHeldOnlyByASoftDeletedRowAsync</c>.</para>
         /// </summary>
         private static int scopeCounter = -1;
 
-        private static EntityType GetUnusedEntityType()
+        private static ContentType GetUnusedContentType()
         {
-            EntityType[] entityTypes = Enum.GetValues<EntityType>();
+            ContentType[] contentTypes = Enum.GetValues<ContentType>();
             int next = Interlocked.Increment(ref scopeCounter);
 
-            return entityTypes[next % entityTypes.Length];
+            return contentTypes[next % contentTypes.Length];
+        }
+
+        /// <summary>
+        /// A soft-deleted predecessor for a seeded default's scope, arranged beneath HTTP so the
+        /// index's <c>IsDeleted</c> term can be asserted while the seeded row is lifted out.
+        /// </summary>
+        private static CoreApprovalSetting CreateSoftDeletedCoreDefaultApprovalSetting(
+            EntityType entityType)
+        {
+            string user = Guid.NewGuid().ToString();
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+
+            return new CoreApprovalSetting
+            {
+                Id = Guid.NewGuid(),
+                EntityType = entityType,
+                ContentType = null,
+                RequireApprovals = true,
+                RequiredNumberOfApprovals = 1,
+                IsDeleted = true,
+                DeletedBy = user,
+                DeletedWhen = now,
+                DeletionReason = "Arranged by the acceptance suite.",
+                CreatedBy = user,
+                CreatedWhen = now,
+                UpdatedBy = user,
+                UpdatedWhen = now
+            };
         }
 
         private int GetRandomNumber() =>
@@ -89,14 +128,33 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalSettings
             return createdApprovalSetting;
         }
 
+        /// <summary>
+        /// Leak-safe: a post that fails part-way tears down what it already posted before it
+        /// rethrows. The content-type tier is nine fixed slots shared by the whole run, so a
+        /// stranded row does not fail the test that stranded it — it fails whichever later test
+        /// draws that slot, and the failure reads as an exposer regression.
+        /// </summary>
         private async ValueTask<List<ApprovalSetting>> PostRandomApprovalSettingsAsync()
         {
             int randomNumber = GetRandomNumber();
             var randomApprovalSettings = new List<ApprovalSetting>();
 
-            for (int i = 0; i < randomNumber; i++)
+            try
             {
-                randomApprovalSettings.Add(await PostRandomApprovalSettingAsync());
+                for (int i = 0; i < randomNumber; i++)
+                {
+                    randomApprovalSettings.Add(await PostRandomApprovalSettingAsync());
+                }
+            }
+            catch
+            {
+                foreach (ApprovalSetting postedApprovalSetting in randomApprovalSettings)
+                {
+                    await this.apiBroker.RemoveCoreApprovalSettingByIdAsync(
+                        postedApprovalSetting.Id);
+                }
+
+                throw;
             }
 
             return randomApprovalSettings;
@@ -115,17 +173,16 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalSettings
                 .OnType<DateTimeOffset>().Use(now)
                 .OnType<DateTimeOffset?>().Use(now)
 
-                // A per-type DEFAULT row: ContentType null puts it under
-                // UX_ApprovalSettings_EntityTypeDefault, and the entity type is handed out one
-                // per call so the suite cannot collide with itself.
+                // A CONTENT-TYPE row: ContentItem paired with a content type handed out one per
+                // call puts it under UX_ApprovalSettings_EntityTypeContentType, the one tier the
+                // seed leaves free — see GetUnusedContentType.
                 .OnProperty(approvalSetting => approvalSetting.EntityType)
-                    .Use(new Func<EntityType>(GetUnusedEntityType))
+                    .Use(EntityType.ContentItem)
                 .OnProperty(approvalSetting => approvalSetting.ContentType)
-                    .Use((ContentType?)null)
+                    .Use(new Func<ContentType?>(() => GetUnusedContentType()))
 
-                // A plausible policy rather than a random one. The filler would otherwise pick a
-                // negative RequiredNumberOfApprovals, which is refused, and the reader of a
-                // failure would have to work out that the fixture was the problem.
+                // A plausible policy rather than a random one, so the reader of a failure never
+                // has to work out that the fixture was the problem.
                 .OnProperty(approvalSetting => approvalSetting.RequireApprovals).Use(true)
                 .OnProperty(approvalSetting => approvalSetting.RequiredNumberOfApprovals).Use(1)
 

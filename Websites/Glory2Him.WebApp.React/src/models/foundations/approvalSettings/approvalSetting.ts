@@ -84,18 +84,21 @@ export type ApprovalSetting = {
     isDeleted: boolean;
 };
 
-// What a NEW row opens on. Every gate off, one approval required — the least surprising policy
-// for something an administrator is about to shape, and the shape §8.5 evaluates against.
+// What a NEW row opens on: the HOUSE POLICY, the same nine values ApprovalSettingSeedData writes
+// for every entity-type default. A content-type row an administrator adds narrows a seeded
+// default, so it opens matching that default and the administrator changes only what they
+// mean to — a form that opened looser than the row it overrides would make the ninth policy
+// quietly weaker than the eight.
 export const newApprovalSetting = (id: string): ApprovalSetting => ({
     id,
     entityType: EntityType.ContentItem,
     contentType: null,
     requireApprovals: true,
-    requiredNumberOfApprovals: 1,
+    requiredNumberOfApprovals: 2,
     autoApproveIfAllApprovalRequirementsMet: false,
     allowSelfApproval: false,
     blockOnReject: true,
-    blockOnZeroApprovalScore: false,
+    blockOnZeroApprovalScore: true,
     requireReapprovalOnChange: true,
     requireReviewCommentResolutionBeforeApprovals: true,
     doNotAllowBypassingSettings: false,

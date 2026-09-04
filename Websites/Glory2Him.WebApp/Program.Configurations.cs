@@ -39,6 +39,7 @@ public partial class Program
             {
                 MigrateCoreDatabase(app);
                 await ContentItemSettingSeedData.SeedAsync(app.Services);
+                await ApprovalSettingSeedData.SeedAsync(app.Services);
                 await ReactionSeedData.SeedAsync(app.Services);
                 await RegisterCoreEventSubstrateAsync(app);
 

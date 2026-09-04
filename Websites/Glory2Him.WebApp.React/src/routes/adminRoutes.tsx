@@ -65,10 +65,10 @@ export const adminRoutes: RouteObject[] = [
                     </SecuredRoute>,
             },
             {
-                // CREATE IS ITS OWN ROUTE, ahead of the id route: nothing seeds approval
-                // settings, so the first useful thing this section does is write one, and
-                // adding a policy is a different permission from amending one. A static
-                // segment outranks a dynamic one, so New never reads as an id.
+                // CREATE IS ITS OWN ROUTE, ahead of the id route: the host seeds the
+                // entity-type defaults, but a content-type policy is an administrator's to
+                // write, and adding a policy is a different permission from amending one. A
+                // static segment outranks a dynamic one, so New never reads as an id.
                 path: 'Admin/ApprovalSettings/New',
                 element:
                     <SecuredRoute allowedRoles={securityPoints.approvalSettings.add}>

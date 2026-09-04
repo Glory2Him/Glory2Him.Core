@@ -170,13 +170,18 @@ describe('ApprovalSettingDetailPage', () => {
             expect(updated).not.toHaveBeenCalled();
         });
 
-        it('should open on one required approval rather than on none', () => {
-            // given: the shape §8.5 evaluates against, and the least surprising default
+        // THE HOUSE POLICY, not the entity's C# defaults: a content-type row narrows a seeded
+        // default, so it opens matching that default (ApprovalSettingSeedData) and the
+        // administrator changes only what they mean to.
+        it('should open on the seeded house policy rather than on a looser one', () => {
+            // given
             renderCreatePage();
 
             // then
-            expect(screen.getByLabelText('How many')).toHaveValue(1);
+            expect(screen.getByLabelText('How many')).toHaveValue(2);
             expect(switchFor('Approving reviews are required')).toBeChecked();
+            expect(switchFor('A rejected review blocks approval')).toBeChecked();
+            expect(switchFor('A zero confidence score blocks approval')).toBeChecked();
         });
 
         it('should let the scope be chosen while the row is still being written', () => {
