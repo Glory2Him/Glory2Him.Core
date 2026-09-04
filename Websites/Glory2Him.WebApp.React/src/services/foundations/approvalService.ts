@@ -35,6 +35,7 @@ export const approvalService = {
                 await approvalBroker.GetApprovalVerdictAsync(entityType, entityId),
             enabled: enabled && entityId.length > 0,
             retry: false,
+            meta: { suppressGlobalErrorToast: true },
             staleTime: approvalStaleTime
         });
     },
@@ -47,6 +48,7 @@ export const approvalService = {
             queryFn: async () => await approvalBroker.GetApprovalReviewsAsync(approvalId),
             enabled: enabled && approvalId.length > 0,
             retry: false,
+            meta: { suppressGlobalErrorToast: true },
             staleTime: approvalStaleTime
         });
     },
@@ -63,6 +65,7 @@ export const approvalService = {
                 await approvalBroker.GetReviewerCandidatesAsync(entityType, entityId),
             enabled: enabled && entityId.length > 0,
             retry: false,
+            meta: { suppressGlobalErrorToast: true },
             staleTime: approvalStaleTime
         });
     },
@@ -79,6 +82,7 @@ export const approvalService = {
                 await approvalBroker.GetReviewRequestsAsync(entityType, entityId),
             enabled: enabled && entityId.length > 0,
             retry: false,
+            meta: { suppressGlobalErrorToast: true },
             staleTime: approvalStaleTime
         });
     },
@@ -95,6 +99,7 @@ export const approvalService = {
                 await approvalBroker.GetReviewerDisplayNamesAsync(sortedUserIds),
             enabled: enabled && sortedUserIds.length > 0,
             retry: false,
+            meta: { suppressGlobalErrorToast: true },
             staleTime: approvalStaleTime
         });
     }
