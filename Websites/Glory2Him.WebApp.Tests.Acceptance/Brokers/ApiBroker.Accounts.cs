@@ -90,6 +90,31 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
             return result;
         }
 
+        // The availability endpoint answers three independent questions at once, so the probe
+        // returns the whole body rather than a single flag.
+        public async ValueTask<UserNameAvailabilityResponse> GetUserNameAvailabilityAsync(
+            string userName)
+        {
+            HttpResponseMessage response = await this.httpClient.GetAsync(
+                "api/registrations/username-available?userName="
+                    + Uri.EscapeDataString(userName));
+
+            response.EnsureSuccessStatusCode();
+
+            return JsonSerializer.Deserialize<UserNameAvailabilityResponse>(
+                await response.Content.ReadAsStringAsync(),
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        }
+
+        public sealed class UserNameAvailabilityResponse
+        {
+            public bool IsAvailable { get; set; }
+            public bool IsTooShort { get; set; }
+            public bool IsProhibited { get; set; }
+            public string ProhibitedReason { get; set; }
+            public int MinimumLength { get; set; }
+        }
+
         // The exact set the host is running with, read back off the live options rather than
         // restated — the point of the assertion is that the configured set is what we think.
         public string GetAllowedUserNameCharacters()

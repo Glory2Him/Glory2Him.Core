@@ -42,28 +42,27 @@ namespace Glory2Him.WebApp.Infrastructure
             {
                 string candidate = userName?.Trim() ?? string.Empty;
 
-                if (candidate.Length < registrationViewService.MinimumUsernameLength)
-                {
-                    return Results.Ok(new
-                    {
-                        IsAvailable = false,
-                        IsTooShort = true,
-                        IsProhibited = false,
-                        ProhibitedReason = (string?)null,
-                        MinimumLength = registrationViewService.MinimumUsernameLength,
-                    });
-                }
+                // The two answers are independent, so both are reported. "@" and "a@" are BOTH
+                // too short and prohibited, and answering only "too short" tells a caller that
+                // typing two more characters would fix it — which is false, and which a caller
+                // relying on this endpoint rather than its own copy of the rule cannot know.
+                // Reported separately from "taken" for the same reason: "someone already has
+                // that" is a lie about an address nobody may use (§18.3.1).
+                bool isProhibited = UserNameRule.IsAllowed(candidate) is false;
+                bool isTooShort = candidate.Length < registrationViewService.MinimumUsernameLength;
 
-                // Reported separately from "taken", because they are different problems and
-                // "someone already has that" is a lie about an address nobody may use (§18.3.1).
-                if (UserNameRule.IsAllowed(candidate) is false)
+                if (isProhibited || isTooShort)
                 {
                     return Results.Ok(new
                     {
                         IsAvailable = false,
-                        IsTooShort = false,
-                        IsProhibited = true,
-                        ProhibitedReason = (string?)UserNameRule.RejectionMessage,
+                        IsTooShort = isTooShort,
+                        IsProhibited = isProhibited,
+
+                        ProhibitedReason = isProhibited
+                            ? (string?)UserNameRule.RejectionMessage
+                            : null,
+
                         MinimumLength = registrationViewService.MinimumUsernameLength,
                     });
                 }

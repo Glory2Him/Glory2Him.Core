@@ -78,6 +78,55 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Accounts
                 identityError.Code == "InvalidUserName");
         }
 
+        // The availability endpoint answers three independent questions, and a caller that trusts
+        // it rather than carrying its own copy of the rule has only those answers to go on.
+        // "@" and "a@" are BOTH too short and prohibited; reporting only "too short" would tell
+        // that caller two more characters would fix it, which is false.
+        [Theory]
+        [InlineData("@")]
+        [InlineData("a@")]
+        public async Task ShouldReportShortAndProhibitedTogetherAsync(string userName)
+        {
+            // given . when
+            ApiBroker.UserNameAvailabilityResponse actual =
+                await this.apiBroker.GetUserNameAvailabilityAsync(userName);
+
+            // then
+            actual.IsAvailable.Should().BeFalse();
+            actual.IsTooShort.Should().BeTrue();
+            actual.IsProhibited.Should().BeTrue();
+            actual.ProhibitedReason.Should().Contain("@");
+        }
+
+        [Fact]
+        public async Task ShouldReportALongProhibitedUserNameAsProhibitedOnlyAsync()
+        {
+            // given . when
+            ApiBroker.UserNameAvailabilityResponse actual =
+                await this.apiBroker.GetUserNameAvailabilityAsync("someone@glory2him.local");
+
+            // then
+            actual.IsAvailable.Should().BeFalse();
+            actual.IsProhibited.Should().BeTrue();
+            actual.IsTooShort.Should().BeFalse();
+        }
+
+        // A name that breaks neither rule must still come back clean, or the endpoint would be
+        // refusing everything and the assertions above would pass for the wrong reason.
+        [Fact]
+        public async Task ShouldReportAPermittedUserNameAsNeitherShortNorProhibitedAsync()
+        {
+            // given . when
+            ApiBroker.UserNameAvailabilityResponse actual =
+                await this.apiBroker.GetUserNameAvailabilityAsync("probe.available-name");
+
+            // then
+            actual.IsProhibited.Should().BeFalse();
+            actual.IsTooShort.Should().BeFalse();
+            actual.ProhibitedReason.Should().BeNull();
+            actual.IsAvailable.Should().BeTrue();
+        }
+
         // The other half of the same guarantee: the set is narrowed, not broken. A name the rule
         // permits must still be creatable, or the migration's two passes would have nothing legal
         // to rename anything to.

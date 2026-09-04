@@ -94,20 +94,17 @@ namespace Glory2Him.WebApp.Services.Views.Users
                 // gate in front of it — an administrator types this field freely (§18.3.1).
                 EnsureUserNameIsNotAnEmailAddress(user.UserName);
 
-                existingUser.Name = user.Name ?? string.Empty;
-                existingUser.Surname = user.Surname ?? string.Empty;
-                existingUser.PreferredName = user.PreferredName;
-                existingUser.DateOfBirth = user.DateOfBirth;
-
-                EnsureIdentitySucceeded(
-                    await this.identityBroker.UpdateUserAsync(existingUser),
-                    "save this user's personal details");
-
-                // Identity reports a refused value by returning an unsuccessful result, and these
-                // four calls used to discard it — so a rejected username left the in-memory user
-                // renamed, the row unchanged, and the admin looking at a success. It matters more
-                // now than it did: the narrowed AllowedUserNameCharacters makes refusal a normal
-                // outcome of this call rather than a theoretical one.
+                // THE REFUSABLE WRITES GO FIRST, and the personal details last. Identity reports a
+                // refused value by returning an unsuccessful result, and these four calls used to
+                // discard it — so a rejected username left the in-memory user renamed, the row
+                // unchanged, and the admin looking at a success. It matters more now than it did:
+                // the narrowed AllowedUserNameCharacters makes refusal a normal outcome.
+                //
+                // Once refusal is normal, ORDER decides what a refusal leaves behind. Saving the
+                // personal details first committed them, and the throw then left the profile half
+                // applied — the name changed, the username not, and the page still showing the old
+                // one. Doing the writes Identity can refuse while the entity is otherwise
+                // untouched means the first failure leaves the row as it was.
                 EnsureIdentitySucceeded(
                     await this.identityBroker.SetUserNameAsync(existingUser, user.UserName),
                     "change this user's username");
@@ -119,6 +116,15 @@ namespace Glory2Him.WebApp.Services.Views.Users
                 EnsureIdentitySucceeded(
                     await this.identityBroker.SetPhoneNumberAsync(existingUser, user.PhoneNumber),
                     "change this user's phone number");
+
+                existingUser.Name = user.Name ?? string.Empty;
+                existingUser.Surname = user.Surname ?? string.Empty;
+                existingUser.PreferredName = user.PreferredName;
+                existingUser.DateOfBirth = user.DateOfBirth;
+
+                EnsureIdentitySucceeded(
+                    await this.identityBroker.UpdateUserAsync(existingUser),
+                    "save this user's personal details");
             });
 
         public ValueTask SetUserDisabledAsync(Guid userId, bool isDisabled) =>

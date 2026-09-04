@@ -252,6 +252,16 @@ namespace Glory2Him.WebApp.Tests.Unit.Services.Views.Users
             this.identityBrokerMock.Verify(broker =>
                 broker.SetEmailAsync(It.IsAny<AppUser>(), It.IsAny<string>()),
                     Times.Never);
+
+            // AND IT LEAVES NOTHING BEHIND. The personal details are written last precisely so a
+            // refusal cannot commit half a profile — the name changed, the username not, and the
+            // page still showing the old one. Saving them first is what used to do that.
+            this.identityBrokerMock.Verify(broker =>
+                broker.UpdateUserAsync(It.IsAny<AppUser>()),
+                    Times.Never);
+
+            user.Name.Should().BeEmpty();
+            user.Surname.Should().BeEmpty();
         }
 
         [Fact]
