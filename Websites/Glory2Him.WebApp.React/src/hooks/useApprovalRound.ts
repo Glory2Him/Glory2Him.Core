@@ -90,6 +90,11 @@ export const useApprovalRound = (
     return {
         approvalVerdict: approvalVerdictItem,
         approvalReviewCollection,
+
+        // THE ROWS THEMSELVES, beside their projection: a changed vote is a PUT of the row that
+        // was read (§7.7 rule 1), audit fields and all, and the projection deliberately carries
+        // none of that.
+        approvalReviews: approvalReviews ?? [],
         requestedReviewerCollection,
         reviewerCandidateCollection,
         isLoading

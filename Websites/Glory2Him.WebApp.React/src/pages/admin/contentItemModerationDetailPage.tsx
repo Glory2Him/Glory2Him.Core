@@ -39,6 +39,15 @@ import {
 } from '../../services/views/contentItems/toContentItemFormItem';
 
 import { toastError } from '../../brokers/toastBroker.error';
+import { useAuth } from '../../components/securitys/authProvider';
+import { approvalService } from '../../services/foundations/approvalService';
+import { extractApiErrorMessage } from './apiErrorMessage';
+
+import {
+    ApprovalDecision,
+    ApprovalStatus as ReviewVote,
+    ReviewerCandidateItem
+} from '../../models/components/approvals/approvalReviewItem';
 
 import {
     ContentItemFormItem,
@@ -194,10 +203,94 @@ export const ContentItemModerationDetailPage = () => {
     const {
         approvalVerdict,
         approvalReviewCollection,
+        approvalReviews,
         requestedReviewerCollection,
         reviewerCandidateCollection,
         isLoading: isRoundLoading
     } = useApprovalRound(EntityTypeName.ContentItem, contentItemId);
+
+    // ── THE WRITES, events in, requests out. ──────────────────────────────────────
+    //
+    // The panel decides nothing beyond what its own gates read; the server is the authority,
+    // and a refusal from it is an ANSWER (§14.5) — HR-2, a reviewer who has spent their vote, a
+    // bypass the policy shut — so each handler shows the reason it was given rather than a
+    // generic failure. Nothing is optimistic: every write invalidates the round on success and
+    // the panel repaints off the reads.
+    const { user } = useAuth();
+    const castApprovalReview = approvalService.useCastApprovalReview();
+    const decideApproval = approvalService.useDecideApproval();
+    const requestReview = approvalService.useRequestReview();
+    const withdrawReviewRequest = approvalService.useWithdrawReviewRequest();
+
+    // The viewer's standing review, if any: a changed vote amends THAT row (§7.7 rule 1), and
+    // the projection the panel renders does not carry what an amend has to send back.
+    const viewerStandingReview = approvalReviews.find(
+        (review) => review.createdBy === (user?.userId ?? '') && review.isDeleted !== true);
+
+    const castVoteAsync = async (vote: ReviewVote) => {
+        if (approvalVerdict == null) {
+            return;
+        }
+
+        try {
+            await castApprovalReview.mutateAsync({
+                approvalId: approvalVerdict.approvalId,
+                vote,
+                standingReview: viewerStandingReview
+            });
+        } catch (error) {
+            toastError(extractApiErrorMessage(
+                error, 'Your review could not be recorded. Please try again.'));
+        }
+    };
+
+    const decideAsync = async (
+        decision: ApprovalDecision,
+        isBypassRequested: boolean,
+        bypassReason: string) => {
+        try {
+            await decideApproval.mutateAsync({
+                entityType: EntityTypeName.ContentItem,
+                entityId: contentItemId,
+                decision,
+                isBypassRequested,
+                bypassReason
+            });
+
+            toastSuccess(decision === ApprovalDecision.Approve
+                ? 'The post has been approved.'
+                : 'The post has been rejected.');
+        } catch (error) {
+            toastError(extractApiErrorMessage(
+                error, 'The decision could not be applied. Please try again.'));
+        }
+    };
+
+    const requestReviewAsync = async (candidate: ReviewerCandidateItem) => {
+        try {
+            await requestReview.mutateAsync({
+                entityType: EntityTypeName.ContentItem,
+                entityId: contentItemId,
+                requestedUserId: candidate.userId
+            });
+        } catch (error) {
+            toastError(extractApiErrorMessage(
+                error, `${candidate.displayName} could not be asked to review this post.`));
+        }
+    };
+
+    const withdrawReviewRequestAsync = async (candidate: ReviewerCandidateItem) => {
+        try {
+            await withdrawReviewRequest.mutateAsync({
+                entityType: EntityTypeName.ContentItem,
+                entityId: contentItemId,
+                requestedUserId: candidate.userId
+            });
+        } catch (error) {
+            toastError(extractApiErrorMessage(
+                error, `The request to ${candidate.displayName} could not be withdrawn.`));
+        }
+    };
 
     // The association WRITES arrive with #318; until then the boxes answer honestly rather than
     // silently dropping what a moderator typed. Same posture as /myposts/{id}.
@@ -324,9 +417,10 @@ export const ContentItemModerationDetailPage = () => {
                                 — props in, events out — so the assembling is this page's job,
                                 done once in useApprovalRound.
 
-                                THE DECISION AND VOTE WRITES ARE NOT WIRED YET, so the controls
-                                a moderator's tier earns will raise their events and nothing
-                                will follow. That is the next piece, not a silent gap. */}
+                                THE WRITES go back out through the handlers above: a vote is
+                                a review row, a decision is the round's, a request is an
+                                invitation. Each invalidates the round, so what the panel shows
+                                next is what the server holds, not what the click assumed. */}
                             <ReviewPanel
                                 entityType="ContentItem"
                                 contentType={ContentType[contentItem.contentType] ?? ''}
@@ -337,6 +431,12 @@ export const ContentItemModerationDetailPage = () => {
                                 requestedReviewerCollection={requestedReviewerCollection}
                                 reviewerCandidateCollection={reviewerCandidateCollection}
                                 isLoading={isRoundLoading}
+                                onReviewStatusChanged={(vote) => void castVoteAsync(vote)}
+                                onApprovalStatusChanged={(decision, isBypassRequested, bypassReason) =>
+                                    void decideAsync(decision, isBypassRequested, bypassReason)}
+                                onReviewRequested={(candidate) => void requestReviewAsync(candidate)}
+                                onReviewRequestWithdrawn={(candidate) =>
+                                    void withdrawReviewRequestAsync(candidate)}
                                 showBorder />
                         </div>
                     </div>

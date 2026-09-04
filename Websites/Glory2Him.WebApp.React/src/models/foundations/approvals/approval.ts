@@ -42,6 +42,11 @@ export type ApprovalVerdict = {
 
 // GET api/ApprovalReviews — one reviewer's recorded verdict. CreatedBy is the reviewer's ACCOUNT
 // ID and the row carries no name for them, which is what ReviewerDisplayName exists to answer.
+//
+// THE WHOLE ROW GOES BACK ON AN AMEND. A reviewer holds at most one active review on a round
+// (§7.7 rule 1), so changing a vote is a PUT of the row that was read, with the verdict
+// changed — never a second POST — and the foundation compares the audit fields against
+// storage before it accepts the write, so they travel too.
 export type ApprovalReview = {
     id: string;
     approvalId: string;
@@ -49,7 +54,22 @@ export type ApprovalReview = {
     comment: string;
     createdBy: string;
     createdWhen: string;
+    updatedBy: string;
+    updatedWhen: string;
     isDeleted: boolean;
+};
+
+// POST api/Approvals/{entityType}/{entityId}/Decision — what the round became. The entity's
+// own status follows through the workflow's transition command rather than in this response,
+// which is why a decision invalidates the item's reads as well as the round's.
+export type ApprovalOutcome = {
+    approvalId: string;
+    entityType: number;
+    entityId: string;
+    approvalStatus: ApprovalStatus;
+    isApprovedByBypass: boolean;
+    approvedByBypassReason: string | null;
+    isEntitySyncRequested: boolean;
 };
 
 // GET api/Approvals/{entityType}/{entityId}/ReviewerCandidates — the minimum a picker needs
