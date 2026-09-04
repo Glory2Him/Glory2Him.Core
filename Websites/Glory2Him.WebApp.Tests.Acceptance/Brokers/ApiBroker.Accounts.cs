@@ -106,14 +106,19 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
                 new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         }
 
+        // The project is <Nullable>disable</Nullable>, so the annotation is enabled just for this
+        // type: ProhibitedReason is null on every response where IsProhibited is false, and a DTO
+        // that says otherwise invites a caller to dereference it.
+#nullable enable
         public sealed class UserNameAvailabilityResponse
         {
             public bool IsAvailable { get; set; }
             public bool IsTooShort { get; set; }
             public bool IsProhibited { get; set; }
-            public string ProhibitedReason { get; set; }
+            public string? ProhibitedReason { get; set; }
             public int MinimumLength { get; set; }
         }
+#nullable restore
 
         // The exact set the host is running with, read back off the live options rather than
         // restated — the point of the assertion is that the configured set is what we think.

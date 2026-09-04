@@ -103,8 +103,13 @@ namespace Glory2Him.WebApp.Services.Views.Users
                 // Once refusal is normal, ORDER decides what a refusal leaves behind. Saving the
                 // personal details first committed them, and the throw then left the profile half
                 // applied — the name changed, the username not, and the page still showing the old
-                // one. Doing the writes Identity can refuse while the entity is otherwise
-                // untouched means the first failure leaves the row as it was.
+                // one. Doing the writes Identity can refuse first means the personal details are
+                // not committed until every one of them has succeeded.
+                //
+                // THAT IS THE WHOLE GUARANTEE, and it is narrower than atomicity. Each call below
+                // saves through UserManager independently, so a refusal on the email still leaves
+                // the username change committed. Making the edit all-or-nothing would need a
+                // transaction around all four writes, which IIdentityBroker does not expose.
                 EnsureIdentitySucceeded(
                     await this.identityBroker.SetUserNameAsync(existingUser, user.UserName),
                     "change this user's username");
