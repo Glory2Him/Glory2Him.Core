@@ -147,6 +147,12 @@ export function ContentItemModerationPage() {
                     onSaveClick={onSaveClick}
                     showModerationSection
                     showApprovalStatus
+
+                    // The queue is PINNED to Draft + Submitted, so these boxes narrow
+                    // within it — a moderator working the drafts alone ticks Draft — and
+                    // ticking a status the pin does not carry changes nothing rather than
+                    // widening the queue past what this surface is.
+                    showApprovalStatusSearchOptions
                     onModerateClick={moderateContentItem}
                     emptyText="Nothing is waiting for moderation. Well done."
                     {...feedNavigation} />

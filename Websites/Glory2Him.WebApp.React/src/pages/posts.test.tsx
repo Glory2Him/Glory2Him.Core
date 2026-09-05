@@ -245,7 +245,8 @@ describe('Posts', () => {
             tagMatchMode: 'any',
             bibleReferences: [],
             bibleReferenceMatchMode: 'any',
-            shareabilityBasis: null
+            shareabilityBasis: null,
+            approvalStatuses: []
         });
     });
 
@@ -274,7 +275,8 @@ describe('Posts', () => {
             tagMatchMode: 'any',
             bibleReferences: [],
             bibleReferenceMatchMode: 'any',
-            shareabilityBasis: null
+            shareabilityBasis: null,
+            approvalStatuses: []
         }));
     });
 

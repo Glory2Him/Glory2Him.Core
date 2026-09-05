@@ -165,9 +165,31 @@ export type ContentItemSearchCriteria = {
 
     // The Shareability box. Null is "any shareability".
     shareabilityBasis: ShareabilityBasis | null;
+
+    // The Approval status boxes — the checkbox group the bar renders only where a surface
+    // opted in with showApprovalStatusSearchOptions. EMPTY IS "ANY STATUS", exactly as a
+    // null contentType is "any category": a reader who has ticked nothing is asking for
+    // everything the surface already shows them, not for nothing at all.
+    //
+    // A NARROWING, NEVER A WIDENING. The statuses a page PINS (the moderation queue's Draft
+    // + Submitted) and the roles the foundation enforces (§14.5) both still stand — what is
+    // ticked here narrows within them, so a reader cannot reach a row by ticking a box that
+    // their surface was never showing.
+    approvalStatuses: ReadonlyArray<ApprovalStatus>;
 };
 
 export type ContentItemTagMatchMode = 'any' | 'all';
+
+// The statuses the search checkbox group offers, in the order they are rendered — the
+// workflow's own order, which is also the numeric one. Dismissed is deliberately absent: no
+// shipped surface lists dismissed rows, so a box that narrows to them would return nothing
+// wherever it was ticked.
+export const contentItemSearchApprovalStatusMembers: ReadonlyArray<ApprovalStatus> = [
+    ApprovalStatus.Draft,
+    ApprovalStatus.Submitted,
+    ApprovalStatus.Approved,
+    ApprovalStatus.Rejected
+];
 
 export const emptyContentItemSearchCriteria: ContentItemSearchCriteria = {
     query: '',
@@ -178,5 +200,6 @@ export const emptyContentItemSearchCriteria: ContentItemSearchCriteria = {
     tagMatchMode: 'any',
     bibleReferences: [],
     bibleReferenceMatchMode: 'any',
-    shareabilityBasis: null
+    shareabilityBasis: null,
+    approvalStatuses: []
 };

@@ -67,6 +67,28 @@ export const contentItemService = {
         const submittedById =
             options.submittedById ?? criteria.submittedBy?.id ?? null;
 
+        // The reader's ticked statuses narrow WITHIN whatever the page pinned, the same way:
+        // the moderation queue is Draft + Submitted whatever is ticked, so ticking Approved
+        // there asks for nothing the queue was not already showing. Nothing ticked leaves the
+        // pin alone — an empty selection is "any status", not "no status".
+        //
+        // AN EMPTY INTERSECTION FALLS BACK TO THE PIN rather than travelling as an empty list:
+        // the broker reads an empty list as "no status clause at all", so sending one would
+        // turn a selection that asked for LESS into a read that shows MORE. A tick with
+        // nothing behind it on this surface is a tick that changes nothing.
+        const pinnedStatuses = options.approvalStatuses ?? null;
+        const searchedStatuses = criteria.approvalStatuses;
+
+        const narrowedStatuses = pinnedStatuses == null
+            ? searchedStatuses
+            : searchedStatuses.filter(
+                (approvalStatus) => pinnedStatuses.includes(approvalStatus));
+
+        const approvalStatuses =
+            searchedStatuses.length === 0 || narrowedStatuses.length === 0
+                ? pinnedStatuses
+                : narrowedStatuses;
+
         return useInfiniteQuery<ContentItemPage>({
             queryKey: [
                 'ContentItemsSearch',
@@ -76,7 +98,7 @@ export const contentItemService = {
                 criteria.author,
                 criteria.shareabilityBasis,
                 submittedById,
-                options.approvalStatuses ?? null,
+                approvalStatuses,
                 pageSize
             ],
 
@@ -91,7 +113,7 @@ export const contentItemService = {
                     author: criteria.author,
                     shareabilityBasis: criteria.shareabilityBasis,
                     submittedById,
-                    approvalStatuses: options.approvalStatuses ?? null,
+                    approvalStatuses,
                     pageIndex: pageParam as number,
                     pageSize
                 }),

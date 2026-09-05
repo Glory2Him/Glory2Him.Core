@@ -8,6 +8,7 @@ import { ContentItemSetting } from '../../models/foundations/contentItemSettings
 import { ContentType } from '../../models/foundations/contentItemSettings/contentType';
 
 import {
+    ApprovalStatus,
     ContentItemSearchItem,
     ShareabilityBasis,
     emptyContentItemSearchCriteria
@@ -164,7 +165,8 @@ describe('ContentItemListPanel', () => {
                 tagMatchMode: 'any',
                 bibleReferences: [],
                 bibleReferenceMatchMode: 'any',
-                shareabilityBasis: null
+                shareabilityBasis: null,
+                approvalStatuses: []
             });
         });
 
@@ -331,6 +333,121 @@ describe('ContentItemListPanel', () => {
 
             expect(screen.getByText(new RegExp('Character is what you are')))
                 .toBeInTheDocument();
+        });
+
+        // The status boxes are a per-SURFACE decision threaded from here, exactly as the
+        // ribbon and the pill are: a public feed offers a reader no status to filter on.
+        it('should leave the approval statuses out of the advanced options by default',
+            async () => {
+                render(
+                    <ContentItemListPanel
+                        contentItemCollection={[]}
+                        categorySettingCollection={defaultSettings} />);
+
+                await userEvent.click(
+                    screen.getByRole('button', { name: 'Advanced search options' }));
+
+                expect(screen.queryByRole('checkbox', { name: 'Draft' }))
+                    .not.toBeInTheDocument();
+            });
+
+        it('should offer every searchable approval status once the surface opts in',
+            async () => {
+                render(
+                    <ContentItemListPanel
+                        contentItemCollection={[]}
+                        categorySettingCollection={defaultSettings}
+                        showApprovalStatusSearchOptions />);
+
+                await userEvent.click(
+                    screen.getByRole('button', { name: 'Advanced search options' }));
+
+                ['Draft', 'Submitted', 'Approved', 'Rejected'].forEach((statusLabel) => {
+                    expect(screen.getByRole('checkbox', { name: statusLabel }))
+                        .toBeInTheDocument();
+                });
+
+                // Dismissed is not a status any surface lists, so it is not one to filter on.
+                expect(screen.queryByRole('checkbox', { name: 'Dismissed' }))
+                    .not.toBeInTheDocument();
+            });
+
+        // THE ONE OPTION THAT DOES NOT WAIT FOR SEARCH: the tick IS the commit.
+        it('should commit the search the moment an approval status is ticked', async () => {
+            const onSearch = vi.fn();
+
+            render(
+                <ContentItemListPanel
+                    contentItemCollection={[]}
+                    categorySettingCollection={defaultSettings}
+                    criteria={emptyContentItemSearchCriteria}
+                    showApprovalStatusSearchOptions
+                    onSearch={onSearch} />);
+
+            await userEvent.click(
+                screen.getByRole('button', { name: 'Advanced search options' }));
+
+            await userEvent.click(screen.getByRole('checkbox', { name: 'Submitted' }));
+
+            expect(onSearch).toHaveBeenCalledTimes(1);
+
+            expect(onSearch).toHaveBeenCalledWith(expect.objectContaining({
+                approvalStatuses: [ApprovalStatus.Submitted]
+            }));
+        });
+
+        it('should commit the statuses it still carries when one is ticked off', async () => {
+            const onSearch = vi.fn();
+
+            render(
+                <ContentItemListPanel
+                    contentItemCollection={[]}
+                    categorySettingCollection={defaultSettings}
+                    criteria={{
+                        ...emptyContentItemSearchCriteria,
+                        approvalStatuses: [ApprovalStatus.Draft, ApprovalStatus.Rejected]
+                    }}
+                    showApprovalStatusSearchOptions
+                    onSearch={onSearch} />);
+
+            await userEvent.click(
+                screen.getByRole('button', { name: 'Advanced search options' }));
+
+            // Seeded from the criteria, the way every other box is.
+            expect(screen.getByRole('checkbox', { name: 'Draft' })).toBeChecked();
+            expect(screen.getByRole('checkbox', { name: 'Rejected' })).toBeChecked();
+            expect(screen.getByRole('checkbox', { name: 'Approved' })).not.toBeChecked();
+
+            await userEvent.click(screen.getByRole('checkbox', { name: 'Draft' }));
+
+            expect(onSearch).toHaveBeenCalledWith(expect.objectContaining({
+                approvalStatuses: [ApprovalStatus.Rejected]
+            }));
+        });
+
+        // The tick commits everything drafted beside it, exactly as a Search press would
+        // have — a reader who typed a name and then ticked a box asked for both.
+        it('should carry what else is drafted on the status commit', async () => {
+            const onSearch = vi.fn();
+
+            render(
+                <ContentItemListPanel
+                    contentItemCollection={[]}
+                    categorySettingCollection={defaultSettings}
+                    criteria={emptyContentItemSearchCriteria}
+                    showApprovalStatusSearchOptions
+                    onSearch={onSearch} />);
+
+            await userEvent.click(
+                screen.getByRole('button', { name: 'Advanced search options' }));
+
+            await userEvent.type(screen.getByLabelText('Author'), 'Temple');
+            await userEvent.click(screen.getByRole('checkbox', { name: 'Approved' }));
+
+            expect(onSearch).toHaveBeenCalledWith(expect.objectContaining({
+                author: 'Temple',
+                approvalStatuses: [ApprovalStatus.Approved]
+            }));
         });
     });
 

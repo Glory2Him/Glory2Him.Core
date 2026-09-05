@@ -67,6 +67,14 @@ export interface ContentItemListPanelProps
     criteria?: ContentItemSearchCriteria;
     onSearch?: (criteria: ContentItemSearchCriteria) => void;
 
+    // Whether the bar's advanced options carry the APPROVAL STATUS checkbox group — Draft,
+    // Submitted, Approved, Rejected. Off by default, and a per-SURFACE decision exactly as
+    // showApprovalStatusRibbon and showApprovalStatus are: the public feed shows one status
+    // and has nothing to offer a reader here, while "my posts" and the moderation queue are
+    // the surfaces where a status is what a reader came to filter on. Ticking a box commits
+    // immediately — no Search press — so onSearch fires on the change itself.
+    showApprovalStatusSearchOptions?: boolean;
+
     // ── Paging ────────────────────────────────────────────────────────────────
     isLoading?: boolean;
     isLoadingMore?: boolean;
@@ -115,6 +123,7 @@ export interface ContentItemListPanelProps
     anyCategoryText?: string;
     searchAuthorLabelText?: string;
     searchAuthorPlaceholderText?: string;
+    approvalStatusSearchLabelText?: string;
     loadingText?: string;
     loadingMoreText?: string;
     loadMoreButtonText?: string;
@@ -127,6 +136,7 @@ export function ContentItemListPanel({
     showSearchBar = true,
     criteria,
     onSearch,
+    showApprovalStatusSearchOptions = false,
     isLoading = false,
     isLoadingMore = false,
     hasMore = false,
@@ -144,6 +154,7 @@ export function ContentItemListPanel({
     anyCategoryText = 'Any category',
     searchAuthorLabelText = 'Author',
     searchAuthorPlaceholderText = 'Any author',
+    approvalStatusSearchLabelText = 'Approval status',
     loadingText = 'Loading…',
     loadingMoreText = 'Loading more…',
     loadMoreButtonText = 'Load more',
@@ -255,7 +266,9 @@ export function ContentItemListPanel({
                         categoryLabelText={categoryLabelText}
                         anyCategoryText={anyCategoryText}
                         authorLabelText={searchAuthorLabelText}
-                        authorPlaceholderText={searchAuthorPlaceholderText} />
+                        authorPlaceholderText={searchAuthorPlaceholderText}
+                        showApprovalStatusSearchOptions={showApprovalStatusSearchOptions}
+                        approvalStatusLabelText={approvalStatusSearchLabelText} />
                 </div>
             )}
 
