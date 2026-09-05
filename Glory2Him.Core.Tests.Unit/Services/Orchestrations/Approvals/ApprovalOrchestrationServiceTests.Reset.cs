@@ -14,9 +14,11 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.ContentItems;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
 using Glory2Him.Core.Models.Orchestrations.Approvals.Exceptions;
 using Glory2Him.Core.Models.Securities;
@@ -74,7 +76,80 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(new List<Guid>());
 
+            // Nobody is sanctioned unless a test says so. The reset asks the §18.6 rule 2 veto
+            // through the amend decision, and an unstubbed verdict answers null — which the
+            // orchestration rightly refuses, so every test would fail on the block instead of on
+            // its own subject.
+            SetupAmendVerdict(PermittedVerdict());
+
             return decidedApproval;
+        }
+
+        private void SetupAmendVerdict(AccessVerdict verdict) =>
+            this.accessBrokerMock.Setup(broker =>
+                broker.MayAmendApprovalAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<SecurityContext>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(verdict);
+
+        /// <summary>
+        /// §18.6 rule 2. A block is not a missing grant: it outranks every tier, and
+        /// <c>Administrators</c> is a tier like any other. The reset is the most consequential
+        /// write on this service — it dismisses every review and unpublishes live content — and
+        /// it was the only one that never asked.
+        ///
+        /// <para>Nothing beneath this layer can catch it: the approval modify runs under the
+        /// elevated identity and the entity command under the system identity, and both drop the
+        /// caller's roles by construction, so every block test below sees an empty list.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldRefuseAResetToASanctionedAdministratorAsync()
+        {
+            // given: an administrator who also holds a ReadOnly block over this entity
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext(Roles.Administrators);
+
+            Approval decidedApproval = SetupDecidedRound(ApprovalStatus.Approved);
+            SetupEntityVisibility(isEntityVisible: true);
+
+            SetupAmendVerdict(new AccessVerdict
+            {
+                IsPermitted = false,
+                DenialReason = AccessDenialReason.BlockedByReadOnlyRole,
+                Explanation = "blocked",
+                IsBypassUsed = false,
+                BypassedBlockReason = AccessDenialReason.None,
+            });
+
+            // when
+            ValueTask<ApprovalOutcome> resetTask =
+                this.approvalOrchestrationService.ResetApprovalAsync(
+                    entityType: decidedApproval.EntityType,
+                    entityId: decidedApproval.EntityId,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            await Assert.ThrowsAsync<ApprovalOrchestrationValidationException>(
+                resetTask.AsTask);
+
+            // and nothing was written: no status move, no dismissal, no command
+            this.approvalServiceMock.Verify(service =>
+                service.ModifyApprovalAsync(
+                    It.IsAny<Approval>(),
+                    It.IsAny<WorkflowAttribution>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.approvalReviewServiceMock.Verify(service =>
+                service.DismissStaleApprovalReviewAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateSystemAsync(It.IsAny<ContentItem>()),
+                Times.Never);
         }
 
         /// <summary>
@@ -368,7 +443,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             Approval decidedApproval = SetupDecidedRound(ApprovalStatus.Approved);
             SetupEntityVisibility(isEntityVisible: true);
 
-            // the administrator's own review is among the ones dismissed
+            // The administrator's own review is among the ones the round holds and dismisses.
             var ownReviewId = Guid.NewGuid();
 
             this.accessBrokerMock.Setup(broker =>
@@ -392,6 +467,21 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     ownReviewId,
                     It.IsAny<CancellationToken>()),
                 Times.Once);
+
+            // AND THIS IS WHAT MAKES THE CLAIM CHECKABLE. §8.6 regardless-rule 1 lives in the
+            // §8.6.1 DECISION function and nowhere else, so "a held review does not bar a reset"
+            // is the same statement as "the reset never asks that function". Without this the
+            // test would pass on a round the administrator holds no review on at all, which is
+            // every round the suite arranges.
+            this.accessBrokerMock.Verify(broker =>
+                broker.MayDecideApprovalByIdAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<ApprovalDecision>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<string>(),
+                    It.IsAny<SecurityContext>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
         }
     }
 }

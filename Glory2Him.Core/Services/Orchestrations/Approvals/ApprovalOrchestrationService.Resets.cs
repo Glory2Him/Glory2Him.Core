@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -12,6 +12,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Approvals;
@@ -70,6 +71,29 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
 
                 ValidateStorageApprovalExists(approvalMatch, entityType, entityId);
 
+                // THE §18.6 RULE 2 VETO, which the role gate above cannot ask. A block is not a
+                // missing grant: it outranks every tier, Administrators included, and it is
+                // scoped — global ReadOnly, %EntityType%-ReadOnly, and the narrow
+                // %EntityType%-%ContentType%-ReadOnly — so it can only be answered against the
+                // entity behind the approval, which is what this seam resolves.
+                //
+                // Asked through the AMEND decision because that is what a reset is: §14.7 posture
+                // D rule 3 names "amending the approval record" among the acts the veto reaches,
+                // and the reset amends it and unpublishes the entity behind it. An administrator
+                // clears the tier half of that decision anyway, so this composes with the gate
+                // above as an AND and narrows nothing but the sanction (§14.6 rule 2).
+                //
+                // It is asked HERE rather than left to the foundation, and that is not belt and
+                // braces: the modify runs under the elevated identity, which carries no roles by
+                // construction, so every block test beneath this line sees an empty role list and
+                // passes. This is the only layer that still holds the caller's own roles.
+                AccessVerdict amendVerdict = await this.accessBroker.MayAmendApprovalAsync(
+                    approvalId: approvalMatch.Id,
+                    securityContext: envelope.SecurityContext,
+                    cancellationToken: cancellationToken);
+
+                ValidateUserMayResetApprovalAgainstEntity(amendVerdict);
+
                 Approval storageApproval =
                     await this.approvalService.RetrieveApprovalByIdAsync(
                         approvalId: approvalMatch.Id,
@@ -106,9 +130,15 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 //
                 // Ordered AFTER the status write on purpose. Dismissal publishes
                 // ApprovalReview-Dismissed, which this service subscribes to and answers by
-                // re-testing the round; doing it while the round still read Approved would
-                // re-test a round nobody may act on, and the foundation refuses a dismissal
-                // against a terminal round in any case (§8.8 regardless-rule 1).
+                // re-testing the round, so the round it re-tests should be the round as it now
+                // stands rather than the outcome being taken away.
+                //
+                // §8.8 regardless-rule 1 REQUIRES dismissal to work on a terminal round an
+                // administrator has moved back, so the foundation refuses nothing here and the
+                // order is a correctness choice about what the re-test sees, not a workaround
+                // for a guard. (An earlier draft of this comment claimed such a guard existed.
+                // It does not: ValidateStorageApprovalReviewIsNotDismissed refuses amending an
+                // already-dismissed REVIEW, which is a different rule.)
                 await DismissStaleApprovalReviewsAsync(
                     approvalId: resetApproval.Id,
                     cancellationToken: cancellationToken);

@@ -190,6 +190,18 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             }
         }
 
+        // The veto half of the reset's authorization, kept separate from the tier half because
+        // the two answer different questions and fail for different reasons: the tier says this
+        // caller is not an administrator, the veto says no role would have helped (§18.6 rule 2).
+        private static void ValidateUserMayResetApprovalAgainstEntity(AccessVerdict verdict)
+        {
+            if (verdict is null || verdict.IsPermitted is false)
+            {
+                throw new UnauthorizedApprovalOrchestrationException(
+                    message: "The current user is not allowed to reset this approval.");
+            }
+        }
+
         private static void ValidateOnResetApproval(
             EntityType entityType,
             Guid entityId) =>

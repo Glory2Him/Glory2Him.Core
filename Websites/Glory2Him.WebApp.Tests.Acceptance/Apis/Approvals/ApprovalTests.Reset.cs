@@ -275,5 +275,72 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Approvals
                 await this.apiBroker.RemoveCoreApprovalSettingByIdAsync(autoApprovingPolicy.Id);
             }
         }
+
+        /// <summary>
+        /// THE ROUND THE RESET MOST EXISTS FOR: one approved by BYPASS, where the conditions were
+        /// never met and somebody waived them.
+        ///
+        /// <para>Until the pin learned that withdrawing an outcome may rewrite the bypass pair,
+        /// this was the one case the reset could not undo. Clearing the pair alongside a move to
+        /// <c>Submitted</c> is not an outcome, so <c>ValidateBypassPairAgainstStorageOnModify</c>
+        /// compared false against true and threw: the administrator got a generic "Approval is
+        /// invalid", nothing was written, and the item stayed published on a waiver nobody meant
+        /// to grant.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldResetARoundThatWasBypassApprovedAndClearItsWaiverAsync()
+        {
+            // given: an item approved by bypass over an unmet threshold, and published
+            string authorUserId = Guid.NewGuid().ToString();
+
+            CoreContentItem submitted =
+                await this.apiBroker.InsertSubmittedContentItemAsync(authorUserId);
+
+            Approval approval = await this.apiBroker.InsertSubmittedApprovalAsync(
+                EntityType.ContentItem, submitted.Id, authorUserId);
+
+            try
+            {
+                await this.apiBroker.PostApprovalDecisionAsync(
+                    EntityType.ContentItem,
+                    submitted.Id,
+                    decision: "Approve",
+                    isBypassRequested: true,
+                    bypassReason: "Waived for launch.");
+
+                Approval bypassApproved = await this.apiBroker.GetCoreApprovalByEntityAsync(
+                    EntityType.ContentItem, submitted.Id);
+
+                bypassApproved.ApprovalStatus.Should().Be(ApprovalStatus.Approved);
+                bypassApproved.IsApprovedByBypass.Should().BeTrue();
+                bypassApproved.ApprovedByBypassReason.Should().Be("Waived for launch.");
+
+                // when
+                ApprovalOutcome actualOutcome = await this.apiBroker.PostApprovalResetAsync(
+                    EntityType.ContentItem, submitted.Id);
+
+                // then: it is taken back rather than refused, and the waiver goes with it
+                actualOutcome.ApprovalStatus.Should().Be((int)ApprovalStatus.Submitted);
+                actualOutcome.IsApprovedByBypass.Should().BeFalse();
+
+                Approval resetApproval = await this.apiBroker.GetCoreApprovalByEntityAsync(
+                    EntityType.ContentItem, submitted.Id);
+
+                resetApproval.ApprovalStatus.Should().Be(ApprovalStatus.Submitted);
+                resetApproval.IsApprovedByBypass.Should().BeFalse();
+                resetApproval.ApprovedByBypassReason.Should().BeNull();
+
+                CoreContentItem resetItem =
+                    await this.apiBroker.GetCoreContentItemByIdAsync(submitted.Id);
+
+                resetItem.ApprovalStatus.Should().Be(ApprovalStatus.Submitted);
+                resetItem.IsPublished.Should().BeFalse();
+            }
+            finally
+            {
+                await this.apiBroker.RemoveApprovalAsync(approval);
+                await this.apiBroker.RemoveCoreContentItemByIdAsync(submitted.Id);
+            }
+        }
     }
 }

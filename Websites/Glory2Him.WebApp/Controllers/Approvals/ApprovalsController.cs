@@ -263,8 +263,11 @@ namespace Glory2Him.WebApp.Controllers.Approvals
         /// in a second place, and the one that matters is the one nearest the write.</para>
         ///
         /// <para>No <c>Conflict</c> clause: the round already exists, so no insert can collide.
-        /// The <c>Locked</c> clause stays, because the reset writes the <c>Approval</c> row and a
-        /// concurrent decision on the same round is exactly what that answers.</para>
+        /// The <c>Locked</c> clause is carried for the same reason every sibling write carries
+        /// one — it answers the foundation's own lock fault on the <c>Approval</c> row, whatever
+        /// raised it. It is not a claim that a concurrent decision produces one: two writers on
+        /// this round race on the stored status, and the loser is refused by the decided-round
+        /// check or by the outcome gate rather than by a lock.</para>
         /// </summary>
         [HttpPost("{entityType}/{entityId}/Reset")]
         [Authorize]

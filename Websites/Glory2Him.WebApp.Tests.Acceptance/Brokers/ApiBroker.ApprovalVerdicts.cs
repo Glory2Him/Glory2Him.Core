@@ -51,6 +51,9 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
                 relativeUrl: $"{approvalsRelativeUrl}/{entityType}/{entityId}/Reset",
                 content: new { });
 
+        /// <summary>
+        /// The decision (§16.7.3). Everything rides the query string, as the exposer takes it.
+        /// </summary>
         public async ValueTask<ApprovalOutcome> PostApprovalDecisionAsync(
             EntityType entityType,
             Guid entityId,
