@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -61,6 +61,23 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                         cancellationToken: cancellationToken);
 
                 ValidateStorageApprovalExists(approvalMatch, entityType, entityId);
+
+                // §9.7.6 rule 3, and the outer half of a deliberate pair. The decision function
+                // refuses a removed subject too — it is handed the same fact through
+                // DecideApprovalRequest.IsSubjectDeleted — and §14.6 rule 2 makes the duplicate
+                // intentional rather than redundant: a defect in one can only ever make the two
+                // stricter.
+                //
+                // Reported as NOT FOUND, matching the read posture the entity's own transitions
+                // already keep: §14.5 rule 3 makes a soft-deleted entity not found for every
+                // caller, Administrators included, so the answer must not distinguish a takedown
+                // from an id that never existed.
+                bool isEntityVisible = await this.accessBroker.IsEntityVisibleAsync(
+                    entityType: entityType,
+                    entityId: entityId,
+                    cancellationToken: cancellationToken);
+
+                ValidateStorageEntityIsVisible(isEntityVisible, entityType, entityId);
 
                 // The ONE authorisation. Everything after this is bookkeeping and a sync — the
                 // question of whether this person may decide this approval is asked here, once,

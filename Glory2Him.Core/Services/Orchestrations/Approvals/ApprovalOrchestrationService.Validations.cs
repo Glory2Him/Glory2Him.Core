@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -195,6 +195,27 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             Guid entityId)
         {
             if (maybeMatch is null)
+            {
+                throw new NotFoundApprovalOrchestrationException(
+                    message: $"Approval not found for {entityType} with id: {entityId}.");
+            }
+        }
+
+        // §9.7.6 rule 3 / §14.5 rule 3. A removed subject is reported exactly as a missing one —
+        // and "exactly" is load-bearing: the message is CHARACTER-FOR-CHARACTER the one
+        // ValidateStorageApprovalExists throws, because §14.5 rule 2 says exception messages
+        // surface outward to callers, so a message naming the ENTITY where the sibling names the
+        // APPROVAL is itself the denial reason. Two refusals a caller can tell apart are one
+        // refusal and one oracle: send a taken-down id and a random GUID, read the two bodies,
+        // and learn which id used to exist.
+        //
+        // If either sentence is ever reworded, reword both.
+        private static void ValidateStorageEntityIsVisible(
+            bool isEntityVisible,
+            EntityType entityType,
+            Guid entityId)
+        {
+            if (isEntityVisible is false)
             {
                 throw new NotFoundApprovalOrchestrationException(
                     message: $"Approval not found for {entityType} with id: {entityId}.");

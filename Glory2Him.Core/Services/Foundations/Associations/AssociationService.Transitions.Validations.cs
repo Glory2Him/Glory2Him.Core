@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -250,6 +250,11 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 {
                     EntityType = EntityType.Association,
                     EntityId = storageAssociation.Id,
+
+                    // §9.7.6 rule 3, from the stored row rather than assumed: the load
+                    // above refuses a deleted target, so this is false whenever it is
+                    // reached, and §14.6 rule 2 has it stated rather than relied upon.
+                    IsSubjectDeleted = storageAssociation.IsDeleted,
 
                     // An association's own policy tier is keyed on its personality, never on
                     // an endpoint's content type. The endpoints' content types authorise the

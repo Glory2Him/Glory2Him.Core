@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -179,7 +179,13 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
 
         // The traversal the broker performs for one entity type, and the read that proves it took
         // that branch. Paired so the theory over every EntityType member stays readable.
-        private void SetupEntityAuthor(EntityType entityType, Guid entityId, string createdBy)
+        // isDeleted is the takedown half of §9.7.6 rule 3: every arm stamps it on the row it
+        // stubs, so a test can stand one entity type up as taken down without a second helper.
+        private void SetupEntityAuthor(
+            EntityType entityType,
+            Guid entityId,
+            string createdBy,
+            bool isDeleted = false)
         {
             switch (entityType)
             {
@@ -191,6 +197,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                                 Id = entityId,
                                 CreatedBy = createdBy,
                                 ContentType = ContentType.Testimony,
+                                IsDeleted = isDeleted,
                             });
 
                     break;
@@ -198,42 +205,72 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                 case EntityType.Tag:
                     this.storageBrokerMock.Setup(broker =>
                         broker.SelectTagByIdAsync(entityId, It.IsAny<CancellationToken>()))
-                            .ReturnsAsync(new Tag { Id = entityId, CreatedBy = createdBy });
+                            .ReturnsAsync(new Tag
+                            {
+                                Id = entityId,
+                                CreatedBy = createdBy,
+                                IsDeleted = isDeleted,
+                            });
 
                     break;
 
                 case EntityType.Reaction:
                     this.storageBrokerMock.Setup(broker =>
                         broker.SelectReactionByIdAsync(entityId, It.IsAny<CancellationToken>()))
-                            .ReturnsAsync(new Reaction { Id = entityId, CreatedBy = createdBy });
+                            .ReturnsAsync(new Reaction
+                            {
+                                Id = entityId,
+                                CreatedBy = createdBy,
+                                IsDeleted = isDeleted,
+                            });
 
                     break;
 
                 case EntityType.BibleReference:
                     this.storageBrokerMock.Setup(broker =>
                         broker.SelectBibleReferenceByIdAsync(entityId, It.IsAny<CancellationToken>()))
-                            .ReturnsAsync(new BibleReference { Id = entityId, CreatedBy = createdBy });
+                            .ReturnsAsync(new BibleReference
+                            {
+                                Id = entityId,
+                                CreatedBy = createdBy,
+                                IsDeleted = isDeleted,
+                            });
 
                     break;
 
                 case EntityType.Comment:
                     this.storageBrokerMock.Setup(broker =>
                         broker.SelectCommentByIdAsync(entityId, It.IsAny<CancellationToken>()))
-                            .ReturnsAsync(new Comment { Id = entityId, CreatedBy = createdBy });
+                            .ReturnsAsync(new Comment
+                            {
+                                Id = entityId,
+                                CreatedBy = createdBy,
+                                IsDeleted = isDeleted,
+                            });
 
                     break;
 
                 case EntityType.Link:
                     this.storageBrokerMock.Setup(broker =>
                         broker.SelectLinkByIdAsync(entityId, It.IsAny<CancellationToken>()))
-                            .ReturnsAsync(new Link { Id = entityId, CreatedBy = createdBy });
+                            .ReturnsAsync(new Link
+                            {
+                                Id = entityId,
+                                CreatedBy = createdBy,
+                                IsDeleted = isDeleted,
+                            });
 
                     break;
 
                 case EntityType.Attachment:
                     this.storageBrokerMock.Setup(broker =>
                         broker.SelectAttachmentByIdAsync(entityId, It.IsAny<CancellationToken>()))
-                            .ReturnsAsync(new Attachment { Id = entityId, CreatedBy = createdBy });
+                            .ReturnsAsync(new Attachment
+                            {
+                                Id = entityId,
+                                CreatedBy = createdBy,
+                                IsDeleted = isDeleted,
+                            });
 
                     break;
 
@@ -254,6 +291,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                                 EntityAContentType = ContentType.Testimony,
                                 EntityBType = EntityType.BibleReference,
                                 EntityBContentType = null,
+                                IsDeleted = isDeleted,
                             });
 
                     break;
@@ -399,11 +437,13 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             decimal? confidenceScore = null,
             ApprovalDecision decision = ApprovalDecision.Approve,
             bool isBypassRequested = false,
-            string bypassReason = null) =>
+            string bypassReason = null,
+            bool isSubjectDeleted = false) =>
             new ApprovalDecisionQuery
             {
                 EntityType = entityType,
                 EntityId = entityId,
+                IsSubjectDeleted = isSubjectDeleted,
                 ContentType = contentType,
                 IsPersonal = isPersonal,
                 RoleSubjects = roleSubjects ?? new List<RoleSubject>

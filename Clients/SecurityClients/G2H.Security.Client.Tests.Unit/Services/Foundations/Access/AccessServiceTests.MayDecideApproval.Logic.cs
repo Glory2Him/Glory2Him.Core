@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -743,6 +743,82 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
 
             actualVerdict.IsBypassUsed.Should().BeFalse();
             actualVerdict.BypassedBlockReason.Should().Be(AccessDenialReason.None);
+        }
+
+        // §9.7.6 rule 3. A takedown leaves the approval record alone, so the round still reads
+        // Submitted while its subject has gone. Every decision on it is refused - approve and
+        // reject alike, because the point is not that approval would republish a tombstone but
+        // that neither outcome can reach the entity: the transition refuses a deleted row, and
+        // §9.8 forbids the two to diverge.
+        [Theory]
+        [InlineData(ApprovalDecision.Approve)]
+        [InlineData(ApprovalDecision.Reject)]
+        public async Task ShouldRefuseDecidingAnApprovalWhenTheSubjectHasBeenRemovedAsync(
+            ApprovalDecision decision)
+        {
+            // given
+            DecideApprovalRequest decideApprovalRequest = CreateRandomDecideApprovalRequest(
+                decision: decision,
+                isSubjectDeleted: true);
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayDecideApprovalAsync(decideApprovalRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeFalse();
+            actualVerdict.DenialReason.Should().Be(AccessDenialReason.SubjectUnavailable);
+        }
+
+        // No role reaches past a takedown, and the bypass does not either: a bypass waives the
+        // §8.5 conditions, and a subject that no longer exists is not one of them.
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task ShouldRefuseAnAdministratorDecidingAnApprovalWhoseSubjectHasBeenRemovedAsync(
+            bool isBypassRequested)
+        {
+            // given
+            AccessActor administrator = CreateRandomAccessActor(
+                roles: new List<string> { RoleNames.Administrators });
+
+            DecideApprovalRequest decideApprovalRequest = CreateRandomDecideApprovalRequest(
+                actor: administrator,
+                isSubjectDeleted: true,
+                isBypassRequested: isBypassRequested,
+                bypassReason: isBypassRequested ? GetRandomString() : null);
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayDecideApprovalAsync(decideApprovalRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeFalse();
+            actualVerdict.DenialReason.Should().Be(AccessDenialReason.SubjectUnavailable);
+            actualVerdict.IsBypassUsed.Should().BeFalse();
+        }
+
+        // §14.5 rule 1. The takedown is reported only to somebody who already holds the tier:
+        // a caller without it is refused for the tier and learns nothing about the subject, so
+        // this reason can never be used to probe what has been taken down.
+        [Fact]
+        public async Task ShouldRefuseTheTierBeforeNamingARemovedSubjectAsync()
+        {
+            // given
+            AccessActor untieredActor = CreateRandomAccessActor(
+                roles: new List<string>());
+
+            DecideApprovalRequest decideApprovalRequest = CreateRandomDecideApprovalRequest(
+                actor: untieredActor,
+                isSubjectDeleted: true);
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayDecideApprovalAsync(decideApprovalRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeFalse();
+            actualVerdict.DenialReason.Should().Be(AccessDenialReason.NotInPublisherTier);
         }
     }
 }

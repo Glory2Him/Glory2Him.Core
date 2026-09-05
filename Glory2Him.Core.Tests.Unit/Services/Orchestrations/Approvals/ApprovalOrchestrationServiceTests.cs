@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -74,6 +74,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             this.eventBrokerMock = new Mock<IEventBroker>();
             this.envelopeIntegrityBrokerMock = new Mock<IEnvelopeIntegrityBroker>();
             this.loggingBrokerMock = new Mock<ILoggingBroker>();
+
+            // The subject is VISIBLE unless a test says otherwise. Without this every gate
+            // added for §9.7.6 rule 3 would read the mock's default false and refuse, and a
+            // suite about thresholds and tiers would be answering "the entity was taken down".
+            SetupEntityVisibility(isEntityVisible: true);
 
             // The publisher tier by default, because that is who reaches the verdict at all.
             // Tests about the gate override it explicitly.
@@ -185,11 +190,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         private static ApprovalConditionsVerdict CreateMetConditions(
             int approvalCount = 2,
             int requiredNumberOfApprovals = 2,
-            int unresolvedApprovalCommentCount = 0) =>
+            int unresolvedApprovalCommentCount = 0,
+            bool shouldAutoApprove = false) =>
             new ApprovalConditionsVerdict
             {
                 AreConditionsMet = true,
-                ShouldAutoApprove = false,
+                ShouldAutoApprove = shouldAutoApprove,
                 ShouldResetStaleReviewsOnChange = false,
                 BlockReason = AccessDenialReason.None,
                 BlockReasons = new List<AccessDenialReason>(),
@@ -266,6 +272,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(bypassVerdict);
         }
+
+        // §9.7.6 rule 3 / §14.5 rule 3: whether the entity behind the approval can be seen at
+        // all. Deleted and absent are one answer, so one bool covers both.
+        private void SetupEntityVisibility(bool isEntityVisible) =>
+            this.accessBrokerMock.Setup(broker =>
+                broker.IsEntityVisibleAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(isEntityVisible);
 
         private void SetupEntityApprovalStatus(
             EntityType entityType,

@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -202,6 +202,11 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
                 {
                     EntityType = EntityType.BibleReference,
                     EntityId = storageBibleReference.Id,
+
+                    // §9.7.6 rule 3, from the stored row rather than assumed: the load
+                    // above refuses a deleted target, so this is false whenever it is
+                    // reached, and §14.6 rule 2 has it stated rather than relied upon.
+                    IsSubjectDeleted = storageBibleReference.IsDeleted,
 
                     // A bibleReference carries no content type, so its policy tier is (BibleReference, null) — the
                     // same shape an association uses. There is exactly one tier to resolve

@@ -100,6 +100,23 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
 
                 ValidateUserMaySeeApprovalVerdict(envelope.SecurityContext);
 
+                // §14.5 rule 3, asked BEFORE the approval is looked up and NOT only on the way
+                // into the repair. A takedown happens to an item that has already been through
+                // the flow, so the ordinary taken-down entity HAS a round — and gating only the
+                // repair left exactly that case answering 200 with the whole verdict on it:
+                // approval id, status, counts, block reasons. An id that never existed answered
+                // 404, so the two were trivially told apart and the read became the takedown
+                // oracle §14.5 rule 3 forbids.
+                //
+                // Reported as not-found for every caller, Administrators included, and with the
+                // same sentence a missing approval gives.
+                bool isEntityVisible = await this.accessBroker.IsEntityVisibleAsync(
+                    entityType: entityType,
+                    entityId: entityId,
+                    cancellationToken: cancellationToken);
+
+                ValidateStorageEntityIsVisible(isEntityVisible, entityType, entityId);
+
                 // Unfiltered, because the key is occupied by soft-deleted rows too and a
                 // visibility-filtered read would report "no approval" for one that exists
                 // (§9.7.2 rule 3).

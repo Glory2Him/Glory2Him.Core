@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -81,11 +81,14 @@ namespace Glory2Him.WebApp.Controllers.Approvals
         /// because that is what a moderation screen holds: it is rendering an item, and the
         /// approval behind it is an implementation detail it should not have to resolve first.
         ///
-        /// <para>No <c>Conflict</c> or <c>Locked</c> clause, and both sibling exposers omit them on
-        /// their reads for the same reason: this operation performs SELECTs only, and every source
-        /// of <c>ApprovalOrchestrationDependencyValidationException</c> under it is a write-path
-        /// fault — duplicate key, unique-index violation, update concurrency. Carrying them would
-        /// advertise a 409 and a 423 the read cannot produce.</para>
+        /// <para>No <c>Conflict</c> or <c>Locked</c> clause, and both sibling exposers omit them
+        /// on their reads for the same reason: neither state is reachable here. This operation is
+        /// NOT SELECTs only — §16.7.2 has it open a missing round, so it can insert exactly one
+        /// <c>Approval</c> — and a concurrent repair losing the race on
+        /// <c>UX_Approvals_EntityType_EntityId</c> surfaces as the
+        /// <c>ApprovalOrchestrationDependencyValidationException</c> already caught below, which
+        /// answers 400. That is the honest answer for a caller whose read collided with another's:
+        /// retrying finds the round the winner opened.</para>
         ///
         /// <para>A <c>Draft</c> approval is a 200, not a 404: it exists, and answers blocked with
         /// <c>BlockedDueToDraftStatus</c>, because "not submitted yet" is a state a moderator can
@@ -255,8 +258,10 @@ namespace Glory2Him.WebApp.Controllers.Approvals
         /// <c>Roles = ...</c> list could express it without locking out the scoped tiers and every
         /// entity type added later.</para>
         ///
-        /// <para>No <c>Conflict</c> or <c>Locked</c> clause — this performs SELECTs only, and
-        /// every source of a dependency-validation fault beneath it is a write-path one.</para>
+        /// <para>No <c>Conflict</c> or <c>Locked</c> clause — neither state is reachable here.
+        /// Like the verdict, this read is not SELECTs only: it resolves the reviewer scope, which
+        /// opens a missing round (§16.7.2), so a dependency-validation fault from a concurrent
+        /// repair is reachable and is answered 400 by the clause already below.</para>
         /// </summary>
         [HttpGet("{entityType}/{entityId}/ReviewerCandidates")]
         [Authorize]
@@ -336,7 +341,9 @@ namespace Glory2Him.WebApp.Controllers.Approvals
         /// <para>Bare <c>[Authorize]</c> and the tier decided beneath, matching the candidates
         /// read: the admitted set is suffix-matched across every entity and content type (§18.6),
         /// so no fixed <c>Roles = ...</c> list could express it. No <c>Conflict</c> or
-        /// <c>Locked</c> clause — this performs SELECTs only.</para>
+        /// <c>Locked</c> clause — neither state is reachable. Not SELECTs only, though: like the
+        /// candidates read it resolves the reviewer scope and can open a missing round
+        /// (§16.7.2).</para>
         /// </summary>
         [HttpGet("{entityType}/{entityId}/ReviewerDisplayNames")]
         [Authorize]
@@ -488,8 +495,9 @@ namespace Glory2Him.WebApp.Controllers.Approvals
         /// only the requesting tier, and the foundation applies the posture again underneath —
         /// §14.6 rule 2 makes that duplicate deliberate.</para>
         ///
-        /// <para>No <c>Conflict</c> or <c>Locked</c> clause — SELECTs only, as with the
-        /// candidates read.</para>
+        /// <para>No <c>Conflict</c> or <c>Locked</c> clause — neither state is reachable, as
+        /// with the candidates read. And not SELECTs only, as with the candidates read either:
+        /// resolving the reviewer scope opens a missing round (§16.7.2).</para>
         /// </summary>
         [HttpGet("{entityType}/{entityId}/ReviewRequests")]
         [Authorize]

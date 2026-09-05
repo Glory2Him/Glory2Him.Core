@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -363,6 +363,26 @@ namespace G2H.Security.Client.Services.Foundations.Access
                     : Refuse(
                         AccessDenialReason.NotInPublisherTier,
                         "Actor holds no publisher-tier role for any subject of this entity.");
+            }
+
+            // §9.7.6 rule 3. A takedown leaves the approval record untouched, so the round
+            // outlives its subject and still reads Submitted — which is exactly why this is
+            // asked separately from the state below rather than folded into it.
+            //
+            // Deciding it would write the divergence §9.8 forbids: the entity transition
+            // refuses a deleted row, so the approval would reach Approved while the entity
+            // stayed where it was, with no reconcile pass to settle them.
+            //
+            // AFTER THE TIER, and deliberately. The reason names a takedown, and §14.5 rule 1
+            // has a non-visible entity reported to an ordinary caller as not found rather than
+            // as anything they could tell apart. Only a caller who already holds the publisher
+            // tier reaches this line, and to them the takedown is the operation working.
+            if (request.IsSubjectDeleted)
+            {
+                return Refuse(
+                    AccessDenialReason.SubjectUnavailable,
+                    "The entity behind this approval has been removed, so its round can no "
+                        + "longer be decided (§9.7.6 rule 3).");
             }
 
             if (request.ApprovalState != ApprovalState.Submitted)

@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -43,7 +43,9 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
     {
         /// <summary>
         /// What may happen to this approval now, and everything stopping it, answered for the
-        /// CURRENT caller (§16.7.2). Writes nothing, publishes nothing, grants nothing.
+        /// CURRENT caller (§16.7.2). Grants nothing and decides nothing. It writes exactly one
+        /// thing, and only in one case: a missing round is OPENED (§9.7.2 rule 1's
+        /// read-triggered case). No evaluation, no transition, no command.
         ///
         /// <para>A UI enables approve on <c>CanApprove</c>, offers approve-with-bypass on
         /// <c>IsBlocked &amp;&amp; IsBypassAllowedForCurrentUser</c>, and otherwise renders

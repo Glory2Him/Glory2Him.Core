@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -79,8 +79,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 broker.LogErrorAsync(It.Is(SameExceptionAs(expectedDependencyValidationException))),
                 Times.Once);
 
-            // The probe is the first call that can fail, so nothing may have been asked of the
-            // policy broker — a verdict half-composed from a failed read is worse than none.
+            // §14.5 rule 3 is asked FIRST on this read, ahead of the approval lookup, so the
+            // visibility probe is the one access-broker call every verdict makes.
+            this.accessBrokerMock.Verify(broker =>
+                broker.IsEntityVisibleAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            // Nothing was asked of the POLICY side — a verdict half-composed from a failed
+            // read is worse than none.
             this.accessBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
@@ -125,6 +134,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(SameExceptionAs(expectedDependencyException))),
+                Times.Once);
+
+            // §14.5 rule 3 is asked FIRST on this read, ahead of the approval lookup, so the
+            // visibility probe is the one access-broker call every verdict makes.
+            this.accessBrokerMock.Verify(broker =>
+                broker.IsEntityVisibleAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.accessBrokerMock.VerifyNoOtherCalls();
@@ -471,6 +489,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(SameExceptionAs(expectedServiceException))),
+                Times.Once);
+
+            // §14.5 rule 3 is asked FIRST on this read, ahead of the approval lookup, so the
+            // visibility probe is the one access-broker call every verdict makes.
+            this.accessBrokerMock.Verify(broker =>
+                broker.IsEntityVisibleAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.accessBrokerMock.VerifyNoOtherCalls();

@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -104,6 +104,26 @@ namespace Glory2Him.Core.Brokers.Securities
         /// knowing which table an <c>EntityType</c> points at.</para>
         /// </summary>
         ValueTask<ApprovalStatus?> RetrieveEntityApprovalStatusAsync(
+            EntityType entityType,
+            Guid entityId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Whether the entity is VISIBLE — it was read back and is not soft-deleted. False for a
+        /// row that could not be read at all, and false for a taken-down one, because §14.5 rule
+        /// 3 makes those one answer: a soft-deleted entity is not found for <b>every</b> caller,
+        /// <c>Administrators</c> included.
+        ///
+        /// <para>This is the probe an approval gate wants, and it is deliberately not
+        /// <see cref="RetrieveEntityAuthorAsync"/> with a non-empty test. That one answers "does
+        /// a row exist", which a takedown does not change: the arms behind it are raw by-id
+        /// reads and this repository has no EF global query filters, so a tombstone answers with
+        /// its author exactly as it did the day before it was removed.</para>
+        ///
+        /// <para>Read from STORAGE, like the author and the status, and for the same reason:
+        /// resolving it means knowing which table an <c>EntityType</c> points at.</para>
+        /// </summary>
+        ValueTask<bool> IsEntityVisibleAsync(
             EntityType entityType,
             Guid entityId,
             CancellationToken cancellationToken = default);
