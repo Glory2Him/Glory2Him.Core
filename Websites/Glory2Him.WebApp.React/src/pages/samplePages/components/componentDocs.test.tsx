@@ -902,6 +902,51 @@ describe('Component reference pages', () => {
             expect(screen.queryByRole('button', { name: 'Modify' })).not.toBeInTheDocument();
         });
 
+        // The publisher tier is what #448 opened, and the doc page is where somebody checks
+        // what a role actually buys. Both directions, because a persona list that offered only
+        // roles which grant would look identical to one wired to nothing.
+        it('should offer the writes to a publisher of the demo’s own content type', async () => {
+            // given
+            renderWithAuth(<ContentItemSettingsPanelDoc />);
+
+            // when
+            await userEvent.click(screen.getByRole('radio', {
+                name: 'I am a publisher of devotionals (this demo’s type)'
+            }));
+
+            // then
+            expect(screen.getByRole('button', { name: 'Modify' })).toBeInTheDocument();
+            expect(screen.getByRole('button', { name: 'Remove Override' })).toBeInTheDocument();
+        });
+
+        it('should offer no write to a publisher of another content type', async () => {
+            // given
+            renderWithAuth(<ContentItemSettingsPanelDoc />);
+
+            // when
+            await userEvent.click(screen.getByRole('radio', {
+                name: 'I am a publisher of quotes (another type)'
+            }));
+
+            // then: the settings still read, and nothing is offered to write them
+            expect(document.querySelector('.g2h-settings-ribbon')).not.toBeNull();
+            expect(screen.queryByRole('button', { name: 'Modify' })).not.toBeInTheDocument();
+        });
+
+        // A block drawn from the same scope as the grant outranks it (§18.6 rule 2).
+        it('should withhold the writes from a publisher sanctioned on that type', async () => {
+            // given
+            renderWithAuth(<ContentItemSettingsPanelDoc />);
+
+            // when
+            await userEvent.click(screen.getByRole('radio', {
+                name: 'I publish devotionals but am sanctioned on them'
+            }));
+
+            // then
+            expect(screen.queryByRole('button', { name: 'Modify' })).not.toBeInTheDocument();
+        });
+
         // The override stands somebody up in the DEMO only. The page around it — and the
         // reader's own session — is untouched, which is what makes stepping personas safe.
         it('should leave the reader’s own session untouched while stepping personas',

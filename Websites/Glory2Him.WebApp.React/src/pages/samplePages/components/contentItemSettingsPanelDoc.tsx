@@ -153,15 +153,39 @@ const settingsSecurityContextOptions: ReadonlyArray<SecurityContextOption> = [
         isOwner: false
     },
     {
-        key: 'reviewer',
-        label: 'I am a reviewer',
-        roles: ['Reviewers'],
-        isOwner: false
-    },
-    {
         key: 'publisher',
         label: 'I am a publisher',
         roles: ['Publishers'],
+        isOwner: false
+    },
+    {
+        key: 'content-item-publisher',
+        label: 'I am a publisher of content items',
+        roles: ['ContentItem-Publishers'],
+        isOwner: false
+    },
+    {
+        key: 'devotional-publisher',
+        label: 'I am a publisher of devotionals (this demo’s type)',
+        roles: ['ContentItem-Devotional-Publishers'],
+        isOwner: false
+    },
+    {
+        key: 'quote-publisher',
+        label: 'I am a publisher of quotes (another type)',
+        roles: ['ContentItem-Quote-Publishers'],
+        isOwner: false
+    },
+    {
+        key: 'devotional-readonly',
+        label: 'I publish devotionals but am sanctioned on them',
+        roles: ['ContentItem-Devotional-Publishers', 'ContentItem-Devotional-ReadOnly'],
+        isOwner: false
+    },
+    {
+        key: 'reviewer',
+        label: 'I am a reviewer',
+        roles: ['Reviewers'],
         isOwner: false
     }
 ];
@@ -239,8 +263,9 @@ const panelProps: ReadonlyArray<ComponentPropRow> = [
         name: 'onOverrideRemoved',
         type: '(setting: ContentItemSetting) => void',
         description: 'Remove Override. Carries the override row, id and all, to hard delete. '
-            + 'Never raised against a type default. The CONSUMER confirms — this panel raises '
-            + 'the intent, the page asks the question.'
+            + 'Never raised against a type default. Offered to administrators and to the '
+            + 'publisher tier for the item’s content type. The CONSUMER confirms — this panel '
+            + 'raises the intent, the page asks the question.'
     },
     {
         name: 'onModify / onReset',
@@ -339,12 +364,17 @@ export function ContentItemSettingsPanelDoc() {
                 title="Live"
                 lead={
                     <>
-                        The write affordances are <code>Administrators</code> only and are
-                        withheld from a <code>ReadOnly</code> holder, a sanction that outranks
-                        every grant. Step the demo into any of them below: the panel decides
-                        RENDERING only, so showing a reader what another person would be offered
-                        grants nothing — the foundation re-decides every save and removal against
-                        the stored row (§14.6), and your own session is untouched.
+                        Everything this panel writes is an item <b>override</b>, so the write
+                        affordances go to <code>Administrators</code> and to the publisher tier
+                        for this item&rsquo;s content type — the global <code>Publishers</code>,
+                        <code>ContentItem-Publishers</code>, or
+                        <code>ContentItem-Devotional-Publishers</code> for the devotional below.
+                        A publisher of <i>another</i> type gets nothing, and any{' '}
+                        <code>ReadOnly</code> covering the row outranks every grant. Step the demo
+                        into any of them: the panel decides RENDERING only, so showing a reader
+                        what another person would be offered grants nothing — the foundation
+                        re-decides every save and removal against the stored row (§14.6), and your
+                        own session is untouched.
                     </>
                 }>
 

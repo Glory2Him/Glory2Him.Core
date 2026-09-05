@@ -16,9 +16,11 @@ import {
 // THE SETTINGS SIDEBAR, both faces. Every fact the panel shows comes from the collection it is
 // handed and the identity it is rendered under, so each test varies exactly one of those two.
 //
-// The auth double is here because the writes are identity decisions: Modify and Remove Override
-// belong to Administrators and to nobody else. Render gates only — the foundation re-decides
-// both against the stored row (§14.6), which is why no test here asserts a server outcome.
+// The auth double is here because the writes are identity decisions. Everything this panel
+// writes is an item OVERRIDE, so Modify and Remove Override belong to administrators AND to the
+// publisher tier for the item's content type (§12.5.2 business rule 6). Render gates only — the
+// foundation re-decides both against the stored row (§14.6), which is why no test here asserts a
+// server outcome.
 const authState = createAuthState();
 
 vi.mock('../../services/foundations/accountService', () => ({
@@ -199,7 +201,7 @@ describe('ContentItemSettingsPanel', () => {
         });
 
         it('should offer no write to a reviewer, who cannot administer settings', () => {
-            signInAs(authState, ['Reviewers', 'Publishers']);
+            signInAs(authState, ['Reviewers', 'ContentItem-Reviewers']);
 
             renderPanel(
                 <ContentItemSettingsPanel
@@ -209,6 +211,70 @@ describe('ContentItemSettingsPanel', () => {
 
             expect(screen.queryByRole('button', { name: 'Modify' })).toBeNull();
             expect(screen.queryByRole('button', { name: 'Remove Override' })).toBeNull();
+        });
+
+        // EVERY TIER ON ITS OWN, so a hole in any one of them is a red test rather than a case
+        // the theory happened to cover through a neighbour.
+        it.each([
+            ['Administrators'],
+            ['Publishers'],
+            ['ContentItem-Publishers'],
+            ['ContentItem-Devotional-Publishers']
+        ])('should offer the writes to %s', (role) => {
+            signInAs(authState, [role]);
+
+            renderPanel(
+                <ContentItemSettingsPanel
+                    contentItemId={contentItemId}
+                    contentType={ContentType.Devotional}
+                    contentItemSettingCollection={[typeDefault(), itemOverride()]} />);
+
+            expect(screen.getByRole('button', { name: 'Modify' })).toBeInTheDocument();
+            expect(screen.getByRole('button', { name: 'Remove Override' })).toBeInTheDocument();
+        });
+
+        // The narrow tier is narrow, which is the whole reason it exists.
+        it('should offer no write to a publisher of another content type', () => {
+            signInAs(authState, ['ContentItem-Quote-Publishers']);
+
+            renderPanel(
+                <ContentItemSettingsPanel
+                    contentItemId={contentItemId}
+                    contentType={ContentType.Devotional}
+                    contentItemSettingCollection={[typeDefault(), itemOverride()]} />);
+
+            expect(screen.queryByRole('button', { name: 'Modify' })).toBeNull();
+        });
+
+        // A block drawn from the same scope as the grant outranks it — including a block held
+        // alongside Administrators (§18.6 rule 2).
+        it.each([
+            ['ContentItem-ReadOnly'],
+            ['ContentItem-Devotional-ReadOnly']
+        ])('should withhold the writes from an administrator blocked by %s', (block) => {
+            signInAs(authState, ['Administrators', block]);
+
+            renderPanel(
+                <ContentItemSettingsPanel
+                    contentItemId={contentItemId}
+                    contentType={ContentType.Devotional}
+                    contentItemSettingCollection={[typeDefault(), itemOverride()]} />);
+
+            expect(screen.queryByRole('button', { name: 'Modify' })).toBeNull();
+        });
+
+        // A block scoped to ANOTHER content type does not cover this row, so it is silent
+        // rather than refusing (§18.6 rule 2, first question).
+        it('should ignore a block scoped to a different content type', () => {
+            signInAs(authState, ['Administrators', 'ContentItem-Quote-ReadOnly']);
+
+            renderPanel(
+                <ContentItemSettingsPanel
+                    contentItemId={contentItemId}
+                    contentType={ContentType.Devotional}
+                    contentItemSettingCollection={[typeDefault(), itemOverride()]} />);
+
+            expect(screen.getByRole('button', { name: 'Modify' })).toBeInTheDocument();
         });
 
         // A sanction outranks every grant (#366), so the ReadOnly role is asked before the

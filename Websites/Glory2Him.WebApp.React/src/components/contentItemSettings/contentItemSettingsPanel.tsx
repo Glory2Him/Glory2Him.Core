@@ -124,18 +124,41 @@ export function ContentItemSettingsPanel({
         && contentItemId != null
         && contentItemSetting.contentItemId === contentItemId;
 
-    // WHO MAY WRITE. Every write on this controller is Administrators only, and the ReadOnly
-    // sanction is asked first because a sanction outranks every grant (#366). With no item there
-    // is nothing to override, so the writes are withheld from everyone.
+    // WHO MAY WRITE, mirroring the gate the foundation keeps (§12.5.2 business rule 6).
+    //
+    // EVERYTHING THIS PANEL WRITES IS AN OVERRIDE — Save always stamps the item's id, and Remove
+    // Override only ever removes one — so the tier asked for is the OVERRIDE tier: administrators,
+    // and the publisher tier for this item's content type. The per-type default is
+    // Administrators-only and is edited from /Admin/ContentItemSettings, which is why no branch
+    // for it appears here.
+    //
+    // THE BLOCKS ARE ASKED FIRST and are drawn from the same scope as the grants: a sanction
+    // outranks every grant including Administrators (§18.6 rule 2), and a tier that can grant an
+    // override must be able to refuse one. With no item there is nothing to override, so the
+    // writes are withheld from everyone.
     //
     // RENDER decisions only: the foundation re-decides both the save and the removal against the
-    // stored row (§14.6).
-    const isBlocked = userRoles.includes('ReadOnly');
+    // stored row (§14.6), so this can only ever hide a control the server would have refused.
+    const contentTypeSegment = ContentType[contentType] ?? '';
+
+    const holdsAnyRole = (roles: ReadonlyArray<string>): boolean =>
+        roles.some((role) => userRoles.includes(role));
+
+    const isBlocked = holdsAnyRole([
+        'ReadOnly',
+        'ContentItem-ReadOnly',
+        `ContentItem-${contentTypeSegment}-ReadOnly`
+    ]);
 
     const canAdministerSettings =
         isAuthenticated
         && isBlocked === false
-        && userRoles.includes('Administrators')
+        && holdsAnyRole([
+            'Administrators',
+            'Publishers',
+            'ContentItem-Publishers',
+            `ContentItem-${contentTypeSegment}-Publishers`
+        ])
         && contentItemId != null;
 
     if ((mode === 'modify' || isModifyTaken) && canAdministerSettings && contentItemId != null) {
