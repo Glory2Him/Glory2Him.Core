@@ -138,6 +138,12 @@ export function MyPosts() {
                                 criteria={criteria}
                                 onSearch={search}
                                 isLoading={isLoading || userId.length === 0}
+
+                                // A CONTRIBUTOR'S OWN SHELF, so the status is exactly what
+                                // they came to narrow on — "show me what is still a draft",
+                                // "show me what came back rejected". The page pins no status
+                                // of its own here, so every box narrows the whole shelf.
+                                showApprovalStatusSearchOptions
                                 showApprovalStatusRibbon
 
                                 // The corner ribbon already says the status on every card, so
