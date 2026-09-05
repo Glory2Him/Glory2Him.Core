@@ -809,6 +809,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
             {
                 nameof(ApprovalsController.GetApprovalVerdictAsync),
                 nameof(ApprovalsController.PostApprovalDecisionAsync),
+                nameof(ApprovalsController.PostApprovalResetAsync),
                 nameof(ApprovalsController.GetReviewerCandidatesAsync),
                 nameof(ApprovalsController.GetReviewerDisplayNamesAsync),
                 nameof(ApprovalsController.PostReviewRequestAsync),
@@ -840,6 +841,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
         [Theory]
         [InlineData(nameof(ApprovalsController.GetApprovalVerdictAsync))]
         [InlineData(nameof(ApprovalsController.PostApprovalDecisionAsync))]
+        [InlineData(nameof(ApprovalsController.PostApprovalResetAsync))]
         [InlineData(nameof(ApprovalsController.GetReviewerCandidatesAsync))]
         [InlineData(nameof(ApprovalsController.GetReviewerDisplayNamesAsync))]
         [InlineData(nameof(ApprovalsController.PostReviewRequestAsync))]
@@ -887,6 +889,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
         [Theory]
         [InlineData(nameof(ApprovalsController.GetApprovalVerdictAsync))]
         [InlineData(nameof(ApprovalsController.PostApprovalDecisionAsync))]
+        [InlineData(nameof(ApprovalsController.PostApprovalResetAsync))]
         [InlineData(nameof(ApprovalsController.GetReviewerCandidatesAsync))]
         [InlineData(nameof(ApprovalsController.GetReviewerDisplayNamesAsync))]
         [InlineData(nameof(ApprovalsController.PostReviewRequestAsync))]

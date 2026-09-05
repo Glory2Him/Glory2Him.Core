@@ -242,6 +242,89 @@ namespace Glory2Him.WebApp.Controllers.Approvals
         }
 
         /// <summary>
+        /// §8.6 HR-4's administrator override, exposed: puts a round that reached <c>Approved</c>
+        /// or <c>Rejected</c> back to <c>Submitted</c> and dismisses every active review, so an
+        /// outcome applied by accident can be recovered from without starting a new round.
+        ///
+        /// <para><b>It unpublishes.</b> The entity follows through the ordinary approval command,
+        /// and a transition landing anywhere but <c>Approved</c> forces <c>IsPublished = false</c>
+        /// and clears <c>PublishDate</c>. Resetting an approved item therefore takes it off the
+        /// public site until it is approved again, and for a versioned item its group has nothing
+        /// published meanwhile. That is the operation working, not a side effect of it — a reset
+        /// that left the accident publicly visible would recover nothing.</para>
+        ///
+        /// <para>Takes no body and no query values. The entity key is the whole request: there is
+        /// one thing a reset can do and no parameter that could vary it.</para>
+        ///
+        /// <para>Bare <c>[Authorize]</c> with the tier decided beneath, matching every sibling on
+        /// this controller. The service admits <c>Administrators</c> alone — deciding an open
+        /// round belongs to the publisher tier, undeciding a closed one is the override, and the
+        /// override has one holder. A fixed <c>Roles = ...</c> list here would put the same rule
+        /// in a second place, and the one that matters is the one nearest the write.</para>
+        ///
+        /// <para>No <c>Conflict</c> clause: the round already exists, so no insert can collide.
+        /// The <c>Locked</c> clause is carried for the same reason every sibling write carries
+        /// one — it answers the foundation's own lock fault on the <c>Approval</c> row, whatever
+        /// raised it. It is not a claim that a concurrent decision produces one: two writers on
+        /// this round race on the stored status, and the loser is refused by the decided-round
+        /// check or by the outcome gate rather than by a lock.</para>
+        /// </summary>
+        [HttpPost("{entityType}/{entityId}/Reset")]
+        [Authorize]
+        public async ValueTask<ActionResult<ApprovalOutcome>> PostApprovalResetAsync(
+            EntityType entityType,
+            Guid entityId,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                ApprovalOutcome approvalOutcome =
+                    await this.approvalOrchestrationService.ResetApprovalAsync(
+                        entityType,
+                        entityId,
+                        cancellationToken);
+
+                return Ok(approvalOutcome);
+            }
+            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
+                when (approvalOrchestrationValidationException.InnerException
+                    is NotFoundApprovalOrchestrationException)
+            {
+                return NotFound(approvalOrchestrationValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
+                when (approvalOrchestrationValidationException.InnerException
+                    is UnauthorizedApprovalOrchestrationException)
+            {
+                return Unauthorized(approvalOrchestrationValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
+            {
+                return BadRequest(approvalOrchestrationValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationDependencyValidationException
+                approvalOrchestrationDependencyValidationException)
+                when (approvalOrchestrationDependencyValidationException.InnerException
+                    is LockedApprovalException)
+            {
+                return Locked(approvalOrchestrationDependencyValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationDependencyValidationException
+                approvalOrchestrationDependencyValidationException)
+            {
+                return BadRequest(approvalOrchestrationDependencyValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationDependencyException approvalOrchestrationDependencyException)
+            {
+                return FailedDependency(approvalOrchestrationDependencyException.InnerException);
+            }
+            catch (ApprovalOrchestrationServiceException approvalOrchestrationServiceException)
+            {
+                return InternalServerError(approvalOrchestrationServiceException);
+            }
+        }
+
+        /// <summary>
         /// Who is in scope to review this entity (§16.7.4) — the review tier for it, minus the
         /// entity's own author alone. People who have already reviewed, and people already
         /// invited, are included: a picker renders them inert and under their own heading rather

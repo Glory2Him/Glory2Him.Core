@@ -103,6 +103,20 @@ class ApprovalBroker {
         return result.data as ApprovalReview;
     }
 
+    // THE ADMINISTRATOR OVERRIDE (§8.6 HR-4): puts a decided round back to Submitted and
+    // dismisses its reviews, so an outcome applied by accident can be taken back.
+    //
+    // No query values and no body. The entity key is the whole request — there is one thing a
+    // reset can do and no parameter that could vary it.
+    async PostApprovalResetAsync(
+        entityType: EntityTypeName,
+        entityId: string): Promise<ApprovalOutcome> {
+        const url = `${this.relativeApprovalsUrl}/${entityType}/${entityId}/Reset`;
+        const result = await this.apiBroker.PostAsync(url, {});
+
+        return result.data as ApprovalOutcome;
+    }
+
     // THE DECISION (§16.7.3), keyed by the entity like the verdict that offered it. Everything
     // rides the query string: the host binds the enum from its number, and a bypass is a
     // REQUEST — what lands on the row comes back on the outcome, decided server-side against
