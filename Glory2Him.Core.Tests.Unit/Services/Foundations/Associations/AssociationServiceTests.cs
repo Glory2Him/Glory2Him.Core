@@ -385,8 +385,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 .AsQueryable();
         }
 
+        // Bounded well above DateTime.MinValue on purpose: arrangements shift these dates
+        // backwards - AddDays(-n) for a stored row, AddSeconds(-90) for the recency window -
+        // and a draw near the minimum makes that arithmetic throw. An unbounded earliest date
+        // is an intermittently red suite, on whichever test happened to draw it.
         private static DateTimeOffset GetRandomDateTimeOffset() =>
-            new DateTimeRange(earliestDate: new DateTime()).GetValue();
+            new DateTimeRange(earliestDate: new DateTime(year: 2000, month: 1, day: 1)).GetValue();
 
         private static Filler<Association> CreateAssociationFiller(
             DateTimeOffset dateTimeOffset,
