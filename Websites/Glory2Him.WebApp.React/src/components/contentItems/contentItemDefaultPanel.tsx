@@ -17,6 +17,9 @@ import {
     ContentItemSearchItem
 } from '../../models/components/contentItems/contentItemSearchItem';
 
+// The corner ribbon's geometry lives in coreUI.css as .g2h-corner-ribbon; imported here
+// rather than relied on transitively, so the shape cannot go missing without a build error.
+import '../coreUI/coreUI.css';
 import './contentItems.css';
 
 // THE PINK BLOCKS: the template most content types render through. Type badge, the content

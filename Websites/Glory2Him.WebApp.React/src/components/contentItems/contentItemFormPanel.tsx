@@ -31,6 +31,9 @@ import {
     shareabilityBasisMembers
 } from '../../models/components/contentItems/contentItemFormItem';
 
+// The corner ribbon's geometry lives in coreUI.css as .g2h-corner-ribbon; imported here
+// rather than relied on transitively, so the shape cannot go missing without a build error.
+import '../coreUI/coreUI.css';
 import './contentItems.css';
 
 // The special member of a role set that means "the person who contributed this one". It is

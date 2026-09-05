@@ -111,7 +111,7 @@ export function ContentItemSettingsModifyPanel({
 
     return (
         <Card cssClass={`${borderCss} ${cssClass}`}>
-            <div aria-label={ariaLabel}>
+            <div role="region" aria-label={ariaLabel}>
                 {/* NO RIBBON ON THIS FACE, deliberately. The read face's ribbon names what is IN
                     FORCE; here the scope is about to change, and a strip reading "Default" over
                     a form whose Save creates an override would be announcing the opposite of

@@ -272,6 +272,49 @@ describe('ContentItemSettingsPanel', () => {
     // checked the off state passed the whole time the on state did nothing.
     // The two switches somebody actually moved, marked so a reader does not have to diff
     // nineteen rows against a page they would have to open in another tab.
+    // aria-label only names an element whose role supports naming, and a bare div (role
+    // `generic`) does not — the label was there and nothing announced it. Asserted through the
+    // ROLE rather than by querying the attribute, so a future div would fail this.
+    describe('the panel is a named region', () => {
+        it('should expose the read face as a named region', () => {
+            renderPanel(
+                <ContentItemSettingsPanel
+                    contentItemId={contentItemId}
+                    contentType={ContentType.Devotional}
+                    contentItemSettingCollection={[typeDefault()]} />);
+
+            expect(screen.getByRole('region', { name: 'Content settings' }))
+                .toBeInTheDocument();
+        });
+
+        it('should expose the modify face as a named region', async () => {
+            const user = userEvent.setup();
+
+            renderPanel(
+                <ContentItemSettingsPanel
+                    contentItemId={contentItemId}
+                    contentType={ContentType.Devotional}
+                    contentItemSettingCollection={[typeDefault()]} />);
+
+            await user.click(screen.getByRole('button', { name: 'Modify' }));
+
+            expect(screen.getByRole('region', { name: 'Content settings' }))
+                .toBeInTheDocument();
+        });
+
+        it('should carry the surface’s own label onto the region', () => {
+            renderPanel(
+                <ContentItemSettingsPanel
+                    contentItemId={contentItemId}
+                    contentType={ContentType.Devotional}
+                    contentItemSettingCollection={[typeDefault()]}
+                    ariaLabel="Devotional settings" />);
+
+            expect(screen.getByRole('region', { name: 'Devotional settings' }))
+                .toBeInTheDocument();
+        });
+    });
+
     describe('marking what the override changes', () => {
         const rowFor = (label: string): HTMLElement =>
             screen.getByText(label).closest('.form-check')!.parentElement!;

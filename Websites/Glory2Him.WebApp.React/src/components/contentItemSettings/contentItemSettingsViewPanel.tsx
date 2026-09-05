@@ -110,7 +110,7 @@ export function ContentItemSettingsViewPanel({
                 </span>
             )}
 
-            <div aria-label={ariaLabel}>
+            <div role="region" aria-label={ariaLabel}>
                 <h5 className="mb-1">{titleText}</h5>
 
                 {isLoading ? (
