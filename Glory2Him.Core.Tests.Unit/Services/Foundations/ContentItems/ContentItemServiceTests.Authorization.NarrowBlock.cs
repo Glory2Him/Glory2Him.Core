@@ -207,6 +207,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             inputContentItem.ContentType = BlockedContentType;
 
             ContentItem storageContentItem = inputContentItem.DeepClone();
+            storageContentItem.ContentType = BlockedContentType;
+
             storageContentItem.UpdatedWhen =
                 storageContentItem.UpdatedWhen.AddDays(GetRandomNegativeNumber());
 
@@ -236,6 +238,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             inputContentItem.ContentType = BlockedContentType;
 
             ContentItem storageContentItem = inputContentItem.DeepClone();
+            storageContentItem.ContentType = BlockedContentType;
             storageContentItem.CreatedBy = ownerUserId;
             storageContentItem.UpdatedWhen =
                 storageContentItem.UpdatedWhen.AddDays(GetRandomNegativeNumber());
@@ -295,6 +298,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             inputContentItem.ContentType = UnblockedContentType;
 
             ContentItem storageContentItem = inputContentItem.DeepClone();
+
+            // The row the veto actually reads, so it names its type rather than inheriting one:
+            // the filler ignores ContentType and the enum's default member is the very type the
+            // block covers, so a stored row left to the clone is a Quote away from turning this
+            // into the case above and passing for the opposite reason.
+            storageContentItem.ContentType = UnblockedContentType;
+
             storageContentItem.UpdatedWhen =
                 storageContentItem.UpdatedWhen.AddDays(GetRandomNegativeNumber());
 
