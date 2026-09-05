@@ -391,8 +391,13 @@ describe('ContentItemListPanel', () => {
 
             expect(onSearch).toHaveBeenCalledTimes(1);
 
+            // The tick joins the decided rows the boxes rest at, in the members' order.
             expect(onSearch).toHaveBeenCalledWith(expect.objectContaining({
-                approvalStatuses: [ApprovalStatus.Submitted]
+                approvalStatuses: [
+                    ApprovalStatus.Submitted,
+                    ApprovalStatus.Approved,
+                    ApprovalStatus.Rejected
+                ]
             }));
         });
 
@@ -442,11 +447,133 @@ describe('ContentItemListPanel', () => {
                 screen.getByRole('button', { name: 'Advanced search options' }));
 
             await userEvent.type(screen.getByLabelText('Author'), 'Temple');
-            await userEvent.click(screen.getByRole('checkbox', { name: 'Approved' }));
+            await userEvent.click(screen.getByRole('checkbox', { name: 'Draft' }));
 
             expect(onSearch).toHaveBeenCalledWith(expect.objectContaining({
                 author: 'Temple',
-                approvalStatuses: [ApprovalStatus.Approved]
+                approvalStatuses: [
+                    ApprovalStatus.Draft,
+                    ApprovalStatus.Approved,
+                    ApprovalStatus.Rejected
+                ]
+            }));
+        });
+    });
+
+    // WHICH BOXES START TICKED. The four flags are the surface's default selection; the
+    // criteria's committed selection overrides them; and the read the page makes is handed
+    // the same four, so what the boxes say is what the results were read with.
+    describe('the default approval status selection', () => {
+        it('should start at the decided statuses where the surface names none', async () => {
+            render(
+                <ContentItemListPanel
+                    contentItemCollection={[]}
+                    categorySettingCollection={defaultSettings}
+                    criteria={emptyContentItemSearchCriteria}
+                    showApprovalStatusSearchOptions />);
+
+            await userEvent.click(
+                screen.getByRole('button', { name: 'Advanced search options' }));
+
+            expect(screen.getByRole('checkbox', { name: 'Draft' })).not.toBeChecked();
+            expect(screen.getByRole('checkbox', { name: 'Submitted' })).not.toBeChecked();
+            expect(screen.getByRole('checkbox', { name: 'Approved' })).toBeChecked();
+            expect(screen.getByRole('checkbox', { name: 'Rejected' })).toBeChecked();
+        });
+
+        it('should start every box where the surface ticks all four flags', async () => {
+            render(
+                <ContentItemListPanel
+                    contentItemCollection={[]}
+                    categorySettingCollection={defaultSettings}
+                    criteria={emptyContentItemSearchCriteria}
+                    showApprovalStatusSearchOptions
+                    searchApprovalDraftSelected
+                    searchApprovalSubmittedSelected
+                    searchApprovalApprovedSelected
+                    searchApprovalRejectedSelected />);
+
+            await userEvent.click(
+                screen.getByRole('button', { name: 'Advanced search options' }));
+
+            ['Draft', 'Submitted', 'Approved', 'Rejected'].forEach((statusLabel) => {
+                expect(screen.getByRole('checkbox', { name: statusLabel })).toBeChecked();
+            });
+        });
+
+        // The reader's committed choice is what the boxes show, whatever the flags rest at.
+        it('should let a committed selection override the flags', async () => {
+            render(
+                <ContentItemListPanel
+                    contentItemCollection={[]}
+                    categorySettingCollection={defaultSettings}
+                    criteria={{
+                        ...emptyContentItemSearchCriteria,
+                        approvalStatuses: [ApprovalStatus.Draft]
+                    }}
+                    showApprovalStatusSearchOptions
+                    searchApprovalDraftSelected={false}
+                    searchApprovalSubmittedSelected={false}
+                    searchApprovalApprovedSelected
+                    searchApprovalRejectedSelected />);
+
+            await userEvent.click(
+                screen.getByRole('button', { name: 'Advanced search options' }));
+
+            expect(screen.getByRole('checkbox', { name: 'Draft' })).toBeChecked();
+            expect(screen.getByRole('checkbox', { name: 'Approved' })).not.toBeChecked();
+            expect(screen.getByRole('checkbox', { name: 'Rejected' })).not.toBeChecked();
+        });
+
+        // Unticking a box from the defaults commits the rest of them — the defaults were
+        // real ticks, so taking one off asks for the others, not for "nothing was chosen".
+        it('should commit the remaining defaults when one of them is ticked off', async () => {
+            const onSearch = vi.fn();
+
+            render(
+                <ContentItemListPanel
+                    contentItemCollection={[]}
+                    categorySettingCollection={defaultSettings}
+                    criteria={emptyContentItemSearchCriteria}
+                    showApprovalStatusSearchOptions
+                    searchApprovalDraftSelected
+                    searchApprovalSubmittedSelected
+                    searchApprovalApprovedSelected
+                    searchApprovalRejectedSelected
+                    onSearch={onSearch} />);
+
+            await userEvent.click(
+                screen.getByRole('button', { name: 'Advanced search options' }));
+
+            await userEvent.click(screen.getByRole('checkbox', { name: 'Approved' }));
+
+            expect(onSearch).toHaveBeenCalledWith(expect.objectContaining({
+                approvalStatuses: [
+                    ApprovalStatus.Draft,
+                    ApprovalStatus.Submitted,
+                    ApprovalStatus.Rejected
+                ]
+            }));
+        });
+
+        // A surface that hides the group has no boxes to speak for: its defaults stay the
+        // read's business and a Search press carries the criteria's statuses untouched.
+        it('should commit no statuses of its own where the boxes are not offered', async () => {
+            const onSearch = vi.fn();
+
+            render(
+                <ContentItemListPanel
+                    contentItemCollection={[]}
+                    categorySettingCollection={defaultSettings}
+                    criteria={emptyContentItemSearchCriteria}
+                    onSearch={onSearch} />);
+
+            await userEvent.type(screen.getByRole('searchbox'), 'grace');
+            await userEvent.click(screen.getByRole('button', { name: /Search/ }));
+
+            expect(onSearch).toHaveBeenCalledWith(expect.objectContaining({
+                query: 'grace',
+                approvalStatuses: []
             }));
         });
     });

@@ -66,9 +66,21 @@ const barProps: ReadonlyArray<ComponentPropRow> = [
             + 'Rejected — to the advanced options. THE ONE OPTION THAT DOES NOT WAIT FOR '
             + 'SEARCH: ticking a box commits there and then, the way a pill-click on a card '
             + 'does, and everything else drafted in the fold-out rides along on that commit. '
-            + 'Nothing ticked is “any status”. A per-surface decision, threaded from '
-            + 'ContentItemListPanel: off for a public feed, on for “my posts” and the '
-            + 'moderation queue.'
+            + 'A per-surface decision, threaded from ContentItemListPanel: off for a public '
+            + 'feed, on for “my posts” and the admin posts list.'
+    },
+    {
+        name: 'searchApprovalDraftSelected / searchApprovalSubmittedSelected / '
+            + 'searchApprovalApprovedSelected / searchApprovalRejectedSelected',
+        type: 'boolean ×4',
+        defaultValue: 'false / false / true / true',
+        description: 'WHICH BOXES START TICKED — the surface’s default selection. They rest '
+            + 'at the decided rows (Approved and Rejected), which is what a journal shows; '
+            + '/myposts and /Admin/Posts turn all four on. A committed selection in the '
+            + 'criteria OVERRIDES them, and unticking the last box hands the surface back to '
+            + 'them — “no status at all” is not a search anybody means. The bar only draws '
+            + 'the boxes: the page hands the same four to its read (useSearchContentItems’ '
+            + 'defaultApprovalStatuses) so the results are read with exactly what is ticked.'
     },
     {
         name: 'contentItemSettingCollection',
@@ -96,6 +108,14 @@ export function ContentItemSearchBarPanelDoc() {
 
     const [showsApprovalStatusSearchOptions, setShowsApprovalStatusSearchOptions] =
         useState(true);
+
+    // The four default-selection flags, resting where the component's own defaults rest.
+    // They seed the boxes only while the criteria carry no selection — tick a box in the
+    // live bar and the committed criteria take over, exactly as on a page.
+    const [draftSelected, setDraftSelected] = useState(false);
+    const [submittedSelected, setSubmittedSelected] = useState(false);
+    const [approvedSelected, setApprovedSelected] = useState(true);
+    const [rejectedSelected, setRejectedSelected] = useState(true);
 
     return (
         <ComponentDoc
@@ -161,8 +181,37 @@ export function ContentItemSearchBarPanelDoc() {
                     {
                         name: 'approval-status-search-options',
                         label: 'showApprovalStatusSearchOptions',
+                        defaultValue: false,
                         value: showsApprovalStatusSearchOptions,
                         onChange: setShowsApprovalStatusSearchOptions
+                    },
+                    {
+                        name: 'approval-draft-selected',
+                        label: 'searchApprovalDraftSelected',
+                        defaultValue: false,
+                        value: draftSelected,
+                        onChange: setDraftSelected
+                    },
+                    {
+                        name: 'approval-submitted-selected',
+                        label: 'searchApprovalSubmittedSelected',
+                        defaultValue: false,
+                        value: submittedSelected,
+                        onChange: setSubmittedSelected
+                    },
+                    {
+                        name: 'approval-approved-selected',
+                        label: 'searchApprovalApprovedSelected',
+                        defaultValue: true,
+                        value: approvedSelected,
+                        onChange: setApprovedSelected
+                    },
+                    {
+                        name: 'approval-rejected-selected',
+                        label: 'searchApprovalRejectedSelected',
+                        defaultValue: true,
+                        value: rejectedSelected,
+                        onChange: setRejectedSelected
                     },
                     {
                         name: 'bible-reference-filter',
@@ -180,6 +229,10 @@ export function ContentItemSearchBarPanelDoc() {
                         criteria={criteria}
                         contentItemSettingCollection={demoSettings}
                         showApprovalStatusSearchOptions={showsApprovalStatusSearchOptions}
+                        searchApprovalDraftSelected={draftSelected}
+                        searchApprovalSubmittedSelected={submittedSelected}
+                        searchApprovalApprovedSelected={approvedSelected}
+                        searchApprovalRejectedSelected={rejectedSelected}
                         onSearch={(committed) => {
                             setCriteria(committed);
 

@@ -12,6 +12,7 @@ import {
 } from '../../models/components/contentItems/contentItemFormItem';
 
 import {
+    defaultContentItemSearchApprovalStatuses,
     emptyContentItemSearchCriteria
 } from '../../models/components/contentItems/contentItemSearchItem';
 
@@ -159,8 +160,8 @@ describe('contentItemService.useModifyContentItem', () => {
 
 
 // THE STATUSES THE READ ACTUALLY ASKS FOR, which is where the search bar's checkbox group
-// lands. The page PINS what its surface is; the reader's ticks narrow within that pin and
-// can never reach past it — the one thing a status filter must not be able to do.
+// lands. The reader's choice where they made one; the surface's DEFAULTS where they did not —
+// the same four the page hands its panel, so the boxes and the results always agree.
 describe('contentItemService.useSearchContentItems approval statuses', () => {
     let queryClient: QueryClient;
 
@@ -170,12 +171,12 @@ describe('contentItemService.useSearchContentItems approval statuses', () => {
 
     const searchWith = async (
         approvalStatuses: ReadonlyArray<ApprovalStatus>,
-        pinned: ReadonlyArray<ApprovalStatus> | null) => {
+        defaultApprovalStatuses: ReadonlyArray<ApprovalStatus> | null) => {
 
         renderHook(
             () => contentItemService.useSearchContentItems(
                 { ...emptyContentItemSearchCriteria, approvalStatuses },
-                pinned == null ? {} : { approvalStatuses: pinned }),
+                defaultApprovalStatuses == null ? {} : { defaultApprovalStatuses }),
             { wrapper });
 
         await waitFor(() => expect(searchContentItemsAsync).toHaveBeenCalled());
@@ -197,7 +198,7 @@ describe('contentItemService.useSearchContentItems approval statuses', () => {
         });
     });
 
-    it('should ask for the ticked statuses where the surface pinned none', async () => {
+    it('should ask for the ticked statuses', async () => {
         // given
         const ticked = [ApprovalStatus.Draft, ApprovalStatus.Rejected];
 
@@ -208,8 +209,8 @@ describe('contentItemService.useSearchContentItems approval statuses', () => {
         expect(asked).toEqual(ticked);
     });
 
-    // Nothing ticked is "any status", not "no status" — the pin stands as it was.
-    it('should leave the pin alone where nothing is ticked', async () => {
+    // Nothing ticked is "not chosen", not "no status" — the surface's defaults are read.
+    it('should ask for the surface defaults where nothing is ticked', async () => {
         // when
         const asked = await searchWith([], [ApprovalStatus.Draft, ApprovalStatus.Submitted]);
 
@@ -217,25 +218,26 @@ describe('contentItemService.useSearchContentItems approval statuses', () => {
         expect(asked).toEqual([ApprovalStatus.Draft, ApprovalStatus.Submitted]);
     });
 
-    it('should narrow within the pin rather than past it', async () => {
+    // A page that names no defaults reads the decided rows — the panel's own resting flags —
+    // so a journal that hides the boxes never receives a draft because nothing was ticked.
+    it('should ask for the decided statuses where the surface named no defaults', async () => {
         // when
-        const asked = await searchWith(
-            [ApprovalStatus.Submitted, ApprovalStatus.Approved],
-            [ApprovalStatus.Draft, ApprovalStatus.Submitted]);
+        const asked = await searchWith([], null);
 
         // then
-        expect(asked).toEqual([ApprovalStatus.Submitted]);
+        expect(asked).toEqual(defaultContentItemSearchApprovalStatuses);
+        expect(asked).toEqual([ApprovalStatus.Approved, ApprovalStatus.Rejected]);
     });
 
-    // AN EMPTY INTERSECTION MUST NOT TRAVEL: the broker reads an empty list as no status
-    // clause at all, so a tick with nothing behind it would WIDEN the queue it was made in.
-    it('should keep the pin where the ticks intersect it to nothing', async () => {
+    // The choice REPLACES the defaults; it is not intersected with them. A surface that
+    // starts at the decided rows and whose reader ticks Draft is asked for the drafts.
+    it('should let the ticked statuses replace the defaults outright', async () => {
         // when
         const asked = await searchWith(
-            [ApprovalStatus.Approved],
-            [ApprovalStatus.Draft, ApprovalStatus.Submitted]);
+            [ApprovalStatus.Draft],
+            [ApprovalStatus.Approved, ApprovalStatus.Rejected]);
 
         // then
-        expect(asked).toEqual([ApprovalStatus.Draft, ApprovalStatus.Submitted]);
+        expect(asked).toEqual([ApprovalStatus.Draft]);
     });
 });

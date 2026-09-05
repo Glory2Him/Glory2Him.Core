@@ -17,7 +17,8 @@ import { contentItemService } from '../services/foundations/contentItemService';
 import { contentItemSettingService } from '../services/foundations/contentItemSettingService';
 
 import {
-    ContentItemSearchCriteria
+    ContentItemSearchCriteria,
+    contentItemSearchApprovalStatusMembers
 } from '../models/components/contentItems/contentItemSearchItem';
 
 import {
@@ -61,6 +62,11 @@ export function MyPosts() {
     } = contentItemService.useSearchContentItems(criteria, {
         scope: 'caller',
         submittedById: userId,
+
+        // THE WHOLE SHELF by default — a contributor's drafts and submissions are exactly
+        // what they came to see — and the same four the panel below starts ticked, so the
+        // boxes describe the read. A selection the reader commits replaces them.
+        defaultApprovalStatuses: contentItemSearchApprovalStatusMembers,
         enabled: userId.length > 0
     });
 
@@ -141,9 +147,13 @@ export function MyPosts() {
 
                                 // A CONTRIBUTOR'S OWN SHELF, so the status is exactly what
                                 // they came to narrow on — "show me what is still a draft",
-                                // "show me what came back rejected". The page pins no status
-                                // of its own here, so every box narrows the whole shelf.
+                                // "show me what came back rejected". Every box starts ticked,
+                                // matching the read above, and unticking narrows the shelf.
                                 showApprovalStatusSearchOptions
+                                searchApprovalDraftSelected
+                                searchApprovalSubmittedSelected
+                                searchApprovalApprovedSelected
+                                searchApprovalRejectedSelected
                                 showApprovalStatusRibbon
 
                                 // The corner ribbon already says the status on every card, so

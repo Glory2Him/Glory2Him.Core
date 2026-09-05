@@ -300,8 +300,20 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
         description: 'Threaded to the bar: the Approval status checkbox group — Draft, '
             + 'Submitted, Approved, Rejected — in the advanced options. Ticking a box '
             + 'commits IMMEDIATELY, so onSearch fires on the change with no Search press. '
-            + 'Nothing ticked is "any status". Off for a public feed, on for /myposts and '
-            + 'the moderation queue.'
+            + 'Off for a public feed, on for /myposts and the admin posts list.'
+    },
+    {
+        name: 'searchApprovalDraftSelected / searchApprovalSubmittedSelected / '
+            + 'searchApprovalApprovedSelected / searchApprovalRejectedSelected',
+        type: 'boolean ×4',
+        defaultValue: 'false / false / true / true',
+        description: 'WHICH BOXES START TICKED — the surface’s default selection, threaded to '
+            + 'the bar. They rest at the decided rows, which is what a journal shows; '
+            + '/myposts and /Admin/Posts turn all four on. A committed selection in the '
+            + 'criteria overrides them, and unticking the last box hands the surface back to '
+            + 'them. THE PAGE HANDS THE SAME FOUR TO ITS READ (useSearchContentItems’ '
+            + 'defaultApprovalStatuses): this panel only draws the boxes, and a box ticked '
+            + 'for a status the read never asked for is a lie.'
     },
     {
         name: 'isLoading / isLoadingMore / hasMore / onLoadMore',
@@ -443,6 +455,13 @@ export function ContentItemListPanelDoc() {
         playgroundShowsApprovalStatusSearchOptions,
         setPlaygroundShowsApprovalStatusSearchOptions
     ] = useState(false);
+
+    // The four default-selection flags, resting where the component's own defaults rest so
+    // the switches print the truth beside their labels.
+    const [playgroundDraftSelected, setPlaygroundDraftSelected] = useState(false);
+    const [playgroundSubmittedSelected, setPlaygroundSubmittedSelected] = useState(false);
+    const [playgroundApprovedSelected, setPlaygroundApprovedSelected] = useState(true);
+    const [playgroundRejectedSelected, setPlaygroundRejectedSelected] = useState(true);
     const [playgroundShowsContentExpanded, setPlaygroundShowsContentExpanded] =
         useState(false);
     const [playgroundAllowsInPlaceExpansion, setPlaygroundAllowsInPlaceExpansion] =
@@ -715,6 +734,34 @@ export function ContentItemListPanelDoc() {
                         onChange: setPlaygroundShowsApprovalStatusSearchOptions
                     },
                     {
+                        name: 'search-approval-draft-selected',
+                        label: 'searchApprovalDraftSelected (Draft starts ticked)',
+                        defaultValue: false,
+                        value: playgroundDraftSelected,
+                        onChange: setPlaygroundDraftSelected
+                    },
+                    {
+                        name: 'search-approval-submitted-selected',
+                        label: 'searchApprovalSubmittedSelected (Submitted starts ticked)',
+                        defaultValue: false,
+                        value: playgroundSubmittedSelected,
+                        onChange: setPlaygroundSubmittedSelected
+                    },
+                    {
+                        name: 'search-approval-approved-selected',
+                        label: 'searchApprovalApprovedSelected (Approved starts ticked)',
+                        defaultValue: true,
+                        value: playgroundApprovedSelected,
+                        onChange: setPlaygroundApprovedSelected
+                    },
+                    {
+                        name: 'search-approval-rejected-selected',
+                        label: 'searchApprovalRejectedSelected (Rejected starts ticked)',
+                        defaultValue: true,
+                        value: playgroundRejectedSelected,
+                        onChange: setPlaygroundRejectedSelected
+                    },
+                    {
                         name: 'search-content-expanded',
                         label: 'showContentExpanded',
                     defaultValue: false,
@@ -758,6 +805,10 @@ export function ContentItemListPanelDoc() {
                             showApprovalStatusRibbon={playgroundShowsRibbons}
                             showApprovalStatusSearchOptions={
                                 playgroundShowsApprovalStatusSearchOptions}
+                            searchApprovalDraftSelected={playgroundDraftSelected}
+                            searchApprovalSubmittedSelected={playgroundSubmittedSelected}
+                            searchApprovalApprovedSelected={playgroundApprovedSelected}
+                            searchApprovalRejectedSelected={playgroundRejectedSelected}
                             showApprovalStatus={playgroundShowsStatus}
                             showContentExpanded={playgroundShowsContentExpanded}
                             truncateAt={playgroundTruncateAt}
