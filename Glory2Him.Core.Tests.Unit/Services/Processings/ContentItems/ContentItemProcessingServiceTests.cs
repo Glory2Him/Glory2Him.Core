@@ -203,8 +203,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
         private static int GetRandomNumber() =>
             new IntRange(min: 2, max: 10).GetValue();
 
+        // Bounded well above DateTime.MinValue on purpose: arrangements shift these dates
+        // backwards - AddDays(-n) for a stored row, AddSeconds(-90) for the recency window -
+        // and a draw near the minimum makes that arithmetic throw. An unbounded earliest date
+        // is an intermittently red suite, on whichever test happened to draw it.
         private static DateTimeOffset GetRandomDateTimeOffset() =>
-            new DateTimeRange(earliestDate: new DateTime()).GetValue();
+            new DateTimeRange(earliestDate: new DateTime(year: 2000, month: 1, day: 1)).GetValue();
 
         // a deserialized request envelope can carry a null SecurityContext, so the gate
         // must treat null and not-authenticated identically
