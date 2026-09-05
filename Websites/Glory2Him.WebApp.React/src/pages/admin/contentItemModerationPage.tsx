@@ -18,8 +18,8 @@ import { contentItemService } from '../../services/foundations/contentItemServic
 import { contentItemSettingService } from '../../services/foundations/contentItemSettingService';
 
 import {
-    ApprovalStatus,
-    ContentItemSearchCriteria
+    ContentItemSearchCriteria,
+    contentItemSearchApprovalStatusMembers
 } from '../../models/components/contentItems/contentItemSearchItem';
 
 import {
@@ -28,15 +28,16 @@ import {
 
 import { useDocumentTitle } from '../useDocumentTitle';
 
-// THE MODERATION QUEUE at /Admin/Posts: the same family the public feed renders, in the admin
-// shell, narrowed to what needs a moderator — every Draft and Submitted content item the
-// caller's tier may see. The PAGE pins the statuses; the FOUNDATION still decides which rows
-// this caller's roles actually reach (§14.5), so the pin only ever narrows.
+// THE POSTS LIST at /Admin/Posts: the same family the public feed renders, in the admin shell,
+// over every content item the caller's tier may see — at EVERY status by default, because a
+// moderator's question changes by the hour ("what is waiting", "what did we reject last
+// week") and the status boxes are how they ask it. The FOUNDATION still decides which rows
+// this caller's roles actually reach (§14.5), so no box can widen the list past that.
 //
-// THE THIRD CLAUSE IS MISSING, deliberately: "approved items with unapproved associations"
-// cannot be asked yet — associations have no HTTP exposer (#318) — so this queue is Draft +
-// Submitted until that read exists, and the issue records the gap rather than a client-side
-// approximation pretending to cover it.
+// The four statuses start ticked and the reader's selection replaces them; the same four are
+// handed to the read below, so the boxes always describe the results. "Approved items with
+// unapproved associations" is still not askable — associations have no HTTP exposer (#318) —
+// and the issue records that gap rather than a client-side approximation.
 //
 // Every card wears its status badge, which on this page is the entire point of the projection's
 // approvalStatus member.
@@ -44,9 +45,6 @@ const crumbs: BreadcrumbItem[] = [
     { title: 'Admin' },
     { title: 'Posts', href: '/Admin/Posts', isActive: true },
 ];
-
-const moderatedStatuses: ReadonlyArray<ApprovalStatus> =
-    [ApprovalStatus.Draft, ApprovalStatus.Submitted];
 
 export function ContentItemModerationPage() {
     useDocumentTitle('Posts — Admin — Glory 2 Him');
@@ -68,7 +66,7 @@ export function ContentItemModerationPage() {
         fetchNextPage
     } = contentItemService.useSearchContentItems(criteria, {
         scope: 'caller',
-        approvalStatuses: moderatedStatuses
+        defaultApprovalStatuses: contentItemSearchApprovalStatusMembers
     });
 
     const loadedContentItems = useMemo(
@@ -117,7 +115,7 @@ export function ContentItemModerationPage() {
     return (
         <>
             <div className="d-flex flex-wrap justify-content-between align-items-center mb-3">
-                <h1 className="h3 mb-0">Posts awaiting moderation</h1>
+                <h1 className="h3 mb-0">Posts</h1>
                 <Breadcrumb items={crumbs} />
             </div>
 
@@ -148,13 +146,16 @@ export function ContentItemModerationPage() {
                     showModerationSection
                     showApprovalStatus
 
-                    // The queue is PINNED to Draft + Submitted, so these boxes narrow
-                    // within it — a moderator working the drafts alone ticks Draft — and
-                    // ticking a status the pin does not carry changes nothing rather than
-                    // widening the queue past what this surface is.
+                    // Every status starts ticked, matching the read above; a moderator
+                    // working the drafts alone unticks the other three, and the list
+                    // narrows to exactly what the boxes say.
                     showApprovalStatusSearchOptions
+                    searchApprovalDraftSelected
+                    searchApprovalSubmittedSelected
+                    searchApprovalApprovedSelected
+                    searchApprovalRejectedSelected
                     onModerateClick={moderateContentItem}
-                    emptyText="Nothing is waiting for moderation. Well done."
+                    emptyText="No posts matched that search."
                     {...feedNavigation} />
             )}
         </>

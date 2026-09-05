@@ -167,14 +167,15 @@ export type ContentItemSearchCriteria = {
     shareabilityBasis: ShareabilityBasis | null;
 
     // The Approval status boxes — the checkbox group the bar renders only where a surface
-    // opted in with showApprovalStatusSearchOptions. EMPTY IS "ANY STATUS", exactly as a
-    // null contentType is "any category": a reader who has ticked nothing is asking for
-    // everything the surface already shows them, not for nothing at all.
+    // opted in with showApprovalStatusSearchOptions. What is listed here is what the reader
+    // CHOSE; EMPTY IS "NOT CHOSEN", and a read answers it with the surface's DEFAULT
+    // selection (resolveContentItemSearchApprovalStatuses) rather than with every status —
+    // a reader who has ticked nothing has not asked for the drafts a public journal never
+    // shows.
     //
-    // A NARROWING, NEVER A WIDENING. The statuses a page PINS (the moderation queue's Draft
-    // + Submitted) and the roles the foundation enforces (§14.5) both still stand — what is
-    // ticked here narrows within them, so a reader cannot reach a row by ticking a box that
-    // their surface was never showing.
+    // A selection replaces the defaults outright; it does not narrow within them. The roles
+    // the foundation enforces (§14.5) still decide which rows a caller reaches whatever is
+    // ticked, so a box can be offered freely: it cannot reach a row the caller may not see.
     approvalStatuses: ReadonlyArray<ApprovalStatus>;
 };
 
@@ -190,6 +191,49 @@ export const contentItemSearchApprovalStatusMembers: ReadonlyArray<ApprovalStatu
     ApprovalStatus.Approved,
     ApprovalStatus.Rejected
 ];
+
+// WHICH BOXES START TICKED on a surface that says nothing — one flag per offered status,
+// which is how the panels take it (searchApprovalDraftSelected and its three siblings) so a
+// page reads as a row of switches rather than as a list it has to assemble.
+export type ContentItemSearchApprovalStatusSelection = {
+    draft: boolean;
+    submitted: boolean;
+    approved: boolean;
+    rejected: boolean;
+};
+
+// The selection as the statuses it names, in the members' own order.
+export const toContentItemSearchApprovalStatuses = (
+    selection: ContentItemSearchApprovalStatusSelection): ReadonlyArray<ApprovalStatus> =>
+    contentItemSearchApprovalStatusMembers.filter((approvalStatus) => (
+        (approvalStatus === ApprovalStatus.Draft && selection.draft)
+        || (approvalStatus === ApprovalStatus.Submitted && selection.submitted)
+        || (approvalStatus === ApprovalStatus.Approved && selection.approved)
+        || (approvalStatus === ApprovalStatus.Rejected && selection.rejected)));
+
+// THE DEFAULT SELECTION where a surface names none: the decided rows — Approved and
+// Rejected — and neither of the two still in the workflow. It is what a reader is shown on a
+// journal, and it is what the panels' four flags rest at, so the boxes and the read agree
+// without a page having to say so twice. A surface that wants the whole shelf (/myposts, the
+// admin posts list) turns all four flags on and hands the same four to its read.
+export const defaultContentItemSearchApprovalStatusSelection:
+    ContentItemSearchApprovalStatusSelection = {
+        draft: false,
+        submitted: false,
+        approved: true,
+        rejected: true
+    };
+
+export const defaultContentItemSearchApprovalStatuses: ReadonlyArray<ApprovalStatus> =
+    toContentItemSearchApprovalStatuses(defaultContentItemSearchApprovalStatusSelection);
+
+// WHAT A READ ACTUALLY ASKS FOR: the reader's choice where they made one, the surface's
+// defaults where they did not. Shared by the bar (to seed its boxes) and the search hook (to
+// build the request), so the boxes always show the statuses the results were read with.
+export const resolveContentItemSearchApprovalStatuses = (
+    chosenApprovalStatuses: ReadonlyArray<ApprovalStatus>,
+    defaultApprovalStatuses: ReadonlyArray<ApprovalStatus>): ReadonlyArray<ApprovalStatus> =>
+    chosenApprovalStatuses.length > 0 ? chosenApprovalStatuses : defaultApprovalStatuses;
 
 export const emptyContentItemSearchCriteria: ContentItemSearchCriteria = {
     query: '',

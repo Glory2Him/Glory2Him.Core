@@ -14,7 +14,10 @@ import {
     ApprovalStatus,
     ContentItemSearchCriteria,
     ContentItemTagMatchMode,
-    contentItemSearchApprovalStatusMembers
+    contentItemSearchApprovalStatusMembers,
+    defaultContentItemSearchApprovalStatusSelection,
+    resolveContentItemSearchApprovalStatuses,
+    toContentItemSearchApprovalStatuses
 } from '../../models/components/contentItems/contentItemSearchItem';
 
 import {
@@ -59,6 +62,21 @@ export interface ContentItemSearchBarPanelProps {
     // that commit, exactly as it would have on the Search press.
     showApprovalStatusSearchOptions?: boolean;
 
+    // WHICH BOXES START TICKED — the surface's DEFAULT selection, one flag per status. They
+    // rest at the decided rows (Approved and Rejected on, Draft and Submitted off), which
+    // is what a journal shows; /myposts and the admin posts list turn all four on. A
+    // committed selection in the criteria OVERRIDES them — the reader's choice, once made,
+    // is what the boxes show — and unticking the last box hands the surface back to these,
+    // because "no status at all" is not a search anybody means.
+    //
+    // THE READ MUST AGREE. The bar only draws the boxes; the page owns the request, and hands
+    // the same four to its search hook (defaultApprovalStatuses) so the results are read with
+    // exactly the statuses the boxes show ticked.
+    searchApprovalDraftSelected?: boolean;
+    searchApprovalSubmittedSelected?: boolean;
+    searchApprovalApprovedSelected?: boolean;
+    searchApprovalRejectedSelected?: boolean;
+
     // ── Text ──────────────────────────────────────────────────────────────────
     placeholderText?: string;
     categoryLabelText?: string;
@@ -83,6 +101,10 @@ export function ContentItemSearchBarPanel({
     onSearch,
     contentItemSettingCollection = [],
     showApprovalStatusSearchOptions = false,
+    searchApprovalDraftSelected = defaultContentItemSearchApprovalStatusSelection.draft,
+    searchApprovalSubmittedSelected = defaultContentItemSearchApprovalStatusSelection.submitted,
+    searchApprovalApprovedSelected = defaultContentItemSearchApprovalStatusSelection.approved,
+    searchApprovalRejectedSelected = defaultContentItemSearchApprovalStatusSelection.rejected,
     placeholderText = 'Search posts, authors and topics',
     categoryLabelText = 'Category',
     anyCategoryText = 'Any category',
@@ -127,15 +149,27 @@ export function ContentItemSearchBarPanel({
     const [draftBibleReferenceMatchMode, setDraftBibleReferenceMatchMode] =
         useState<ContentItemTagMatchMode>(criteria?.bibleReferenceMatchMode ?? 'any');
 
+    // The boxes show the statuses the read was made with: the committed selection where the
+    // reader made one, the surface's four flags where they did not.
+    const defaultApprovalStatuses = toContentItemSearchApprovalStatuses({
+        draft: searchApprovalDraftSelected,
+        submitted: searchApprovalSubmittedSelected,
+        approved: searchApprovalApprovedSelected,
+        rejected: searchApprovalRejectedSelected
+    });
+
+    const seededApprovalStatuses = resolveContentItemSearchApprovalStatuses(
+        criteria?.approvalStatuses ?? [], defaultApprovalStatuses);
+
     const [draftApprovalStatuses, setDraftApprovalStatuses] =
-        useState<ReadonlyArray<ApprovalStatus>>(criteria?.approvalStatuses ?? []);
+        useState<ReadonlyArray<ApprovalStatus>>(seededApprovalStatuses);
 
     // Keyed on the MEMBERS rather than on the object, so a consumer building the criteria inline
     // — the natural thing when they live in the URL — does not wipe what is being typed on every
     // render.
     const committedTagsKey = (criteria?.tags ?? []).join('\u241f');
     const committedBibleReferencesKey = (criteria?.bibleReferences ?? []).join('\u241f');
-    const committedApprovalStatusesKey = (criteria?.approvalStatuses ?? []).join('\u241f');
+    const seededApprovalStatusesKey = seededApprovalStatuses.join('\u241f');
 
     useEffect(() => {
         setDraftQuery(criteria?.query ?? '');
@@ -147,7 +181,7 @@ export function ContentItemSearchBarPanel({
         setDraftTagMatchMode(criteria?.tagMatchMode ?? 'any');
         setDraftBibleReferences(criteria?.bibleReferences ?? []);
         setDraftBibleReferenceMatchMode(criteria?.bibleReferenceMatchMode ?? 'any');
-        setDraftApprovalStatuses(criteria?.approvalStatuses ?? []);
+        setDraftApprovalStatuses(seededApprovalStatuses);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [
         criteria?.query,
@@ -159,7 +193,7 @@ export function ContentItemSearchBarPanel({
         criteria?.tagMatchMode,
         committedBibleReferencesKey,
         criteria?.bibleReferenceMatchMode,
-        committedApprovalStatusesKey
+        seededApprovalStatusesKey
     ]);
 
     // WHAT A TYPED SUBMITTED-BY MEANS. The box shows the committed criterion's name; while
@@ -192,7 +226,13 @@ export function ContentItemSearchBarPanel({
         bibleReferences: draftBibleReferences,
         bibleReferenceMatchMode: draftBibleReferenceMatchMode,
         shareabilityBasis: draftShareabilityBasis,
-        approvalStatuses
+
+        // Boxes the surface never drew commit nothing of their own: a journal that hides
+        // the group carries whatever its criteria already held, so its defaults stay the
+        // read's business and never reach the URL from a bar the reader could not see.
+        approvalStatuses: showApprovalStatusSearchOptions
+            ? approvalStatuses
+            : criteria?.approvalStatuses ?? []
     });
 
     const search = () => onSearch?.(committed(draftApprovalStatuses));

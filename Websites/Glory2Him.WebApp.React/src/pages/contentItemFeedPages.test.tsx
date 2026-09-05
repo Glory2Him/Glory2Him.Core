@@ -188,9 +188,19 @@ describe('The content item feed pages', () => {
             // when
             renderPage(<MyPosts />, '/myposts');
 
-            // then: user-1 is the id signInAs mints
+            // then: user-1 is the id signInAs mints — and the WHOLE shelf by default, the
+            // same four the boxes below start ticked with
             expect(searchedOptions).toEqual(
-                expect.objectContaining({ scope: 'caller', submittedById: 'user-1' }));
+                expect.objectContaining({
+                    scope: 'caller',
+                    submittedById: 'user-1',
+                    defaultApprovalStatuses: [
+                        ApprovalStatus.Draft,
+                        ApprovalStatus.Submitted,
+                        ApprovalStatus.Approved,
+                        ApprovalStatus.Rejected
+                    ]
+                }));
         });
 
         // The page must never ask for everybody's rows while the identity is still arriving.
@@ -244,34 +254,37 @@ describe('The content item feed pages', () => {
             renderPage(<MyPosts />, '/myposts');
             await openAdvancedSearchOptions();
 
-            // then
+            // then: every box ticked, matching the read the page made
             ['Draft', 'Submitted', 'Approved', 'Rejected'].forEach((statusLabel) => {
-                expect(screen.getByRole('checkbox', { name: statusLabel }))
-                    .toBeInTheDocument();
+                expect(screen.getByRole('checkbox', { name: statusLabel })).toBeChecked();
             });
         });
     });
 
     describe('ContentItemModerationPage', () => {
-        it('should pin the queue to the statuses a moderator acts on', () => {
+        // EVERY STATUS BY DEFAULT — a moderator's question changes by the hour, and the boxes
+        // are how they ask it. The read is handed the same four the boxes start ticked with.
+        it('should read every status where the moderator has chosen none', () => {
             // given
             signInAs(authState, ['Administrators']);
 
             // when
             renderPage(<ContentItemModerationPage />, '/Admin/Posts');
 
-            // then: Draft + Submitted — the third clause (approved with unapproved
-            // associations) is blocked on #318 and recorded on the issue, not approximated.
+            // then
             expect(searchedOptions).toEqual(
                 expect.objectContaining({
                     scope: 'caller',
-                    approvalStatuses: [ApprovalStatus.Draft, ApprovalStatus.Submitted]
+                    defaultApprovalStatuses: [
+                        ApprovalStatus.Draft,
+                        ApprovalStatus.Submitted,
+                        ApprovalStatus.Approved,
+                        ApprovalStatus.Rejected
+                    ]
                 }));
         });
 
-        // The queue stays pinned to Draft + Submitted whatever is ticked (the service
-        // intersects), so these boxes let a moderator work one status at a time.
-        it('should offer the approval statuses in the search options', async () => {
+        it('should offer every approval status ticked in the search options', async () => {
             // given
             signInAs(authState, ['Administrators']);
 
@@ -279,9 +292,10 @@ describe('The content item feed pages', () => {
             renderPage(<ContentItemModerationPage />, '/Admin/Posts');
             await openAdvancedSearchOptions();
 
-            // then
-            expect(screen.getByRole('checkbox', { name: 'Draft' })).toBeInTheDocument();
-            expect(screen.getByRole('checkbox', { name: 'Submitted' })).toBeInTheDocument();
+            // then: what the boxes say is what the read above was made with
+            ['Draft', 'Submitted', 'Approved', 'Rejected'].forEach((statusLabel) => {
+                expect(screen.getByRole('checkbox', { name: statusLabel })).toBeChecked();
+            });
         });
 
         it('should render in the admin chrome with its breadcrumb', () => {
@@ -292,7 +306,7 @@ describe('The content item feed pages', () => {
             renderPage(<ContentItemModerationPage />, '/Admin/Posts');
 
             // then
-            expect(screen.getByRole('heading', { name: 'Posts awaiting moderation', level: 1 }))
+            expect(screen.getByRole('heading', { name: 'Posts', level: 1 }))
                 .toBeInTheDocument();
         });
 

@@ -75,6 +75,16 @@ export interface ContentItemListPanelProps
     // immediately — no Search press — so onSearch fires on the change itself.
     showApprovalStatusSearchOptions?: boolean;
 
+    // WHICH BOXES START TICKED, threaded to the bar: the surface's default selection, one
+    // flag per status, resting at the decided rows (Approved and Rejected on) the way a
+    // journal reads. A committed selection in the criteria overrides them. THE PAGE HANDS THE
+    // SAME FOUR TO ITS READ (useSearchContentItems' defaultApprovalStatuses) — this panel
+    // only draws the boxes, and a box ticked for a status the read never asked for is a lie.
+    searchApprovalDraftSelected?: boolean;
+    searchApprovalSubmittedSelected?: boolean;
+    searchApprovalApprovedSelected?: boolean;
+    searchApprovalRejectedSelected?: boolean;
+
     // ── Paging ────────────────────────────────────────────────────────────────
     isLoading?: boolean;
     isLoadingMore?: boolean;
@@ -137,6 +147,10 @@ export function ContentItemListPanel({
     criteria,
     onSearch,
     showApprovalStatusSearchOptions = false,
+    searchApprovalDraftSelected,
+    searchApprovalSubmittedSelected,
+    searchApprovalApprovedSelected,
+    searchApprovalRejectedSelected,
     isLoading = false,
     isLoadingMore = false,
     hasMore = false,
@@ -268,6 +282,10 @@ export function ContentItemListPanel({
                         authorLabelText={searchAuthorLabelText}
                         authorPlaceholderText={searchAuthorPlaceholderText}
                         showApprovalStatusSearchOptions={showApprovalStatusSearchOptions}
+                        searchApprovalDraftSelected={searchApprovalDraftSelected}
+                        searchApprovalSubmittedSelected={searchApprovalSubmittedSelected}
+                        searchApprovalApprovedSelected={searchApprovalApprovedSelected}
+                        searchApprovalRejectedSelected={searchApprovalRejectedSelected}
                         approvalStatusLabelText={approvalStatusSearchLabelText} />
                 </div>
             )}
