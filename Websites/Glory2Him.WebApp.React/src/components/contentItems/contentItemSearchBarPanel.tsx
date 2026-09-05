@@ -11,9 +11,15 @@ import {
 } from '../../models/components/contentItems/contentItemFormItem';
 
 import {
+    ApprovalStatus,
     ContentItemSearchCriteria,
-    ContentItemTagMatchMode
+    ContentItemTagMatchMode,
+    contentItemSearchApprovalStatusMembers
 } from '../../models/components/contentItems/contentItemSearchItem';
+
+import {
+    approvalStatusRibbonLabels
+} from '../../models/components/contentItems/contentItemTemplate';
 
 import './contentItems.css';
 
@@ -40,6 +46,19 @@ export interface ContentItemSearchBarPanelProps {
     // write one.
     contentItemSettingCollection?: ReadonlyArray<ContentItemSetting>;
 
+    // Whether the advanced options carry the APPROVAL STATUS checkbox group — Draft,
+    // Submitted, Approved, Rejected. Off by default, because the public feed's reader has no
+    // business being offered a status they can never see; a "my posts" page and the
+    // moderation queue turn it on, being the two surfaces where a row's status is the thing
+    // a reader is actually looking for.
+    //
+    // THE ONE OPTION THAT DOES NOT WAIT FOR SEARCH. Ticking a box commits immediately, the
+    // way a pill-click on a card does: a checkbox has already said everything it has to say
+    // the moment it changes, and a filter that needs a second press to take effect is a
+    // filter that reads as broken. Everything else drafted in the fold-out rides along on
+    // that commit, exactly as it would have on the Search press.
+    showApprovalStatusSearchOptions?: boolean;
+
     // ── Text ──────────────────────────────────────────────────────────────────
     placeholderText?: string;
     categoryLabelText?: string;
@@ -56,12 +75,14 @@ export interface ContentItemSearchBarPanelProps {
     tagMatchAllText?: string;
     bibleReferencesLabelText?: string;
     bibleReferencePlaceholderText?: string;
+    approvalStatusLabelText?: string;
 }
 
 export function ContentItemSearchBarPanel({
     criteria,
     onSearch,
     contentItemSettingCollection = [],
+    showApprovalStatusSearchOptions = false,
     placeholderText = 'Search posts, authors and topics',
     categoryLabelText = 'Category',
     anyCategoryText = 'Any category',
@@ -78,6 +99,7 @@ export function ContentItemSearchBarPanel({
     bibleReferencesLabelText = 'Bible references',
     bibleReferencePlaceholderText =
     'Type a bible reference and press Enter (e.g. John 3:16)',
+    approvalStatusLabelText = 'Approval status',
 }: ContentItemSearchBarPanelProps) {
     const fieldId = useId();
 
@@ -105,11 +127,15 @@ export function ContentItemSearchBarPanel({
     const [draftBibleReferenceMatchMode, setDraftBibleReferenceMatchMode] =
         useState<ContentItemTagMatchMode>(criteria?.bibleReferenceMatchMode ?? 'any');
 
+    const [draftApprovalStatuses, setDraftApprovalStatuses] =
+        useState<ReadonlyArray<ApprovalStatus>>(criteria?.approvalStatuses ?? []);
+
     // Keyed on the MEMBERS rather than on the object, so a consumer building the criteria inline
     // — the natural thing when they live in the URL — does not wipe what is being typed on every
     // render.
     const committedTagsKey = (criteria?.tags ?? []).join('\u241f');
     const committedBibleReferencesKey = (criteria?.bibleReferences ?? []).join('\u241f');
+    const committedApprovalStatusesKey = (criteria?.approvalStatuses ?? []).join('\u241f');
 
     useEffect(() => {
         setDraftQuery(criteria?.query ?? '');
@@ -121,6 +147,7 @@ export function ContentItemSearchBarPanel({
         setDraftTagMatchMode(criteria?.tagMatchMode ?? 'any');
         setDraftBibleReferences(criteria?.bibleReferences ?? []);
         setDraftBibleReferenceMatchMode(criteria?.bibleReferenceMatchMode ?? 'any');
+        setDraftApprovalStatuses(criteria?.approvalStatuses ?? []);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [
         criteria?.query,
@@ -131,7 +158,8 @@ export function ContentItemSearchBarPanel({
         committedTagsKey,
         criteria?.tagMatchMode,
         committedBibleReferencesKey,
-        criteria?.bibleReferenceMatchMode
+        criteria?.bibleReferenceMatchMode,
+        committedApprovalStatusesKey
     ]);
 
     // WHAT A TYPED SUBMITTED-BY MEANS. The box shows the committed criterion's name; while
@@ -150,7 +178,11 @@ export function ContentItemSearchBarPanel({
             : { id: '', name: typedName };
     };
 
-    const committed = (): ContentItemSearchCriteria => ({
+    // The statuses are taken as a PARAMETER rather than read off the draft state, because the
+    // checkbox group commits in the same breath as it changes and a setState is not visible to
+    // the handler that called it — the commit would otherwise carry the tick before last.
+    const committed = (
+        approvalStatuses: ReadonlyArray<ApprovalStatus>): ContentItemSearchCriteria => ({
         query: draftQuery,
         contentType: draftContentType,
         author: draftAuthor,
@@ -159,10 +191,23 @@ export function ContentItemSearchBarPanel({
         tagMatchMode: draftTagMatchMode,
         bibleReferences: draftBibleReferences,
         bibleReferenceMatchMode: draftBibleReferenceMatchMode,
-        shareabilityBasis: draftShareabilityBasis
+        shareabilityBasis: draftShareabilityBasis,
+        approvalStatuses
     });
 
-    const search = () => onSearch?.(committed());
+    const search = () => onSearch?.(committed(draftApprovalStatuses));
+
+    // Ticked on, ticked off — and committed there and then, no Search press. The consumer
+    // sees one search signal with the box's new state and everything else drafted beside it.
+    const approvalStatusToggled = (approvalStatus: ApprovalStatus) => {
+        const toggled = draftApprovalStatuses.includes(approvalStatus)
+            ? draftApprovalStatuses.filter((listed) => listed !== approvalStatus)
+            : [...draftApprovalStatuses, approvalStatus]
+                .sort((first, second) => first - second);
+
+        setDraftApprovalStatuses(toggled);
+        onSearch?.(committed(toggled));
+    };
 
     const onCategoryChanged = (event: ChangeEvent<HTMLSelectElement>) =>
         setDraftContentType(
@@ -360,6 +405,49 @@ export function ContentItemSearchBarPanel({
                                     tagIconCssClass="bi-book" />
                             </div>
                         </div>
+
+                        {/* The approval statuses, on the surfaces that asked for them. A
+                            checkbox GROUP rather than a list, because these narrow by
+                            union — a moderator wants the drafts AND the rejected ones in
+                            one pass — and nothing ticked is every status, not none. */}
+                        {showApprovalStatusSearchOptions && (
+                            <div className="col-12">
+                                <fieldset>
+                                    <legend className="form-label mb-0 fs-6">
+                                        {approvalStatusLabelText}
+                                    </legend>
+
+                                    <div
+                                        className="d-flex flex-wrap gap-3 mt-2"
+                                        role="group"
+                                        aria-label={approvalStatusLabelText}>
+
+                                        {contentItemSearchApprovalStatusMembers.map(
+                                            (approvalStatus) => (
+                                                <div
+                                                    className="form-check"
+                                                    key={approvalStatus}>
+
+                                                    <input
+                                                        className="form-check-input"
+                                                        type="checkbox"
+                                                        id={`${fieldId}-approval-status-${approvalStatus}`}
+                                                        checked={draftApprovalStatuses
+                                                            .includes(approvalStatus)}
+                                                        onChange={() =>
+                                                            approvalStatusToggled(approvalStatus)} />
+
+                                                    <label
+                                                        className="form-check-label"
+                                                        htmlFor={`${fieldId}-approval-status-${approvalStatus}`}>
+                                                        {approvalStatusRibbonLabels[approvalStatus]}
+                                                    </label>
+                                                </div>
+                                            ))}
+                                    </div>
+                                </fieldset>
+                            </div>
+                        )}
                     </div>
                 } />
 

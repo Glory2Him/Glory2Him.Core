@@ -21,6 +21,11 @@ import {
     ContentItemSearchCriteria
 } from '../models/components/contentItems/contentItemSearchItem';
 
+// The advanced fold-out is closed until it is asked for, so a test about what stands inside it
+// opens it first — the same chevron a reader presses.
+const openAdvancedSearchOptions = async () =>
+    await userEvent.click(screen.getByRole('button', { name: 'Advanced search options' }));
+
 // Three surfaces over one family, and what this suite pins is exactly what DIFFERS between them:
 // which read each page feeds the panel from, and what each pins onto it. Everything the pages
 // share — projection, URL round trip, paging — is posts.test.tsx's subject.
@@ -151,6 +156,18 @@ describe('The content item feed pages', () => {
             expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
         });
 
+        // THE PUBLIC FRONT PAGE OFFERS NO STATUS TO FILTER ON. Every row it can reach is
+        // approved — the caller-independent read sees to that — so a status box here would
+        // be a control whose every setting says the same thing.
+        it('should leave the approval statuses out of the search options', async () => {
+            // when
+            renderPage(<Home />);
+            await openAdvancedSearchOptions();
+
+            // then
+            expect(screen.queryByRole('checkbox', { name: 'Draft' })).not.toBeInTheDocument();
+        });
+
         it('should keep the verse of the day above the feed', () => {
             // when
             renderPage(<Home />);
@@ -216,6 +233,23 @@ describe('The content item feed pages', () => {
             expect(document.querySelector('.g2h-approval-ribbon'))
                 .toHaveAttribute('data-approval-status', 'Draft');
         });
+
+        // A contributor's own shelf is exactly where "show me what is still a draft" is the
+        // question, so the status boxes stand in the fold-out here.
+        it('should offer the approval statuses in the search options', async () => {
+            // given
+            signInAs(authState, ['Users']);
+
+            // when
+            renderPage(<MyPosts />, '/myposts');
+            await openAdvancedSearchOptions();
+
+            // then
+            ['Draft', 'Submitted', 'Approved', 'Rejected'].forEach((statusLabel) => {
+                expect(screen.getByRole('checkbox', { name: statusLabel }))
+                    .toBeInTheDocument();
+            });
+        });
     });
 
     describe('ContentItemModerationPage', () => {
@@ -233,6 +267,21 @@ describe('The content item feed pages', () => {
                     scope: 'caller',
                     approvalStatuses: [ApprovalStatus.Draft, ApprovalStatus.Submitted]
                 }));
+        });
+
+        // The queue stays pinned to Draft + Submitted whatever is ticked (the service
+        // intersects), so these boxes let a moderator work one status at a time.
+        it('should offer the approval statuses in the search options', async () => {
+            // given
+            signInAs(authState, ['Administrators']);
+
+            // when
+            renderPage(<ContentItemModerationPage />, '/Admin/Posts');
+            await openAdvancedSearchOptions();
+
+            // then
+            expect(screen.getByRole('checkbox', { name: 'Draft' })).toBeInTheDocument();
+            expect(screen.getByRole('checkbox', { name: 'Submitted' })).toBeInTheDocument();
         });
 
         it('should render in the admin chrome with its breadcrumb', () => {
