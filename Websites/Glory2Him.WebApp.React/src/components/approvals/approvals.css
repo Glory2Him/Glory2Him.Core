@@ -138,3 +138,17 @@ section.g2h-review-panel {
 .g2h-review-block-reason {
     color: var(--bs-secondary-color);
 }
+
+/* The way OUT of a decision, and deliberately quieter than the way in. It sits under the outcome
+   it undoes, so it must not compete with the pill above it or read as a third decision beside
+   approve and reject — secondary colour, and the underline only on intent. */
+.g2h-review-reset {
+    color: var(--bs-secondary-color);
+    text-decoration: none;
+}
+
+.g2h-review-reset:hover,
+.g2h-review-reset:focus-visible {
+    color: var(--bs-danger);
+    text-decoration: underline;
+}

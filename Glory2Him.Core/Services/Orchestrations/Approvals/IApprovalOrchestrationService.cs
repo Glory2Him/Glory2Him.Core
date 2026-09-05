@@ -85,6 +85,34 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// §8.6 HR-4's administrator override: puts a round that reached <c>Approved</c> or
+        /// <c>Rejected</c> back to <c>Submitted</c>, so an outcome applied by accident can be
+        /// recovered from without starting a new round.
+        ///
+        /// <para><b>Administrators alone.</b> Deciding an open round is the publisher tier's;
+        /// undeciding a closed one is the override, and the override has one holder. §8.6
+        /// regardless-rule 1 does not apply — a reset decides nothing, so an administrator who
+        /// holds a review on the round may still reset it.</para>
+        ///
+        /// <para><b>Every active review is dismissed</b>, regardless of
+        /// <c>RequireReapprovalOnChange</c> (§12.5.3 business rule 12). Those reviews produced the
+        /// verdict being overruled, and re-opening the round on their strength would let the
+        /// override be undone by the very reviews it overrode.</para>
+        ///
+        /// <para><b>It unpublishes.</b> The entity follows through the ordinary approval command,
+        /// and a transition landing anywhere but <c>Approved</c> forces <c>IsPublished = false</c>
+        /// and clears <c>PublishDate</c> — so resetting an approved item takes it off the public
+        /// site until it is approved again. That is the operation working.</para>
+        ///
+        /// <para>The bypass pair is CLEARED: it records how a decision was reached, and after a
+        /// reset there is no decision.</para>
+        /// </summary>
+        ValueTask<ApprovalOutcome> ResetApprovalAsync(
+            EntityType entityType,
+            Guid entityId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// The Added flow (design §9.7.3). Resolves the entity's approval, creating one at
         /// <c>Draft</c> if the key is unoccupied and reinstating a closed one in place
         /// (§9.7.2), then — only if the approval is <c>Submitted</c> — runs the shared

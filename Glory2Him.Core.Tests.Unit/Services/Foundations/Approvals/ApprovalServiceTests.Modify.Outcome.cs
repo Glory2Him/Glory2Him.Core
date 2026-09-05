@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -350,6 +350,93 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                             approval.IsApprovedByBypass == false
                                 && approval.ApprovedByBypassReason == null),
                         It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
+        /// <summary>
+        /// TAKING AN OUTCOME BACK may rewrite the pair, exactly as applying one may. The pair
+        /// records how THIS decision was reached, so the two moments it changes hands are the
+        /// two moments it may be written: applying a decision, and withdrawing one (§8.6 HR-4's
+        /// administrators override, §16.7.5's reset).
+        ///
+        /// <para>Without this the reset is refused on the round it most exists for: an item
+        /// bypass-approved by mistake stores the waiver, and clearing it alongside a move to
+        /// <c>Submitted</c> is not an outcome, so the pin compared false against true and threw.
+        /// The administrator got "Approval is invalid" and the item stayed published on a
+        /// waiver nobody meant to grant.</para>
+        /// </summary>
+        [Theory]
+        [InlineData(ApprovalStatus.Approved)]
+        [InlineData(ApprovalStatus.Rejected)]
+        public async Task ShouldClearTheBypassPairWhenWithdrawingAnOutcomeAsync(
+            ApprovalStatus decidedStatus)
+        {
+            // given: a decided round carrying a waiver, moved back to Submitted with the pair cleared
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+
+            Approval randomApproval = CreateRandomModifyApproval(randomDateTimeOffset, randomUserId);
+            Approval inputApproval = randomApproval;
+            inputApproval.ApprovalStatus = ApprovalStatus.Submitted;
+            inputApproval.IsApprovedByBypass = false;
+            inputApproval.ApprovedByBypassReason = null;
+
+            Approval storageApproval = randomApproval.DeepClone();
+            storageApproval.ApprovalStatus = decidedStatus;
+            storageApproval.IsApprovedByBypass = true;
+            storageApproval.ApprovedByBypassReason = "Waived for launch.";
+
+            storageApproval.UpdatedWhen =
+                storageApproval.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+
+            SetupModifyApprovalRun(inputApproval, storageApproval, randomDateTimeOffset);
+
+            // The amend gate must PASS for this run — unlike its siblings here, this modify is
+            // expected to succeed, so it reaches a question they all throw before.
+            this.accessBrokerMock.Setup(broker =>
+                broker.MayAmendApprovalAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<SecurityContext>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(new AccessVerdict
+                        {
+                            IsPermitted = true,
+                            DenialReason = AccessDenialReason.None,
+                            Explanation = "permitted",
+                            IsBypassUsed = false,
+                            BypassedBlockReason = AccessDenialReason.None,
+                        });
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    It.IsAny<Approval>(),
+                    It.IsAny<Approval>()))
+                        .ReturnsAsync(inputApproval);
+
+            // The write itself, echoed back — the shared run helper stubs only the read, because
+            // every other test that uses it expects to throw before reaching the update.
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateApprovalAsync(
+                    It.IsAny<Approval>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((Approval approval, CancellationToken _) => approval);
+
+            // when
+            Approval actualApproval = await this.approvalService.ModifyApprovalAsync(
+                inputApproval,
+                TestContext.Current.CancellationToken);
+
+            // then: it is written rather than refused, and the waiver is gone
+            actualApproval.IsApprovedByBypass.Should().BeFalse();
+            actualApproval.ApprovedByBypassReason.Should().BeNull();
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateApprovalAsync(
+                    It.Is<Approval>(approval =>
+                        approval.ApprovalStatus == ApprovalStatus.Submitted
+                            && approval.IsApprovedByBypass == false
+                            && approval.ApprovedByBypassReason == null),
+                    It.IsAny<CancellationToken>()),
                 Times.Once);
         }
 

@@ -1,5 +1,6 @@
 import { ReactElement, ReactNode, useEffect, useId, useState } from 'react';
 import { Avatar } from '../coreUI/avatar';
+import { ConfirmDialog } from '../coreUI/confirmDialog';
 import { useDismissableMenu } from '../../hooks/useDismissableMenu';
 import { useAuth } from '../securitys/authProvider';
 import {
@@ -54,6 +55,11 @@ export interface ReviewPanelProps {
     cssClass?: string;
     titleText?: string;
     outcomeTitleText?: string;
+    resetApprovalText?: string;
+    resetConfirmTitleText?: string;
+    resetConfirmMessageText?: string;
+    resetConfirmButtonText?: string;
+    resetCancelButtonText?: string;
     isLoading?: boolean;
 
     // ── Reviews ───────────────────────────────────────────────────────────────
@@ -121,6 +127,15 @@ export interface ReviewPanelProps {
         decision: ApprovalDecision,
         isBypassRequested: boolean,
         bypassReason: string) => void;
+
+    // §8.6 HR-4's administrator override: puts a DECIDED round back to Submitted and dismisses
+    // its reviews, so an outcome applied by accident can be taken back without starting a new
+    // round. Maps 1:1 onto POST api/Approvals/{entityType}/{entityId}/Reset.
+    //
+    // The control renders only on a decided round, and only for an administrator — deciding an
+    // open round is the publisher tier's, undeciding a closed one is the override. Rendering is
+    // all that decides here: the server re-decides against the stored row, as everywhere.
+    onApprovalReset?: () => void;
 
     // ── Roles ─────────────────────────────────────────────────────────────────
     // Comma-separated overrides. Defaults are composed from entityType/contentType per §18.6;
@@ -202,6 +217,15 @@ export function ReviewPanel({
     cssClass = '',
     titleText = 'Approval Reviews',
     outcomeTitleText = 'Review Outcome',
+    resetApprovalText = 'Reset approval',
+    resetConfirmTitleText = 'Reset this approval?',
+
+    resetConfirmMessageText =
+        'This item will go back to Submitted for review and every recorded review will be '
+        + 'dismissed. It will be removed from the public site until it is approved again.',
+
+    resetConfirmButtonText = 'Reset approval',
+    resetCancelButtonText = 'Cancel',
     isLoading = false,
     approvalReviewCollection = [],
     requestedReviewerCollection = [],
@@ -213,6 +237,7 @@ export function ReviewPanel({
     onReviewRequested,
     onReviewRequestWithdrawn,
     onReviewStatusChanged,
+    onApprovalReset,
     approvalVerdict,
     onApprovalStatusChanged,
     voteRoles,
@@ -280,6 +305,11 @@ export function ReviewPanel({
     const [isBypassChecked, setIsBypassChecked] = useState(false);
     const [bypassReason, setBypassReason] = useState('');
 
+    // Only an APPROVED round asks before resetting. Resetting one takes a live item off the
+    // public site, which is worth a second's pause; a rejected item is not public, so there is
+    // nothing to warn about and a dialog would only be in the way.
+    const [isConfirmingReset, setIsConfirmingReset] = useState(false);
+
     // §18.6 composition, capability LAST and plural — ContentItem-Blog-Reviewers, never
     // Reviewers-ContentItem-Blog: the services recognise a review role by its "-Reviewers"
     // suffix. The content-type tier exists only for ContentItem (§18.6 rule 5).
@@ -311,6 +341,21 @@ export function ReviewPanel({
     const viewerId = user?.userId ?? '';
     const isOwner = viewerId.length > 0 && viewerId === entityOwnerId;
     const isSubmitted = approvalStatus === ApprovalStatus.Submitted;
+
+    // The round reached an outcome. Both outcomes are resettable: a rejection is as easy to
+    // apply by accident as an approval, and the operation takes either back.
+    const isDecided =
+        approvalStatus === ApprovalStatus.Approved
+            || approvalStatus === ApprovalStatus.Rejected;
+
+    // ADMINISTRATORS ALONE, and not the decision tier: a publisher decides an open round, and
+    // undeciding a closed one is the override (§8.6 HR-4). Asked against the administrator role
+    // directly rather than through decisionRoleList, which admits publishers.
+    const mayResetApproval =
+        isAuthenticated
+            && isDecided
+            && onApprovalReset != null
+            && holdsAnyRole(parseRoles(AdministratorRoles));
 
     const mayVote =
         isAuthenticated
@@ -594,6 +639,21 @@ export function ReviewPanel({
 
     const voteBadgeText = (vote: ApprovalStatus): string =>
         vote === ApprovalStatus.Approved ? approvedText : rejectedText;
+
+    const requestReset = (): void => {
+        if (approvalStatus === ApprovalStatus.Approved) {
+            setIsConfirmingReset(true);
+
+            return;
+        }
+
+        onApprovalReset?.();
+    };
+
+    const confirmReset = (): void => {
+        setIsConfirmingReset(false);
+        onApprovalReset?.();
+    };
 
     const statusPill = (): { text: string; pillCssClass: string; iconCssClass: string } => {
         if (approvalStatus === ApprovalStatus.Approved) {
@@ -990,6 +1050,20 @@ export function ReviewPanel({
                         {pill.text}
                     </div>
 
+                    {/* Directly under the outcome it undoes, and a LINK rather than a button:
+                        it is the quiet way out of a decision, not a third thing to press
+                        alongside approve and reject. */}
+                    {mayResetApproval && (
+                        <div className="text-end mb-3">
+                            <button
+                                type="button"
+                                className="btn btn-link p-0 g2h-review-reset"
+                                onClick={requestReset}>
+                                {resetApprovalText}
+                            </button>
+                        </div>
+                    )}
+
                     {showBypassCheckbox && (
                         <div className={`form-check mb-3 ${bypassCssClass}`}>
                             <input
@@ -1087,6 +1161,15 @@ export function ReviewPanel({
                 )}
                 </>
             )}
+
+            <ConfirmDialog
+                visible={isConfirmingReset}
+                title={resetConfirmTitleText}
+                message={resetConfirmMessageText}
+                confirmText={resetConfirmButtonText}
+                cancelText={resetCancelButtonText}
+                onConfirm={confirmReset}
+                onCancel={() => setIsConfirmingReset(false)} />
         </section>
     );
 }

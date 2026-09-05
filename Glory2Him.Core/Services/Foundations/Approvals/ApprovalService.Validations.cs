@@ -412,7 +412,8 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
             Approval inputApproval,
             Approval storageApproval)
         {
-            if (IsApplyingOutcome(inputApproval, storageApproval))
+            if (IsApplyingOutcome(inputApproval, storageApproval)
+                || IsWithdrawingOutcome(inputApproval, storageApproval))
             {
                 return;
             }
@@ -444,6 +445,27 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
             inputApproval.ApprovalStatus != storageApproval.ApprovalStatus
                 && (inputApproval.ApprovalStatus == ApprovalStatus.Approved
                     || inputApproval.ApprovalStatus == ApprovalStatus.Rejected);
+
+        // And moving an approval OUT of one is TAKING that decision back — §8.6 HR-4's
+        // administrators override, which §16.7.5 exposes as the reset. The pair records how
+        // THIS decision was reached, so the two moments it may legitimately be rewritten are the
+        // two moments a decision changes hands: applying one, and withdrawing one.
+        //
+        // Without this the reset is refused outright on exactly the round it most exists for.
+        // An item bypass-approved by mistake stores IsApprovedByBypass = true; the reset clears
+        // the pair and sends Submitted, which is not an outcome, so the pin below compares false
+        // against true and throws — the administrator gets a generic "Approval is invalid" and no
+        // way forward, while the item stays published on a waiver nobody meant to grant.
+        //
+        // It is NOT a hole in the pin. The pin exists so that an ordinary amend cannot erase a
+        // waiver while leaving the approval standing; here the approval does not stand — the
+        // outcome the waiver describes is being removed in the same write, and a round back with
+        // its reviewers must not still claim a waiver for a decision it no longer holds.
+        private static bool IsWithdrawingOutcome(Approval inputApproval, Approval storageApproval) =>
+            inputApproval.ApprovalStatus != storageApproval.ApprovalStatus
+                && (storageApproval.ApprovalStatus == ApprovalStatus.Approved
+                    || storageApproval.ApprovalStatus == ApprovalStatus.Rejected)
+                && inputApproval.ApprovalStatus == ApprovalStatus.Submitted;
 
         // An outcome may only be applied to an OPEN round, and that is true of the workflow as
         // much as of a person — so unlike the three tiers beside it, this one is not skipped for

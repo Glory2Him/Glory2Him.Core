@@ -50,6 +50,7 @@ vi.mock('../../brokers/toastBroker.success', () => ({
 }));
 
 const castWith = vi.fn();
+const resetWith = vi.fn().mockResolvedValue({ approvalId: 'approval-1' });
 const decidedWith = vi.fn();
 const requestedWith = vi.fn();
 const withdrawnWith = vi.fn();
@@ -128,6 +129,7 @@ vi.mock('../../services/foundations/approvalService', () => ({
 
         useCastApprovalReview: () => ({ mutateAsync: castWith, isPending: false }),
         useDecideApproval: () => ({ mutateAsync: decidedWith, isPending: false }),
+        useResetApproval: () => ({ mutateAsync: resetWith, isPending: false }),
         useRequestReview: () => ({ mutateAsync: requestedWith, isPending: false }),
         useWithdrawReviewRequest: () => ({ mutateAsync: withdrawnWith, isPending: false })
     }
@@ -589,6 +591,42 @@ describe('ContentItemModerationDetailPage', () => {
 
         /// A changed vote amends the viewer's OWN row (§7.7 rule 1) — matched by account id,
         /// never by name, and handed over whole so the foundation can check its audit fields.
+        // A reset dismisses every review and hands the round back to the same reviewers. A
+        // dismissal writes only StatusId, so the row still comes back on the reviews read — and
+        // treating it as the viewer's standing review aims an amend at a row the server refuses
+        // (§7.7 rule 7: a dismissed review is closed, the reviewer files a NEW one). Before this
+        // was fixed, every reviewer on a reset round was refused every vote they tried to cast,
+        // permanently.
+        it('should file a new review rather than amend a dismissed one', async () => {
+            // given: the viewer's only review on this round has been dismissed
+            openRoundByAnotherAuthor();
+
+            approvalReviews = [{
+                id: 'review-mine',
+                approvalId: 'approval-1',
+                statusId: ApprovalStatus.Dismissed,
+                comment: '',
+                createdBy: 'user-1',
+                createdWhen: '2026-07-02T00:00:00Z',
+                updatedBy: 'user-1',
+                updatedWhen: '2026-07-02T00:00:00Z',
+                isDeleted: false
+            }];
+
+            renderPage();
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Vote...' }));
+            await userEvent.click(screen.getByRole('button', { name: /I am happy with this item/ }));
+
+            // then: a POST, not a PUT — no standing review is claimed
+            expect(castWith).toHaveBeenCalledWith({
+                approvalId: 'approval-1',
+                vote: ApprovalStatus.Approved,
+                standingReview: undefined
+            });
+        });
+
         it('should amend the standing review when the viewer changes their vote', async () => {
             // given
             openRoundByAnotherAuthor();
