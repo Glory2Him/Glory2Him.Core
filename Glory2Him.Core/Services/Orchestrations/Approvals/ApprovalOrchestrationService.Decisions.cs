@@ -148,8 +148,10 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 ? bypassReason
                 : null;
 
-            // A person clicked Approve or Reject, so UpdatedBy records them - the only write on
-            // this seam that belongs to a human rather than to the workflow.
+            // A person clicked Approve or Reject, so UpdatedBy records them rather than the
+            // workflow. The reset (§16.7.5) is attributed the same way and for the same reason —
+            // an administrator pressed it — so this is one of two human writes on this seam, not
+            // the only one.
             return await this.approvalService.ModifyApprovalAsync(
                 approval: storageApproval,
                 attribution: WorkflowAttribution.DecidingCaller,

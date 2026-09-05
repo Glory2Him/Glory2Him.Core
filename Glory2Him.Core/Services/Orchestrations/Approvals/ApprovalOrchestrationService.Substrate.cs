@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -524,6 +524,32 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             cancellationToken.ThrowIfCancellationRequested();
 
             await ValidateEntityFactEnvelopeAsync(envelope, eventName);
+
+            // THE WORKFLOW DOES NOT REACT TO ITS OWN WRITES.
+            //
+            // Every entity fact this service subscribes to describes something a PERSON did —
+            // contributed, edited, submitted. A fact carrying the system identity describes
+            // something this service itself asked for, arriving back through the entity it just
+            // commanded, and re-entering the flow on one is a loop rather than a reaction.
+            //
+            // The reset is where that stops being theoretical. It commands the entity to
+            // Submitted, the entity's transition answers under the workflow identity and
+            // publishes -Submitted, and this subscription hears it. Without this guard the round
+            // is re-evaluated immediately: under any tier with RequireApprovals = false and
+            // AutoApproveIfAllApprovalRequirementsMet = true — the shape the seed writes for the
+            // personal association tier, and one an administrator may set anywhere — the
+            // conditions are trivially met and the round is driven straight back to Approved in
+            // the same request. The administrator's override would undo itself.
+            //
+            // Placed here rather than in the reset, because the reset is not the only write that
+            // could ever echo, and a guard that only knows about one caller stops working the
+            // moment there are two. A human submission carries a human identity and is
+            // unaffected; the envelope is verified above, so the flag cannot be asserted by a
+            // caller (§14.6 rule 4).
+            if (envelope.SecurityContext?.IsSystemIdentity is true)
+            {
+                return null;
+            }
 
             await react(entityType, envelope.Content.Id, cancellationToken);
 

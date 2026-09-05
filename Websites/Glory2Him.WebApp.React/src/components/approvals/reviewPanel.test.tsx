@@ -80,6 +80,146 @@ describe('ReviewPanel', () => {
         signOut(authState);
     });
 
+    // §8.6 HR-4's administrator override. Deciding an OPEN round is the publisher tier's;
+    // UNdeciding a closed one is the override, and the override has one holder.
+    describe('reset approval', () => {
+        const decidedPanel = (
+            approvalStatus: ApprovalStatus,
+            onApprovalReset = vi.fn()
+        ): ReactElement => (
+            <ReviewPanel
+                entityType="ContentItem"
+                approvalStatus={approvalStatus}
+                approvalVerdict={verdictWith({ approvalStatus })}
+                onApprovalReset={onApprovalReset} />
+        );
+
+        it('should offer the reset on a decided round to an administrator', () => {
+            // given
+            signInAs(authState, ['Administrators']);
+
+            // when
+            renderWithAuth(decidedPanel(ApprovalStatus.Rejected));
+
+            // then
+            expect(screen.getByRole('button', { name: 'Reset approval' }))
+                .toBeInTheDocument();
+        });
+
+        // The control exists to undo an OUTCOME, so a round that never reached one has nothing
+        // for it to undo.
+        it.each([
+            ApprovalStatus.Draft,
+            ApprovalStatus.Submitted
+        ])('should hide the reset on a round that was never decided (%s)', (openStatus) => {
+            // given
+            signInAs(authState, ['Administrators']);
+
+            // when
+            renderWithAuth(decidedPanel(openStatus));
+
+            // then
+            expect(screen.queryByRole('button', { name: 'Reset approval' }))
+                .not.toBeInTheDocument();
+        });
+
+        // The publisher tier decides an open round and may not undecide a closed one, so the
+        // tier that CAN reach this panel is exactly the tier this hides from.
+        it.each([
+            'Publishers',
+            'Reviewers',
+            'ContentItem-Publishers'
+        ])('should hide the reset from %s', (role) => {
+            // given
+            signInAs(authState, [role]);
+
+            // when
+            renderWithAuth(decidedPanel(ApprovalStatus.Approved));
+
+            // then
+            expect(screen.queryByRole('button', { name: 'Reset approval' }))
+                .not.toBeInTheDocument();
+        });
+
+        // A rejected item is not public, so resetting it takes nothing off the site and a
+        // dialog would only be in the way.
+        it('should reset a rejected round without asking', async () => {
+            // given
+            signInAs(authState, ['Administrators']);
+            const onApprovalReset = vi.fn();
+
+            renderWithAuth(decidedPanel(ApprovalStatus.Rejected, onApprovalReset));
+
+            // when
+            await userEvent.click(
+                screen.getByRole('button', { name: 'Reset approval' }));
+
+            // then
+            expect(onApprovalReset).toHaveBeenCalledTimes(1);
+        });
+
+        // An APPROVED round is live on the public site, and resetting it takes it down. That is
+        // the one case worth a second's pause.
+        it('should ask before resetting an approved round, and not act until confirmed', async () => {
+            // given
+            signInAs(authState, ['Administrators']);
+            const onApprovalReset = vi.fn();
+
+            renderWithAuth(decidedPanel(ApprovalStatus.Approved, onApprovalReset));
+
+            // when
+            await userEvent.click(
+                screen.getByRole('button', { name: 'Reset approval' }));
+
+            // then: the warning names what actually happens, and nothing has happened yet
+            expect(screen.getByText(/removed from the public site/)).toBeInTheDocument();
+            expect(onApprovalReset).not.toHaveBeenCalled();
+
+            // when: confirmed. Two controls now carry the name — the panel's own and the
+            // dialog's — and the dialog's is the later one in the document.
+            const resetControls = screen.getAllByRole('button', { name: 'Reset approval' });
+            await userEvent.click(resetControls[resetControls.length - 1]);
+
+            // then
+            expect(onApprovalReset).toHaveBeenCalledTimes(1);
+        });
+
+        it('should not reset an approved round when the warning is cancelled', async () => {
+            // given
+            signInAs(authState, ['Administrators']);
+            const onApprovalReset = vi.fn();
+
+            renderWithAuth(decidedPanel(ApprovalStatus.Approved, onApprovalReset));
+
+            await userEvent.click(
+                screen.getByRole('button', { name: 'Reset approval' }));
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+            // then
+            expect(onApprovalReset).not.toHaveBeenCalled();
+            expect(screen.queryByText(/removed from the public site/)).not.toBeInTheDocument();
+        });
+
+        // Props in, events out: with nothing listening there is no control, exactly as the rest
+        // of this panel behaves.
+        it('should render no reset when nobody is listening', () => {
+            // given
+            signInAs(authState, ['Administrators']);
+
+            // when
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Approved} />);
+
+            // then
+            expect(screen.queryByRole('button', { name: 'Reset approval' }))
+                .not.toBeInTheDocument();
+        });
+    });
+
     describe('reviews', () => {
         it('should render the default titles', () => {
             // when

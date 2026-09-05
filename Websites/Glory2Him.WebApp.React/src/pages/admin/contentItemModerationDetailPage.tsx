@@ -8,6 +8,7 @@ import { ContentItemEditPanel } from '../../components/contentItems/contentItemE
 import { ReviewPanel } from '../../components/approvals/reviewPanel';
 import { Spinner } from '../../components/coreUI/spinner';
 import { ContentType } from '../../models/foundations/contentItemSettings/contentType';
+import { ApprovalStatus } from '../../models/components/approvals/approvalReviewItem';
 import { EntityTypeName } from '../../models/foundations/approvals/approval';
 import { useApprovalRound } from '../../hooks/useApprovalRound';
 
@@ -219,13 +220,26 @@ export const ContentItemModerationDetailPage = () => {
     const { user } = useAuth();
     const castApprovalReview = approvalService.useCastApprovalReview();
     const decideApproval = approvalService.useDecideApproval();
+    const resetApproval = approvalService.useResetApproval();
     const requestReview = approvalService.useRequestReview();
     const withdrawReviewRequest = approvalService.useWithdrawReviewRequest();
 
     // The viewer's standing review, if any: a changed vote amends THAT row (§7.7 rule 1), and
     // the projection the panel renders does not carry what an amend has to send back.
+    // DISMISSED IS NOT STANDING. A dismissal writes only StatusId, never IsDeleted, so a
+    // dismissed row still comes back on the reviews read — and treating it as the viewer's
+    // standing review aims the amend at a row the foundation refuses (§7.7 rule 7: a dismissed
+    // review is closed, and the reviewer files a NEW one). The filtered unique index leaves the
+    // slot free for exactly that.
+    //
+    // Reachable the moment a round is reset: every active review is dismissed, the round goes
+    // back to the same reviewers, and without this each of them is refused every vote they try
+    // to cast on it, permanently.
     const viewerStandingReview = approvalReviews.find(
-        (review) => review.createdBy === (user?.userId ?? '') && review.isDeleted !== true);
+        (review) =>
+            review.createdBy === (user?.userId ?? '')
+                && review.isDeleted !== true
+                && review.statusId !== ApprovalStatus.Dismissed);
 
     const castVoteAsync = async (vote: ReviewVote) => {
         if (approvalVerdict == null) {
@@ -263,6 +277,22 @@ export const ContentItemModerationDetailPage = () => {
         } catch (error) {
             toastError(extractApiErrorMessage(
                 error, 'The decision could not be applied. Please try again.'));
+        }
+    };
+
+    const resetAsync = async () => {
+        try {
+            await resetApproval.mutateAsync({
+                entityType: EntityTypeName.ContentItem,
+                entityId: contentItemId
+            });
+
+            toastSuccess(
+                'The approval has been reset. The post is back with the reviewers, and its '
+                + 'recorded reviews have been dismissed.');
+        } catch (error) {
+            toastError(extractApiErrorMessage(
+                error, 'The approval could not be reset. Please try again.'));
         }
     };
 
@@ -434,6 +464,7 @@ export const ContentItemModerationDetailPage = () => {
                                 onReviewStatusChanged={(vote) => void castVoteAsync(vote)}
                                 onApprovalStatusChanged={(decision, isBypassRequested, bypassReason) =>
                                     void decideAsync(decision, isBypassRequested, bypassReason)}
+                                onApprovalReset={() => void resetAsync()}
                                 onReviewRequested={(candidate) => void requestReviewAsync(candidate)}
                                 onReviewRequestWithdrawn={(candidate) =>
                                     void withdrawReviewRequestAsync(candidate)}
