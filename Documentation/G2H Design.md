@@ -2663,6 +2663,14 @@ Business Rules:
    - `DeletedBy`
    - `DeletedWhen`
    - `DeletionReason`
+
+   **`ContentType` and `ContentItemId` are pinned against storage on a modify**, which is how this
+   rule is enforced for the two of them rather than merely stated. A row's scope is fixed at
+   creation: rules 3 and 4 make the two scopes different policies rather than two states of one,
+   so moving a row between them is authoring a different setting, not amending this one. The pin
+   applies to every caller, `Administrators` included — it is what the row IS, not who may change
+   it — and it is what stops rule 6's tier from being sidestepped by a publisher sending their own
+   override back with the field nulled.
    - `ContentHash`
    - `Slug` (§19.3 — designed, not a column yet)
    - `ShortCode` (§19.7 — designed, not a column yet)
@@ -2780,8 +2788,15 @@ Business Rules:
    **Hard removal is refused on the same terms — ruled.** The invariant is about the row existing, so the mechanism that removes it is irrelevant and no code path may leave a content type without a default even briefly. Hard delete as an escape hatch, with the startup re-seed as the repair, was considered and rejected: it leaves a window in which anything rendering that content type resolves nothing.
 
    **The seed restores a missing default.** `ContentItemSettingSeedData` runs on every startup and tests for a live default per content type — `ContentItemId IS NULL AND IsDeleted = 0` — so a content type that lost its default by a route the service does not own (a direct write, a restore, a database seeded before the refusal existed) gets it back. The `IsDeleted` term on `UX_ContentItemSettings_DefaultPerType` (rule 3) is what makes that insert possible; without it the dead row would still hold the scope and the repair would take Core initialisation down.
-6. Disabling a feature in settings must prevent the creation of new associations of that type for the affected content items.
-7. The following fields are control fields and must never be accepted from an external caller. They must always be set internally by the orchestration or approval workflow:
+6. **Who may write a setting is decided by the SHAPE OF THE ROW.** A per-type default (`ContentItemId IS NULL`) is configuration for a whole content type and may be written — added, modified, removed, hard removed — only by `Administrators`. An item override (`ContentItemId IS NOT NULL`) is configuration for one content item, and additionally admits the **publisher tier for that row's content type**: the global `Publishers`, `ContentItem-Publishers`, or `ContentItem-%ContentType%-Publishers` (§18.6). Any `ReadOnly` variation whose scope covers the row still refuses it first, `Administrators` included (§18.6 rule 2).
+
+   **The reasoning is the scope of the blast radius, not seniority.** One edit to a default re-shapes every item of its type; one edit to an override re-shapes the item somebody is already trusted to publish. Widening the default to publishers would let a single narrow grant change a whole type; keeping the override at `Administrators` would mean a moderator who may take an item down may not switch off its comments.
+
+   **This is a deliberate exception to §18.6 rule 1** — see the rule for why, and for the block it obliges in return.
+
+   **The decision is made against the STORED row**, never the caller's copy, on every path that has one. A caller who could answer "is this a default?" for themselves could promote their own override into a default they may not author.
+7. Disabling a feature in settings must prevent the creation of new associations of that type for the affected content items.
+8. The following fields are control fields and must never be accepted from an external caller. They must always be set internally by the orchestration or approval workflow:
    - `ContentType`
    - `ContentItemId`
    - `ApprovalStatus`
@@ -2791,8 +2806,8 @@ Business Rules:
    - `DeletedBy`
    - `DeletedWhen`
    - `DeletionReason`
-8. On every update, the orchestration must load the current entity from the database and map only the permitted caller-supplied setting fields (`TagsAllowed`, `ShowTags`, `ReactionsAllowed`, `ShowReactions`, `LinksAllowed`, `ShowLinks`, `AttachmentsAllowed`, `ShowAttachments`, `CommentsAllowed`, `ShowComments`, `BibleReferenceAllowed`, `ShowBibleReferences`, `LimitReactionsToLoveOnly`) onto that entity before saving.
-9. Review dismissal is not the responsibility of this orchestration. Publishing `ContentItemSettingUpdatedEvent` is sufficient — `ApprovalOrchestrationService` must handle dismissal when it receives that event.
+9. On every update, the orchestration must load the current entity from the database and map only the permitted caller-supplied setting fields (`TagsAllowed`, `ShowTags`, `ReactionsAllowed`, `ShowReactions`, `LinksAllowed`, `ShowLinks`, `AttachmentsAllowed`, `ShowAttachments`, `CommentsAllowed`, `ShowComments`, `BibleReferenceAllowed`, `ShowBibleReferences`, `LimitReactionsToLoveOnly`) onto that entity before saving.
+10. Review dismissal is not the responsibility of this orchestration. Publishing `ContentItemSettingUpdatedEvent` is sufficient — `ApprovalOrchestrationService` must handle dismissal when it receives that event.
 
 #### 12.5.3 ApprovalOrchestrationService
 
@@ -3714,6 +3729,10 @@ Existing role rows are **renamed in place** by migration rather than re-seeded. 
 Granular role rules:
 
 1. A granular role grants its capability only for its own entity type. A user in `ContentItem-Reviewers` who is not in `Administrators`, not in a global role, and not in `Tag-Reviewers` cannot review tags.
+
+   **One deliberate exception: a `ContentItem`-scoped publisher role admits a write on a `ContentItemSetting` OVERRIDE row.** An override is not configuration in its own right — it is configuration *of one content item*, keyed on that item's id, and it governs nothing else. The authority that governs the item therefore governs its narrowing, and requiring a second entity-scoped grant to switch off one post's comments would separate two decisions nobody makes separately. The per-type **default** takes no such exception and stays where this rule leaves it (§12.5.2 business rule 6).
+
+   **The exception runs both ways, and must.** Wherever a `ContentItem`-scoped role can GRANT, the matching `ContentItem`-scoped block must be able to REFUSE — so `ContentItem-ReadOnly` and `ContentItem-%ContentType%-ReadOnly` bar an override write exactly as they bar a write to the item itself. A tier that can grant and cannot block is the asymmetry the narrow block was added to close, and an exception that widened only the grants would re-open it.
 2. **Any `ReadOnly` variation trumps every other role within its scope — `Administrators` included.** There is no role that escapes a block that applies to the row being written. Two questions, asked in this order:
 
    1. **Does the block's scope cover this row?** `ReadOnly` covers everything; `%EntityType%-ReadOnly` covers every row of that entity type; `ContentItem-%ContentType%-ReadOnly` covers that content type only. A block whose scope does not cover the row is **silent** — not weakened, not outvoted, simply not asked.

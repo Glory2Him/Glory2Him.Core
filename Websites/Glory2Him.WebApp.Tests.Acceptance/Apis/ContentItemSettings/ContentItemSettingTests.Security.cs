@@ -25,11 +25,19 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
     /// §14.7 posture C, and this suite is written rather than copied because posture C differs
     /// from the content exposers' posture A in both directions.
     ///
-    /// <para><b>Writes are narrower.</b> Every write including hard removal is <c>Administrators</c> only.
-    /// There is no owner branch and no scoped review tier — <c>Roles.cs</c> declares no
-    /// <c>ContentItemSetting-*</c> constants at all — so the contributor, reviewer and
-    /// owner-versus-moderator cases the posture A suites spend most of their length on do not
-    /// exist here.</para>
+    /// <para><b>Writes are narrower, and split by the SHAPE OF THE ROW.</b> A per-type default
+    /// (<c>ContentItemId</c> null) is <c>Administrators</c> only; an item override additionally
+    /// admits the publisher tier for that row's content type (§12.5.2 business rule 6, and the
+    /// §18.6 rule 1 exception it rests on). There is still no owner branch — nobody "owns" a
+    /// setting — so the owner-versus-moderator cases the posture A suites spend most of their
+    /// length on do not exist here.</para>
+    ///
+    /// <para><b>A refusal is 401 here, not 403</b>, and the change is worth naming: the role list
+    /// has left the <c>[Authorize]</c> attribute, because neither the row-shaped rule nor the
+    /// one-role-per-content-type narrow tier can be expressed on one. An authenticated caller now
+    /// reaches the service and is refused by it, which surfaces through
+    /// <c>UnauthorizedContentItemSettingException</c> as a 401 — the same shape
+    /// <c>ContentItemsController</c> has always had for a service-decided gate.</para>
     ///
     /// <para><b>Reads are PUBLIC, and that is the half that differs from
     /// <c>ApprovalSettingsController</c>.</b> The two share posture C and take opposite read
@@ -40,6 +48,19 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
     /// </summary>
     public partial class ContentItemSettingApiTests
     {
+        // Pinned rather than drawn: a narrow-tier assertion that let the filler pick the content
+        // type would pass whenever the draw happened to agree with the role, proving nothing.
+        private const ContentType PublisherTierContentType = ContentType.Devotional;
+        private const ContentType OtherPublisherTierContentType = ContentType.Quote;
+
+        public static TheoryData<string> PublisherTierRoles() =>
+            new TheoryData<string>
+            {
+                Roles.Publishers,
+                Roles.ContentItemPublishers,
+                Roles.PublishersFor(EntityType.ContentItem, PublisherTierContentType)
+            };
+
         /// <summary>
         /// The permissive direction, and the reason this exposer cannot copy
         /// <c>ApprovalSettingsController</c>'s read gate: an anonymous visitor's page needs these
@@ -70,6 +91,107 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
 
                 await this.apiBroker.RemoveCoreContentItemSettingByIdAsync(
                     existingContentItemSetting.Id);
+            }
+        }
+
+        /// <summary>
+        /// THE OTHER HALF OF THE ROW-SHAPED RULE, over real HTTP. The publisher tier may author an
+        /// item override — the write this whole change exists to allow — and is refused a per-type
+        /// default in the same breath. Both directions in one place, because a rule proven only by
+        /// its refusals is a rule that might be refusing everything.
+        ///
+        /// <para>The three tiers are asserted separately: the global <c>Publishers</c>, the
+        /// entity-scoped <c>ContentItem-Publishers</c>, and the narrow
+        /// <c>ContentItem-%ContentType%-Publishers</c> for the row's own type. A hole in any one
+        /// of them is a role somebody holds that silently buys nothing.</para>
+        /// </summary>
+        [Theory]
+        [MemberData(nameof(PublisherTierRoles))]
+        public async Task ShouldAllowPublisherTierToPostAnOverrideAsync(string roleName)
+        {
+            // given
+            ContentItemSetting randomContentItemSetting = CreateRandomContentItemSetting();
+            randomContentItemSetting.ContentType = PublisherTierContentType;
+            ContentItemSetting expectedContentItemSetting = randomContentItemSetting;
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), roleName);
+
+            ContentItemSetting actualContentItemSetting = null;
+
+            try
+            {
+                // when
+                actualContentItemSetting =
+                    await this.apiBroker.PostContentItemSettingAsync(randomContentItemSetting);
+
+                // then
+                actualContentItemSetting.Id.Should().Be(expectedContentItemSetting.Id);
+                actualContentItemSetting.ContentItemId.Should()
+                    .Be(expectedContentItemSetting.ContentItemId);
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+
+                if (actualContentItemSetting is not null)
+                {
+                    await this.apiBroker.RemoveCoreContentItemSettingByIdAsync(
+                        actualContentItemSetting.Id);
+                }
+            }
+        }
+
+        [Theory]
+        [MemberData(nameof(PublisherTierRoles))]
+        public async Task ShouldRefusePublisherTierAPerTypeDefaultAsync(string roleName)
+        {
+            // given: the same caller, the same content type, one field different — the scope
+            ContentItemSetting randomContentItemSetting = CreateRandomContentItemSetting();
+            randomContentItemSetting.ContentType = PublisherTierContentType;
+            randomContentItemSetting.ContentItemId = null;
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), roleName);
+
+            try
+            {
+                // when
+                var postTask =
+                    this.apiBroker.PostContentItemSettingAsync(randomContentItemSetting).AsTask();
+
+                // then
+                await Assert.ThrowsAsync<HttpResponseUnauthorizedException>(() => postTask);
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+            }
+        }
+
+        /// <summary>
+        /// A publisher of ONE content type has no authority over another's overrides — the narrow
+        /// tier is narrow, which is the whole reason it exists.
+        /// </summary>
+        [Fact]
+        public async Task ShouldRefuseNarrowPublisherAnOverrideOfAnotherContentTypeAsync()
+        {
+            // given
+            ContentItemSetting randomContentItemSetting = CreateRandomContentItemSetting();
+            randomContentItemSetting.ContentType = PublisherTierContentType;
+
+            this.apiBroker.ActAs(
+                Guid.NewGuid().ToString(),
+                Roles.PublishersFor(EntityType.ContentItem, OtherPublisherTierContentType));
+
+            try
+            {
+                // when
+                var postTask =
+                    this.apiBroker.PostContentItemSettingAsync(randomContentItemSetting).AsTask();
+
+                // then
+                await Assert.ThrowsAsync<HttpResponseUnauthorizedException>(() => postTask);
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
             }
         }
 
@@ -127,14 +249,14 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
         }
 
         /// <summary>
-        /// The whole of posture C rule 1 in one theory: only administrators author configuration.
-        /// A publisher is the interesting negative — they carry the highest tier this
-        /// exposer's sibling controllers admit on their approve route, and it buys them nothing
-        /// here.
+        /// A reviewer holds the highest tier that buys NOTHING here: the review tier is excluded
+        /// from publisher authority everywhere (§8.6 HR-3), and settings admit no reviewer of
+        /// their own. The publisher cases moved out of this theory when the row-shaped rule
+        /// landed — a publisher may now write an override, and is covered by its own pair of
+        /// tests below.
         /// </summary>
         [Theory]
         [InlineData(Roles.Reviewers)]
-        [InlineData(Roles.Publishers)]
         public async Task ShouldRefusePostIfCallerIsNotAdministratorAsync(string roleName)
         {
             // given
@@ -148,7 +270,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
                     this.apiBroker.PostContentItemSettingAsync(randomContentItemSetting).AsTask();
 
                 // then
-                await Assert.ThrowsAsync<HttpResponseForbiddenException>(() => postTask);
+                await Assert.ThrowsAsync<HttpResponseUnauthorizedException>(() => postTask);
             }
             finally
             {
@@ -158,7 +280,6 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
 
         [Theory]
         [InlineData(Roles.Reviewers)]
-        [InlineData(Roles.Publishers)]
         public async Task ShouldRefusePutIfCallerIsNotAdministratorAsync(string roleName)
         {
             // given
@@ -176,7 +297,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
                     this.apiBroker.PutContentItemSettingAsync(modifiedContentItemSetting).AsTask();
 
                 // then
-                await Assert.ThrowsAsync<HttpResponseForbiddenException>(() => putTask);
+                await Assert.ThrowsAsync<HttpResponseUnauthorizedException>(() => putTask);
             }
             finally
             {
@@ -189,7 +310,6 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
 
         [Theory]
         [InlineData(Roles.Reviewers)]
-        [InlineData(Roles.Publishers)]
         public async Task ShouldRefuseDeleteIfCallerIsNotAdministratorAsync(string roleName)
         {
             // given
@@ -204,7 +324,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
                     .DeleteContentItemSettingByIdAsync(existingContentItemSetting.Id).AsTask();
 
                 // then
-                await Assert.ThrowsAsync<HttpResponseForbiddenException>(() => deleteTask);
+                await Assert.ThrowsAsync<HttpResponseUnauthorizedException>(() => deleteTask);
             }
             finally
             {
@@ -217,7 +337,6 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
 
         [Theory]
         [InlineData(Roles.Reviewers)]
-        [InlineData(Roles.Publishers)]
         public async Task ShouldRefuseHardDeleteIfCallerIsNotAdministratorAsync(string roleName)
         {
             // given
@@ -232,7 +351,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
                     .HardDeleteContentItemSettingByIdAsync(existingContentItemSetting.Id).AsTask();
 
                 // then
-                await Assert.ThrowsAsync<HttpResponseForbiddenException>(() => hardDeleteTask);
+                await Assert.ThrowsAsync<HttpResponseUnauthorizedException>(() => hardDeleteTask);
             }
             finally
             {
