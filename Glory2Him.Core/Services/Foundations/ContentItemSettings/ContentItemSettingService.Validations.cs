@@ -62,9 +62,10 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
             }
         }
 
-        // THE ROW DECIDES. A default is configuration for a whole content type and only an
-        // administrator authors it; an override is configuration for one item, and the people
-        // trusted to publish that content type are trusted to narrow it.
+        // THE ROW DECIDES (design §12.5.2 business rule 6). A default is configuration for a
+        // whole content type and only an administrator authors it; an override is configuration
+        // for one item, and the people trusted to publish that content type are trusted to
+        // narrow it.
         //
         // Passing the two fields rather than the entity is deliberate: the caller must choose
         // WHICH row it is deciding about, and on a modify or a removal that is the stored row.
@@ -122,8 +123,8 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
         // (§18.6): the global role, the entity-scoped role, and the narrow role for this type.
         //
         // A ContentItem-scoped role granting a write on a ContentItemSetting row is a deliberate
-        // exception to §18.6 rule 1 — a granular role otherwise grants only within its own entity
-        // type. An override IS configuration for one content item, so the authority that governs
+        // exception to §18.6 rule 1, written down there — a granular role otherwise grants only
+        // within its own entity type. An override IS configuration for one content item, so the authority that governs
         // the item governs its narrowing; the type default, which is not about any one item,
         // stays where rule 1 leaves it.
         private static bool HasContentItemSettingOverrideRole(
