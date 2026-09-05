@@ -27,9 +27,17 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
         // §14.6): an exposer may bind to either service directly, so no layer may assume
         // an upstream layer already gated the caller
 
-        // content item settings are administrator-authored display configuration — a
-        // single Administrators gate covers Add, Modify and Remove
-        private static void ValidateUserIsAllowedToAdministerContentItemSettings(SecurityContext securityContext)
+        // WHO MAY WRITE A SETTING IS TWO QUESTIONS, and they are asked at two different moments.
+        //
+        // The FIRST is the tier — is this caller in any position to write a setting at all? It is
+        // asked before storage is touched, so somebody with no business here is refused without
+        // learning whether the row they named exists.
+        //
+        // The SECOND is the row — a per-type DEFAULT governs every item of its type and stays
+        // Administrators-only, while an item OVERRIDE governs one item and admits the publisher
+        // tier for that item's content type. It can only be asked once the row is in hand, which
+        // for a modify or a removal means the STORED row, never the caller's copy of it.
+        private static void ValidateUserMayWriteContentItemSettings(SecurityContext securityContext)
         {
             if (securityContext is null || securityContext.IsAuthenticated is false)
             {
@@ -37,30 +45,107 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
                     message: "The current user is not authenticated.");
             }
 
-            // the global ReadOnly ban precedes the Administrators check, so a banned administrator cannot reach
-            // past it — this gate is every content item setting write, hard remove included.
+            // the global ReadOnly ban precedes every grant, so a banned administrator cannot reach
+            // past it — this gate is every content item setting write, hard remove included. The
+            // NARROWER blocks are asked with the row, below, where the content type they would
+            // have to cover is known.
             if (securityContext.Roles.Contains(Roles.ReadOnly))
             {
                 throw new UnauthorizedContentItemSettingException(
                     message: "The current user is blocked from administering content item settings.");
             }
 
-            if (HasAdminRole(securityContext) is false)
+            if (HasAnyContentItemSettingWriteRole(securityContext) is false)
             {
                 throw new UnauthorizedContentItemSettingException(
                     message: "The current user is not allowed to administer content item settings.");
             }
         }
 
-        // a hard remove destroys the row and its audit trail — Administrators only, same as
-        // every other content item setting write
-        private static void ValidateUserCanHardRemoveContentItemSetting(SecurityContext securityContext) =>
-            ValidateUserIsAllowedToAdministerContentItemSettings(securityContext);
+        // THE ROW DECIDES. A default is configuration for a whole content type and only an
+        // administrator authors it; an override is configuration for one item, and the people
+        // trusted to publish that content type are trusted to narrow it.
+        //
+        // Passing the two fields rather than the entity is deliberate: the caller must choose
+        // WHICH row it is deciding about, and on a modify or a removal that is the stored row.
+        // Handing over an entity invites passing the caller's copy by accident, which is the
+        // whole of the escalation this gate exists to prevent.
+        private static void ValidateUserMayWriteContentItemSettingScope(
+            SecurityContext securityContext,
+            Guid? contentItemId,
+            ContentType contentType)
+        {
+            if (contentItemId is null)
+            {
+                if (HasAdminRole(securityContext) is false)
+                {
+                    throw new UnauthorizedContentItemSettingException(
+                        message: "The current user is not allowed to administer "
+                            + "content type default settings.");
+                }
 
-        // the only role that may write settings — there is no read counterpart: settings
-        // drive anonymous page rendering, so every non-deleted row is public (§14.1)
+                return;
+            }
+
+            // THE BLOCK IS ASKED WHEREVER THE GRANT IS DRAWN FROM. An override is admitted by
+            // ContentItem-scoped roles, so ContentItem-scoped blocks must be able to refuse it —
+            // §18.6 rule 2, and the symmetry that section exists to keep: a tier that can grant
+            // and cannot block is the asymmetry the narrow block was added to close. It outranks
+            // every grant, Administrators included.
+            if (securityContext.Roles.Contains(Roles.ContentItemReadOnly)
+                || securityContext.Roles.Contains(Roles.ReadOnlyFor(EntityType.ContentItem, contentType)))
+            {
+                throw new UnauthorizedContentItemSettingException(
+                    message: "The current user is blocked from administering content item settings.");
+            }
+
+            if (HasContentItemSettingOverrideRole(securityContext, contentType) is false)
+            {
+                throw new UnauthorizedContentItemSettingException(
+                    message: "The current user is not allowed to administer settings "
+                        + "for this content type.");
+            }
+        }
+
+        // a hard remove destroys the row and its audit trail — the same two questions as every
+        // other content item setting write, asked in the same order
+        private static void ValidateUserCanHardRemoveContentItemSetting(SecurityContext securityContext) =>
+            ValidateUserMayWriteContentItemSettings(securityContext);
+
+        // the administrator tier — the only one that may author a content type DEFAULT. There is
+        // no read counterpart: settings drive anonymous page rendering, so every non-deleted row
+        // is public (§14.1)
         private static bool HasAdminRole(SecurityContext securityContext) =>
             securityContext.Roles.Contains(Roles.Administrators);
+
+        // THE PUBLISHER TIER for one content type, composed exactly as ContentItemService does
+        // (§18.6): the global role, the entity-scoped role, and the narrow role for this type.
+        //
+        // A ContentItem-scoped role granting a write on a ContentItemSetting row is a deliberate
+        // exception to §18.6 rule 1 — a granular role otherwise grants only within its own entity
+        // type. An override IS configuration for one content item, so the authority that governs
+        // the item governs its narrowing; the type default, which is not about any one item,
+        // stays where rule 1 leaves it.
+        private static bool HasContentItemSettingOverrideRole(
+            SecurityContext securityContext,
+            ContentType contentType) =>
+            HasAdminRole(securityContext)
+                || securityContext.Roles.Contains(Roles.Publishers)
+                || securityContext.Roles.Contains(Roles.ContentItemPublishers)
+                || securityContext.Roles.Contains(
+                    Roles.PublishersFor(EntityType.ContentItem, contentType));
+
+        // The tier check, with no row to key on yet. A narrow publisher holds a role for SOME
+        // content type, and which one cannot matter before the row is known — so the enum is
+        // walked, the same way ContentItemService resolves a narrow caller's reviewable types.
+        // The row-shaped gate then decides whether the type they hold is the type in hand.
+        private static bool HasAnyContentItemSettingWriteRole(SecurityContext securityContext) =>
+            HasAdminRole(securityContext)
+                || securityContext.Roles.Contains(Roles.Publishers)
+                || securityContext.Roles.Contains(Roles.ContentItemPublishers)
+                || Enum.GetValues<ContentType>().Any(contentType =>
+                    securityContext.Roles.Contains(
+                        Roles.PublishersFor(EntityType.ContentItem, contentType)));
 
         private async ValueTask ValidateOnAddContentItemSettingAsync(
             ContentItemSetting contentItemSetting,
@@ -191,12 +276,40 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
             }
         }
 
+        // A ROW'S SCOPE IS FIXED AT CREATION — which content type it configures, and which item
+        // it narrows if any. Both are pinned against storage rather than accepted from the
+        // caller, for two reasons that stack.
+        //
+        // The INVARIANT: the unique indexes allow one default per type and one override per
+        // item, so moving a row to another scope is authoring a different policy, not amending
+        // this one. The admin surfaces have always said so — the detail page shows the scope and
+        // refuses to edit it — and nothing enforced it.
+        //
+        // The SECURITY: since a publisher may write an override and only an administrator may
+        // write a default, an unpinned ContentItemId is an escalation — take the override you
+        // are entitled to, send it back with the field nulled, and you have authored a default
+        // you are not. It would collide with the live default on
+        // UX_ContentItemSettings_DefaultPerType and come back a 409, but a unique index is not a
+        // permission boundary and business rule 5 is the only reason that collision is certain.
+        //
+        // Pinned for EVERY caller, administrators included: this is what the row is, not who may
+        // change it.
         private static void ValidateAgainstStorageContentItemSettingOnModify(
             ContentItemSetting inputContentItemSetting,
             ContentItemSetting storageContentItemSetting)
         {
             Validate(
                 message: "Content item setting is invalid, fix the errors and try again.",
+                (Rule: IsNotSame(
+                        first: inputContentItemSetting.ContentItemId,
+                        second: storageContentItemSetting.ContentItemId,
+                        secondName: nameof(ContentItemSetting.ContentItemId)),
+                    Parameter: nameof(ContentItemSetting.ContentItemId)),
+                (Rule: IsNotSame(
+                        first: inputContentItemSetting.ContentType,
+                        second: storageContentItemSetting.ContentType,
+                        secondName: nameof(ContentItemSetting.ContentType)),
+                    Parameter: nameof(ContentItemSetting.ContentType)),
                 (Rule: IsNotSame(
                         firstDate: inputContentItemSetting.CreatedWhen,
                         secondDate: storageContentItemSetting.CreatedWhen,
@@ -313,6 +426,24 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
             {
                 Condition = first != second,
                 Message = $"Expected value to be '{first}' but found '{second}'."
+            };
+
+        private static dynamic IsNotSame(
+            Guid? first,
+            Guid? second,
+            string secondName) => new
+            {
+                Condition = first != second,
+                Message = $"Value is not the same as {secondName}"
+            };
+
+        private static dynamic IsNotSame(
+            ContentType first,
+            ContentType second,
+            string secondName) => new
+            {
+                Condition = first != second,
+                Message = $"Value is not the same as {secondName}"
             };
 
         private static dynamic IsNotSame(

@@ -226,7 +226,19 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
             EventEnvelope<ContentItemSetting> inboundEnvelope,
             CancellationToken cancellationToken)
         {
-            ValidateUserIsAllowedToAdministerContentItemSettings(inboundEnvelope.SecurityContext);
+            ValidateUserMayWriteContentItemSettings(inboundEnvelope.SecurityContext);
+
+            // Asked before the row-shaped gate so a null payload is reported as one, rather than
+            // being read as a scope-less row and refused as a permission problem. The public
+            // entry point already asks it; the event path reaches here without having done so.
+            ValidateContentItemSettingIsNotNull(contentItemSetting);
+
+            // Nothing is stored yet, so the row in hand IS the row being authored — the one case
+            // where the caller's copy is the right thing to decide against.
+            ValidateUserMayWriteContentItemSettingScope(
+                securityContext: inboundEnvelope.SecurityContext,
+                contentItemId: contentItemSetting.ContentItemId,
+                contentType: contentItemSetting.ContentType);
 
             contentItemSetting = await this.securityAuditBroker
                 .ApplyAddAuditValuesAsync(entity: contentItemSetting, securityContext: inboundEnvelope.SecurityContext);
@@ -265,7 +277,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
             EventEnvelope<ContentItemSetting> inboundEnvelope,
             CancellationToken cancellationToken)
         {
-            ValidateUserIsAllowedToAdministerContentItemSettings(inboundEnvelope.SecurityContext);
+            ValidateUserMayWriteContentItemSettings(inboundEnvelope.SecurityContext);
 
             contentItemSetting = await this.securityAuditBroker
                 .ApplyModifyAuditValuesAsync(
@@ -281,6 +293,16 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
                 cancellationToken: cancellationToken);
 
             ValidateStorageContentItemSetting(maybeContentItemSetting, contentItemSettingId: contentItemSetting.Id);
+
+            // THE STORED ROW DECIDES, never the caller's copy: whether this is a default or an
+            // override is a fact about what is already there, and a caller who could answer it
+            // for themselves could promote their own override into a default they may not write.
+            // The scope is pinned below as well, so the two can never disagree — but the gate
+            // does not depend on that pin holding.
+            ValidateUserMayWriteContentItemSettingScope(
+                securityContext: inboundEnvelope.SecurityContext,
+                contentItemId: maybeContentItemSetting.ContentItemId,
+                contentType: maybeContentItemSetting.ContentType);
 
             contentItemSetting = await this.securityAuditBroker
                 .EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
@@ -324,7 +346,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
         {
             // the gate comes before the idempotent short-circuit, so an unauthorized
             // caller learns nothing about the row's deletion state
-            ValidateUserIsAllowedToAdministerContentItemSettings(inboundEnvelope.SecurityContext);
+            ValidateUserMayWriteContentItemSettings(inboundEnvelope.SecurityContext);
             ValidateOnRemoveContentItemSettingById(contentItemSettingId, deletionReason);
 
             ContentItemSetting maybeContentItemSetting =
@@ -335,6 +357,14 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
             // the tier refusal comes before the idempotent short-circuit, so the caller is told
             // the rule rather than handed a silent success on a row that may never be removed
             ValidateStorageContentItemSettingIsNotADefault(maybeContentItemSetting);
+
+            // Asked after the not-a-default rule, which refuses a default to EVERYONE — so what
+            // is left for this to decide is whether the caller may remove an override of THIS
+            // content type. Called rather than inlined so one rule lives in one place.
+            ValidateUserMayWriteContentItemSettingScope(
+                securityContext: inboundEnvelope.SecurityContext,
+                contentItemId: maybeContentItemSetting.ContentItemId,
+                contentType: maybeContentItemSetting.ContentType);
 
             if (maybeContentItemSetting.IsDeleted)
                 return maybeContentItemSetting;
@@ -384,6 +414,11 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
 
             ValidateStorageContentItemSetting(maybeContentItemSetting, contentItemSettingId);
             ValidateStorageContentItemSettingIsNotADefault(maybeContentItemSetting);
+
+            ValidateUserMayWriteContentItemSettingScope(
+                securityContext: inboundEnvelope.SecurityContext,
+                contentItemId: maybeContentItemSetting.ContentItemId,
+                contentType: maybeContentItemSetting.ContentType);
 
             ContentItemSetting deletedContentItemSetting =
                 await this.storageBroker.DeleteContentItemSettingAsync(maybeContentItemSetting, cancellationToken);
