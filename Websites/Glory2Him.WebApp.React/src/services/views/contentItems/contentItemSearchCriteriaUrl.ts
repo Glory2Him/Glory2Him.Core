@@ -6,8 +6,14 @@ import {
 } from '../../../models/components/contentItems/contentItemFormItem';
 
 import {
-    ContentItemSearchCriteria
+    ApprovalStatus,
+    ContentItemSearchCriteria,
+    contentItemSearchApprovalStatusMembers
 } from '../../../models/components/contentItems/contentItemSearchItem';
+
+import {
+    approvalStatusMemberNames
+} from '../../../models/components/contentItems/contentItemTemplate';
 
 // The criteria's round trip through the URL, shared by every page that feeds the search panel
 // family — the header's search, a shared link and the back button all land with the results
@@ -28,6 +34,23 @@ const tagMatchModeParameterName = 'tagMode';
 const bibleReferencesParameterName = 'refs';
 const bibleReferenceMatchModeParameterName = 'refMode';
 const shareabilityParameterName = 'shareability';
+const approvalStatusesParameterName = 'status';
+
+// The statuses travel by MEMBER NAME too — ?status=Draft,Submitted reads as what it filters
+// on — and an unknown name is dropped rather than guessed at, so a hand-edited link narrows
+// to the statuses it did name instead of to nothing.
+const toApprovalStatuses = (value: string | null): ReadonlyArray<ApprovalStatus> => {
+    if (value == null || value.length === 0) {
+        return [];
+    }
+
+    return value
+        .split(',')
+        .map((memberName) => memberName.trim())
+        .map((memberName) => contentItemSearchApprovalStatusMembers.find(
+            (approvalStatus) => approvalStatusMemberNames[approvalStatus] === memberName))
+        .filter((approvalStatus): approvalStatus is ApprovalStatus => approvalStatus != null);
+};
 
 // The basis travels by MEMBER NAME too, for the same reason the type does.
 const toShareabilityBasis = (value: string | null): ShareabilityBasis | null => {
@@ -86,7 +109,10 @@ export const toContentItemSearchCriteria = (
                 : 'any',
 
         shareabilityBasis:
-            toShareabilityBasis(searchParams.get(shareabilityParameterName))
+            toShareabilityBasis(searchParams.get(shareabilityParameterName)),
+
+        approvalStatuses:
+            toApprovalStatuses(searchParams.get(approvalStatusesParameterName))
     };
 };
 
@@ -136,6 +162,15 @@ export const toContentItemSearchParams = (
         parameters.set(
             shareabilityParameterName,
             shareabilityBasisMemberNames[criteria.shareabilityBasis]);
+    }
+
+    // Empty is "any status", and an empty parameter would say the same thing at more length.
+    if (criteria.approvalStatuses.length > 0) {
+        parameters.set(
+            approvalStatusesParameterName,
+            criteria.approvalStatuses
+                .map((approvalStatus) => approvalStatusMemberNames[approvalStatus])
+                .join(','));
     }
 
     return parameters;

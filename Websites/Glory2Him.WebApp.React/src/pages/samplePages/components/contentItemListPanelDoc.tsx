@@ -294,6 +294,16 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
             + 'asked.'
     },
     {
+        name: 'showApprovalStatusSearchOptions',
+        type: 'boolean',
+        defaultValue: 'false',
+        description: 'Threaded to the bar: the Approval status checkbox group — Draft, '
+            + 'Submitted, Approved, Rejected — in the advanced options. Ticking a box '
+            + 'commits IMMEDIATELY, so onSearch fires on the change with no Search press. '
+            + 'Nothing ticked is "any status". Off for a public feed, on for /myposts and '
+            + 'the moderation queue.'
+    },
+    {
         name: 'isLoading / isLoadingMore / hasMore / onLoadMore',
         type: 'paging',
         description: 'The infinite scroll: the results panel owns the sentinel and raises '
@@ -428,6 +438,11 @@ export function ContentItemListPanelDoc() {
     const [playgroundAllowsTitleClick, setPlaygroundAllowsTitleClick] = useState(true);
     const [playgroundShowsRibbons, setPlaygroundShowsRibbons] = useState(false);
     const [playgroundShowsStatus, setPlaygroundShowsStatus] = useState(true);
+
+    const [
+        playgroundShowsApprovalStatusSearchOptions,
+        setPlaygroundShowsApprovalStatusSearchOptions
+    ] = useState(false);
     const [playgroundShowsContentExpanded, setPlaygroundShowsContentExpanded] =
         useState(false);
     const [playgroundAllowsInPlaceExpansion, setPlaygroundAllowsInPlaceExpansion] =
@@ -692,6 +707,14 @@ export function ContentItemListPanelDoc() {
                         onChange: setPlaygroundShowsStatus
                     },
                     {
+                        name: 'search-approval-status-options',
+                        label: 'showApprovalStatusSearchOptions (status checkboxes in the '
+                            + 'advanced options)',
+                    defaultValue: false,
+                        value: playgroundShowsApprovalStatusSearchOptions,
+                        onChange: setPlaygroundShowsApprovalStatusSearchOptions
+                    },
+                    {
                         name: 'search-content-expanded',
                         label: 'showContentExpanded',
                     defaultValue: false,
@@ -733,6 +756,8 @@ export function ContentItemListPanelDoc() {
                             allowTitleClick={playgroundAllowsTitleClick}
                             onTitleClick={(item) => setLastEvent(`onTitleClick(${item.id})`)}
                             showApprovalStatusRibbon={playgroundShowsRibbons}
+                            showApprovalStatusSearchOptions={
+                                playgroundShowsApprovalStatusSearchOptions}
                             showApprovalStatus={playgroundShowsStatus}
                             showContentExpanded={playgroundShowsContentExpanded}
                             truncateAt={playgroundTruncateAt}

@@ -59,6 +59,18 @@ const barProps: ReadonlyArray<ComponentPropRow> = [
             + 'Search, like the query.'
     },
     {
+        name: 'showApprovalStatusSearchOptions',
+        type: 'boolean',
+        defaultValue: 'false',
+        description: 'Adds the Approval status checkbox group — Draft, Submitted, Approved, '
+            + 'Rejected — to the advanced options. THE ONE OPTION THAT DOES NOT WAIT FOR '
+            + 'SEARCH: ticking a box commits there and then, the way a pill-click on a card '
+            + 'does, and everything else drafted in the fold-out rides along on that commit. '
+            + 'Nothing ticked is “any status”. A per-surface decision, threaded from '
+            + 'ContentItemListPanel: off for a public feed, on for “my posts” and the '
+            + 'moderation queue.'
+    },
+    {
         name: 'contentItemSettingCollection',
         type: 'ContentItemSetting[]',
         defaultValue: '[]',
@@ -82,14 +94,18 @@ export function ContentItemSearchBarPanelDoc() {
 
     const [lastSearch, setLastSearch] = useState('');
 
+    const [showsApprovalStatusSearchOptions, setShowsApprovalStatusSearchOptions] =
+        useState(true);
+
     return (
         <ComponentDoc
             name="Content Item Search Bar Panel"
             filePath="src/components/contentItems/contentItemSearchBarPanel.tsx"
             summary="The search bar of the ContentItemListPanel family: the query box; the
                 advanced Category, Author, Submitted by, Shareability, Tags and Bible
-                references options (each list with its own Any/All match mode); and the
-                removable filter chips.">
+                references options (each list with its own Any/All match mode); the
+                opt-in Approval status checkboxes, which commit the moment they change;
+                and the removable filter chips.">
 
             <DocSection
                 title="Where it stands in the family"
@@ -143,6 +159,12 @@ export function ContentItemSearchBarPanelDoc() {
                         })
                     },
                     {
+                        name: 'approval-status-search-options',
+                        label: 'showApprovalStatusSearchOptions',
+                        value: showsApprovalStatusSearchOptions,
+                        onChange: setShowsApprovalStatusSearchOptions
+                    },
+                    {
                         name: 'bible-reference-filter',
                         label: 'Criteria carry a Bible Reference filter',
                         value: criteria.bibleReferences.length > 0,
@@ -157,6 +179,7 @@ export function ContentItemSearchBarPanelDoc() {
                     <ContentItemSearchBarPanel
                         criteria={criteria}
                         contentItemSettingCollection={demoSettings}
+                        showApprovalStatusSearchOptions={showsApprovalStatusSearchOptions}
                         onSearch={(committed) => {
                             setCriteria(committed);
 
@@ -169,7 +192,8 @@ export function ContentItemSearchBarPanelDoc() {
                                 tagMatchMode: committed.tagMatchMode,
                                 bibleReferences: committed.bibleReferences,
                                 bibleReferenceMatchMode: committed.bibleReferenceMatchMode,
-                                shareabilityBasis: committed.shareabilityBasis
+                                shareabilityBasis: committed.shareabilityBasis,
+                                approvalStatuses: committed.approvalStatuses
                             }));
                         }} />
                 </LiveDemo>

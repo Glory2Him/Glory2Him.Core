@@ -11,16 +11,22 @@ import {
     ShareabilityBasis
 } from '../../models/components/contentItems/contentItemFormItem';
 
+import {
+    emptyContentItemSearchCriteria
+} from '../../models/components/contentItems/contentItemSearchItem';
+
 // WHAT A WRITE INVALIDATES is this service's own business, and nothing above it can catch a
 // mistake here: every page test mocks this module, so a mutation that saved and told no cache
 // would pass all of them while the reader watched their change revert on screen.
 const putContentItemAsync = vi.fn();
 const deleteContentItemByIdAsync = vi.fn();
+const searchContentItemsAsync = vi.fn();
 
 vi.mock('../../brokers/apiBroker.contentItems', () => ({
     default: class {
         PutContentItemAsync = putContentItemAsync;
         DeleteContentItemByIdAsync = deleteContentItemByIdAsync;
+        SearchContentItemsAsync = searchContentItemsAsync;
     }
 }));
 
@@ -148,5 +154,88 @@ describe('contentItemService.useModifyContentItem', () => {
         expect(invalidated).toContainEqual(['ContentItemsGetById', 'quote-1']);
         expect(invalidated).toContainEqual(['ContentItemsSearch']);
         expect(invalidated).toContainEqual(['ApprovalVerdict']);
+    });
+});
+
+
+// THE STATUSES THE READ ACTUALLY ASKS FOR, which is where the search bar's checkbox group
+// lands. The page PINS what its surface is; the reader's ticks narrow within that pin and
+// can never reach past it — the one thing a status filter must not be able to do.
+describe('contentItemService.useSearchContentItems approval statuses', () => {
+    let queryClient: QueryClient;
+
+    const wrapper = ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+
+    const searchWith = async (
+        approvalStatuses: ReadonlyArray<ApprovalStatus>,
+        pinned: ReadonlyArray<ApprovalStatus> | null) => {
+
+        renderHook(
+            () => contentItemService.useSearchContentItems(
+                { ...emptyContentItemSearchCriteria, approvalStatuses },
+                pinned == null ? {} : { approvalStatuses: pinned }),
+            { wrapper });
+
+        await waitFor(() => expect(searchContentItemsAsync).toHaveBeenCalled());
+
+        return searchContentItemsAsync.mock.calls[0][0].approvalStatuses;
+    };
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+
+        searchContentItemsAsync.mockResolvedValue({
+            items: [],
+            pageIndex: 0,
+            hasNextPage: false
+        });
+
+        queryClient = new QueryClient({
+            defaultOptions: { queries: { retry: false } }
+        });
+    });
+
+    it('should ask for the ticked statuses where the surface pinned none', async () => {
+        // given
+        const ticked = [ApprovalStatus.Draft, ApprovalStatus.Rejected];
+
+        // when
+        const asked = await searchWith(ticked, null);
+
+        // then
+        expect(asked).toEqual(ticked);
+    });
+
+    // Nothing ticked is "any status", not "no status" — the pin stands as it was.
+    it('should leave the pin alone where nothing is ticked', async () => {
+        // when
+        const asked = await searchWith([], [ApprovalStatus.Draft, ApprovalStatus.Submitted]);
+
+        // then
+        expect(asked).toEqual([ApprovalStatus.Draft, ApprovalStatus.Submitted]);
+    });
+
+    it('should narrow within the pin rather than past it', async () => {
+        // when
+        const asked = await searchWith(
+            [ApprovalStatus.Submitted, ApprovalStatus.Approved],
+            [ApprovalStatus.Draft, ApprovalStatus.Submitted]);
+
+        // then
+        expect(asked).toEqual([ApprovalStatus.Submitted]);
+    });
+
+    // AN EMPTY INTERSECTION MUST NOT TRAVEL: the broker reads an empty list as no status
+    // clause at all, so a tick with nothing behind it would WIDEN the queue it was made in.
+    it('should keep the pin where the ticks intersect it to nothing', async () => {
+        // when
+        const asked = await searchWith(
+            [ApprovalStatus.Approved],
+            [ApprovalStatus.Draft, ApprovalStatus.Submitted]);
+
+        // then
+        expect(asked).toEqual([ApprovalStatus.Draft, ApprovalStatus.Submitted]);
     });
 });
