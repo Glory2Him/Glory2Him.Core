@@ -1,0 +1,173 @@
+import { Button } from '../coreUI/button';
+import { Card } from '../coreUI/card';
+import { FormSwitch } from '../coreUI/formSwitch';
+import { Spinner } from '../coreUI/spinner';
+
+import {
+    contentItemSettingFeatureFields,
+    limitReactionsToLoveOnlyDescription,
+    limitReactionsToLoveOnlyLabel
+} from '../../models/components/contentItemSettings/contentItemSettingFeature';
+
+import {
+    ContentItemSettingsEvents,
+    ContentItemSettingsTemplateProps
+} from '../../models/components/contentItemSettings/contentItemSettingsTemplate';
+
+import '../coreUI/coreUI.css';
+import './contentItemSettings.css';
+
+// THE READ FACE. The settings that actually govern this content item, shown as they are — the
+// same rows in the same order as the modify face, drawn with the same switches, differing only
+// in that none of them moves. A reader who takes Modify sees the values stay put and the
+// switches come alive, rather than one layout replaced by another.
+//
+// WHICH ROW IS BEING SHOWN is said out loud, because the two answers lead to different actions:
+// a type default governs every item of its type and is edited elsewhere, an override governs
+// this item alone and can be removed here.
+export interface ContentItemSettingsViewPanelProps
+    extends ContentItemSettingsTemplateProps, ContentItemSettingsEvents {
+    // The corner ribbon naming which policy row is in force — Default or Override. ON BY
+    // DEFAULT, unlike the content item card's approval ribbon: that card sits in a feed where
+    // most items share a status and the ribbon would be noise, while this panel exists to answer
+    // exactly the question the ribbon answers.
+    //
+    // Turned off, the scope moves to an inline badge rather than disappearing — a reader must
+    // never have to guess whether they are looking at the type default.
+    showRibbon?: boolean;
+}
+
+export function ContentItemSettingsViewPanel({
+    contentItemSetting,
+    isOverride,
+    canAdministerSettings,
+    isLoading = false,
+    isSubmitting = false,
+    showRibbon = true,
+    showBorder = false,
+    cssClass = '',
+    titleText = 'Content Settings',
+    ariaLabel = 'Content settings',
+    onModify,
+    onOverrideRemoved
+}: ContentItemSettingsViewPanelProps) {
+    const borderCss = showBorder ? '' : 'border-0';
+
+    // The ribbon needs a resolved row to name — with nothing in force there is no scope to
+    // announce, and an empty strip would be worse than none.
+    const wearsRibbon = showRibbon && contentItemSetting != null;
+    const scope = isOverride ? 'Override' : 'Default';
+
+    const hostCssClass =
+        `${borderCss} ${cssClass}${wearsRibbon ? ' g2h-has-corner-ribbon' : ''}`;
+
+    return (
+        <Card cssClass={hostCssClass}>
+            {wearsRibbon && (
+                <span
+                    className="g2h-corner-ribbon g2h-settings-ribbon"
+                    data-setting-scope={scope}>
+                    {scope}
+                </span>
+            )}
+
+            <div aria-label={ariaLabel}>
+                <h5 className="mb-1">{titleText}</h5>
+
+                {isLoading ? (
+                    <div className="text-center py-4">
+                        <Spinner />
+                    </div>
+                ) : contentItemSetting == null ? (
+                    /* NO ROW RESOLVED — neither an override nor a type default. The panel says so
+                       rather than drawing every switch off, which would read as a policy somebody
+                       chose instead of an answer that has not arrived. */
+                    <p className="text-body-secondary mb-0 mt-3">
+                        No content settings apply to this item yet.
+                    </p>
+                ) : (
+                    <>
+                        <p className="text-body-secondary small mb-3">Features</p>
+
+                        {/* WITHOUT THE RIBBON the scope still has to be visible, so it falls back
+                            to a badge. With it, one card would otherwise say the same word
+                            twice. */}
+                        {wearsRibbon === false && (
+                            <div className="d-flex flex-wrap gap-2 mb-3">
+                                <span className={`badge ${isOverride
+                                    ? 'text-bg-primary'
+                                    : 'text-bg-secondary'}`}>
+                                    {isOverride ? 'Override' : 'Default'}
+                                </span>
+                            </div>
+                        )}
+
+                        {contentItemSettingFeatureFields.map((feature) => (
+                            <div className="border-top pt-2" key={feature.title}>
+                                <div className="fw-semibold mb-2">{feature.title}</div>
+
+                                <FormSwitch
+                                    label={feature.shownLabel}
+                                    value={contentItemSetting[feature.shown]}
+                                    disabled />
+
+                                <FormSwitch
+                                    label={feature.allowedLabel}
+                                    value={contentItemSetting[feature.allowed]}
+                                    disabled />
+                            </div>
+                        ))}
+
+                        <div className="border-top pt-3">
+                            <FormSwitch
+                                label={limitReactionsToLoveOnlyLabel}
+                                value={contentItemSetting.limitReactionsToLoveOnly}
+                                disabled />
+
+                            <p className="text-body-secondary small mb-0">
+                                {limitReactionsToLoveOnlyDescription}
+                            </p>
+                        </div>
+
+                        <p className="text-body-secondary small mt-3">
+                            {isOverride
+                                ? 'These settings apply to this content item alone, overriding '
+                                + 'the content type default.'
+                                : 'These are the content type defaults. This item has no '
+                                + 'settings of its own.'}
+                        </p>
+
+                        {/* THE WRITES, offered only to who may make them. Every write on this
+                            controller is Administrators only, so a reviewer working the same
+                            moderation surface reads the settings and is offered nothing —
+                            a control whose request the server refuses is worse than no control.
+
+                            REMOVE OVERRIDE IS ABSENT, NOT DISABLED, against a type default:
+                            there is nothing to remove, the server refuses one (§12.5.2 business
+                            rule 5 — every type must always have a live default), and a greyed
+                            button would suggest a permission problem instead. */}
+                        {canAdministerSettings && (
+                            <div className="d-flex flex-wrap gap-2 mt-3">
+                                <Button
+                                    color="primary"
+                                    disabled={isSubmitting}
+                                    onClick={onModify}>
+                                    Modify
+                                </Button>
+
+                                {isOverride && (
+                                    <Button
+                                        color="outline-danger"
+                                        disabled={isSubmitting}
+                                        onClick={() => onOverrideRemoved?.(contentItemSetting)}>
+                                        Remove Override
+                                    </Button>
+                                )}
+                            </div>
+                        )}
+                    </>
+                )}
+            </div>
+        </Card>
+    );
+}

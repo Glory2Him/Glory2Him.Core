@@ -79,10 +79,21 @@ vi.mock('../../services/foundations/contentItemService', () => ({
 const quoteSetting =
     testContentItemSetting(ContentType.Quote, 'Quote', { hasTitle: false });
 
+const createOrUpdateContentItemSettingMock = vi.fn();
+const hardRemoveContentItemSettingMock = vi.fn();
+
 vi.mock('../../services/foundations/contentItemSettingService', () => ({
     contentItemSettingService: {
         useGetDefaults: () => ({ data: [quoteSetting] }),
-        useGetEffectiveSettingsFor: () => ({ data: [quoteSetting] })
+        useGetEffectiveSettingsFor: () => ({ data: [quoteSetting] }),
+        useCreateOrUpdateContentItemSettingOverride: () => ({
+            mutateAsync: createOrUpdateContentItemSettingMock,
+            isPending: false
+        }),
+        useHardRemoveContentItemSetting: () => ({
+            mutateAsync: hardRemoveContentItemSettingMock,
+            isPending: false
+        })
     }
 }));
 
@@ -638,7 +649,9 @@ describe('ContentItemModerationDetailPage', () => {
             renderPage();
 
             // when
-            await userEvent.click(screen.getByRole('checkbox'));
+            await userEvent.click(screen.getByRole('checkbox', {
+                name: 'Approve without waiting for requirements to be met (bypass rules)'
+            }));
 
             await userEvent.type(
                 screen.getByLabelText('Reason for bypassing the approval requirements'),

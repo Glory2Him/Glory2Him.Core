@@ -274,10 +274,12 @@ export function ContentItemDefaultPanel({
     return (
         <article
             className={`card border p-3 mb-3 g2h-content-item-card${
-                ribbonLabel != null ? ' g2h-has-approval-ribbon' : ''}`}>
+                ribbonLabel != null
+                    ? ' g2h-has-corner-ribbon g2h-has-approval-ribbon'
+                    : ''}`}>
             {ribbonLabel != null && (
                 <span
-                    className="g2h-approval-ribbon"
+                    className="g2h-corner-ribbon g2h-approval-ribbon"
                     data-approval-status={approvalStatusMemberNames[contentItem.approvalStatus!]}>
                     {ribbonLabel}
                 </span>

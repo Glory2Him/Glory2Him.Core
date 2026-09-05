@@ -1246,7 +1246,9 @@ export function ContentItemFormPanel({
         : `g2h-content-item-panel ${cssClass}`;
 
     const ribbonedPanelCssClass =
-        ribbonLabel != null ? `${panelCssClass} g2h-has-approval-ribbon` : panelCssClass;
+        ribbonLabel != null
+            ? `${panelCssClass} g2h-has-corner-ribbon g2h-has-approval-ribbon`
+            : panelCssClass;
 
     const hasHeading = titleText.length > 0;
 
@@ -1258,7 +1260,7 @@ export function ContentItemFormPanel({
 
             {ribbonLabel != null && (
                 <span
-                    className="g2h-approval-ribbon"
+                    className="g2h-corner-ribbon g2h-approval-ribbon"
                     data-approval-status={approvalStatusMemberNames[contentItem!.approvalStatus!]}>
                     {ribbonLabel}
                 </span>

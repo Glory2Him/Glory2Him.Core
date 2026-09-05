@@ -15,6 +15,12 @@ import {
     contentTypeLabels
 } from '../../models/foundations/contentItemSettings/contentType';
 
+import {
+    contentItemSettingFeatureFields,
+    limitReactionsToLoveOnlyDescription,
+    limitReactionsToLoveOnlyLabel
+} from '../../models/components/contentItemSettings/contentItemSettingFeature';
+
 import { contentItemSettingService } from '../../services/foundations/contentItemSettingService';
 import { useDocumentTitle } from '../useDocumentTitle';
 import { extractApiErrorMessage } from './apiErrorMessage';
@@ -40,72 +46,6 @@ const contentTypeDescriptionMaxLength = 500;
 // The foundation refuses a negative SortOrder, so the input refuses one too rather than letting
 // the save come back a 400. A blank box reads as 0 rather than NaN — there is no "no order".
 const sortOrderMinimum = 0;
-
-// Only the setting's boolean members can be wired to a switch, so a mistyped field name below
-// is a compile error rather than a switch that silently never moves.
-// -? strips the optional modifier, or every optional member (the Max*Length ceilings)
-// would smuggle `undefined` into the union and no field name would satisfy it.
-type ContentItemSettingFlag = {
-    [TField in keyof ContentItemSetting]-?:
-    ContentItemSetting[TField] extends boolean ? TField : never
-}[keyof ContentItemSetting];
-
-// Each pair is one of design §6.10's resolved features: "shown" governs whether it renders at
-// all, "allowed" whether something new can be created against a content item of this type. They
-// are independent — a closed comment thread that still displays its history sets shown on and
-// allowed off, which is why shown reads first here and in the list's pills.
-type FeatureField = {
-    title: string;
-    allowedLabel: string;
-    shownLabel: string;
-    allowed: ContentItemSettingFlag;
-    shown: ContentItemSettingFlag;
-};
-
-const featureFields: ReadonlyArray<FeatureField> = [
-    {
-        title: 'Tags',
-        allowedLabel: 'Tags can be added',
-        shownLabel: 'Tags are shown',
-        allowed: 'tagsAllowed',
-        shown: 'showTags',
-    },
-    {
-        title: 'Reactions',
-        allowedLabel: 'Reactions can be added',
-        shownLabel: 'Reactions are shown',
-        allowed: 'reactionsAllowed',
-        shown: 'showReactions',
-    },
-    {
-        title: 'Links',
-        allowedLabel: 'Links can be added',
-        shownLabel: 'Links are shown',
-        allowed: 'linksAllowed',
-        shown: 'showLinks',
-    },
-    {
-        title: 'Attachments',
-        allowedLabel: 'Attachments can be added',
-        shownLabel: 'Attachments are shown',
-        allowed: 'attachmentsAllowed',
-        shown: 'showAttachments',
-    },
-    {
-        title: 'Comments',
-        allowedLabel: 'Comments can be added',
-        shownLabel: 'Comments are shown',
-        allowed: 'commentsAllowed',
-        shown: 'showComments',
-    },
-    {
-        title: 'Bible references',
-        allowedLabel: 'Bible references can be added',
-        shownLabel: 'Bible references are shown',
-        allowed: 'bibleReferenceAllowed',
-        shown: 'showBibleReferences',
-    },
-];
 
 export const ContentItemSettingDetailPage = () => {
     const { contentItemSettingId = '' } = useParams();
@@ -352,7 +292,7 @@ export const ContentItemSettingDetailPage = () => {
                     </Card>
 
                     <Card cssClass="mb-4" headerContent="Features">
-                        {featureFields.map((feature) => (
+                        {contentItemSettingFeatureFields.map((feature) => (
                             <div className="row align-items-center border-top py-2" key={feature.title}>
                                 <div className="col-md-3 fw-semibold">{feature.title}</div>
                                 <div className="col-md-4">
@@ -372,12 +312,11 @@ export const ContentItemSettingDetailPage = () => {
 
                         <div className="border-top pt-3 mt-2">
                             <FormSwitch
-                                label="Limit reactions to love only"
+                                label={limitReactionsToLoveOnlyLabel}
                                 value={editModel.limitReactionsToLoveOnly}
                                 onValueChange={(value) => setField('limitReactionsToLoveOnly', value)} />
                             <p className="text-body-secondary small mb-0">
-                                Favourite-style behaviour: only the designated love reaction may be
-                                associated with content items of this type.
+                                {limitReactionsToLoveOnlyDescription}
                             </p>
                         </div>
                     </Card>

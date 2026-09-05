@@ -1,0 +1,19 @@
+/* ── Settings-scope corner ribbon ─────────────────────────────────────────── */
+
+/* THE COLOUR LIVES HERE AND NOWHERE ELSE, keyed by data-setting-scope. The SHAPE is the shared
+   .g2h-corner-ribbon in coreUI.css, so this strip and the content item card's approval ribbon
+   are the same object wearing different news.
+
+   Default takes the SAME grey the approval ribbon gives Draft: both mean "nothing specific has
+   been decided here yet", and a reader who has learnt one colour should not have to learn it
+   twice. Override takes purple, which no approval status uses — an overridden item is not at
+   some stage of a workflow, it is governed by a policy of its own, and it must not be mistaken
+   for a status at a glance. */
+
+.g2h-settings-ribbon[data-setting-scope="Default"] {
+    background-color: #6c757d;
+}
+
+.g2h-settings-ribbon[data-setting-scope="Override"] {
+    background-color: #6f42c1;
+}

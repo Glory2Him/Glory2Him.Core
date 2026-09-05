@@ -6,6 +6,15 @@ import { Button } from '../../components/coreUI/button';
 import { ContentItemPanel } from '../../components/contentItems/contentItemPanel';
 import { ContentItemEditPanel } from '../../components/contentItems/contentItemEditPanel';
 import { ReviewPanel } from '../../components/approvals/reviewPanel';
+import { ConfirmDialog } from '../../components/coreUI/confirmDialog';
+
+import {
+    ContentItemSettingsPanel
+} from '../../components/contentItemSettings/contentItemSettingsPanel';
+
+import {
+    ContentItemSetting
+} from '../../models/foundations/contentItemSettings/contentItemSetting';
 import { Spinner } from '../../components/coreUI/spinner';
 import { ContentType } from '../../models/foundations/contentItemSettings/contentType';
 import { EntityTypeName } from '../../models/foundations/approvals/approval';
@@ -193,6 +202,51 @@ export const ContentItemModerationDetailPage = () => {
 
             setValidationIssues(failure.validationIssues);
             toastError(failure.message);
+        }
+    };
+
+    // ── THE SETTINGS THAT GOVERN THIS ITEM ────────────────────────────────────────
+    //
+    // Read from the SAME collection the card and the heading already resolve against, so the
+    // sidebar cannot disagree with the item beside it about which row is in force.
+    //
+    // SAVING ALWAYS WRITES AN OVERRIDE. The panel stamps the item's id onto the row and empties
+    // the id when the form was seeded from the type default, and the service turns that into a
+    // POST or a PUT — narrowing one item never re-shapes every item of its type.
+    const createOrUpdateOverride =
+        contentItemSettingService.useCreateOrUpdateContentItemSettingOverride();
+
+    const hardRemoveContentItemSetting =
+        contentItemSettingService.useHardRemoveContentItemSetting();
+
+    // REMOVING AN OVERRIDE IS PERMANENT and it changes how the item renders for every visitor,
+    // so it is confirmed before it is sent. The row is held here between the click and the
+    // answer — the panel raises which row it means, and this page is what asks.
+    const [overrideToRemove, setOverrideToRemove] = useState<ContentItemSetting | null>(null);
+
+    const saveContentItemSettingAsync = async (contentItemSetting: ContentItemSetting) => {
+        try {
+            await createOrUpdateOverride.mutateAsync(contentItemSetting);
+            toastSuccess('Content settings saved.');
+        } catch (error) {
+            toastError(extractApiErrorMessage(
+                error, 'We could not save these content settings. Please try again later.'));
+        }
+    };
+
+    const removeContentItemSettingOverrideAsync = async () => {
+        if (overrideToRemove == null) {
+            return;
+        }
+
+        try {
+            await hardRemoveContentItemSetting.mutateAsync(overrideToRemove.id);
+            toastSuccess('Content settings override removed.');
+        } catch (error) {
+            toastError(extractApiErrorMessage(
+                error, 'We could not remove this override. Please try again later.'));
+        } finally {
+            setOverrideToRemove(null);
         }
     };
 
@@ -438,8 +492,37 @@ export const ContentItemModerationDetailPage = () => {
                                 onReviewRequestWithdrawn={(candidate) =>
                                     void withdrawReviewRequestAsync(candidate)}
                                 showBorder />
+
+                            {/* BENEATH THE ROUND, in the same column: the round is about THIS
+                                submission and the settings are about how the item is presented
+                                for good, so the decision reads first and the standing policy
+                                below it.
+
+                                The collection is the one already fetched above — the panel
+                                resolves §6.4 from it exactly as the card does, so no read is
+                                added by showing it. */}
+                            <ContentItemSettingsPanel
+                                contentItemId={contentItem.id}
+                                contentType={contentItem.contentType}
+                                contentItemSettingCollection={contentItemSettings ?? []}
+                                isSubmitting={createOrUpdateOverride.isPending
+                                    || hardRemoveContentItemSetting.isPending}
+                                onModified={(setting) =>
+                                    void saveContentItemSettingAsync(setting)}
+                                onOverrideRemoved={setOverrideToRemove}
+                                showBorder
+                                cssClass="mt-4" />
                         </div>
                     </div>
+
+                    <ConfirmDialog
+                        visible={overrideToRemove != null}
+                        title="Remove override?"
+                        message={'This content item will go back to its content type defaults. '
+                            + 'The override is deleted permanently and cannot be recovered.'}
+                        confirmText="Remove Override"
+                        onConfirm={() => void removeContentItemSettingOverrideAsync()}
+                        onCancel={() => setOverrideToRemove(null)} />
                 </>
             )}
         </>

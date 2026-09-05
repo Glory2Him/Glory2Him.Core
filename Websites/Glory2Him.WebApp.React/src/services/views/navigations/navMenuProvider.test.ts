@@ -157,6 +157,8 @@ describe('navMenuProvider.getSamplePagesSection', () => {
             'Content Item Quotes Panel',
             'Content Item Verse Image Panel',
 
+            'Content Item Settings Panel',
+
             'Sharing Panel'
         ]);
     });
@@ -181,6 +183,7 @@ describe('navMenuProvider.getSamplePagesSection', () => {
             'SamplePages/Components/Content-Item-Default-Panel',
             'SamplePages/Components/Content-Item-Quotes-Panel',
             'SamplePages/Components/Content-Item-Verse-Image-Panel',
+            'SamplePages/Components/Content-Item-Settings-Panel',
             'SamplePages/Components/Sharing-Panel'
         ]);
     });

@@ -1,4 +1,10 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+    keepPreviousData,
+    QueryClient,
+    useMutation,
+    useQuery,
+    useQueryClient
+} from '@tanstack/react-query';
 import ContentItemSettingBroker from "../../brokers/apiBroker.contentItemSettings";
 import { ContentItemSetting } from "../../models/foundations/contentItemSettings/contentItemSetting";
 
@@ -6,6 +12,20 @@ import {
     ContentItemSettingPage,
     ContentItemSettingQuery
 } from "../../models/foundations/contentItemSettings/contentItemSettingQuery";
+
+// EVERY READ OF THESE ROWS, dropped together. A write here can change which row governs an item
+// (a new override), what a type is called and how it is shaped (the defaults), and whether a type
+// is open to general contribution — and the panels, the contribute page, the post page and the
+// admin list all read from different cache keys. Invalidating one and forgetting another is the
+// drift this exists to prevent, so a write invalidates the lot rather than reasoning per caller
+// about which of them could possibly have changed.
+const invalidateContentItemSettingReads = (queryClient: QueryClient): void => {
+    queryClient.invalidateQueries({ queryKey: ["ContentItemSettingsGetEffective"] });
+    queryClient.invalidateQueries({ queryKey: ["ContentItemSettingsGetAll"] });
+    queryClient.invalidateQueries({ queryKey: ["ContentItemSettingsGetById"] });
+    queryClient.invalidateQueries({ queryKey: ["ContentItemSettingsGetAvailableForContribution"] });
+    queryClient.invalidateQueries({ queryKey: ["ContentItemSettingsGetDefaults"] });
+};
 
 export const contentItemSettingService = {
     useGetAvailableForContribution: () => {
@@ -85,6 +105,52 @@ export const contentItemSettingService = {
         });
     },
 
+    // CREATE OR UPDATE THIS ITEM'S OVERRIDE — the one place the create/update decision is made,
+    // so there is exactly one thing to replace when #209's ContentItemSettingsProcessingService
+    // lands and moves the decision server-side.
+    //
+    // THE BRANCH IS THE ROW'S OWN ID. The panel empties it when the form was seeded from the type
+    // default: there is no override yet, so this mints one and POSTs. A row that arrived with an
+    // id is this item's existing override, so this PUTs it.
+    //
+    // THE KNOWN COST of deciding here rather than in a processing service: two administrators
+    // creating the same override at once both see no row, both POST, and the second gets a 409
+    // off UX_ContentItemSettings_OverridePerEntity. It surfaces as a refused save with the
+    // server's own message rather than as silent data loss, and #209 removes the window.
+    useCreateOrUpdateContentItemSettingOverride: () => {
+        const contentItemSettingBroker = new ContentItemSettingBroker();
+        const queryClient = useQueryClient();
+
+        return useMutation({
+            mutationFn: async (contentItemSetting: ContentItemSetting) =>
+                contentItemSetting.id.length === 0
+                    ? await contentItemSettingBroker.AddContentItemSettingAsync({
+                        ...contentItemSetting,
+                        id: crypto.randomUUID()
+                    })
+                    : await contentItemSettingBroker.UpdateContentItemSettingAsync(
+                        contentItemSetting),
+
+            onSuccess: () => invalidateContentItemSettingReads(queryClient)
+        });
+    },
+
+    // Withdraws an item-level override permanently, leaving the item governed by its content
+    // type default again. The server refuses a per-type default here (§12.5.2 business rule 5),
+    // so a caller that has misread which row it holds is stopped rather than obeyed.
+    useHardRemoveContentItemSetting: () => {
+        const contentItemSettingBroker = new ContentItemSettingBroker();
+        const queryClient = useQueryClient();
+
+        return useMutation({
+            mutationFn: async (contentItemSettingId: string) =>
+                await contentItemSettingBroker.HardDeleteContentItemSettingByIdAsync(
+                    contentItemSettingId),
+
+            onSuccess: () => invalidateContentItemSettingReads(queryClient)
+        });
+    },
+
     useUpdateContentItemSetting: () => {
         const contentItemSettingBroker = new ContentItemSettingBroker();
         const queryClient = useQueryClient();
@@ -93,25 +159,7 @@ export const contentItemSettingService = {
             mutationFn: async (contentItemSetting: ContentItemSetting) =>
                 await contentItemSettingBroker.UpdateContentItemSettingAsync(contentItemSetting),
 
-            onSuccess: (_, contentItemSetting) => {
-                queryClient.invalidateQueries({ queryKey: ["ContentItemSettingsGetAll"] });
-
-                queryClient.invalidateQueries({
-                    queryKey: ["ContentItemSettingsGetById", contentItemSetting.id]
-                });
-
-                // The contribute page reads the same rows to decide which types are open to
-                // general users, and IsAvailableAsGeneralUserContribution is editable here.
-                queryClient.invalidateQueries({
-                    queryKey: ["ContentItemSettingsGetAvailableForContribution"]
-                });
-
-                // The post page reads the same rows for a type's name, icon and field shaping,
-                // every one of which is editable here.
-                queryClient.invalidateQueries({
-                    queryKey: ["ContentItemSettingsGetDefaults"]
-                });
-            }
+            onSuccess: () => invalidateContentItemSettingReads(queryClient)
         });
     }
 };
