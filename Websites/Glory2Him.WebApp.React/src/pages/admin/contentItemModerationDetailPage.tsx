@@ -219,6 +219,7 @@ export const ContentItemModerationDetailPage = () => {
     const { user } = useAuth();
     const castApprovalReview = approvalService.useCastApprovalReview();
     const decideApproval = approvalService.useDecideApproval();
+    const resetApproval = approvalService.useResetApproval();
     const requestReview = approvalService.useRequestReview();
     const withdrawReviewRequest = approvalService.useWithdrawReviewRequest();
 
@@ -263,6 +264,22 @@ export const ContentItemModerationDetailPage = () => {
         } catch (error) {
             toastError(extractApiErrorMessage(
                 error, 'The decision could not be applied. Please try again.'));
+        }
+    };
+
+    const resetAsync = async () => {
+        try {
+            await resetApproval.mutateAsync({
+                entityType: EntityTypeName.ContentItem,
+                entityId: contentItemId
+            });
+
+            toastSuccess(
+                'The approval has been reset. The post is back with the reviewers, and its '
+                + 'recorded reviews have been dismissed.');
+        } catch (error) {
+            toastError(extractApiErrorMessage(
+                error, 'The approval could not be reset. Please try again.'));
         }
     };
 
@@ -434,6 +451,7 @@ export const ContentItemModerationDetailPage = () => {
                                 onReviewStatusChanged={(vote) => void castVoteAsync(vote)}
                                 onApprovalStatusChanged={(decision, isBypassRequested, bypassReason) =>
                                     void decideAsync(decision, isBypassRequested, bypassReason)}
+                                onApprovalReset={() => void resetAsync()}
                                 onReviewRequested={(candidate) => void requestReviewAsync(candidate)}
                                 onReviewRequestWithdrawn={(candidate) =>
                                     void withdrawReviewRequestAsync(candidate)}

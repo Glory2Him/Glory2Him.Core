@@ -50,6 +50,7 @@ vi.mock('../../brokers/toastBroker.success', () => ({
 }));
 
 const castWith = vi.fn();
+const resetWith = vi.fn().mockResolvedValue({ approvalId: 'approval-1' });
 const decidedWith = vi.fn();
 const requestedWith = vi.fn();
 const withdrawnWith = vi.fn();
@@ -117,6 +118,7 @@ vi.mock('../../services/foundations/approvalService', () => ({
 
         useCastApprovalReview: () => ({ mutateAsync: castWith, isPending: false }),
         useDecideApproval: () => ({ mutateAsync: decidedWith, isPending: false }),
+        useResetApproval: () => ({ mutateAsync: resetWith, isPending: false }),
         useRequestReview: () => ({ mutateAsync: requestedWith, isPending: false }),
         useWithdrawReviewRequest: () => ({ mutateAsync: withdrawnWith, isPending: false })
     }

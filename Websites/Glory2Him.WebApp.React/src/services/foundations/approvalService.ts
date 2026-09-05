@@ -159,6 +159,34 @@ export const approvalService = {
 
     // THE DECISION (§16.7.3). The item's own status follows through the workflow, so the item
     // and every feed holding it are invalidated alongside the round.
+    // The same invalidation the decision does, for the same reason: a reset moves the round AND
+    // the item, and the item's own reads carry the approval status the card and the feed render
+    // from. A reset also UNPUBLISHES, so the search results genuinely change.
+    useResetApproval: () => {
+        const approvalBroker = new ApprovalBroker();
+        const queryClient = useQueryClient();
+
+        return useMutation({
+            meta: { suppressGlobalErrorToast: true },
+
+            mutationFn: async (request: {
+                entityType: EntityTypeName;
+                entityId: string;
+            }): Promise<ApprovalOutcome> =>
+                await approvalBroker.PostApprovalResetAsync(
+                    request.entityType,
+                    request.entityId),
+
+            onSuccess: (outcome, request) => {
+                invalidateRound(queryClient, outcome.approvalId);
+                queryClient.invalidateQueries({
+                    queryKey: ['ContentItemsGetById', request.entityId]
+                });
+                queryClient.invalidateQueries({ queryKey: ['ContentItemsSearch'] });
+            }
+        });
+    },
+
     useDecideApproval: () => {
         const approvalBroker = new ApprovalBroker();
         const queryClient = useQueryClient();

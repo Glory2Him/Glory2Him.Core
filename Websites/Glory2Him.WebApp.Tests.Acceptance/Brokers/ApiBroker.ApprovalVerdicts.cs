@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -40,6 +40,17 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
         /// query string, and the bypass is a REQUEST the outcome answers — what lands on the
         /// row is decided against the policy and the caller's tier, never copied from here.
         /// </summary>
+        /// <summary>
+        /// §8.6 HR-4's administrator override. No query values and no body: the entity key is the
+        /// whole request.
+        /// </summary>
+        public async ValueTask<ApprovalOutcome> PostApprovalResetAsync(
+            EntityType entityType,
+            Guid entityId) =>
+            await this.apiFactoryClient.PostContentAsync<object, ApprovalOutcome>(
+                relativeUrl: $"{approvalsRelativeUrl}/{entityType}/{entityId}/Reset",
+                content: new { });
+
         public async ValueTask<ApprovalOutcome> PostApprovalDecisionAsync(
             EntityType entityType,
             Guid entityId,

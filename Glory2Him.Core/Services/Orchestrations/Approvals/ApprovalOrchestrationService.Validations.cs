@@ -163,6 +163,63 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         // A reviewer is admitted: they cannot decide (HR-3) but the verdict is how they see
         // whether their own review completed the round, and they can already read the reviews
         // and comments individually.
+        // §8.6 HR-4. Moving a round OUT of a terminal status is an override, and the override is
+        // what keeps "terminal" meaning anything — a state a publisher could edit out of would
+        // not be terminal at all. So this is ADMINISTRATORS alone: not the publisher tier that
+        // decides an open round, and not the review tier at all.
+        //
+        // §14.7 posture D rule 3 used to read as though the review tier and the submitter could
+        // reopen a decided round through the general modify. That is corrected: reopening is the
+        // override, and the override has one holder.
+        //
+        // §8.6 regardless-rule 1 is deliberately NOT asked here. It bars anyone holding an active
+        // review from DECIDING the round, and a reset decides nothing — it takes a decision away.
+        // An administrator who reviewed may still put their own round back.
+        private static void ValidateUserMayResetApproval(SecurityContext securityContext)
+        {
+            if (securityContext is null || securityContext.IsAuthenticated is false)
+            {
+                throw new UnauthorizedApprovalOrchestrationException(
+                    message: "The current user is not authenticated.");
+            }
+
+            if (securityContext.Roles.Contains(Roles.Administrators) is false)
+            {
+                throw new UnauthorizedApprovalOrchestrationException(
+                    message: "The current user is not allowed to reset this approval.");
+            }
+        }
+
+        private static void ValidateOnResetApproval(
+            EntityType entityType,
+            Guid entityId) =>
+            Validate(
+                message: "Approval is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(entityType), Parameter: nameof(Approval.EntityType)),
+                (Rule: IsInvalid(entityId), Parameter: nameof(Approval.EntityId)));
+
+        // A reset undoes an OUTCOME. A round that never reached one has nothing to undo, and
+        // rewriting it anyway would dismiss a live round's reviews for no reason — so Draft and
+        // Submitted are refused rather than silently accepted. Reported as a validation failure
+        // rather than as not-found: the caller can see the round, they have simply asked for
+        // something that does not apply to it.
+        private static void ValidateStorageApprovalIsDecided(
+            Approval storageApproval,
+            EntityType entityType,
+            Guid entityId)
+        {
+            bool isDecided =
+                storageApproval.ApprovalStatus is ApprovalStatus.Approved
+                    or ApprovalStatus.Rejected;
+
+            if (isDecided is false)
+            {
+                throw new InvalidApprovalOrchestrationException(
+                    message: $"Approval for {entityType} with id: {entityId} is "
+                        + $"{storageApproval.ApprovalStatus}, so there is no outcome to reset.");
+            }
+        }
+
         private static void ValidateUserMaySeeApprovalVerdict(SecurityContext securityContext)
         {
             if (securityContext is null || securityContext.IsAuthenticated is false)
