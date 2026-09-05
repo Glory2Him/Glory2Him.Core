@@ -270,6 +270,91 @@ describe('ContentItemSettingsPanel', () => {
     // The theme's own .card carries no border, so "leave the class off" was never a border and
     // the switch moved nothing. Asserted in BOTH directions for that reason: a test that only
     // checked the off state passed the whole time the on state did nothing.
+    // The two switches somebody actually moved, marked so a reader does not have to diff
+    // nineteen rows against a page they would have to open in another tab.
+    describe('marking what the override changes', () => {
+        const rowFor = (label: string): HTMLElement =>
+            screen.getByText(label).closest('.form-check')!.parentElement!;
+
+        it('should mark only the settings that differ from the content type default', () => {
+            renderPanel(
+                <ContentItemSettingsPanel
+                    contentItemId={contentItemId}
+                    contentType={ContentType.Devotional}
+                    contentItemSettingCollection={[
+                        typeDefault({ commentsAllowed: true, showTags: true }),
+                        itemOverride({ commentsAllowed: false, showTags: true })
+                    ]} />);
+
+            expect(rowFor('Comments can be added')).toHaveClass('g2h-settings-overridden');
+            expect(rowFor('Tags are shown')).not.toHaveClass('g2h-settings-overridden');
+        });
+
+        it('should explain the marking rather than leaving red unexplained', () => {
+            renderPanel(
+                <ContentItemSettingsPanel
+                    contentItemId={contentItemId}
+                    contentType={ContentType.Devotional}
+                    contentItemSettingCollection={[
+                        typeDefault({ commentsAllowed: true }),
+                        itemOverride({ commentsAllowed: false })
+                    ]} />);
+
+            expect(screen.getByText(/differ from the content type default/i))
+                .toBeInTheDocument();
+        });
+
+        // On the default there is no override, so every value IS the default — marking any row
+        // would be claiming a difference from itself.
+        it('should mark nothing when the content type default is what governs', () => {
+            renderPanel(
+                <ContentItemSettingsPanel
+                    contentItemId={contentItemId}
+                    contentType={ContentType.Devotional}
+                    contentItemSettingCollection={[typeDefault({ commentsAllowed: false })]} />);
+
+            expect(rowFor('Comments can be added'))
+                .not.toHaveClass('g2h-settings-overridden');
+
+            expect(screen.queryByText(/differ from the content type default/i)).toBeNull();
+        });
+
+        // Nothing to compare against is not the same as nothing being different.
+        it('should mark nothing when no content type default resolves', () => {
+            renderPanel(
+                <ContentItemSettingsPanel
+                    contentItemId={contentItemId}
+                    contentType={ContentType.Devotional}
+                    contentItemSettingCollection={[itemOverride({ commentsAllowed: false })]} />);
+
+            expect(rowFor('Comments can be added'))
+                .not.toHaveClass('g2h-settings-overridden');
+        });
+
+        it('should follow the draft as it moves on the modify face', async () => {
+            const user = userEvent.setup();
+
+            renderPanel(
+                <ContentItemSettingsPanel
+                    contentItemId={contentItemId}
+                    contentType={ContentType.Devotional}
+                    contentItemSettingCollection={[
+                        typeDefault({ commentsAllowed: true }),
+                        itemOverride({ commentsAllowed: false })
+                    ]} />);
+
+            await user.click(screen.getByRole('button', { name: 'Modify' }));
+
+            expect(rowFor('Comments can be added')).toHaveClass('g2h-settings-overridden');
+
+            // moved back onto the default, the mark goes quiet
+            await user.click(switchFor('Comments can be added'));
+
+            expect(rowFor('Comments can be added'))
+                .not.toHaveClass('g2h-settings-overridden');
+        });
+    });
+
     describe('showBorder', () => {
         it('should draw the card bordered by default', () => {
             const { container } = renderPanel(

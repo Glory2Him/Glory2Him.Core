@@ -42,6 +42,7 @@ export interface ContentItemSettingsModifyPanelProps
 
 export function ContentItemSettingsModifyPanel({
     contentItemSetting,
+    contentTypeDefault,
     contentItemId,
     isOverride,
     isSubmitting = false,
@@ -66,6 +67,21 @@ export function ContentItemSettingsModifyPanel({
 
     const setFlag = (field: ContentItemSettingFlag, value: boolean) =>
         setDraft((current) => current == null ? current : { ...current, [field]: value });
+
+    // WHAT THIS SAVE WOULD MAKE DIFFERENT, marked against the content type default and read off
+    // the LIVE draft — so a switch moved away from the default lights up as it is moved, and one
+    // moved back goes quiet again.
+    //
+    // Unlike the read face this does not ask whether an override already exists: saving from
+    // here always writes one, so a divergence from the default is a divergence whether or not
+    // the row has been created yet.
+    const differsFromDefault = (
+        current: ContentItemSetting,
+        field: ContentItemSettingFlag): boolean =>
+        contentTypeDefault != null && contentTypeDefault[field] !== current[field];
+
+    const overriddenCssClass = (isOverridden: boolean): string =>
+        isOverridden ? 'g2h-settings-overridden' : '';
 
     if (draft == null) {
         return (
@@ -115,23 +131,33 @@ export function ContentItemSettingsModifyPanel({
                     <div className="border-top pt-2" key={feature.title}>
                         <div className="fw-semibold mb-2">{feature.title}</div>
 
-                        <FormSwitch
-                            label={feature.shownLabel}
-                            value={draft[feature.shown]}
-                            onValueChange={(value) => setFlag(feature.shown, value)} />
+                        <div className={overriddenCssClass(
+                            differsFromDefault(draft, feature.shown))}>
+                            <FormSwitch
+                                label={feature.shownLabel}
+                                value={draft[feature.shown]}
+                                onValueChange={(value) => setFlag(feature.shown, value)} />
+                        </div>
 
-                        <FormSwitch
-                            label={feature.allowedLabel}
-                            value={draft[feature.allowed]}
-                            onValueChange={(value) => setFlag(feature.allowed, value)} />
+                        <div className={overriddenCssClass(
+                            differsFromDefault(draft, feature.allowed))}>
+                            <FormSwitch
+                                label={feature.allowedLabel}
+                                value={draft[feature.allowed]}
+                                onValueChange={(value) => setFlag(feature.allowed, value)} />
+                        </div>
                     </div>
                 ))}
 
                 <div className="border-top pt-3">
-                    <FormSwitch
-                        label={limitReactionsToLoveOnlyLabel}
-                        value={draft.limitReactionsToLoveOnly}
-                        onValueChange={(value) => setFlag('limitReactionsToLoveOnly', value)} />
+                    <div className={overriddenCssClass(
+                        differsFromDefault(draft, 'limitReactionsToLoveOnly'))}>
+                        <FormSwitch
+                            label={limitReactionsToLoveOnlyLabel}
+                            value={draft.limitReactionsToLoveOnly}
+                            onValueChange={(value) =>
+                                setFlag('limitReactionsToLoveOnly', value)} />
+                    </div>
 
                     <p className="text-body-secondary small mb-0">
                         {limitReactionsToLoveOnlyDescription}

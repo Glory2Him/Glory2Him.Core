@@ -19,6 +19,14 @@ export interface ContentItemSettingsTemplateProps {
     // the scope badge on both faces, and whether Remove Override renders at all.
     isOverride: boolean;
 
+    // THE ROW BEING OVERRIDDEN — the content type default, handed over ALONGSIDE the winner so a
+    // face can say not just what is in force but what is DIFFERENT about it. Without it an
+    // override is a wall of switches with nothing marking the two somebody actually changed.
+    //
+    // Absent when no default resolves, and equal to contentItemSetting when the default is what
+    // won; both cases mean nothing is marked, which is the honest answer.
+    contentTypeDefault?: ContentItemSetting;
+
     // Whether the reader may write. Every write on the settings controller is Administrators
     // only, so a reviewer sees the settings and no buttons. Render-only — the foundation
     // re-decides against the stored row (§14.6).

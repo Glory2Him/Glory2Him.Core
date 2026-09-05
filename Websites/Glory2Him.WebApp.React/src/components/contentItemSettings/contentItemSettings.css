@@ -17,3 +17,29 @@
 .g2h-settings-ribbon[data-setting-scope="Override"] {
     background-color: #6f42c1;
 }
+
+/* ── The rows an override actually changes ────────────────────────────────── */
+
+/* MARKED, not merely coloured. A reader scanning nineteen switches needs to find the two that
+   were moved, and the theme's own blue says "on" — which half the changed rows are anyway. Red
+   is the one hue in the palette that means "this is not the default", and it is reinforced with
+   weight so the mark survives a reader who cannot separate the two hues.
+
+   The BORDER carries it as well as the fill, because an override is just as often something
+   switched OFF — the screenshot that prompted this was "comments can be added", turned off —
+   and an unchecked switch has no fill to tint. Colour alone on the track would have marked
+   exactly half the cases. */
+
+.g2h-settings-overridden .form-check-label {
+    color: var(--bs-danger, #dc3545);
+    font-weight: 600;
+}
+
+.g2h-settings-overridden .form-check-input {
+    border-color: var(--bs-danger, #dc3545);
+}
+
+.g2h-settings-overridden .form-check-input:checked {
+    background-color: var(--bs-danger, #dc3545);
+    border-color: var(--bs-danger, #dc3545);
+}

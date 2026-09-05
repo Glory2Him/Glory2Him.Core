@@ -109,6 +109,13 @@ export function ContentItemSettingsPanel({
     const contentItemSetting = resolveContentItemSetting(
         contentItemSettingCollection, contentType, contentItemId);
 
+    // THE ROW THE OVERRIDE IS OVERRIDING, resolved by the same resolver with the item left out —
+    // which is exactly how §6.4 finds a type default. Asked separately rather than derived,
+    // because "what is in force" and "what would be in force without this override" are two
+    // questions and the faces need both to mark what actually changed.
+    const contentTypeDefault = resolveContentItemSetting(
+        contentItemSettingCollection, contentType);
+
     // Whether the winner is this item's OWN row. Matched on the item as well as being non-null,
     // because a collection carrying another item's override must never make this one look
     // overridden.
@@ -139,6 +146,7 @@ export function ContentItemSettingsPanel({
                 // than an old draft edited on top of a row that no longer governs.
                 key={contentItemSetting?.id ?? 'none'}
                 contentItemSetting={contentItemSetting}
+                contentTypeDefault={contentTypeDefault}
                 contentItemId={contentItemId}
                 isOverride={isOverride}
                 canAdministerSettings={canAdministerSettings}
@@ -163,6 +171,7 @@ export function ContentItemSettingsPanel({
     return (
         <ContentItemSettingsViewPanel
             contentItemSetting={contentItemSetting}
+            contentTypeDefault={contentTypeDefault}
             isOverride={isOverride}
             canAdministerSettings={canAdministerSettings}
             isLoading={isLoading}

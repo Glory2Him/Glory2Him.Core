@@ -4,6 +4,11 @@ import { FormSwitch } from '../coreUI/formSwitch';
 import { Spinner } from '../coreUI/spinner';
 
 import {
+    ContentItemSetting
+} from '../../models/foundations/contentItemSettings/contentItemSetting';
+
+import {
+    ContentItemSettingFlag,
     contentItemSettingFeatureFields,
     limitReactionsToLoveOnlyDescription,
     limitReactionsToLoveOnlyLabel
@@ -25,6 +30,26 @@ import './contentItemSettings.css';
 // WHICH ROW IS BEING SHOWN is said out loud, because the two answers lead to different actions:
 // a type default governs every item of its type and is edited elsewhere, an override governs
 // this item alone and can be removed here.
+
+// WHAT THIS OVERRIDE ACTUALLY CHANGES. A row is marked only where the value in force differs
+// from the content type default — so a reader sees the two switches somebody moved rather than
+// having to diff nineteen of them against a page they would have to open in another tab.
+//
+// Nothing is marked when the default is what won: there is then no override, and every value IS
+// the default. Nothing is marked either when no default resolves — with nothing to compare
+// against, silence is honest and red would be an assertion nobody can check.
+const differsFromDefault = (
+    contentTypeDefault: ContentItemSetting | undefined,
+    isOverride: boolean,
+    current: ContentItemSetting,
+    field: ContentItemSettingFlag): boolean =>
+    isOverride
+        && contentTypeDefault != null
+        && contentTypeDefault[field] !== current[field];
+
+const overriddenCssClass = (isOverridden: boolean): string =>
+    isOverridden ? 'g2h-settings-overridden' : '';
+
 export interface ContentItemSettingsViewPanelProps
     extends ContentItemSettingsTemplateProps, ContentItemSettingsEvents {
     // The corner ribbon naming which policy row is in force — Default or Override. ON BY
@@ -39,6 +64,7 @@ export interface ContentItemSettingsViewPanelProps
 
 export function ContentItemSettingsViewPanel({
     contentItemSetting,
+    contentTypeDefault,
     isOverride,
     canAdministerSettings,
     isLoading = false,
@@ -60,6 +86,16 @@ export function ContentItemSettingsViewPanel({
     // announce, and an empty strip would be worse than none.
     const wearsRibbon = showRibbon && contentItemSetting != null;
     const scope = isOverride ? 'Override' : 'Default';
+
+    // Whether ANY row is marked, so the legend appears only when there is something to explain.
+    const hasMarkedRows =
+        contentItemSetting != null
+        && [
+            ...contentItemSettingFeatureFields.flatMap(
+                (feature) => [feature.shown, feature.allowed]),
+            'limitReactionsToLoveOnly' as ContentItemSettingFlag
+        ].some((field) => differsFromDefault(
+            contentTypeDefault, isOverride, contentItemSetting, field));
 
     const hostCssClass =
         `${borderCss} ${cssClass}${wearsRibbon ? ' g2h-has-corner-ribbon' : ''}`;
@@ -109,28 +145,46 @@ export function ContentItemSettingsViewPanel({
                             <div className="border-top pt-2" key={feature.title}>
                                 <div className="fw-semibold mb-2">{feature.title}</div>
 
-                                <FormSwitch
-                                    label={feature.shownLabel}
-                                    value={contentItemSetting[feature.shown]}
-                                    disabled />
+                                <div className={overriddenCssClass(differsFromDefault(
+                                    contentTypeDefault, isOverride,
+                                    contentItemSetting, feature.shown))}>
+                                    <FormSwitch
+                                        label={feature.shownLabel}
+                                        value={contentItemSetting[feature.shown]}
+                                        disabled />
+                                </div>
 
-                                <FormSwitch
-                                    label={feature.allowedLabel}
-                                    value={contentItemSetting[feature.allowed]}
-                                    disabled />
+                                <div className={overriddenCssClass(differsFromDefault(
+                                    contentTypeDefault, isOverride,
+                                    contentItemSetting, feature.allowed))}>
+                                    <FormSwitch
+                                        label={feature.allowedLabel}
+                                        value={contentItemSetting[feature.allowed]}
+                                        disabled />
+                                </div>
                             </div>
                         ))}
 
                         <div className="border-top pt-3">
-                            <FormSwitch
-                                label={limitReactionsToLoveOnlyLabel}
-                                value={contentItemSetting.limitReactionsToLoveOnly}
-                                disabled />
+                            <div className={overriddenCssClass(differsFromDefault(
+                                contentTypeDefault, isOverride,
+                                contentItemSetting, 'limitReactionsToLoveOnly'))}>
+                                <FormSwitch
+                                    label={limitReactionsToLoveOnlyLabel}
+                                    value={contentItemSetting.limitReactionsToLoveOnly}
+                                    disabled />
+                            </div>
 
                             <p className="text-body-secondary small mb-0">
                                 {limitReactionsToLoveOnlyDescription}
                             </p>
                         </div>
+
+                        {hasMarkedRows && (
+                            <p className="small mt-3 mb-0 text-danger">
+                                Highlighted settings differ from the content type default.
+                            </p>
+                        )}
 
                         <p className="text-body-secondary small mt-3">
                             {isOverride
