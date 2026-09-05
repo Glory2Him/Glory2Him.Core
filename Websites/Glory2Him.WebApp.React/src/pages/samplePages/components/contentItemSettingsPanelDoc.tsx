@@ -9,8 +9,12 @@ import {
 } from '../../../models/foundations/contentItemSettings/contentItemSetting';
 
 import { ContentType } from '../../../models/foundations/contentItemSettings/contentType';
-import { useAuth } from '../../../components/securitys/authProvider';
 import { useDocumentTitle } from '../../useDocumentTitle';
+
+import {
+    DemoSecurityContext,
+    SecurityContextOption
+} from './shared/securityContextDemo';
 
 import {
     CodeSample,
@@ -127,6 +131,41 @@ const demoOverride = settingFor(demoContentItemId, {
     showAttachments: false
 });
 
+// THE PEOPLE THIS PANEL TELLS APART. Deliberately its own list rather than the shared
+// securityContextOptions six: those are built around OWNERSHIP, and this panel has no ownership
+// gate — settings are administrator-authored configuration, so "also owner" and "not owner"
+// would render identically and a reader would reasonably read that sameness as a bug.
+//
+// What it does tell apart is the administrator tier and the ReadOnly sanction, so those are the
+// personas offered. A signed-out reader is not expressible through AuthContextOverride, which
+// always stands somebody up; the colocated panel tests cover that case.
+const settingsSecurityContextOptions: ReadonlyArray<SecurityContextOption> = [
+    {
+        key: 'administrator',
+        label: 'I am an administrator',
+        roles: ['Administrators'],
+        isOwner: false
+    },
+    {
+        key: 'administrator-readonly',
+        label: 'I am an administrator holding ReadOnly (sanctioned)',
+        roles: ['Administrators', 'ReadOnly'],
+        isOwner: false
+    },
+    {
+        key: 'reviewer',
+        label: 'I am a reviewer',
+        roles: ['Reviewers'],
+        isOwner: false
+    },
+    {
+        key: 'publisher',
+        label: 'I am a publisher',
+        roles: ['Publishers'],
+        isOwner: false
+    }
+];
+
 const panelProps: ReadonlyArray<ComponentPropRow> = [
     {
         name: 'contentItemId',
@@ -205,7 +244,9 @@ const panelProps: ReadonlyArray<ComponentPropRow> = [
 
 export function ContentItemSettingsPanelDoc() {
     useDocumentTitle('Content Item Settings Panel — Components — Glory 2 Him');
-    const { isAuthenticated, userRoles } = useAuth();
+
+    const [securityContext, setSecurityContext] =
+        useState<SecurityContextOption>(settingsSecurityContextOptions[0]);
 
     const [isComparing, setIsComparing] = useState(false);
     const [scopeKey, setScopeKey] = useState('override');
@@ -290,14 +331,23 @@ export function ContentItemSettingsPanelDoc() {
                 lead={
                     <>
                         The write affordances are <code>Administrators</code> only and are
-                        withheld from a <code>ReadOnly</code> holder — render gates, with the
-                        foundation re-deciding both against the stored row (§14.6). You are{' '}
-                        {isAuthenticated
-                            ? <>signed in as <code>{userRoles.join(', ') || 'no roles'}</code></>
-                            : <>signed out</>}, so the buttons below appear only if that
-                        includes Administrators.
+                        withheld from a <code>ReadOnly</code> holder, a sanction that outranks
+                        every grant. Step the demo into any of them below: the panel decides
+                        RENDERING only, so showing a reader what another person would be offered
+                        grants nothing — the foundation re-decides every save and removal against
+                        the stored row (§14.6), and your own session is untouched.
                     </>
                 }>
+
+                <DemoRadioGroup
+                    title="Security context"
+                    name="settings-security-context"
+                    selectedKey={securityContext.key}
+                    onChange={(key) => setSecurityContext(
+                        settingsSecurityContextOptions.find(
+                            (option) => option.key === key)
+                        ?? settingsSecurityContextOptions[0])}
+                    options={settingsSecurityContextOptions} />
                 <DemoRadioGroup
                     title="What the collection holds"
                     name="settings-scope"
@@ -355,6 +405,7 @@ export function ContentItemSettingsPanelDoc() {
                     changes: the ribbon's word and colour (grey Default / purple Override), the
                     sentence under the switches, whether Remove Override is offered at all, and
                     the switch values themselves, since the two rows say different things. */}
+                <DemoSecurityContext option={securityContext}>
                 {isComparing ? (
                     <LiveDemo title="Default beside Override">
                         <div className="row g-3">
@@ -418,6 +469,7 @@ export function ContentItemSettingsPanelDoc() {
                     </div>
                 </LiveDemo>
                 )}
+                </DemoSecurityContext>
             </DocSection>
         </ComponentDoc>
     );

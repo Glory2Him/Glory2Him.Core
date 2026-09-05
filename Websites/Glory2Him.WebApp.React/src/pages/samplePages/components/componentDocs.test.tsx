@@ -857,15 +857,28 @@ describe('Component reference pages', () => {
             expect(screen.getByRole('button', { name: 'Reset' })).toBeInTheDocument();
         });
 
-        it('should offer no write to a reader who cannot administer settings', () => {
-            // given
-            signOut(authState);
-            signInAs(authState, ['Reviewers']);
-
+        // THE DEMO RUNS UNDER THE PERSONA THE BOARD PICKS, not under the reader's own session —
+        // which is the whole point of stepping it: an administrator reading the page can see
+        // what a reviewer would be offered without becoming one.
+        it('should open the demo as an administrator, who may write', () => {
             // when
             renderWithAuth(<ContentItemSettingsPanelDoc />);
 
-            // then: the page still documents the panel, the panel still shows the settings
+            // then
+            expect(screen.getByRole('button', { name: 'Modify' })).toBeInTheDocument();
+
+            expect(screen.getByRole('button', { name: 'Remove Override' }))
+                .toBeInTheDocument();
+        });
+
+        it('should offer no write once the demo steps into a reviewer', async () => {
+            // given: the page opens on the administrator persona
+            renderWithAuth(<ContentItemSettingsPanelDoc />);
+
+            // when
+            await userEvent.click(screen.getByRole('radio', { name: 'I am a reviewer' }));
+
+            // then: the settings still read, and nothing is offered to write them
             expect(document.querySelector('.g2h-settings-ribbon')).not.toBeNull();
 
             expect(screen.queryByRole('button', { name: 'Modify' })).not.toBeInTheDocument();
@@ -873,5 +886,42 @@ describe('Component reference pages', () => {
             expect(screen.queryByRole('button', { name: 'Remove Override' }))
                 .not.toBeInTheDocument();
         });
+
+        // A sanction outranks every grant (#366), so ReadOnly closes the writes on a caller who
+        // holds Administrators as well.
+        it('should offer no write to a sanctioned administrator', async () => {
+            // given
+            renderWithAuth(<ContentItemSettingsPanelDoc />);
+
+            // when
+            await userEvent.click(screen.getByRole('radio', {
+                name: 'I am an administrator holding ReadOnly (sanctioned)'
+            }));
+
+            // then
+            expect(screen.queryByRole('button', { name: 'Modify' })).not.toBeInTheDocument();
+        });
+
+        // The override stands somebody up in the DEMO only. The page around it — and the
+        // reader's own session — is untouched, which is what makes stepping personas safe.
+        it('should leave the reader’s own session untouched while stepping personas',
+            async () => {
+                // given: the reader is a signed-in administrator
+                renderWithAuth(<ContentItemSettingsPanelDoc />);
+
+                // when: the demo steps into somebody with no administrator grant
+                await userEvent.click(screen.getByRole('radio', { name: 'I am a reviewer' }));
+
+                // then: the page itself still renders for its real, still-administrator reader
+                expect(screen.getByRole(
+                    'heading', { name: 'Content Item Settings Panel', level: 1 }))
+                    .toBeInTheDocument();
+
+                // and stepping back restores what the real administrator may do
+                await userEvent.click(
+                    screen.getByRole('radio', { name: 'I am an administrator' }));
+
+                expect(screen.getByRole('button', { name: 'Modify' })).toBeInTheDocument();
+            });
     });
 });
