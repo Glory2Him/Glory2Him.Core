@@ -210,9 +210,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         }
 
         /// <summary>
-        /// The dismissal runs AFTER the status write. Dismissing while the round still read
-        /// terminal would re-test a round nobody may act on, and the foundation refuses a
-        /// dismissal against one in any case (§8.8 regardless-rule 1).
+        /// The dismissal runs AFTER the status write, so that the re-test each dismissal triggers
+        /// sees the round as it now stands rather than the outcome being taken away.
+        ///
+        /// <para>NOT because anything refuses the other order. §8.8 regardless-rule 1 requires
+        /// dismissal to work on a terminal round an administrator has moved back, and the design
+        /// records that a round-window guard there "would refuse in the cases the operation
+        /// exists to serve" — so no such guard exists. The foundation's own dismissal validation
+        /// asks only whether the review is already dismissed or removed, never what the parent
+        /// approval reads. The order is a correctness choice about what the re-test sees.</para>
         /// </summary>
         [Fact]
         public async Task ShouldOpenTheRoundBeforeDismissingItsReviewsAsync()
