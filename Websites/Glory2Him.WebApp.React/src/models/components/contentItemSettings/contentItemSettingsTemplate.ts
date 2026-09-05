@@ -29,7 +29,10 @@ export interface ContentItemSettingsTemplateProps {
     // Freezes the buttons while the consumer is persisting, so one click is one write.
     isSubmitting?: boolean;
 
+    // Whether the panel is drawn as a bordered card — on by default, and spelled out in both
+    // directions because the theme's own .card carries no border to leave alone.
     showBorder?: boolean;
+
     cssClass?: string;
     titleText?: string;
     ariaLabel?: string;

@@ -214,9 +214,18 @@ const panelProps: ReadonlyArray<ComponentPropRow> = [
             + 'one write.'
     },
     {
-        name: 'showBorder / cssClass / titleText / ariaLabel',
-        type: 'boolean / string / string / string',
-        defaultValue: 'false / — / Content Settings / Content settings',
+        name: 'showBorder',
+        type: 'boolean',
+        defaultValue: 'true',
+        description: 'Whether the panel is drawn as a bordered card. ON by default, unlike the '
+            + 'content item family: this panel stands in a sidebar beside other cards rather '
+            + 'than in a feed of its own, and an edge is what separates it from whatever sits '
+            + 'above it.'
+    },
+    {
+        name: 'cssClass / titleText / ariaLabel',
+        type: 'string',
+        defaultValue: '— / Content Settings / Content settings',
         description: 'The family’s presentation props, unchanged from the content item panels.'
     },
     {
@@ -381,7 +390,7 @@ export function ContentItemSettingsPanelDoc() {
                         {
                             name: 'showBorder',
                             label: 'showBorder',
-                            defaultValue: false,
+                            defaultValue: true,
                             value: showsBorder,
                             onChange: setShowsBorder
                         },

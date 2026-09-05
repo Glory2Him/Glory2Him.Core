@@ -45,14 +45,17 @@ export function ContentItemSettingsModifyPanel({
     contentItemId,
     isOverride,
     isSubmitting = false,
-    showBorder = false,
+    showBorder = true,
     cssClass = '',
     titleText = 'Content Settings',
     ariaLabel = 'Content settings',
     onReset,
     onModified
 }: ContentItemSettingsModifyPanelProps) {
-    const borderCss = showBorder ? '' : 'border-0';
+    // SPELLED OUT IN BOTH DIRECTIONS. The theme's .card has no border of its own, so
+    // leaving the class off does not produce one — the switch has to add it. The content
+    // item card family spells it the same way, for the same reason.
+    const borderCss = showBorder ? 'border' : 'border-0';
 
     // THE DRAFT, seeded once from exactly what the read face displayed. Seeded in the
     // initialiser rather than through an effect: the DISPATCHER keys this template on the

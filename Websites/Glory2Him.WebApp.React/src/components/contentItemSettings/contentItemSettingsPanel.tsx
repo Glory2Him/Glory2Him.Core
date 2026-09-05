@@ -64,7 +64,11 @@ export interface ContentItemSettingsPanelProps extends ContentItemSettingsEvents
     // face never wears one, whatever this says — see the note there.
     showRibbon?: boolean;
 
+    // Whether the panel is drawn as a bordered card. ON by default, unlike the content item
+    // family: this panel stands in a sidebar beside other cards rather than in a feed of its
+    // own, and an edge is what separates it from whatever sits above it.
     showBorder?: boolean;
+
     cssClass?: string;
     titleText?: string;
     ariaLabel?: string;
@@ -78,7 +82,7 @@ export function ContentItemSettingsPanel({
     isLoading = false,
     isSubmitting = false,
     showRibbon = true,
-    showBorder = false,
+    showBorder = true,
     cssClass,
     titleText,
     ariaLabel,

@@ -44,14 +44,17 @@ export function ContentItemSettingsViewPanel({
     isLoading = false,
     isSubmitting = false,
     showRibbon = true,
-    showBorder = false,
+    showBorder = true,
     cssClass = '',
     titleText = 'Content Settings',
     ariaLabel = 'Content settings',
     onModify,
     onOverrideRemoved
 }: ContentItemSettingsViewPanelProps) {
-    const borderCss = showBorder ? '' : 'border-0';
+    // SPELLED OUT IN BOTH DIRECTIONS. The theme's .card has no border of its own, so
+    // leaving the class off does not produce one — the switch has to add it. The content
+    // item card family spells it the same way, for the same reason.
+    const borderCss = showBorder ? 'border' : 'border-0';
 
     // The ribbon needs a resolved row to name — with nothing in force there is no scope to
     // announce, and an empty strip would be worse than none.

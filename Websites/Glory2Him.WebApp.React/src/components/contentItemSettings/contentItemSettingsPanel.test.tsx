@@ -267,6 +267,51 @@ describe('ContentItemSettingsPanel', () => {
         });
     });
 
+    // The theme's own .card carries no border, so "leave the class off" was never a border and
+    // the switch moved nothing. Asserted in BOTH directions for that reason: a test that only
+    // checked the off state passed the whole time the on state did nothing.
+    describe('showBorder', () => {
+        it('should draw the card bordered by default', () => {
+            const { container } = renderPanel(
+                <ContentItemSettingsPanel
+                    contentItemId={contentItemId}
+                    contentType={ContentType.Devotional}
+                    contentItemSettingCollection={[typeDefault()]} />);
+
+            const card = container.querySelector('.card')!;
+            expect(card).toHaveClass('border');
+            expect(card).not.toHaveClass('border-0');
+        });
+
+        it('should take the border away when the surface turns it off', () => {
+            const { container } = renderPanel(
+                <ContentItemSettingsPanel
+                    contentItemId={contentItemId}
+                    contentType={ContentType.Devotional}
+                    contentItemSettingCollection={[typeDefault()]}
+                    showBorder={false} />);
+
+            const card = container.querySelector('.card')!;
+            expect(card).toHaveClass('border-0');
+            expect(card).not.toHaveClass('border');
+        });
+
+        it('should carry the same answer onto the modify face', async () => {
+            const user = userEvent.setup();
+
+            const { container } = renderPanel(
+                <ContentItemSettingsPanel
+                    contentItemId={contentItemId}
+                    contentType={ContentType.Devotional}
+                    contentItemSettingCollection={[typeDefault()]}
+                    showBorder={false} />);
+
+            await user.click(screen.getByRole('button', { name: 'Modify' }));
+
+            expect(container.querySelector('.card')!).toHaveClass('border-0');
+        });
+    });
+
     describe('the read face is read-only', () => {
         it('should render every switch disabled', () => {
             renderPanel(
