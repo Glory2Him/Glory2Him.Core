@@ -139,6 +139,38 @@ class ContentItemSettingBroker {
         return result.data as ContentItemSetting;
     }
 
+    // A NEW ROW — in practice an item-level override, since the per-type defaults are seeded.
+    // The whole entity goes up: the foundation's add validation requires a non-empty Id, so the
+    // caller mints the identity, while CreatedBy/CreatedWhen/UpdatedBy/UpdatedWhen are stamped
+    // server-side from the envelope's SecurityContext whatever is sent in them.
+    //
+    // A 409 means the unique index already holds a row for this scope —
+    // UX_ContentItemSettings_OverridePerEntity for an override, _DefaultPerType for a default.
+    async AddContentItemSettingAsync(contentItemSetting: ContentItemSetting): Promise<ContentItemSetting> {
+        const result = await this.apiBroker.PostAsync(
+            this.relativeContentItemSettingsUrl,
+            contentItemSetting);
+
+        return result.data as ContentItemSetting;
+    }
+
+    // PERMANENT removal, the /Hard verb rather than the soft delete. Either would free the scope
+    // — both unique indexes filter on IsDeleted = 0, and the resolver skips a soft-deleted row —
+    // so this is a choice about what is LEFT BEHIND. A withdrawn override is not a record anybody
+    // needs: soft-deleting it would leave a row invisible to every caller including
+    // Administrators (§14.5 rule 3), which nobody could ever see, audit or clear.
+    //
+    // The service refuses a per-type DEFAULT here with a 400 — every content type must always
+    // have a live default (§12.5.2 business rule 5) — so this is safe to call against a row the
+    // caller believes is an override and wrong about.
+    async HardDeleteContentItemSettingByIdAsync(
+        contentItemSettingId: string): Promise<ContentItemSetting> {
+        const url = `${this.relativeContentItemSettingsUrl}/${contentItemSettingId}/Hard`;
+        const result = await this.apiBroker.DeleteAsync(url);
+
+        return result.data as ContentItemSetting;
+    }
+
     // The exposer routes the update on the body's Id rather than a route segment, so the whole
     // entity goes back — audit fields included, which the foundation overwrites.
     async UpdateContentItemSettingAsync(contentItemSetting: ContentItemSetting): Promise<ContentItemSetting> {

@@ -115,6 +115,11 @@ const samplePagesSection: NavItem = {
                 sample("Content Item Quotes Panel", "SamplePages/Components/Content-Item-Quotes-Panel"),
                 sample("Content Item Verse Image Panel", "SamplePages/Components/Content-Item-Verse-Image-Panel"),
 
+                // Not a face of the ContentItemPanel tree: it governs one item's SETTINGS
+                // rather than rendering the item, so it sits after the family rather than
+                // inside it.
+                sample("Content Item Settings Panel", "SamplePages/Components/Content-Item-Settings-Panel"),
+
                 sample("Sharing Panel", "SamplePages/Components/Sharing-Panel"),
             ]
         },

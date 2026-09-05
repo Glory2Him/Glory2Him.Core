@@ -46,6 +46,7 @@ const BibleReferenceAssociationPanelDoc = lazyNamed(() => import('../pages/sampl
 const TagAssociationPanelDoc = lazyNamed(() => import('../pages/samplePages/components/tagAssociationPanelDoc'), 'TagAssociationPanelDoc');
 const ReviewPanelDoc = lazyNamed(() => import('../pages/samplePages/components/reviewPanelDoc'), 'ReviewPanelDoc');
 const ContentItemPanelDoc = lazyNamed(() => import('../pages/samplePages/components/contentItemPanelDoc'), 'ContentItemPanelDoc');
+const ContentItemSettingsPanelDoc = lazyNamed(() => import('../pages/samplePages/components/contentItemSettingsPanelDoc'), 'ContentItemSettingsPanelDoc');
 const ContentItemListPanelDoc = lazyNamed(() => import('../pages/samplePages/components/contentItemListPanelDoc'), 'ContentItemListPanelDoc');
 const ContentItemSearchBarPanelDoc = lazyNamed(() => import('../pages/samplePages/components/contentItemSearchBarPanelDoc'), 'ContentItemSearchBarPanelDoc');
 const ContentItemResultsPanelDoc = lazyNamed(() => import('../pages/samplePages/components/contentItemResultsPanelDoc'), 'ContentItemResultsPanelDoc');
@@ -164,6 +165,10 @@ export const samplePagesRoutes: RouteObject[] = [
             {
                 path: 'SamplePages/Components/Content-Item-Verse-Image-Panel',
                 element: secured(<ContentItemVerseImagePanelDoc />),
+            },
+            {
+                path: 'SamplePages/Components/Content-Item-Settings-Panel',
+                element: secured(<ContentItemSettingsPanelDoc />),
             },
             {
                 path: 'SamplePages/Components/Sharing-Panel',
