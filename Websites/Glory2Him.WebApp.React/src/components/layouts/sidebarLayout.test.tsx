@@ -121,7 +121,10 @@ describe('SidebarLayout', () => {
 
         // then: the whole menu, not a part of it
         expect(screen.getAllByRole('link', { name: /Dashboard/ })).toHaveLength(shownCount);
-        expect(screen.getByRole('link', { name: /Content Item Settings/ })).toBeInTheDocument();
+        // The exact name, not a pattern: the sample pages tree also carries a Content
+        // Item Settings PANEL entry, and a loose match would find two links.
+        expect(screen.getByRole('link', { name: 'Content Item Settings' }))
+            .toBeInTheDocument();
     });
 
     /// The control belongs to the CONTENT, not to the menu it folds — which is what keeps it

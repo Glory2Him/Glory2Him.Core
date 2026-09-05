@@ -17,6 +17,9 @@ import {
     ContentItemSearchItem
 } from '../../models/components/contentItems/contentItemSearchItem';
 
+// The corner ribbon's geometry lives in coreUI.css as .g2h-corner-ribbon; imported here
+// rather than relied on transitively, so the shape cannot go missing without a build error.
+import '../coreUI/coreUI.css';
 import './contentItems.css';
 
 // THE PINK BLOCKS: the template most content types render through. Type badge, the content
@@ -274,10 +277,12 @@ export function ContentItemDefaultPanel({
     return (
         <article
             className={`card border p-3 mb-3 g2h-content-item-card${
-                ribbonLabel != null ? ' g2h-has-approval-ribbon' : ''}`}>
+                ribbonLabel != null
+                    ? ' g2h-has-corner-ribbon g2h-has-approval-ribbon'
+                    : ''}`}>
             {ribbonLabel != null && (
                 <span
-                    className="g2h-approval-ribbon"
+                    className="g2h-corner-ribbon g2h-approval-ribbon"
                     data-approval-status={approvalStatusMemberNames[contentItem.approvalStatus!]}>
                     {ribbonLabel}
                 </span>

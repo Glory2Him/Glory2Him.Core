@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AssociationPanelDoc } from './associationPanelDoc';
 import { ContentItemPanelDoc } from './contentItemPanelDoc';
+import { ContentItemSettingsPanelDoc } from './contentItemSettingsPanelDoc';
 import { ContentItemSearchBarPanelDoc } from './contentItemSearchBarPanelDoc';
 import { ContentItemResultsPanelDoc } from './contentItemResultsPanelDoc';
 import { ContentItemAddPanelDoc } from './contentItemAddPanelDoc';
@@ -765,5 +766,162 @@ describe('Component reference pages', () => {
             expect(screen.getAllByRole('button', { name: 'Set approval status' }))
                 .toHaveLength(2);
         });
+    });
+    describe('ContentItemSettingsPanelDoc', () => {
+        it('should document the settings panel and name its source', () => {
+            // when
+            renderWithAuth(<ContentItemSettingsPanelDoc />);
+
+            // then
+            expect(screen.getByRole(
+                'heading', { name: 'Content Item Settings Panel', level: 1 }))
+                .toBeInTheDocument();
+
+            expect(screen.getByText(
+                'src/components/contentItemSettings/contentItemSettingsPanel.tsx'))
+                .toBeInTheDocument();
+
+            expect(screen.getByRole('heading', { name: 'Which settings apply' }))
+                .toBeInTheDocument();
+
+            expect(screen.getByRole('heading', { name: 'What a save writes' }))
+                .toBeInTheDocument();
+        });
+
+        it('should open the demo on the override, ribbon and all', () => {
+            // when
+            renderWithAuth(<ContentItemSettingsPanelDoc />);
+
+            // then: the panel runs for real rather than being pictured
+            const ribbon = document.querySelector('.g2h-settings-ribbon');
+            expect(ribbon).not.toBeNull();
+            expect(ribbon!.getAttribute('data-setting-scope')).toBe('Override');
+
+            expect(screen.getByRole('button', { name: 'Remove Override' }))
+                .toBeInTheDocument();
+        });
+
+        it('should drop to the type default when the collection loses the override',
+            async () => {
+                // given
+                renderWithAuth(<ContentItemSettingsPanelDoc />);
+
+                // when
+                await userEvent.click(
+                    screen.getByRole('radio', { name: 'The type default only' }));
+
+                // then: the scope changed and, with nothing to remove, so did what is offered
+                expect(document.querySelector('.g2h-settings-ribbon'))
+                    .toHaveAttribute('data-setting-scope', 'Default');
+
+                expect(screen.queryByRole('button', { name: 'Remove Override' }))
+                    .not.toBeInTheDocument();
+            });
+
+        it('should stand both scopes side by side when the comparison is asked for',
+            async () => {
+                // given: one panel, on the override
+                renderWithAuth(<ContentItemSettingsPanelDoc />);
+
+                expect(document.querySelectorAll('.g2h-settings-ribbon')).toHaveLength(1);
+
+                // when
+                await userEvent.click(screen.getByRole('switch', {
+                    name: 'Compare the default and the override side by side'
+                }));
+
+                // then: two panels, one scope each — the presentation difference in one look
+                const ribbons = document.querySelectorAll('.g2h-settings-ribbon');
+                expect(ribbons).toHaveLength(2);
+
+                expect(ribbons[0].getAttribute('data-setting-scope')).toBe('Default');
+                expect(ribbons[1].getAttribute('data-setting-scope')).toBe('Override');
+
+                // and only the overridden one offers the removal
+                expect(screen.getAllByRole('button', { name: 'Remove Override' }))
+                    .toHaveLength(1);
+            });
+
+        it('should land straight on the modify face when the mode radio says so', async () => {
+            // given
+            renderWithAuth(<ContentItemSettingsPanelDoc />);
+
+            // when
+            await userEvent.click(screen.getByRole(
+                'radio', { name: 'modify — straight onto the form' }));
+
+            // then
+            expect(screen.getByRole('button', { name: 'Save settings' }))
+                .toBeInTheDocument();
+
+            expect(screen.getByRole('button', { name: 'Reset' })).toBeInTheDocument();
+        });
+
+        // THE DEMO RUNS UNDER THE PERSONA THE BOARD PICKS, not under the reader's own session —
+        // which is the whole point of stepping it: an administrator reading the page can see
+        // what a reviewer would be offered without becoming one.
+        it('should open the demo as an administrator, who may write', () => {
+            // when
+            renderWithAuth(<ContentItemSettingsPanelDoc />);
+
+            // then
+            expect(screen.getByRole('button', { name: 'Modify' })).toBeInTheDocument();
+
+            expect(screen.getByRole('button', { name: 'Remove Override' }))
+                .toBeInTheDocument();
+        });
+
+        it('should offer no write once the demo steps into a reviewer', async () => {
+            // given: the page opens on the administrator persona
+            renderWithAuth(<ContentItemSettingsPanelDoc />);
+
+            // when
+            await userEvent.click(screen.getByRole('radio', { name: 'I am a reviewer' }));
+
+            // then: the settings still read, and nothing is offered to write them
+            expect(document.querySelector('.g2h-settings-ribbon')).not.toBeNull();
+
+            expect(screen.queryByRole('button', { name: 'Modify' })).not.toBeInTheDocument();
+
+            expect(screen.queryByRole('button', { name: 'Remove Override' }))
+                .not.toBeInTheDocument();
+        });
+
+        // A sanction outranks every grant (#366), so ReadOnly closes the writes on a caller who
+        // holds Administrators as well.
+        it('should offer no write to a sanctioned administrator', async () => {
+            // given
+            renderWithAuth(<ContentItemSettingsPanelDoc />);
+
+            // when
+            await userEvent.click(screen.getByRole('radio', {
+                name: 'I am an administrator holding ReadOnly (sanctioned)'
+            }));
+
+            // then
+            expect(screen.queryByRole('button', { name: 'Modify' })).not.toBeInTheDocument();
+        });
+
+        // The override stands somebody up in the DEMO only. The page around it — and the
+        // reader's own session — is untouched, which is what makes stepping personas safe.
+        it('should leave the reader’s own session untouched while stepping personas',
+            async () => {
+                // given: the reader is a signed-in administrator
+                renderWithAuth(<ContentItemSettingsPanelDoc />);
+
+                // when: the demo steps into somebody with no administrator grant
+                await userEvent.click(screen.getByRole('radio', { name: 'I am a reviewer' }));
+
+                // then: the page itself still renders for its real, still-administrator reader
+                expect(screen.getByRole(
+                    'heading', { name: 'Content Item Settings Panel', level: 1 }))
+                    .toBeInTheDocument();
+
+                // and stepping back restores what the real administrator may do
+                await userEvent.click(
+                    screen.getByRole('radio', { name: 'I am an administrator' }));
+
+                expect(screen.getByRole('button', { name: 'Modify' })).toBeInTheDocument();
+            });
     });
 });

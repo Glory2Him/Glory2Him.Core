@@ -378,32 +378,10 @@ section.g2h-content-item-list-panel {
 /* ── Approval-status corner ribbon ────────────────────────────────────────── */
 
 /* THE COLOUR LIVES HERE AND NOWHERE ELSE, keyed by data-approval-status carrying the enum
-   member NAME — the same contract the type chip's palette keeps. The strip is a rotated band
-   pinned across the card's top-right corner; the host clips it to the corner triangle, which
-   is why opting in also puts g2h-has-approval-ribbon on the host. pointer-events off: the
-   ribbon announces, it never intercepts the controls beneath it. */
-.g2h-has-approval-ribbon {
-    position: relative;
-    overflow: hidden;
-}
-
-.g2h-approval-ribbon {
-    position: absolute;
-    top: 1.1rem;
-    right: -2.6rem;
-    z-index: 3;
-    width: 9.5rem;
-    transform: rotate(45deg);
-    padding: 0.3rem 0;
-    text-align: center;
-    font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: #fff;
-    box-shadow: 0 0.125rem 0.375rem rgba(0, 0, 0, 0.3);
-    pointer-events: none;
-}
+   member NAME — the same contract the type chip's palette keeps. The SHAPE lives in coreUI.css
+   as .g2h-corner-ribbon / .g2h-has-corner-ribbon, which every ribbon in the app shares; a card
+   opting in wears both classes, the shared one for the geometry and the approval one for what
+   the strip is announcing. */
 
 .g2h-approval-ribbon[data-approval-status="Draft"] {
     background-color: #6c757d;
