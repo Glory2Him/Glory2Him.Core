@@ -13,6 +13,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 using Moq;
@@ -35,7 +36,20 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItemSettings
             ContentItem storageContentItem =
                 CreateContentItemOfType(contentItemId, ActualContentType);
 
-            ContentItemSetting expectedContentItemSetting = inputContentItemSetting;
+            // a DISTINCT instance, so the assertion proves the return value came back from the
+            // foundation rather than being the object the test handed in
+            ContentItemSetting expectedContentItemSetting = new ContentItemSetting
+            {
+                Id = inputContentItemSetting.Id,
+                ContentItemId = contentItemId,
+                ContentType = ActualContentType,
+            };
+
+            // SNAPSHOTTED WHILE THE CALL IS HAPPENING. Moq evaluates It.Is<> at Verify time
+            // against the captured reference, so a derivation moved to AFTER this call — which
+            // restores the whole vulnerability — would still satisfy a matcher. Reading the value
+            // in a callback is the only way the ORDER is pinned.
+            ContentType contentTypeAtCallTime = default;
 
             this.contentItemServiceMock.Setup(service =>
                 service.RetrieveContentItemByIdAsync(contentItemId, It.IsAny<CancellationToken>()))
@@ -45,6 +59,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItemSettings
                 service.AddContentItemSettingAsync(
                     It.IsAny<ContentItemSetting>(),
                     It.IsAny<CancellationToken>()))
+                        .Callback<ContentItemSetting, CancellationToken>(
+                            (setting, _) => contentTypeAtCallTime = setting.ContentType)
                         .ReturnsAsync(expectedContentItemSetting);
 
             // when
@@ -54,18 +70,20 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItemSettings
                     TestContext.Current.CancellationToken);
 
             // then
+            // the row the foundation was handed ALREADY carried the item's type when it was
+            // handed over — this is the assertion a reordered derivation cannot pass
+            contentTypeAtCallTime.Should().Be(ActualContentType);
+            contentTypeAtCallTime.Should().NotBe(CallerClaimedContentType);
+
             actualContentItemSetting.Should().BeSameAs(expectedContentItemSetting);
 
             this.contentItemServiceMock.Verify(service =>
                 service.RetrieveContentItemByIdAsync(contentItemId, It.IsAny<CancellationToken>()),
                 Times.Once);
 
-            // the row the foundation was handed carries the ITEM's type, not the caller's
             this.contentItemSettingServiceMock.Verify(service =>
                 service.AddContentItemSettingAsync(
-                    It.Is<ContentItemSetting>(setting =>
-                        setting.ContentType == ActualContentType
-                            && setting.ContentItemId == contentItemId),
+                    It.Is<ContentItemSetting>(setting => setting.ContentItemId == contentItemId),
                     It.IsAny<CancellationToken>()),
                 Times.Once);
 
@@ -84,12 +102,23 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItemSettings
             ContentItemSetting randomContentItemSetting = CreateRandomContentItemSetting();
             randomContentItemSetting.ContentItemId = null;
             ContentItemSetting inputContentItemSetting = randomContentItemSetting;
-            ContentItemSetting expectedContentItemSetting = inputContentItemSetting;
+
+            // distinct instance, so BeSameAs proves the foundation's answer was returned rather
+            // than the argument echoed back
+            ContentItemSetting expectedContentItemSetting = new ContentItemSetting
+            {
+                Id = inputContentItemSetting.Id,
+                ContentType = CallerClaimedContentType,
+            };
+
+            ContentType contentTypeAtCallTime = default;
 
             this.contentItemSettingServiceMock.Setup(service =>
                 service.AddContentItemSettingAsync(
                     inputContentItemSetting,
                     It.IsAny<CancellationToken>()))
+                        .Callback<ContentItemSetting, CancellationToken>(
+                            (setting, _) => contentTypeAtCallTime = setting.ContentType)
                         .ReturnsAsync(expectedContentItemSetting);
 
             // when
@@ -100,7 +129,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItemSettings
 
             // then
             actualContentItemSetting.Should().BeSameAs(expectedContentItemSetting);
-            actualContentItemSetting.ContentType.Should().Be(CallerClaimedContentType);
+
+            // the caller's own type reached the foundation untouched — read at call time, so a
+            // stray overwrite after the fact could not hide behind the captured reference
+            contentTypeAtCallTime.Should().Be(CallerClaimedContentType);
 
             this.contentItemSettingServiceMock.Verify(service =>
                 service.AddContentItemSettingAsync(

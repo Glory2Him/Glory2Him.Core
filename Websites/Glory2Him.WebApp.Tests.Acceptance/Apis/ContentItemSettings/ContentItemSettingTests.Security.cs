@@ -146,6 +146,47 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
             }
         }
 
+        /// <summary>
+        /// THE ROLE GATE ITSELF, over HTTP. Its sibling above stops at §16.6 — a caller who cannot
+        /// see the item is refused before any role is read — which is correct but leaves the narrow
+        /// tier's own refusal unproven end to end. Here the caller OWNS the item, so §16.6 lets them
+        /// read it, the derivation runs and sets the row's type to the item's, and what turns them
+        /// away is the tier: they publish quotes and this is a devotional.
+        /// </summary>
+        [Fact]
+        public async Task ShouldRefuseNarrowPublisherAnOverrideOnAnItemTheyOwnOfAnotherContentTypeAsync()
+        {
+            // given: the caller creates the item, so they can see it
+            string callerId = Guid.NewGuid().ToString();
+
+            this.apiBroker.ActAs(
+                callerId,
+                Roles.PublishersFor(EntityType.ContentItem, OtherPublisherTierContentType));
+
+            ContentItem ownedContentItem = null;
+
+            try
+            {
+                ownedContentItem = await PostRandomContentItemOfTypeAsync(PublisherTierContentType);
+
+                ContentItemSetting randomContentItemSetting = CreateRandomContentItemSetting();
+                randomContentItemSetting.ContentType = OtherPublisherTierContentType;
+                randomContentItemSetting.ContentItemId = ownedContentItem.Id;
+
+                // when
+                var postTask = this.apiBroker
+                    .PostContentItemSettingAsync(randomContentItemSetting).AsTask();
+
+                // then: not a 400 — the item resolved. The derivation rewrote the row's type to the
+                // item's, and the tier check refused it.
+                await Assert.ThrowsAsync<HttpResponseUnauthorizedException>(() => postTask);
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+            }
+        }
+
         [Theory]
         [MemberData(nameof(PublisherTierRoles))]
         public async Task ShouldRefusePublisherTierAPerTypeDefaultAsync(string roleName)

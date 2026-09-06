@@ -95,9 +95,45 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItemSettings
                 new Glory2Him.Core.Models.Foundations.ContentItemSettings.Exceptions
                     .ContentItemSettingDependencyException(
                         message: randomMessage, innerException: innerException),
+            };
+        }
 
+        // A SERVICE failure is its own category and answers 500. It sat in the dependency theory
+        // above until review pointed out that routing it to the dependency wrapper had quietly
+        // moved every endpoint from 500 to 424.
+        public static TheoryData<Xeption> ContentItemSettingServiceExceptions()
+        {
+            string randomMessage = GetRandomString();
+            var innerException = new Xeption(message: randomMessage);
+
+            return new TheoryData<Xeption>
+            {
                 new Glory2Him.Core.Models.Foundations.ContentItemSettings.Exceptions
                     .ContentItemSettingServiceException(
+                        message: randomMessage, innerException: innerException),
+            };
+        }
+
+        // THE OTHER FOUNDATION'S failures — raised while the content type is being derived. These
+        // are what the `catch (Xeption)` clause exists for: a store that could not answer is a
+        // dependency problem, not a bug in this service.
+        public static TheoryData<Xeption> ContentItemDownstreamExceptions()
+        {
+            string randomMessage = GetRandomString();
+            var innerException = new Xeption(message: randomMessage);
+
+            return new TheoryData<Xeption>
+            {
+                new Glory2Him.Core.Models.Foundations.ContentItems.Exceptions
+                    .ContentItemDependencyException(
+                        message: randomMessage, innerException: innerException),
+
+                new Glory2Him.Core.Models.Foundations.ContentItems.Exceptions
+                    .ContentItemDependencyValidationException(
+                        message: randomMessage, innerException: innerException),
+
+                new Glory2Him.Core.Models.Foundations.ContentItems.Exceptions
+                    .ContentItemServiceException(
                         message: randomMessage, innerException: innerException),
             };
         }

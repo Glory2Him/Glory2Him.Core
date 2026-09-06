@@ -94,6 +94,12 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
         // The content type is chosen by the CALLER of this helper, because the derivation makes
         // the item's type the row's type: a test that wants a Devotional override must stand a
         // Devotional up first.
+        // THE ITEM IS LEFT BEHIND, deliberately. There is no core-level hard remover for a content
+        // item — only the HTTP soft delete — and soft-deleting one under a live override would
+        // change what the override points at rather than tidy up after it. It is safe here because
+        // the suite runs against a per-run catalogue (#302) and no content item assertion counts
+        // rows: ShouldGetAllContentItemsAsync matches each expected item with .Single() rather than
+        // asserting a total. A future count-based assertion would need this revisited.
         private async ValueTask<ContentItem> PostRandomContentItemOfTypeAsync(ContentType contentType)
         {
             ContentItem randomContentItem = CreateRandomContentItemFiller(contentType).Create();
@@ -235,8 +241,12 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
                 // is keyed on ContentItemId instead, and a fresh Guid per row never collides —
                 // an unlimited supply, unlike the content types.
                 //
-                // ContentItemId carries no foreign key, so these ids name no real content item.
-                // That is the schema's choice rather than this suite's convenience.
+                // THE ID THIS MINTS NAMES NOTHING, and every test that POSTS overwrites it with a
+                // real item's id via CreateRandomOverrideSettingAsync. Since #450 the orchestration
+                // derives an override's ContentType by READING the item, so a fabricated id is
+                // refused — this placeholder survives only for the arrangements that never reach
+                // the API (rows seeded straight through the storage broker) and for keeping each
+                // drawn row in its own override scope.
                 .OnProperty(contentItemSetting => contentItemSetting.ContentType)
                     .Use(new Func<ContentType>(GetUnusedContentType))
                 .OnProperty(contentItemSetting => contentItemSetting.ContentItemId)

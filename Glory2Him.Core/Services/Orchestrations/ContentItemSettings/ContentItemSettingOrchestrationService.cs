@@ -16,7 +16,6 @@ using System.Threading.Tasks;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings;
-using Glory2Him.Core.Models.Orchestrations.ContentItemSettings.Exceptions;
 using Glory2Him.Core.Services.Foundations.ContentItems;
 using Glory2Him.Core.Services.Foundations.ContentItemSettings;
 
@@ -142,35 +141,5 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItemSettings
                     contentItemSettingId,
                     cancellationToken));
 
-        // The item's own service answers whether it exists and whether this caller may see it
-        // (§16.6), so the read carries the visibility posture rather than reinventing it. Its
-        // not-found has already been logged there; to this flow the endpoint simply did not
-        // resolve, and the caller is told that and not which of the two reasons applied.
-        private async ValueTask<ContentItem> ResolveContentItemAsync(
-            Guid contentItemId,
-            CancellationToken cancellationToken)
-        {
-            try
-            {
-                return await this.contentItemService.RetrieveContentItemByIdAsync(
-                    contentItemId,
-                    cancellationToken);
-            }
-            catch (Exception contentItemException)
-                when (IsContentItemNotFound(contentItemException))
-            {
-                throw new NotFoundContentItemSettingOrchestrationException(
-                    message: $"The content item was not found with id: {contentItemId}.");
-            }
-        }
-
-        private static void ValidateContentItemSettingIsNotNull(ContentItemSetting contentItemSetting)
-        {
-            if (contentItemSetting is null)
-            {
-                throw new NullContentItemSettingOrchestrationException(
-                    message: "Content item setting is null.");
-            }
-        }
     }
 }

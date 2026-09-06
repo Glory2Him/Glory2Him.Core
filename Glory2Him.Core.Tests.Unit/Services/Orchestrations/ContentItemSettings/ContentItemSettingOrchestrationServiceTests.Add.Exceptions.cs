@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -172,5 +173,107 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItemSettings
             this.contentItemSettingServiceMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        // A SERVICE failure keeps its category and stays a 500. Routing it to the dependency
+        // wrapper silently answered 424 instead — caught in review, pinned here.
+        [Theory]
+        [MemberData(nameof(ContentItemSettingServiceExceptions))]
+        public async Task ShouldThrowServiceExceptionOnAddIfFoundationServiceErrorOccursAndLogItAsync(
+            Xeption foundationException)
+        {
+            // given
+            ContentItemSetting someContentItemSetting = CreateRandomContentItemSetting();
+            someContentItemSetting.ContentItemId = null;
+
+            var expectedException =
+                new ContentItemSettingOrchestrationServiceException(
+                    message: "Content item setting orchestration service error occurred, contact support.",
+                    innerException: foundationException);
+
+            this.contentItemSettingServiceMock.Setup(service =>
+                service.AddContentItemSettingAsync(
+                    It.IsAny<ContentItemSetting>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(foundationException);
+
+            // when
+            ValueTask<ContentItemSetting> addContentItemSettingTask =
+                this.contentItemSettingOrchestrationService.AddContentItemSettingAsync(
+                    someContentItemSetting,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemSettingOrchestrationServiceException actualException =
+                await Assert.ThrowsAsync<ContentItemSettingOrchestrationServiceException>(
+                    addContentItemSettingTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedException))),
+                Times.Once);
+
+            this.contentItemSettingServiceMock.Verify(service =>
+                service.AddContentItemSettingAsync(
+                    It.IsAny<ContentItemSetting>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.contentItemSettingServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // THE DERIVATION'S OWN READ CAN FAIL FOR REASONS THAT ARE NOT "NO SUCH ITEM". A store that
+        // cannot answer must stay a DEPENDENCY problem and reach the caller as 424 — before the
+        // `catch (Xeption)` clause existed these fell into the general handler and answered 500,
+        // carrying a foreign foundation's exception out through the wrapper.
+        [Theory]
+        [MemberData(nameof(ContentItemDownstreamExceptions))]
+        public async Task ShouldThrowDependencyExceptionOnAddIfResolvingTheContentItemFailsAndLogItAsync(
+            Xeption downstreamException)
+        {
+            // given
+            ContentItemSetting randomContentItemSetting = CreateRandomOverrideRequest();
+            ContentItemSetting inputContentItemSetting = randomContentItemSetting;
+            Guid contentItemId = inputContentItemSetting.ContentItemId.Value;
+
+            var expectedException =
+                new ContentItemSettingOrchestrationDependencyException(
+                    message: "Content item setting orchestration dependency error occurred, contact support.",
+                    innerException: (downstreamException.InnerException as Xeption)
+                        ?? downstreamException);
+
+            this.contentItemServiceMock.Setup(service =>
+                service.RetrieveContentItemByIdAsync(contentItemId, It.IsAny<CancellationToken>()))
+                    .ThrowsAsync(downstreamException);
+
+            // when
+            ValueTask<ContentItemSetting> addContentItemSettingTask =
+                this.contentItemSettingOrchestrationService.AddContentItemSettingAsync(
+                    inputContentItemSetting,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemSettingOrchestrationDependencyException actualException =
+                await Assert.ThrowsAsync<ContentItemSettingOrchestrationDependencyException>(
+                    addContentItemSettingTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedException);
+
+            this.contentItemServiceMock.Verify(service =>
+                service.RetrieveContentItemByIdAsync(contentItemId, It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedException))),
+                Times.Once);
+
+            // NOTHING WAS WRITTEN — the row never reached the settings foundation
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.contentItemSettingServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
     }
 }

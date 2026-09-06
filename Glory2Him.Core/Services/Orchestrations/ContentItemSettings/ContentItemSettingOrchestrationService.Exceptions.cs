@@ -85,10 +85,28 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItemSettings
                 throw await CreateAndLogDependencyExceptionAsync(
                     exception: contentItemSettingDependencyException);
             }
+            // A SERVICE failure stays a service failure. Routing this to the dependency wrapper
+            // moved every endpoint from 500 to 424 — the opposite of the invariant stated above.
             catch (ContentItemSettingServiceException contentItemSettingServiceException)
             {
-                throw await CreateAndLogDependencyExceptionAsync(
+                throw await CreateAndLogServiceExceptionAsync(
                     exception: contentItemSettingServiceException);
+            }
+
+            // ANY OTHER DOWNSTREAM FOUNDATION EXCEPTION — in practice the ContentItem service's
+            // dependency and service failures while the content type is being derived. Its
+            // validation failures are already turned into a not-found at the resolution site, so
+            // what reaches here is a store that could not answer. Categorised as a dependency
+            // issue and never re-surfaced as its own entity type, which is the clause
+            // AssociationOrchestrationService carries for exactly this case.
+            //
+            // Without it a SQL failure on the item read fell into the general handler below and
+            // answered 500 rather than 424 — and the comment above promising a dependency
+            // validation exception "must keep its category" was not true of anything.
+            catch (Xeption downstreamException)
+            {
+                throw await CreateAndLogDependencyExceptionAsync(
+                    exception: downstreamException);
             }
             catch (Exception exception)
             {
@@ -134,16 +152,9 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItemSettings
             {
                 throw;
             }
-            catch (ContentItemSettingValidationException contentItemSettingValidationException)
-            {
-                throw await CreateAndLogValidationExceptionAsync(
-                    exception: contentItemSettingValidationException);
-            }
-            catch (ContentItemSettingDependencyValidationException contentItemSettingDependencyValidationException)
-            {
-                throw await CreateAndLogDependencyValidationExceptionAsync(
-                    exception: contentItemSettingDependencyValidationException);
-            }
+            // The collection read cannot fail validation — it takes no arguments to validate — so
+            // the two validation clauses that once stood here were unreachable and are gone. What
+            // it can do is fail to reach the store.
             catch (ContentItemSettingDependencyException contentItemSettingDependencyException)
             {
                 throw await CreateAndLogDependencyExceptionAsync(
@@ -151,8 +162,13 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItemSettings
             }
             catch (ContentItemSettingServiceException contentItemSettingServiceException)
             {
-                throw await CreateAndLogDependencyExceptionAsync(
+                throw await CreateAndLogServiceExceptionAsync(
                     exception: contentItemSettingServiceException);
+            }
+            catch (Xeption downstreamException)
+            {
+                throw await CreateAndLogDependencyExceptionAsync(
+                    exception: downstreamException);
             }
             catch (Exception exception)
             {
