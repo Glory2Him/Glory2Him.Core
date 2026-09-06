@@ -18,8 +18,9 @@ namespace Glory2Him.Core.Registrations
     {
         /// <summary>
         /// Registers the content item setting orchestration service with the container. The caller
-        /// is responsible for registering the two foundation services it coordinates — the content
-        /// item setting service and the content item service.
+        /// is responsible for registering everything it takes: the two foundation services it
+        /// coordinates — the content item setting service and the content item service — and
+        /// <c>ILoggingBroker</c>, which every exception path here writes through.
         /// </summary>
         public static IServiceCollection AddContentItemSettingOrchestrationService(
             this IServiceCollection services)
