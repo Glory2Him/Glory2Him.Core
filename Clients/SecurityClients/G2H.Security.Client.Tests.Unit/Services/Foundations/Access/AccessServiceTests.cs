@@ -73,12 +73,20 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
         private static RecordApprovalCommentRequest CreateRandomRecordApprovalCommentRequest(
             AccessActor? actor = null,
             ApprovalState approvalState = ApprovalState.Submitted,
-            bool isParentApprovalDeleted = false) =>
+            bool isParentApprovalDeleted = false,
+            bool isAsk = false,
+            bool isSettled = false) =>
             new RecordApprovalCommentRequest
             {
                 Actor = actor ?? CreateRandomAccessActor(),
                 ApprovalState = approvalState,
                 IsParentApprovalDeleted = isParentApprovalDeleted,
+
+                // A REMARK BORN OUTSTANDING by default: the one pairing that is refused is an ask
+                // born settled, so the default must not be it, or every unrelated test would be
+                // asserting against a refusal it never asked for.
+                IsAsk = isAsk,
+                IsSettled = isSettled,
             };
 
         private static AmendApprovalCommentRequest CreateRandomAmendApprovalCommentRequest(

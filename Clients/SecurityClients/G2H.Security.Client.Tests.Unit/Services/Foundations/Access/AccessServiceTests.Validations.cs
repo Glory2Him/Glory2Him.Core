@@ -556,6 +556,8 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 Actor = null!,
                 ApprovalState = ApprovalState.Submitted,
                 IsParentApprovalDeleted = false,
+                IsAsk = false,
+                IsSettled = false,
             };
 
             var invalidArgumentAccessException = new InvalidArgumentAccessException(

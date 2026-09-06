@@ -116,6 +116,84 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             actualVerdict.DenialReason.Should().Be(AccessDenialReason.None);
         }
 
+        /// <summary>
+        /// AN ASK MAY NOT BE BORN SETTLED. Creating a resolved question IS resolving one, a moment
+        /// earlier and through a gate that never asks who may resolve — so without this any caller
+        /// could file a question that holds nothing shut and walk past
+        /// <c>RequireReviewCommentResolutionBeforeApprovals</c> without answering to the publisher
+        /// tier the resolve operation gates on (§14.7 rule 5).
+        /// </summary>
+        [Fact]
+        public async Task ShouldRefuseRecordingAnAskThatIsAlreadySettledAsync()
+        {
+            // given
+            RecordApprovalCommentRequest recordApprovalCommentRequest =
+                CreateRandomRecordApprovalCommentRequest(isAsk: true, isSettled: true);
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayRecordApprovalCommentAsync(recordApprovalCommentRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeFalse();
+
+            actualVerdict.DenialReason.Should()
+                .Be(AccessDenialReason.SettledAskNotPermitted);
+        }
+
+        /// <summary>
+        /// The other three pairings stand. §7.8 rule 1's reasoning is preserved exactly where it
+        /// still applies: a REMARK may be born either way, because refusing an outstanding one
+        /// would be the "impossible to leave a remark without holding the approval shut" outcome
+        /// that rule exists to prevent. And a remark born outstanding is fail-CLOSED — it blocks
+        /// where nothing had to, which grants nobody anything.
+        /// </summary>
+        [Theory]
+        [InlineData(false, false)]
+        [InlineData(false, true)]
+        [InlineData(true, false)]
+        public async Task ShouldPermitEveryOtherBirthPairingAsync(bool isAsk, bool isSettled)
+        {
+            // given
+            RecordApprovalCommentRequest recordApprovalCommentRequest =
+                CreateRandomRecordApprovalCommentRequest(isAsk: isAsk, isSettled: isSettled);
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayRecordApprovalCommentAsync(recordApprovalCommentRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeTrue();
+            actualVerdict.DenialReason.Should().Be(AccessDenialReason.None);
+        }
+
+        /// <summary>
+        /// The pairing is asked LAST, after the actor and the round. A caller who may not comment
+        /// at all must not learn anything about the thread from the shape of their own payload —
+        /// and a closed round refuses every comment, settled ask included, for the closed-round
+        /// reason (§14.5).
+        /// </summary>
+        [Fact]
+        public async Task ShouldReportTheClosedRoundRatherThanTheSettledAskAsync()
+        {
+            // given
+            RecordApprovalCommentRequest recordApprovalCommentRequest =
+                CreateRandomRecordApprovalCommentRequest(
+                approvalState: ApprovalState.Approved,
+                isAsk: true,
+                isSettled: true);
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayRecordApprovalCommentAsync(recordApprovalCommentRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeFalse();
+
+            actualVerdict.DenialReason.Should()
+                .Be(AccessDenialReason.ApprovalNotOpenForComment);
+        }
+
         [Fact]
         public async Task ShouldRefuseAmendingACommentWhenTheActorIsNotAuthenticatedAsync()
         {

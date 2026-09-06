@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -93,6 +93,8 @@ namespace Glory2Him.Core.Brokers.Securities
         // single-entity — which is the whole reason these live here rather than there.
         public async ValueTask<AccessVerdict> MayRecordApprovalCommentAsync(
             Guid approvalId,
+            ApprovalCommentType commentType,
+            bool isResolved,
             SecurityContext securityContext,
             CancellationToken cancellationToken = default)
         {
@@ -113,6 +115,13 @@ namespace Glory2Him.Core.Brokers.Securities
                     Actor = actor,
                     ApprovalState = ToApprovalState(maybeApproval.ApprovalStatus),
                     IsParentApprovalDeleted = maybeApproval.IsDeleted,
+
+                    // The two halves of the birth pairing, passed through rather than decided
+                    // here: this broker gathers, IAccessClient rules (§8.6.1). Translated to the
+                    // client's own vocabulary — it takes no dependency on Core's enums, which is
+                    // why the reference runs one way only.
+                    IsAsk = commentType == ApprovalCommentType.Question,
+                    IsSettled = isResolved,
                 });
         }
 

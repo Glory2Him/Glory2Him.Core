@@ -43,6 +43,8 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             // when
             await this.accessBroker.MayRecordApprovalCommentAsync(
                 approval.Id,
+                ApprovalCommentType.Comment,
+                isResolved: false,
                 securityContext,
                 TestContext.Current.CancellationToken);
 
@@ -86,6 +88,8 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             // when
             await this.accessBroker.MayRecordApprovalCommentAsync(
                 approval.Id,
+                ApprovalCommentType.Comment,
+                isResolved: false,
                 securityContext,
                 TestContext.Current.CancellationToken);
 
@@ -166,6 +170,8 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             // when
             AccessVerdict actualVerdict = await this.accessBroker.MayRecordApprovalCommentAsync(
                 approvalId,
+                ApprovalCommentType.Comment,
+                isResolved: false,
                 securityContext,
                 TestContext.Current.CancellationToken);
 

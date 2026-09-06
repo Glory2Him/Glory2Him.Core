@@ -139,6 +139,8 @@ namespace G2H.Security.Client.Tests.Unit.Clients.Access
                 Actor = CreateRandomAccessActor(),
                 ApprovalState = ApprovalState.Submitted,
                 IsParentApprovalDeleted = false,
+                IsAsk = false,
+                IsSettled = false,
             };
 
         private static AmendApprovalCommentRequest CreateRandomAmendApprovalCommentRequest() =>

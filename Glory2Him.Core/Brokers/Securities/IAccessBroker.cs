@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -175,8 +175,16 @@ namespace Glory2Him.Core.Brokers.Securities
             Models.Events.SecurityContext securityContext,
             CancellationToken cancellationToken = default);
 
+        /// <param name="commentType">
+        /// What the comment being created IS. With <paramref name="isResolved"/> it forms the
+        /// birth pairing the decision function rules on: an ask may not be born settled, because
+        /// creating one that way IS resolving it, through a gate that never asks who may resolve.
+        /// </param>
+        /// <param name="isResolved">The resolution the caller is asking to be born with.</param>
         ValueTask<AccessVerdict> MayRecordApprovalCommentAsync(
             Guid approvalId,
+            Models.Enums.ApprovalCommentType commentType,
+            bool isResolved,
             Models.Events.SecurityContext securityContext,
             CancellationToken cancellationToken = default);
 

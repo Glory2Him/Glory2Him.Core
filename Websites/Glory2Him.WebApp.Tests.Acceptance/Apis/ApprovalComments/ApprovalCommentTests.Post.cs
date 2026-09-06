@@ -99,6 +99,49 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalComments
         }
 
         /// <summary>
+        /// AN ASK MAY NOT BE BORN SETTLED, end to end. Creating a resolved question is resolving
+        /// one through a path that never asks who may resolve, so the access gate refuses it —
+        /// which is what stops the type-to-resolution pairing being a rule only the React client
+        /// happens to keep.
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnUnauthorizedOnPostIfAQuestionIsAlreadyResolvedAsync()
+        {
+            // given
+            Approval randomApproval =
+                await this.apiBroker.InsertOpenApprovalAsync(Guid.NewGuid().ToString());
+
+            ApprovalComment settledAsk = CreateRandomApprovalComment(randomApproval.Id);
+            settledAsk.CommentType = ApprovalCommentType.Question;
+            settledAsk.IsResolved = true;
+
+            try
+            {
+                // when
+                var postApprovalCommentTask =
+                    this.apiBroker.PostApprovalCommentAsync(settledAsk).AsTask();
+
+                // then
+                await Assert.ThrowsAsync<HttpResponseUnauthorizedException>(
+                    () => postApprovalCommentTask);
+
+                // and nothing was written — a refused post must leave no row behind
+                var getApprovalCommentTask =
+                    this.apiBroker.GetApprovalCommentByIdAsync(settledAsk.Id).AsTask();
+
+                await Assert.ThrowsAsync<HttpResponseNotFoundException>(
+                    () => getApprovalCommentTask);
+            }
+            finally
+            {
+                // The comment is removed too, unconditionally: if the rule regressed the row DID
+                // land, and leaving it would strand it behind the approval's foreign key.
+                await this.apiBroker.RemoveCoreApprovalCommentByIdAsync(settledAsk.Id);
+                await this.apiBroker.RemoveApprovalByIdAsync(randomApproval.Id);
+            }
+        }
+
+        /// <summary>
         /// The parent round is not decoration. A comment aimed at an approval that does not
         /// exist is refused at the access gate rather than left to the foreign key, so the
         /// caller gets an authorization answer and no row is written (§7.7 rule 1).

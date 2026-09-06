@@ -86,11 +86,15 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
         // the ownership question needs no cross-entity read at all.
         private async ValueTask ValidateUserMayRecordApprovalCommentAsync(
             Guid approvalId,
+            ApprovalCommentType commentType,
+            bool isResolved,
             SecurityContext securityContext,
             CancellationToken cancellationToken)
         {
             AccessVerdict verdict = await this.accessBroker.MayRecordApprovalCommentAsync(
                 approvalId: approvalId,
+                commentType: commentType,
+                isResolved: isResolved,
                 securityContext: securityContext,
                 cancellationToken: cancellationToken);
 

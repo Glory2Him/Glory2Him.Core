@@ -80,6 +80,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
             this.accessBrokerMock.Verify(broker =>
                 broker.MayRecordApprovalCommentAsync(
                     randomApprovalComment.ApprovalId,
+                    randomApprovalComment.CommentType,
+                    randomApprovalComment.IsResolved,
                     It.IsAny<SecurityContext>(),
                     It.IsAny<CancellationToken>()),
                         Times.Once);

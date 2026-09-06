@@ -179,5 +179,23 @@ namespace G2H.Security.Client.Models.Foundations.Access
         /// this reason (design 14.5 rule 1).</para>
         /// </summary>
         SubjectUnavailable = 22,
+
+        /// <summary>
+        /// An <b>ask</b> was submitted already settled — a comment created as a question with
+        /// its resolution flag true.
+        ///
+        /// <para>Creating a settled question is the same act as resolving one, done a moment
+        /// earlier and through a gate that never asks who may resolve. A caller doing it produces
+        /// a question that holds nothing shut, which defeats
+        /// <c>RequireReviewCommentResolutionBeforeApprovals</c> without ever touching the
+        /// operation that owns the flag (§14.7 rule 5). This reason exists so the add path can
+        /// refuse it rather than the client being trusted to pair the two fields correctly.</para>
+        ///
+        /// <para>The opposite pairing — a <i>remark</i> submitted outstanding — is permitted, and
+        /// the asymmetry is deliberate. It creates a block where none was needed, which is
+        /// fail-CLOSED: it costs the round a resolution nobody had to give, and it grants
+        /// nothing. Only the direction that silently un-gates an approval is refused.</para>
+        /// </summary>
+        SettledAskNotPermitted = 23,
     }
 }

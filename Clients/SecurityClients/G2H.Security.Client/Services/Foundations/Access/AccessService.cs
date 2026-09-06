@@ -139,6 +139,29 @@ namespace G2H.Security.Client.Services.Foundations.Access
                     "The parent approval is not open for comment — it is either not yet submitted, or its round has closed.");
             }
 
+            // AN ASK IS BORN OUTSTANDING, and this is the gate that says so.
+            //
+            // §7.8 rule 1 leaves IsResolved unconstrained on the add path, and the reasoning it
+            // gives is precise: pinning it false at creation "would make it impossible to leave a
+            // remark without holding the approval shut". That was true while the add path could
+            // not tell a remark from an ask. ApprovalCommentType is exactly that missing fact, so
+            // the objection no longer holds and the field can be ruled on for the first time.
+            //
+            // ONLY ONE OF THE FOUR PAIRINGS IS REFUSED, and it is the one that un-gates an
+            // approval. Creating a settled ask IS resolving one — done a moment earlier, through
+            // a gate that never asks who may resolve — so it hands any caller a way past
+            // RequireReviewCommentResolutionBeforeApprovals without touching the operation that
+            // owns the flag (§14.7 rule 5) or answering to its publisher tier. A remark born
+            // outstanding is left alone: it blocks where nothing had to, which costs the round a
+            // resolution and grants nobody anything.
+            if (request.IsAsk && request.IsSettled)
+            {
+                return Refuse(
+                    AccessDenialReason.SettledAskNotPermitted,
+                    "A question may not be created already resolved — settling one is the resolve "
+                        + "operation's to grant, and it answers to a tier this gate does not ask about.");
+            }
+
             return Permit("Actor may add a comment to an open approval.");
         }
 
