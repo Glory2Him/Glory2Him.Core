@@ -144,6 +144,7 @@ describe('navMenuProvider.getSamplePagesSection', () => {
             'Tag Association Panel',
             'Bible Reference Association Panel',
             'Review Panel',
+            'Review Comment Panel',
 
             // The ContentItemPanel family, in TREE ORDER — parent before children, so
             // the sidebar reads the composition root-down.
@@ -174,6 +175,7 @@ describe('navMenuProvider.getSamplePagesSection', () => {
             'SamplePages/Components/Tag-Association-Panel',
             'SamplePages/Components/Bible-Reference-Association-Panel',
             'SamplePages/Components/Review-Panel',
+            'SamplePages/Components/Review-Comment-Panel',
             'SamplePages/Components/Content-Item-List-Panel',
             'SamplePages/Components/Content-Item-Search-Bar-Panel',
             'SamplePages/Components/Content-Item-Results-Panel',

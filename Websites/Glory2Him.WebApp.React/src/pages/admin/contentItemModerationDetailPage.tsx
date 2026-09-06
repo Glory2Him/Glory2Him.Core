@@ -6,7 +6,17 @@ import { Button } from '../../components/coreUI/button';
 import { ContentItemPanel } from '../../components/contentItems/contentItemPanel';
 import { ContentItemEditPanel } from '../../components/contentItems/contentItemEditPanel';
 import { ReviewPanel } from '../../components/approvals/reviewPanel';
+import { ReviewCommentPanel } from '../../components/approvals/reviewCommentPanel';
 import { ConfirmDialog } from '../../components/coreUI/confirmDialog';
+
+import {
+    ReviewCommentDraft,
+    ReviewCommentItem
+} from '../../models/components/approvals/reviewCommentItem';
+
+import {
+    approvalCommentService
+} from '../../services/foundations/approvalCommentService';
 
 import {
     ContentItemSettingsPanel
@@ -261,7 +271,15 @@ export const ContentItemModerationDetailPage = () => {
         approvalReviews,
         requestedReviewerCollection,
         reviewerCandidateCollection,
-        isLoading: isRoundLoading
+        isLoading: isRoundLoading,
+
+        // The thread, on the same chain: a comment names the approval it hangs off and nothing
+        // about the post being judged, so it waits on the verdict's id like the reviews do. The
+        // RAW rows ride along beside the projection because an amend is a PUT of the row that
+        // was read — the foundation pins four fields against storage.
+        reviewCommentCollection,
+        reviewComments,
+        areReviewCommentsLoading
     } = useApprovalRound(EntityTypeName.ContentItem, contentItemId);
 
     // ── THE WRITES, events in, requests out. ──────────────────────────────────────
@@ -376,6 +394,93 @@ export const ContentItemModerationDetailPage = () => {
         }
     };
 
+    // ── THE REVIEW THREAD ─────────────────────────────────────────────────────────
+    //
+    // The conversation the round is actually made of. The panel decides nothing beyond what its
+    // own gates render — the foundation re-decides every write against the stored row (§14.6) —
+    // and every write here invalidates the thread AND the verdict, because an outstanding
+    // comment is one of the block reasons ReviewPanel prints in the column beside it.
+    const addReviewComment = approvalCommentService.useAddApprovalComment();
+    const modifyReviewComment = approvalCommentService.useModifyApprovalComment();
+    const removeReviewComment = approvalCommentService.useRemoveApprovalComment();
+    const resolveReviewComment = approvalCommentService.useResolveApprovalComment();
+
+    // WITHDRAWING A COMMENT CANNOT BE UNDONE from any surface the site offers, so it is confirmed
+    // before it is sent. The row is held here between the click and the answer — the panel raises
+    // which row it means, and this page is what asks.
+    const [commentToRemove, setCommentToRemove] = useState<ReviewCommentItem | null>(null);
+
+    const saveReviewCommentAsync = async (draft: ReviewCommentDraft) => {
+        try {
+            await addReviewComment.mutateAsync(draft);
+        } catch (error) {
+            toastError(extractApiErrorMessage(
+                error, 'Your comment could not be saved. Please try again.'));
+        }
+    };
+
+    // THE STORED ROW is what goes back, with only the edited fields moved onto it. The projection
+    // the panel renders carries no audit values, and the foundation compares CreatedBy,
+    // CreatedWhen, ApprovalId and UpdatedWhen against storage before it accepts the write — so a
+    // PUT composed from the projection alone would be refused.
+    const modifyReviewCommentAsync = async (item: ReviewCommentItem) => {
+        const storedComment = reviewComments.find(
+            (reviewComment) => reviewComment.id === item.id);
+
+        if (storedComment == null) {
+            return;
+        }
+
+        try {
+            await modifyReviewComment.mutateAsync({
+                ...storedComment,
+                comment: item.comment,
+                commentType: item.commentType
+            });
+        } catch (error) {
+            toastError(extractApiErrorMessage(
+                error, 'Your comment could not be saved. Please try again.'));
+        }
+    };
+
+    // SOFT removal, never the hard one: the words stop being part of the conversation and the
+    // record of them stays. It also LEAVES THE BLOCK — §8.5 counts comments where IsDeleted is
+    // false && IsResolved is false — so withdrawing an outstanding question unblocks the round,
+    // which is why the verdict is re-read with it.
+    const removeReviewCommentAsync = async () => {
+        if (commentToRemove == null) {
+            return;
+        }
+
+        try {
+            await removeReviewComment.mutateAsync({
+                approvalCommentId: commentToRemove.id,
+                deletionReason: 'Withdrawn by the author'
+            });
+        } catch (error) {
+            toastError(extractApiErrorMessage(
+                error, 'This comment could not be removed. Please try again.'));
+        } finally {
+            setCommentToRemove(null);
+        }
+    };
+
+    // Both directions ride one call: a comment settled prematurely must be able to block again
+    // (§14.7 rule 5), and the flag is always sent because the endpoint binds it [BindRequired].
+    const resolveReviewCommentAsync = async (
+        item: ReviewCommentItem,
+        isResolved: boolean) => {
+        try {
+            await resolveReviewComment.mutateAsync({
+                approvalCommentId: item.id,
+                isResolved
+            });
+        } catch (error) {
+            toastError(extractApiErrorMessage(
+                error, 'This comment could not be updated. Please try again.'));
+        }
+    };
+
     // The association WRITES arrive with #318; until then the boxes answer honestly rather than
     // silently dropping what a moderator typed. Same posture as /myposts/{id}.
     const suggestTag = () => toastSuccess('Suggesting tags is coming soon.');
@@ -482,6 +587,45 @@ export const ContentItemModerationDetailPage = () => {
                                 onAdd={suggestBibleReference}
                                 showBorder
                                 cssClass="mt-4" />
+
+                            {/* THE CONVERSATION, under the facts and in the same column as the
+                                thing being discussed. It belongs here rather than beside the
+                                round because a thread is about the SUBMISSION — its wording, its
+                                references, whether a claim checks out — and because the right
+                                column is a decision surface that must stay readable at a glance
+                                while a thread grows without limit.
+
+                                approvalId comes off the verdict, which is the only read that
+                                turns this post into the round its comments hang off. Absent —
+                                a post with no approval row, or a caller the verdict refused
+                                (§14.5 rule 1) — the panel says so instead of offering a box that
+                                cannot post.
+
+                                contentType is the enum MEMBER NAME, never the setting's editable
+                                ContentTypeName: it is what §18.6 composes
+                                ContentItem-{Type}-Publishers from, and a renamed type must not
+                                silently shed its role names.
+
+                                The DELETE confirmation is this page's, not the panel's — the
+                                panel raises which row the reader means and the page asks the
+                                question, the same split the settings override removal makes. */}
+                            <ReviewCommentPanel
+                                approvalId={approvalVerdict?.approvalId ?? ''}
+                                reviewComments={reviewCommentCollection}
+                                entityType="ContentItem"
+                                contentType={ContentType[contentItem.contentType] ?? ''}
+                                isLoading={areReviewCommentsLoading}
+                                isSubmitting={addReviewComment.isPending
+                                    || modifyReviewComment.isPending
+                                    || removeReviewComment.isPending
+                                    || resolveReviewComment.isPending}
+                                onSave={(draft) => void saveReviewCommentAsync(draft)}
+                                onModified={(item) => void modifyReviewCommentAsync(item)}
+                                onRemoveRequested={setCommentToRemove}
+                                onResolvedChanged={(item, isResolved) =>
+                                    void resolveReviewCommentAsync(item, isResolved)}
+                                showBorder
+                                cssClass="mt-4" />
                         </div>
 
                         <div className="col-lg-5">
@@ -545,6 +689,18 @@ export const ContentItemModerationDetailPage = () => {
                                 cssClass="mt-4" />
                         </div>
                     </div>
+
+                    {/* The default title is already "Are you sure?", which is the question this
+                        one has to ask. The message says what is lost rather than what happens:
+                        a soft delete is invisible to every caller afterwards, so "cannot be
+                        undone" is the honest description of it from here. */}
+                    <ConfirmDialog
+                        visible={commentToRemove != null}
+                        message={'This comment will be removed from the review thread. '
+                            + 'This action cannot be undone.'}
+                        confirmText="Delete"
+                        onConfirm={() => void removeReviewCommentAsync()}
+                        onCancel={() => setCommentToRemove(null)} />
 
                     <ConfirmDialog
                         visible={overrideToRemove != null}
