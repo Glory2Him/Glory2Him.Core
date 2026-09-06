@@ -55,12 +55,15 @@ const decidedWith = vi.fn();
 const requestedWith = vi.fn();
 const withdrawnWith = vi.fn();
 
+const refetchContentItemSpy = vi.fn();
+
 vi.mock('../../services/foundations/contentItemService', () => ({
     contentItemService: {
         useGetContentItemById: () => ({
             data: contentItem,
             isLoading: false,
-            isError: false
+            isError: false,
+            refetch: refetchContentItemSpy
         }),
 
         useModifyContentItem: () => ({
@@ -245,7 +248,7 @@ describe('ContentItemModerationDetailPage', () => {
 
         for (const refetch of [
             refetchVerdictSpy, refetchReviewsSpy, refetchCandidatesSpy,
-            refetchRequestsSpy, refetchDisplayNamesSpy
+            refetchRequestsSpy, refetchDisplayNamesSpy, refetchContentItemSpy
         ]) {
             refetch.mockReset();
             refetch.mockResolvedValue(undefined);
@@ -804,6 +807,19 @@ describe('ContentItemModerationDetailPage', () => {
     // round's five reads rather than leaving it unreferenced, which is exactly the state #350
     // found the panel in before this pass.
     describe('the freshness channel', () => {
+        // An OPEN round by somebody else, which is the only state where the panel carries live
+        // vote and decision controls — and therefore the only one where going stale costs
+        // anything.
+        const openRound = () => {
+            contentItem = {
+                ...draftQuote,
+                createdBy: 'another-user',
+                approvalStatus: ApprovalStatus.Submitted
+            };
+
+            approvalVerdict = submittedVerdict;
+        };
+
         beforeEach(() => {
             vi.useFakeTimers({ shouldAdvanceTime: true });
         });
@@ -812,22 +828,52 @@ describe('ContentItemModerationDetailPage', () => {
             vi.useRealTimers();
         });
 
-        it('re-fetches the whole round on an interval so an external change is seen unprompted',
+        it('re-fetches the round on an interval so an external change is seen unprompted',
             async () => {
                 // given
+                openRound();
                 renderPage();
 
                 // when
                 await vi.advanceTimersByTimeAsync(15 * 1000);
 
-                // then — every one of the round's five reads is asked again, not just the
-                // verdict: a vote cast elsewhere moves the reviews too, and a resolved comment
-                // moves the block reasons the verdict carries.
+                // then — not the verdict alone: a vote cast elsewhere moves the reviews, and a
+                // resolved comment moves the block reasons the verdict carries.
                 expect(refetchVerdictSpy).toHaveBeenCalled();
                 expect(refetchReviewsSpy).toHaveBeenCalled();
-                expect(refetchCandidatesSpy).toHaveBeenCalled();
                 expect(refetchRequestsSpy).toHaveBeenCalled();
                 expect(refetchDisplayNamesSpy).toHaveBeenCalled();
             });
+
+        // THE ITEM IS PART OF THE ROUND HERE. The panel's open-or-closed gates read the STORED
+        // item's approvalStatus, not the verdict's — so a decision landing elsewhere moves the
+        // item's row and nothing else. A poll that refreshed only the approval reads would
+        // repaint the votes while leaving the vote and decision controls live on a closed round.
+        it('re-fetches the item too, since the panel takes its open-or-closed status from it',
+            async () => {
+                // given
+                openRound();
+                renderPage();
+
+                // when
+                await vi.advanceTimersByTimeAsync(15 * 1000);
+
+                // then
+                expect(refetchContentItemSpy).toHaveBeenCalled();
+            });
+
+        // §7.9 leaves everybody listed whether or not they have answered, so no round event
+        // moves the candidates — and it is the most expensive of the reads.
+        it('leaves the reviewer candidates out of the poll', async () => {
+            // given
+            openRound();
+            renderPage();
+
+            // when
+            await vi.advanceTimersByTimeAsync(15 * 1000);
+
+            // then
+            expect(refetchCandidatesSpy).not.toHaveBeenCalled();
+        });
     });
 });

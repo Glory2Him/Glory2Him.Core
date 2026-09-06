@@ -48,7 +48,9 @@ export const useApprovalRound = (
         refetch: refetchReviews
     } = approvalService.useGetApprovalReviews(approvalId, enabled);
 
-    const { data: reviewerCandidates, refetch: refetchCandidates } =
+    // No refetch taken off this one: the candidate list cannot move on a round event, so the
+    // freshness channel deliberately leaves it out. See the note on refresh below.
+    const { data: reviewerCandidates } =
         approvalService.useGetReviewerCandidates(entityType, entityId, enabled);
 
     const { data: reviewRequests, refetch: refetchRequests } =
@@ -87,19 +89,44 @@ export const useApprovalRound = (
         || (approvalId.length > 0 && areReviewsLoading);
 
     // THE FRESHNESS CHANNEL'S OTHER HALF (design §20.6.1). This hook owns the round's reads, so
-    // it is also the one place that can re-run all five of them — a caller outside this file has
-    // no query keys to invalidate and no business knowing them. Every read's own refetch is
-    // used rather than a queryClient invalidation: it works whether or not a query is enabled,
-    // and it needs nothing from the caller but this function.
+    // it is also the one place that can re-run them — a caller outside this file has no query
+    // keys to invalidate and no business knowing them.
+    //
+    // WHAT IS RE-READ IS WHAT CAN MOVE. §20.6.1 names the triggers: a review cast elsewhere, a
+    // comment added or resolved, a decision or auto-approval landing. The verdict, the reviews,
+    // the outstanding requests and the reviewer names all move on those; the CANDIDATES do not —
+    // §7.9 leaves everybody listed whether or not they have answered, so only the entity's owner
+    // or a role change moves that set, and neither is a round event. It is also the most
+    // expensive of the five (two directory-wide role-membership reads), so polling it four times
+    // a minute for an answer that cannot change is the one read worth leaving out. It is still
+    // invalidated by every write, in approvalService's invalidateRound.
+    //
+    // THE NAMES STAY IN, though they look as static as the candidates: a reviewer whose FIRST
+    // vote arrives through the poll is an id the names set has never carried, and without this
+    // their row renders under the panel's fallback instead of their name.
+    //
+    // REFETCH IS NOT INVALIDATION, and both of its differences bite here.
+    //
+    // It ignores `enabled`, so the reviews read has to be gated by hand: with no approval row
+    // the verdict is undefined, approvalId is empty, and an ungated refetch would ask the server
+    // for `approvalId eq ` — a malformed filter, refused, silently (the reads suppress their
+    // toasts by design), every interval for as long as the tab is open.
+    //
+    // It also DEFAULTS TO CANCELLING an in-flight fetch and starting again. Nothing here forwards
+    // an AbortSignal to axios, so a cancelled request still runs and its answer is discarded —
+    // and a read slower than the poll's interval would be restarted forever, leaving the panel
+    // frozen on stale props with no spinner to admit it. That is the exact failure §20.6.1
+    // exists to prevent, so every refetch joins the in-flight read rather than replacing it.
     const refresh = useCallback(async () => {
         await Promise.all([
-            refetchVerdict(),
-            refetchReviews(),
-            refetchCandidates(),
-            refetchRequests(),
-            refetchDisplayNames()
+            refetchVerdict({ cancelRefetch: false }),
+            approvalId.length > 0
+                ? refetchReviews({ cancelRefetch: false })
+                : Promise.resolve(),
+            refetchRequests({ cancelRefetch: false }),
+            refetchDisplayNames({ cancelRefetch: false })
         ]);
-    }, [refetchVerdict, refetchReviews, refetchCandidates, refetchRequests, refetchDisplayNames]);
+    }, [approvalId, refetchVerdict, refetchReviews, refetchRequests, refetchDisplayNames]);
 
     return {
         approvalVerdict: approvalVerdictItem,

@@ -18,7 +18,13 @@ import { useEffect, useRef } from 'react';
 // TanStack Query already refetches on the browser's 'online' event by default, but that is an
 // inherited library default rather than a stated contract — the 'online' listener here restates
 // it explicitly, for the round as a whole, so the requirement is pinned by this hook's own test
-// rather than by an unread default.
+// rather than by an unread default. It also covers the item read, which the library's default
+// would refetch on its own schedule and not as part of the round.
+//
+// THE TWO DO NOT COMPETE. Both land on the same reads at the same moment, and every refetch the
+// round issues passes cancelRefetch: false (see useApprovalRound), so the second caller JOINS
+// the fetch the first started instead of cancelling and reissuing it. One reconnect is one
+// request per read, whichever listener runs first.
 export const useApprovalRoundChanges = (
     entityId: string,
     refresh: () => void,
