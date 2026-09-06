@@ -1,0 +1,138 @@
+// ────────────────────────────────────────────────────────────────────────────────
+// Copyright (c) Glory 2 Him. All rights reserved.
+// Licensed under the Glory 2 Him Software License (G2HSL).
+// See License.txt in the project root for full license information.
+// FREE TO USE TO HELP SHARE THE GOSPEL
+// John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
+//                  No one comes to the Father except through me.’"
+// https://john.bible/john-14-6
+// If Jesus is who He said He is, what does that mean for you, today?
+// ────────────────────────────────────────────────────────────────────────────────
+
+using System;
+using System.Linq.Expressions;
+using Glory2Him.Core.Brokers.Loggings;
+using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Foundations.ContentItems;
+using Glory2Him.Core.Models.Foundations.ContentItemSettings;
+using Glory2Him.Core.Services.Foundations.ContentItems;
+using Glory2Him.Core.Services.Foundations.ContentItemSettings;
+using Glory2Him.Core.Services.Orchestrations.ContentItemSettings;
+using Moq;
+using Tynamix.ObjectFiller;
+using Xeptions;
+
+namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItemSettings
+{
+    // THE ONE FLOW THAT SPANS TWO ENTITY TYPES. This service exists to stop a row deciding who may
+    // write it: the gate composes the publisher tier from an override's ContentType, so that value
+    // is derived from the item the row names rather than accepted from the caller (#450, §12.5.2
+    // business rule 6). Everything else is delegation, and the delegation is asserted too —
+    // a pass-through that quietly drops an argument is the failure this layer could hide.
+    public partial class ContentItemSettingOrchestrationServiceTests
+    {
+        private readonly Mock<IContentItemSettingService> contentItemSettingServiceMock;
+        private readonly Mock<IContentItemService> contentItemServiceMock;
+        private readonly Mock<ILoggingBroker> loggingBrokerMock;
+
+        private readonly IContentItemSettingOrchestrationService
+            contentItemSettingOrchestrationService;
+
+        // Two DIFFERENT members, pinned rather than drawn: a derivation test that let the filler
+        // pick both types would pass whenever the draw happened to agree, proving nothing about
+        // the overwrite it exists to exercise.
+        private const ContentType CallerClaimedContentType = ContentType.Devotional;
+        private const ContentType ActualContentType = ContentType.Quote;
+
+        public ContentItemSettingOrchestrationServiceTests()
+        {
+            this.contentItemSettingServiceMock = new Mock<IContentItemSettingService>();
+            this.contentItemServiceMock = new Mock<IContentItemService>();
+            this.loggingBrokerMock = new Mock<ILoggingBroker>();
+
+            this.contentItemSettingOrchestrationService =
+                new ContentItemSettingOrchestrationService(
+                    contentItemSettingService: this.contentItemSettingServiceMock.Object,
+                    contentItemService: this.contentItemServiceMock.Object,
+                    loggingBroker: this.loggingBrokerMock.Object);
+        }
+
+        // The foundation's answers that must stay validation-shaped through this layer, so the
+        // exposer maps them to the status codes it always did.
+        public static TheoryData<Xeption> ContentItemSettingValidationExceptions()
+        {
+            string randomMessage = GetRandomString();
+            var innerException = new Xeption(message: randomMessage);
+
+            return new TheoryData<Xeption>
+            {
+                new Glory2Him.Core.Models.Foundations.ContentItemSettings.Exceptions
+                    .ContentItemSettingValidationException(
+                        message: randomMessage, innerException: innerException),
+            };
+        }
+
+        public static TheoryData<Xeption> ContentItemSettingDependencyValidationExceptions()
+        {
+            string randomMessage = GetRandomString();
+            var innerException = new Xeption(message: randomMessage);
+
+            return new TheoryData<Xeption>
+            {
+                new Glory2Him.Core.Models.Foundations.ContentItemSettings.Exceptions
+                    .ContentItemSettingDependencyValidationException(
+                        message: randomMessage, innerException: innerException),
+            };
+        }
+
+        public static TheoryData<Xeption> ContentItemSettingDependencyExceptions()
+        {
+            string randomMessage = GetRandomString();
+            var innerException = new Xeption(message: randomMessage);
+
+            return new TheoryData<Xeption>
+            {
+                new Glory2Him.Core.Models.Foundations.ContentItemSettings.Exceptions
+                    .ContentItemSettingDependencyException(
+                        message: randomMessage, innerException: innerException),
+
+                new Glory2Him.Core.Models.Foundations.ContentItemSettings.Exceptions
+                    .ContentItemSettingServiceException(
+                        message: randomMessage, innerException: innerException),
+            };
+        }
+
+        // An OVERRIDE as the caller sends it: it names an item, and it claims a content type that
+        // the item will contradict.
+        private static ContentItemSetting CreateRandomOverrideRequest() =>
+            new ContentItemSetting
+            {
+                Id = Guid.NewGuid(),
+                ContentItemId = Guid.NewGuid(),
+                ContentType = CallerClaimedContentType,
+                ContentTypeName = GetRandomString(),
+            };
+
+        private static ContentItem CreateContentItemOfType(Guid contentItemId, ContentType contentType) =>
+            new ContentItem
+            {
+                Id = contentItemId,
+                ContentType = contentType,
+            };
+
+        private static ContentItemSetting CreateRandomContentItemSetting() =>
+            new ContentItemSetting
+            {
+                Id = Guid.NewGuid(),
+                ContentType = CallerClaimedContentType,
+            };
+
+        private static Guid GetRandomId() => Guid.NewGuid();
+
+        private static string GetRandomString() =>
+            new MnemonicString(wordCount: 1).GetValue();
+
+        private static Expression<Func<Xeption, bool>> SameExceptionAs(Xeption expectedException) =>
+            actualException => actualException.SameExceptionAs(expectedException);
+    }
+}
