@@ -115,17 +115,22 @@ export function ReviewCommentPanel({
     // name on every write path. Rendering a wider block here would hide a box the server accepts.
     const isBlockedFromCommenting = userRoles.includes('ReadOnly');
 
+    // THE SCOPED NAMES A CAPABILITY COMPOSES HERE. §18.6 builds the narrow tier from BOTH halves,
+    // so a caller that has no content type in hand composes the entity name alone: interpolating
+    // an empty half would ask for `ContentItem--ReadOnly`, a name the seed never writes and that
+    // a role list could therefore only match by accident.
+    const scopedNames = (capability: string): ReadonlyArray<string> =>
+        contentType.length > 0
+            ? [`${entityType}-${capability}`, `${entityType}-${contentType}-${capability}`]
+            : [`${entityType}-${capability}`];
+
     // THE SANCTION AS THE RESOLUTION SEES IT, which is wider, and deliberately so. Settling a
     // comment clears a RequireReviewCommentResolutionBeforeApprovals block — the one comment
     // field that moves a §8.5 gate — so the scoped names count here where they do not above.
     // That asymmetry is the design's, not this panel's: §18.6 rule 3 records it as the place the
     // thread's exemption strains, and the resolve gate now closes it.
     const isBlockedFromResolving =
-        isBlockedFromCommenting
-        || holdsAnyRole([
-            `${entityType}-ReadOnly`,
-            `${entityType}-${contentType}-ReadOnly`
-        ]);
+        isBlockedFromCommenting || holdsAnyRole(scopedNames('ReadOnly'));
 
     // THE PUBLISHER TIER at every scope this entity composes. Not the review tier: an outstanding
     // comment holds the APPROVAL shut, and the people that block stops are the people who decide
@@ -133,8 +138,7 @@ export function ReviewCommentPanel({
     const holdsPublisherTier = holdsAnyRole([
         'Administrators',
         'Publishers',
-        `${entityType}-Publishers`,
-        `${entityType}-${contentType}-Publishers`
+        ...scopedNames('Publishers')
     ]);
 
     // WHO WROTE IT is an account-id comparison — never a display name, which two accounts can

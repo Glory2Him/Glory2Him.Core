@@ -367,6 +367,35 @@ describe('ReviewCommentPanel', () => {
                 .not.toBeInTheDocument();
         });
 
+        // A caller that has no content type in hand — the doc page, and every consumer that mounts
+        // the panel before the item's type is read — must not compose a half-empty narrow name.
+        // `ContentItem--Publishers` and `ContentItem--ReadOnly` are names no seed writes, so a
+        // role list holding one has arrived by accident and must move nothing in either direction.
+        it('should not grant the tick on a name composed from a missing content type', () => {
+            signInAs(authState, ['ContentItem--Publishers']);
+
+            renderPanel(
+                <ReviewCommentPanel
+                    approvalId={approvalId}
+                    entityType="ContentItem"
+                    reviewComments={[question()]} />);
+
+            expect(screen.queryByRole('checkbox', { name: /Is resolved/ }))
+                .not.toBeInTheDocument();
+        });
+
+        it('should not block the tick on a name composed from a missing content type', () => {
+            signInAs(authState, ['Administrators', 'ContentItem--ReadOnly']);
+
+            renderPanel(
+                <ReviewCommentPanel
+                    approvalId={approvalId}
+                    entityType="ContentItem"
+                    reviewComments={[question()]} />);
+
+            expect(resolveTick()).toBeInTheDocument();
+        });
+
         it('should raise both directions off one control', async () => {
             const resolved = vi.fn();
 
