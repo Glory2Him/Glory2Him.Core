@@ -96,7 +96,6 @@ export function ReviewCommentPanel({
     emptyText = 'Nothing has been said about this submission yet.',
     cssClass = '',
     titleText = 'Review Comments',
-    ariaLabel = 'Review comments',
     onSave,
     onClear,
     onModified,
@@ -172,15 +171,17 @@ export function ReviewCommentPanel({
             second.createdWhen.localeCompare(first.createdWhen)),
         [reviewComments]);
 
+    // ONE ACCESSIBLE NAME, and it is the heading. aria-labelledby outranks aria-label in the
+    // accessible-name algorithm, so carrying both — as this did — left an ariaLabel prop that
+    // read as configurable in the props table and could never once change what a screen reader
+    // announced. The panel always renders its h4, so titleText IS the name: a consumer telling
+    // two threads apart on one page sets that.
     const panelCssClass = showBorder
         ? `g2h-review-comment-panel border rounded-3 p-3 p-lg-4 ${cssClass}`
         : `g2h-review-comment-panel ${cssClass}`;
 
     return (
-        <section
-            className={panelCssClass}
-            aria-labelledby={headingId}
-            aria-label={ariaLabel}>
+        <section className={panelCssClass} aria-labelledby={headingId}>
 
             <h4 className="mb-3" id={headingId}>{titleText}</h4>
 

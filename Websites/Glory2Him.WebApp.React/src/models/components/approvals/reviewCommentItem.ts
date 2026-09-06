@@ -92,8 +92,12 @@ export type ReviewCommentEvents = {
 };
 
 // The presentation props every face in the family shares.
+//
+// NO ariaLabel, deliberately. The panel always renders its heading and names itself with
+// aria-labelledby, which outranks aria-label in the accessible-name algorithm — so an ariaLabel
+// prop here would be documented, settable, and incapable of changing anything a screen reader
+// says. titleText is the accessible name; a consumer telling two threads apart sets that.
 export type ReviewCommentText = {
     cssClass?: string;
     titleText?: string;
-    ariaLabel?: string;
 };

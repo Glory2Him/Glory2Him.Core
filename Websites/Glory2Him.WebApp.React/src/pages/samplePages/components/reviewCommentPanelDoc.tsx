@@ -442,10 +442,13 @@ const panelProps: ReadonlyArray<ComponentPropRow> = [
             + 'click is one write.'
     },
     {
-        name: 'cssClass / titleText / ariaLabel / emptyText',
+        name: 'cssClass / titleText / emptyText',
         type: 'string',
-        defaultValue: '— / Review Comments / Review comments / …',
-        description: 'The family’s presentation props.'
+        defaultValue: '— / Review Comments / Nothing has been said…',
+        description: 'The family’s presentation props. There is deliberately no ariaLabel: the '
+            + 'panel names itself with aria-labelledby off its own heading, which outranks '
+            + 'aria-label in the accessible-name algorithm — so titleText IS the accessible '
+            + 'name, and a consumer telling two threads apart sets that.'
     },
     {
         name: 'onSave',

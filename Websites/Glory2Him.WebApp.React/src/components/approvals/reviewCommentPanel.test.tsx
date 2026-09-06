@@ -74,6 +74,29 @@ describe('ReviewCommentPanel', () => {
     });
 
     describe('the thread', () => {
+        // ONE ACCESSIBLE NAME, taken from the heading. The section carried aria-labelledby AND
+        // aria-label; the first outranks the second, so the ariaLabel prop was documented,
+        // settable and incapable of changing what a screen reader announces. titleText is the
+        // name now, which is why this asserts on the REGION's name rather than on the h4.
+        it('should name the region from its title, and take that name from titleText', () => {
+            const { rerender } = renderPanel(
+                <ReviewCommentPanel approvalId={approvalId} />);
+
+            expect(screen.getByRole('region', { name: 'Review Comments' }))
+                .toBeInTheDocument();
+
+            rerender(
+                <MemoryRouter initialEntries={['/Admin/Posts/item-1']}>
+                    <AuthProvider>
+                        <ReviewCommentPanel
+                            approvalId={approvalId}
+                            titleText="Editor Notes" />
+                    </AuthProvider>
+                </MemoryRouter>);
+
+            expect(screen.getByRole('region', { name: 'Editor Notes' })).toBeInTheDocument();
+        });
+
         it('should render newest first whatever order the consumer hands it over in', () => {
             // given: the older row FIRST, which is what a consumer that forwarded an OData
             // response unsorted would do
