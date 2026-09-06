@@ -48,6 +48,13 @@ export const AuthProvider = ({ children }: AuthProviderParameters): ReactElement
 type AuthContextOverrideParameters = {
     userId: string;
     displayName: string;
+
+    // Defaults to the display name, which is all most callers need. Pass it where the surface
+    // under test renders the two SEPARATELY — the review panel puts the username under the name
+    // — because there the default prints one value twice and reads as a rendering fault rather
+    // than as the harness having nothing better to say.
+    userName?: string;
+
     roles: ReadonlyArray<string>;
     children: ReactNode;
 };
@@ -55,6 +62,7 @@ type AuthContextOverrideParameters = {
 export const AuthContextOverride = ({
     userId,
     displayName,
+    userName,
     roles,
     children
 }: AuthContextOverrideParameters): ReactElement => {
@@ -65,7 +73,7 @@ export const AuthContextOverride = ({
         user: new CurrentUser({
             isAuthenticated: true,
             userId,
-            userName: displayName,
+            userName: userName ?? displayName,
             displayName,
             roles: [...roles]
         }),

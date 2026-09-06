@@ -126,6 +126,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                     {
                         UserId = roundUser.Id.ToString(),
                         DisplayName = ComposeDisplayName(roundUser),
+                        UserName = roundUser.UserName,
                     })
                     .OrderBy(
                         reviewerDisplayName => reviewerDisplayName.DisplayName,

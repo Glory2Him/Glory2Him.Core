@@ -115,6 +115,50 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         }
 
         /// <summary>
+        /// <b>The same field, composed the same way.</b> A panel labelling a candidate with their
+        /// username and a cast reviewer without one would show one person two ways depending on
+        /// which list they landed in, so the resolver carries it as the candidates read does.
+        /// </summary>
+        [Fact]
+        public async Task ShouldCarryEachRoundMembersUserNameAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
+            Guid reviewerId = Guid.NewGuid();
+            Guid invitedId = Guid.NewGuid();
+
+            SetupReviewerScope(
+                approvalId: Guid.NewGuid(),
+                activeReviewerUserIds: new[] { reviewerId.ToString() },
+                activeRequests: new[]
+                {
+                    new ActiveReviewRequest
+                    {
+                        Id = Guid.NewGuid(),
+                        RequestedUserId = invitedId.ToString(),
+                    }
+                });
+
+            SetupResolvedIdentityUsers(
+                CreateIdentityUser(reviewerId, preferredName: "Adam", userName: "adam.k"),
+                CreateIdentityUser(invitedId, preferredName: "Mary", userName: "mary.a"));
+
+            // when
+            IReadOnlyList<ReviewerDisplayName> reviewerDisplayNames =
+                await this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
+                    EntityType.ContentItem,
+                    Guid.NewGuid(),
+                    TestContext.Current.CancellationToken);
+
+            // then
+            reviewerDisplayNames.Select(name =>
+                (name.UserId, name.DisplayName, name.UserName))
+                .Should().Equal(
+                    (reviewerId.ToString(), "Adam", "adam.k"),
+                    (invitedId.ToString(), "Mary", "mary.a"));
+        }
+
+        /// <summary>
         /// <b>The case the resolver exists for.</b> A reviewer who voted and then lost the role,
         /// or whose account was disabled, is absent from the review tier - which is exactly why
         /// the candidates read could never name them. Their id is still stamped on the review row,

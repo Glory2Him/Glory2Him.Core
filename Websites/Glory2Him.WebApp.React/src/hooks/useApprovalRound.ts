@@ -66,11 +66,14 @@ export const useApprovalRound = (
             (review) => toApprovalReviewItem(review, reviewerDisplayNames ?? [])),
         [approvalReviews, reviewerDisplayNames]);
 
+    // The resolver travels to the requests too: the row carries the name it was addressed to
+    // and no username, and §16.7.4 keeps it that way deliberately. Outstanding invitations are
+    // part of the round the resolver names, so the username is already in hand.
     const requestedReviewerCollection: ReadonlyArray<ReviewerCandidateItem> = useMemo(
         () => (reviewRequests ?? [])
             .filter((request) => request.isDeleted !== true)
-            .map(toRequestedReviewerItem),
-        [reviewRequests]);
+            .map((request) => toRequestedReviewerItem(request, reviewerDisplayNames ?? [])),
+        [reviewRequests, reviewerDisplayNames]);
 
     const reviewerCandidateCollection: ReadonlyArray<ReviewerCandidateItem> = useMemo(
         () => (reviewerCandidates ?? []).map(toReviewerCandidateItem),

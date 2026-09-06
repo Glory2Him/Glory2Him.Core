@@ -26,6 +26,12 @@ export type ApprovalReviewItem = {
     // review cannot disagree on screen.
     reviewerDisplayName: string;
 
+    // The handle under the display name, resolved from the same §16.7.4 names read the display
+    // name comes from. OPTIONAL because an id that named no account resolves to neither field,
+    // and because a consumer may be projecting from somewhere that has no username to give — the
+    // row then renders the name alone. Never an email address (§18.3.1).
+    reviewerUserName?: string;
+
     // The verdict: Approved or Rejected. Reviews are only ever recorded with one of the two —
     // an uncast vote has no row, which is why the placeholder is synthesized instead.
     vote: ApprovalStatus;
@@ -46,17 +52,35 @@ export type ApprovalReviewItem = {
 export type ReviewerCandidateItem = {
     userId: string;
     displayName: string;
-    // OPTIONAL by design, not by oversight. The §16.7.4 candidates read returns "the minimum a
-    // picker needs — account id and display name — and nothing else", so a consumer wired to it
-    // supplies no username at all. The row then renders the display name alone and the filter
-    // matches on it alone, which is why the filter placeholder promises "name" rather than
-    // anything a caller may not be able to give.
+    // OPTIONAL by design, not by oversight. The §16.7.4 reads now carry a username, so the usual
+    // consumer supplies one — but an id that named no account resolves to none, and a consumer
+    // projecting from somewhere else may have none to give. The row then renders the display name
+    // alone and the filter matches on it alone, which is why the filter placeholder promises
+    // "name" rather than anything a caller may not be able to give.
     userName?: string;
 
     // Why the picker is suggesting this person - "Recently reviewed this type", and the like.
     // Presentation only, and the CONSUMER decides it: the panel has no basis for ranking people
     // and must not invent one. Present only on entries passed as suggestions.
     suggestionReason?: string;
+};
+
+// THE AI REVIEWER IDENTITY (design §8.6.2, "Berean" — Acts 17:11). Offered to ReviewPanel as
+// aiReviewerCandidate, which is the ONLY thing that puts it in the picker: a panel handed no
+// candidate offers no AI reviewer, which is the fail-closed posture §8.4 asks for expressed as
+// the absence of a prop rather than as a flag somebody has to remember to set.
+//
+// THE ID IS A PLACEHOLDER AND NOTHING READS IT AS AN ACCOUNT. Berean acts under a system
+// identity (§8.6.2), and that account does not exist yet — so this is deliberately NOT a GUID.
+// Anything that posted it to the review-request endpoints would be refused, which is the right
+// outcome while the backend half of #354 is unbuilt: the panel raises onAIReviewerRequested and
+// the consumer decides what that means. Replace this with the system account's id when the
+// identity lands, and nothing else here has to move.
+export const BereanAIReviewerUserId = 'ai-reviewer-berean';
+
+export const BereanAIReviewer: ReviewerCandidateItem = {
+    userId: BereanAIReviewerUserId,
+    displayName: 'Berean'
 };
 
 // One reason approval cannot be granted right now — the client-side shape of

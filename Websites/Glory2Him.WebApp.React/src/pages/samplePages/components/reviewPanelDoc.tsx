@@ -6,6 +6,7 @@ import {
     ApprovalReviewItem,
     ApprovalStatus,
     ApprovalVerdictItem,
+    BereanAIReviewer,
     ReviewerCandidateItem
 } from '../../../models/components/approvals/approvalReviewItem';
 import { useAuth } from '../../../components/securitys/authProvider';
@@ -242,6 +243,31 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
         description: 'Worth asking first, shown above everyone else with each entry\u2019s own '
             + 'suggestionReason. The panel does no ranking \u2014 who suits this item depends on '
             + 'history it cannot see, and inventing an order would quietly become policy.'
+    },
+    {
+        name: 'aiReviewerCandidate',
+        type: 'ReviewerCandidateItem',
+        description: 'The AI reviewer of \u00a78.6.2 (\u201cBerean\u201d), pinned as the FIRST '
+            + 'suggestion ahead of every human one. Supplying it is the whole of what offers it '
+            + '\u2014 a panel handed nothing offers nothing, which is \u00a78.4\u2019s fail-'
+            + 'closed posture expressed as the absence of a prop. Resolve '
+            + 'IsAIReviewerOffered and pass the candidate only when it says yes. The sibling '
+            + 'switch, IsAIAllowedToVote, decides whether Berean casts a review alongside the '
+            + 'comment it always files \u2014 that is read on the round, not in this picker.'
+    },
+    {
+        name: 'onAIReviewerRequested',
+        type: '(candidate) => void',
+        description: 'The AI reviewer was picked. Fired INSTEAD OF onReviewRequested, never '
+            + 'alongside it: the two are different operations, and an AI assignment posted to '
+            + 'the human review-request endpoint is one the server can only refuse.'
+    },
+    {
+        name: 'aiReviewerTaglineText',
+        type: 'string',
+        defaultValue: '\u2018Your AI Pair Reviewer\u2019',
+        description: 'Sits where a username sits, because that is what the AI reviewer has '
+            + 'instead of one.'
     },
     {
         name: 'maxReviewerRequests',
@@ -612,6 +638,10 @@ export function ReviewPanelDoc() {
                         requestedReviewerCollection={[mary]}
                         reviewerCandidateCollection={[johnCandidate, mary, paul]}
                         suggestedReviewerCollection={[christo]}
+                        aiReviewerCandidate={BereanAIReviewer}
+                        onAIReviewerRequested={(candidate) =>
+                            setLastEvent('onAIReviewerRequested('
+                                + candidate.displayName + ')')}
                         approvalVerdict={blockedVerdict}
                         onApprovalStatusChanged={describeDecision}
                         onReviewStatusChanged={(vote) =>
@@ -728,6 +758,10 @@ export function ReviewPanelDoc() {
                         requestedReviewerCollection={[mary]}
                         reviewerCandidateCollection={[johnCandidate, mary, paul]}
                         suggestedReviewerCollection={[christo]}
+                        aiReviewerCandidate={BereanAIReviewer}
+                        onAIReviewerRequested={(candidate) =>
+                            setLastEvent('onAIReviewerRequested('
+                                + candidate.displayName + ')')}
                         maxReviewerRequests={4}
                         decisionRoles=""
                         onReviewerLookupRequested={() =>
@@ -857,6 +891,10 @@ export function ReviewPanelDoc() {
                             requestedReviewerCollection={[mary]}
                             reviewerCandidateCollection={[johnCandidate, mary, paul]}
                             suggestedReviewerCollection={[christo]}
+                            aiReviewerCandidate={BereanAIReviewer}
+                            onAIReviewerRequested={(candidate) =>
+                                setLastEvent('onAIReviewerRequested('
+                                    + candidate.displayName + ')')}
                             approvalVerdict={playgroundVerdict}
                             maxReviewerRequests={playgroundMaxRequests}
                             isLoading={playgroundIsLoading}
