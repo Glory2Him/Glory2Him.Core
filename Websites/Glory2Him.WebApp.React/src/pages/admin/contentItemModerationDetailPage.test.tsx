@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ContentItemModerationDetailPage } from './contentItemModerationDetailPage';
 import { AuthProvider } from '../../components/securitys/authProvider';
 import { ContentItem } from '../../models/foundations/contentItems/contentItem';
@@ -60,12 +60,15 @@ const decidedWith = vi.fn();
 const requestedWith = vi.fn();
 const withdrawnWith = vi.fn();
 
+const refetchContentItemSpy = vi.fn();
+
 vi.mock('../../services/foundations/contentItemService', () => ({
     contentItemService: {
         useGetContentItemById: () => ({
             data: contentItem,
             isLoading: false,
-            isError: false
+            isError: false,
+            refetch: refetchContentItemSpy
         }),
 
         useModifyContentItem: () => ({
@@ -118,18 +121,27 @@ let reviewRequests: ApprovalReviewRequest[] = [];
 let reviewerCandidates: ReviewerCandidate[] = [];
 let verdictAskedFor: ReadonlyArray<string> = [];
 
+const refetchVerdictSpy = vi.fn();
+const refetchReviewsSpy = vi.fn();
+const refetchCandidatesSpy = vi.fn();
+const refetchRequestsSpy = vi.fn();
+const refetchDisplayNamesSpy = vi.fn();
+
 vi.mock('../../services/foundations/approvalService', () => ({
     approvalService: {
         useGetApprovalVerdict: (entityType: string, entityId: string) => {
             verdictAskedFor = [entityType, entityId];
 
-            return { data: approvalVerdict, isLoading: false };
+            return { data: approvalVerdict, isLoading: false, refetch: refetchVerdictSpy };
         },
-        useGetApprovalReviews: () => ({ data: approvalReviews, isLoading: false }),
-        useGetReviewerCandidates: () => ({ data: reviewerCandidates }),
-        useGetReviewRequests: () => ({ data: reviewRequests }),
+        useGetApprovalReviews: () =>
+            ({ data: approvalReviews, isLoading: false, refetch: refetchReviewsSpy }),
+        useGetReviewerCandidates: () =>
+            ({ data: reviewerCandidates, refetch: refetchCandidatesSpy }),
+        useGetReviewRequests: () => ({ data: reviewRequests, refetch: refetchRequestsSpy }),
         useGetReviewerDisplayNames: () => ({
-            data: [{ userId: 'user-john', displayName: 'John' }]
+            data: [{ userId: 'user-john', displayName: 'John' }],
+            refetch: refetchDisplayNamesSpy
         }),
 
         useCastApprovalReview: () => ({ mutateAsync: castWith, isPending: false }),
@@ -149,9 +161,15 @@ const commentModifiedWith = vi.fn();
 const commentRemovedWith = vi.fn();
 const commentResolvedWith = vi.fn();
 
+const refetchCommentsSpy = vi.fn();
+
 vi.mock('../../services/foundations/approvalCommentService', () => ({
     approvalCommentService: {
-        useGetApprovalComments: () => ({ data: approvalComments, isLoading: false }),
+        useGetApprovalComments: () => ({
+            data: approvalComments,
+            isLoading: false,
+            refetch: refetchCommentsSpy
+        }),
         useAddApprovalComment: () => ({ mutateAsync: commentAddedWith, isPending: false }),
         useModifyApprovalComment: () => ({ mutateAsync: commentModifiedWith, isPending: false }),
         useRemoveApprovalComment: () => ({ mutateAsync: commentRemovedWith, isPending: false }),
@@ -267,6 +285,15 @@ describe('ContentItemModerationDetailPage', () => {
         ]) {
             write.mockReset();
             write.mockResolvedValue({ approvalId: 'approval-1' });
+        }
+
+        for (const refetch of [
+            refetchVerdictSpy, refetchReviewsSpy, refetchCandidatesSpy,
+            refetchRequestsSpy, refetchDisplayNamesSpy, refetchContentItemSpy,
+            refetchCommentsSpy
+        ]) {
+            refetch.mockReset();
+            refetch.mockResolvedValue(undefined);
         }
 
         toastErrorSpy.mockReset();
@@ -814,6 +841,99 @@ describe('ContentItemModerationDetailPage', () => {
                 'Reviewers record verdicts but do not decide approvals.');
 
             expect(toastSuccessSpy).not.toHaveBeenCalled();
+        });
+    });
+
+    // THE FRESHNESS CHANNEL (design §20.6.1). useApprovalRoundChanges is proved on its own in
+    // useApprovalRoundChanges.test.ts; what this pins is that the PAGE actually wires it to the
+    // round's five reads rather than leaving it unreferenced, which is exactly the state #350
+    // found the panel in before this pass.
+    describe('the freshness channel', () => {
+        // An OPEN round by somebody else, which is the only state where the panel carries live
+        // vote and decision controls — and therefore the only one where going stale costs
+        // anything.
+        const openRound = () => {
+            contentItem = {
+                ...draftQuote,
+                createdBy: 'another-user',
+                approvalStatus: ApprovalStatus.Submitted
+            };
+
+            approvalVerdict = submittedVerdict;
+        };
+
+        beforeEach(() => {
+            vi.useFakeTimers({ shouldAdvanceTime: true });
+        });
+
+        afterEach(() => {
+            vi.useRealTimers();
+        });
+
+        it('re-fetches the round on an interval so an external change is seen unprompted',
+            async () => {
+                // given
+                openRound();
+                renderPage();
+
+                // when
+                await vi.advanceTimersByTimeAsync(15 * 1000);
+
+                // then — not the verdict alone: a vote cast elsewhere moves the reviews, and a
+                // resolved comment moves the block reasons the verdict carries.
+                expect(refetchVerdictSpy).toHaveBeenCalled();
+                expect(refetchReviewsSpy).toHaveBeenCalled();
+                expect(refetchRequestsSpy).toHaveBeenCalled();
+                expect(refetchDisplayNamesSpy).toHaveBeenCalled();
+            });
+
+        // THE ITEM IS PART OF THE ROUND HERE. The panel's open-or-closed gates read the STORED
+        // item's approvalStatus, not the verdict's — so a decision landing elsewhere moves the
+        // item's row and nothing else. A poll that refreshed only the approval reads would
+        // repaint the votes while leaving the vote and decision controls live on a closed round.
+        it('re-fetches the item too, since the panel takes its open-or-closed status from it',
+            async () => {
+                // given
+                openRound();
+                renderPage();
+
+                // when
+                await vi.advanceTimersByTimeAsync(15 * 1000);
+
+                // then
+                expect(refetchContentItemSpy).toHaveBeenCalled();
+            });
+
+        // THE THREAD IS ON THE SAME CHANNEL. §20.6.1 names "a comment added or resolved" as a
+        // trigger, and the thread is the read most likely to move under an open tab — two
+        // moderators working one submission is the case it exists for. It rides this poll rather
+        // than carrying a refetchInterval of its own, which would have polled a hidden tab and
+        // missed the reconnect.
+        it('re-fetches the review thread, so another moderator\'s comment appears unprompted',
+            async () => {
+                // given
+                openRound();
+                renderPage();
+
+                // when
+                await vi.advanceTimersByTimeAsync(15 * 1000);
+
+                // then
+                expect(refetchCommentsSpy).toHaveBeenCalled();
+            });
+
+        // §7.9 leaves everybody listed whether or not they have answered, so no round event
+        // moves the candidates — and it is the most expensive of the reads.
+        it('leaves the reviewer candidates out of the poll', async () => {
+            // given
+            openRound();
+            renderPage();
+
+            // when
+            await vi.advanceTimersByTimeAsync(15 * 1000);
+
+            // then
+            expect(refetchCandidatesSpy).not.toHaveBeenCalled();
         });
     });
 

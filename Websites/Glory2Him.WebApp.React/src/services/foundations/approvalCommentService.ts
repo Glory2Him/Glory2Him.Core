@@ -12,12 +12,13 @@ import {
 // probe what exists) — and retrying only delays the panel settling.
 //
 // A THREAD MOVES WHILE IT IS BEING READ, and more visibly than the round does: two moderators
-// working the same submission are exactly the case this surface exists for. So the read POLLS as
-// well as going stale, and refetches when the tab comes back — the panel itself is pure
-// presentation and shows the world as of the last props it was handed, so freshness has to live
-// here or nowhere.
+// working the same submission are exactly the case this surface exists for. THE POLLING IS NOT
+// HERE, though. It belongs to the round's one freshness channel (§20.6.1) — useApprovalRound's
+// refresh, driven by useApprovalRoundChanges — because that channel already answers three things
+// a refetchInterval on this query could not: it does not poll a hidden tab, it refreshes on
+// reconnect, and its refetches join an in-flight read instead of cancelling and reissuing it.
+// One channel is also one thing to replace when SignalR lands.
 const approvalCommentStaleTime = 10 * 1000;
-const approvalCommentPollInterval = 30 * 1000;
 
 export const approvalCommentService = {
     useGetApprovalComments: (approvalId: string, enabled = true) => {
@@ -30,13 +31,7 @@ export const approvalCommentService = {
             enabled: enabled && approvalId.length > 0,
             retry: false,
             meta: { suppressGlobalErrorToast: true },
-            staleTime: approvalCommentStaleTime,
-
-            // What makes the collection CHANGE-AWARE. Somebody else's comment has to appear
-            // without the moderator reloading the page, and there is no push channel here yet —
-            // so the thread is polled, and asked again the moment the tab is looked at.
-            refetchInterval: approvalCommentPollInterval,
-            refetchOnWindowFocus: true
+            staleTime: approvalCommentStaleTime
         });
     },
 
