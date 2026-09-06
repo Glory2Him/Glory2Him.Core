@@ -1188,11 +1188,13 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
                     {
                         UserId = Guid.NewGuid().ToString(),
                         DisplayName = GetRandomString(),
+                        UserName = GetRandomString(),
                     },
                     new ReviewerDisplayName
                     {
                         UserId = Guid.NewGuid().ToString(),
                         DisplayName = GetRandomString(),
+                        UserName = GetRandomString(),
                     },
                 };
 

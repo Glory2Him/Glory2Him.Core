@@ -100,6 +100,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                     {
                         UserId = member.Id.ToString(),
                         DisplayName = ComposeDisplayName(member),
+                        UserName = member.UserName,
                     })
                     .OrderBy(candidate => candidate.DisplayName, StringComparer.CurrentCultureIgnoreCase)
                     .ToList();
