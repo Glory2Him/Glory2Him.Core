@@ -38,10 +38,12 @@ export type ReviewCommentItem = {
     // leaves the words standing and the name absent, which is the right shape for both.
     authorDisplayName: string;
 
-    // The author's username, rendered muted in brackets beside the display name. OPTIONAL: an id
-    // that resolves to no account has neither, and a consumer wired to a name source that carries
-    // no username supplies none — the row then renders the display name alone.
-    authorUserName?: string;
+    // The author's username, rendered muted in brackets beside the display name. REQUIRED, like
+    // the display name beside it. Every account has one — §18.3.1 makes it mandatory and forbids
+    // an "@" in it — and the §16.7.4 names read carries it for everybody it resolves, so there is
+    // no case to model where a row has a display name and no handle. Not optional, so no consumer
+    // has to decide what an absent username would mean.
+    authorUserName: string;
 
     // ISO 8601, straight off the row. The panel formats and sorts on it, so it must be the
     // stored value rather than anything already rendered.

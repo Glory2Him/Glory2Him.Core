@@ -158,7 +158,10 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         ///
         /// <para>Writes nothing and grants nothing. It is a USER-ENUMERATION surface, so it is
         /// restricted to the requesting tier (§7.9 rule 2) and each candidate carries an account
-        /// id and a display name and nothing else.</para>
+        /// id, a display name and a username, and nothing else — no roles, no email, no account
+        /// state. The username is in that minimum rather than an addition to it (§16.7.4): a
+        /// display name is not unique, and choosing between two people called "John" from the
+        /// name alone is guessing.</para>
         ///
         /// <para>Role membership comes from the identity store through the read-only
         /// <c>IdentityCoreStorageBroker</c> (§12.7.1); the tier NAMES are composed here from the
@@ -200,9 +203,12 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         /// panel.</para>
         ///
         /// <para>A <b>user-enumeration surface</b>, so §16.7.4's posture governs it rather than
-        /// being re-derived: the requesting tier (§7.9 rule 2) and nobody else, an account id and
-        /// a display name and nothing else. Ids are echoed back so a caller can join the answer
-        /// onto the rows it holds without depending on ordering.</para>
+        /// being re-derived: the requesting tier (§7.9 rule 2) and nobody else, an account id, a
+        /// display name and a username, and nothing else. It carries the username for the same
+        /// reason the candidates read does and by the same composition — a surface labelling a
+        /// candidate with their username and a cast reviewer without one would show one person
+        /// two ways. Ids are echoed back so a caller can join the answer onto the rows it holds
+        /// without depending on ordering.</para>
         ///
         /// <para>Throws <c>NotFoundApprovalOrchestrationException</c> when no approval occupies
         /// the key, the same as the candidates read — there is no round, so there is nobody it

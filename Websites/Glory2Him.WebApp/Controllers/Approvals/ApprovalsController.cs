@@ -332,7 +332,10 @@ namespace Glory2Him.WebApp.Controllers.Approvals
         ///
         /// <para>A <b>user-enumeration surface</b>, and its posture follows from that: the
         /// orchestration admits only the requesting tier (§7.9 rule 2), and each candidate carries
-        /// an account id and a display name and nothing else. No role list, no email, no account
+        /// an account id, a display name and a username, and nothing else. The username is part
+        /// of that minimum rather than an addition to it: a display name is not unique, and a
+        /// moderator choosing between two people called "John" from the name alone is guessing
+        /// (18.3.1 keeps a username from ever being an email). No role list, no email, no account
         /// state — a moderator learns only that somebody is invitable, which they would learn
         /// anyway by inviting them.</para>
         ///

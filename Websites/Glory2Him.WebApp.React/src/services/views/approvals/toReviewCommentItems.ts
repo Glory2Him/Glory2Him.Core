@@ -21,18 +21,20 @@ import {
 const authorOf = (
     userId: string,
     reviewerDisplayNameCollection: ReadonlyArray<ReviewerDisplayName>):
-    { displayName: string; userName?: string } => {
+    { displayName: string; userName: string } => {
     const resolved = reviewerDisplayNameCollection
         .find((reviewerDisplayName) => reviewerDisplayName.userId === userId);
 
-    return {
-        displayName: resolved?.displayName ?? 'Unknown author',
+    // BOTH FIELDS ARE ONE DECISION. A resolved account always carries both — §18.3.1 makes a
+    // username mandatory, and §16.7.4 carries it beside the display name — so there is no branch
+    // where a row has a name and no handle. The only fork is whether the id resolved AT ALL: an
+    // account that has since been deleted is named by nothing (§16.7.4 leaves it out rather than
+    // erroring), and then neither field has a value to give.
+    if (resolved == null) {
+        return { displayName: 'Unknown author', userName: '' };
+    }
 
-        // Absent rather than empty where it does not resolve. The view face renders the muted
-        // brackets only when there is something to put in them, and an empty string would draw
-        // "Susan ()".
-        userName: (resolved?.userName ?? '').length > 0 ? resolved?.userName : undefined
-    };
+    return { displayName: resolved.displayName, userName: resolved.userName };
 };
 
 export const toReviewCommentItem = (

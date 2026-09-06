@@ -32,6 +32,22 @@ import { EntityTypeName } from '../../models/foundations/approvals/approval';
 import { useApprovalRound } from '../../hooks/useApprovalRound';
 import { useApprovalRoundChanges } from '../../hooks/useApprovalRoundChanges';
 
+// WHERE THE §8.6.2 FEATURE SWITCH WILL BE READ, and it is named for it: IsAIReviewerOffered is
+// one of the ApprovalSetting fields #354 still has to add, so there is no policy row to resolve
+// yet and this constant stands in the place that resolved value will occupy. When the setting
+// lands this becomes a read off the resolved ApprovalSetting, and nothing else on this page
+// moves.
+//
+// ITS SIBLING IS NOT THIS PAGE'S CONCERN. §8.6.2 puts the vote behind a second, child switch —
+// IsAIAllowedToVote — which decides whether Berean casts an ApprovalReview alongside the comment
+// it always files. That is read where the round is decided, not where the reviewer is offered:
+// a Berean that may be asked but may not vote is offered from here identically.
+//
+// It is a constant rather than a hidden true so that the fail-closed posture is one edit away
+// while the backend is unbuilt: the AI reviewer is OFFERED here, but nothing it is offered for
+// exists — picking it raises the seam below and writes nothing anywhere.
+const isAIReviewerOffered = true;
+
 import {
     BibleReferenceAssociationPanel
 } from '../../components/associations/bibleReferenceAssociationPanel';
@@ -67,6 +83,7 @@ import { extractApiErrorMessage } from './apiErrorMessage';
 import {
     ApprovalDecision,
     ApprovalStatus as ReviewVote,
+    BereanAIReviewer,
     ReviewerCandidateItem
 } from '../../models/components/approvals/approvalReviewItem';
 
@@ -342,6 +359,28 @@ export const ContentItemModerationDetailPage = () => {
             review.createdBy === (user?.userId ?? '')
                 && review.isDeleted !== true
                 && review.statusId !== ApprovalStatus.Dismissed);
+
+    // THE AI-REVIEW SEAM (design §8.6.2, issue #354). Assigning Berean is meant to publish an
+    // assignment fact that an AI-review process consumes and answers on the round.
+    //
+    // ON THIS PAGE THAT ANSWER IS COMMENTS, and only comments. §8.6.2 rules ContentItem out of
+    // confidence scoring deliberately — a score judges a PAIRING, and a content item is not one —
+    // so the threshold rules that produce a Berean vote are unreachable here whatever
+    // IsAIAllowedToVote resolves to. What Berean has to say about a content item arrives as
+    // ApprovalComments under its system identity, and a human decides.
+    //
+    // NONE OF IT EXISTS YET. §13.4 is explicit that no AI broker or content-analysis service is
+    // in code today, and §8.6.2's open rulings are unanswered. So this deliberately writes
+    // NOTHING: it does not post a review request, because Berean has no account for one to name,
+    // and it does not fake a pending row, because a "Requested" chip against a request nobody
+    // holds is the panel lying about the round.
+    //
+    // It says so instead, and that is the whole of it until the backend half lands here.
+    const requestAIReviewAsync = (candidate: ReviewerCandidateItem): void => {
+        toastSuccess(
+            `${candidate.displayName} cannot review yet — the AI review service is still to be `
+            + 'built. Nothing has been requested.');
+    };
 
     const castVoteAsync = async (vote: ReviewVote) => {
         if (approvalVerdict == null) {
@@ -696,6 +735,10 @@ export const ContentItemModerationDetailPage = () => {
                                 onReviewRequested={(candidate) => void requestReviewAsync(candidate)}
                                 onReviewRequestWithdrawn={(candidate) =>
                                     void withdrawReviewRequestAsync(candidate)}
+                                aiReviewerCandidate={
+                                    isAIReviewerOffered ? BereanAIReviewer : undefined}
+                                onAIReviewerRequested={(candidate) =>
+                                    requestAIReviewAsync(candidate)}
                                 showBorder />
 
                             {/* BENEATH THE ROUND, in the same column: the round is about THIS

@@ -158,12 +158,6 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                     {
                         UserId = roundUser.Id.ToString(),
                         DisplayName = ComposeDisplayName(roundUser),
-
-                        // Beside the composed name rather than inside it. Two accounts can share
-                        // a display name, and on a comment thread that ambiguity is the
-                        // difference between reading the submitter's answer and reading somebody
-                        // else's - so a surface that needs to disambiguate has the username to do
-                        // it with instead of an account guid.
                         UserName = roundUser.UserName,
                     })
                     .OrderBy(

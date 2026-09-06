@@ -29,14 +29,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 {
     public partial class ApprovalOrchestrationServiceTests
     {
-        private static IdentityUser CreateIdentityUser(Guid userId, string preferredName = null) =>
+        private static IdentityUser CreateIdentityUser(
+            Guid userId,
+            string preferredName = null,
+            string userName = "someone") =>
             new IdentityUser
             {
                 Id = userId,
                 PreferredName = preferredName,
                 Name = "Given",
                 Surname = "Family",
-                UserName = "someone",
+                UserName = userName,
             };
 
         // The review tier's membership, for the two operations that still ask for it - the
@@ -259,6 +262,45 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             candidates.Select(candidate => candidate.UserId)
                 .Should().NotContain(ownerId.ToString());
+        }
+
+        /// <summary>
+        /// <b>A display name is not unique, so the picker cannot choose on it alone.</b> Two
+        /// colleagues called "John" are ordinary, and 16.7.4 puts the username in the minimum a
+        /// picker needs for exactly that reason. Asserted per person rather than in aggregate:
+        /// the failure this guards against is one username landing on everybody's row, which an
+        /// assertion that merely counted them would pass.
+        /// </summary>
+        [Fact]
+        public async Task ShouldCarryEachCandidatesUserNameAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
+            Guid firstJohnId = Guid.NewGuid();
+            Guid secondJohnId = Guid.NewGuid();
+
+            SetupReviewerScope(approvalId: Guid.NewGuid());
+
+            // One display name, two accounts - which is the whole case for the field.
+            SetupTierMembers(
+                CreateIdentityUser(firstJohnId, preferredName: "John", userName: "john.b"),
+                CreateIdentityUser(secondJohnId, preferredName: "John", userName: "john.t"));
+
+            // when
+            IReadOnlyList<ReviewerCandidate> candidates =
+                await this.approvalOrchestrationService.RetrieveReviewerCandidatesAsync(
+                    EntityType.ContentItem,
+                    Guid.NewGuid(),
+                    TestContext.Current.CancellationToken);
+
+            // then
+            candidates.Select(candidate =>
+                (candidate.UserId, candidate.DisplayName, candidate.UserName))
+                .Should().BeEquivalentTo(new[]
+                {
+                    (firstJohnId.ToString(), "John", "john.b"),
+                    (secondJohnId.ToString(), "John", "john.t"),
+                });
         }
 
         /// <summary>

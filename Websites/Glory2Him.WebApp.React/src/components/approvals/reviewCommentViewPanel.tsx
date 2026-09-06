@@ -80,8 +80,12 @@ export function ReviewCommentViewPanel({
 
                     {/* The username disambiguates: two accounts can share a display name, and on
                         a thread that is the difference between reading the submitter's answer and
-                        somebody else's. Muted, because it is the tiebreak rather than the name. */}
-                    {(reviewComment.authorUserName ?? '').length > 0 && (
+                        somebody else's. Muted, because it is the tiebreak rather than the name.
+
+                        Every account has one, so this is not an optional field — the only reason
+                        it can be empty is an author whose account has since been deleted, and
+                        that row has no display name either. */}
+                    {reviewComment.authorUserName.length > 0 && (
                         <span className="small text-body-secondary">
                             ({reviewComment.authorUserName})
                         </span>

@@ -14,9 +14,12 @@ namespace Glory2Him.Core.Models.Orchestrations.Approvals
     /// <summary>
     /// What one account id is CALLED (design 16.7.4).
     ///
-    /// <para><b>The same two fields ReviewerCandidate carries, and deliberately so.</b> Both are
-    /// user-enumeration answers, and 16.7.4 already ruled how one of those is exposed: the
-    /// requesting tier, an account id and a display name, and nothing a caller could mine. They
+    /// <para><b>The same three fields ReviewerCandidate carries, and deliberately so.</b> Both
+    /// are user-enumeration answers, and 16.7.4 already ruled how one of those is exposed: the
+    /// requesting tier, an account id, a display name and a username, and nothing a caller could
+    /// mine. The username travels here for the same reason it travels there, and by the same
+    /// composition - a panel labelling a candidate with their username and a cast reviewer
+    /// without one would show one person two ways depending on which list they landed in. They
     /// stay separate TYPES because they answer different questions - a candidate is somebody who
     /// may be invited, and this is somebody the round already involved - and collapsing them
     /// would let a resolver's output be mistaken for an eligibility list. Neither set contains
@@ -53,13 +56,9 @@ namespace Glory2Him.Core.Models.Orchestrations.Approvals
         public required string DisplayName { get; init; }
 
         /// <summary>
-        /// The account's own username, for a surface that renders "Preferred Name (username)".
-        ///
-        /// <para><b>Why it is carried beside the display name rather than folded into it.</b> Two
-        /// accounts can share a display name - the reason every gate in this system compares
-        /// account ids and never names - and on a comment thread that ambiguity is the difference
-        /// between reading a submitter's answer and reading somebody else's. The username
-        /// disambiguates without putting an id in front of a reader.</para>
+        /// The account's username, read off the resolved account like the display name beside it,
+        /// so a surface can put it under the name and tell two people sharing one apart.
+        /// Presentation only.
         ///
         /// <para>Never an email address: §18.3.1 rules a username may not contain an "@", so this
         /// cannot become a contact detail leaking through a moderation surface. It goes no wider

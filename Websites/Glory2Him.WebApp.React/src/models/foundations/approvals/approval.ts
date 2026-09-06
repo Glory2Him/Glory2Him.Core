@@ -83,10 +83,13 @@ export type ApprovalOutcome = {
 };
 
 // GET api/Approvals/{entityType}/{entityId}/ReviewerCandidates — the minimum a picker needs
-// (§16.7.4): an account id and a display name, and nothing else.
+// (§16.7.4): an account id, a display name and a username, and nothing else. The username is in
+// that minimum rather than an addition to it — a display name is not unique, and choosing between
+// two people called "John" from the name alone is guessing.
 export type ReviewerCandidate = {
     userId: string;
     displayName: string;
+    userName: string;
 };
 
 // GET api/Approvals/{entityType}/{entityId}/ReviewRequests — somebody invited to review who has
@@ -109,9 +112,9 @@ export type ReviewerDisplayName = {
     userId: string;
     displayName: string;
 
-    // The account's own username, for the muted "Display Name (username)" a comment row renders.
-    // Two accounts can share a display name, and on a thread that ambiguity is the difference
-    // between reading the submitter's answer and reading somebody else's. Optional here because a
-    // consumer may hand this projection names gathered from somewhere thinner.
-    userName?: string;
+    // The account's own username — what the review row puts under the display name, and what the
+    // comment thread puts in muted brackets beside it. Two accounts can share a display name, and
+    // on a thread that ambiguity is the difference between reading the submitter's answer and
+    // reading somebody else's.
+    userName: string;
 };

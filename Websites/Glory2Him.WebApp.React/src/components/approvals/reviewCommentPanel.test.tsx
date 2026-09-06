@@ -110,13 +110,20 @@ describe('ReviewCommentPanel', () => {
                 .toBeInTheDocument();
         });
 
-        it('should render the display name alone when nothing resolved a username', () => {
+        // Every account HAS a username (§18.3.1), so this is not the "no handle" case — there is
+        // no such case. It is the DELETED ACCOUNT: §16.7.4 leaves an id that names nobody out of
+        // the answer rather than erroring, so the projection resolves neither field and the row
+        // renders what it has without drawing empty brackets.
+        it('should draw no brackets for an author whose account no longer resolves', () => {
             renderPanel(
                 <ReviewCommentPanel
                     approvalId={approvalId}
-                    reviewComments={[comment({ authorUserName: undefined })]} />);
+                    reviewComments={[comment({
+                        authorDisplayName: 'Unknown author',
+                        authorUserName: ''
+                    })]} />);
 
-            expect(screen.getByText('Susan')).toBeInTheDocument();
+            expect(screen.getByText('Unknown author')).toBeInTheDocument();
             expect(screen.queryByText('()')).not.toBeInTheDocument();
         });
 

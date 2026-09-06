@@ -14,10 +14,16 @@ namespace Glory2Him.Core.Models.Orchestrations.Approvals
     /// <summary>
     /// One person who may be invited to review an approval (design 16.7.4).
     ///
-    /// <para><b>Two fields, and the shortness is the design.</b> This is a user-enumeration
-    /// surface, so it carries the minimum a picker needs and nothing a caller could mine: no
-    /// email, no roles, no account state. A moderator learns that somebody is invitable, which
-    /// they would learn anyway the moment they invited them.</para>
+    /// <para><b>Three fields, and the shortness is still the design.</b> This is a
+    /// user-enumeration surface, so it carries the minimum a picker needs and nothing a caller
+    /// could mine: no email, no roles, no account state. A moderator learns that somebody is
+    /// invitable, which they would learn anyway the moment they invited them.</para>
+    ///
+    /// <para>The username is part of that minimum rather than an addition to it. A display name
+    /// is not unique - two colleagues called "John" are ordinary - and a moderator choosing
+    /// between them from the name alone is guessing. It gives up nothing the display name did
+    /// not already give up: a username is how a person is addressed throughout the site, and
+    /// design 18.3.1 forbids it from being an email address.</para>
     ///
     /// <para>It answers "who belongs to this round", not "who is left to ask". Only the entity's
     /// own author is removed, because rule 3 refuses an invitation aimed at them outright. People
@@ -39,5 +45,17 @@ namespace Glory2Him.Core.Models.Orchestrations.Approvals
         /// invitation at request time (7.9) rather than re-read later.
         /// </summary>
         public required string DisplayName { get; init; }
+
+        /// <summary>
+        /// The account's username, shown under the display name so two people sharing one name
+        /// can be told apart. Presentation only, like <see cref="DisplayName"/> - an invitation
+        /// is still stored against <see cref="UserId"/>, never against this.
+        ///
+        /// <para>Where no other name is set, <c>ComposeDisplayName</c> falls back to the username
+        /// and the two fields carry the same string. That is left alone here rather than blanked:
+        /// the read reports what the account holds, and a surface rendering the name twice is a
+        /// rendering decision for the surface to make.</para>
+        /// </summary>
+        public required string UserName { get; init; }
     }
 }
