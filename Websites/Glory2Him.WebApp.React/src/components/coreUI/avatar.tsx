@@ -20,6 +20,13 @@ export interface AvatarProps {
     // sits on the neutral theme surface rather than a palette colour for the same reason: the
     // palette is how people are told apart, and this is not one of them.
     iconCssClass?: string;
+
+    // DECORATIVE, for the case where the name is already written beside the avatar. Without it
+    // every such row announces the person twice — role="img" with the display name as its
+    // accessible name, then the same name as text — and inside a <button> that duplicate lands
+    // in the button's own accessible name too. The circle carries no information the adjacent
+    // text does not, so it is hidden from assistive technology rather than repeated.
+    isDecorative?: boolean;
 }
 
 function computeInitials(name: string): string {
@@ -54,9 +61,21 @@ function computeBackgroundColor(name: string): string {
     return palette[Math.abs(hash) % palette.length];
 }
 
-export function Avatar(
-    { name, imageUrl, sizePx = 40, sizeCssClass = '', iconCssClass }: AvatarProps) {
+export function Avatar({
+    name,
+    imageUrl,
+    sizePx = 40,
+    sizeCssClass = '',
+    iconCssClass,
+    isDecorative = false
+}: AvatarProps) {
     const fontSizePx = Math.max(10, Math.trunc(sizePx * 0.42));
+
+    // Either a labelled image or hidden outright — never an unlabelled one, and never a
+    // half-measure that drops the label but keeps the role.
+    const semantics = isDecorative
+        ? { 'aria-hidden': true }
+        : { role: 'img', 'aria-label': name, title: name };
 
     return (
         <div className={`avatar ${sizeCssClass}`} style={{ width: `${sizePx}px`, height: `${sizePx}px` }}>
@@ -69,15 +88,20 @@ export function Avatar(
                         width: `${sizePx}px`,
                         height: `${sizePx}px`,
 
-                        // Theme tokens, never literal greys: the circle has to hold its contrast
-                        // in dark mode as well, where both of these resolve to the dark palette.
+                        // Theme tokens, never literal greys — but NOT the secondary PAIR, which
+                        // is what this started as. The Blogzine theme redefines
+                        // --bs-secondary-color to #d0d4d9 in :root, so the glyph landed at
+                        // 1.32:1 on its own #f0f1f3 disc and the avatar was simply missing in
+                        // light mode. Measured in the running app with the theme loaded, body
+                        // colour on the secondary surface gives 5.82:1 light and 4.48:1 dark —
+                        // both clear WCAG 1.4.11's 3:1 for a meaningful graphic. (Dark is the
+                        // narrower of the two because the theme resolves --bs-body-color to
+                        // #a1a1a8 there, not to the #dee2e6 the palette block first declares.)
                         backgroundColor: 'var(--bs-secondary-bg)',
-                        color: 'var(--bs-secondary-color)',
+                        color: 'var(--bs-body-color)',
                         fontSize: `${fontSizePx}px`,
                     }}
-                    role="img"
-                    aria-label={name}
-                    title={name}>
+                    {...semantics}>
                     <i className={`bi ${iconCssClass}`} aria-hidden="true"></i>
                 </span>
             ) : imageUrl != null && imageUrl.trim().length > 0 ? (
@@ -85,7 +109,7 @@ export function Avatar(
                     className="avatar-img rounded-circle"
                     style={{ width: `${sizePx}px`, height: `${sizePx}px`, objectFit: 'cover' }}
                     src={imageUrl}
-                    alt={name} />
+                    alt={isDecorative ? '' : name} />
             ) : (
                 <span
                     className="avatar-img rounded-circle d-inline-flex align-items-center justify-content-center text-white fw-bold"
@@ -95,9 +119,7 @@ export function Avatar(
                         backgroundColor: computeBackgroundColor(name),
                         fontSize: `${fontSizePx}px`,
                     }}
-                    role="img"
-                    aria-label={name}
-                    title={name}>
+                    {...semantics}>
                     {computeInitials(name)}
                 </span>
             )}

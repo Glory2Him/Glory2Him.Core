@@ -568,6 +568,99 @@ describe('ContentItemModerationDetailPage', () => {
             approvalVerdict = submittedVerdict;
         };
 
+        /// ── THE AI-REVIEW SEAM (design 8.6.2, issue #354) ──────────────────────────
+        ///
+        /// The page offers Berean and owns what picking it means. Nothing downstream exists yet,
+        /// so what these pin is the ABSENCE of a write: the placeholder id is not an account,
+        /// and posting it to the human review-request endpoint is the one mistake available
+        /// here. Without them, rewiring onAIReviewerRequested to requestReviewAsync passes the
+        /// whole suite.
+        describe('the AI reviewer', () => {
+            const pickBereanAsync = async () => {
+                await userEvent.click(
+                    screen.getByRole('button', { name: 'Request a review' }));
+
+                await userEvent.click(screen.getByRole('button', { name: /Berean/ }));
+            };
+
+            it('should offer Berean above the human candidates', async () => {
+                // given
+                openRoundByAnotherAuthor();
+
+                reviewerCandidates = [
+                    { userId: 'user-mary', displayName: 'Mary Adeyemi', userName: 'mary.a' }
+                ];
+
+                renderPage();
+
+                // when
+                await userEvent.click(
+                    screen.getByRole('button', { name: 'Request a review' }));
+
+                // then
+                expect(screen.getByText('Berean')).toBeInTheDocument();
+                expect(screen.getByText('Your AI Pair Reviewer')).toBeInTheDocument();
+            });
+
+            /// THE ONE THAT MATTERS. 'ai-reviewer-berean' is a placeholder, not a GUID - the
+            /// endpoint can only refuse it, and the page must never send it.
+            it('should not post a review request when Berean is picked', async () => {
+                // given
+                openRoundByAnotherAuthor();
+                renderPage();
+
+                // when
+                await pickBereanAsync();
+
+                // then
+                expect(requestedWith).not.toHaveBeenCalled();
+            });
+
+            /// ...and it says so rather than swallowing the click, so a moderator is not left
+            /// waiting on a review nobody is performing.
+            it('should tell the moderator that Berean cannot review yet', async () => {
+                // given
+                openRoundByAnotherAuthor();
+                renderPage();
+
+                // when
+                await pickBereanAsync();
+
+                // then
+                expect(toastSuccessSpy).toHaveBeenCalledWith(
+                    expect.stringContaining('Berean'));
+
+                expect(toastSuccessSpy).toHaveBeenCalledWith(
+                    expect.stringContaining('Nothing has been requested.'));
+            });
+
+            /// The human path still works while Berean is on offer - so the routing above is a
+            /// decision about WHICH row was picked, not a page that has stopped requesting.
+            it('should still post a review request for a person', async () => {
+                // given
+                openRoundByAnotherAuthor();
+
+                reviewerCandidates = [
+                    { userId: 'user-mary', displayName: 'Mary Adeyemi', userName: 'mary.a' }
+                ];
+
+                renderPage();
+
+                // when
+                await userEvent.click(
+                    screen.getByRole('button', { name: 'Request a review' }));
+
+                await userEvent.click(screen.getByRole('button', { name: /Mary/ }));
+
+                // then
+                expect(requestedWith).toHaveBeenCalledWith({
+                    entityType: 'ContentItem',
+                    entityId: 'quote-1',
+                    requestedUserId: 'user-mary'
+                });
+            });
+        });
+
         /// A first vote is a POST: no standing review, so nothing to amend. The approval id
         /// comes off the verdict, which is the only read that knows it.
         it('should cast a first vote against the approval the verdict named', async () => {

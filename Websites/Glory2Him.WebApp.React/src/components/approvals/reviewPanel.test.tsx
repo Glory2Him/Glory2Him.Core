@@ -1886,9 +1886,9 @@ describe('ReviewPanel', () => {
         });
 
         /// A row with no username gets ONE line, not the display name printed twice - which is
-        /// what the obvious ?? fallback renders, and what a reader takes for a fault. Most rows
-        /// in the running app are this one: the 16.7.4 reads answer with an account id and a
-        /// display name and nothing else.
+        /// what the obvious ?? fallback renders, and what a reader takes for a fault. The 16.7.4
+        /// reads DO carry a username, so this is the residue rather than the common case: an id
+        /// that resolved to no account, or a consumer projecting from somewhere that has none.
         it('should render no second line for a reviewer with no username', () => {
             // given
             signInAs(authState, ['Publishers']);
@@ -1937,6 +1937,98 @@ describe('ReviewPanel', () => {
             expect(row?.querySelectorAll('.g2h-review-identity-username')).toHaveLength(0);
         });
 
+        /// THE STACK ORDER ITSELF, which class assertions alone leave unfalsifiable: swapping
+        /// the two lines in renderIdentity would keep every class where it is. Asserted on
+        /// document order within the row.
+        it('should render the display name above the username', () => {
+            // given
+            signInAs(authState, ['Publishers']);
+
+            const named: ApprovalReviewItem = {
+                reviewerUserId: 'user-john',
+                reviewerDisplayName: 'John',
+                reviewerUserName: 'john.b',
+                vote: ApprovalStatus.Approved
+            };
+
+            // when
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    approvalReviewCollection={[named]} />);
+
+            // then
+            const row = screen.getByText('John').closest('.g2h-review-row');
+
+            const lines = Array.from(row?.querySelectorAll(
+                '.g2h-review-identity-name, .g2h-review-identity-username') ?? [])
+                .map((element) => element.textContent);
+
+            expect(lines).toEqual(['John', 'john.b']);
+
+            // and: the vote comes after both of them, not between. querySelectorAll returns
+            // document order, so the sequence IS the assertion - the avatar is excluded because
+            // its initials are text too and would only pin the initials algorithm here.
+            const ordered = Array.from(row?.querySelectorAll(
+                '.g2h-review-identity-name, .g2h-review-identity-username,'
+                + ' .g2h-review-vote-badge') ?? []).map((element) => element.textContent);
+
+            expect(ordered).toEqual(['John', 'john.b', 'Approved']);
+        });
+
+        /// THE VIEWER'S OWN ROW composes its username differently from every other row - the
+        /// recorded review wins, and the auth context is the fallback. Neither half of that
+        /// precedence was exercised: the harness signs in as Tester/tester, which the
+        /// same-string rule then suppresses, so the expression could return anything.
+        it('should label the viewer own row from the review it carries', () => {
+            // given
+            signInAs(authState, ['Publishers']);
+
+            const viewerReview: ApprovalReviewItem = {
+                reviewerUserId: ViewerId,
+                reviewerDisplayName: 'Tester',
+                reviewerUserName: 'tester.qa',
+                vote: ApprovalStatus.Approved
+            };
+
+            // when
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    approvalReviewCollection={[viewerReview]} />);
+
+            // then: the review's username, NOT the auth context's 'tester'
+            expect(screen.getByText('tester.qa'))
+                .toHaveClass('g2h-review-identity-username');
+
+            expect(screen.queryByText('tester')).not.toBeInTheDocument();
+        });
+
+        /// ...and the fallback half: no username on the review, so the auth context supplies it.
+        it('should fall back to the auth context for the viewer own username', () => {
+            // given
+            signInAs(authState, ['Publishers']);
+
+            const viewerReview: ApprovalReviewItem = {
+                reviewerUserId: ViewerId,
+                reviewerDisplayName: 'Christo du Toit',
+                vote: ApprovalStatus.Approved
+            };
+
+            // when
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    approvalReviewCollection={[viewerReview]} />);
+
+            // then
+            expect(screen.getByText('tester'))
+                .toHaveClass('g2h-review-identity-username');
+        });
+
         /// Down a list of identical bars the eye reads the colours as a tally. Sized to their own
         /// text they are different widths saying different things, and the round has to be read a
         /// row at a time.
@@ -1958,6 +2050,23 @@ describe('ReviewPanel', () => {
 
             expect(votes).toHaveLength(2);
             votes.forEach((vote) => expect(vote).toHaveClass('w-100'));
+        });
+
+        /// The THIRD full-width control, and the one the badge selector cannot see: the viewer's
+        /// own vote is a dropdown trigger rather than a badge, so it takes the width separately
+        /// and would regress on its own.
+        it('should render the viewer own vote control across the full width', () => {
+            // given
+            signInAs(authState, ['Reviewers']);
+
+            // when
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted} />);
+
+            // then
+            expect(screen.getByRole('button', { name: 'Vote...' })).toHaveClass('w-100');
         });
     });
 
@@ -2061,11 +2170,14 @@ describe('ReviewPanel', () => {
             // when
             await openPicker();
 
-            // then
-            const avatar = screen.getByRole('img', { name: 'Berean' });
+            // then: queried structurally, because the avatar is deliberately decorative -
+            // the name is written beside it, and a labelled one would announce Berean twice
+            const bereanRow = screen.getByRole('button', { name: /Berean/ });
 
-            expect(avatar.querySelector('i.bi-person-fill')).not.toBeNull();
-            expect(avatar.textContent).toBe('');
+            expect(bereanRow.querySelector('i.bi-person-fill')).not.toBeNull();
+            expect(bereanRow.querySelector('.avatar-img')?.textContent).toBe('');
+            expect(bereanRow.querySelector('.avatar-img'))
+                .toHaveAttribute('aria-hidden', 'true');
         });
 
         /// THE SEAM. The two callbacks are exclusive: an AI assignment posted to the human

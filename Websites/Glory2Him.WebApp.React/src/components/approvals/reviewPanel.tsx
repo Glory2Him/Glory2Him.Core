@@ -879,24 +879,30 @@ export function ReviewPanel({
 
         return (
             <>
+                {/* DECORATIVE here, always: the display name is rendered immediately to its
+                    right, so a labelled avatar makes every row announce the person twice — and
+                    inside the picker's <button> it lands in the button's accessible name too. */}
                 <Avatar
                     name={identity.displayName}
                     sizePx={avatarSizePx}
-                    iconCssClass={isAI ? aiReviewerIconCssClass : undefined} />
+                    iconCssClass={isAI ? aiReviewerIconCssClass : undefined}
+                    isDecorative />
 
                 <span className="text-truncate">
                     <span className="fw-bold d-block g2h-review-identity-name">
                         {identity.displayName}
                     </span>
 
+                    {/* NOT .text-muted — see approvals.css. This theme redefines the token it
+                        resolves to, and it paints these two lines at 1.49:1 on white. */}
                     {secondLine != null && secondLine.length > 0 && (
-                        <small className="text-muted d-block g2h-review-identity-username">
+                        <small className="d-block g2h-review-identity-username">
                             {secondLine}
                         </small>
                     )}
 
                     {extraLine != null && extraLine.length > 0 && (
-                        <small className="text-muted d-block g2h-review-identity-reason">
+                        <small className="d-block g2h-review-identity-reason">
                             {extraLine}
                         </small>
                     )}
@@ -1022,11 +1028,14 @@ export function ReviewPanel({
                 ?? user?.userName
                 ?? '';
 
-            // The one row whose username the panel can always fill in. Every other row depends on
-            // a projection that has no username to give (§16.7.4), but the viewer's own account
-            // is right there in the auth context — and it is dropped when the review row already
-            // supplied one, so the recorded review stays the authority on its own labelling for
-            // the second line exactly as it is for the first.
+            // The one row that can still be labelled when the RESOLVER names nobody — a stale
+            // or failed §16.7.4 read, or an id that resolved to no account — because the
+            // viewer's own account is in the auth context either way. Every other row takes its
+            // username from that read, which does carry one.
+            //
+            // The review row WINS the fallback, and the order matters: the recorded review stays
+            // the authority on its own labelling for the second line exactly as it is for the
+            // first, so both lines come from the one resolver rather than one from each source.
             const identity = {
                 userId: viewerReview?.reviewerUserId ?? viewerId,
                 displayName: name,

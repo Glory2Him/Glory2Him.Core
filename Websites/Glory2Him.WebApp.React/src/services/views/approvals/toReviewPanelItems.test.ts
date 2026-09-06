@@ -45,6 +45,19 @@ describe('toReviewPanelItems', () => {
             expect(item.reviewerUserName).toBe('mary.a');
         });
 
+        /// MATCHED ON THE ID, not taken off the front of the list. Every other positive
+        /// assertion in this file happens to resolve the FIRST entry of the fixture, so an
+        /// implementation reading `collection[0]` would satisfy them all - this one aims past
+        /// row zero, which is the only way that mutation shows up.
+        it('should resolve a reviewer who is not the first entry of the collection', () => {
+            // when
+            const item = toApprovalReviewItem(review('user-john'), resolvedNames);
+
+            // then
+            expect(item.reviewerDisplayName).toBe('John');
+            expect(item.reviewerUserName).toBe('john.b');
+        });
+
         /// An id naming no account resolves to NEITHER field. The display name has always had an
         /// honest fallback here; the username has none to give, and inventing one would label a
         /// departed reviewer as somebody.
@@ -85,6 +98,24 @@ describe('toReviewPanelItems', () => {
             // then: the ROW's name, not the resolver's — it is the record of who was asked
             expect(item.displayName).toBe('Mary A.');
             expect(item.userName).toBe('mary.a');
+        });
+
+        /// The same guard as on the review side, and it matters more here: a request row that
+        /// took row zero's username would label an outstanding invitation with somebody else's
+        /// account - the exact confusion the username was added to remove.
+        it('should resolve a request addressed past the first entry', () => {
+            // given
+            const johnsRequest: ApprovalReviewRequest = {
+                ...request,
+                requestedUserId: 'user-john',
+                requestedUserDisplayName: 'John'
+            };
+
+            // when
+            const item = toRequestedReviewerItem(johnsRequest, resolvedNames);
+
+            // then
+            expect(item.userName).toBe('john.b');
         });
 
         it('should render the row alone when the resolver names nobody', () => {

@@ -8,6 +8,28 @@ section.g2h-review-panel {
     padding-bottom: 0;
 }
 
+/* THE SUBTLE TEXT COLOUR, and it is NOT .text-muted or --bs-secondary-color.
+   The Blogzine theme redefines --bs-secondary-color in :root to #d0d4d9, which Bootstrap's
+   .text-muted resolves to — 1.49:1 on white, against WCAG 1.4.3's 4.5:1. The second line of an
+   identity block is unreadable in light mode with either of them, which is the whole feature
+   painted invisible. Dark mode does not fail (#a1a1a8 on #212529 is 6.01:1), so the trap only
+   shows in the mode that is the default.
+
+   These two values are chosen against the theme's own palette rather than borrowed from it, and
+   measured against the WORST surface each has to sit on rather than against the page: the
+   picker's rows and section bands are painted, so a colour that clears 4.5:1 on white can still
+   fail inside the cog menu. #656a77 measures 5.41:1 on #fff and 4.79:1 on the picker's #f0f1f3;
+   #a8adb8 measures 6.86:1 on #212529 and 5.11:1 on the dark band. Each still reads a step back
+   from the name above it (--bs-body-color: #595d69 light, #dee2e6 dark), and the two lines are
+   sized and weighted apart as well, so the hierarchy does not rest on colour alone. */
+.g2h-review-panel {
+    --g2h-review-subtle-color: #656a77;
+}
+
+[data-bs-theme="dark"] .g2h-review-panel {
+    --g2h-review-subtle-color: #a8adb8;
+}
+
 /* ── The identity block ───────────────────────────────────────────────────────
    Name over username, with the avatar spanning both lines. The two lines are pulled tight
    against each other so they read as ONE label for one person rather than as two rows of a
@@ -20,6 +42,7 @@ section.g2h-review-panel {
 .g2h-review-identity-username,
 .g2h-review-identity-reason {
     line-height: 1.25;
+    color: var(--g2h-review-subtle-color);
 }
 
 /* The name and the lines under it may be narrower than their text; the truncation is what keeps
@@ -162,12 +185,16 @@ section.g2h-review-panel {
 }
 
 /* THE REASONS A ROUND IS SHUT are the one thing on the panel a moderator has to act on, and
-   .text-muted painted them too faint to read on white. --bs-secondary-color is Bootstrap's own
-   secondary text token — three-quarter-strength body colour in either theme — so it stays
-   readable in light mode and still drops back in dark, without a hand-picked grey that would
-   only be right in one of them. */
+   .text-muted painted them too faint to read on white.
+
+   The first attempt at this swapped .text-muted for --bs-secondary-color on the reasoning that
+   it is "Bootstrap's own secondary text token — three-quarter-strength body colour in either
+   theme". That is true of stock Bootstrap and false here: this theme redefines the token in
+   :root to #d0d4d9, and .text-muted resolves to that same token — so the swap changed the
+   spelling and not one pixel, and the reasons stayed at 1.49:1 on white. Fixed properly now,
+   against the same measured token the identity lines use. */
 .g2h-review-block-reason {
-    color: var(--bs-secondary-color);
+    color: var(--g2h-review-subtle-color);
 }
 
 /* The way OUT of a decision, and deliberately quieter than the way in. It sits under the outcome
