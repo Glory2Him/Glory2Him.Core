@@ -472,10 +472,12 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
         /// so an override must be permitted alongside a default while a second override for the
         /// same item must not be.
         ///
-        /// <para><c>ContentItemId</c> carries no foreign key, so the item id here need not name a
-        /// real content item. That is the schema's choice rather than this test's convenience —
-        /// worth knowing, because it means a typo in an override's target is stored happily and
-        /// simply never resolves.</para>
+        /// <para><c>ContentItemId</c> carries no foreign key, so at the SCHEMA level an override
+        /// may still name an item that does not exist. The API no longer permits it: the
+        /// orchestration resolves the item to derive the row's content type (#450), so a fabricated
+        /// id is refused before it can reach this index. Both rows below therefore name a real
+        /// item — which they must, since the index guards the item rather than the claim about
+        /// it.</para>
         /// </summary>
         [Fact]
         public async Task ShouldReturnConflictOnPostIfContentItemAlreadyHasAnOverrideAsync()

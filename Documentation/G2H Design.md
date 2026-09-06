@@ -2804,17 +2804,11 @@ Business Rules:
 
    **The block is asked before the scope is, and covers BOTH scopes.** A `ContentItem`-scoped block bars a caller from a `ContentItemSetting` default as surely as from an override: the default is the row that configures every content item of that type, so a caller barred from the type is barred from the wider write too. Asking it only on the override branch inverts the rule — it stops the write that governs one item and waves through the one that governs all of them. This says nothing about any other settings entity; `ApprovalSetting`'s own write gate is unchanged and outside this rule.
 7. Disabling a feature in settings must prevent the creation of new associations of that type for the affected content items.
-8. The following fields are control fields and must never be accepted from an external caller. They must always be set internally by the orchestration or approval workflow:
-   - `ContentType`
-   - `ContentItemId`
-   - `ApprovalStatus`
-   - `IsDeleted`
-   - `CreatedBy`
-   - `CreatedWhen`
-   - `DeletedBy`
-   - `DeletedWhen`
-   - `DeletionReason`
-9. On every update, the orchestration must load the current entity from the database and map only the permitted caller-supplied setting fields (`TagsAllowed`, `ShowTags`, `ReactionsAllowed`, `ShowReactions`, `LinksAllowed`, `ShowLinks`, `AttachmentsAllowed`, `ShowAttachments`, `CommentsAllowed`, `ShowComments`, `BibleReferenceAllowed`, `ShowBibleReferences`, `LimitReactionsToLoveOnly`) onto that entity before saving.
+8. The following are control fields. `ContentType` and `ContentItemId` need stating precisely rather than simply listed, because a setting cannot be addressed at all without them:
+   - `ContentType` — **derived, not accepted**, on an item override: `ContentItemSettingOrchestrationService` reads the `ContentItem` the row names and overwrites whatever the caller sent (rule 6, #450), because the write gate composes the publisher tier from this value. On a per-type default there is no item to derive from and the field is the row's own subject, so it is caller-supplied and validated against the enum.
+   - `ContentItemId` — **caller-supplied on add, by necessity**: it is how a caller names the item being configured. It is pinned on modify by rule 9, so a row can never be moved to another item, nor flattened into a default.
+   - `ApprovalStatus`, `IsDeleted`, `CreatedBy`, `CreatedWhen`, `DeletedBy`, `DeletedWhen`, `DeletionReason` — never accepted from an external caller; set internally by the owning workflow.
+9. On every update the stored row must be loaded and the control fields above must not be permitted to change. This is the **foundation's** work rather than an orchestration's — it is a rule about one row (§12.3, and rule 5 above) — and `ContentItemSettingService.ValidateAgainstStorageContentItemSettingOnModify` enforces it by comparing the incoming `ContentItemId`, `ContentType` and `CreatedWhen` against the stored values and refusing any that differ, for every caller including `Administrators`. Note that this REFUSES a changed control field rather than silently mapping around it, so a caller learns their write was rejected. Only the setting fields themselves (`TagsAllowed`, `ShowTags`, `ReactionsAllowed`, `ShowReactions`, `LinksAllowed`, `ShowLinks`, `AttachmentsAllowed`, `ShowAttachments`, `CommentsAllowed`, `ShowComments`, `BibleReferenceAllowed`, `ShowBibleReferences`, `LimitReactionsToLoveOnly`) are amendable.
 10. Review dismissal is not the responsibility of this orchestration. Publishing `ContentItemSettingUpdatedEvent` is sufficient — `ApprovalOrchestrationService` must handle dismissal when it receives that event.
 
 #### 12.5.3 ApprovalOrchestrationService

@@ -34,7 +34,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItemSettings
             // given
             ContentItemSetting randomContentItemSetting = CreateRandomContentItemSetting();
             ContentItemSetting inputContentItemSetting = randomContentItemSetting;
-            ContentItemSetting expectedContentItemSetting = inputContentItemSetting;
+
+            // A DISTINCT instance. Aliased to the input, BeSameAs held even for a service that
+            // returned its own argument without ever calling the foundation — the one mutant this
+            // delegation test exists to catch. Its three siblings were given distinct instances in
+            // the same round; this one was missed.
+            ContentItemSetting expectedContentItemSetting = new ContentItemSetting
+            {
+                Id = inputContentItemSetting.Id,
+                ContentType = inputContentItemSetting.ContentType,
+            };
 
             this.contentItemSettingServiceMock.Setup(service =>
                 service.ModifyContentItemSettingAsync(

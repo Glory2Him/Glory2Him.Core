@@ -49,7 +49,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItemSettings
             // against the captured reference, so a derivation moved to AFTER this call — which
             // restores the whole vulnerability — would still satisfy a matcher. Reading the value
             // in a callback is the only way the ORDER is pinned.
-            ContentType contentTypeAtCallTime = default;
+            //
+            // NULL rather than default: default(ContentType) is itself a real member, so a default
+            // sentinel cannot be told apart from a captured value and a callback that never ran
+            // would read as a pass.
+            ContentType? contentTypeAtCallTime = null;
 
             this.contentItemServiceMock.Setup(service =>
                 service.RetrieveContentItemByIdAsync(contentItemId, It.IsAny<CancellationToken>()))
@@ -111,7 +115,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItemSettings
                 ContentType = CallerClaimedContentType,
             };
 
-            ContentType contentTypeAtCallTime = default;
+            ContentType? contentTypeAtCallTime = null;
 
             this.contentItemSettingServiceMock.Setup(service =>
                 service.AddContentItemSettingAsync(

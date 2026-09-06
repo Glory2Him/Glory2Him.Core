@@ -41,8 +41,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItemSettings
         // Two DIFFERENT members, pinned rather than drawn: a derivation test that let the filler
         // pick both types would pass whenever the draw happened to agree, proving nothing about
         // the overwrite it exists to exercise.
+        //
+        // BOTH ARE NON-ZERO, and that is load-bearing rather than incidental. ActualContentType was
+        // Quote, which is 0, which is default(ContentType) — so a derivation that assigned nothing,
+        // or assigned a constant zero, still produced the value the assertion looked for and the
+        // test stayed green with the overwrite gone. The expected answer has to be a member no
+        // uninitialised field can hold.
         private const ContentType CallerClaimedContentType = ContentType.Devotional;
-        private const ContentType ActualContentType = ContentType.Quote;
+        private const ContentType ActualContentType = ContentType.Story;
 
         public ContentItemSettingOrchestrationServiceTests()
         {

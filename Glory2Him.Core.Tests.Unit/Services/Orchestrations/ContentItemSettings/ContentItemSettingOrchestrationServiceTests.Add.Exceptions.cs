@@ -275,5 +275,171 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItemSettings
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        // A TIMEOUT IS A DEPENDENCY PROBLEM THAT STILL READS AS A TIMEOUT. This wrapper is shared by
+        // add, modify, retrieve-by-id, remove and hard-remove, so the clause is on every write path;
+        // the wrapper is kept whole rather than unwrapped so a call site can tell a slow store from
+        // an unreachable one. TimeoutContentItemSettingOrchestrationException was referenced by no
+        // test at all before this one.
+        [Fact]
+        public async Task ShouldThrowDependencyExceptionOnAddIfTheOperationTimesOutAndLogItAsync()
+        {
+            // given: the default constructor leaves CancellationToken at None, whose
+            // IsCancellationRequested is false — the timeout half of the filter
+            ContentItemSetting someContentItemSetting = CreateRandomContentItemSetting();
+            someContentItemSetting.ContentItemId = null;
+
+            var operationCanceledException = new OperationCanceledException();
+
+            var timeoutException =
+                new TimeoutException("The dependency operation timed out.");
+
+            var timeoutContentItemSettingOrchestrationException =
+                new TimeoutContentItemSettingOrchestrationException(
+                    message: "Failed content item setting orchestration timeout error occurred, "
+                        + "contact support.",
+                    innerException: timeoutException,
+                    data: timeoutException.Data);
+
+            var expectedException =
+                new ContentItemSettingOrchestrationDependencyException(
+                    message: "Content item setting orchestration dependency error occurred, contact support.",
+                    innerException: timeoutContentItemSettingOrchestrationException);
+
+            this.contentItemSettingServiceMock.Setup(service =>
+                service.AddContentItemSettingAsync(
+                    It.IsAny<ContentItemSetting>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(operationCanceledException);
+
+            // when: a live token is handed in, so only the thrown exception's own token can decide
+            // the branch
+            ValueTask<ContentItemSetting> addContentItemSettingTask =
+                this.contentItemSettingOrchestrationService.AddContentItemSettingAsync(
+                    someContentItemSetting,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemSettingOrchestrationDependencyException actualException =
+                await Assert.ThrowsAsync<ContentItemSettingOrchestrationDependencyException>(
+                    addContentItemSettingTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedException))),
+                Times.Once);
+
+            this.contentItemSettingServiceMock.Verify(service =>
+                service.AddContentItemSettingAsync(
+                    It.IsAny<ContentItemSetting>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.contentItemSettingServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // A GENUINE CANCELLATION IS NOT A TIMEOUT and must reach the caller untouched — the mirror
+        // of the test above, thrown from the same dependency, so the token carried by the exception
+        // is the only difference between the two runs.
+        [Fact]
+        public async Task ShouldRethrowOperationCanceledExceptionOnAddIfItsTokenWasCancelledAsync()
+        {
+            // given
+            ContentItemSetting someContentItemSetting = CreateRandomContentItemSetting();
+            someContentItemSetting.ContentItemId = null;
+
+            using var cancellationTokenSource = new CancellationTokenSource();
+            await cancellationTokenSource.CancelAsync();
+
+            var operationCanceledException =
+                new OperationCanceledException(cancellationTokenSource.Token);
+
+            this.contentItemSettingServiceMock.Setup(service =>
+                service.AddContentItemSettingAsync(
+                    It.IsAny<ContentItemSetting>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(operationCanceledException);
+
+            // when
+            ValueTask<ContentItemSetting> addContentItemSettingTask =
+                this.contentItemSettingOrchestrationService.AddContentItemSettingAsync(
+                    someContentItemSetting,
+                    TestContext.Current.CancellationToken);
+
+            // then: the original exception, not a wrapper, and nothing logged
+            await Assert.ThrowsAsync<OperationCanceledException>(addContentItemSettingTask.AsTask);
+
+            this.contentItemSettingServiceMock.Verify(service =>
+                service.AddContentItemSettingAsync(
+                    It.IsAny<ContentItemSetting>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.contentItemSettingServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // THE GENERAL HANDLER. Anything that is not one of the shapes above becomes a service
+        // failure wrapped in FailedContentItemSettingOrchestrationServiceException — a type nothing
+        // referenced before this test, on the path whose new catch (Xeption) clause decides what can
+        // still reach it.
+        [Fact]
+        public async Task ShouldThrowServiceExceptionOnAddIfAnUnexpectedErrorOccursAndLogItAsync()
+        {
+            // given
+            ContentItemSetting someContentItemSetting = CreateRandomContentItemSetting();
+            someContentItemSetting.ContentItemId = null;
+
+            string randomMessage = GetRandomString();
+            var serviceException = new Exception(randomMessage);
+
+            var failedContentItemSettingOrchestrationServiceException =
+                new FailedContentItemSettingOrchestrationServiceException(
+                    message: "Failed content item setting orchestration service error occurred, "
+                        + "contact support.",
+                    innerException: serviceException,
+                    data: serviceException.Data);
+
+            var expectedException =
+                new ContentItemSettingOrchestrationServiceException(
+                    message: "Content item setting orchestration service error occurred, contact support.",
+                    innerException: failedContentItemSettingOrchestrationServiceException);
+
+            this.contentItemSettingServiceMock.Setup(service =>
+                service.AddContentItemSettingAsync(
+                    It.IsAny<ContentItemSetting>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(serviceException);
+
+            // when
+            ValueTask<ContentItemSetting> addContentItemSettingTask =
+                this.contentItemSettingOrchestrationService.AddContentItemSettingAsync(
+                    someContentItemSetting,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemSettingOrchestrationServiceException actualException =
+                await Assert.ThrowsAsync<ContentItemSettingOrchestrationServiceException>(
+                    addContentItemSettingTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedException))),
+                Times.Once);
+
+            this.contentItemSettingServiceMock.Verify(service =>
+                service.AddContentItemSettingAsync(
+                    It.IsAny<ContentItemSetting>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.contentItemSettingServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }

@@ -165,11 +165,12 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItemSettings
                 throw await CreateAndLogServiceExceptionAsync(
                     exception: contentItemSettingServiceException);
             }
-            catch (Xeption downstreamException)
-            {
-                throw await CreateAndLogDependencyExceptionAsync(
-                    exception: downstreamException);
-            }
+            // NO catch (Xeption) HERE, unlike the write path above. This path calls one foundation,
+            // and that foundation's queryable TryCatch emits only the two types caught above — a
+            // dependency exception for a timeout or a SqlException, a service exception for
+            // everything else — while a cancellation is rethrown raw and is not a Xeption at all.
+            // The clause would be unreachable by the same argument that retired the two validation
+            // clauses above it, so it is not written.
             catch (Exception exception)
             {
                 var failedContentItemSettingOrchestrationServiceException =
