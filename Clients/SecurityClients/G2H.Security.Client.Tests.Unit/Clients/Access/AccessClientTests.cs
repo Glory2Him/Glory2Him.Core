@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -154,6 +154,7 @@ namespace G2H.Security.Client.Tests.Unit.Clients.Access
             new ResolveApprovalCommentRequest
             {
                 Actor = CreateRandomAccessActor(),
+                RoleSubjects = new List<RoleSubject>(),
                 CommentCreatedBy = GetRandomString(),
                 ApprovalState = ApprovalState.Submitted,
                 IsParentApprovalDeleted = false,

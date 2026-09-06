@@ -96,7 +96,10 @@ namespace G2H.Security.Client.Services.Foundations.Access
 
             Validate(
                 (Rule: IsInvalid(resolveApprovalCommentRequest.Actor),
-                    Parameter: nameof(ResolveApprovalCommentRequest.Actor)));
+                    Parameter: nameof(ResolveApprovalCommentRequest.Actor)),
+
+                (Rule: IsInvalid(resolveApprovalCommentRequest.RoleSubjects),
+                    Parameter: nameof(ResolveApprovalCommentRequest.RoleSubjects)));
         }
 
         virtual internal void ValidateOnDecideApproval(DecideApprovalRequest decideApprovalRequest)

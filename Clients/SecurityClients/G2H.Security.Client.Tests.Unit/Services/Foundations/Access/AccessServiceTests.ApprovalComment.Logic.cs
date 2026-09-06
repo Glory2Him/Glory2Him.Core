@@ -356,15 +356,44 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             actualVerdict.DenialReason.Should().Be(AccessDenialReason.NotAuthenticated);
         }
 
-        [Theory]
-        [InlineData(RoleNames.Publishers)]
-        [InlineData(RoleNames.Reviewers)]
-        public async Task ShouldRefuseResolvingAnotherPersonsCommentWithoutAdminAsync(string role)
+        [Fact]
+        public async Task ShouldRefuseResolvingAnotherPersonsCommentOnTheReviewTierAsync()
         {
-            // given: the resolve gate widens to Administrators and to nobody else
+            // given: the gate widens to the PUBLISHER tier and stops there. A reviewer is never
+            // held by RequireReviewCommentResolutionBeforeApprovals — they cast a verdict, they
+            // do not decide the round — so settling somebody else's ask is not theirs to do. One
+            // who wants to answer an outstanding comment writes a comment of their own.
             ResolveApprovalCommentRequest resolveApprovalCommentRequest =
                 CreateRandomResolveApprovalCommentRequest(
-                actor: CreateRandomAccessActor(roles: new List<string> { role }),
+                actor: CreateRandomAccessActor(
+                    roles: new List<string> { RoleNames.Reviewers }),
+                commentCreatedBy: GetRandomString());
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayResolveApprovalCommentAsync(resolveApprovalCommentRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeFalse();
+            actualVerdict.DenialReason.Should().Be(AccessDenialReason.NotApprovalCommentAuthor);
+        }
+
+        [Fact]
+        public async Task ShouldRefuseResolvingAnotherPersonsCommentOnAnotherTypesPublishTierAsync()
+        {
+            // given: a publisher of ANOTHER content type. The narrow tier widens into the coarse
+            // one, never sideways (§18.6 rule 4), so this must not reach a devotional's thread.
+            RoleSubject subject = CreateRandomRoleSubject(
+                entityType: "ContentItem", contentType: "Devotional");
+
+            ResolveApprovalCommentRequest resolveApprovalCommentRequest =
+                CreateRandomResolveApprovalCommentRequest(
+                actor: CreateRandomAccessActor(
+                    roles: new List<string>
+                    {
+                        RoleNames.PublishersFor("ContentItem", "Quote")
+                    }),
+                roleSubjects: new List<RoleSubject> { subject },
                 commentCreatedBy: GetRandomString());
 
             // when
@@ -379,8 +408,10 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
         [Fact]
         public async Task ShouldPermitAnAdminResolvingAnotherPersonsCommentAsync()
         {
-            // given: resolving records that a comment is settled, which changes no words —
-            // the one comment operation an administrator may perform on someone else's row
+            // given: resolving records that a comment is settled, which changes no words — the
+            // one comment operation somebody other than the author may perform on the row.
+            // Administrators sits inside the publisher tier, so the §14.7 rule 5 route survives
+            // the widening rather than being replaced by it.
             ResolveApprovalCommentRequest resolveApprovalCommentRequest =
                 CreateRandomResolveApprovalCommentRequest(
                 actor: CreateRandomAccessActor(
@@ -394,6 +425,115 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             // then
             actualVerdict.IsPermitted.Should().BeTrue();
             actualVerdict.DenialReason.Should().Be(AccessDenialReason.None);
+        }
+
+        [Fact]
+        public async Task ShouldPermitAGlobalPublisherResolvingAnotherPersonsCommentAsync()
+        {
+            // given: an outstanding comment holds the APPROVAL shut, and the people that block
+            // stops are exactly the people who decide it
+            ResolveApprovalCommentRequest resolveApprovalCommentRequest =
+                CreateRandomResolveApprovalCommentRequest(
+                actor: CreateRandomAccessActor(
+                    roles: new List<string> { RoleNames.Publishers }),
+                commentCreatedBy: GetRandomString());
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayResolveApprovalCommentAsync(resolveApprovalCommentRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeTrue();
+            actualVerdict.DenialReason.Should().Be(AccessDenialReason.None);
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task ShouldPermitAScopedPublisherResolvingAnotherPersonsCommentAsync(
+            bool isNarrowRole)
+        {
+            // given: both spellings of the scoped tier reach the same subject —
+            // ContentItem-Devotional-Publishers ⊂ ContentItem-Publishers (§18.6 rule 4)
+            RoleSubject subject = CreateRandomRoleSubject(
+                entityType: "ContentItem", contentType: "Devotional");
+
+            string scopedRole = isNarrowRole
+                ? RoleNames.PublishersFor("ContentItem", "Devotional")
+                : RoleNames.PublishersFor("ContentItem");
+
+            ResolveApprovalCommentRequest resolveApprovalCommentRequest =
+                CreateRandomResolveApprovalCommentRequest(
+                actor: CreateRandomAccessActor(roles: new List<string> { scopedRole }),
+                roleSubjects: new List<RoleSubject> { subject },
+                commentCreatedBy: GetRandomString());
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayResolveApprovalCommentAsync(resolveApprovalCommentRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeTrue();
+            actualVerdict.DenialReason.Should().Be(AccessDenialReason.None);
+        }
+
+        [Fact]
+        public async Task ShouldRefuseResolvingWhenTheActorIsSanctionedOnTheSubjectAsync()
+        {
+            // given: the veto reaches IsResolved at last. §18.6 rule 3 records that a scoped block
+            // does not reach the comment thread and singles out THIS field as where that reasoning
+            // strains, because settling a comment clears a §8.5 gate. A publisher sanctioned on
+            // the type may no longer move it.
+            RoleSubject subject = CreateRandomRoleSubject(
+                entityType: "ContentItem", contentType: "Devotional");
+
+            ResolveApprovalCommentRequest resolveApprovalCommentRequest =
+                CreateRandomResolveApprovalCommentRequest(
+                actor: CreateRandomAccessActor(
+                    roles: new List<string>
+                    {
+                        RoleNames.PublishersFor("ContentItem"),
+                        RoleNames.ReadOnlyFor("ContentItem", "Devotional")
+                    }),
+                roleSubjects: new List<RoleSubject> { subject },
+                commentCreatedBy: GetRandomString());
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayResolveApprovalCommentAsync(resolveApprovalCommentRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeFalse();
+            actualVerdict.DenialReason.Should().Be(AccessDenialReason.BlockedByReadOnlyRole);
+        }
+
+        [Fact]
+        public async Task ShouldRefuseTheSanctionedAuthorResolvingTheirOwnCommentAsync()
+        {
+            // given: the veto is asked BEFORE the author branch, because a block covers the
+            // holder's own rows and the author admit is a grant like any other (§18.6 rule 2).
+            // Without that ordering a sanctioned contributor could still clear the one gate
+            // holding their own submission's approval shut.
+            string authorId = GetRandomString();
+
+            RoleSubject subject = CreateRandomRoleSubject(
+                entityType: "ContentItem", contentType: "Devotional");
+
+            ResolveApprovalCommentRequest resolveApprovalCommentRequest =
+                CreateRandomResolveApprovalCommentRequest(
+                actor: CreateRandomAccessActor(
+                    userId: authorId,
+                    roles: new List<string> { RoleNames.ReadOnly }),
+                roleSubjects: new List<RoleSubject> { subject },
+                commentCreatedBy: authorId);
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayResolveApprovalCommentAsync(resolveApprovalCommentRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeFalse();
+            actualVerdict.DenialReason.Should().Be(AccessDenialReason.BlockedByReadOnlyRole);
         }
 
         [Fact]

@@ -223,9 +223,17 @@ namespace G2H.Security.Client.Services.Foundations.Access
             return Permit("Actor is the author of the comment and the round is open.");
         }
 
-        // The one comment operation an administrator may perform on someone else's row, and deliberately
-        // the only one: resolving records that a comment is settled — that it no longer requires
-        // anything before the approval can proceed — which changes no words.
+        // The one comment operation somebody other than the author may perform on the row, and
+        // deliberately the only one: resolving records that a comment is settled — that it no
+        // longer requires anything before the approval can proceed — which changes no words.
+        //
+        // THE TIER BESIDE THE AUTHOR IS THE PUBLISHER TIER, not the review tier. An outstanding
+        // comment holds the APPROVAL shut under RequireReviewCommentResolutionBeforeApprovals,
+        // and the people that block stops are exactly the people who decide the approval. A
+        // reviewer is not held by the gate, so admitting them would hand the settling of somebody
+        // else's ask to somebody the ask never blocked; a reviewer answering one writes a comment
+        // of their own. HasPublisherTier already carries Administrators, so the administrator
+        // route §14.7 rule 5 opened is preserved rather than replaced.
         private static AccessVerdict DecideMayResolveApprovalComment(
             ResolveApprovalCommentRequest request)
         {
@@ -236,14 +244,26 @@ namespace G2H.Security.Client.Services.Foundations.Access
                     "Actor is not authenticated or carries no resolvable user id.");
             }
 
-            bool isAuthor = IsSameUser(request.Actor.UserId, request.CommentCreatedBy);
-            bool isAdmin = request.Actor.Roles.Contains(RoleNames.Administrators);
+            // The veto, and it comes BEFORE the author branch rather than after it — the same
+            // ordering DecideMayAmendApproval keeps, and for the same reason: a block covers the
+            // holder's OWN rows, and the author admit below is a grant like any other (§18.6
+            // rule 2). This is the closure of the gap §18.6 rule 3 records against IsResolved,
+            // which is the one comment field that moves a §8.5 gate.
+            if (IsBlockedFromSubjects(request.Actor, request.RoleSubjects))
+            {
+                return Refuse(
+                    AccessDenialReason.BlockedByReadOnlyRole,
+                    BlockedBySanctionExplanation);
+            }
 
-            if (isAuthor is false && isAdmin is false)
+            bool isAuthor = IsSameUser(request.Actor.UserId, request.CommentCreatedBy);
+
+            if (isAuthor is false
+                && HasPublisherTier(request.Actor, request.RoleSubjects) is false)
             {
                 return Refuse(
                     AccessDenialReason.NotApprovalCommentAuthor,
-                    "Actor is neither the comment's author nor an administrator resolving on their behalf.");
+                    "Actor is neither the comment's author nor in the publisher tier for this approval.");
             }
 
             if (request.IsParentApprovalDeleted)
@@ -262,7 +282,8 @@ namespace G2H.Security.Client.Services.Foundations.Access
 
             return isAuthor
                 ? Permit("Actor is the author of the comment and the round is open.")
-                : Permit("Actor is an administrator resolving on the author's behalf; UpdatedBy records them.");
+                : Permit("Actor holds the publisher tier for this approval and is resolving on the author's "
+                    + "behalf; UpdatedBy records them.");
         }
 
         // Order matters and is not arbitrary. Identity comes first, then role, then the rules

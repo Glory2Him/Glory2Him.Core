@@ -25,18 +25,33 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
 {
     public partial class ApprovalCommentServiceTests
     {
-        // The review roles read a comment thread without owning it, so none of them may declare
-        // someone else's comment settled. Administrators is the GLOBAL role only — an entity-scoped
-        // "-Publishers" decides approvals, which is not the same as lifting the block
-        // RequireReviewCommentResolutionBeforeApprovals holds shut.
+        // The REVIEW roles read a comment thread without owning it, so none of them may declare
+        // someone else's comment settled: a reviewer casts a verdict and is never held by
+        // RequireReviewCommentResolutionBeforeApprovals, so lifting that block is not theirs to
+        // do. One who wants to answer an outstanding comment writes a comment of their own.
+        //
+        // The PUBLISHER tier is not in this list — see ResolverRoleSets below. It is the tier the
+        // block actually stops, which is why it is admitted.
         public static TheoryData<string[]> NonResolverRoleSets() =>
             new TheoryData<string[]>
             {
                 new string[0],
                 new[] { Roles.Reviewers },
-                new[] { Roles.Publishers },
                 new[] { Roles.ContentItemReviewers },
+            };
+
+        // The tier that decides approvals, at every §18.6 scope the row-local check can see it.
+        // Row-local it can only ask the naming CONVENTION — a comment row does not say which
+        // entity type its approval targets — so matching the scoped name to the entity behind the
+        // approval is IAccessBroker's half, and this gate must not be narrower than the broker's
+        // or two throwing gates would compose to an AND and delete the widening.
+        public static TheoryData<string[]> ResolverRoleSets() =>
+            new TheoryData<string[]>
+            {
+                new[] { Roles.Administrators },
+                new[] { Roles.Publishers },
                 new[] { Roles.ContentItemPublishers },
+                new[] { "ContentItem-Devotional-Publishers" },
             };
 
         [Fact]
@@ -234,12 +249,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
 
         [Theory]
         [MemberData(nameof(NonResolverRoleSets))]
-        public async Task ShouldThrowUnauthorizedOnResolveIfCallerIsNeitherTheAuthorNorAnAdminAsync(
+        public async Task ShouldThrowUnauthorizedOnResolveIfCallerIsNeitherTheAuthorNorAPublisherAsync(
             string[] roles)
         {
             // given: a reviewer who wants to respond to an outstanding comment writes one of their
-            // own — declaring somebody else's comment settled is the author's call, or an
-            // administrator's
+            // own — declaring somebody else's comment settled belongs to the author, or to the
+            // publisher tier the block actually stops
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(roles);
 
             ApprovalComment storageApprovalComment = CreateRandomApprovalComment();

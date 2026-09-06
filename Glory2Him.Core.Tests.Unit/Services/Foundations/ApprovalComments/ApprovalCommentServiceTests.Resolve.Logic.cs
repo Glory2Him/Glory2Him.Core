@@ -131,13 +131,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
                 Times.Exactly(2));
         }
 
-        [Fact]
-        public async Task ShouldResolveOnBehalfOfTheAuthorWhenTheCallerIsAnAdminAsync()
+        [Theory]
+        [MemberData(nameof(ResolverRoleSets))]
+        public async Task ShouldResolveOnBehalfOfTheAuthorWhenTheCallerIsInThePublisherTierAsync(
+            string[] roles)
         {
-            // given: the one comment operation an administrator may run against another person's row.
-            // Resolving records that a comment is settled, which changes no words — amending
-            // or withdrawing someone else's comment stays refused (§14.7 rule 5).
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
+            // given: the one comment operation somebody other than the author may run against
+            // the row. Resolving records that a comment is settled, which changes no words —
+            // amending or withdrawing someone else's comment stays refused (§14.7 rule 5).
+            //
+            // The tier is the PUBLISHER tier at every §18.6 scope, because an outstanding comment
+            // holds the APPROVAL shut and those are the people that block stops. Administrators
+            // is inside it, so §14.7 rule 5's route survives the widening.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(roles);
 
             ApprovalComment storageApprovalComment = CreateRandomApprovalComment();
             storageApprovalComment.IsResolved = false;
@@ -146,7 +152,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
                 broker.GetCurrentDateTimeOffsetAsync())
                     .ReturnsAsync(GetRandomDateTimeOffset());
 
-            // a DIFFERENT user from the comment's author — the Administrators role is what carries this
+            // a DIFFERENT user from the comment's author — the role is what carries this
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
                     .ReturnsAsync(GetRandomString());

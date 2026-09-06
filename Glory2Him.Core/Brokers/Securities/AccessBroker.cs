@@ -160,10 +160,22 @@ namespace Glory2Him.Core.Brokers.Securities
                 return RefuseMissingApproval(approvalId);
             }
 
+            // Subjects only, like MayAmendApprovalAsync beside it. The resolution decision reads
+            // neither the round's reviews nor its policies, so gathering them would be work whose
+            // result is discarded. What the subjects DO carry is the publisher tier the decision
+            // admits beside the author, and the ReadOnly veto — which is what finally brings the
+            // sanction to IsResolved, the one comment field that moves a §8.5 gate (§18.6 rule 3).
+            (_, IReadOnlyList<RoleSubject> roleSubjects, _, _, _, _) =
+                await ResolveEntityAsync(
+                    maybeApproval.EntityType,
+                    maybeApproval.EntityId,
+                    cancellationToken);
+
             return await this.securityClient.Access.MayResolveApprovalCommentAsync(
                 new ResolveApprovalCommentRequest
                 {
                     Actor = actor,
+                    RoleSubjects = roleSubjects,
                     CommentCreatedBy = commentCreatedBy,
                     ApprovalState = ToApprovalState(maybeApproval.ApprovalStatus),
                     IsParentApprovalDeleted = maybeApproval.IsDeleted,

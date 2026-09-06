@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -96,12 +96,14 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
 
         private static ResolveApprovalCommentRequest CreateRandomResolveApprovalCommentRequest(
             AccessActor? actor = null,
+            IReadOnlyList<RoleSubject>? roleSubjects = null,
             string? commentCreatedBy = null,
             ApprovalState approvalState = ApprovalState.Submitted,
             bool isParentApprovalDeleted = false) =>
             new ResolveApprovalCommentRequest
             {
                 Actor = actor ?? CreateRandomAccessActor(),
+                RoleSubjects = roleSubjects ?? new List<RoleSubject>(),
                 CommentCreatedBy = commentCreatedBy ?? GetRandomString(),
                 ApprovalState = approvalState,
                 IsParentApprovalDeleted = isParentApprovalDeleted,

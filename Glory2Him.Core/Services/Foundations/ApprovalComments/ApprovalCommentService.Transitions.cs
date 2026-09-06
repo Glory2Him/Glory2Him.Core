@@ -28,13 +28,20 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
     /// and never blocks (§7.8). So this operation is a settled/outstanding transition in both
     /// directions, not "declaring a question answered".</para>
     ///
-    /// <para>It exists for the <c>Administrators</c> route, not for exclusivity over the field. The owner
+    /// <para>It exists for the route past the author, not for exclusivity over the field. The owner
     /// may change <c>IsResolved</c> through the general modify as readily as through here — it is
-    /// their row. What modify cannot express is an administrator settling a comment on the
-    /// author's behalf: widening modify to admit one would have handed that role the author's
-    /// words too, which §14.7 rule 5 withdraws. So resolution gets its own operation, owning
-    /// exactly <c>IsResolved</c>, admitting owner-or-<c>Administrators</c>, and publishing its own
-    /// fact.</para>
+    /// their row. What modify cannot express is somebody else settling a comment on the author's
+    /// behalf: widening modify to admit them would have handed that tier the author's words too,
+    /// which §14.7 rule 5 withdraws. So resolution gets its own operation, owning exactly
+    /// <c>IsResolved</c>, admitting the owner or the <b>publisher tier</b> for the entity behind
+    /// the approval, and publishing its own fact.</para>
+    ///
+    /// <para><b>The publisher tier and not the review tier.</b> An outstanding comment holds the
+    /// approval shut under <c>RequireReviewCommentResolutionBeforeApprovals</c>, and the people
+    /// that block stops are exactly the people who decide the approval. A reviewer is not held by
+    /// the gate, so settling somebody else's ask is not theirs to do — they answer it with a
+    /// comment of their own. The <c>ReadOnly</c> sanction is asked ahead of every grant here,
+    /// the author's included, closing what §18.6 rule 3 records against this field.</para>
     ///
     /// <para>Two paths writing one field costs nothing <i>provided</i> the approval workflow
     /// subscribes to both <c>ApprovalComment-Modified</c> and <c>ApprovalComment-Resolved</c> to
@@ -89,9 +96,9 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                     approvalCommentId: approvalCommentId,
                     cancellationToken: cancellationToken);
 
-            // the row-local half: the author, or an administrator acting on their behalf. Narrower than
-            // the read posture on purpose — a reviewer may see the thread without owning the
-            // power to declare someone else's comment settled.
+            // the row-local half: the author, or the publisher tier acting on their behalf.
+            // Narrower than the read posture on purpose — a reviewer may see the thread without
+            // owning the power to declare someone else's comment settled.
             await ValidateUserCanResolveStorageApprovalCommentAsync(
                 storageApprovalComment: storageApprovalComment,
                 securityContext: inboundEnvelope.SecurityContext);
