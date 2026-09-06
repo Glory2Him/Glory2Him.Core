@@ -307,16 +307,19 @@ export const ContentItemModerationDetailPage = () => {
                 && review.statusId !== ApprovalStatus.Dismissed);
 
     // THE AI-REVIEW SEAM (design §8.6.2, issue #354). Assigning Berean is meant to publish an
-    // assignment fact that an AI-review process consumes: it calls the classification library
-    // for an IConfidence verdict and files an ApprovalComment and/or an ApprovalReview under
-    // Berean's system identity, per the two confidence thresholds.
+    // assignment fact that an AI-review process consumes and answers on the round.
     //
-    // NONE OF THAT EXISTS. §13.4 is explicit that no AI broker or content-analysis service is in
-    // code today, ContentItem does not implement IConfidence at all, and the three open rulings
-    // §8.6.2 lists — whether a Berean vote counts toward RequiredNumberOfApprovals above all —
-    // are unanswered. So this deliberately writes NOTHING: it does not post a review request,
-    // because Berean has no account for one to name, and it does not fake a pending row, because
-    // a "Requested" chip against a request nobody holds is the panel lying about the round.
+    // ON THIS PAGE THAT ANSWER IS COMMENTS, and only comments. §8.6.2 rules ContentItem out of
+    // confidence scoring deliberately — a score judges a PAIRING, and a content item is not one —
+    // so the threshold rules that produce a Berean vote are unreachable here whatever
+    // IsAIApprovalReviewAllowed resolves to. What Berean has to say about a content item arrives
+    // as ApprovalComments under its system identity, and a human decides.
+    //
+    // NONE OF IT EXISTS YET. §13.4 is explicit that no AI broker or content-analysis service is
+    // in code today, and §8.6.2's open rulings are unanswered. So this deliberately writes
+    // NOTHING: it does not post a review request, because Berean has no account for one to name,
+    // and it does not fake a pending row, because a "Requested" chip against a request nobody
+    // holds is the panel lying about the round.
     //
     // It says so instead, and that is the whole of it until the backend half lands here.
     const requestAIReviewAsync = (candidate: ReviewerCandidateItem): void => {
