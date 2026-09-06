@@ -91,8 +91,12 @@ export interface ReviewPanelProps {
     // Supplying this candidate is the WHOLE of what offers the AI reviewer: it renders as the
     // first row of Suggestions, ahead of every human one, and a panel handed nothing offers
     // nothing. That is §8.6.2's fail-closed posture expressed as the absence of a prop — the
-    // consumer resolves IsAIApprovalInteractionsAllowed and passes the candidate only when the
-    // setting says yes, exactly as it resolves everything else the panel renders.
+    // consumer resolves IsAIReviewerOffered and passes the candidate only when the setting says
+    // yes, exactly as it resolves everything else the panel renders.
+    //
+    // The panel knows nothing of the second switch. IsAIAllowedToVote decides whether Berean
+    // casts an ApprovalReview alongside its comment, which happens on the round rather than in
+    // this picker — a Berean that may be asked but may not vote is offered here identically.
     //
     // The panel applies NO policy of its own here, in keeping with everything else it does: it
     // does not know what an AI reviewer is for, only that this one is pinned to the top and

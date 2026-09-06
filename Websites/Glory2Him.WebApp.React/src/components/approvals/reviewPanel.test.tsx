@@ -2169,7 +2169,7 @@ describe('ReviewPanel', () => {
 
     /// THE AI REVIEWER (design 8.6.2, "Berean"). The panel applies no policy of its own here:
     /// the candidate arriving is the whole of what offers it, so a consumer that has resolved
-    /// IsAIApprovalInteractionsAllowed to false simply passes nothing.
+    /// IsAIReviewerOffered to false simply passes nothing.
     describe('the AI reviewer', () => {
         const berean: ReviewerCandidateItem = {
             userId: 'ai-reviewer-berean',

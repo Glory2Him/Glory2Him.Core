@@ -251,7 +251,9 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
             + 'suggestion ahead of every human one. Supplying it is the whole of what offers it '
             + '\u2014 a panel handed nothing offers nothing, which is \u00a78.4\u2019s fail-'
             + 'closed posture expressed as the absence of a prop. Resolve '
-            + 'IsAIApprovalInteractionsAllowed and pass the candidate only when it says yes.'
+            + 'IsAIReviewerOffered and pass the candidate only when it says yes. The sibling '
+            + 'switch, IsAIAllowedToVote, decides whether Berean casts a review alongside the '
+            + 'comment it always files \u2014 that is read on the round, not in this picker.'
     },
     {
         name: 'onAIReviewerRequested',
