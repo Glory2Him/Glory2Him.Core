@@ -20,6 +20,7 @@ import { ContentType } from '../../models/foundations/contentItemSettings/conten
 import { ApprovalStatus } from '../../models/components/approvals/approvalReviewItem';
 import { EntityTypeName } from '../../models/foundations/approvals/approval';
 import { useApprovalRound } from '../../hooks/useApprovalRound';
+import { useApprovalRoundChanges } from '../../hooks/useApprovalRoundChanges';
 
 import {
     BibleReferenceAssociationPanel
@@ -261,8 +262,15 @@ export const ContentItemModerationDetailPage = () => {
         approvalReviews,
         requestedReviewerCollection,
         reviewerCandidateCollection,
-        isLoading: isRoundLoading
+        isLoading: isRoundLoading,
+        refresh: refreshApprovalRound
     } = useApprovalRound(EntityTypeName.ContentItem, contentItemId);
+
+    // THE FRESHNESS CHANNEL (design §20.6.1). The round can move under this open tab — another
+    // reviewer votes, a comment resolves, an auto-approval fires — and none of that arrives
+    // through a write this page made, so nothing above already invalidates it. Polling is the
+    // first cut; see useApprovalRoundChanges for why and what it does on reconnect.
+    useApprovalRoundChanges(contentItemId, refreshApprovalRound);
 
     // ── THE WRITES, events in, requests out. ──────────────────────────────────────
     //

@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ContentItemModerationDetailPage } from './contentItemModerationDetailPage';
 import { AuthProvider } from '../../components/securitys/authProvider';
 import { ContentItem } from '../../models/foundations/contentItems/contentItem';
@@ -113,18 +113,27 @@ let reviewRequests: ApprovalReviewRequest[] = [];
 let reviewerCandidates: ReviewerCandidate[] = [];
 let verdictAskedFor: ReadonlyArray<string> = [];
 
+const refetchVerdictSpy = vi.fn();
+const refetchReviewsSpy = vi.fn();
+const refetchCandidatesSpy = vi.fn();
+const refetchRequestsSpy = vi.fn();
+const refetchDisplayNamesSpy = vi.fn();
+
 vi.mock('../../services/foundations/approvalService', () => ({
     approvalService: {
         useGetApprovalVerdict: (entityType: string, entityId: string) => {
             verdictAskedFor = [entityType, entityId];
 
-            return { data: approvalVerdict, isLoading: false };
+            return { data: approvalVerdict, isLoading: false, refetch: refetchVerdictSpy };
         },
-        useGetApprovalReviews: () => ({ data: approvalReviews, isLoading: false }),
-        useGetReviewerCandidates: () => ({ data: reviewerCandidates }),
-        useGetReviewRequests: () => ({ data: reviewRequests }),
+        useGetApprovalReviews: () =>
+            ({ data: approvalReviews, isLoading: false, refetch: refetchReviewsSpy }),
+        useGetReviewerCandidates: () =>
+            ({ data: reviewerCandidates, refetch: refetchCandidatesSpy }),
+        useGetReviewRequests: () => ({ data: reviewRequests, refetch: refetchRequestsSpy }),
         useGetReviewerDisplayNames: () => ({
-            data: [{ userId: 'user-john', displayName: 'John' }]
+            data: [{ userId: 'user-john', displayName: 'John' }],
+            refetch: refetchDisplayNamesSpy
         }),
 
         useCastApprovalReview: () => ({ mutateAsync: castWith, isPending: false }),
@@ -232,6 +241,14 @@ describe('ContentItemModerationDetailPage', () => {
         for (const write of [castWith, decidedWith, requestedWith, withdrawnWith]) {
             write.mockReset();
             write.mockResolvedValue({ approvalId: 'approval-1' });
+        }
+
+        for (const refetch of [
+            refetchVerdictSpy, refetchReviewsSpy, refetchCandidatesSpy,
+            refetchRequestsSpy, refetchDisplayNamesSpy
+        ]) {
+            refetch.mockReset();
+            refetch.mockResolvedValue(undefined);
         }
 
         toastErrorSpy.mockReset();
@@ -780,5 +797,37 @@ describe('ContentItemModerationDetailPage', () => {
 
             expect(toastSuccessSpy).not.toHaveBeenCalled();
         });
+    });
+
+    // THE FRESHNESS CHANNEL (design §20.6.1). useApprovalRoundChanges is proved on its own in
+    // useApprovalRoundChanges.test.ts; what this pins is that the PAGE actually wires it to the
+    // round's five reads rather than leaving it unreferenced, which is exactly the state #350
+    // found the panel in before this pass.
+    describe('the freshness channel', () => {
+        beforeEach(() => {
+            vi.useFakeTimers({ shouldAdvanceTime: true });
+        });
+
+        afterEach(() => {
+            vi.useRealTimers();
+        });
+
+        it('re-fetches the whole round on an interval so an external change is seen unprompted',
+            async () => {
+                // given
+                renderPage();
+
+                // when
+                await vi.advanceTimersByTimeAsync(15 * 1000);
+
+                // then — every one of the round's five reads is asked again, not just the
+                // verdict: a vote cast elsewhere moves the reviews too, and a resolved comment
+                // moves the block reasons the verdict carries.
+                expect(refetchVerdictSpy).toHaveBeenCalled();
+                expect(refetchReviewsSpy).toHaveBeenCalled();
+                expect(refetchCandidatesSpy).toHaveBeenCalled();
+                expect(refetchRequestsSpy).toHaveBeenCalled();
+                expect(refetchDisplayNamesSpy).toHaveBeenCalled();
+            });
     });
 });

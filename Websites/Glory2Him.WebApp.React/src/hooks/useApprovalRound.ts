@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { approvalService } from '../services/foundations/approvalService';
 import { EntityTypeName } from '../models/foundations/approvals/approval';
 
@@ -36,25 +36,27 @@ export const useApprovalRound = (
     enabled = true) => {
     const {
         data: approvalVerdict,
-        isLoading: isVerdictLoading
+        isLoading: isVerdictLoading,
+        refetch: refetchVerdict
     } = approvalService.useGetApprovalVerdict(entityType, entityId, enabled);
 
     const approvalId = approvalVerdict?.approvalId ?? '';
 
     const {
         data: approvalReviews,
-        isLoading: areReviewsLoading
+        isLoading: areReviewsLoading,
+        refetch: refetchReviews
     } = approvalService.useGetApprovalReviews(approvalId, enabled);
 
-    const { data: reviewerCandidates } =
+    const { data: reviewerCandidates, refetch: refetchCandidates } =
         approvalService.useGetReviewerCandidates(entityType, entityId, enabled);
 
-    const { data: reviewRequests } =
+    const { data: reviewRequests, refetch: refetchRequests } =
         approvalService.useGetReviewRequests(entityType, entityId, enabled);
 
     // The names of everybody the round involved, resolved server-side off the round itself —
     // so nothing here gathers ids off the reviews, and the read does not wait on them.
-    const { data: reviewerDisplayNames } =
+    const { data: reviewerDisplayNames, refetch: refetchDisplayNames } =
         approvalService.useGetReviewerDisplayNames(entityType, entityId, enabled);
 
     const approvalReviewCollection: ReadonlyArray<ApprovalReviewItem> = useMemo(
@@ -84,6 +86,21 @@ export const useApprovalRound = (
         isVerdictLoading
         || (approvalId.length > 0 && areReviewsLoading);
 
+    // THE FRESHNESS CHANNEL'S OTHER HALF (design §20.6.1). This hook owns the round's reads, so
+    // it is also the one place that can re-run all five of them — a caller outside this file has
+    // no query keys to invalidate and no business knowing them. Every read's own refetch is
+    // used rather than a queryClient invalidation: it works whether or not a query is enabled,
+    // and it needs nothing from the caller but this function.
+    const refresh = useCallback(async () => {
+        await Promise.all([
+            refetchVerdict(),
+            refetchReviews(),
+            refetchCandidates(),
+            refetchRequests(),
+            refetchDisplayNames()
+        ]);
+    }, [refetchVerdict, refetchReviews, refetchCandidates, refetchRequests, refetchDisplayNames]);
+
     return {
         approvalVerdict: approvalVerdictItem,
         approvalReviewCollection,
@@ -94,6 +111,7 @@ export const useApprovalRound = (
         approvalReviews: approvalReviews ?? [],
         requestedReviewerCollection,
         reviewerCandidateCollection,
-        isLoading
+        isLoading,
+        refresh
     };
 };
