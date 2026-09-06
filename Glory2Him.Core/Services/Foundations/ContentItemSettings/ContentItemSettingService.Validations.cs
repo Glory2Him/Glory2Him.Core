@@ -76,6 +76,25 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
             Guid? contentItemId,
             ContentType contentType)
         {
+            // THE BLOCK IS ASKED FIRST, AND FOR BOTH SCOPES. §18.6 rule 2 asks whether the
+            // block's scope covers the row before asking anything about grants, and a per-type
+            // DEFAULT is the row that configures every content item of its type — so a caller
+            // barred from that content type is barred from the wider write as surely as from the
+            // narrower one.
+            //
+            // Asking it only on the override branch produced the inversion this replaces: an
+            // administrator holding ContentItem-Devotional-ReadOnly was refused when narrowing
+            // ONE devotional and allowed to rewrite the default governing ALL of them. A block
+            // that stops the small write and waves the large one through is not a block.
+            //
+            // It outranks every grant, Administrators included.
+            if (securityContext.Roles.Contains(Roles.ContentItemReadOnly)
+                || securityContext.Roles.Contains(Roles.ReadOnlyFor(EntityType.ContentItem, contentType)))
+            {
+                throw new UnauthorizedContentItemSettingException(
+                    message: "The current user is blocked from administering content item settings.");
+            }
+
             if (contentItemId is null)
             {
                 if (HasAdminRole(securityContext) is false)
@@ -88,18 +107,6 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
                 return;
             }
 
-            // THE BLOCK IS ASKED WHEREVER THE GRANT IS DRAWN FROM. An override is admitted by
-            // ContentItem-scoped roles, so ContentItem-scoped blocks must be able to refuse it —
-            // §18.6 rule 2, and the symmetry that section exists to keep: a tier that can grant
-            // and cannot block is the asymmetry the narrow block was added to close. It outranks
-            // every grant, Administrators included.
-            if (securityContext.Roles.Contains(Roles.ContentItemReadOnly)
-                || securityContext.Roles.Contains(Roles.ReadOnlyFor(EntityType.ContentItem, contentType)))
-            {
-                throw new UnauthorizedContentItemSettingException(
-                    message: "The current user is blocked from administering content item settings.");
-            }
-
             if (HasContentItemSettingOverrideRole(securityContext, contentType) is false)
             {
                 throw new UnauthorizedContentItemSettingException(
@@ -108,10 +115,16 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
             }
         }
 
-        // a hard remove destroys the row and its audit trail — the same two questions as every
-        // other content item setting write, asked in the same order
-        private static void ValidateUserCanHardRemoveContentItemSetting(SecurityContext securityContext) =>
-            ValidateUserMayWriteContentItemSettings(securityContext);
+        // ASKED BEFORE ANY ROLE NAME IS COMPOSED FROM IT. Roles.PublishersFor and Roles.ReadOnlyFor
+        // build a name out of the content type, so an out-of-range value would compose something
+        // like ContentItem-9999-Publishers, match nobody, and be reported as a permission failure
+        // — telling a caller they lack an authority when what they actually sent was malformed.
+        // The same rule runs again inside ValidateOnAddContentItemSettingAsync with the rest of
+        // the field validation; stated in a helper so the two cannot say different things.
+        private static void ValidateContentTypeIsSupported(ContentType contentType) =>
+            Validate(
+                message: "Content item setting is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(contentType), Parameter: nameof(ContentItemSetting.ContentType)));
 
         // the administrator tier — the only one that may author a content type DEFAULT. There is
         // no read counterpart: settings drive anonymous page rendering, so every non-deleted row
@@ -136,17 +149,30 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
                 || securityContext.Roles.Contains(
                     Roles.PublishersFor(EntityType.ContentItem, contentType));
 
+        // The §18.6 segments, taken from the convention's own home so this never becomes a second
+        // spelling of it — the entity segment from the enum member it names, the capability from
+        // Roles.
+        private const string ContentItemRolePrefix = nameof(EntityType.ContentItem) + "-";
+        private const string ScopedPublisherRoleSuffix = Roles.PublishersSuffix;
+
         // The tier check, with no row to key on yet. A narrow publisher holds a role for SOME
-        // content type, and which one cannot matter before the row is known — so the enum is
-        // walked, the same way ContentItemService resolves a narrow caller's reviewable types.
-        // The row-shaped gate then decides whether the type they hold is the type in hand.
+        // content type, and which one cannot matter before the row is known — so the question is
+        // asked of the NAME rather than of the enum, which is why §18.6 puts the capability last.
+        // The row-shaped gate then decides whether the type they hold is the type in hand,
+        // against the exact composed name.
+        //
+        // BOTH ends are required. Without the prefix this would admit Tag-Publishers and every
+        // other entity's publisher role into a ContentItem tier; without the suffix it would
+        // admit ContentItem-%Type%-Reviewers, whom HR-3 keeps out of publisher authority
+        // everywhere. Ordinal on both, because the enum walk this replaces compared with
+        // ordinal equality and a culture-sensitive match is a different question.
         private static bool HasAnyContentItemSettingWriteRole(SecurityContext securityContext) =>
             HasAdminRole(securityContext)
                 || securityContext.Roles.Contains(Roles.Publishers)
                 || securityContext.Roles.Contains(Roles.ContentItemPublishers)
-                || Enum.GetValues<ContentType>().Any(contentType =>
-                    securityContext.Roles.Contains(
-                        Roles.PublishersFor(EntityType.ContentItem, contentType)));
+                || securityContext.Roles.Any(role =>
+                    role.StartsWith(ContentItemRolePrefix, StringComparison.Ordinal)
+                        && role.EndsWith(ScopedPublisherRoleSuffix, StringComparison.Ordinal));
 
         private async ValueTask ValidateOnAddContentItemSettingAsync(
             ContentItemSetting contentItemSetting,

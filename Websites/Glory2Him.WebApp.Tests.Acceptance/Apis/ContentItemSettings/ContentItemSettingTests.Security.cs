@@ -112,7 +112,12 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
             // given
             ContentItemSetting randomContentItemSetting = CreateRandomContentItemSetting();
             randomContentItemSetting.ContentType = PublisherTierContentType;
-            ContentItemSetting expectedContentItemSetting = randomContentItemSetting;
+
+            // Copied out BEFORE the call rather than aliased to the request object: an expectation
+            // that is the same reference as the input cannot notice the broker mutating it, and
+            // would compare the response against whatever came back either way.
+            Guid expectedId = randomContentItemSetting.Id;
+            Guid? expectedContentItemId = randomContentItemSetting.ContentItemId;
             this.apiBroker.ActAs(Guid.NewGuid().ToString(), roleName);
 
             ContentItemSetting actualContentItemSetting = null;
@@ -124,9 +129,9 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
                     await this.apiBroker.PostContentItemSettingAsync(randomContentItemSetting);
 
                 // then
-                actualContentItemSetting.Id.Should().Be(expectedContentItemSetting.Id);
-                actualContentItemSetting.ContentItemId.Should()
-                    .Be(expectedContentItemSetting.ContentItemId);
+                actualContentItemSetting.Id.Should().Be(expectedId);
+                actualContentItemSetting.ContentItemId.Should().Be(expectedContentItemId);
+                actualContentItemSetting.ContentType.Should().Be(PublisherTierContentType);
             }
             finally
             {

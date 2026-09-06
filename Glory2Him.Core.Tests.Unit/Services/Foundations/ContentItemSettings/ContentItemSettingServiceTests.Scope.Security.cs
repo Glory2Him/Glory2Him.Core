@@ -635,5 +635,352 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        // THE BLOCK COVERS THE DEFAULT TOO. Hoisting the ContentItem-scoped block above the
+        // scope branch is what this pins: before it, an administrator barred from a content type
+        // was refused when narrowing ONE item of it and allowed to rewrite the default governing
+        // ALL of them. Move the block check back below the `contentItemId is null` branch and
+        // only this test fails.
+        [Theory]
+        [MemberData(nameof(ContentItemBlockRoleSets))]
+        public async Task ShouldThrowValidationExceptionOnAddIfContentItemBlockCoversADefaultAndLogItAsync(
+            string[] blockedRoles)
+        {
+            // given: an administrator, blocked at a scope that covers this content type
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(blockedRoles);
+            ContentItemSetting someContentItemSetting = CreateRandomContentItemSetting();
+            someContentItemSetting.ContentType = ScopeTestContentType;
+
+            // the row that governs the WHOLE content type
+            someContentItemSetting.ContentItemId = null;
+
+            var unauthorizedContentItemSettingException = new UnauthorizedContentItemSettingException(
+                message: "The current user is blocked from administering content item settings.");
+
+            var expectedContentItemSettingValidationException = new ContentItemSettingValidationException(
+                message: "Content item setting validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedContentItemSettingException);
+
+            // when
+            ValueTask<ContentItemSetting> addContentItemSettingTask =
+                this.contentItemSettingService.AddContentItemSettingAsync(
+                    someContentItemSetting,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemSettingValidationException actualContentItemSettingValidationException =
+                await Assert.ThrowsAsync<ContentItemSettingValidationException>(
+                    addContentItemSettingTask.AsTask);
+
+            // then
+            actualContentItemSettingValidationException.Should().BeEquivalentTo(
+                expectedContentItemSettingValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemSettingValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // ── THE GRANTS ON THE REMAINING VERBS ────────────────────────────────────────
+        // Add proved the tier can author an override. These three prove it can actually USE one
+        // — a gate that admits a caller to creation and quietly refuses them every subsequent
+        // write would be a capability in name only.
+
+        [Theory]
+        [MemberData(nameof(PublisherTierRoleSets))]
+        public async Task ShouldModifyOverrideWhenCallerHoldsPublisherTierAsync(string[] publisherRoles)
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(publisherRoles);
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+
+            ContentItemSetting randomContentItemSetting =
+                CreateRandomModifyContentItemSetting(randomDateTimeOffset, randomUserId);
+
+            // pinned BEFORE the clones, so the STORED row — the one the gate reads — carries it
+            randomContentItemSetting.ContentType = ScopeTestContentType;
+
+            ContentItemSetting inputContentItemSetting = randomContentItemSetting;
+            ContentItemSetting auditAppliedContentItemSetting = inputContentItemSetting.DeepClone();
+            ContentItemSetting storageContentItemSetting = auditAppliedContentItemSetting.DeepClone();
+
+            storageContentItemSetting.UpdatedWhen =
+                storageContentItemSetting.UpdatedWhen.AddDays(-1);
+
+            ContentItemSetting auditPreservedContentItemSetting =
+                auditAppliedContentItemSetting.DeepClone();
+
+            ContentItemSetting updatedContentItemSetting = auditPreservedContentItemSetting.DeepClone();
+            ContentItemSetting expectedContentItemSetting = updatedContentItemSetting.DeepClone();
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(inputContentItemSetting, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(auditAppliedContentItemSetting);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectContentItemSettingByIdAsync(
+                    auditAppliedContentItemSetting.Id,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageContentItemSetting);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    auditAppliedContentItemSetting,
+                    storageContentItemSetting))
+                        .ReturnsAsync(auditPreservedContentItemSetting);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateContentItemSettingAsync(
+                    auditPreservedContentItemSetting,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(updatedContentItemSetting);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishContentItemSettingAsync(
+                    It.IsAny<EventEnvelope<ContentItemSetting>>(),
+                    ContentItemSettingEventOperation.Modified))
+                    .Returns(new ValueTask<EventPublishResult<ContentItemSetting>>(
+                        new EventPublishResult<ContentItemSetting>()));
+
+            // when
+            ContentItemSetting actualContentItemSetting =
+                await this.contentItemSettingService.ModifyContentItemSettingAsync(
+                    inputContentItemSetting,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualContentItemSetting.Should().BeEquivalentTo(expectedContentItemSetting);
+        }
+
+        [Theory]
+        [MemberData(nameof(PublisherTierRoleSets))]
+        public async Task ShouldRemoveOverrideWhenCallerHoldsPublisherTierAsync(string[] publisherRoles)
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(publisherRoles);
+            ContentItemSetting randomContentItemSetting = CreateRandomContentItemSetting();
+            randomContentItemSetting.ContentType = ScopeTestContentType;
+            randomContentItemSetting.IsDeleted = false;
+            ContentItemSetting storageContentItemSetting = randomContentItemSetting;
+
+            ContentItemSetting auditedContentItemSetting = storageContentItemSetting.DeepClone();
+            auditedContentItemSetting.IsDeleted = true;
+            ContentItemSetting expectedContentItemSetting = auditedContentItemSetting.DeepClone();
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectContentItemSettingByIdAsync(
+                    randomContentItemSetting.Id,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageContentItemSetting);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyRemoveAuditValuesAsync(storageContentItemSetting, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(auditedContentItemSetting);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateContentItemSettingAsync(
+                    auditedContentItemSetting,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(expectedContentItemSetting);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishContentItemSettingAsync(
+                    It.IsAny<EventEnvelope<ContentItemSetting>>(),
+                    ContentItemSettingEventOperation.Removed))
+                    .Returns(new ValueTask<EventPublishResult<ContentItemSetting>>(
+                        new EventPublishResult<ContentItemSetting>()));
+
+            // when
+            ContentItemSetting actualContentItemSetting =
+                await this.contentItemSettingService.RemoveContentItemSettingByIdAsync(
+                    randomContentItemSetting.Id,
+                    deletionReason: null,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualContentItemSetting.Should().BeEquivalentTo(expectedContentItemSetting);
+        }
+
+        [Theory]
+        [MemberData(nameof(PublisherTierRoleSets))]
+        public async Task ShouldHardRemoveOverrideWhenCallerHoldsPublisherTierAsync(string[] publisherRoles)
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(publisherRoles);
+            ContentItemSetting randomContentItemSetting = CreateRandomContentItemSetting();
+            randomContentItemSetting.ContentType = ScopeTestContentType;
+            ContentItemSetting storageContentItemSetting = randomContentItemSetting;
+            ContentItemSetting expectedContentItemSetting = storageContentItemSetting.DeepClone();
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectContentItemSettingByIdAsync(
+                    randomContentItemSetting.Id,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageContentItemSetting);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.DeleteContentItemSettingAsync(
+                    storageContentItemSetting,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(expectedContentItemSetting);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishContentItemSettingAsync(
+                    It.IsAny<EventEnvelope<ContentItemSetting>>(),
+                    ContentItemSettingEventOperation.HardRemoved))
+                    .Returns(new ValueTask<EventPublishResult<ContentItemSetting>>(
+                        new EventPublishResult<ContentItemSetting>()));
+
+            // when
+            ContentItemSetting actualContentItemSetting =
+                await this.contentItemSettingService.HardRemoveContentItemSettingByIdAsync(
+                    randomContentItemSetting.Id,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualContentItemSetting.Should().BeEquivalentTo(expectedContentItemSetting);
+        }
+
+        // ── THE REFUSALS THOSE GRANTS LEAVE UNPINNED ─────────────────────────────────
+        // Both of these were found by deleting the gate they cover and watching the whole suite
+        // stay green. A security file that gains grants and no refusals is exactly where a hole
+        // hides: the grants pass whether or not the gate is asked at all.
+
+        // Delete ValidateUserMayWriteContentItemSettingScope from DoRemoveContentItemSettingByIdAsync
+        // and only this test fails.
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnRemoveIfNarrowPublisherRemovesAnotherContentTypeAndLogItAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(
+                Roles.PublishersFor(EntityType.ContentItem, OtherScopeTestContentType));
+
+            Guid inputContentItemSettingId = Guid.NewGuid();
+
+            ContentItemSetting storageContentItemSetting =
+                CreateContentItemSettingFiller(GetRandomDateTimeOffset()).Create();
+
+            storageContentItemSetting.ContentType = ScopeTestContentType;
+
+            var unauthorizedContentItemSettingException = new UnauthorizedContentItemSettingException(
+                message: "The current user is not allowed to administer settings for this content type.");
+
+            var expectedContentItemSettingValidationException = new ContentItemSettingValidationException(
+                message: "Content item setting validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedContentItemSettingException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectContentItemSettingByIdAsync(
+                    inputContentItemSettingId,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageContentItemSetting);
+
+            // when
+            ValueTask<ContentItemSetting> removeContentItemSettingByIdTask =
+                this.contentItemSettingService.RemoveContentItemSettingByIdAsync(
+                    inputContentItemSettingId,
+                    deletionReason: null,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemSettingValidationException actualContentItemSettingValidationException =
+                await Assert.ThrowsAsync<ContentItemSettingValidationException>(
+                    removeContentItemSettingByIdTask.AsTask);
+
+            // then
+            actualContentItemSettingValidationException.Should().BeEquivalentTo(
+                expectedContentItemSettingValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemSettingValidationException))),
+                Times.Once);
+        }
+
+        // THE GATE READS THE STORED ROW'S CONTENT TYPE, NOT THE CALLER'S. Swap
+        // maybeContentItemSetting.ContentType for contentItemSetting.ContentType on the modify
+        // path and only this test fails — the caller sends a type they DO publish over a stored
+        // row of a type they do not.
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnModifyIfStoredContentTypeIsOutsideTheCallersGrantAndLogItAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(
+                Roles.PublishersFor(EntityType.ContentItem, OtherScopeTestContentType));
+
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+
+            ContentItemSetting randomContentItemSetting =
+                CreateRandomModifyContentItemSetting(randomDateTimeOffset, randomUserId);
+
+            // the caller claims the type they DO publish...
+            randomContentItemSetting.ContentType = OtherScopeTestContentType;
+            ContentItemSetting inputContentItemSetting = randomContentItemSetting;
+
+            // ...while the row actually in storage is one they do NOT
+            ContentItemSetting storageContentItemSetting = randomContentItemSetting.DeepClone();
+            storageContentItemSetting.ContentType = ScopeTestContentType;
+            storageContentItemSetting.UpdatedWhen = randomContentItemSetting.UpdatedWhen.AddDays(-1);
+
+            var unauthorizedContentItemSettingException = new UnauthorizedContentItemSettingException(
+                message: "The current user is not allowed to administer settings for this content type.");
+
+            var expectedContentItemSettingValidationException = new ContentItemSettingValidationException(
+                message: "Content item setting validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedContentItemSettingException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(inputContentItemSetting, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(inputContentItemSetting);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectContentItemSettingByIdAsync(
+                    inputContentItemSetting.Id,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageContentItemSetting);
+
+            // when
+            ValueTask<ContentItemSetting> modifyContentItemSettingTask =
+                this.contentItemSettingService.ModifyContentItemSettingAsync(
+                    inputContentItemSetting,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemSettingValidationException actualContentItemSettingValidationException =
+                await Assert.ThrowsAsync<ContentItemSettingValidationException>(
+                    modifyContentItemSettingTask.AsTask);
+
+            // then
+            actualContentItemSettingValidationException.Should().BeEquivalentTo(
+                expectedContentItemSettingValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemSettingValidationException))),
+                Times.Once);
+        }
+
     }
 }

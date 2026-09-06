@@ -233,6 +233,9 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
             // entry point already asks it; the event path reaches here without having done so.
             ValidateContentItemSettingIsNotNull(contentItemSetting);
 
+            // Before the gate, because the gate composes role names out of the content type.
+            ValidateContentTypeIsSupported(contentItemSetting.ContentType);
+
             // Nothing is stored yet, so the row in hand IS the row being authored — the one case
             // where the caller's copy is the right thing to decide against.
             ValidateUserMayWriteContentItemSettingScope(
@@ -406,7 +409,9 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
             EventEnvelope<ContentItemSetting> inboundEnvelope,
             CancellationToken cancellationToken)
         {
-            ValidateUserCanHardRemoveContentItemSetting(inboundEnvelope.SecurityContext);
+            // A hard remove destroys the row and its audit trail, and asks exactly the same two
+            // questions as every other write — the tier here, the row once storage has answered.
+            ValidateUserMayWriteContentItemSettings(inboundEnvelope.SecurityContext);
             ValidateOnHardRemoveContentItemSettingById(contentItemSettingId);
 
             ContentItemSetting maybeContentItemSetting =

@@ -2795,6 +2795,8 @@ Business Rules:
    **This is a deliberate exception to §18.6 rule 1** — see the rule for why, and for the block it obliges in return.
 
    **The decision is made against the STORED row**, never the caller's copy, on every path that has one. A caller who could answer "is this a default?" for themselves could promote their own override into a default they may not author.
+
+   **The block is asked before the scope is, and covers BOTH scopes.** A `ContentItem`-scoped block bars a caller from a `ContentItemSetting` default as surely as from an override: the default is the row that configures every content item of that type, so a caller barred from the type is barred from the wider write too. Asking it only on the override branch inverts the rule — it stops the write that governs one item and waves through the one that governs all of them. This says nothing about any other settings entity; `ApprovalSetting`'s own write gate is unchanged and outside this rule.
 7. Disabling a feature in settings must prevent the creation of new associations of that type for the affected content items.
 8. The following fields are control fields and must never be accepted from an external caller. They must always be set internally by the orchestration or approval workflow:
    - `ContentType`
