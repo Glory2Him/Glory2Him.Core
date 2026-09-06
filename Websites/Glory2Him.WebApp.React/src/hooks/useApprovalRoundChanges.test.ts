@@ -6,11 +6,20 @@ import { useApprovalRoundChanges } from './useApprovalRoundChanges';
 // so its whole contract — poll while visible, refresh at once on refocus and on reconnect, do
 // nothing while there is no round to watch — is provable without a query client, a broker or a
 // rendered panel.
+// Defining visibilityState here adds an OWN property to the document that shadows whatever the
+// environment resolves it from — and the shadow outlives the test that set it, since every suite
+// in this file shares one document. The document carries no own descriptor of its own to begin
+// with (checked: neither on the instance nor on Document.prototype), so deleting the shadow is a
+// complete restore, and each test is left to set the state it needs rather than inheriting one.
 const setVisibility = (state: DocumentVisibilityState) => {
     Object.defineProperty(document, 'visibilityState', {
         configurable: true,
         get: () => state
     });
+};
+
+const restoreVisibility = () => {
+    delete (document as unknown as Record<string, unknown>).visibilityState;
 };
 
 describe('useApprovalRoundChanges', () => {
@@ -21,6 +30,7 @@ describe('useApprovalRoundChanges', () => {
 
     afterEach(() => {
         vi.useRealTimers();
+        restoreVisibility();
     });
 
     it('polls refresh on the interval while the tab is visible', () => {

@@ -66,9 +66,9 @@ describe('useApprovalRound', () => {
         <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     );
 
-    const renderRound = () =>
+    const renderRound = (entityId = 'quote-1', enabled = true) =>
         renderHook(
-            () => useApprovalRound(EntityTypeName.ContentItem, 'quote-1'),
+            () => useApprovalRound(EntityTypeName.ContentItem, entityId, enabled),
             { wrapper });
 
     beforeEach(() => {
@@ -130,6 +130,39 @@ describe('useApprovalRound', () => {
             // then
             expect(getReviewerCandidatesAsync).toHaveBeenCalledTimes(1);
         });
+
+    // REFRESH ANSWERS TO THE READS' OWN GATES, because refetch() does not. Each of these would
+    // otherwise reach past a gate the caller declared and ask the server anyway.
+    describe('when the round is switched off', () => {
+        const expectNothingAsked = () => {
+            expect(getApprovalVerdictAsync).not.toHaveBeenCalled();
+            expect(getApprovalReviewsAsync).not.toHaveBeenCalled();
+            expect(getReviewRequestsAsync).not.toHaveBeenCalled();
+            expect(getReviewerDisplayNamesAsync).not.toHaveBeenCalled();
+        };
+
+        it('should ask for nothing on refresh when the caller disabled it', async () => {
+            // given
+            const { result } = renderRound('quote-1', false);
+
+            // when
+            await act(async () => { await result.current.refresh(); });
+
+            // then
+            expectNothingAsked();
+        });
+
+        it('should ask for nothing on refresh before an entity id arrives', async () => {
+            // given
+            const { result } = renderRound('');
+
+            // when
+            await act(async () => { await result.current.refresh(); });
+
+            // then
+            expectNothingAsked();
+        });
+    });
 
     // THE ONE A MOCKED SERVICE CANNOT CATCH. refetch() ignores `enabled`, so an ungated call
     // asks the server for `approvalId eq ` — a malformed filter, refused, and refused silently

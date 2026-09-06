@@ -276,7 +276,7 @@ export const ContentItemModerationDetailPage = () => {
     // first cut; see useApprovalRoundChanges for why and what it does on reconnect.
     //
     // THE ITEM IS PART OF THE ROUND HERE, even though it is not one of the approval reads. The
-    // panel's open-or-closed gates gets their status from the STORED ITEM rather than from the
+    // panel's open-or-closed gates get their status from the STORED ITEM rather than from the
     // verdict — approvalStatus is its own prop precisely so a read-only viewer, who gets no
     // verdict at all, still sees one — so a decision landing elsewhere moves the item's row and
     // nothing else. Refreshing the round alone would repaint the votes while leaving the vote

@@ -107,10 +107,14 @@ export const useApprovalRound = (
     //
     // REFETCH IS NOT INVALIDATION, and both of its differences bite here.
     //
-    // It ignores `enabled`, so the reviews read has to be gated by hand: with no approval row
-    // the verdict is undefined, approvalId is empty, and an ungated refetch would ask the server
-    // for `approvalId eq ` — a malformed filter, refused, silently (the reads suppress their
-    // toasts by design), every interval for as long as the tab is open.
+    // It ignores `enabled`, so EVERY gate the reads declare has to be restated by hand here or
+    // refresh quietly reaches past all of them. The reviews read carries its own: with no
+    // approval row the verdict is undefined, approvalId is empty, and an ungated refetch would
+    // ask the server for `approvalId eq ` — a malformed filter, refused, silently (the reads
+    // suppress their toasts by design), every interval for as long as the tab is open. The other
+    // four are gated on the caller's `enabled` and a non-empty entityId, so refresh answers to
+    // those before it asks for anything: a disabled round refreshes into nothing, which is what
+    // a caller that switched it off asked for.
     //
     // It also DEFAULTS TO CANCELLING an in-flight fetch and starting again. Nothing here forwards
     // an AbortSignal to axios, so a cancelled request still runs and its answer is discarded —
@@ -118,6 +122,10 @@ export const useApprovalRound = (
     // frozen on stale props with no spinner to admit it. That is the exact failure §20.6.1
     // exists to prevent, so every refetch joins the in-flight read rather than replacing it.
     const refresh = useCallback(async () => {
+        if (enabled === false || entityId.length === 0) {
+            return;
+        }
+
         await Promise.all([
             refetchVerdict({ cancelRefetch: false }),
             approvalId.length > 0
@@ -126,7 +134,15 @@ export const useApprovalRound = (
             refetchRequests({ cancelRefetch: false }),
             refetchDisplayNames({ cancelRefetch: false })
         ]);
-    }, [approvalId, refetchVerdict, refetchReviews, refetchRequests, refetchDisplayNames]);
+    }, [
+        enabled,
+        entityId,
+        approvalId,
+        refetchVerdict,
+        refetchReviews,
+        refetchRequests,
+        refetchDisplayNames
+    ]);
 
     return {
         approvalVerdict: approvalVerdictItem,
