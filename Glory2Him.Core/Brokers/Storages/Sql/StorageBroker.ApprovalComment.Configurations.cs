@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.ApprovalComments;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -77,6 +78,19 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                 .Property(approvalComment => approvalComment.IsResolved)
                 .IsRequired()
                 .HasDefaultValue(false);
+
+            // Persisted BY NAME, like every other enum in this store, so a stored row reads
+            // "Question" rather than 1 and a hand-written query says what it means. The default
+            // is Comment because that is what every row written before the column existed was:
+            // the backfill in AddApprovalCommentType and this default state the same fact, one
+            // for the rows that exist and one for the rows that arrive saying nothing.
+            model
+                .Property(approvalComment => approvalComment.CommentType)
+                .HasConversion<string>()
+                .HasMaxLength(32)
+                .IsUnicode(true)
+                .IsRequired()
+                .HasDefaultValue(ApprovalCommentType.Comment);
 
             // Index to speed up joins/filters by parent
             model.HasIndex(approvalComment => approvalComment.ApprovalId)

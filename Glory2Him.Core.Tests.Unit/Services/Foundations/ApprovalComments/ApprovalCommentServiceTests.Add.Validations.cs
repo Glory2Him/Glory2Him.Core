@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -11,8 +11,10 @@
 
 using System;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalComments;
 using Glory2Him.Core.Models.Foundations.ApprovalComments.Exceptions;
@@ -251,6 +253,76 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddIfCommentTypeIsNotDefinedAndLogItAsync()
+        {
+            // given: a structural check on an enum crossing a boundary. It cannot catch "the
+            // caller forgot to set it" — ApprovalCommentType has no unset sentinel, and Comment
+            // is what silence legitimately means — so what it catches is a value that names no
+            // member at all: a stale client, or a number typed straight into the wire.
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+
+            ApprovalComment invalidApprovalComment =
+                CreateApprovalCommentFiller(randomDateTimeOffset, randomUserId).Create();
+
+            invalidApprovalComment.CommentType = (ApprovalCommentType)99;
+
+            var invalidApprovalCommentException =
+                new InvalidApprovalCommentException(
+                    message: "Approval comment is invalid, fix the errors and try again.");
+
+            invalidApprovalCommentException.AddData(
+                key: nameof(ApprovalComment.CommentType),
+                values: "Value is not a supported approval comment type");
+
+            var expectedApprovalCommentValidationException =
+                new ApprovalCommentValidationException(
+                    message: "Approval comment validation error occurred, fix the errors and try again.",
+                    innerException: invalidApprovalCommentException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidApprovalComment, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidApprovalComment);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            ValueTask<ApprovalComment> addApprovalCommentTask =
+                this.approvalCommentService.AddApprovalCommentAsync(
+                    invalidApprovalComment,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalCommentValidationException actualApprovalCommentValidationException =
+                await Assert.ThrowsAsync<ApprovalCommentValidationException>(
+                    addApprovalCommentTask.AsTask);
+
+            // then: nothing written, nothing announced
+            actualApprovalCommentValidationException.Should().BeEquivalentTo(
+                expectedApprovalCommentValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalCommentValidationException))),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertApprovalCommentAsync(
+                    It.IsAny<ApprovalComment>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();

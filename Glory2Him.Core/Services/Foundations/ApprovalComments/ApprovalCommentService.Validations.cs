@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -14,6 +14,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using G2H.Security.Client.Models.Foundations.Access;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ApprovalComments;
@@ -233,6 +234,9 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                 (Rule: IsGreaterThan(approvalComment.Comment, 1000),
                     Parameter: nameof(ApprovalComment.Comment)),
 
+                (Rule: IsInvalid(approvalComment.CommentType),
+                    Parameter: nameof(ApprovalComment.CommentType)),
+
                 (Rule: IsGreaterThan(approvalComment.CreatedBy, 255),
                     Parameter: nameof(ApprovalComment.CreatedBy)),
 
@@ -280,6 +284,9 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
 
                 (Rule: IsGreaterThan(approvalComment.Comment, 1000),
                     Parameter: nameof(ApprovalComment.Comment)),
+
+                (Rule: IsInvalid(approvalComment.CommentType),
+                    Parameter: nameof(ApprovalComment.CommentType)),
 
                 (Rule: IsGreaterThan(approvalComment.CreatedBy, 255),
                     Parameter: nameof(ApprovalComment.CreatedBy)),
@@ -376,6 +383,13 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                 // contract it must honour. Until then a flip through modify moves the gate with
                 // no consumer listening — which is a missing consumer, not a reason to pin.
 
+                // CommentType is not pinned either, and for the same reason: the row belongs to
+                // whoever wrote it, and correcting a remark into a question — or back — is the
+                // author changing their own words. It moves nothing on its own: what blocks an
+                // approval is IsResolved, and a caller who wants to block or unblock says so in
+                // that field. The pin list is open by default, so this is a deliberate absence
+                // rather than an oversight.
+
                 (Rule: IsSame(
                         firstDate: inputApprovalComment.UpdatedWhen,
                         secondDate: storageApprovalComment.UpdatedWhen,
@@ -438,6 +452,15 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
         {
             Condition = date == default,
             Message = "Date is required"
+        };
+
+        // structural validation for an enum crossing a boundary — rejects an out-of-range value
+        // (a stale client sending a since-removed member); it cannot detect "caller forgot to set
+        // it", since ApprovalCommentType has no unset sentinel and Comment is what silence means
+        private static dynamic IsInvalid(ApprovalCommentType commentType) => new
+        {
+            Condition = Enum.IsDefined(commentType) == false,
+            Message = "Value is not a supported approval comment type"
         };
 
         private static dynamic IsNotSame(

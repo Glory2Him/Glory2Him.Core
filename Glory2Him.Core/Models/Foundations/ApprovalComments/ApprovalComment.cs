@@ -11,6 +11,7 @@
 
 using System;
 using Glory2Him.Core.Models.Bases;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.Approvals;
 
 namespace Glory2Him.Core.Models.Foundations.ApprovalComments
@@ -34,6 +35,21 @@ namespace Glory2Him.Core.Models.Foundations.ApprovalComments
         /// Text content of the comment.
         /// </summary>
         public string Comment { get; set; } = string.Empty;
+
+        /// <summary>
+        /// What this row IS — a remark, or an ask (§7.8).
+        ///
+        /// <para><b>Distinct from <see cref="IsResolved"/>, which is where it stands.</b> The two
+        /// are related at birth only: a <c>Question</c> is created outstanding, a <c>Comment</c>
+        /// settled. Afterwards the flag moves and this does not, which is the whole reason the
+        /// column exists — a settled question and an informational comment carry the same flag,
+        /// so without a type a thread cannot tell them apart and a resolve control cannot be
+        /// offered on questions alone.</para>
+        ///
+        /// <para>Defaults to <see cref="ApprovalCommentType.Comment"/>, which is what every row
+        /// written before the column existed was, and what a caller who says nothing means.</para>
+        /// </summary>
+        public ApprovalCommentType CommentType { get; set; } = ApprovalCommentType.Comment;
 
         /// <summary>
         /// Whether this comment is <b>settled</b> — whether it still requires something before
