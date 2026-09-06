@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { approvalService } from '../services/foundations/approvalService';
 import { EntityTypeName } from '../models/foundations/approvals/approval';
 
@@ -36,25 +36,29 @@ export const useApprovalRound = (
     enabled = true) => {
     const {
         data: approvalVerdict,
-        isLoading: isVerdictLoading
+        isLoading: isVerdictLoading,
+        refetch: refetchVerdict
     } = approvalService.useGetApprovalVerdict(entityType, entityId, enabled);
 
     const approvalId = approvalVerdict?.approvalId ?? '';
 
     const {
         data: approvalReviews,
-        isLoading: areReviewsLoading
+        isLoading: areReviewsLoading,
+        refetch: refetchReviews
     } = approvalService.useGetApprovalReviews(approvalId, enabled);
 
+    // No refetch taken off this one: the candidate list cannot move on a round event, so the
+    // freshness channel deliberately leaves it out. See the note on refresh below.
     const { data: reviewerCandidates } =
         approvalService.useGetReviewerCandidates(entityType, entityId, enabled);
 
-    const { data: reviewRequests } =
+    const { data: reviewRequests, refetch: refetchRequests } =
         approvalService.useGetReviewRequests(entityType, entityId, enabled);
 
     // The names of everybody the round involved, resolved server-side off the round itself —
     // so nothing here gathers ids off the reviews, and the read does not wait on them.
-    const { data: reviewerDisplayNames } =
+    const { data: reviewerDisplayNames, refetch: refetchDisplayNames } =
         approvalService.useGetReviewerDisplayNames(entityType, entityId, enabled);
 
     const approvalReviewCollection: ReadonlyArray<ApprovalReviewItem> = useMemo(
@@ -87,6 +91,62 @@ export const useApprovalRound = (
         isVerdictLoading
         || (approvalId.length > 0 && areReviewsLoading);
 
+    // THE FRESHNESS CHANNEL'S OTHER HALF (design §20.6.1). This hook owns the round's reads, so
+    // it is also the one place that can re-run them — a caller outside this file has no query
+    // keys to invalidate and no business knowing them.
+    //
+    // WHAT IS RE-READ IS WHAT CAN MOVE. §20.6.1 names the triggers: a review cast elsewhere, a
+    // comment added or resolved, a decision or auto-approval landing. The verdict, the reviews,
+    // the outstanding requests and the reviewer names all move on those; the CANDIDATES do not —
+    // §7.9 leaves everybody listed whether or not they have answered, so only the entity's owner
+    // or a role change moves that set, and neither is a round event. It is also the most
+    // expensive of the five (two directory-wide role-membership reads), so polling it four times
+    // a minute for an answer that cannot change is the one read worth leaving out. It is still
+    // invalidated by every write, in approvalService's invalidateRound.
+    //
+    // THE NAMES STAY IN, though they look as static as the candidates: a reviewer whose FIRST
+    // vote arrives through the poll is an id the names set has never carried, and without this
+    // their row renders under the panel's fallback instead of their name.
+    //
+    // REFETCH IS NOT INVALIDATION, and both of its differences bite here.
+    //
+    // It ignores `enabled`, so EVERY gate the reads declare has to be restated by hand here or
+    // refresh quietly reaches past all of them. The reviews read carries its own: with no
+    // approval row the verdict is undefined, approvalId is empty, and an ungated refetch would
+    // ask the server for `approvalId eq ` — a malformed filter, refused, silently (the reads
+    // suppress their toasts by design), every interval for as long as the tab is open. The other
+    // four are gated on the caller's `enabled` and a non-empty entityId, so refresh answers to
+    // those before it asks for anything: a disabled round refreshes into nothing, which is what
+    // a caller that switched it off asked for.
+    //
+    // It also DEFAULTS TO CANCELLING an in-flight fetch and starting again. Nothing here forwards
+    // an AbortSignal to axios, so a cancelled request still runs and its answer is discarded —
+    // and a read slower than the poll's interval would be restarted forever, leaving the panel
+    // frozen on stale props with no spinner to admit it. That is the exact failure §20.6.1
+    // exists to prevent, so every refetch joins the in-flight read rather than replacing it.
+    const refresh = useCallback(async () => {
+        if (enabled === false || entityId.length === 0) {
+            return;
+        }
+
+        await Promise.all([
+            refetchVerdict({ cancelRefetch: false }),
+            approvalId.length > 0
+                ? refetchReviews({ cancelRefetch: false })
+                : Promise.resolve(),
+            refetchRequests({ cancelRefetch: false }),
+            refetchDisplayNames({ cancelRefetch: false })
+        ]);
+    }, [
+        enabled,
+        entityId,
+        approvalId,
+        refetchVerdict,
+        refetchReviews,
+        refetchRequests,
+        refetchDisplayNames
+    ]);
+
     return {
         approvalVerdict: approvalVerdictItem,
         approvalReviewCollection,
@@ -97,6 +157,7 @@ export const useApprovalRound = (
         approvalReviews: approvalReviews ?? [],
         requestedReviewerCollection,
         reviewerCandidateCollection,
-        isLoading
+        isLoading,
+        refresh
     };
 };
