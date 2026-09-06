@@ -51,5 +51,21 @@ namespace Glory2Him.Core.Models.Orchestrations.Approvals
         /// person under two names. Presentation only: nothing compares it.
         /// </summary>
         public required string DisplayName { get; init; }
+
+        /// <summary>
+        /// The account's own username, for a surface that renders "Preferred Name (username)".
+        ///
+        /// <para><b>Why it is carried beside the display name rather than folded into it.</b> Two
+        /// accounts can share a display name - the reason every gate in this system compares
+        /// account ids and never names - and on a comment thread that ambiguity is the difference
+        /// between reading a submitter's answer and reading somebody else's. The username
+        /// disambiguates without putting an id in front of a reader.</para>
+        ///
+        /// <para>Never an email address: §18.3.1 rules a username may not contain an "@", so this
+        /// cannot become a contact detail leaking through a moderation surface. It goes no wider
+        /// than the display name beside it - this read is round-keyed and [Authorize]d, so a
+        /// caller who cannot see the round names nobody.</para>
+        /// </summary>
+        public required string UserName { get; init; }
     }
 }

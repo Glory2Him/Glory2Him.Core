@@ -16,6 +16,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Foundations.ApprovalComments;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.IdentityUsers;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
@@ -27,6 +28,28 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 {
     public partial class ApprovalOrchestrationServiceTests
     {
+        // The thread as the caller can see it. The resolver reads through the comment SERVICE, so
+        // §14.7 posture D's visibility filter is already applied by the time these rows arrive —
+        // which is why the stub hands back a plain collection rather than modelling a gate.
+        private static ApprovalComment CreateApprovalCommentRow(
+            Guid approvalId,
+            string createdBy,
+            bool isDeleted = false) =>
+            new ApprovalComment
+            {
+                Id = Guid.NewGuid(),
+                ApprovalId = approvalId,
+                Comment = "said something",
+                CreatedBy = createdBy,
+                UpdatedBy = createdBy,
+                IsDeleted = isDeleted,
+            };
+
+        private void SetupApprovalComments(params ApprovalComment[] approvalComments) =>
+            this.approvalCommentServiceMock.Setup(service =>
+                service.RetrieveAllApprovalCommentsAsync(It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(approvalComments.AsQueryable());
+
         // Answers only for ids it was actually ASKED about, which is what the real read does and
         // what lets a test prove the resolver never REQUESTED somebody rather than merely never
         // rendering them. A stub that hands back its whole list whatever it was given cannot fail
@@ -395,6 +418,127 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 Times.Once);
 
             this.identityUserServiceMock.VerifyNoOtherCalls();
+        }
+
+        /// <summary>
+        /// The comment thread renders a name per row, and an author is very often neither a
+        /// reviewer nor an invitee - the submitter answering a question is the ordinary case. So
+        /// the round's people include the people who SPOKE on it, or the one surface that most
+        /// needs names would render account guids for exactly them.
+        /// </summary>
+        [Fact]
+        public async Task ShouldNameSomebodyKnownOnlyFromACommentTheyWroteAsync()
+        {
+            // given: a round nobody has reviewed and nobody has been invited to - the author's
+            // only trace on it is the comment they wrote
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
+            Guid approvalId = Guid.NewGuid();
+            Guid commenterId = Guid.NewGuid();
+
+            SetupReviewerScope(approvalId: approvalId);
+
+            SetupApprovalComments(
+                CreateApprovalCommentRow(approvalId, commenterId.ToString()),
+
+                // A comment on ANOTHER round. It must not put its author into this round's
+                // answer, which is what makes the ApprovalId filter load-bearing rather than
+                // decorative.
+                CreateApprovalCommentRow(Guid.NewGuid(), Guid.NewGuid().ToString()));
+
+            SetupResolvedIdentityUsers(
+                CreateIdentityUser(commenterId, preferredName: "Susan"));
+
+            // when
+            IReadOnlyList<ReviewerDisplayName> reviewerDisplayNames =
+                await this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
+                    EntityType.ContentItem,
+                    Guid.NewGuid(),
+                    TestContext.Current.CancellationToken);
+
+            // then: named, and named ALONE - the other round's author is not among them
+            reviewerDisplayNames.Select(name => (name.UserId, name.DisplayName))
+                .Should().Equal((commenterId.ToString(), "Susan"));
+
+            // and: still ONE identity read. The authors join the same id set the reviewers and
+            // the invitations build, rather than earning a second round trip.
+            this.identityUserServiceMock.Verify(service =>
+                service.RetrieveIdentityUsersByIdsAsync(
+                    It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.identityUserServiceMock.VerifyNoOtherCalls();
+        }
+
+        /// <summary>
+        /// A withdrawn comment is not rendered, so its author does not need naming here. Being
+        /// stricter than the thread costs nothing; being looser would name somebody on the
+        /// strength of words nobody can read.
+        /// </summary>
+        [Fact]
+        public async Task ShouldNotNameTheAuthorOfAWithdrawnCommentAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
+            Guid approvalId = Guid.NewGuid();
+            Guid withdrawnAuthorId = Guid.NewGuid();
+
+            SetupReviewerScope(approvalId: approvalId);
+
+            SetupApprovalComments(
+                CreateApprovalCommentRow(
+                    approvalId, withdrawnAuthorId.ToString(), isDeleted: true));
+
+            SetupResolvedIdentityUsers(
+                CreateIdentityUser(withdrawnAuthorId, preferredName: "Withdrawn"));
+
+            // when
+            IReadOnlyList<ReviewerDisplayName> reviewerDisplayNames =
+                await this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
+                    EntityType.ContentItem,
+                    Guid.NewGuid(),
+                    TestContext.Current.CancellationToken);
+
+            // then
+            reviewerDisplayNames.Should().BeEmpty();
+        }
+
+        /// <summary>
+        /// The username rides beside the composed display name. Two accounts can share a display
+        /// name - the reason every gate compares account ids and never names - and on a comment
+        /// thread that ambiguity is the difference between reading the submitter's answer and
+        /// reading somebody else's.
+        /// </summary>
+        [Fact]
+        public async Task ShouldCarryTheUserNameBesideTheDisplayNameAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
+            Guid approvalId = Guid.NewGuid();
+            Guid reviewerId = Guid.NewGuid();
+
+            SetupReviewerScope(
+                approvalId: approvalId,
+                activeReviewerUserIds: new[] { reviewerId.ToString() });
+
+            IdentityUser reviewer = CreateIdentityUser(reviewerId, preferredName: "Christo");
+            reviewer.UserName = "cjdutoit";
+            SetupResolvedIdentityUsers(reviewer);
+
+            // when
+            IReadOnlyList<ReviewerDisplayName> reviewerDisplayNames =
+                await this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
+                    EntityType.ContentItem,
+                    Guid.NewGuid(),
+                    TestContext.Current.CancellationToken);
+
+            // then
+            reviewerDisplayNames.Should().ContainSingle()
+                .Which.Should().BeEquivalentTo(new
+                {
+                    UserId = reviewerId.ToString(),
+                    DisplayName = "Christo",
+                    UserName = "cjdutoit",
+                });
         }
 
         /// <summary>

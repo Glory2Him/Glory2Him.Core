@@ -15,6 +15,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Foundations.ApprovalComments;
 using Glory2Him.Core.Models.Foundations.IdentityUsers;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
 using Glory2Him.Core.Models.Securities;
@@ -42,11 +43,19 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
     /// posture the unscoped form used to borrow from the candidates read now actually holds.</para>
     ///
     /// <para><b>The round, and never the tier.</b> The answer is exactly the people the round
-    /// involved - everybody with a review row on it, dismissed and soft-deleted included, plus
-    /// everybody still invited - resolved in ONE identity read that applies no role filter and
-    /// no disabled filter. Who COULD be invited is a different question with its own route, and
-    /// answering it here would only put every global moderator into a Tag-Reviewer's
-    /// response.</para>
+    /// involved - everybody with a review row on it, dismissed and soft-deleted included,
+    /// everybody still invited, and everybody who has SPOKEN on it - resolved in ONE identity read
+    /// that applies no role filter and no disabled filter. Who COULD be invited is a different
+    /// question with its own route, and answering it here would only put every global moderator
+    /// into a Tag-Reviewer's response.</para>
+    ///
+    /// <para><b>Comment authors are in that set because the thread renders a name per row.</b> An
+    /// author is very often neither a reviewer nor an invitee - the submitter answering a question
+    /// is the ordinary case - so leaving them out would have left the one surface that most needs
+    /// names rendering account guids. They arrive through the comment service, so §14.7 posture D's
+    /// visibility filter decides which authors a given caller can name, which is the right scope:
+    /// naming somebody whose words are hidden from the reader would say more than the thread
+    /// does.</para>
     ///
     /// <para>It sits beside the invitation operations rather than in a foundation for the reason
     /// they do: WHO may enumerate users is an approval-workflow decision (7.9 rule 2), and the
@@ -92,6 +101,29 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 roundUserIds.UnionWith(
                     scope.ActiveRequests.Select(activeRequest => activeRequest.RequestedUserId));
 
+                // AND THE PEOPLE WHO SPOKE ON IT. A comment author is very often neither a
+                // reviewer nor an invitee - the submitter answering a question is the ordinary
+                // case - so without this the one surface that renders a name per row renders
+                // account guids for exactly the people it most needs to name.
+                //
+                // Read through the comment service rather than a broker, so §14.7 posture D's own
+                // visibility filter applies: the set is the authors of the comments THIS caller
+                // can see. That is the right scope for a name resolver - naming somebody whose
+                // words are hidden from the reader would say more than the thread does - and it
+                // is not load-bearing anywhere, because nothing decides an invariant from it. A
+                // name that does not resolve is simply absent and the surface renders its own
+                // fallback.
+                IQueryable<ApprovalComment> allApprovalComments =
+                    await this.approvalCommentService.RetrieveAllApprovalCommentsAsync(
+                        cancellationToken);
+
+                roundUserIds.UnionWith(allApprovalComments
+                    .Where(approvalComment =>
+                        approvalComment.ApprovalId == scope.ApprovalId
+                            && approvalComment.IsDeleted == false)
+                    .Select(approvalComment => approvalComment.CreatedBy)
+                    .ToList());
+
                 // The broker drops blank CreatedBy values as it gathers, but RequestedUserId
                 // arrives off the invitation row exactly as stored, so the blank filter belongs
                 // here rather than being left to the identity read's own parse: what is handed
@@ -126,6 +158,13 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                     {
                         UserId = roundUser.Id.ToString(),
                         DisplayName = ComposeDisplayName(roundUser),
+
+                        // Beside the composed name rather than inside it. Two accounts can share
+                        // a display name, and on a comment thread that ambiguity is the
+                        // difference between reading the submitter's answer and reading somebody
+                        // else's - so a surface that needs to disambiguate has the username to do
+                        // it with instead of an account guid.
+                        UserName = roundUser.UserName,
                     })
                     .OrderBy(
                         reviewerDisplayName => reviewerDisplayName.DisplayName,
