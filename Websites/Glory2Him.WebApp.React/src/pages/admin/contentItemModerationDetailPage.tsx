@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toastSuccess } from '../../brokers/toastBroker.success';
 import { Breadcrumb } from '../../components/coreUI/breadcrumb';
@@ -20,6 +20,7 @@ import { ContentType } from '../../models/foundations/contentItemSettings/conten
 import { ApprovalStatus } from '../../models/components/approvals/approvalReviewItem';
 import { EntityTypeName } from '../../models/foundations/approvals/approval';
 import { useApprovalRound } from '../../hooks/useApprovalRound';
+import { useApprovalRoundChanges } from '../../hooks/useApprovalRoundChanges';
 
 import {
     BibleReferenceAssociationPanel
@@ -84,8 +85,12 @@ export const ContentItemModerationDetailPage = () => {
     const navigate = useNavigate();
     const location = useLocation();
 
-    const { data: contentItem, isLoading, isError } =
-        contentItemService.useGetContentItemById(contentItemId, contentItemId.length > 0);
+    const {
+        data: contentItem,
+        isLoading,
+        isError,
+        refetch: refetchContentItem
+    } = contentItemService.useGetContentItemById(contentItemId, contentItemId.length > 0);
 
     // Defaults plus THIS item's own override — §6.4 resolution needs the specific row in hand
     // to prefer it, exactly as the queue's cards do.
@@ -261,8 +266,32 @@ export const ContentItemModerationDetailPage = () => {
         approvalReviews,
         requestedReviewerCollection,
         reviewerCandidateCollection,
-        isLoading: isRoundLoading
+        isLoading: isRoundLoading,
+        refresh: refreshApprovalRound
     } = useApprovalRound(EntityTypeName.ContentItem, contentItemId);
+
+    // THE FRESHNESS CHANNEL (design §20.6.1). The round can move under this open tab — another
+    // reviewer votes, a comment resolves, an auto-approval fires — and none of that arrives
+    // through a write this page made, so nothing above already invalidates it. Polling is the
+    // first cut; see useApprovalRoundChanges for why and what it does on reconnect.
+    //
+    // THE ITEM IS PART OF THE ROUND HERE, even though it is not one of the approval reads. The
+    // panel's open-or-closed gates get their status from the STORED ITEM rather than from the
+    // verdict — approvalStatus is its own prop precisely so a read-only viewer, who gets no
+    // verdict at all, still sees one — so a decision landing elsewhere moves the item's row and
+    // nothing else. Refreshing the round alone would repaint the votes while leaving the vote
+    // and decision controls live on a round that has already closed, which is the one outcome
+    // §20.6.1 names. The writes above already invalidate this read for the same reason.
+    const refreshModerationView = useCallback(
+        async () => {
+            await Promise.all([
+                refreshApprovalRound(),
+                refetchContentItem({ cancelRefetch: false })
+            ]);
+        },
+        [refreshApprovalRound, refetchContentItem]);
+
+    useApprovalRoundChanges(contentItemId, refreshModerationView);
 
     // ── THE WRITES, events in, requests out. ──────────────────────────────────────
     //
