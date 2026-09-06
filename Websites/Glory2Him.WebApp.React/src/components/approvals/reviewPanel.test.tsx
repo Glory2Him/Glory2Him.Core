@@ -1864,18 +1864,25 @@ describe('ReviewPanel', () => {
     describe('the reviewer row', () => {
         it('should render the username under the display name', () => {
             // given
-            signInAs(authState, ['Reviewers']);
+            signInAs(authState, ['Publishers']);
+
+            const named: ApprovalReviewItem = {
+                reviewerUserId: 'user-john',
+                reviewerDisplayName: 'John',
+                reviewerUserName: 'john.b',
+                vote: ApprovalStatus.Approved
+            };
 
             // when
             renderWithAuth(
                 <ReviewPanel
                     entityType="ContentItem"
                     approvalStatus={ApprovalStatus.Submitted}
-                    approvalReviewCollection={[viewerRejected]} />);
+                    approvalReviewCollection={[named]} />);
 
             // then
-            expect(screen.getByText('Tester')).toBeInTheDocument();
-            expect(screen.getByText('tester')).toBeInTheDocument();
+            expect(screen.getByText('John')).toHaveClass('g2h-review-identity-name');
+            expect(screen.getByText('john.b')).toHaveClass('g2h-review-identity-username');
         });
 
         /// A row with no username gets ONE line, not the display name printed twice - which is
@@ -1899,6 +1906,35 @@ describe('ReviewPanel', () => {
 
             expect(johnRow?.querySelectorAll('.g2h-review-identity-username'))
                 .toHaveLength(0);
+        });
+
+        /// The server composes a display name as preferred name, else full name, else USERNAME -
+        /// so an account with neither of the first two sends the same string in both fields, and
+        /// printing it stacked under itself says nothing the first line has not said. Matched
+        /// case-insensitively: "Tester" over "tester" is that same coincidence, not two facts.
+        it('should not print a username that is the display name', () => {
+            // given
+            signInAs(authState, ['Publishers']);
+
+            const nameless: ApprovalReviewItem = {
+                reviewerUserId: 'user-anon',
+                reviewerDisplayName: 'someone',
+                reviewerUserName: 'Someone',
+                vote: ApprovalStatus.Approved
+            };
+
+            // when
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    approvalReviewCollection={[nameless]} />);
+
+            // then
+            const row = screen.getByText('someone').closest('.g2h-review-row');
+
+            expect(row).not.toBeNull();
+            expect(row?.querySelectorAll('.g2h-review-identity-username')).toHaveLength(0);
         });
 
         /// Down a list of identical bars the eye reads the colours as a tally. Sized to their own

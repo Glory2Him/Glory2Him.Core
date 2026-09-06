@@ -844,10 +844,8 @@ export function ReviewPanel({
     // name leads because that is what a moderator recognises; the username settles which account
     // it was when two people share a name, which is the whole reason it is on screen at all.
     //
-    // The second line is dropped when there is no username rather than padded with a fallback.
-    // The §16.7.4 reads answer with an id and a display name and nothing else, so most rows in
-    // the running app have none — and repeating the display name underneath itself, which is
-    // what the obvious ?? fallback does, reads as a rendering fault.
+    // The second line is dropped when there is no username rather than padded with a fallback,
+    // and dropped again when the username IS the display name — see the note on secondLine.
     //
     // The AI reviewer wears its tagline in that slot, because a tagline is what it has instead
     // of a username, and a glyph instead of initials (see Avatar).
@@ -862,7 +860,22 @@ export function ReviewPanel({
         extraLine?: string
     ): ReactElement => {
         const isAI = isAIReviewer(identity.userId);
-        const secondLine = isAI ? aiReviewerTaglineText : identity.userName;
+        const suppliedSecondLine = isAI ? aiReviewerTaglineText : identity.userName;
+
+        // NEVER THE SAME NAME TWICE. Where an account has no preferred name and no full name, the
+        // server's display-name composition falls back to the username (ComposeDisplayName), so
+        // both fields arrive holding it — and a row that printed one person's name stacked under
+        // itself says nothing the first line has not already said.
+        //
+        // Compared case-insensitively and trimmed, because "Tester" over "tester" is that same
+        // coincidence rather than two facts. The reads are right to report what the account
+        // holds; deciding not to draw it twice belongs to the surface, and this is the surface.
+        const secondLine =
+            suppliedSecondLine != null
+                && suppliedSecondLine.trim().toLowerCase()
+                    === identity.displayName.trim().toLowerCase()
+                ? undefined
+                : suppliedSecondLine;
 
         return (
             <>

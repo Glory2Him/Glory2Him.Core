@@ -83,10 +83,13 @@ export type ApprovalOutcome = {
 };
 
 // GET api/Approvals/{entityType}/{entityId}/ReviewerCandidates — the minimum a picker needs
-// (§16.7.4): an account id and a display name, and nothing else.
+// (§16.7.4): an account id, a display name and a username, and nothing else. The username is in
+// that minimum rather than an addition to it — a display name is not unique, and choosing between
+// two people called "John" from the name alone is guessing.
 export type ReviewerCandidate = {
     userId: string;
     displayName: string;
+    userName: string;
 };
 
 // GET api/Approvals/{entityType}/{entityId}/ReviewRequests — somebody invited to review who has
@@ -105,4 +108,5 @@ export type ApprovalReviewRequest = {
 export type ReviewerDisplayName = {
     userId: string;
     displayName: string;
+    userName: string;
 };

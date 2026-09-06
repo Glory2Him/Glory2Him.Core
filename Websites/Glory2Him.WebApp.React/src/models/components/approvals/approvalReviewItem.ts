@@ -26,10 +26,10 @@ export type ApprovalReviewItem = {
     // review cannot disagree on screen.
     reviewerDisplayName: string;
 
-    // The handle under the display name. OPTIONAL for the same reason it is optional on
-    // ReviewerCandidateItem: the §16.7.4 names read answers with an account id and a display
-    // name and nothing else, so a consumer wired to it can supply no username at all and the
-    // row renders the name alone. Never an email address (§18.3.1).
+    // The handle under the display name, resolved from the same §16.7.4 names read the display
+    // name comes from. OPTIONAL because an id that named no account resolves to neither field,
+    // and because a consumer may be projecting from somewhere that has no username to give — the
+    // row then renders the name alone. Never an email address (§18.3.1).
     reviewerUserName?: string;
 
     // The verdict: Approved or Rejected. Reviews are only ever recorded with one of the two —
@@ -52,11 +52,11 @@ export type ApprovalReviewItem = {
 export type ReviewerCandidateItem = {
     userId: string;
     displayName: string;
-    // OPTIONAL by design, not by oversight. The §16.7.4 candidates read returns "the minimum a
-    // picker needs — account id and display name — and nothing else", so a consumer wired to it
-    // supplies no username at all. The row then renders the display name alone and the filter
-    // matches on it alone, which is why the filter placeholder promises "name" rather than
-    // anything a caller may not be able to give.
+    // OPTIONAL by design, not by oversight. The §16.7.4 reads now carry a username, so the usual
+    // consumer supplies one — but an id that named no account resolves to none, and a consumer
+    // projecting from somewhere else may have none to give. The row then renders the display name
+    // alone and the filter matches on it alone, which is why the filter placeholder promises
+    // "name" rather than anything a caller may not be able to give.
     userName?: string;
 
     // Why the picker is suggesting this person - "Recently reviewed this type", and the like.

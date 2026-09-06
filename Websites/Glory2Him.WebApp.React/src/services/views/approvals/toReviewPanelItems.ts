@@ -20,12 +20,17 @@ import {
 // resolution is a lookup with an honest fallback: an account that has gone leaves the vote
 // standing and the name absent, which is the right shape for both — a vote is a fact about the
 // round, not about whoever is still on the system.
+const resolvedNameOf = (
+    userId: string,
+    reviewerDisplayNameCollection: ReadonlyArray<ReviewerDisplayName>
+): ReviewerDisplayName | undefined =>
+    reviewerDisplayNameCollection
+        .find((reviewerDisplayName) => reviewerDisplayName.userId === userId);
+
 const displayNameOf = (
     userId: string,
     reviewerDisplayNameCollection: ReadonlyArray<ReviewerDisplayName>): string =>
-    reviewerDisplayNameCollection
-        .find((reviewerDisplayName) => reviewerDisplayName.userId === userId)
-        ?.displayName ?? 'Unknown reviewer';
+    resolvedNameOf(userId, reviewerDisplayNameCollection)?.displayName ?? 'Unknown reviewer';
 
 export const toApprovalReviewItem = (
     approvalReview: ApprovalReview,
@@ -37,24 +42,44 @@ export const toApprovalReviewItem = (
     // is the id the panel compares against the signed-in user to find "my" row.
     reviewerUserId: approvalReview.createdBy,
     reviewerDisplayName: displayNameOf(approvalReview.createdBy, reviewerDisplayNameCollection),
+
+    // From the SAME resolved row as the display name above, never from a second lookup — the
+    // whole point of one resolver (§16.7.4) is that a person cannot be labelled from two places
+    // and end up rendering as two people. Absent where the id named no account, which is the
+    // same shape the display name falls back on.
+    reviewerUserName:
+        resolvedNameOf(approvalReview.createdBy, reviewerDisplayNameCollection)?.userName,
+
     vote: approvalReview.statusId,
     isDeleted: approvalReview.isDeleted
 });
 
-// A REQUEST carries the name it was addressed to, unlike a review — so this one needs no lookup.
+// A REQUEST carries the name it was addressed to, unlike a review — but it carries no username,
+// and §16.7.4 is explicit that it never will: denormalising a name at write time leaves every
+// historical row asserting something its owner may since have changed, and the trade is not
+// repeated. So the username comes off the resolver, which names outstanding invitations as well
+// as cast reviews. The DISPLAY name stays the row's own: it is the write-time record of who was
+// asked, and it is what the panel labels the request with when the identity store says nothing.
 export const toRequestedReviewerItem = (
-    approvalReviewRequest: ApprovalReviewRequest): ReviewerCandidateItem => ({
-        userId: approvalReviewRequest.requestedUserId,
-        displayName: approvalReviewRequest.requestedUserDisplayName
-    });
+    approvalReviewRequest: ApprovalReviewRequest,
+    reviewerDisplayNameCollection: ReadonlyArray<ReviewerDisplayName> = []
+): ReviewerCandidateItem => ({
+    userId: approvalReviewRequest.requestedUserId,
+    displayName: approvalReviewRequest.requestedUserDisplayName,
 
-// §16.7.4 returns the minimum a picker needs — an id and a name — so there is nothing else to
-// carry across. No suggestionReason: the panel's own comment is explicit that ranking people is
-// the consumer's call and the panel must not invent one, and neither may this projection.
+    userName: resolvedNameOf(
+        approvalReviewRequest.requestedUserId, reviewerDisplayNameCollection)?.userName
+});
+
+// §16.7.4 returns the minimum a picker needs — an id, a name and a username — so there is
+// nothing else to carry across. No suggestionReason: the panel's own comment is explicit that
+// ranking people is the consumer's call and the panel must not invent one, and neither may this
+// projection.
 export const toReviewerCandidateItem = (
     reviewerCandidate: ReviewerCandidate): ReviewerCandidateItem => ({
         userId: reviewerCandidate.userId,
-        displayName: reviewerCandidate.displayName
+        displayName: reviewerCandidate.displayName,
+        userName: reviewerCandidate.userName
     });
 
 // The verdict crosses almost unchanged — it is already the per-caller answer the panel's gates

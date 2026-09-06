@@ -712,7 +712,9 @@ describe('ContentItemModerationDetailPage', () => {
         it('should ask the chosen candidate to review the item in the url', async () => {
             // given
             openRoundByAnotherAuthor();
-            reviewerCandidates = [{ userId: 'user-mary', displayName: 'Mary Adeyemi' }];
+            reviewerCandidates = [
+                { userId: 'user-mary', displayName: 'Mary Adeyemi', userName: 'mary.a' }
+            ];
             renderPage();
 
             // when
@@ -730,7 +732,9 @@ describe('ContentItemModerationDetailPage', () => {
         it('should withdraw an outstanding request when its row is picked again', async () => {
             // given
             openRoundByAnotherAuthor();
-            reviewerCandidates = [{ userId: 'user-mary', displayName: 'Mary Adeyemi' }];
+            reviewerCandidates = [
+                { userId: 'user-mary', displayName: 'Mary Adeyemi', userName: 'mary.a' }
+            ];
 
             reviewRequests = [{
                 id: 'request-1',
