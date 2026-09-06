@@ -69,7 +69,7 @@ const blockedVerdict = (overrides: Partial<ApprovalVerdictItem> = {}): ApprovalV
     });
 
 const rowNames = (): Array<string | null | undefined> =>
-    Array.from(document.querySelectorAll('.g2h-review-row > span:first-child'))
+    Array.from(document.querySelectorAll('.g2h-review-row .g2h-review-identity-name'))
         .map((element) => element.textContent);
 
 const statusPillText = (): string | null | undefined =>
@@ -1859,6 +1859,277 @@ describe('ReviewPanel', () => {
     //
     // Driven through the three of them rather than one, because the whole point of the shared
     // hook is that they cannot drift apart.
+    /// The stacked row of #354: who, which account, and what they said, in that order down the
+    /// card rather than along a line that a long name pushed the answer off the end of.
+    describe('the reviewer row', () => {
+        it('should render the username under the display name', () => {
+            // given
+            signInAs(authState, ['Reviewers']);
+
+            // when
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    approvalReviewCollection={[viewerRejected]} />);
+
+            // then
+            expect(screen.getByText('Tester')).toBeInTheDocument();
+            expect(screen.getByText('tester')).toBeInTheDocument();
+        });
+
+        /// A row with no username gets ONE line, not the display name printed twice - which is
+        /// what the obvious ?? fallback renders, and what a reader takes for a fault. Most rows
+        /// in the running app are this one: the 16.7.4 reads answer with an account id and a
+        /// display name and nothing else.
+        it('should render no second line for a reviewer with no username', () => {
+            // given
+            signInAs(authState, ['Publishers']);
+
+            // when
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    approvalReviewCollection={[johnApproved]} />);
+
+            // then
+            const johnRow = screen.getByText('John').closest('.g2h-review-row');
+            expect(johnRow).not.toBeNull();
+
+            expect(johnRow?.querySelectorAll('.g2h-review-identity-username'))
+                .toHaveLength(0);
+        });
+
+        /// Down a list of identical bars the eye reads the colours as a tally. Sized to their own
+        /// text they are different widths saying different things, and the round has to be read a
+        /// row at a time.
+        it('should render every vote across the full width of the row', () => {
+            // given
+            signInAs(authState, ['Publishers']);
+
+            // when
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    approvalReviewCollection={[johnApproved]}
+                    requestedReviewerCollection={[mary]} />);
+
+            // then
+            const votes = Array.from(
+                document.querySelectorAll('.g2h-review-row .g2h-review-vote-badge'));
+
+            expect(votes).toHaveLength(2);
+            votes.forEach((vote) => expect(vote).toHaveClass('w-100'));
+        });
+    });
+
+    /// THE AI REVIEWER (design 8.6.2, "Berean"). The panel applies no policy of its own here:
+    /// the candidate arriving is the whole of what offers it, so a consumer that has resolved
+    /// IsAIApprovalInteractionsAllowed to false simply passes nothing.
+    describe('the AI reviewer', () => {
+        const berean: ReviewerCandidateItem = {
+            userId: 'ai-reviewer-berean',
+            displayName: 'Berean'
+        };
+
+        const openPicker = async (): Promise<void> => {
+            await userEvent.click(screen.getByRole('button', { name: 'Request a review' }));
+        };
+
+        /// FAIL-CLOSED, and expressed as the absence of a prop rather than as a flag somebody
+        /// has to remember to set to false.
+        it('should not offer the AI reviewer when no candidate is supplied', async () => {
+            // given
+            signInAs(authState, ['Reviewers']);
+
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    reviewerCandidateCollection={[mary]} />);
+
+            // when
+            await openPicker();
+
+            // then
+            expect(screen.queryByText('Berean')).not.toBeInTheDocument();
+            expect(screen.queryByText('Your AI Pair Reviewer')).not.toBeInTheDocument();
+        });
+
+        /// Ahead of every human suggestion (8.6.2), mirroring GitHub's Copilot-reviewer
+        /// suggestion - and inside the Suggestions band rather than in a section of its own.
+        it('should render the AI reviewer as the first suggestion', async () => {
+            // given
+            signInAs(authState, ['Reviewers']);
+
+            const suggested: ReviewerCandidateItem = {
+                userId: 'user-david',
+                displayName: 'David Hayes',
+                userName: 'davidhayes03',
+                suggestionReason: 'Recently reviewed this type'
+            };
+
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    aiReviewerCandidate={berean}
+                    suggestedReviewerCollection={[suggested]}
+                    reviewerCandidateCollection={[mary]} />);
+
+            // when
+            await openPicker();
+
+            // then
+            const suggestionNames = Array.from(document.querySelectorAll(
+                '.g2h-review-picker-section:first-of-type .g2h-review-identity-name'))
+                .map((element) => element.textContent);
+
+            expect(screen.getByText('Suggestions')).toBeInTheDocument();
+            expect(suggestionNames).toEqual(['Berean', 'David Hayes']);
+        });
+
+        /// A tagline is what it has instead of a username, so it goes where a username goes.
+        it('should render the AI reviewer tagline where a username goes', async () => {
+            // given
+            signInAs(authState, ['Reviewers']);
+
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    aiReviewerCandidate={berean} />);
+
+            // when
+            await openPicker();
+
+            // then
+            const tagline = screen.getByText('Your AI Pair Reviewer');
+            expect(tagline).toHaveClass('g2h-review-identity-username');
+        });
+
+        /// Initials are a stand-in for a face. "BE" over a name-hashed palette colour would
+        /// present an automated identity as one more colleague in the list.
+        it('should render the AI reviewer with a glyph rather than initials', async () => {
+            // given
+            signInAs(authState, ['Reviewers']);
+
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    aiReviewerCandidate={berean} />);
+
+            // when
+            await openPicker();
+
+            // then
+            const avatar = screen.getByRole('img', { name: 'Berean' });
+
+            expect(avatar.querySelector('i.bi-person-fill')).not.toBeNull();
+            expect(avatar.textContent).toBe('');
+        });
+
+        /// THE SEAM. The two callbacks are exclusive: an AI assignment posted to the human
+        /// review-request endpoint is an assignment the server can only refuse.
+        it('should raise onAIReviewerRequested rather than onReviewRequested', async () => {
+            // given
+            signInAs(authState, ['Reviewers']);
+            const onAIReviewerRequested = vi.fn();
+            const onReviewRequested = vi.fn();
+
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    aiReviewerCandidate={berean}
+                    reviewerCandidateCollection={[mary]}
+                    onAIReviewerRequested={onAIReviewerRequested}
+                    onReviewRequested={onReviewRequested} />);
+
+            // when
+            await openPicker();
+            await userEvent.click(screen.getByRole('button', { name: /Berean/ }));
+
+            // then
+            expect(onAIReviewerRequested).toHaveBeenCalledWith(berean);
+            expect(onReviewRequested).not.toHaveBeenCalled();
+        });
+
+        /// ...and the converse, so the routing is shown to be a decision about WHICH row rather
+        /// than a panel that has stopped raising the human one.
+        it('should raise onReviewRequested for a person while the AI reviewer is offered',
+            async () => {
+                // given
+                signInAs(authState, ['Reviewers']);
+                const onAIReviewerRequested = vi.fn();
+                const onReviewRequested = vi.fn();
+
+                renderWithAuth(
+                    <ReviewPanel
+                        entityType="ContentItem"
+                        approvalStatus={ApprovalStatus.Submitted}
+                        aiReviewerCandidate={berean}
+                        reviewerCandidateCollection={[mary]}
+                        onAIReviewerRequested={onAIReviewerRequested}
+                        onReviewRequested={onReviewRequested} />);
+
+                // when
+                await openPicker();
+                await userEvent.click(screen.getByRole('button', { name: /Mary/ }));
+
+                // then
+                expect(onReviewRequested).toHaveBeenCalledWith(mary);
+                expect(onAIReviewerRequested).not.toHaveBeenCalled();
+            });
+
+        /// A picker where typing a name leaves one entry stubbornly pinned at the top reads as a
+        /// bug, so the AI reviewer answers the filter box like every other row.
+        it('should filter the AI reviewer out with everybody else', async () => {
+            // given
+            signInAs(authState, ['Reviewers']);
+
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    aiReviewerCandidate={berean}
+                    reviewerCandidateCollection={[mary]} />);
+
+            // when
+            await openPicker();
+            await userEvent.type(screen.getByLabelText('Filter by name'), 'mary');
+
+            // then
+            expect(screen.queryByText('Berean')).not.toBeInTheDocument();
+            expect(screen.getByText('Mary')).toBeInTheDocument();
+        });
+
+        /// Recognised by the SAME prop wherever the row turns up, so it cannot be styled as the
+        /// AI reviewer in the picker and as a person in the list beside it.
+        it('should render a requested AI reviewer in the review list', () => {
+            // given
+            signInAs(authState, ['Publishers']);
+
+            // when
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    aiReviewerCandidate={berean}
+                    requestedReviewerCollection={[berean]} />);
+
+            // then
+            const bereanRow = screen.getByText('Berean').closest('.g2h-review-row');
+
+            expect(bereanRow).not.toBeNull();
+            expect(bereanRow?.textContent).toContain('Your AI Pair Reviewer');
+            expect(bereanRow?.textContent).toContain('Requested');
+        });
+    });
+
     describe('menu dismissal and labelling', () => {
         const openVoteMenu = async (): Promise<HTMLElement> => {
             signInAs(authState, ['Reviewers']);

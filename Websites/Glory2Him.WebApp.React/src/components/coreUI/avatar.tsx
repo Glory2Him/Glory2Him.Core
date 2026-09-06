@@ -13,6 +13,13 @@ export interface AvatarProps {
     imageUrl?: string;
     sizePx?: number;
     sizeCssClass?: string;
+
+    // A GLYPH INSTEAD OF INITIALS, for an identity that is not a person — the AI reviewer of
+    // design §8.6.2 is the first. Initials are a stand-in for a face, and "BE" over a name-hashed
+    // colour would present an automated identity as one more colleague in the list. The glyph
+    // sits on the neutral theme surface rather than a palette colour for the same reason: the
+    // palette is how people are told apart, and this is not one of them.
+    iconCssClass?: string;
 }
 
 function computeInitials(name: string): string {
@@ -47,12 +54,33 @@ function computeBackgroundColor(name: string): string {
     return palette[Math.abs(hash) % palette.length];
 }
 
-export function Avatar({ name, imageUrl, sizePx = 40, sizeCssClass = '' }: AvatarProps) {
+export function Avatar(
+    { name, imageUrl, sizePx = 40, sizeCssClass = '', iconCssClass }: AvatarProps) {
     const fontSizePx = Math.max(10, Math.trunc(sizePx * 0.42));
 
     return (
         <div className={`avatar ${sizeCssClass}`} style={{ width: `${sizePx}px`, height: `${sizePx}px` }}>
-            {imageUrl != null && imageUrl.trim().length > 0 ? (
+            {iconCssClass != null && iconCssClass.length > 0 ? (
+                <span
+                    className={
+                        'avatar-img rounded-circle d-inline-flex align-items-center '
+                        + 'justify-content-center'}
+                    style={{
+                        width: `${sizePx}px`,
+                        height: `${sizePx}px`,
+
+                        // Theme tokens, never literal greys: the circle has to hold its contrast
+                        // in dark mode as well, where both of these resolve to the dark palette.
+                        backgroundColor: 'var(--bs-secondary-bg)',
+                        color: 'var(--bs-secondary-color)',
+                        fontSize: `${fontSizePx}px`,
+                    }}
+                    role="img"
+                    aria-label={name}
+                    title={name}>
+                    <i className={`bi ${iconCssClass}`} aria-hidden="true"></i>
+                </span>
+            ) : imageUrl != null && imageUrl.trim().length > 0 ? (
                 <img
                     className="avatar-img rounded-circle"
                     style={{ width: `${sizePx}px`, height: `${sizePx}px`, objectFit: 'cover' }}

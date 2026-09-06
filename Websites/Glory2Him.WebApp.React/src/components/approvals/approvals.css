@@ -8,6 +8,37 @@ section.g2h-review-panel {
     padding-bottom: 0;
 }
 
+/* ── The identity block ───────────────────────────────────────────────────────
+   Name over username, with the avatar spanning both lines. The two lines are pulled tight
+   against each other so they read as ONE label for one person rather than as two rows of a
+   list — which is what the default paragraph rhythm makes of them, and what leaves the avatar
+   looking as though it belongs to neither. */
+.g2h-review-identity-name {
+    line-height: 1.25;
+}
+
+.g2h-review-identity-username,
+.g2h-review-identity-reason {
+    line-height: 1.25;
+}
+
+/* The name and the lines under it may be narrower than their text; the truncation is what keeps
+   a long display name from pushing the row wider than the column the panel sits in. Flex items
+   do not shrink below their content without this. */
+.g2h-review-identity-name,
+.g2h-review-identity-username,
+.g2h-review-identity-reason {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* The last row carries no rule: the section below it opens with its own heading, and a border
+   there reads as a divider for that instead. */
+.g2h-review-row:last-of-type {
+    border-bottom: 0 !important;
+}
+
 /* A vote that is displayed rather than offered — another reviewer's, or the viewer's own once
    the round has closed. It shares the button classes so it matches the dropdown beside it in
    both themes, but it is not a control and must not invite a click. */

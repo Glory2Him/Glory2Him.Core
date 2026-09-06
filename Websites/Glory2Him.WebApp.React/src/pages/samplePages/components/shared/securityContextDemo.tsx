@@ -92,6 +92,7 @@ export function DemoSecurityContext({ option, children }: DemoSecurityContextPro
         <AuthContextOverride
             userId={demoViewerId}
             displayName="Demo Viewer"
+            userName="demo.viewer"
             roles={option.roles}>
             {children}
         </AuthContextOverride>

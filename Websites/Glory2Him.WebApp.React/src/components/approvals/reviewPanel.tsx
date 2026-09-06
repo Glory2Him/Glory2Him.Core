@@ -87,6 +87,29 @@ export interface ReviewPanelProps {
     // would quietly become policy.
     suggestedReviewerCollection?: ReadonlyArray<ReviewerCandidateItem>;
 
+    // ── The AI reviewer (design §8.6.2, "Berean") ─────────────────────────────
+    // Supplying this candidate is the WHOLE of what offers the AI reviewer: it renders as the
+    // first row of Suggestions, ahead of every human one, and a panel handed nothing offers
+    // nothing. That is §8.6.2's fail-closed posture expressed as the absence of a prop — the
+    // consumer resolves IsAIApprovalInteractionsAllowed and passes the candidate only when the
+    // setting says yes, exactly as it resolves everything else the panel renders.
+    //
+    // The panel applies NO policy of its own here, in keeping with everything else it does: it
+    // does not know what an AI reviewer is for, only that this one is pinned to the top and
+    // wears a glyph instead of initials.
+    aiReviewerCandidate?: ReviewerCandidateItem;
+
+    // THE SEAM the AI review pipeline is plumbed into. Fired INSTEAD OF onReviewRequested when
+    // the AI reviewer is picked, never alongside it — the two are different operations and the
+    // consumer must not post an AI assignment to the human review-request endpoint by accident.
+    //
+    // What a consumer does with it is §8.6.2's business and none of the panel's: the design has
+    // it publish an assignment fact that an AI-review process consumes, calls the classification
+    // library from, and files a comment and/or a review under Berean's system identity. None of
+    // that exists yet (§13.4: "no AI broker or content-analysis service exists in code today"),
+    // which is why this is a callback and not a fetch.
+    onAIReviewerRequested?: (candidate: ReviewerCandidateItem) => void;
+
     // How many people may be waiting on at once. Counted on OUTSTANDING invitations, so an
     // answered request frees its slot.
     maxReviewerRequests?: number;
@@ -158,6 +181,10 @@ export interface ReviewPanelProps {
     dismissedStatusText?: string;
     requestedVoteText?: string;
     requestedVoteCssClass?: string;
+
+    // Sits where a username sits, because that is what the AI reviewer has instead of one.
+    aiReviewerTaglineText?: string;
+    aiReviewerIconCssClass?: string;
     pickerTitleText?: string;
     suggestionsSectionText?: string;
     requestedSectionText?: string;
@@ -231,10 +258,12 @@ export function ReviewPanel({
     requestedReviewerCollection = [],
     reviewerCandidateCollection = [],
     suggestedReviewerCollection = [],
+    aiReviewerCandidate,
     maxReviewerRequests = 15,
     isCandidatesLoading = false,
     onReviewerLookupRequested,
     onReviewRequested,
+    onAIReviewerRequested,
     onReviewRequestWithdrawn,
     onReviewStatusChanged,
     onApprovalReset,
@@ -255,6 +284,8 @@ export function ReviewPanel({
     dismissedStatusText = 'Dismissed',
     requestedVoteText = 'Requested',
     requestedVoteCssClass = 'btn-warning',
+    aiReviewerTaglineText = 'Your AI Pair Reviewer',
+    aiReviewerIconCssClass = 'bi-person-fill',
     pickerTitleText = 'Request up to {max} reviewers',
     suggestionsSectionText = 'Suggestions',
     requestedSectionText = 'Requested',
@@ -340,6 +371,15 @@ export function ReviewPanel({
 
     const viewerId = user?.userId ?? '';
     const isOwner = viewerId.length > 0 && viewerId === entityOwnerId;
+
+    // WHO BEREAN IS, asked in one place. The aiReviewerCandidate prop is the single source of
+    // that answer, so a row anywhere in the panel — a pending request, a cast review, a picker
+    // entry — is recognised the same way and cannot be styled as the AI reviewer in one list
+    // and as a person in another.
+    const isAIReviewer = (userId: string): boolean =>
+        aiReviewerCandidate != null
+            && userId.length > 0
+            && userId === aiReviewerCandidate.userId;
     const isSubmitted = approvalStatus === ApprovalStatus.Submitted;
 
     // The round reached an outcome. Both outcomes are resettable: a rejection is as easy to
@@ -412,12 +452,14 @@ export function ReviewPanel({
             key: item.id ?? item.reviewerUserId,
             userId: item.reviewerUserId,
             displayName: item.reviewerDisplayName,
+            userName: item.reviewerUserName,
             vote: item.vote as ApprovalStatus | undefined,
         }))
         .concat(pendingRequests.map((candidate) => ({
             key: `requested-${candidate.userId}`,
             userId: candidate.userId,
             displayName: candidate.displayName,
+            userName: candidate.userName,
             vote: undefined as ApprovalStatus | undefined,
         })))
         .sort((left, right) => left.displayName.localeCompare(
@@ -544,7 +586,18 @@ export function ReviewPanel({
 
     // Requesting somebody. The picker STAYS OPEN: assigning several reviewers is one task, and
     // closing after each pick would make the common case four round trips through the cog.
+    //
+    // THE AI REVIEWER LEAVES BY ITS OWN DOOR. Berean is not a person with an account behind the
+    // review-request endpoints, and routing it through onReviewRequested would hand the consumer
+    // an assignment it can only post to a surface that will refuse it. The two callbacks are
+    // exclusive: whichever one fires, the other does not.
     const requestReview = (candidate: ReviewerCandidateItem) => {
+        if (isAIReviewer(candidate.userId)) {
+            onAIReviewerRequested?.(candidate);
+
+            return;
+        }
+
         onReviewRequested?.(candidate);
     };
 
@@ -570,9 +623,23 @@ export function ReviewPanel({
     // person not here?" before it is asked. What differs between the sections is what a click
     // MEANS, and whether there is one at all.
     const suggestedUserIds = new Set(
-        suggestedReviewerCollection.map((candidate) => candidate.userId));
+        [...suggestedReviewerCollection, ...(aiReviewerCandidate == null
+            ? []
+            : [aiReviewerCandidate])].map((candidate) => candidate.userId));
 
-    const suggestionRows = suggestedReviewerCollection.filter(matchesFilter);
+    // BEREAN LEADS THE SUGGESTIONS, ahead of every human one (§8.6.2), mirroring GitHub's
+    // Copilot-reviewer suggestion. It sits INSIDE the Suggestions band rather than in a section
+    // of its own: it is one more name worth asking first, and a band holding a single row would
+    // read as a separate kind of thing to do.
+    //
+    // It answers the filter box like any other row — a picker where typing a name leaves one
+    // entry stubbornly pinned at the top reads as a bug — and it is subject to the same tick and
+    // cap rules, so a Berean that has already reviewed renders inert exactly as a person would.
+    const suggestionRows = (aiReviewerCandidate == null
+        ? suggestedReviewerCollection
+        : [aiReviewerCandidate, ...suggestedReviewerCollection.filter(
+            (candidate) => candidate.userId !== aiReviewerCandidate.userId)])
+        .filter(matchesFilter);
 
     // Suggestions win the tie: a person offered as both is shown once, under the section that
     // says why they are worth asking.
@@ -706,7 +773,7 @@ export function ReviewPanel({
             return currentVote == null
                 ? null
                 : (
-                    <span className={`btn btn-sm ${buttonCssClass} g2h-review-vote-badge mb-0`}>
+                    <span className={`btn btn-sm w-100 ${buttonCssClass} g2h-review-vote-badge mb-0`}>
                         {buttonText}
                     </span>
                 );
@@ -718,7 +785,9 @@ export function ReviewPanel({
                     type="button"
                     id={voteMenu.triggerId}
                     ref={voteMenu.triggerRef}
-                    className={`btn btn-sm dropdown-toggle ${buttonCssClass} mb-0`}
+                    className={
+                        'btn btn-sm dropdown-toggle w-100 d-flex justify-content-between '
+                        + `align-items-center ${buttonCssClass} mb-0`}
 
                     // NO aria-haspopup, on any of the three, and that is a decision rather than
                     // an omission — see useDismissableMenu for why. These are disclosures:
@@ -735,7 +804,7 @@ export function ReviewPanel({
                         ref={voteMenu.menuRef}
                         tabIndex={-1}
                         aria-labelledby={voteMenu.triggerId}
-                        className="dropdown-menu dropdown-menu-end show shadow">
+                        className="dropdown-menu dropdown-menu-end show shadow w-100">
                         <button
                             type="button"
                             className="dropdown-item"
@@ -764,6 +833,62 @@ export function ReviewPanel({
                     </div>
                 )}
             </div>
+        );
+    };
+
+    // ONE IDENTITY BLOCK, wherever somebody is named — the review list and the picker both.
+    // #354 asks for the two surfaces to look the same, and the way to keep them looking the same
+    // is for there to be one of them rather than two that agree today.
+    //
+    // The shape: an avatar spanning both text lines, the DISPLAY NAME over the USERNAME. The
+    // name leads because that is what a moderator recognises; the username settles which account
+    // it was when two people share a name, which is the whole reason it is on screen at all.
+    //
+    // The second line is dropped when there is no username rather than padded with a fallback.
+    // The §16.7.4 reads answer with an id and a display name and nothing else, so most rows in
+    // the running app have none — and repeating the display name underneath itself, which is
+    // what the obvious ?? fallback does, reads as a rendering fault.
+    //
+    // The AI reviewer wears its tagline in that slot, because a tagline is what it has instead
+    // of a username, and a glyph instead of initials (see Avatar).
+    //
+    // Returned as a FRAGMENT, not a wrapper: the avatar and the text sit as siblings in the
+    // caller's own flex container, so the picker's row stays a <button> laid out exactly as it
+    // was and the review row can be a <div> without either one nesting a block inside phrasing
+    // content to get there.
+    const renderIdentity = (
+        identity: { userId: string; displayName: string; userName?: string },
+        avatarSizePx: number,
+        extraLine?: string
+    ): ReactElement => {
+        const isAI = isAIReviewer(identity.userId);
+        const secondLine = isAI ? aiReviewerTaglineText : identity.userName;
+
+        return (
+            <>
+                <Avatar
+                    name={identity.displayName}
+                    sizePx={avatarSizePx}
+                    iconCssClass={isAI ? aiReviewerIconCssClass : undefined} />
+
+                <span className="text-truncate">
+                    <span className="fw-bold d-block g2h-review-identity-name">
+                        {identity.displayName}
+                    </span>
+
+                    {secondLine != null && secondLine.length > 0 && (
+                        <small className="text-muted d-block g2h-review-identity-username">
+                            {secondLine}
+                        </small>
+                    )}
+
+                    {extraLine != null && extraLine.length > 0 && (
+                        <small className="text-muted d-block g2h-review-identity-reason">
+                            {extraLine}
+                        </small>
+                    )}
+                </span>
+            </>
         );
     };
 
@@ -834,24 +959,7 @@ export function ReviewPanel({
                     {isTicked && <i className="bi bi-check"></i>}
                 </span>
 
-                <Avatar name={candidate.displayName} sizePx={28} />
-
-                <span className="text-truncate">
-                    <span className="fw-semibold">
-                        {candidate.userName ?? candidate.displayName}
-                    </span>
-
-                    {candidate.userName != null && (
-                        <span className="text-muted ms-1">{candidate.displayName}</span>
-                    )}
-
-                    {candidate.suggestionReason != null
-                        && candidate.suggestionReason.length > 0 && (
-                        <small className="text-muted d-block">
-                            {candidate.suggestionReason}
-                        </small>
-                    )}
-                </span>
+                {renderIdentity(candidate, 28, candidate.suggestionReason)}
 
                 <span className="visually-hidden">{actionHint}</span>
             </button>
@@ -872,12 +980,25 @@ export function ReviewPanel({
         </div>
     );
 
-    const renderReviewRow = (name: string, control: ReactNode, key: string): ReactElement => (
-        <div
-            key={key}
-            className="d-flex justify-content-between align-items-center py-2 border-bottom g2h-review-row">
-            <span>{name}</span>
-            {control}
+    // ONE REVIEWER, STACKED: the identity block on top, the vote across the full width beneath
+    // it (#354). The vote used to sit at the end of a single line, which put the three things a
+    // moderator scans — who, which account, what they said — in a row that a long name pushed
+    // the answer off the end of, on the narrow column this panel is designed for.
+    //
+    // Full width is also what makes the votes COMPARABLE. Down a list of identical bars the eye
+    // reads the colours as a tally; sized to their own text, "Approved" and "Requested" are
+    // different widths saying different things and the round has to be read one row at a time.
+    const renderReviewRow = (
+        identity: { userId: string; displayName: string; userName?: string },
+        control: ReactNode,
+        key: string
+    ): ReactElement => (
+        <div key={key} className="py-2 border-bottom g2h-review-row">
+            <div className="d-flex align-items-center gap-2">
+                {renderIdentity(identity, 34)}
+            </div>
+
+            {control != null && <div className="mt-2">{control}</div>}
         </div>
     );
 
@@ -888,11 +1009,22 @@ export function ReviewPanel({
                 ?? user?.userName
                 ?? '';
 
+            // The one row whose username the panel can always fill in. Every other row depends on
+            // a projection that has no username to give (§16.7.4), but the viewer's own account
+            // is right there in the auth context — and it is dropped when the review row already
+            // supplied one, so the recorded review stays the authority on its own labelling for
+            // the second line exactly as it is for the first.
+            const identity = {
+                userId: viewerReview?.reviewerUserId ?? viewerId,
+                displayName: name,
+                userName: viewerReview?.reviewerUserName ?? user?.userName
+            };
+
             const control = renderViewerVoteControl();
 
             return control == null && viewerReview == null
                 ? null
-                : renderReviewRow(name, control, 'viewer-row');
+                : renderReviewRow(identity, control, 'viewer-row');
         }
 
         return null;
@@ -994,16 +1126,16 @@ export function ReviewPanel({
                     {renderedViewerRow}
 
                     {otherRows.map((row) => renderReviewRow(
-                        row.displayName,
+                        row,
                         row.vote != null ? (
-                            <span className={`btn btn-sm ${voteBadgeCssClass(row.vote)} g2h-review-vote-badge mb-0`}>
+                            <span className={`btn btn-sm w-100 ${voteBadgeCssClass(row.vote)} g2h-review-vote-badge mb-0`}>
                                 {voteBadgeText(row.vote)}
                             </span>
                         ) : (
                             // Asked and not yet answered. A warning chip rather than a muted one:
                             // an outstanding request is the round waiting on somebody, which is
                             // the thing a publisher is deciding whether to keep waiting for.
-                            <span className={`btn btn-sm ${requestedVoteCssClass} g2h-review-vote-badge mb-0`}>
+                            <span className={`btn btn-sm w-100 ${requestedVoteCssClass} g2h-review-vote-badge mb-0`}>
                                 {requestedVoteText}
                             </span>
                         ),

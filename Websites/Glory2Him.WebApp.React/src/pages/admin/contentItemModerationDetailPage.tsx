@@ -21,6 +21,16 @@ import { ApprovalStatus } from '../../models/components/approvals/approvalReview
 import { EntityTypeName } from '../../models/foundations/approvals/approval';
 import { useApprovalRound } from '../../hooks/useApprovalRound';
 
+// WHERE THE §8.6.2 SWITCH WILL BE READ. IsAIApprovalInteractionsAllowed is one of the five
+// ApprovalSetting fields #354 still has to add, so there is no policy row to resolve yet and
+// this constant stands in the place that resolved value will occupy. When the setting lands,
+// this becomes a read off the resolved ApprovalSetting and nothing else on this page moves.
+//
+// It is a constant rather than a hidden true so that the fail-closed posture is one edit away
+// while the backend is unbuilt: the AI reviewer is OFFERED here, but nothing it is offered for
+// exists — picking it raises the seam below and writes nothing anywhere.
+const isAIReviewerOffered = true;
+
 import {
     BibleReferenceAssociationPanel
 } from '../../components/associations/bibleReferenceAssociationPanel';
@@ -56,6 +66,7 @@ import { extractApiErrorMessage } from './apiErrorMessage';
 import {
     ApprovalDecision,
     ApprovalStatus as ReviewVote,
+    BereanAIReviewer,
     ReviewerCandidateItem
 } from '../../models/components/approvals/approvalReviewItem';
 
@@ -295,6 +306,25 @@ export const ContentItemModerationDetailPage = () => {
                 && review.isDeleted !== true
                 && review.statusId !== ApprovalStatus.Dismissed);
 
+    // THE AI-REVIEW SEAM (design §8.6.2, issue #354). Assigning Berean is meant to publish an
+    // assignment fact that an AI-review process consumes: it calls the classification library
+    // for an IConfidence verdict and files an ApprovalComment and/or an ApprovalReview under
+    // Berean's system identity, per the two confidence thresholds.
+    //
+    // NONE OF THAT EXISTS. §13.4 is explicit that no AI broker or content-analysis service is in
+    // code today, ContentItem does not implement IConfidence at all, and the three open rulings
+    // §8.6.2 lists — whether a Berean vote counts toward RequiredNumberOfApprovals above all —
+    // are unanswered. So this deliberately writes NOTHING: it does not post a review request,
+    // because Berean has no account for one to name, and it does not fake a pending row, because
+    // a "Requested" chip against a request nobody holds is the panel lying about the round.
+    //
+    // It says so instead, and that is the whole of it until the backend half lands here.
+    const requestAIReviewAsync = (candidate: ReviewerCandidateItem): void => {
+        toastSuccess(
+            `${candidate.displayName} cannot review yet — the AI review service is still to be `
+            + 'built. Nothing has been requested.');
+    };
+
     const castVoteAsync = async (vote: ReviewVote) => {
         if (approvalVerdict == null) {
             return;
@@ -522,6 +552,10 @@ export const ContentItemModerationDetailPage = () => {
                                 onReviewRequested={(candidate) => void requestReviewAsync(candidate)}
                                 onReviewRequestWithdrawn={(candidate) =>
                                     void withdrawReviewRequestAsync(candidate)}
+                                aiReviewerCandidate={
+                                    isAIReviewerOffered ? BereanAIReviewer : undefined}
+                                onAIReviewerRequested={(candidate) =>
+                                    requestAIReviewAsync(candidate)}
                                 showBorder />
 
                             {/* BENEATH THE ROUND, in the same column: the round is about THIS

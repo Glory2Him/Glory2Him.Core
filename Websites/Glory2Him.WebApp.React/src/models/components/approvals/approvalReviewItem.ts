@@ -26,6 +26,12 @@ export type ApprovalReviewItem = {
     // review cannot disagree on screen.
     reviewerDisplayName: string;
 
+    // The handle under the display name. OPTIONAL for the same reason it is optional on
+    // ReviewerCandidateItem: the §16.7.4 names read answers with an account id and a display
+    // name and nothing else, so a consumer wired to it can supply no username at all and the
+    // row renders the name alone. Never an email address (§18.3.1).
+    reviewerUserName?: string;
+
     // The verdict: Approved or Rejected. Reviews are only ever recorded with one of the two —
     // an uncast vote has no row, which is why the placeholder is synthesized instead.
     vote: ApprovalStatus;
@@ -57,6 +63,24 @@ export type ReviewerCandidateItem = {
     // Presentation only, and the CONSUMER decides it: the panel has no basis for ranking people
     // and must not invent one. Present only on entries passed as suggestions.
     suggestionReason?: string;
+};
+
+// THE AI REVIEWER IDENTITY (design §8.6.2, "Berean" — Acts 17:11). Offered to ReviewPanel as
+// aiReviewerCandidate, which is the ONLY thing that puts it in the picker: a panel handed no
+// candidate offers no AI reviewer, which is the fail-closed posture §8.4 asks for expressed as
+// the absence of a prop rather than as a flag somebody has to remember to set.
+//
+// THE ID IS A PLACEHOLDER AND NOTHING READS IT AS AN ACCOUNT. Berean acts under a system
+// identity (§8.6.2), and that account does not exist yet — so this is deliberately NOT a GUID.
+// Anything that posted it to the review-request endpoints would be refused, which is the right
+// outcome while the backend half of #354 is unbuilt: the panel raises onAIReviewerRequested and
+// the consumer decides what that means. Replace this with the system account's id when the
+// identity lands, and nothing else here has to move.
+export const BereanAIReviewerUserId = 'ai-reviewer-berean';
+
+export const BereanAIReviewer: ReviewerCandidateItem = {
+    userId: BereanAIReviewerUserId,
+    displayName: 'Berean'
 };
 
 // One reason approval cannot be granted right now — the client-side shape of
