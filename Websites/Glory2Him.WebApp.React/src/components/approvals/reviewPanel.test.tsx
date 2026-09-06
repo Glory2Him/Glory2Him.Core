@@ -1781,8 +1781,8 @@ describe('ReviewPanel', () => {
             expect(onReviewRequestWithdrawn).not.toHaveBeenCalled();
         });
 
-        /// Suggestions win the tie. A consumer ranking suggestions out of its own request list can
-        /// hand the same person to both collections, and two rows read as two people.
+        /// One row, not two. A consumer ranking suggestions out of its own request list can hand
+        /// the same person to both collections, and two rows read as two people.
         it('should not repeat a suggested person under requested', async () => {
             // given
             signInAs(authState, ['Reviewers']);
@@ -1799,6 +1799,103 @@ describe('ReviewPanel', () => {
 
             // then
             expect(screen.getAllByRole('button', { name: /mary\.m/ })).toHaveLength(1);
+        });
+
+        /// REQUESTED WINS THAT TIE, and which section keeps the row decides what a click DOES.
+        /// Under Suggestions a click re-requests; the Requested section is the only route to
+        /// unassigning anybody, so a suggested-and-requested person was impossible to withdraw.
+        it('should keep a suggested person who is also requested under requested', async () => {
+            // given
+            signInAs(authState, ['Reviewers']);
+            const onReviewRequested = vi.fn();
+            const onReviewRequestWithdrawn = vi.fn();
+
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    suggestedReviewerCollection={[{ ...mary, suggestionReason: 'Knows this type' }]}
+                    requestedReviewerCollection={[mary]}
+                    onReviewRequested={onReviewRequested}
+                    onReviewRequestWithdrawn={onReviewRequestWithdrawn} />);
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Request a review' }));
+
+            // then: no Suggestions band at all - the only person offered is already asked.
+            // Read off the section titles, because "Requested" is also the vote chip Mary
+            // wears in the list behind the picker.
+            const sections = Array.from(
+                document.querySelectorAll('.g2h-review-picker-section-title'))
+                .map((element) => element.textContent);
+
+            expect(sections).toEqual(['Requested']);
+
+            // and: the click withdraws rather than asking the same person twice
+            await userEvent.click(screen.getByRole('button', { name: /mary\.m/ }));
+
+            expect(onReviewRequestWithdrawn).toHaveBeenCalledWith(mary);
+            expect(onReviewRequested).not.toHaveBeenCalled();
+        });
+
+        /// The same rule reaches the AI reviewer, which is pinned into the suggestions on every
+        /// round it is offered on - so without this an asked Berean could never be unassigned.
+        it('should keep a requested AI reviewer withdrawable', async () => {
+            // given
+            signInAs(authState, ['Reviewers']);
+            const berean: ReviewerCandidateItem = {
+                userId: 'ai-reviewer-berean',
+                displayName: 'Berean'
+            };
+
+            const onReviewRequestWithdrawn = vi.fn();
+            const onAIReviewerRequested = vi.fn();
+
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    aiReviewerCandidate={berean}
+                    requestedReviewerCollection={[berean]}
+                    onAIReviewerRequested={onAIReviewerRequested}
+                    onReviewRequestWithdrawn={onReviewRequestWithdrawn} />);
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Request a review' }));
+            await userEvent.click(screen.getByRole('button', { name: /Berean/ }));
+
+            // then
+            expect(onReviewRequestWithdrawn).toHaveBeenCalledWith(berean);
+            expect(onAIReviewerRequested).not.toHaveBeenCalled();
+        });
+
+        /// ...and an unrequested Berean still leads the suggestions, so the rule above narrows
+        /// the pinning rather than undoing it.
+        it('should still pin an unrequested AI reviewer to the top of suggestions', async () => {
+            // given
+            signInAs(authState, ['Reviewers']);
+            const berean: ReviewerCandidateItem = {
+                userId: 'ai-reviewer-berean',
+                displayName: 'Berean'
+            };
+
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    aiReviewerCandidate={berean}
+                    suggestedReviewerCollection={[mary]}
+                    requestedReviewerCollection={[paul]} />);
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Request a review' }));
+
+            // then
+            const suggestionNames = Array.from(document.querySelectorAll(
+                '.g2h-review-picker-section:first-of-type .g2h-review-identity-name'))
+                .map((element) => element.textContent);
+
+            expect(suggestionNames).toEqual(['Berean', 'Mary']);
         });
 
         it('should name the cap in the picker heading', async () => {

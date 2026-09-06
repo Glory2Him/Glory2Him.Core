@@ -627,6 +627,21 @@ export function ReviewPanel({
             ? []
             : [aiReviewerCandidate])].map((candidate) => candidate.userId));
 
+    // REQUESTED WINS THE TIE, and it used to be Suggestions. A person handed to both
+    // collections — which the natural consumer does, since it ranks its suggestions out of the
+    // same candidates read — was shown once under Suggestions, where a click MEANS request. The
+    // Requested section is the ONLY route to unassigning somebody (the main list carries no
+    // withdraw control, by design), so being suggested made a standing invitation impossible to
+    // withdraw, and the row invited a second request instead. Pinning the AI reviewer into
+    // suggestedUserIds widened that from "a consumer that ranks carelessly" to "every round
+    // where Berean has been asked".
+    //
+    // So the sections split on what a click can DO rather than on what is worth saying about
+    // the person: an outstanding invitation is withdrawable and nothing else, so it belongs
+    // under Requested wherever else it was offered from. The one thing lost is the suggestion
+    // reason on that row, which is a sentence about why to ask somebody already asked.
+    const requestedPickerRows = requestedReviewerCollection.filter(matchesFilter);
+
     // BEREAN LEADS THE SUGGESTIONS, ahead of every human one (§8.6.2), mirroring GitHub's
     // Copilot-reviewer suggestion. It sits INSIDE the Suggestions band rather than in a section
     // of its own: it is one more name worth asking first, and a band holding a single row would
@@ -635,17 +650,13 @@ export function ReviewPanel({
     // It answers the filter box like any other row — a picker where typing a name leaves one
     // entry stubbornly pinned at the top reads as a bug — and it is subject to the same tick and
     // cap rules, so a Berean that has already reviewed renders inert exactly as a person would.
+    // Berean included, an outstanding invitation drops out of here and renders under Requested.
     const suggestionRows = (aiReviewerCandidate == null
         ? suggestedReviewerCollection
         : [aiReviewerCandidate, ...suggestedReviewerCollection.filter(
             (candidate) => candidate.userId !== aiReviewerCandidate.userId)])
-        .filter(matchesFilter);
-
-    // Suggestions win the tie: a person offered as both is shown once, under the section that
-    // says why they are worth asking.
-    const requestedPickerRows = requestedReviewerCollection.filter(
-        (candidate) => matchesFilter(candidate)
-            && suggestedUserIds.has(candidate.userId) === false);
+        .filter((candidate) => matchesFilter(candidate)
+            && requestedUserIds.has(candidate.userId) === false);
 
     // Everyone else, with the already-voted at the top so the assigned reader sees them first.
     // The two groups keep the order the consumer supplied within themselves; only the split is

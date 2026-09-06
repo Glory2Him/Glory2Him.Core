@@ -27,32 +27,34 @@ const resolvedNameOf = (
     reviewerDisplayNameCollection
         .find((reviewerDisplayName) => reviewerDisplayName.userId === userId);
 
-const displayNameOf = (
-    userId: string,
-    reviewerDisplayNameCollection: ReadonlyArray<ReviewerDisplayName>): string =>
-    resolvedNameOf(userId, reviewerDisplayNameCollection)?.displayName ?? 'Unknown reviewer';
+const UnknownReviewerText = 'Unknown reviewer';
 
 export const toApprovalReviewItem = (
     approvalReview: ApprovalReview,
     reviewerDisplayNameCollection: ReadonlyArray<ReviewerDisplayName> = []
-): ApprovalReviewItem => ({
-    id: approvalReview.id,
+): ApprovalReviewItem => {
+    // RESOLVED ONCE, and both labels read off that one row. Said as a claim in a comment first
+    // and then not done — the display name and the username each ran their own lookup — which is
+    // the shape of bug the single resolver (§16.7.4) exists to prevent: two lookups are two
+    // chances to render one person as two.
+    const resolved = resolvedNameOf(approvalReview.createdBy, reviewerDisplayNameCollection);
 
-    // CreatedBy, not some reviewer column: the audit trail records who cast the vote, and that
-    // is the id the panel compares against the signed-in user to find "my" row.
-    reviewerUserId: approvalReview.createdBy,
-    reviewerDisplayName: displayNameOf(approvalReview.createdBy, reviewerDisplayNameCollection),
+    return {
+        id: approvalReview.id,
 
-    // From the SAME resolved row as the display name above, never from a second lookup — the
-    // whole point of one resolver (§16.7.4) is that a person cannot be labelled from two places
-    // and end up rendering as two people. Absent where the id named no account, which is the
-    // same shape the display name falls back on.
-    reviewerUserName:
-        resolvedNameOf(approvalReview.createdBy, reviewerDisplayNameCollection)?.userName,
+        // CreatedBy, not some reviewer column: the audit trail records who cast the vote, and
+        // that is the id the panel compares against the signed-in user to find "my" row.
+        reviewerUserId: approvalReview.createdBy,
+        reviewerDisplayName: resolved?.displayName ?? UnknownReviewerText,
 
-    vote: approvalReview.statusId,
-    isDeleted: approvalReview.isDeleted
-});
+        // Absent where the id named no account, which is the same row the display name falls
+        // back for.
+        reviewerUserName: resolved?.userName,
+
+        vote: approvalReview.statusId,
+        isDeleted: approvalReview.isDeleted
+    };
+};
 
 // A REQUEST carries the name it was addressed to, unlike a review — but it carries no username,
 // and §16.7.4 is explicit that it never will: denormalising a name at write time leaves every
