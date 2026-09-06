@@ -31,10 +31,14 @@ export interface ReviewCommentViewPanelProps
     onEditClick?: () => void;
 }
 
+// text-bg-* rather than bg-*, like every other badge in this codebase (postTypeBadge, articleCard,
+// userMenu, and contentItemSettingsViewPanel's scope chip, which is the closest sibling). The
+// pairing utility sets a foreground MATCHED to the background instead of leaning on .badge's
+// default, so the chip's contrast follows a theme change rather than depending on one.
 const chipFor = (commentType: ApprovalCommentType): { label: string; cssClass: string } =>
     commentType === ApprovalCommentType.Question
-        ? { label: 'Question', cssClass: 'bg-primary' }
-        : { label: 'Comment', cssClass: 'bg-secondary' };
+        ? { label: 'Question', cssClass: 'text-bg-primary' }
+        : { label: 'Comment', cssClass: 'text-bg-secondary' };
 
 // The stored timestamp is ISO 8601 off the row. An unparseable one renders as nothing rather
 // than as "Invalid Date" — a broken date must not be the loudest thing on a row.
@@ -57,6 +61,15 @@ export function ReviewCommentViewPanel({
     const resolveFieldId = useId();
     const chip = chipFor(reviewComment.commentType);
     const timestamp = writtenWhen(reviewComment.createdWhen);
+
+    // WHICH ROW, not just whose. One author answering two questions on a round produced two Edit
+    // buttons and two Delete buttons with identical accessible names, so a screen-reader user
+    // tabbing the thread could not tell which comment they were about to change or remove. The
+    // timestamp is what separates two rows by the same person; it falls back to the name alone
+    // when the date will not parse, which is the only case where there is nothing to add.
+    const rowName = timestamp.length > 0
+        ? `by ${reviewComment.authorDisplayName}, ${timestamp}`
+        : `by ${reviewComment.authorDisplayName}`;
 
     // DELETE GOES THROUGH THE CONSUMER when one is listening, because the confirmation is page
     // chrome this panel cannot place. onRemoved alone is honoured for the surface that genuinely
@@ -139,7 +152,7 @@ export function ReviewCommentViewPanel({
                             type="button"
                             className="btn btn-sm btn-outline-secondary mb-0"
                             disabled={isSubmitting}
-                            aria-label={`Edit comment by ${reviewComment.authorDisplayName}`}
+                            aria-label={`Edit comment ${rowName}`}
                             onClick={() => onEditClick?.()}>
                             <i className="bi bi-pencil me-1" aria-hidden="true"></i>Edit
                         </button>
@@ -148,7 +161,7 @@ export function ReviewCommentViewPanel({
                             type="button"
                             className="btn btn-sm btn-outline-danger mb-0"
                             disabled={isSubmitting}
-                            aria-label={`Delete comment by ${reviewComment.authorDisplayName}`}
+                            aria-label={`Delete comment ${rowName}`}
                             onClick={requestRemoval}>
                             <i className="bi bi-trash me-1" aria-hidden="true"></i>Delete
                         </button>

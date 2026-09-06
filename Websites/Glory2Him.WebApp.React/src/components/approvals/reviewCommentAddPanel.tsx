@@ -1,4 +1,5 @@
 import { useEffect, useId, useState } from 'react';
+import { CommentTypeRadioGroup } from './commentTypeRadioGroup';
 
 import {
     ApprovalCommentType,
@@ -43,7 +44,6 @@ export function ReviewCommentAddPanel({
 }: ReviewCommentAddPanelProps) {
     const [draft, setDraft] = useState('');
     const [commentType, setCommentType] = useState<ApprovalCommentType>(defaultType);
-    const radioGroupName = useId();
     const draftFieldId = useId();
 
     // A changed defaultType prop overrules a choice the reader has not committed — the same
@@ -65,16 +65,33 @@ export function ReviewCommentAddPanel({
         onClear?.();
     };
 
-    // The box clears on a committed save the way the association panel's does: whatever was
-    // typed has been dealt with, and what the thread shows next is the collection the consumer
-    // re-read. The TYPE goes back to the default too — the next thing written is a fresh
-    // decision, not a continuation of the last one.
-    const save = () => {
+    // THE BOX CLEARS ON A COMMITTED SAVE, and only then. onSave may hand back a promise, and if
+    // it does this waits: a refusal leaves the words exactly where the reader typed them.
+    //
+    // Clearing first was the obvious shape and the wrong one. The draft IS the payload here —
+    // unlike the association panel this borrowed from, where the value is a short tag and the
+    // chip appears optimistically — so a round that closed a moment ago, or a sanction applied
+    // mid-session, cost the moderator a comment they then had to write again from memory. The
+    // edit face never had that behaviour, which made the same user lose work on one face and not
+    // the other.
+    //
+    // The TYPE goes back to the default with it: the next thing written is a fresh decision, not
+    // a continuation of the last one.
+    const save = async () => {
         if (canSave === false) {
             return;
         }
 
-        onSave?.({ approvalId, comment: draft.trim(), commentType });
+        const draftToSave = { approvalId, comment: draft.trim(), commentType };
+
+        try {
+            await onSave?.(draftToSave);
+        } catch {
+            // The CONSUMER reports it — this panel has no toast and no idea what went wrong. All
+            // that is decided here is that the words stay.
+            return;
+        }
+
         setDraft('');
         setCommentType(defaultType);
     };
@@ -93,35 +110,10 @@ export function ReviewCommentAddPanel({
                 onChange={(event) => setDraft(event.target.value)}></textarea>
 
             <div className="d-flex flex-wrap align-items-center justify-content-between gap-2">
-                {/* A radiogroup rather than two loose radios: a screen reader announces "Comment,
-                    1 of 2" and the arrow keys move between them, which is what the pair means. */}
-                <div
-                    className="d-flex align-items-center gap-3"
-                    role="radiogroup"
-                    aria-label="Comment type">
-
-                    {[
-                        { value: ApprovalCommentType.Comment, label: 'Comment' },
-                        { value: ApprovalCommentType.Question, label: 'Question' }
-                    ].map((option) => (
-                        <div className="form-check mb-0" key={option.label}>
-                            <input
-                                className="form-check-input"
-                                type="radio"
-                                name={radioGroupName}
-                                id={`${radioGroupName}-${option.label}`}
-                                checked={commentType === option.value}
-                                disabled={isSubmitting}
-                                onChange={() => setCommentType(option.value)} />
-
-                            <label
-                                className="form-check-label"
-                                htmlFor={`${radioGroupName}-${option.label}`}>
-                                {option.label}
-                            </label>
-                        </div>
-                    ))}
-                </div>
+                <CommentTypeRadioGroup
+                    value={commentType}
+                    onChange={setCommentType}
+                    disabled={isSubmitting} />
 
                 <div className="d-flex gap-2">
                     <button
@@ -136,7 +128,7 @@ export function ReviewCommentAddPanel({
                         type="button"
                         className="btn btn-primary mb-0"
                         disabled={canSave === false}
-                        onClick={save}>
+                        onClick={() => void save()}>
                         Save
                     </button>
                 </div>

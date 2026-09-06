@@ -223,6 +223,38 @@ describe('ReviewCommentPanel', () => {
             expect(box).toHaveValue('');
         });
 
+        // THE WORDS SURVIVE A REFUSAL. Clearing before the consumer's write resolved was the
+        // obvious shape and the wrong one: a round that closed a moment earlier cost the
+        // moderator the whole comment, and there was nothing to recover it from.
+        it('should keep the draft when the consumer rejects the save', async () => {
+            const saved = vi.fn().mockRejectedValue(new Error('the round has closed'));
+
+            renderPanel(<ReviewCommentPanel approvalId={approvalId} onSave={saved} />);
+
+            const box = screen.getByPlaceholderText('Write a comment or ask a question…');
+            await userEvent.type(box, 'Where is this quote from?');
+            await userEvent.click(screen.getByRole('radio', { name: 'Question' }));
+            await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+            expect(saved).toHaveBeenCalledOnce();
+
+            // the words AND the choice, so the reader can simply press Save again
+            expect(box).toHaveValue('Where is this quote from?');
+            expect(screen.getByRole('radio', { name: 'Question' })).toBeChecked();
+        });
+
+        it('should clear the box only after an awaited save resolves', async () => {
+            const saved = vi.fn().mockResolvedValue(undefined);
+
+            renderPanel(<ReviewCommentPanel approvalId={approvalId} onSave={saved} />);
+
+            const box = screen.getByPlaceholderText('Write a comment or ask a question…');
+            await userEvent.type(box, 'a remark');
+            await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+            expect(box).toHaveValue('');
+        });
+
         it('should offer no box to a signed-out reader, and say why', () => {
             signOut(authState);
 
@@ -381,8 +413,31 @@ describe('ReviewCommentPanel', () => {
             expect(screen.getAllByRole('button', { name: /^Edit comment by/ }))
                 .toHaveLength(1);
 
-            expect(screen.getByRole('button', { name: 'Edit comment by Susan' }))
+            expect(screen.getByRole('button', { name: /^Edit comment by Susan/ }))
                 .toBeInTheDocument();
+        });
+
+        // ONE AUTHOR, TWO ROWS. The labels used to be the author's name alone, so a screen-reader
+        // user tabbing a thread heard "Edit comment by Susan" twice with nothing to separate them
+        // and no way to know which row they were about to change.
+        it('should give each row a distinct label when one author wrote two', () => {
+            renderPanel(
+                <ReviewCommentPanel
+                    approvalId={approvalId}
+                    reviewComments={[
+                        comment({ id: 'first', authorId: viewerId }),
+                        comment({
+                            id: 'second',
+                            authorId: viewerId,
+                            createdWhen: '2026-08-28T14:05:00Z'
+                        })
+                    ]} />);
+
+            const editLabels = screen.getAllByRole('button', { name: /^Edit comment by/ })
+                .map((button) => button.getAttribute('aria-label'));
+
+            expect(editLabels).toHaveLength(2);
+            expect(new Set(editLabels).size).toBe(2);
         });
 
         it('should offer neither to an administrator on somebody else\'s row', () => {
@@ -409,7 +464,7 @@ describe('ReviewCommentPanel', () => {
                     onModified={modified} />);
 
             await userEvent.click(
-                screen.getByRole('button', { name: 'Edit comment by Susan' }));
+                screen.getByRole('button', { name: /^Edit comment by Susan/ }));
 
             const editor = screen.getByLabelText('Edit your comment');
             await userEvent.clear(editor);
@@ -442,7 +497,7 @@ describe('ReviewCommentPanel', () => {
                     onModified={modified} />);
 
             await userEvent.click(
-                screen.getByRole('button', { name: 'Edit comment by Susan' }));
+                screen.getByRole('button', { name: /^Edit comment by Susan/ }));
 
             const editor = screen.getByLabelText('Edit your comment');
             await userEvent.clear(editor);
@@ -466,7 +521,7 @@ describe('ReviewCommentPanel', () => {
                     onRemoved={removed} />);
 
             await userEvent.click(
-                screen.getByRole('button', { name: 'Delete comment by Susan' }));
+                screen.getByRole('button', { name: /^Delete comment by Susan/ }));
 
             expect(removeRequested).toHaveBeenCalledWith(
                 expect.objectContaining({ id: 'comment-1' }));
@@ -485,7 +540,7 @@ describe('ReviewCommentPanel', () => {
                     onRemoved={removed} />);
 
             await userEvent.click(
-                screen.getByRole('button', { name: 'Delete comment by Susan' }));
+                screen.getByRole('button', { name: /^Delete comment by Susan/ }));
 
             expect(removed).toHaveBeenCalledWith(
                 expect.objectContaining({ id: 'comment-1' }));

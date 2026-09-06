@@ -1242,6 +1242,13 @@ describe('ContentItemModerationDetailPage', () => {
             // then
             expect(toastErrorSpy).toHaveBeenCalledWith(
                 'The parent approval is not open for comment.');
+
+            // AND THE WORDS SURVIVE. The page rethrows after the toast precisely so the add face
+            // can tell a refusal from a success; swallowing it here would report the error and
+            // bin the comment in the same breath.
+            expect(screen.getByPlaceholderText('Write a comment or ask a question…'))
+                .toHaveValue('anything');
         });
+
     });
 });

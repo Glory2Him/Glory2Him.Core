@@ -1,4 +1,5 @@
 import { useId, useState } from 'react';
+import { CommentTypeRadioGroup } from './commentTypeRadioGroup';
 
 import {
     ApprovalCommentType,
@@ -39,7 +40,6 @@ export function ReviewCommentEditPanel({
     const [commentType, setCommentType] =
         useState<ApprovalCommentType>(reviewComment.commentType);
 
-    const radioGroupName = useId();
     const draftFieldId = useId();
 
     // Blank is refused for the same reason the add face refuses it: an outstanding comment with
@@ -83,33 +83,10 @@ export function ReviewCommentEditPanel({
                 onChange={(event) => setDraft(event.target.value)}></textarea>
 
             <div className="d-flex flex-wrap align-items-center justify-content-between gap-2">
-                <div
-                    className="d-flex align-items-center gap-3"
-                    role="radiogroup"
-                    aria-label="Comment type">
-
-                    {[
-                        { value: ApprovalCommentType.Comment, label: 'Comment' },
-                        { value: ApprovalCommentType.Question, label: 'Question' }
-                    ].map((option) => (
-                        <div className="form-check mb-0" key={option.label}>
-                            <input
-                                className="form-check-input"
-                                type="radio"
-                                name={radioGroupName}
-                                id={`${radioGroupName}-${option.label}`}
-                                checked={commentType === option.value}
-                                disabled={isSubmitting}
-                                onChange={() => setCommentType(option.value)} />
-
-                            <label
-                                className="form-check-label"
-                                htmlFor={`${radioGroupName}-${option.label}`}>
-                                {option.label}
-                            </label>
-                        </div>
-                    ))}
-                </div>
+                <CommentTypeRadioGroup
+                    value={commentType}
+                    onChange={setCommentType}
+                    disabled={isSubmitting} />
 
                 <div className="d-flex gap-2">
                     <button

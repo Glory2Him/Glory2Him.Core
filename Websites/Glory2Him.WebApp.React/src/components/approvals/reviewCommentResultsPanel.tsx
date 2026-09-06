@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Spinner } from '../coreUI/spinner';
+import { useInfiniteScrollSentinel } from '../../hooks/useInfiniteScrollSentinel';
 import { ReviewCommentEditPanel } from './reviewCommentEditPanel';
 import { ReviewCommentViewPanel } from './reviewCommentViewPanel';
 
@@ -13,9 +14,9 @@ import {
 // one appends nothing and sorts nothing), and its whole contribution to paging is noticing that
 // its foot came into view and saying so.
 //
-// The sentinel, the fallback button and the observer's dependency list are
-// ContentItemResultsPanel's, deliberately: infinite scroll is one behaviour and a second
-// implementation of it is a second thing to get wrong.
+// The sentinel and the observer come from useInfiniteScrollSentinel, shared with
+// ContentItemResultsPanel: infinite scroll is one behaviour, and it now has one implementation
+// rather than two copies that could drift.
 //
 // WHICH ROW IS OPEN is local state HERE, keyed on the row id. Which face a row is showing is
 // nothing the consumer persists — the same call ContentItemPanel makes about its editor — and
@@ -47,7 +48,9 @@ export interface ReviewCommentResultsPanelProps extends ReviewCommentEvents {
     loadingText?: string;
     loadingMoreText?: string;
     loadMoreButtonText?: string;
-    emptyText?: string;
+
+    // Required: the parent owns the wording. See the destructuring below.
+    emptyText: string;
 }
 
 export function ReviewCommentResultsPanel({
@@ -62,52 +65,19 @@ export function ReviewCommentResultsPanel({
     loadingText = 'Loading…',
     loadingMoreText = 'Loading more…',
     loadMoreButtonText = 'Load more',
-    emptyText = 'Nothing has been said about this submission yet.',
+    // NO DEFAULT, deliberately: ReviewCommentPanel always forwards its own, so a copy here would
+    // be a second live-looking wording that can never render and would silently go stale the
+    // moment the real one changed.
+    emptyText,
     onModified,
     onRemoved,
     onRemoveRequested,
     onResolvedChanged
 }: ReviewCommentResultsPanelProps) {
     const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
-    const sentinelRef = useRef<HTMLDivElement | null>(null);
 
-    // Held in a ref so the observer below depends only on the paging state. Without it a consumer
-    // passing an inline arrow — the natural thing — would tear the observer down and rebuild it
-    // on every render.
-    const onLoadMoreRef = useRef(onLoadMore);
-
-    useEffect(() => {
-        onLoadMoreRef.current = onLoadMore;
-    });
-
-    // Progressive enhancement, read at render rather than at module load so a test (and a browser
-    // without it) takes the same path the fallback button is rendered for.
-    const supportsAutoLoad = typeof IntersectionObserver === 'function';
-
-    // DEPENDS ON isLoadingMore ON PURPOSE. The observer is torn down while a page is in flight and
-    // rebuilt when it lands, and observing fires an immediate callback — so a sentinel still on
-    // screen after the new rows arrive asks for the next page. Reading the flag inside the
-    // callback instead would stall the list.
-    useEffect(() => {
-        const sentinel = sentinelRef.current;
-
-        if (sentinel == null || hasMore === false || isLoadingMore || supportsAutoLoad === false) {
-            return;
-        }
-
-        const observer = new IntersectionObserver(
-            (entries) => {
-                if (entries.some((entry) => entry.isIntersecting)) {
-                    onLoadMoreRef.current?.();
-                }
-            },
-            // Asks a screen early, so the next page is usually there before the reader arrives.
-            { rootMargin: '200px 0px' });
-
-        observer.observe(sentinel);
-
-        return () => observer.disconnect();
-    }, [hasMore, isLoadingMore, supportsAutoLoad, reviewCommentCollection.length]);
+    const { sentinelRef, supportsAutoLoad } = useInfiniteScrollSentinel(
+        hasMore, isLoadingMore, onLoadMore, reviewCommentCollection.length);
 
     // A ROW THAT LEAVES THE COLLECTION CLOSES ITS EDITOR. Without this, withdrawing the comment
     // being edited would leave the panel holding an id nothing matches — harmless today, and a
@@ -125,6 +95,42 @@ export function ReviewCommentResultsPanel({
         }
     }, [reviewCommentCollection, editingCommentId]);
 
+    // The paging foot, rendered by BOTH branches below — an empty collection can still be waiting
+    // on its first page, so the sentinel must not be a reward for already having rows.
+    const renderPagingFoot = () => (
+        <>
+            {/* A pixel tall rather than nothing at all: an IntersectionObserver over a zero-area
+                target is unreliable — engines disagree on whether an empty intersection rectangle
+                counts — and the failure is a thread that quietly stops loading. */}
+            {hasMore && (
+                <div
+                    ref={sentinelRef}
+                    className="g2h-review-comment-sentinel"
+                    aria-hidden="true"></div>
+            )}
+
+            {isLoadingMore && (
+                <div className="text-center py-3" role="status">
+                    <Spinner />
+                    <p className="mt-2 mb-0">{loadingMoreText}</p>
+                </div>
+            )}
+
+            {/* The way out of a dead end. Without IntersectionObserver nothing would ever ask for
+                the next page, and the thread would simply stop with no explanation. */}
+            {hasMore && isLoadingMore === false && supportsAutoLoad === false && (
+                <div className="text-center">
+                    <button
+                        type="button"
+                        className="btn btn-outline-primary mb-0"
+                        onClick={() => onLoadMore?.()}>
+                        {loadMoreButtonText}
+                    </button>
+                </div>
+            )}
+        </>
+    );
+
     if (isLoading) {
         return (
             <div className="text-center py-4">
@@ -134,8 +140,17 @@ export function ReviewCommentResultsPanel({
         );
     }
 
+    // THE SENTINEL SURVIVES AN EMPTY PAGE. Returning the empty state alone stranded a consumer
+    // holding hasMore over a collection that has not filled yet — a first page that came back
+    // empty, or a hasMore set from a server total before any row landed — with neither a sentinel
+    // to trip nor a button to press, so the thread said "nothing here" and could never load.
     if (reviewCommentCollection.length === 0) {
-        return <p className="small text-body-secondary mb-0" role="status">{emptyText}</p>;
+        return (
+            <>
+                <p className="small text-body-secondary mb-0" role="status">{emptyText}</p>
+                {renderPagingFoot()}
+            </>
+        );
     }
 
     return (
@@ -168,35 +183,7 @@ export function ReviewCommentResultsPanel({
                         onResolvedChanged={onResolvedChanged} />
                 ))}
 
-            {/* A pixel tall rather than nothing at all: an IntersectionObserver over a zero-area
-                target is unreliable — engines disagree on whether an empty intersection rectangle
-                counts — and the failure is a thread that quietly stops loading. */}
-            {hasMore && (
-                <div
-                    ref={sentinelRef}
-                    className="g2h-review-comment-sentinel"
-                    aria-hidden="true"></div>
-            )}
-
-            {isLoadingMore && (
-                <div className="text-center py-3" role="status">
-                    <Spinner />
-                    <p className="mt-2 mb-0">{loadingMoreText}</p>
-                </div>
-            )}
-
-            {/* The way out of a dead end. Without IntersectionObserver nothing would ever ask for
-                the next page, and the thread would simply stop with no explanation. */}
-            {hasMore && isLoadingMore === false && supportsAutoLoad === false && (
-                <div className="text-center">
-                    <button
-                        type="button"
-                        className="btn btn-outline-primary mb-0"
-                        onClick={() => onLoadMore?.()}>
-                        {loadMoreButtonText}
-                    </button>
-                </div>
-            )}
+            {renderPagingFoot()}
         </>
     );
 }

@@ -166,9 +166,26 @@ export function ReviewCommentPanel({
 
     // NEWEST FIRST, sorted here rather than trusted. A copy is sorted rather than the prop: the
     // array belongs to the consumer, and sorting it in place would mutate react-query's cache.
+    //
+    // PARSED TO AN INSTANT, not compared as text. createdWhen is a serialised DateTimeOffset and
+    // keeps whatever offset the row was written with, so string comparison orders
+    // '2026-08-27T09:00:00+02:00' (07:00Z) ahead of '2026-08-27T08:00:00+00:00' (08:00Z) — an
+    // hour the wrong way round. It happens to hold today only because the audit stamp is UtcNow,
+    // and nothing in the column, the wire model or a test pins that.
+    //
+    // An unparseable date sorts LAST rather than throwing NaN through the comparator, where it
+    // would make the ordering depend on the engine's sort implementation.
     const orderedComments = useMemo(
-        () => [...reviewComments].sort((first, second) =>
-            second.createdWhen.localeCompare(first.createdWhen)),
+        () => {
+            const writtenAt = (isoDate: string): number => {
+                const parsed = Date.parse(isoDate);
+
+                return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed;
+            };
+
+            return [...reviewComments].sort((first, second) =>
+                writtenAt(second.createdWhen) - writtenAt(first.createdWhen));
+        },
         [reviewComments]);
 
     // ONE ACCESSIBLE NAME, and it is the heading. aria-labelledby outranks aria-label in the

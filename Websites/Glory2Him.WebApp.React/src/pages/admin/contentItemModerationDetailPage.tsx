@@ -479,12 +479,22 @@ export const ContentItemModerationDetailPage = () => {
     // which row it means, and this page is what asks.
     const [commentToRemove, setCommentToRemove] = useState<ReviewCommentItem | null>(null);
 
+    // RETHROWN AFTER THE TOAST, and that is the contract rather than an oversight. The add face
+    // waits on this promise before it clears the box, so a handler that swallowed its failure
+    // would report the error AND throw the reader's words away — the exact pairing that made a
+    // refused save cost a moderator their whole comment.
+    //
+    // It is also passed to the panel BY REFERENCE rather than wrapped in `void (...)` like the
+    // handlers below it. Voiding it would discard the promise the panel needs to await, undoing
+    // the fix from the other end and leaving the rejection unhandled besides.
     const saveReviewCommentAsync = async (draft: ReviewCommentDraft) => {
         try {
             await addReviewComment.mutateAsync(draft);
         } catch (error) {
             toastError(extractApiErrorMessage(
                 error, 'Your comment could not be saved. Please try again.'));
+
+            throw error;
         }
     };
 
@@ -496,7 +506,21 @@ export const ContentItemModerationDetailPage = () => {
         const storedComment = reviewComments.find(
             (reviewComment) => reviewComment.id === item.id);
 
+        // NEVER SILENTLY. The results panel has already closed the editor by the time this runs,
+        // so returning quietly would look exactly like a save that landed while the amendment was
+        // dropped on the floor.
+        //
+        // NOT COVERED BY A UI TEST, and that is a statement about the branch rather than an
+        // omission. The results panel closes its editor the moment a row leaves the collection,
+        // so a poll landing between opening the editor and pressing Save takes the Save button
+        // with it — which leaves only a same-tick race to reach this, and nothing a rendered test
+        // can stage. It stays because a silent return is the wrong answer whether or not a test
+        // can prove it.
         if (storedComment == null) {
+            toastError(
+                'This comment is no longer on the thread, so your change was not saved. '
+                    + 'It may have been removed while you were editing.');
+
             return;
         }
 
@@ -688,7 +712,7 @@ export const ContentItemModerationDetailPage = () => {
                                     || modifyReviewComment.isPending
                                     || removeReviewComment.isPending
                                     || resolveReviewComment.isPending}
-                                onSave={(draft) => void saveReviewCommentAsync(draft)}
+                                onSave={saveReviewCommentAsync}
                                 onModified={(item) => void modifyReviewCommentAsync(item)}
                                 onRemoveRequested={setCommentToRemove}
                                 onResolvedChanged={(item, isResolved) =>

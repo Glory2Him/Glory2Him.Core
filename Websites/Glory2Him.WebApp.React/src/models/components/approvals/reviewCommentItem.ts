@@ -65,9 +65,15 @@ export type ReviewCommentDraft = {
 // wires them once. Every one of them is a NOTIFICATION of what the reader decided — nothing here
 // persists anything, and the consumer owns every write.
 export type ReviewCommentEvents = {
-    // A new comment. The panel has already refused a blank one and cleared its box by the time
-    // this lands.
-    onSave?: (draft: ReviewCommentDraft) => void;
+    // A new comment. The panel has already refused a blank one by the time this lands.
+    //
+    // MAY RETURN A PROMISE, and if it does the panel WAITS on it before clearing the box: a
+    // handler that rejects leaves the reader's words where they typed them. That matters more
+    // here than anywhere else in the family — the draft IS the payload, so discarding it on a
+    // refused save costs the moderator the whole comment and there is nothing to recover it from.
+    // A consumer that reports its own failure must rethrow after the toast, or the panel cannot
+    // tell a refusal from a success.
+    onSave?: (draft: ReviewCommentDraft) => void | Promise<void>;
 
     // The box emptied and the radios put back to defaultType. Notification only — the reset is
     // internal, the way ContentItemPanel closes its own editor.
