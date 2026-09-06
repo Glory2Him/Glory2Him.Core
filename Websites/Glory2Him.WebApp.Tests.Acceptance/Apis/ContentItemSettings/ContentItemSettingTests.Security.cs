@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Securities;
+using Glory2Him.WebApp.Tests.Acceptance.Models.ContentItems;
 using Glory2Him.WebApp.Tests.Acceptance.Models.ContentItemSettings;
 using RESTFulSense.Exceptions;
 using CoreContentItemSetting = Glory2Him.Core.Models.Foundations.ContentItemSettings.ContentItemSetting;
@@ -110,8 +111,8 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
         public async Task ShouldAllowPublisherTierToPostAnOverrideAsync(string roleName)
         {
             // given
-            ContentItemSetting randomContentItemSetting = CreateRandomContentItemSetting();
-            randomContentItemSetting.ContentType = PublisherTierContentType;
+            ContentItemSetting randomContentItemSetting =
+                await CreateRandomOverrideSettingAsync(PublisherTierContentType);
 
             // Copied out BEFORE the call rather than aliased to the request object: an expectation
             // that is the same reference as the input cannot notice the broker mutating it, and
@@ -173,13 +174,22 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
         /// <summary>
         /// A publisher of ONE content type has no authority over another's overrides — the narrow
         /// tier is narrow, which is the whole reason it exists.
+        ///
+        /// <para><b>The refusal arrives as a 400, not a 401, and that is the stronger answer.</b>
+        /// Since #450 the orchestration derives the row's content type by READING the item, and
+        /// that read carries §16.6's visibility posture: a caller outside the item's own
+        /// moderation tier cannot see a draft of it at all. So the attempt fails at "no such
+        /// content item" before any role is consulted, and the caller learns nothing about
+        /// whether the item exists or what type it is. A caller who CAN see the item — it is
+        /// public, or they own it — gets the role refusal instead, which the unit suite covers
+        /// against the gate directly.</para>
         /// </summary>
         [Fact]
         public async Task ShouldRefuseNarrowPublisherAnOverrideOfAnotherContentTypeAsync()
         {
             // given
-            ContentItemSetting randomContentItemSetting = CreateRandomContentItemSetting();
-            randomContentItemSetting.ContentType = PublisherTierContentType;
+            ContentItemSetting randomContentItemSetting =
+                await CreateRandomOverrideSettingAsync(PublisherTierContentType);
 
             this.apiBroker.ActAs(
                 Guid.NewGuid().ToString(),
@@ -192,7 +202,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
                     this.apiBroker.PostContentItemSettingAsync(randomContentItemSetting).AsTask();
 
                 // then
-                await Assert.ThrowsAsync<HttpResponseUnauthorizedException>(() => postTask);
+                await Assert.ThrowsAsync<HttpResponseBadRequestException>(() => postTask);
             }
             finally
             {
@@ -265,7 +275,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
         public async Task ShouldRefusePostIfCallerIsNotAdministratorAsync(string roleName)
         {
             // given
-            ContentItemSetting randomContentItemSetting = CreateRandomContentItemSetting();
+            ContentItemSetting randomContentItemSetting = await CreateRandomOverrideSettingAsync();
             this.apiBroker.ActAs(Guid.NewGuid().ToString(), roleName);
 
             try
@@ -430,16 +440,21 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
         public async Task ShouldReturnConflictOnPostIfContentItemAlreadyHasAnOverrideAsync()
         {
             // given
-            Guid contentItemId = Guid.NewGuid();
+            // ONE item, named by both rows: the scope the unique index guards is the item, so
+            // the duplicate has to point at the same real one. A fabricated id no longer reaches
+            // the index — the derivation refuses it first (#450).
+            ContentItem contentItem = await PostRandomContentItemOfTypeAsync(ContentType.Story);
 
             ContentItemSetting overrideContentItemSetting = CreateRandomContentItemSetting();
-            overrideContentItemSetting.ContentItemId = contentItemId;
+            overrideContentItemSetting.ContentType = contentItem.ContentType;
+            overrideContentItemSetting.ContentItemId = contentItem.Id;
 
             ContentItemSetting createdOverride = await this.apiBroker
                 .PostContentItemSettingAsync(overrideContentItemSetting);
 
             ContentItemSetting duplicateContentItemSetting = CreateRandomContentItemSetting();
-            duplicateContentItemSetting.ContentItemId = contentItemId;
+            duplicateContentItemSetting.ContentType = contentItem.ContentType;
+            duplicateContentItemSetting.ContentItemId = contentItem.Id;
 
             try
             {
@@ -537,10 +552,14 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
         public async Task ShouldAllowPostWhenContentItemOverrideIsHeldOnlyByASoftDeletedRowAsync()
         {
             // given
-            Guid contentItemId = Guid.NewGuid();
+            // ONE real item, whose override scope is taken, released by a soft delete, and taken
+            // again. A fabricated id no longer reaches the index — the derivation refuses it
+            // first (#450) — so the scope under test has to belong to an item that exists.
+            ContentItem contentItem = await PostRandomContentItemOfTypeAsync(ContentType.Story);
 
             ContentItemSetting overrideContentItemSetting = CreateRandomContentItemSetting();
-            overrideContentItemSetting.ContentItemId = contentItemId;
+            overrideContentItemSetting.ContentType = contentItem.ContentType;
+            overrideContentItemSetting.ContentItemId = contentItem.Id;
 
             ContentItemSetting removedOverride = await this.apiBroker
                 .PostContentItemSettingAsync(overrideContentItemSetting);
@@ -548,7 +567,8 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
             await this.apiBroker.DeleteContentItemSettingByIdAsync(removedOverride.Id);
 
             ContentItemSetting reusedScopeContentItemSetting = CreateRandomContentItemSetting();
-            reusedScopeContentItemSetting.ContentItemId = contentItemId;
+            reusedScopeContentItemSetting.ContentType = contentItem.ContentType;
+            reusedScopeContentItemSetting.ContentItemId = contentItem.Id;
 
             try
             {
@@ -557,7 +577,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
                     .PostContentItemSettingAsync(reusedScopeContentItemSetting);
 
                 // then
-                actualContentItemSetting.ContentItemId.Should().Be(contentItemId);
+                actualContentItemSetting.ContentItemId.Should().Be(contentItem.Id);
             }
             finally
             {

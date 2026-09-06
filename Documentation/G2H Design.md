@@ -2757,7 +2757,9 @@ The failure mode is what makes this worth a rule rather than a convention. A rol
 
 #### 12.5.2 ContentItemSettingsOrchestration
 
-> **Misfiled — this is a processing service, not an orchestration** (§12.1: single entity type). The section is left in place, rules intact, until the service is built and this content moves to §12.4; nothing here changes except which layer owns it. Read "orchestration" below as "processing service".
+> **It is an orchestration after all — the misfiling note is withdrawn.** This section was annotated "this is a processing service, not an orchestration (§12.1: single entity type)", and that reading held only while every flow stayed inside `ContentItemSetting`. One does not. Business rule 6 lets the publisher tier for a content type write an override OF that type, and the gate composes both the grant and the §18.6 block from the `ContentType` on the row — so while that value is the caller's to set, the row decides who may write it. Deriving it means READING the referenced `ContentItem`, which is a second entity type and therefore an orchestration by §12.1 rule 2, not a processing service by rule 1.
+>
+> `ContentItemSettingOrchestrationService` is that service, and the exposer binds to it. A processing service may still be earned later for single-entity work (§12.5's entry 2, and issue #209's effective-value merge); it would sit UNDER this one, per §12.1's closing note that an orchestration sits on top of a processing service rather than beside it.
 
 `ContentItemSettingsOrchestration` orchestrates the creation, modification, and policy resolution of content item settings across foundation services.
 
@@ -2795,6 +2797,10 @@ Business Rules:
    **This is a deliberate exception to §18.6 rule 1** — see the rule for why, and for the block it obliges in return.
 
    **The decision is made against the STORED row**, never the caller's copy, on every path that has one. A caller who could answer "is this a default?" for themselves could promote their own override into a default they may not author.
+
+   **An override's `ContentType` is DERIVED from the content item it names, never accepted from the caller** — by `ContentItemSettingOrchestrationService`, since reading that item spans a second entity type. Without it the row's own claim decides who may write the row: a holder of `ContentItem-Devotional-Publishers` could label a row `Devotional`, aim it at a quote, pass the gate, and take that quote's only override scope (`UX_ContentItemSettings_OverridePerEntity` is keyed on `ContentItemId` alone), leaving the quote's own publishers unable to create one or remove it. This is the same rule, and the same reason, as an association's denormalised `Entity{A,B}ContentType` (§4.1) — "derived from the resolved endpoint, never caller-supplied".
+
+   A per-type **default** names no item, so there is nothing to derive from and its content type is the whole of what the row declares; only an administrator may write one. And the read carries §16.6's visibility posture, so a caller who cannot see the item cannot resolve it at all — the attempt fails as an unresolvable reference before any role is consulted, which tells them less than a role refusal would.
 
    **The block is asked before the scope is, and covers BOTH scopes.** A `ContentItem`-scoped block bars a caller from a `ContentItemSetting` default as surely as from an override: the default is the row that configures every content item of that type, so a caller barred from the type is barred from the wider write too. Asking it only on the override branch inverts the rule — it stops the write that governs one item and waves through the one that governs all of them. This says nothing about any other settings entity; `ApprovalSetting`'s own write gate is unchanged and outside this rule.
 7. Disabling a feature in settings must prevent the creation of new associations of that type for the affected content items.

@@ -15,7 +15,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings.Exceptions;
-using Glory2Him.Core.Services.Foundations.ContentItemSettings;
+using Glory2Him.Core.Models.Orchestrations.ContentItemSettings.Exceptions;
+using Glory2Him.Core.Services.Orchestrations.ContentItemSettings;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Query;
@@ -102,10 +103,11 @@ namespace Glory2Him.WebApp.Controllers.ContentItemSettings
     [Route("api/[controller]")]
     public class ContentItemSettingsController : RESTFulController
     {
-        private readonly IContentItemSettingService contentItemSettingService;
+        private readonly IContentItemSettingOrchestrationService contentItemSettingService;
 
-        public ContentItemSettingsController(IContentItemSettingService contentItemSettingService) =>
-            this.contentItemSettingService = contentItemSettingService;
+        public ContentItemSettingsController(
+            IContentItemSettingOrchestrationService contentItemSettingOrchestrationService) =>
+            this.contentItemSettingService = contentItemSettingOrchestrationService;
 
         [HttpPost]
         [Authorize]
@@ -120,29 +122,29 @@ namespace Glory2Him.WebApp.Controllers.ContentItemSettings
 
                 return Created(addedContentItemSetting);
             }
-            catch (ContentItemSettingValidationException contentItemSettingValidationException)
+            catch (ContentItemSettingOrchestrationValidationException contentItemSettingValidationException)
                 when (contentItemSettingValidationException.InnerException is UnauthorizedContentItemSettingException)
             {
                 return Unauthorized(contentItemSettingValidationException.InnerException);
             }
-            catch (ContentItemSettingValidationException contentItemSettingValidationException)
+            catch (ContentItemSettingOrchestrationValidationException contentItemSettingValidationException)
             {
                 return BadRequest(contentItemSettingValidationException.InnerException);
             }
-            catch (ContentItemSettingDependencyValidationException contentItemSettingDependencyValidationException)
+            catch (ContentItemSettingOrchestrationDependencyValidationException contentItemSettingDependencyValidationException)
                 when (contentItemSettingDependencyValidationException.InnerException is AlreadyExistsContentItemSettingException)
             {
                 return Conflict(contentItemSettingDependencyValidationException.InnerException);
             }
-            catch (ContentItemSettingDependencyValidationException contentItemSettingDependencyValidationException)
+            catch (ContentItemSettingOrchestrationDependencyValidationException contentItemSettingDependencyValidationException)
             {
                 return BadRequest(contentItemSettingDependencyValidationException.InnerException);
             }
-            catch (ContentItemSettingDependencyException contentItemSettingDependencyException)
+            catch (ContentItemSettingOrchestrationDependencyException contentItemSettingDependencyException)
             {
                 return FailedDependency(contentItemSettingDependencyException.InnerException);
             }
-            catch (ContentItemSettingServiceException contentItemSettingServiceException)
+            catch (ContentItemSettingOrchestrationServiceException contentItemSettingServiceException)
             {
                 return InternalServerError(contentItemSettingServiceException);
             }
@@ -160,11 +162,11 @@ namespace Glory2Him.WebApp.Controllers.ContentItemSettings
 
                 return Ok(retrievedContentItemSettings);
             }
-            catch (ContentItemSettingDependencyException contentItemSettingDependencyException)
+            catch (ContentItemSettingOrchestrationDependencyException contentItemSettingDependencyException)
             {
                 return FailedDependency(contentItemSettingDependencyException.InnerException);
             }
-            catch (ContentItemSettingServiceException contentItemSettingServiceException)
+            catch (ContentItemSettingOrchestrationServiceException contentItemSettingServiceException)
             {
                 return InternalServerError(contentItemSettingServiceException);
             }
@@ -182,24 +184,24 @@ namespace Glory2Him.WebApp.Controllers.ContentItemSettings
 
                 return Ok(contentItemSetting);
             }
-            catch (ContentItemSettingValidationException contentItemSettingValidationException)
+            catch (ContentItemSettingOrchestrationValidationException contentItemSettingValidationException)
                 when (contentItemSettingValidationException.InnerException is NotFoundContentItemSettingException)
             {
                 return NotFound(contentItemSettingValidationException.InnerException);
             }
-            catch (ContentItemSettingValidationException contentItemSettingValidationException)
+            catch (ContentItemSettingOrchestrationValidationException contentItemSettingValidationException)
             {
                 return BadRequest(contentItemSettingValidationException.InnerException);
             }
-            catch (ContentItemSettingDependencyValidationException contentItemSettingDependencyValidationException)
+            catch (ContentItemSettingOrchestrationDependencyValidationException contentItemSettingDependencyValidationException)
             {
                 return BadRequest(contentItemSettingDependencyValidationException.InnerException);
             }
-            catch (ContentItemSettingDependencyException contentItemSettingDependencyException)
+            catch (ContentItemSettingOrchestrationDependencyException contentItemSettingDependencyException)
             {
                 return FailedDependency(contentItemSettingDependencyException.InnerException);
             }
-            catch (ContentItemSettingServiceException contentItemSettingServiceException)
+            catch (ContentItemSettingOrchestrationServiceException contentItemSettingServiceException)
             {
                 return InternalServerError(contentItemSettingServiceException);
             }
@@ -218,39 +220,39 @@ namespace Glory2Him.WebApp.Controllers.ContentItemSettings
 
                 return Ok(modifiedContentItemSetting);
             }
-            catch (ContentItemSettingValidationException contentItemSettingValidationException)
+            catch (ContentItemSettingOrchestrationValidationException contentItemSettingValidationException)
                 when (contentItemSettingValidationException.InnerException is NotFoundContentItemSettingException)
             {
                 return NotFound(contentItemSettingValidationException.InnerException);
             }
-            catch (ContentItemSettingValidationException contentItemSettingValidationException)
+            catch (ContentItemSettingOrchestrationValidationException contentItemSettingValidationException)
                 when (contentItemSettingValidationException.InnerException is UnauthorizedContentItemSettingException)
             {
                 return Unauthorized(contentItemSettingValidationException.InnerException);
             }
-            catch (ContentItemSettingValidationException contentItemSettingValidationException)
+            catch (ContentItemSettingOrchestrationValidationException contentItemSettingValidationException)
             {
                 return BadRequest(contentItemSettingValidationException.InnerException);
             }
-            catch (ContentItemSettingDependencyValidationException contentItemSettingDependencyValidationException)
+            catch (ContentItemSettingOrchestrationDependencyValidationException contentItemSettingDependencyValidationException)
                 when (contentItemSettingDependencyValidationException.InnerException is AlreadyExistsContentItemSettingException)
             {
                 return Conflict(contentItemSettingDependencyValidationException.InnerException);
             }
-            catch (ContentItemSettingDependencyValidationException contentItemSettingDependencyValidationException)
+            catch (ContentItemSettingOrchestrationDependencyValidationException contentItemSettingDependencyValidationException)
                 when (contentItemSettingDependencyValidationException.InnerException is LockedContentItemSettingException)
             {
                 return Locked(contentItemSettingDependencyValidationException.InnerException);
             }
-            catch (ContentItemSettingDependencyValidationException contentItemSettingDependencyValidationException)
+            catch (ContentItemSettingOrchestrationDependencyValidationException contentItemSettingDependencyValidationException)
             {
                 return BadRequest(contentItemSettingDependencyValidationException.InnerException);
             }
-            catch (ContentItemSettingDependencyException contentItemSettingDependencyException)
+            catch (ContentItemSettingOrchestrationDependencyException contentItemSettingDependencyException)
             {
                 return FailedDependency(contentItemSettingDependencyException.InnerException);
             }
-            catch (ContentItemSettingServiceException contentItemSettingServiceException)
+            catch (ContentItemSettingOrchestrationServiceException contentItemSettingServiceException)
             {
                 return InternalServerError(contentItemSettingServiceException);
             }
@@ -275,40 +277,40 @@ namespace Glory2Him.WebApp.Controllers.ContentItemSettings
 
                 return Ok(deletedContentItemSetting);
             }
-            catch (ContentItemSettingValidationException contentItemSettingValidationException)
+            catch (ContentItemSettingOrchestrationValidationException contentItemSettingValidationException)
                 when (contentItemSettingValidationException.InnerException is NotFoundContentItemSettingException)
             {
                 return NotFound(contentItemSettingValidationException.InnerException);
             }
-            catch (ContentItemSettingValidationException contentItemSettingValidationException)
+            catch (ContentItemSettingOrchestrationValidationException contentItemSettingValidationException)
                 when (contentItemSettingValidationException.InnerException is UnauthorizedContentItemSettingException)
             {
                 return Unauthorized(contentItemSettingValidationException.InnerException);
             }
-            catch (ContentItemSettingValidationException contentItemSettingValidationException)
+            catch (ContentItemSettingOrchestrationValidationException contentItemSettingValidationException)
             {
                 return BadRequest(contentItemSettingValidationException.InnerException);
             }
-            catch (ContentItemSettingDependencyValidationException contentItemSettingDependencyValidationException)
+            catch (ContentItemSettingOrchestrationDependencyValidationException contentItemSettingDependencyValidationException)
                 when (contentItemSettingDependencyValidationException.InnerException is AlreadyExistsContentItemSettingException)
             {
                 return Conflict(contentItemSettingDependencyValidationException.InnerException);
             }
 
-            catch (ContentItemSettingDependencyValidationException contentItemSettingDependencyValidationException)
+            catch (ContentItemSettingOrchestrationDependencyValidationException contentItemSettingDependencyValidationException)
                 when (contentItemSettingDependencyValidationException.InnerException is LockedContentItemSettingException)
             {
                 return Locked(contentItemSettingDependencyValidationException.InnerException);
             }
-            catch (ContentItemSettingDependencyValidationException contentItemSettingDependencyValidationException)
+            catch (ContentItemSettingOrchestrationDependencyValidationException contentItemSettingDependencyValidationException)
             {
                 return BadRequest(contentItemSettingDependencyValidationException.InnerException);
             }
-            catch (ContentItemSettingDependencyException contentItemSettingDependencyException)
+            catch (ContentItemSettingOrchestrationDependencyException contentItemSettingDependencyException)
             {
                 return FailedDependency(contentItemSettingDependencyException.InnerException);
             }
-            catch (ContentItemSettingServiceException contentItemSettingServiceException)
+            catch (ContentItemSettingOrchestrationServiceException contentItemSettingServiceException)
             {
                 return InternalServerError(contentItemSettingServiceException);
             }
@@ -333,40 +335,40 @@ namespace Glory2Him.WebApp.Controllers.ContentItemSettings
 
                 return Ok(hardDeletedContentItemSetting);
             }
-            catch (ContentItemSettingValidationException contentItemSettingValidationException)
+            catch (ContentItemSettingOrchestrationValidationException contentItemSettingValidationException)
                 when (contentItemSettingValidationException.InnerException is NotFoundContentItemSettingException)
             {
                 return NotFound(contentItemSettingValidationException.InnerException);
             }
-            catch (ContentItemSettingValidationException contentItemSettingValidationException)
+            catch (ContentItemSettingOrchestrationValidationException contentItemSettingValidationException)
                 when (contentItemSettingValidationException.InnerException is UnauthorizedContentItemSettingException)
             {
                 return Unauthorized(contentItemSettingValidationException.InnerException);
             }
-            catch (ContentItemSettingValidationException contentItemSettingValidationException)
+            catch (ContentItemSettingOrchestrationValidationException contentItemSettingValidationException)
             {
                 return BadRequest(contentItemSettingValidationException.InnerException);
             }
-            catch (ContentItemSettingDependencyValidationException contentItemSettingDependencyValidationException)
+            catch (ContentItemSettingOrchestrationDependencyValidationException contentItemSettingDependencyValidationException)
                 when (contentItemSettingDependencyValidationException.InnerException is AlreadyExistsContentItemSettingException)
             {
                 return Conflict(contentItemSettingDependencyValidationException.InnerException);
             }
 
-            catch (ContentItemSettingDependencyValidationException contentItemSettingDependencyValidationException)
+            catch (ContentItemSettingOrchestrationDependencyValidationException contentItemSettingDependencyValidationException)
                 when (contentItemSettingDependencyValidationException.InnerException is LockedContentItemSettingException)
             {
                 return Locked(contentItemSettingDependencyValidationException.InnerException);
             }
-            catch (ContentItemSettingDependencyValidationException contentItemSettingDependencyValidationException)
+            catch (ContentItemSettingOrchestrationDependencyValidationException contentItemSettingDependencyValidationException)
             {
                 return BadRequest(contentItemSettingDependencyValidationException.InnerException);
             }
-            catch (ContentItemSettingDependencyException contentItemSettingDependencyException)
+            catch (ContentItemSettingOrchestrationDependencyException contentItemSettingDependencyException)
             {
                 return FailedDependency(contentItemSettingDependencyException.InnerException);
             }
-            catch (ContentItemSettingServiceException contentItemSettingServiceException)
+            catch (ContentItemSettingOrchestrationServiceException contentItemSettingServiceException)
             {
                 return InternalServerError(contentItemSettingServiceException);
             }
