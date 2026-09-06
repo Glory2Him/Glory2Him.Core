@@ -505,17 +505,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
                     message: "Content item setting validation error occurred, fix the errors and try again.",
                     innerException: invalidContentItemSettingException);
 
-            this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyAddAuditValuesAsync(invalidContentItemSetting, It.IsAny<SecurityContext>()))
-                    .ReturnsAsync(invalidContentItemSetting);
-
-            this.securityAuditBrokerMock.Setup(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
-                    .ReturnsAsync(randomUserId);
-
-            this.dateTimeBrokerMock.Setup(broker =>
-                broker.GetCurrentDateTimeOffsetAsync())
-                    .ReturnsAsync(randomDateTimeOffset);
+            // NOTHING IS STAMPED FIRST. The content type is now read before the row-shaped gate
+            // composes a role name out of it, which puts it ahead of the audit stamp as well —
+            // there is no reason to stamp a payload that is about to be refused. The refusal
+            // itself is unchanged: same exception, same message, same key.
 
             // when
             ValueTask<ContentItemSetting> addContentItemSettingTask =
@@ -530,18 +523,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
             // then
             actualContentItemSettingValidationException.Should().BeEquivalentTo(
                 expectedContentItemSettingValidationException);
-
-            this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyAddAuditValuesAsync(invalidContentItemSetting, It.IsAny<SecurityContext>()),
-                Times.Once);
-
-            this.securityAuditBrokerMock.Verify(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
-                Times.Once);
-
-            this.dateTimeBrokerMock.Verify(broker =>
-                broker.GetCurrentDateTimeOffsetAsync(),
-                Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(

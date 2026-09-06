@@ -194,10 +194,12 @@ export function ContentItemSettingsViewPanel({
                                 + 'settings of its own.'}
                         </p>
 
-                        {/* THE WRITES, offered only to who may make them. Every write on this
-                            controller is Administrators only, so a reviewer working the same
-                            moderation surface reads the settings and is offered nothing —
-                            a control whose request the server refuses is worse than no control.
+                        {/* THE WRITES, offered only to who may make them. Everything this panel
+                            writes is an OVERRIDE, so the tier is administrators plus the
+                            publisher tier for this item's content type (§12.5.2 business rule 6)
+                            — a reviewer working the same moderation surface reads the settings
+                            and is offered nothing, because a control whose request the server
+                            refuses is worse than no control.
 
                             REMOVE OVERRIDE IS ABSENT, NOT DISABLED, against a type default:
                             there is nothing to remove, the server refuses one (§12.5.2 business

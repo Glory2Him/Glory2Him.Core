@@ -12,7 +12,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Glory2Him.Core.Models.Securities;
 using Glory2Him.WebApp.Controllers.ContentItemSettings;
 using FluentAssertions;
 using Microsoft.AspNetCore.Authorization;
@@ -30,9 +29,14 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ContentItemSettings
             Type attributeType = typeof(AuthorizeAttribute);
             string attributeProperty = "Roles";
 
+            // NO ROLE LIST, deliberately. Who may write a setting depends on the row — a
+            // per-type default is Administrators-only, an override admits the publisher tier
+            // for its content type — and the narrow tier is one role per content type, composed
+            // at runtime. An attribute can express neither, and a list naming only the static
+            // roles would turn away a narrow publisher acting inside their grant. The
+            // foundation decides (§14.6); this asserts only that the endpoint is authenticated.
             List<string> expectedAttributeValues = new List<string>
             {
-                Roles.Administrators
             };
 
             // When

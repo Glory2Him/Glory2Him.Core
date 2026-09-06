@@ -27,9 +27,10 @@ export interface ContentItemSettingsTemplateProps {
     // won; both cases mean nothing is marked, which is the honest answer.
     contentTypeDefault?: ContentItemSetting;
 
-    // Whether the reader may write. Every write on the settings controller is Administrators
-    // only, so a reviewer sees the settings and no buttons. Render-only — the foundation
-    // re-decides against the stored row (§14.6).
+    // Whether the reader may write. Everything this panel writes is an item OVERRIDE, so the
+    // tier is administrators plus the publisher tier for the item's content type (§12.5.2
+    // business rule 6); a reviewer sees the settings and no buttons. Render-only — the
+    // foundation re-decides against the stored row (§14.6).
     canAdministerSettings: boolean;
 
     isLoading?: boolean;

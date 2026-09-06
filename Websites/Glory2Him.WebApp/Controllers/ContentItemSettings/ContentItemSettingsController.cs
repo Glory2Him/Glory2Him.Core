@@ -15,7 +15,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings.Exceptions;
-using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Services.Foundations.ContentItemSettings;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -43,10 +42,23 @@ namespace Glory2Him.WebApp.Controllers.ContentItemSettings
     /// <para><c>ContentItemSetting</c> is not versioned, so §10.17's fork argument does not apply
     /// and there is no approval-invalidation hazard in binding one layer down meanwhile.</para>
     ///
-    /// <para><b>Posture C (§14.7) on the writes.</b> All writes including hard removal are
-    /// <c>Administrators</c> only — there is no owner branch, because only administrators author
-    /// configuration — so the role list is expressible on the attribute rather than deferred to
-    /// the service. The service still re-decides it against the stored row (§14.6).</para>
+    /// <para><b>Posture C (§14.7) on the writes, and the role list has left the attribute.</b>
+    /// Who may write is decided by the SHAPE OF THE ROW: a per-type default (<c>ContentItemId</c>
+    /// null) is configuration for a whole content type and stays <c>Administrators</c> only,
+    /// while an item override admits the publisher tier for that item's content type — the
+    /// global <c>Publishers</c>, <c>ContentItem-Publishers</c>, and
+    /// <c>ContentItem-%ContentType%-Publishers</c> (§18.6).</para>
+    ///
+    /// <para>An <c>[Authorize(Roles = …)]</c> attribute <b>cannot express that</b>, for two
+    /// independent reasons: the narrow tier is one role per content type, composed at runtime
+    /// rather than nameable as a constant list; and the decision depends on the row being
+    /// written, which the attribute cannot see. A list naming only the static roles would
+    /// silently turn away a narrow publisher acting entirely within their grant. So these four
+    /// verbs carry a bare <c>[Authorize]</c> — authenticated, and nothing more — and the
+    /// foundation is the sole decider, exactly as <c>ContentItemsController</c> does for the
+    /// same reason. That is not a weakening: §14.6 always required the service to re-decide, and
+    /// what has gone is a duplicate of the coarse half that could only ever have been wrong in
+    /// one direction.</para>
     ///
     /// <para><b>The reads are <c>[AllowAnonymous]</c>, and this is where the posture splits.</b>
     /// <c>ApprovalSettingsController</c> shares posture C and gates its reads on
@@ -74,9 +86,17 @@ namespace Glory2Him.WebApp.Controllers.ContentItemSettings
     /// <para><b>Both delete verbs refuse a default, and answer 400.</b> Every content type must
     /// always have a live default (§12.5.2 business rule 5), so the service refuses to remove a row
     /// whose <c>ContentItemId</c> is null — soft and hard alike, the invariant being about the row
-    /// existing rather than about how it goes away. It surfaces as a validation error naming the
-    /// rule rather than a 404: the row is there and every caller may read it. Overrides stay
-    /// freely removable.</para>
+    /// existing rather than about how it goes away, and for every caller including an
+    /// administrator. It surfaces as a validation error naming the rule rather than a 404: the row
+    /// is there and every caller may read it. Overrides stay freely removable, now by the
+    /// publisher tier for their content type as well as by administrators.</para>
+    ///
+    /// <para><b>A row's scope is fixed at creation.</b> <c>ContentItemId</c> and
+    /// <c>ContentType</c> are pinned against storage on a modify, so a row cannot be moved
+    /// between scopes by any caller. The unique indexes make the two scopes different policies
+    /// rather than two states of one, and — since a publisher may write an override and only an
+    /// administrator a default — an unpinned scope would be an escalation rather than merely an
+    /// oddity.</para>
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
@@ -88,7 +108,7 @@ namespace Glory2Him.WebApp.Controllers.ContentItemSettings
             this.contentItemSettingService = contentItemSettingService;
 
         [HttpPost]
-        [Authorize(Roles = Roles.Administrators)]
+        [Authorize]
         public async ValueTask<ActionResult<ContentItemSetting>> PostContentItemSettingAsync(
             [FromBody] ContentItemSetting contentItemSetting,
             CancellationToken cancellationToken)
@@ -186,7 +206,7 @@ namespace Glory2Him.WebApp.Controllers.ContentItemSettings
         }
 
         [HttpPut]
-        [Authorize(Roles = Roles.Administrators)]
+        [Authorize]
         public async ValueTask<ActionResult<ContentItemSetting>> PutContentItemSettingAsync(
             [FromBody] ContentItemSetting contentItemSetting,
             CancellationToken cancellationToken)
@@ -242,7 +262,7 @@ namespace Glory2Him.WebApp.Controllers.ContentItemSettings
         /// refused with 400 — see the class remarks.
         /// </summary>
         [HttpDelete("{contentItemSettingId}")]
-        [Authorize(Roles = Roles.Administrators)]
+        [Authorize]
         public async ValueTask<ActionResult<ContentItemSetting>> DeleteContentItemSettingByIdAsync(
             Guid contentItemSettingId,
             [FromQuery] string? deletionReason,
@@ -301,7 +321,7 @@ namespace Glory2Him.WebApp.Controllers.ContentItemSettings
         /// the must-always-exist rule.
         /// </summary>
         [HttpDelete("{contentItemSettingId}/Hard")]
-        [Authorize(Roles = Roles.Administrators)]
+        [Authorize]
         public async ValueTask<ActionResult<ContentItemSetting>> HardDeleteContentItemSettingByIdAsync(
             Guid contentItemSettingId,
             CancellationToken cancellationToken)
