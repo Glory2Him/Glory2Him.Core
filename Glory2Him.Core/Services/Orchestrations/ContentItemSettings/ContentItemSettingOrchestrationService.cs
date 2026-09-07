@@ -13,6 +13,7 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Glory2Him.Core.Brokers.Integrities;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings;
@@ -51,20 +52,28 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItemSettings
     /// approvable nor versioned, so §10.17's fork and approval-invalidation rules do not apply and
     /// the foundation's own past-tense facts remain the whole story. An orchestration fact would
     /// be a second address for the same event with no subscriber that needs it.</para>
+    ///
+    /// <para><b>Both entry paths reach it.</b> The HTTP exposer binds here, and so does the
+    /// <c>ContentItemSetting-Adding</c> subscription — see the <c>.Substrate</c> partial. While
+    /// that subscription bound the foundation, the derivation was a property of one path rather
+    /// than of the entity, which is precisely what §14.6 rule 1 refuses to allow (#456).</para>
     /// </summary>
     internal partial class ContentItemSettingOrchestrationService : IContentItemSettingOrchestrationService
     {
         private readonly IContentItemSettingService contentItemSettingService;
         private readonly IContentItemService contentItemService;
+        private readonly IEnvelopeIntegrityBroker envelopeIntegrityBroker;
         private readonly ILoggingBroker loggingBroker;
 
         public ContentItemSettingOrchestrationService(
             IContentItemSettingService contentItemSettingService,
             IContentItemService contentItemService,
+            IEnvelopeIntegrityBroker envelopeIntegrityBroker,
             ILoggingBroker loggingBroker)
         {
             this.contentItemSettingService = contentItemSettingService;
             this.contentItemService = contentItemService;
+            this.envelopeIntegrityBroker = envelopeIntegrityBroker;
             this.loggingBroker = loggingBroker;
         }
 

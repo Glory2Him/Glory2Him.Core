@@ -19,8 +19,21 @@ namespace Glory2Him.Core.Registrations
         /// <summary>
         /// Registers the content item setting orchestration service with the container. The caller
         /// is responsible for registering everything it takes: the two foundation services it
-        /// coordinates — the content item setting service and the content item service — and
-        /// <c>ILoggingBroker</c>, which every exception path here writes through.
+        /// coordinates — the content item setting service and the content item service —
+        /// <c>IEnvelopeIntegrityBroker</c>, which the event-path handler verifies inbound
+        /// envelopes through (§14.6 rule 4), and <c>ILoggingBroker</c>, which every exception
+        /// path here writes through.
+        ///
+        /// <para><b>This service is now reached on TWO paths.</b> It is the layer an exposer binds
+        /// to (§12.1), and since #456 it is also what <c>ContentItemSetting-Adding</c> resolves
+        /// per delivery. A host that wires the substrate must register it, or that address throws
+        /// mid-delivery and the failure is recorded against the listener rather than surfaced.
+        /// Note that the substrate resolves it out of a scope per delivery, so a host serving
+        /// concurrent deliveries wants a scoped lifetime rather than the singleton this helper
+        /// registers — which is what <c>Glory2Him.WebApp</c>'s own <c>AddCoreServices</c> does
+        /// instead of calling this. The singleton here matches the other twenty-two
+        /// <c>ServiceRegistration</c> helpers and is left alone rather than made the one
+        /// exception; the lifetime question belongs to all of them together.</para>
         /// </summary>
         public static IServiceCollection AddContentItemSettingOrchestrationService(
             this IServiceCollection services)
