@@ -15,6 +15,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EFxceptions;
 using G2H.StorageClient.Clients;
+using Glory2Him.Core.Models.Foundations.AIReviewerAssignments;
 using Glory2Him.Core.Models.Foundations.ApprovalComments;
 using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
@@ -64,6 +65,7 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
 
         private static void AddConfigurations(ModelBuilder modelBuilder)
         {
+            AddAIReviewerAssignmentConfigurations(modelBuilder.Entity<AIReviewerAssignment>());
             AddApprovalConfigurations(modelBuilder.Entity<Approval>());
             AddApprovalCommentConfigurations(modelBuilder.Entity<ApprovalComment>());
             AddApprovalReviewConfigurations(modelBuilder.Entity<ApprovalReview>());
