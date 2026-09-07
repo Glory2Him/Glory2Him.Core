@@ -316,15 +316,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         /// The read §7.9 was written around. Answered through the CALLER-FACING foundation read
         /// rather than off the scope: the scope's ActiveRequests are gathered unfiltered because
         /// invitability is a fact about storage (§16.7.4), and they carry no display name.
+        ///
+        /// <para>Through the ROUND-KEYED member, which is what the assertion on the id argument
+        /// below is for. The narrowing used to happen here, as a <c>Where</c> composed onto the
+        /// live queryable the unkeyed read hands back — which left a synchronous terminal
+        /// operator as the only way to execute it, and the cancellation token unable to reach the
+        /// database.</para>
         /// </summary>
         [Fact]
         public async Task ShouldRetrieveTheRoundsOutstandingReviewRequestsAsync()
         {
-            // given: two rows on this round and one on another, so a read that forgot to filter
-            // by ApprovalId is distinguishable from one that did
+            // given
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             Guid approvalId = Guid.NewGuid();
-            Guid otherApprovalId = Guid.NewGuid();
 
             SetupReviewerScope(approvalId: approvalId);
 
@@ -342,21 +346,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 RequestedUserDisplayName = "adam",
             };
 
-            var anotherRoundsRequest = new ApprovalReviewRequest
-            {
-                Id = Guid.NewGuid(),
-                ApprovalId = otherApprovalId,
-                RequestedUserDisplayName = "Someone Else",
-            };
-
             this.approvalReviewRequestServiceMock.Setup(service =>
-                service.RetrieveAllApprovalReviewRequestsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new List<ApprovalReviewRequest>
-                    {
-                        zoe,
-                        anotherRoundsRequest,
-                        adam,
-                    }.AsQueryable());
+                service.RetrieveApprovalReviewRequestsByApprovalIdAsync(
+                    approvalId, It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(new List<ApprovalReviewRequest> { zoe, adam });
 
             // when
             IReadOnlyList<ApprovalReviewRequest> actual =
@@ -365,9 +358,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     Guid.NewGuid(),
                     TestContext.Current.CancellationToken);
 
-            // then: this round only, and ordered case-insensitively by display name the way the
-            // candidates read beside it is — "adam" before "Zoe", not after
+            // then: ordered case-insensitively by display name the way the candidates read beside
+            // it is — "adam" before "Zoe", not after
             actual.Should().Equal(new[] { adam, zoe });
+
+            // and the ROUND the scope resolved is what was asked for, rather than the whole table
+            this.approvalReviewRequestServiceMock.Verify(service =>
+                service.RetrieveApprovalReviewRequestsByApprovalIdAsync(
+                    approvalId, It.IsAny<CancellationToken>()),
+                Times.Once);
         }
 
         [Fact]
@@ -393,7 +392,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 .BeOfType<UnauthorizedApprovalOrchestrationException>();
 
             this.approvalReviewRequestServiceMock.Verify(service =>
-                service.RetrieveAllApprovalReviewRequestsAsync(It.IsAny<CancellationToken>()),
+                service.RetrieveApprovalReviewRequestsByApprovalIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
                 Times.Never);
         }
 

@@ -818,6 +818,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 service.RetrieveContentItemByIdAsync(inputContentItem.Id, It.IsAny<CancellationToken>()))
                     .ReturnsAsync(storageContentItem);
 
+            // the group holds no higher live version, so the stored row IS the tip and the modify
+            // takes the fork branch. Stated rather than left to an unstubbed default: the tip is
+            // derived from the group's rows, so an empty group is a claim this test makes.
+            this.contentItemServiceMock.Setup(service =>
+                service.RetrieveContentItemsByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(new List<ContentItem> { storageContentItem });
+
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.GetUserIdAsync(securityContext))
                     .ReturnsAsync(actorUserId);

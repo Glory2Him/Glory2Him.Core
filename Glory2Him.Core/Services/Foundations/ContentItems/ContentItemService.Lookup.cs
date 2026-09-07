@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -48,13 +49,14 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 //
                 // A lineage is not renumbered by removing a row from it — the same argument
                 // §9.7.7 rule 7 records for the published slot.
-                IQueryable<ContentItem> allContentItems =
-                    await this.storageBroker.SelectAllContentItemsAsync(cancellationToken);
-
-                var groupVersions = allContentItems
-                    .Where(contentItem => contentItem.GroupId == groupId)
-                    .Select(contentItem => contentItem.Version)
-                    .ToList();
+                //
+                // The projection is asked for, not composed here: narrowing the collection read
+                // and calling ToList() on it blocked the request thread on a SQL round trip the
+                // cancellation token never reached.
+                List<int> groupVersions =
+                    await this.storageBroker.SelectContentItemVersionsInGroupAsync(
+                        groupId: groupId,
+                        cancellationToken: cancellationToken);
 
                 return groupVersions.Count is 0
                     ? 0
@@ -98,18 +100,53 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                         message: $"Content item not found with id: {contentItemId}.");
                 }
 
-                IQueryable<ContentItem> allContentItems =
-                    await this.storageBroker.SelectAllContentItemsAsync(cancellationToken);
-
                 // UNFILTERED on the incumbent side too: a soft delete never clears
                 // IsPublished and the slot index names that column alone, so a tombstone still
                 // holds the slot. Skipping it would leave the group permanently unpublishable.
-                ContentItem? publishedContentItem = allContentItems.FirstOrDefault(contentItem =>
-                    contentItem.GroupId == maybeContentItem.GroupId
-                        && contentItem.IsPublished
-                        && contentItem.Id != contentItemId);
+                //
+                // One row asked for, with the token, rather than a predicate composed onto the
+                // collection read's live queryable and executed synchronously.
+                ContentItem? publishedContentItem =
+                    await this.storageBroker.SelectPublishedContentItemInGroupAsync(
+                        groupId: maybeContentItem.GroupId,
+                        excludedContentItemId: contentItemId,
+                        cancellationToken: cancellationToken);
 
                 return publishedContentItem?.Id;
+            });
+
+
+        public ValueTask<IReadOnlyList<ContentItem>> RetrieveContentItemsByGroupIdAsync(
+            Guid groupId,
+            CancellationToken cancellationToken = default) =>
+            TryCatchList(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // the envelope exists to capture the ambient security context the visibility
+                // filter runs against — the request payload is empty, exactly as the unkeyed
+                // collection read builds it
+                EventEnvelope<ContentItem> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: new ContentItem());
+
+                // THE GROUP'S SLICE, ASKED FOR AS A SLICE, with the token. The narrowing used to
+                // be a Where composed onto the collection read's live queryable by whichever
+                // caller needed it, which left them a synchronous terminal operator as the only
+                // way to execute it.
+                List<ContentItem> groupContentItems = await this.storageBroker.SelectContentItemsByGroupIdAsync(
+                    groupId: groupId,
+                    cancellationToken: cancellationToken);
+
+                // THE SAME FILTER, not a second copy of it. The predicate is now evaluated in
+                // memory rather than in SQL, which is the only difference and one no caller can
+                // observe; writing an in-memory twin would give one visibility rule two homes to
+                // drift between.
+                IQueryable<ContentItem> visibleContentItems =
+                    await ApplyCollectionReadVisibilityFilterAsync(
+                        contentItems: groupContentItems.AsQueryable(),
+                        securityContext: envelope.SecurityContext);
+
+                return visibleContentItems.ToList();
             });
 
         private static void ValidateOnFindPublishedSiblingContentItem(Guid contentItemId) =>

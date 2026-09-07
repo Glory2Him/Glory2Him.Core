@@ -76,12 +76,76 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             return association;
         }
 
-        [Fact]
-        public async Task ShouldReturnOverlapWhenAllVersionsRequestSpansAThisVersionOnlyRowAsync()
+        // Stubs the overlap probe and records the key the service asked it for.
+        private sealed record OverlapProbeKey(
+            EntityType EntityAType,
+            EntityType EntityBType,
+            string UserId,
+            Guid EntityAGroupId,
+            Guid EntityBGroupId,
+            Scope EntityAScope,
+            Scope EntityBScope,
+            Guid EntityAEffectiveId,
+            Guid EntityBEffectiveId,
+            Guid? ExcludedAssociationId);
+
+        private OverlapProbeKey? capturedOverlapProbeKey;
+
+        private void SetupOverlapProbe(Association match)
         {
-            // given: a stored row pins the ContentItem side to one version (ThisVersionOnly), and
-            // the request covers the whole group (AllVersions). They cover the same version, so
-            // they would render the same pairing twice — an overlap the unique index cannot see.
+            this.capturedOverlapProbeKey = null;
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectOverlappingAssociationAsync(
+                    It.IsAny<EntityType>(), It.IsAny<EntityType>(), It.IsAny<string>(),
+                    It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Scope>(), It.IsAny<Scope>(),
+                    It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid?>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((
+                            EntityType entityAType,
+                            EntityType entityBType,
+                            string userId,
+                            Guid entityAGroupId,
+                            Guid entityBGroupId,
+                            Scope entityAScope,
+                            Scope entityBScope,
+                            Guid entityAEffectiveId,
+                            Guid entityBEffectiveId,
+                            Guid? excludedAssociationId,
+                            CancellationToken _) =>
+                        {
+                            this.capturedOverlapProbeKey = new OverlapProbeKey(
+                                entityAType,
+                                entityBType,
+                                userId,
+                                entityAGroupId,
+                                entityBGroupId,
+                                entityAScope,
+                                entityBScope,
+                                entityAEffectiveId,
+                                entityBEffectiveId,
+                                excludedAssociationId);
+
+                            return match;
+                        });
+        }
+
+        /// <summary>
+        /// What the service still owns: the key it composes — including BOTH SCOPES, which the
+        /// coverage-intersection clause needs and which no other probe passes — and the projection
+        /// it returns.
+        ///
+        /// <para>The intersection rule itself moved into
+        /// <c>IStorageBroker.SelectOverlappingAssociationAsync</c> so the probe could be awaited
+        /// with the caller's token. Which rows it flags — an AllVersions request spanning a pinned
+        /// row, a pinned request inside an AllVersions row, two pinned rows on DIFFERENT versions
+        /// NOT overlapping, tombstones excluded, the row under modification excluded — is proved
+        /// against real SQL in <c>AssociationNarrowReadTests</c>.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldProbeWithBothScopesAndProjectTheOverlappingRowAsync()
+        {
+            // given
             Guid groupG = Guid.NewGuid();
             Guid tagT = Guid.NewGuid();
 
@@ -94,9 +158,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             Association incoming = CreateContentItemTagPair(
                 groupG, contentItemKeyId: Guid.NewGuid(), Scope.AllVersions, tagT);
 
-            this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new[] { storedRow }.AsQueryable());
+            SetupOverlapProbe(storedRow);
 
             // when
             AssociationPairMatch? actualMatch =
@@ -108,275 +170,137 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // then
             actualMatch.Should().NotBeNull();
             actualMatch!.Id.Should().Be(storedRow.Id);
+
+            // and the key carries the request's own groups AND its scopes — dropping either scope
+            // would collapse the coverage-intersection clause into plain id equality, which is the
+            // mistake that would miss an AllVersions row entirely
+            this.capturedOverlapProbeKey.Should().NotBeNull();
+            this.capturedOverlapProbeKey!.EntityAType.Should().Be(incoming.EntityAType);
+            this.capturedOverlapProbeKey.EntityBType.Should().Be(incoming.EntityBType);
+            this.capturedOverlapProbeKey.EntityAGroupId.Should().Be(incoming.EntityAGroupId);
+            this.capturedOverlapProbeKey.EntityBGroupId.Should().Be(incoming.EntityBGroupId);
+            this.capturedOverlapProbeKey.EntityAScope.Should().Be(Scope.AllVersions);
+            this.capturedOverlapProbeKey.EntityBScope.Should().Be(Scope.ThisVersionOnly);
+            this.capturedOverlapProbeKey.UserId.Should().Be(incoming.UserId);
+            this.capturedOverlapProbeKey.ExcludedAssociationId.Should().BeNull();
         }
 
         [Fact]
-        public async Task ShouldReturnOverlapWhenThisVersionOnlyRequestFallsInsideAnAllVersionsRowAsync()
+        public async Task ShouldReturnNullWhenNothingOverlapsAsync()
         {
-            // given: the reverse direction — the stored row spans the whole group (AllVersions) and
-            // the request pins one version (ThisVersionOnly). The AllVersions row already covers
-            // that version.
+            // given
+            Association incoming = CreateContentItemTagPair(
+                Guid.NewGuid(), contentItemKeyId: Guid.NewGuid(), Scope.AllVersions, Guid.NewGuid());
+
+            SetupOverlapProbe(match: null);
+
+            // when
+            AssociationPairMatch? actualMatch =
+                await this.associationService.FindOverlappingAssociationAsync(
+                    incoming,
+                    excludedAssociationId: null,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualMatch.Should().BeNull();
+        }
+
+        /// <summary>
+        /// The row under modification must not overlap itself, and the id that says so is the
+        /// caller's — so it has to survive the trip to the storage layer.
+        /// </summary>
+        [Fact]
+        public async Task ShouldCarryTheExcludedAssociationIdIntoTheProbeAsync()
+        {
+            // given
+            Association incoming = CreateContentItemTagPair(
+                Guid.NewGuid(), contentItemKeyId: Guid.NewGuid(), Scope.AllVersions, Guid.NewGuid());
+
+            var excludedAssociationId = Guid.NewGuid();
+            SetupOverlapProbe(match: null);
+
+            // when
+            await this.associationService.FindOverlappingAssociationAsync(
+                incoming,
+                excludedAssociationId,
+                TestContext.Current.CancellationToken);
+
+            // then
+            this.capturedOverlapProbeKey.Should().NotBeNull();
+            this.capturedOverlapProbeKey!.ExcludedAssociationId.Should().Be(excludedAssociationId);
+        }
+
+        /// <summary>
+        /// NORMALISATION IS STILL THE SERVICE'S. Stored rows are canonical, so a reversed-order
+        /// request that reached the storage layer unnormalised would be handed a key no row
+        /// carries and would report no overlap — letting the double-render through.
+        ///
+        /// <para>Stated as an equality between the two keys rather than against a predicted
+        /// canonical order, so the test does not restate the ordering rule it is checking.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldProbeTheSameOverlapKeyWhenTheRequestEndpointsAreReversedAsync()
+        {
+            // given
             Guid groupG = Guid.NewGuid();
             Guid tagT = Guid.NewGuid();
 
-            Association storedRequest = CreateContentItemTagPair(
+            Association canonicalIncoming = CreateContentItemTagPair(
                 groupG, contentItemKeyId: Guid.NewGuid(), Scope.AllVersions, tagT);
 
-            Association storedRow = CreateStoredRowForPair(
-                storedRequest, ApprovalStatus.Submitted, isDeleted: false);
+            Association reversedIncoming = ReverseEndpoints(canonicalIncoming);
 
+            SetupOverlapProbe(match: null);
+
+            // when
+            await this.associationService.FindOverlappingAssociationAsync(
+                canonicalIncoming,
+                excludedAssociationId: null,
+                TestContext.Current.CancellationToken);
+
+            OverlapProbeKey? canonicalProbeKey = this.capturedOverlapProbeKey;
+
+            SetupOverlapProbe(match: null);
+
+            await this.associationService.FindOverlappingAssociationAsync(
+                reversedIncoming,
+                excludedAssociationId: null,
+                TestContext.Current.CancellationToken);
+
+            // then
+            canonicalProbeKey.Should().NotBeNull();
+            this.capturedOverlapProbeKey.Should().Be(canonicalProbeKey);
+        }
+
+        /// <summary>
+        /// The token reaches the database call — the point of the narrow read.
+        /// </summary>
+        [Fact]
+        public async Task ShouldPassTheCancellationTokenToTheStorageBrokerOnFindOverlapAsync()
+        {
+            // given
             Association incoming = CreateContentItemTagPair(
-                groupG, contentItemKeyId: Guid.NewGuid(), Scope.ThisVersionOnly, tagT);
+                Guid.NewGuid(), contentItemKeyId: Guid.NewGuid(), Scope.AllVersions, Guid.NewGuid());
 
-            this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new[] { storedRow }.AsQueryable());
+            using var cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken inputCancellationToken = cancellationTokenSource.Token;
 
-            // when
-            AssociationPairMatch? actualMatch =
-                await this.associationService.FindOverlappingAssociationAsync(
-                    incoming,
-                    excludedAssociationId: null,
-                    TestContext.Current.CancellationToken);
-
-            // then
-            actualMatch.Should().NotBeNull();
-            actualMatch!.Id.Should().Be(storedRow.Id);
-        }
-
-        [Fact]
-        public async Task ShouldNotFlagTwoThisVersionOnlyRowsOnDifferentVersionsAsOverlapAsync()
-        {
-            // given: both the stored row and the request pin the ContentItem side to a version, but
-            // DIFFERENT versions of the same group. Other versions do not inherit, so these are
-            // legal and must NOT be reported as an overlap — the over-block the probe must avoid.
-            Guid groupG = Guid.NewGuid();
-            Guid tagT = Guid.NewGuid();
-
-            Association storedRequest = CreateContentItemTagPair(
-                groupG, contentItemKeyId: Guid.NewGuid(), Scope.ThisVersionOnly, tagT);
-
-            Association storedRow = CreateStoredRowForPair(
-                storedRequest, ApprovalStatus.Approved, isDeleted: false);
-
-            Association incoming = CreateContentItemTagPair(
-                groupG, contentItemKeyId: Guid.NewGuid(), Scope.ThisVersionOnly, tagT);
-
-            this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new[] { storedRow }.AsQueryable());
+            SetupOverlapProbe(match: null);
 
             // when
-            AssociationPairMatch? actualMatch =
-                await this.associationService.FindOverlappingAssociationAsync(
-                    incoming,
-                    excludedAssociationId: null,
-                    TestContext.Current.CancellationToken);
+            await this.associationService.FindOverlappingAssociationAsync(
+                incoming,
+                excludedAssociationId: null,
+                inputCancellationToken);
 
             // then
-            actualMatch.Should().BeNull();
-        }
-
-        [Fact]
-        public async Task ShouldNotFlagTwoThisVersionOnlyRowsOnDifferentVersionsOfTheBEndpointAsync()
-        {
-            // given: the A endpoints overlap (both AllVersions in the same ContentItem group), but
-            // the B endpoints — both versioned Links in ONE group — pin DIFFERENT versions. Overlap
-            // needs BOTH endpoints to intersect, so this is legal. This is the B-side mirror of the
-            // A-side over-block: it isolates the coverage clause on endpoint B, which the Tag-on-B
-            // fixtures never exercise (a Tag's effective id always equals its group).
-            Guid contentItemGroup = Guid.NewGuid();
-            Guid linkGroup = Guid.NewGuid();
-
-            Association storedRequest = CreateContentItemLinkPair(
-                contentItemGroup, Scope.AllVersions,
-                linkGroup, linkKeyId: Guid.NewGuid(), Scope.ThisVersionOnly);
-
-            Association storedRow = CreateStoredRowForPair(
-                storedRequest, ApprovalStatus.Approved, isDeleted: false);
-
-            Association incoming = CreateContentItemLinkPair(
-                contentItemGroup, Scope.AllVersions,
-                linkGroup, linkKeyId: Guid.NewGuid(), Scope.ThisVersionOnly);
-
-            this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new[] { storedRow }.AsQueryable());
-
-            // when
-            AssociationPairMatch? actualMatch =
-                await this.associationService.FindOverlappingAssociationAsync(
-                    incoming,
-                    excludedAssociationId: null,
-                    TestContext.Current.CancellationToken);
-
-            // then
-            actualMatch.Should().BeNull();
-        }
-
-        [Fact]
-        public async Task ShouldNotFlagOverlapWhenTheStoredRowBelongsToADifferentUserAsync()
-        {
-            // given: a row that would fully overlap the request except it carries a different
-            // UserId (a per-user reaction row vs an editorial, user-less request). Overlap is
-            // partitioned by user — the same pairing held by two different users is not a
-            // double-render — so it must not be flagged.
-            Guid groupG = Guid.NewGuid();
-            Guid tagT = Guid.NewGuid();
-
-            Association storedRequest = CreateContentItemTagPair(
-                groupG, contentItemKeyId: Guid.NewGuid(), Scope.ThisVersionOnly, tagT);
-
-            Association storedRow = CreateStoredRowForPair(
-                storedRequest, ApprovalStatus.Approved, isDeleted: false);
-            storedRow.UserId = $"user-{Guid.NewGuid()}";
-
-            Association incoming = CreateContentItemTagPair(
-                groupG, contentItemKeyId: Guid.NewGuid(), Scope.AllVersions, tagT);
-            incoming.UserId = null;
-
-            this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new[] { storedRow }.AsQueryable());
-
-            // when
-            AssociationPairMatch? actualMatch =
-                await this.associationService.FindOverlappingAssociationAsync(
-                    incoming,
-                    excludedAssociationId: null,
-                    TestContext.Current.CancellationToken);
-
-            // then
-            actualMatch.Should().BeNull();
-        }
-
-        [Fact]
-        public async Task ShouldNotFlagOverlapWhenOnlyOneEndpointSharesAGroupAsync()
-        {
-            // given: the ContentItem side overlaps (both AllVersions in group G) but the tag differs,
-            // so it is a DIFFERENT pair, not a double-render. Overlap requires BOTH endpoints.
-            Guid groupG = Guid.NewGuid();
-
-            Association storedRequest = CreateContentItemTagPair(
-                groupG, contentItemKeyId: Guid.NewGuid(), Scope.AllVersions, tagKeyId: Guid.NewGuid());
-
-            Association storedRow = CreateStoredRowForPair(
-                storedRequest, ApprovalStatus.Approved, isDeleted: false);
-
-            Association incoming = CreateContentItemTagPair(
-                groupG, contentItemKeyId: Guid.NewGuid(), Scope.AllVersions, tagKeyId: Guid.NewGuid());
-
-            this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new[] { storedRow }.AsQueryable());
-
-            // when
-            AssociationPairMatch? actualMatch =
-                await this.associationService.FindOverlappingAssociationAsync(
-                    incoming,
-                    excludedAssociationId: null,
-                    TestContext.Current.CancellationToken);
-
-            // then
-            actualMatch.Should().BeNull();
-        }
-
-        [Fact]
-        public async Task ShouldIgnoreASoftDeletedOverlappingRowAsync()
-        {
-            // given: only a soft-deleted row overlaps. A deleted row does not render, so it cannot
-            // double-render — the probe considers live rows only.
-            Guid groupG = Guid.NewGuid();
-            Guid tagT = Guid.NewGuid();
-
-            Association storedRequest = CreateContentItemTagPair(
-                groupG, contentItemKeyId: Guid.NewGuid(), Scope.ThisVersionOnly, tagT);
-
-            Association deletedRow = CreateStoredRowForPair(
-                storedRequest, ApprovalStatus.Approved, isDeleted: true);
-
-            Association incoming = CreateContentItemTagPair(
-                groupG, contentItemKeyId: Guid.NewGuid(), Scope.AllVersions, tagT);
-
-            this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new[] { deletedRow }.AsQueryable());
-
-            // when
-            AssociationPairMatch? actualMatch =
-                await this.associationService.FindOverlappingAssociationAsync(
-                    incoming,
-                    excludedAssociationId: null,
-                    TestContext.Current.CancellationToken);
-
-            // then
-            actualMatch.Should().BeNull();
-        }
-
-        [Fact]
-        public async Task ShouldExcludeTheRowUnderModificationFromItsOwnOverlapCheckAsync()
-        {
-            // given: the only overlapping row IS the row being modified, so excluding it leaves
-            // nothing — a row never overlaps itself.
-            Guid groupG = Guid.NewGuid();
-            Guid tagT = Guid.NewGuid();
-
-            Association storedRequest = CreateContentItemTagPair(
-                groupG, contentItemKeyId: Guid.NewGuid(), Scope.ThisVersionOnly, tagT);
-
-            Association storedRow = CreateStoredRowForPair(
-                storedRequest, ApprovalStatus.Approved, isDeleted: false);
-
-            Association incoming = CreateContentItemTagPair(
-                groupG, contentItemKeyId: Guid.NewGuid(), Scope.AllVersions, tagT);
-
-            this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new[] { storedRow }.AsQueryable());
-
-            // when
-            AssociationPairMatch? actualMatch =
-                await this.associationService.FindOverlappingAssociationAsync(
-                    incoming,
-                    excludedAssociationId: storedRow.Id,
-                    TestContext.Current.CancellationToken);
-
-            // then
-            actualMatch.Should().BeNull();
-        }
-
-        [Fact]
-        public async Task ShouldDetectOverlapWhenTheRequestEndpointsAreReversedAsync()
-        {
-            // given: stored rows are canonical; the request arrives with its endpoints the other
-            // way round. An orientation-sensitive probe would miss the overlap.
-            Guid groupG = Guid.NewGuid();
-            Guid tagT = Guid.NewGuid();
-
-            Association storedRequest = CreateContentItemTagPair(
-                groupG, contentItemKeyId: Guid.NewGuid(), Scope.ThisVersionOnly, tagT);
-
-            Association storedRow = CreateStoredRowForPair(
-                storedRequest, ApprovalStatus.Approved, isDeleted: false);
-
-            Association reversedIncoming = ReverseEndpoints(
-                CreateContentItemTagPair(
-                    groupG, contentItemKeyId: Guid.NewGuid(), Scope.AllVersions, tagT));
-
-            this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new[] { storedRow }.AsQueryable());
-
-            // when
-            AssociationPairMatch? actualMatch =
-                await this.associationService.FindOverlappingAssociationAsync(
-                    reversedIncoming,
-                    excludedAssociationId: null,
-                    TestContext.Current.CancellationToken);
-
-            // then
-            actualMatch.Should().NotBeNull();
-            actualMatch!.Id.Should().Be(storedRow.Id);
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectOverlappingAssociationAsync(
+                    It.IsAny<EntityType>(), It.IsAny<EntityType>(), It.IsAny<string>(),
+                    It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Scope>(), It.IsAny<Scope>(),
+                    It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid?>(),
+                    inputCancellationToken),
+                Times.Once);
         }
 
         [Fact]
@@ -407,7 +331,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             actualException.Should().BeEquivalentTo(expectedAssociationValidationException);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()),
+                broker.SelectOverlappingAssociationAsync(
+                    It.IsAny<EntityType>(), It.IsAny<EntityType>(), It.IsAny<string>(),
+                    It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Scope>(), It.IsAny<Scope>(),
+                    It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid?>(),
+                    It.IsAny<CancellationToken>()),
                 Times.Never);
         }
 
@@ -431,7 +359,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             // then: the blocked caller never reaches the store
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()),
+                broker.SelectOverlappingAssociationAsync(
+                    It.IsAny<EntityType>(), It.IsAny<EntityType>(), It.IsAny<string>(),
+                    It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Scope>(), It.IsAny<Scope>(),
+                    It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid?>(),
+                    It.IsAny<CancellationToken>()),
                 Times.Never);
         }
 
@@ -456,7 +388,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             // then
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()),
+                broker.SelectOverlappingAssociationAsync(
+                    It.IsAny<EntityType>(), It.IsAny<EntityType>(), It.IsAny<string>(),
+                    It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Scope>(), It.IsAny<Scope>(),
+                    It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid?>(),
+                    It.IsAny<CancellationToken>()),
                 Times.Never);
         }
 
@@ -480,7 +416,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             await Assert.ThrowsAsync<OperationCanceledException>(findTask.AsTask);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()),
+                broker.SelectOverlappingAssociationAsync(
+                    It.IsAny<EntityType>(), It.IsAny<EntityType>(), It.IsAny<string>(),
+                    It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Scope>(), It.IsAny<Scope>(),
+                    It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid?>(),
+                    It.IsAny<CancellationToken>()),
                 Times.Never);
 
             // pins WHERE the guard sits, not merely that it exists. The operation mints an

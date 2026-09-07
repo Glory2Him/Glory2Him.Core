@@ -256,15 +256,22 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
         }
 
         // The tip is DERIVED — the highest Version among the group's live rows — so the modify
-        // flow asks the question of the whole table through RetrieveAllLinksAsync. A test that
+        // flow asks the question through the group-keyed foundation read. A test that
         // wants its storage row treated as the tip has to let that read see the group, and one
         // that wants it superseded seeds a higher-versioned sibling here rather than clearing a
         // flag that no longer exists.
         private void SetupGroupTipRead(params Link[] groupLinks)
         {
+            // The GROUP-KEYED foundation read. The stub narrows by the requested group
+            // exactly as the real read does, so seeding another group's rows still proves
+            // this operation asks for one group rather than for the table.
             this.linkServiceMock.Setup(service =>
-                service.RetrieveAllLinksAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(groupLinks.AsQueryable());
+                service.RetrieveLinksByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((Guid groupId, CancellationToken _) =>
+                            groupLinks
+                                .Where(link => link.GroupId == groupId)
+                                .ToList());
 
             // The fork numbers from the group high-water mark, so the seeded group has to
             // report one. Set here beside the tip so a test cannot describe a group whose

@@ -55,8 +55,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // reads the group before inserting. This row's GroupId is new — no sibling versions,
             // which is the first version of a group and the one add that chooses a type.
             this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new List<ContentItem>().AsQueryable());
+                broker.SelectContentItemInGroupAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                    .ReturnsAsync((ContentItem)null);
 
             this.storageBrokerMock.Setup(broker =>
                 broker.InsertContentItemAsync(auditAppliedContentItem, It.IsAny<CancellationToken>()))
@@ -89,7 +90,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 Times.Exactly(3));
 
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllContentItemsAsync(It.IsAny<CancellationToken>()),
+                broker.SelectContentItemInGroupAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
@@ -149,8 +151,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                     .ReturnsAsync(randomDateTimeOffset);
 
             this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new List<ContentItem> { groupContentItem }.AsQueryable());
+                broker.SelectContentItemInGroupAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(groupContentItem);
 
             this.storageBrokerMock.Setup(broker =>
                 broker.InsertContentItemAsync(auditAppliedContentItem, It.IsAny<CancellationToken>()))
@@ -171,7 +174,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             actualContentItem.Should().BeEquivalentTo(expectedContentItem);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllContentItemsAsync(It.IsAny<CancellationToken>()),
+                broker.SelectContentItemInGroupAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>

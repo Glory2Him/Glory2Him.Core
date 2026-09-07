@@ -140,18 +140,39 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             await Assert.ThrowsAsync<LinkValidationException>(probeTask.AsTask);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllLinksAsync(It.IsAny<CancellationToken>()),
+                broker.SelectLinkVersionsInGroupAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
                 Times.Never);
         }
 
-        // The probe resolves its target by id and then reads the whole store, so the stub
-        // answers both. Every row goes into SelectXByIdAsync as well, which is what lets a
-        // ported test name any of them as the target.
+        // The probe resolves its target by id and then asks the storage layer two NARROW
+        // questions - which row holds the group's published slot, and what version numbers the
+        // group already owns. The stub answers both over the seeded rows, applying the arguments
+        // the SERVICE chooses: the group, which comes off the STORED row rather than from the
+        // caller, and the excluded id.
+        //
+        // The PREDICATES themselves - the unfiltered slot read that lets a tombstone still hold
+        // the slot, and the version read that counts tombstones (#271) - moved into IStorageBroker
+        // with the await that lets the caller's token reach the database, and are proved against a
+        // real catalogue in LinkNarrowReadTests.
         private void SetupProbeStore(params Link[] rows)
         {
             this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllLinksAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(rows.AsQueryable());
+                broker.SelectPublishedLinkInGroupAsync(
+                    It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((Guid groupId, Guid excludedLinkId, CancellationToken _) =>
+                            rows.FirstOrDefault(row =>
+                                row.GroupId == groupId
+                                    && row.IsPublished
+                                    && row.Id != excludedLinkId));
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectLinkVersionsInGroupAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((Guid groupId, CancellationToken _) =>
+                            rows.Where(row => row.GroupId == groupId)
+                                .Select(row => row.Version)
+                                .ToList());
 
             foreach (Link row in rows)
             {
@@ -231,7 +252,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
                 Times.Never);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllLinksAsync(It.IsAny<CancellationToken>()),
+                broker.SelectLinkVersionsInGroupAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
                 Times.Never);
         }
 
@@ -259,7 +281,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
 
             // and it never went on to read the store for an incumbent
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllLinksAsync(It.IsAny<CancellationToken>()),
+                broker.SelectLinkVersionsInGroupAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
                 Times.Never);
         }
 
@@ -374,7 +397,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             await Assert.ThrowsAsync<OperationCanceledException>(findTask.AsTask);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllLinksAsync(It.IsAny<CancellationToken>()),
+                broker.SelectLinkVersionsInGroupAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
                 Times.Never);
 
             // pins WHERE the guard sits, not merely that it exists. The operation mints an
@@ -407,7 +431,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
                 Times.Never);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllLinksAsync(It.IsAny<CancellationToken>()),
+                broker.SelectLinkVersionsInGroupAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
                 Times.Never);
         }
     }

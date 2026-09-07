@@ -828,9 +828,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 broker.GetCurrentDateTimeOffsetAsync())
                     .ReturnsAsync(randomDateTimeOffset);
 
+            // the pin is keyed on the row's OWN group, and that group holds nothing yet - the
+            // foreign row above exists only so the seeding is not vacuously empty
             this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new List<ContentItem> { foreignGroupContentItem }.AsQueryable());
+                broker.SelectContentItemInGroupAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((Guid groupId, CancellationToken _) =>
+                            groupId == foreignGroupContentItem.GroupId
+                                ? foreignGroupContentItem
+                                : null);
 
             this.storageBrokerMock.Setup(broker =>
                 broker.InsertContentItemAsync(
@@ -911,8 +917,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                     .ReturnsAsync(randomDateTimeOffset);
 
             this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new List<ContentItem> { hiddenSibling }.AsQueryable());
+                broker.SelectContentItemInGroupAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(hiddenSibling);
 
             // when
             ValueTask<ContentItem> addContentItemTask =
@@ -988,8 +995,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                     .ReturnsAsync(randomDateTimeOffset);
 
             this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new List<ContentItem> { groupContentItem }.AsQueryable());
+                broker.SelectContentItemInGroupAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(groupContentItem);
 
             // when
             ValueTask<ContentItem> addContentItemTask =
@@ -1018,7 +1026,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllContentItemsAsync(It.IsAny<CancellationToken>()),
+                broker.SelectContentItemInGroupAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
                 Times.Once);
 
             // the relabelled row never reached storage

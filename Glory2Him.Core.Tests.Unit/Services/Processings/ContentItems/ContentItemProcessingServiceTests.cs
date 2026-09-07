@@ -280,9 +280,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 groupContentItems.Add(newerVersionContentItem);
             }
 
+            // The GROUP-KEYED foundation read. The stub narrows by the requested group
+            // exactly as the real read does, so seeding another group's rows still proves
+            // this operation asks for one group rather than for the table.
             this.contentItemServiceMock.Setup(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(groupContentItems.AsQueryable());
+                service.RetrieveContentItemsByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((Guid groupId, CancellationToken _) =>
+                            groupContentItems
+                                .Where(contentItem => contentItem.GroupId == groupId)
+                                .ToList());
         
             // The fork numbers from the group high-water mark, so the seeded group has to
             // report one. Kept in the same helper as the tip so a test cannot describe a
@@ -298,7 +305,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
         // otherwise flag
         private void VerifyGroupTipResolved() =>
             this.contentItemServiceMock.Verify(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()),
+                service.RetrieveContentItemsByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
                 Times.Once);
 
         // a row that satisfies canonical content visibility (§14.1) as of currentDateTime

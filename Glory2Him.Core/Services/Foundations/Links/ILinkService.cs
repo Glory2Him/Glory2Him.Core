@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -25,6 +26,25 @@ namespace Glory2Him.Core.Services.Foundations.Links
             CancellationToken cancellationToken = default);
 
         ValueTask<IQueryable<Link>> RetrieveAllLinksAsync(
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// The visible rows of ONE group, already materialised — the group-keyed twin of
+        /// <see cref="RetrieveAllLinksAsync"/>, carrying the identical §14.7 posture because it
+        /// re-runs the identical filter.
+        ///
+        /// <para>Every group-scoped question above this layer — the edit tip, the published row,
+        /// whether a candidate is still the tip — used to narrow the collection read's LIVE
+        /// queryable and then execute it with a synchronous terminal operator. That blocked the
+        /// request thread and left the cancellation token behind at the one call that reaches the
+        /// database. A group holds a handful of versions, so answering all of them from one narrow
+        /// read costs nothing and puts the await where EF already lives.</para>
+        ///
+        /// <para>Tombstones are INCLUDED where the filter admits them; callers differ on whether a
+        /// soft-deleted row counts, and that decision is not this read's to take.</para>
+        /// </summary>
+        ValueTask<IReadOnlyList<Link>> RetrieveLinksByGroupIdAsync(
+            Guid groupId,
             CancellationToken cancellationToken = default);
 
         ValueTask<Link> RetrieveLinkByIdAsync(

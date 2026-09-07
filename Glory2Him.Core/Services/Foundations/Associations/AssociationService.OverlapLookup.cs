@@ -36,13 +36,6 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 ValidateUserIsNotGloballyBlockedFromContributing(envelope.SecurityContext);
                 ValidateOnFindAssociationByPair(association);
 
-                // Same UNFILTERED read the exact-pair probe uses: an overlapping row belonging to
-                // another user, or a pending one, is hidden from the submitting caller yet still
-                // renders, so a visibility-filtered read would miss it and let the double-render
-                // through.
-                IQueryable<Association> allAssociations =
-                    await this.storageBroker.SelectAllAssociationsAsync(cancellationToken);
-
                 // Match the SAME canonical endpoint order stored rows carry (an insert normalizes
                 // before persisting), so a reversed-order request is not blind to the row it would
                 // overlap — the exact concern the pair probe had.
@@ -66,24 +59,25 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 // versions of the same group do NOT overlap — other versions do not inherit — so
                 // this must not flag them. Only LIVE rows can double-render, so soft-deleted rows
                 // are excluded.
-                Association? match = allAssociations
-                    .Where(other =>
-                        other.IsDeleted == false
-                            && (excludedAssociationId == null
-                                || other.Id != excludedAssociationId)
-                            && other.EntityAType == association.EntityAType
-                            && other.EntityBType == association.EntityBType
-                            && other.UserId == association.UserId
-                            && other.EntityAGroupId == association.EntityAGroupId
-                            && other.EntityBGroupId == association.EntityBGroupId
-                            && (association.EntityAScope == Scope.AllVersions
-                                || other.EntityAScope == Scope.AllVersions
-                                || other.EntityAEffectiveId == entityAEffectiveId)
-                            && (association.EntityBScope == Scope.AllVersions
-                                || other.EntityBScope == Scope.AllVersions
-                                || other.EntityBEffectiveId == entityBEffectiveId))
-                    .OrderByDescending(other => other.UpdatedWhen)
-                    .FirstOrDefault();
+                //
+                // Same UNFILTERED posture the exact-pair probe carries: an overlapping row
+                // belonging to another user, or a pending one, is hidden from the submitting
+                // caller yet still renders, so a visibility-filtered read would miss it and let
+                // the double-render through. And asked for the same way — as one row, with the
+                // token, rather than as a predicate composed onto a live queryable and executed
+                // synchronously on the request thread.
+                Association? match = await this.storageBroker.SelectOverlappingAssociationAsync(
+                    entityAType: association.EntityAType,
+                    entityBType: association.EntityBType,
+                    userId: association.UserId,
+                    entityAGroupId: association.EntityAGroupId,
+                    entityBGroupId: association.EntityBGroupId,
+                    entityAScope: association.EntityAScope,
+                    entityBScope: association.EntityBScope,
+                    entityAEffectiveId: entityAEffectiveId,
+                    entityBEffectiveId: entityBEffectiveId,
+                    excludedAssociationId: excludedAssociationId,
+                    cancellationToken: cancellationToken);
 
                 if (match is null)
                 {

@@ -107,7 +107,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             // even an in-place edit has to establish that this row is the tip, and the tip is
             // a fact about the group rather than a flag on the row
             this.linkServiceMock.Verify(service =>
-                service.RetrieveAllLinksAsync(It.IsAny<CancellationToken>()),
+                service.RetrieveLinksByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
@@ -362,7 +363,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
 
             // the tip is a question about the group, so the service has to go and ask it
             this.linkServiceMock.Verify(service =>
-                service.RetrieveAllLinksAsync(It.IsAny<CancellationToken>()),
+                service.RetrieveLinksByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>

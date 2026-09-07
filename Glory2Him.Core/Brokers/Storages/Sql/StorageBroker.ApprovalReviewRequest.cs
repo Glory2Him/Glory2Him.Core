@@ -38,6 +38,15 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             await SelectAsync<ApprovalReviewRequest>(
                 new object[] { approvalReviewRequestId }, cancellationToken);
 
+        // ToListAsync, not ToList: this is the only layer that may name EF, and it is the layer
+        // that can actually give the token to the query.
+        public async ValueTask<List<ApprovalReviewRequest>> SelectApprovalReviewRequestsByApprovalIdAsync(
+            Guid approvalId,
+            CancellationToken cancellationToken = default) =>
+            await ApprovalReviewRequests
+                .Where(approvalReviewRequest => approvalReviewRequest.ApprovalId == approvalId)
+                .ToListAsync(cancellationToken);
+
         public async ValueTask<ApprovalReviewRequest> UpdateApprovalReviewRequestAsync(
             ApprovalReviewRequest approvalReviewRequest,
             CancellationToken cancellationToken = default) =>

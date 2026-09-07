@@ -106,8 +106,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                         .ReturnsAsync((Association entity, CancellationToken _) => entity);
 
             this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new List<Association>().AsQueryable());
+                broker.ExistsLiveAssociationOnPairAsync(
+                    It.IsAny<EntityType>(), It.IsAny<EntityType>(), It.IsAny<string>(),
+                    It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(false);
 
             this.eventBrokerMock.Setup(broker =>
                 broker.PublishAssociationAsync(

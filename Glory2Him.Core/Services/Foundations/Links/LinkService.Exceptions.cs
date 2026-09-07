@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using EFxceptions.Models.Exceptions;
@@ -30,6 +31,8 @@ namespace Glory2Him.Core.Services.Foundations.Links
 
         private delegate ValueTask<Link> ReturningLinkFunction();
         private delegate ValueTask<IQueryable<Link>> ReturningLinksFunction();
+
+        private delegate ValueTask<IReadOnlyList<Link>> ReturningLinkListFunction();
 
         private delegate ValueTask<EventEnvelope<Link>?>
             ReturningLinkEventEnvelopeFunction();
@@ -324,6 +327,55 @@ namespace Glory2Him.Core.Services.Foundations.Links
                     data: exception.Data);
 
                 throw await CreateAndLogServiceExceptionAsync(failedLinkServiceException);
+            }
+        }
+
+
+        // The same taxonomy the queryable read is wrapped in, over a materialised result. The two
+        // must not diverge: they answer the same question about the same table and differ only in
+        // where the query is executed.
+        private async ValueTask<IReadOnlyList<Link>> TryCatchList(
+            ReturningLinkListFunction returningLinkListFunction)
+        {
+            try
+            {
+                return await returningLinkListFunction();
+            }
+            catch (OperationCanceledException operationCanceledException)
+                when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
+            {
+                var timeoutException =
+                    new TimeoutException("The dependency operation timed out.");
+
+                var timeoutLinkException =
+                    new TimeoutLinkException(
+                        message: "Failed link timeout error occurred, contact support.",
+                        innerException: timeoutException,
+                        data: timeoutException.Data);
+
+                throw await CreateAndLogTimeoutDependencyExceptionAsync(exception: timeoutLinkException);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SqlException sqlException)
+            {
+                var failedStorageLinkException = new FailedStorageLinkException(
+                    message: "Failed link storage error occurred, contact support.",
+                    innerException: sqlException,
+                    data: sqlException.Data);
+
+                throw await CreateAndLogCriticalDependencyExceptionAsync(exception: failedStorageLinkException);
+            }
+            catch (Exception exception)
+            {
+                var failedLinkServiceException = new FailedLinkServiceException(
+                    message: "Failed link service error occurred, please contact support.",
+                    innerException: exception,
+                    data: exception.Data);
+
+                throw await CreateAndLogServiceExceptionAsync(exception: failedLinkServiceException);
             }
         }
 

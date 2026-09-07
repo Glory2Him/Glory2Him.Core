@@ -71,8 +71,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                     .ReturnsAsync(inboundEnvelope);
 
             this.linkServiceMock.Setup(service =>
-                service.RetrieveAllLinksAsync(It.IsAny<CancellationToken>()))
-                    .ThrowsAsync(dependencyValidationException);
+                service.RetrieveLinksByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(dependencyValidationException);
 
             // when
             ValueTask<Link> groupReadTask = RetrieveByGroupIdAsync(
@@ -126,8 +127,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                     .ReturnsAsync(inboundEnvelope);
 
             this.linkServiceMock.Setup(service =>
-                service.RetrieveAllLinksAsync(It.IsAny<CancellationToken>()))
-                    .ThrowsAsync(dependencyException);
+                service.RetrieveLinksByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(dependencyException);
 
             // when
             ValueTask<Link> groupReadTask = RetrieveByGroupIdAsync(
@@ -184,8 +186,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                     .ReturnsAsync(inboundEnvelope);
 
             this.linkServiceMock.Setup(service =>
-                service.RetrieveAllLinksAsync(It.IsAny<CancellationToken>()))
-                    .ThrowsAsync(operationCanceledException);
+                service.RetrieveLinksByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(operationCanceledException);
 
             // when
             ValueTask<Link> groupReadTask = RetrieveByGroupIdAsync(

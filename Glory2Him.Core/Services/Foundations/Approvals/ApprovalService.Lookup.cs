@@ -50,21 +50,19 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
                 // visibility-filtered lookup would report "does not exist" for a key that does,
                 // and the insert it invites could never succeed. The projection below reveals no
                 // row body, so nothing leaks that resubmitting would not already disclose.
-                IQueryable<Approval> allApprovals =
-                    await this.storageBroker.SelectAllApprovalsAsync(cancellationToken);
-
-                // Prefer a LIVE row when one exists, and otherwise the most recently touched
-                // soft-deleted one — the row the reinstate branch acts on. The unique index
-                // spans deleted rows, so in a consistent store there is at most one match
-                // either way; the ordering makes the choice deterministic rather than relying
-                // on that.
-                Approval? match = allApprovals
-                    .Where(approval =>
-                        approval.EntityType == entityType
-                            && approval.EntityId == entityId)
-                    .OrderBy(approval => approval.IsDeleted)
-                    .ThenByDescending(approval => approval.UpdatedWhen)
-                    .FirstOrDefault();
+                //
+                // Asked for as ONE row rather than composed onto the collection read's live
+                // queryable. That shape left a synchronous terminal operator as the only way to
+                // execute the probe — a blocking round trip on the request thread, and the one
+                // call in this method the cancellation token never reached. The predicate and the
+                // ordering travelled down with it, because preferring a LIVE row and otherwise
+                // the most recently touched soft-deleted one — the row the reinstate branch acts
+                // on — is what makes the answer deterministic, and a caller cannot apply an
+                // ordering to a row it has already been handed.
+                Approval? match = await this.storageBroker.SelectApprovalByEntityAsync(
+                    entityType: entityType,
+                    entityId: entityId,
+                    cancellationToken: cancellationToken);
 
                 if (match is null)
                 {

@@ -311,9 +311,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             occupyingAssociation.EntityBKeyId = storageAssociation.EntityBKeyId;
             WithDatabaseComputedEffectiveIds(occupyingAssociation);
 
+            // The pair-occupancy question, asked rather than answered by enumerating the table:
+            // WHICH rows count as occupying (live only, the moving row excluded, matched on the
+            // recomputed EFFECTIVE ids) is a predicate in the storage layer now, proved against
+            // real SQL in AssociationNarrowReadTests.
             this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new List<Association> { occupyingAssociation }.AsQueryable());
+                broker.ExistsLiveAssociationOnPairAsync(
+                    It.IsAny<EntityType>(), It.IsAny<EntityType>(), It.IsAny<string>(),
+                    It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(true);
 
             // when / then
             await Assert.ThrowsAsync<AssociationValidationException>(async () =>

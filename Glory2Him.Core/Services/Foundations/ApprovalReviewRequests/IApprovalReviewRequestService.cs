@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -28,6 +29,24 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviewRequests
 
         ValueTask<ApprovalReviewRequest> RetrieveApprovalReviewRequestByIdAsync(
             Guid approvalReviewRequestId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// The visible invitations on ONE approval round, already materialised.
+        ///
+        /// <para>The round-keyed twin of <see cref="RetrieveAllApprovalReviewRequestsAsync"/>, and
+        /// the member every round-keyed caller should reach for. The collection read hands back a
+        /// LIVE queryable, so a caller narrowing it to one approval had no way to execute it
+        /// except synchronously — a blocking round trip on the request thread with the
+        /// cancellation token left behind. Asking the storage layer for the slice instead puts
+        /// the await where EF already lives.</para>
+        ///
+        /// <para>Filtered by exactly the same §14.7 posture its unkeyed twin applies — the one
+        /// filter, re-run over the narrowed set — so an anonymous caller still sees nothing and a
+        /// non-reviewer still sees only rows they raised or were named in.</para>
+        /// </summary>
+        ValueTask<IReadOnlyList<ApprovalReviewRequest>> RetrieveApprovalReviewRequestsByApprovalIdAsync(
+            Guid approvalId,
             CancellationToken cancellationToken = default);
 
         ValueTask<ApprovalReviewRequest> RemoveApprovalReviewRequestByIdAsync(

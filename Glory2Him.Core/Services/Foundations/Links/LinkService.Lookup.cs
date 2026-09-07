@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -48,13 +49,14 @@ namespace Glory2Him.Core.Services.Foundations.Links
                 //
                 // A lineage is not renumbered by removing a row from it — the same argument
                 // §9.7.7 rule 7 records for the published slot.
-                IQueryable<Link> allLinks =
-                    await this.storageBroker.SelectAllLinksAsync(cancellationToken);
-
-                var groupVersions = allLinks
-                    .Where(link => link.GroupId == groupId)
-                    .Select(link => link.Version)
-                    .ToList();
+                //
+                // The projection is asked for, not composed here: narrowing the collection read
+                // and calling ToList() on it blocked the request thread on a SQL round trip the
+                // cancellation token never reached.
+                List<int> groupVersions =
+                    await this.storageBroker.SelectLinkVersionsInGroupAsync(
+                        groupId: groupId,
+                        cancellationToken: cancellationToken);
 
                 return groupVersions.Count is 0
                     ? 0
@@ -99,18 +101,52 @@ namespace Glory2Him.Core.Services.Foundations.Links
                         message: $"Link not found with id: {linkId}.");
                 }
 
-                IQueryable<Link> allLinks =
-                    await this.storageBroker.SelectAllLinksAsync(cancellationToken);
-
                 // UNFILTERED on the incumbent side too: a soft delete never clears
                 // IsPublished and the slot index names that column alone, so a tombstone still
                 // holds the slot. Skipping it would leave the group permanently unpublishable.
-                Link? publishedLink = allLinks.FirstOrDefault(link =>
-                    link.GroupId == maybeLink.GroupId
-                        && link.IsPublished
-                        && link.Id != linkId);
+                //
+                // One row asked for, with the token, rather than a predicate composed onto the
+                // collection read's live queryable and executed synchronously.
+                Link? publishedLink = await this.storageBroker.SelectPublishedLinkInGroupAsync(
+                    groupId: maybeLink.GroupId,
+                    excludedLinkId: linkId,
+                    cancellationToken: cancellationToken);
 
                 return publishedLink?.Id;
+            });
+
+
+        public ValueTask<IReadOnlyList<Link>> RetrieveLinksByGroupIdAsync(
+            Guid groupId,
+            CancellationToken cancellationToken = default) =>
+            TryCatchList(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // the envelope exists to capture the ambient security context the visibility
+                // filter runs against — the request payload is empty, exactly as the unkeyed
+                // collection read builds it
+                EventEnvelope<Link> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: new Link());
+
+                // THE GROUP'S SLICE, ASKED FOR AS A SLICE, with the token. The narrowing used to
+                // be a Where composed onto the collection read's live queryable by whichever
+                // caller needed it, which left them a synchronous terminal operator as the only
+                // way to execute it.
+                List<Link> groupLinks = await this.storageBroker.SelectLinksByGroupIdAsync(
+                    groupId: groupId,
+                    cancellationToken: cancellationToken);
+
+                // THE SAME FILTER, not a second copy of it. The predicate is now evaluated in
+                // memory rather than in SQL, which is the only difference and one no caller can
+                // observe; writing an in-memory twin would give one visibility rule two homes to
+                // drift between.
+                IQueryable<Link> visibleLinks =
+                    await ApplyCollectionReadVisibilityFilterAsync(
+                        links: groupLinks.AsQueryable(),
+                        securityContext: envelope.SecurityContext);
+
+                return visibleLinks.ToList();
             });
 
         private static void ValidateOnFindPublishedSiblingLink(Guid linkId) =>

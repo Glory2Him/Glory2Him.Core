@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using EFxceptions.Models.Exceptions;
@@ -30,6 +31,8 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
 
         private delegate ValueTask<ContentItem> ReturningContentItemFunction();
         private delegate ValueTask<IQueryable<ContentItem>> ReturningContentItemsFunction();
+
+        private delegate ValueTask<IReadOnlyList<ContentItem>> ReturningContentItemListFunction();
 
         private delegate ValueTask<bool> ReturningBooleanFunction();
 
@@ -344,6 +347,55 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             try
             {
                 return await returningContentItemsFunction();
+            }
+            catch (OperationCanceledException operationCanceledException)
+                when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
+            {
+                var timeoutException =
+                    new TimeoutException("The dependency operation timed out.");
+
+                var timeoutContentItemException =
+                    new TimeoutContentItemException(
+                        message: "Failed content item timeout error occurred, contact support.",
+                        innerException: timeoutException,
+                        data: timeoutException.Data);
+
+                throw await CreateAndLogTimeoutDependencyExceptionAsync(exception: timeoutContentItemException);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SqlException sqlException)
+            {
+                var failedStorageContentItemException = new FailedStorageContentItemException(
+                    message: "Failed content item storage error occurred, contact support.",
+                    innerException: sqlException,
+                    data: sqlException.Data);
+
+                throw await CreateAndLogCriticalDependencyExceptionAsync(exception: failedStorageContentItemException);
+            }
+            catch (Exception exception)
+            {
+                var failedContentItemServiceException = new FailedContentItemServiceException(
+                    message: "Failed content item service error occurred, please contact support.",
+                    innerException: exception,
+                    data: exception.Data);
+
+                throw await CreateAndLogServiceExceptionAsync(exception: failedContentItemServiceException);
+            }
+        }
+
+
+        // The same taxonomy the queryable read is wrapped in, over a materialised result. The two
+        // must not diverge: they answer the same question about the same table and differ only in
+        // where the query is executed.
+        private async ValueTask<IReadOnlyList<ContentItem>> TryCatchList(
+            ReturningContentItemListFunction returningContentItemListFunction)
+        {
+            try
+            {
+                return await returningContentItemListFunction();
             }
             catch (OperationCanceledException operationCanceledException)
                 when (operationCanceledException.CancellationToken.IsCancellationRequested is false)

@@ -140,7 +140,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             await Assert.ThrowsAsync<ContentItemValidationException>(probeTask.AsTask);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllContentItemsAsync(It.IsAny<CancellationToken>()),
+                broker.SelectContentItemVersionsInGroupAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
                 Times.Never);
         }
 
@@ -202,14 +203,36 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             actualHighestVersion.Should().Be(0);
         }
 
-        // The probe resolves its target by id and then reads the whole store, so the stub
-        // answers both. Every row goes into SelectXByIdAsync as well, which is what lets a
-        // ported test name any of them as the target.
+        // The probe resolves its target by id and then asks the storage layer two NARROW
+        // questions - which row holds the group's published slot, and what version numbers the
+        // group already owns. The stub answers both over the seeded rows, applying the arguments
+        // the SERVICE chooses: the group, which comes off the STORED row rather than from the
+        // caller, and the excluded id.
+        //
+        // The PREDICATES themselves - that the slot read is unfiltered so a tombstone still holds
+        // the slot, and that the version read counts tombstones (#271) - are no longer visible at
+        // this seam, because they moved into IStorageBroker with the await that lets the caller's
+        // token reach the database. They are proved against a real catalogue in
+        // ContentItemNarrowReadTests, which is a stronger statement than this seam could make:
+        // LINQ-to-Objects never had to translate them.
         private void SetupProbeStore(params ContentItem[] rows)
         {
             this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(rows.AsQueryable());
+                broker.SelectPublishedContentItemInGroupAsync(
+                    It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((Guid groupId, Guid excludedContentItemId, CancellationToken _) =>
+                            rows.FirstOrDefault(row =>
+                                row.GroupId == groupId
+                                    && row.IsPublished
+                                    && row.Id != excludedContentItemId));
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectContentItemVersionsInGroupAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((Guid groupId, CancellationToken _) =>
+                            rows.Where(row => row.GroupId == groupId)
+                                .Select(row => row.Version)
+                                .ToList());
 
             foreach (ContentItem row in rows)
             {
@@ -289,7 +312,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 Times.Never);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllContentItemsAsync(It.IsAny<CancellationToken>()),
+                broker.SelectContentItemVersionsInGroupAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
                 Times.Never);
         }
 
@@ -317,7 +341,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
             // and it never went on to read the store for an incumbent
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllContentItemsAsync(It.IsAny<CancellationToken>()),
+                broker.SelectContentItemVersionsInGroupAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
                 Times.Never);
         }
 

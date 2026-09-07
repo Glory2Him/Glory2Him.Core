@@ -372,7 +372,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
 
             // and the refusal came from reading the group, not from trusting the row
             this.linkServiceMock.Verify(service =>
-                service.RetrieveAllLinksAsync(It.IsAny<CancellationToken>()),
+                service.RetrieveLinksByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.linkServiceMock.Verify(service =>

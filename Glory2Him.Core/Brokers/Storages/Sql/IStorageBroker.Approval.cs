@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.Approvals;
 
 namespace Glory2Him.Core.Brokers.Storages.Sql
@@ -25,6 +26,21 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             CancellationToken cancellationToken = default);
 
         ValueTask<IQueryable<Approval>> SelectAllApprovalsAsync(
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// The approval row occupying <c>UX_Approvals_EntityType_EntityId</c> for one entity, or
+        /// null when the key is free. Preferring a LIVE row and otherwise the most recently
+        /// touched soft-deleted one belongs to the read rather than to its caller: the ordering
+        /// is what makes the answer deterministic, and it has to run in SQL beside the predicate.
+        ///
+        /// <para>DELIBERATELY UNFILTERED (§9.7.2 rule 3) — the index spans soft-deleted rows, so a
+        /// visibility-filtered probe would report a key as free when an insert on it could never
+        /// succeed.</para>
+        /// </summary>
+        ValueTask<Approval?> SelectApprovalByEntityAsync(
+            EntityType entityType,
+            Guid entityId,
             CancellationToken cancellationToken = default);
 
         ValueTask<Approval> SelectApprovalByIdAsync(

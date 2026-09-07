@@ -78,9 +78,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                 broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputGroupId))))
                     .ReturnsAsync(inboundEnvelope);
 
+            // The GROUP-KEYED foundation read. The stub narrows by the requested group
+            // exactly as the real read does, so seeding another group's rows still proves
+            // this operation asks for one group rather than for the table.
             this.linkServiceMock.Setup(service =>
-                service.RetrieveAllLinksAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(storageLinks);
+                service.RetrieveLinksByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((Guid groupId, CancellationToken _) =>
+                            storageLinks
+                                .Where(link => link.GroupId == groupId)
+                                .ToList());
 
             this.dateTimeBrokerMock.Setup(broker =>
                 broker.GetCurrentDateTimeOffsetAsync())
@@ -100,7 +107,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             actualLink.GroupId.Should().Be(inputGroupId);
 
             this.linkServiceMock.Verify(service =>
-                service.RetrieveAllLinksAsync(It.IsAny<CancellationToken>()),
+                service.RetrieveLinksByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.eventBrokerMock.VerifyNoOtherCalls();
@@ -132,9 +140,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                 broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputGroupId))))
                     .ReturnsAsync(inboundEnvelope);
 
+            // The GROUP-KEYED foundation read. The stub narrows by the requested group
+            // exactly as the real read does, so seeding another group's rows still proves
+            // this operation asks for one group rather than for the table.
             this.linkServiceMock.Setup(service =>
-                service.RetrieveAllLinksAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(storageLinks);
+                service.RetrieveLinksByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((Guid groupId, CancellationToken _) =>
+                            storageLinks
+                                .Where(link => link.GroupId == groupId)
+                                .ToList());
 
             this.dateTimeBrokerMock.Setup(broker =>
                 broker.GetCurrentDateTimeOffsetAsync())

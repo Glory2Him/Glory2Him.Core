@@ -36,14 +36,6 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 ValidateUserIsNotGloballyBlockedFromContributing(envelope.SecurityContext);
                 ValidateOnFindAssociationByPair(association);
 
-                // Deliberately UNFILTERED (§7.4/§14.6): the retrieve-or-add flow must see a
-                // pending or rejected row belonging to another user, and a soft-deleted one,
-                // both of which the read posture hides from the submitting caller. The
-                // projection returned below reveals no row body, so nothing the caller could not
-                // already infer from resubmitting leaks.
-                IQueryable<Association> allAssociations =
-                    await this.storageBroker.SelectAllAssociationsAsync(cancellationToken);
-
                 // Match the SAME canonical endpoint order an insert lands in — DoAddAssociationAsync
                 // normalizes before InsertAssociationAsync, so every stored row is canonical.
                 // Without this the probe is orientation-sensitive: a reversed-order request would
@@ -71,16 +63,26 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 // Prefer a LIVE row when one exists (there can be at most one — the unique index
                 // filters WHERE IsDeleted = 0), and otherwise the most recently touched
                 // soft-deleted row, which is the candidate the resurrect rule considers.
-                Association? match = allAssociations
-                    .Where(other =>
-                        other.EntityAType == association.EntityAType
-                            && other.EntityBType == association.EntityBType
-                            && other.EntityAEffectiveId == entityAEffectiveId
-                            && other.EntityBEffectiveId == entityBEffectiveId
-                            && other.UserId == association.UserId)
-                    .OrderBy(other => other.IsDeleted)
-                    .ThenByDescending(other => other.UpdatedWhen)
-                    .FirstOrDefault();
+                //
+                // Deliberately UNFILTERED (§7.4/§14.6): the retrieve-or-add flow must see a
+                // pending or rejected row belonging to another user, and a soft-deleted one, both
+                // of which the read posture hides from the submitting caller. The projection
+                // returned below reveals no row body, so nothing the caller could not already
+                // infer from resubmitting leaks.
+                //
+                // Asked for as ONE row. Composing this predicate onto the collection read's live
+                // queryable left a synchronous terminal operator as the only way to run it, which
+                // blocked the request thread and dropped the cancellation token at the one call
+                // that touches the database. What stays HERE is the normalisation above: canonical
+                // ordering lives in one place so the write path and the probe cannot diverge, and
+                // the storage layer is handed endpoints already resolved.
+                Association? match = await this.storageBroker.SelectAssociationByPairAsync(
+                    entityAType: association.EntityAType,
+                    entityBType: association.EntityBType,
+                    entityAEffectiveId: entityAEffectiveId,
+                    entityBEffectiveId: entityBEffectiveId,
+                    userId: association.UserId,
+                    cancellationToken: cancellationToken);
 
                 if (match is null)
                 {

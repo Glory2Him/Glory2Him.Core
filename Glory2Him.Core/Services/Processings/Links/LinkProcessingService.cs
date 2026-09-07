@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -443,18 +444,22 @@ namespace Glory2Him.Core.Services.Processings.Links
         {
             ValidateGroupIdOnRetrieve(groupId);
 
-            IQueryable<Link> allLinks =
-                await this.linkService.RetrieveAllLinksAsync(cancellationToken);
+            // Through the GROUP-KEYED foundation read, which carries the same §14.7 posture the
+            // collection read does. Narrowing that read's live queryable here and calling
+            // FirstOrDefault() on it issued a blocking SQL round trip on the request thread, and
+            // was the one call on this path the cancellation token never reached.
+            IReadOnlyList<Link> groupLinks =
+                await this.linkService.RetrieveLinksByGroupIdAsync(
+                    groupId: groupId,
+                    cancellationToken: cancellationToken);
 
             // the edit tip of the group (§3.4.1) — at most one non-deleted row per group
             // carries IsLatestVersion under the unique filtered index
             // The tip is DERIVED: the highest Version in the group. There is no
             // stored flag to disagree with the rows, which is what made a failed
             // fork able to leave a group with no tip at all (#265).
-            Link? latestLink = allLinks
-                .Where(link =>
-                    link.GroupId == groupId
-                        && link.IsDeleted == false)
+            Link? latestLink = groupLinks
+                .Where(link => link.IsDeleted == false)
                 .OrderByDescending(link => link.Version)
                 .FirstOrDefault();
 
@@ -480,14 +485,15 @@ namespace Glory2Him.Core.Services.Processings.Links
         {
             ValidateGroupIdOnRetrieve(groupId);
 
-            IQueryable<Link> allLinks =
-                await this.linkService.RetrieveAllLinksAsync(cancellationToken);
+            IReadOnlyList<Link> groupLinks =
+                await this.linkService.RetrieveLinksByGroupIdAsync(
+                    groupId: groupId,
+                    cancellationToken: cancellationToken);
 
             // the row the public currently reads — it stays published while a newer draft
             // moves through review, so it is found independently of IsLatestVersion
-            Link? publishedLink = allLinks.FirstOrDefault(link =>
-                link.GroupId == groupId
-                    && link.IsPublished
+            Link? publishedLink = groupLinks.FirstOrDefault(link =>
+                link.IsPublished
                     && link.IsDeleted == false);
 
             if (publishedLink is null)
@@ -617,12 +623,13 @@ namespace Glory2Him.Core.Services.Processings.Links
             Link candidate,
             CancellationToken cancellationToken)
         {
-            IQueryable<Link> allLinks =
-                await this.linkService.RetrieveAllLinksAsync(cancellationToken);
+            IReadOnlyList<Link> groupLinks =
+                await this.linkService.RetrieveLinksByGroupIdAsync(
+                    groupId: candidate.GroupId,
+                    cancellationToken: cancellationToken);
 
-            return allLinks.Any(link =>
-                link.GroupId == candidate.GroupId
-                    && link.IsDeleted == false
+            return groupLinks.Any(link =>
+                link.IsDeleted == false
                     && link.Version > candidate.Version) is false;
         }
 

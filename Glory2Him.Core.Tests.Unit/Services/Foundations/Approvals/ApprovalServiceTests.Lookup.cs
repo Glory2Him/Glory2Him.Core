@@ -59,8 +59,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
             return approval;
         }
 
+        /// <summary>
+        /// What the service still owns: it hands the storage layer the key it was given, and it
+        /// projects the row it gets back.
+        ///
+        /// <para>The PREDICATE and the ORDERING moved into
+        /// <c>IStorageBroker.SelectApprovalByEntityAsync</c> so the probe could be awaited with
+        /// the caller's token instead of executed by a synchronous terminal operator. Which row
+        /// they pick — the unfiltered match that lets a tombstone occupy the key, the half-key
+        /// non-match, the live-before-deleted preference — is a question about SQL now, and is
+        /// answered against a real catalogue in <c>ApprovalEntityProbeReadTests</c>.</para>
+        /// </summary>
         [Fact]
-        public async Task ShouldReturnTheMatchWhenTheKeyIsOccupiedAsync()
+        public async Task ShouldProbeTheGivenKeyAndProjectTheRowItOccupiesAsync()
         {
             // given
             var expectedMatchId = Guid.Parse("2f0c1b8d-7a34-4c96-b0e5-13d8f92a6c47");
@@ -73,9 +84,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                 isDeleted: false,
                 updatedWhen: GetRandomDateTimeOffset());
 
+            // keyed on the probed values, so a service that passed anything else through would
+            // fall to the unstubbed default and fail on the projection below
             this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllApprovalsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new[] { storageApproval }.AsQueryable());
+                broker.SelectApprovalByEntityAsync(
+                    LookupProbeEntityType, LookupProbeEntityId, It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageApproval);
 
             // when
             ApprovalEntityMatch? actualMatch =
@@ -84,14 +98,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                     LookupProbeEntityId,
                     TestContext.Current.CancellationToken);
 
-            // then: the projection only — id, status and the soft-delete flag, no row body
+            // then: the projection only - id, status and the soft-delete flag, no row body
             actualMatch.Should().NotBeNull();
             actualMatch!.Id.Should().Be(expectedMatchId);
             actualMatch.ApprovalStatus.Should().Be(ApprovalStatus.Approved);
             actualMatch.IsDeleted.Should().BeFalse();
 
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllApprovalsAsync(It.IsAny<CancellationToken>()),
+                broker.SelectApprovalByEntityAsync(
+                    LookupProbeEntityType, LookupProbeEntityId, It.IsAny<CancellationToken>()),
                 Times.Once);
 
             // the probe is a read: it neither consults the cross-entity amendment decision
@@ -104,21 +119,18 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        /// <summary>
+        /// A free key answers null rather than throwing: the caller inserts on it, and a
+        /// not-found error here would turn "nothing to reinstate" into a failure.
+        /// </summary>
         [Fact]
         public async Task ShouldReturnNullWhenTheKeyIsUnoccupiedAsync()
         {
-            // given: the store holds only a row on a different key entirely
-            Approval otherKeyApproval = CreateLookupStorageApproval(
-                approvalId: Guid.Parse("9d4e37a1-52c8-4b60-8e79-a1c30b5d2f68"),
-                entityType: LookupOtherEntityType,
-                entityId: LookupOtherEntityId,
-                approvalStatus: ApprovalStatus.Submitted,
-                isDeleted: false,
-                updatedWhen: GetRandomDateTimeOffset());
-
+            // given
             this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllApprovalsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new[] { otherKeyApproval }.AsQueryable());
+                broker.SelectApprovalByEntityAsync(
+                    It.IsAny<EntityType>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((Approval?)null);
 
             // when
             ApprovalEntityMatch? actualMatch =
@@ -131,7 +143,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
             actualMatch.Should().BeNull();
 
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllApprovalsAsync(It.IsAny<CancellationToken>()),
+                broker.SelectApprovalByEntityAsync(
+                    It.IsAny<EntityType>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.accessBrokerMock.VerifyNoOtherCalls();
@@ -142,134 +155,34 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        /// <summary>
+        /// The token reaches the database call, which is the point of the narrow read: the shape
+        /// it replaced threaded a token through every method here and then ran the query without
+        /// it.
+        /// </summary>
         [Fact]
-        public async Task ShouldReturnTheSoftDeletedRowBecauseTheProbeIsUnfilteredAsync()
+        public async Task ShouldPassTheCancellationTokenToTheStorageBrokerOnFindByEntityAsync()
         {
-            // given: the ONLY row on the key is soft-deleted. UX_Approvals_EntityType_EntityId
-            // is not filtered on IsDeleted, so that row still OCCUPIES the key (§9.7.2 rule 3).
-            // A visibility-filtered read would answer "no approval" here and invite an insert
-            // that could never succeed — so the probe must return the row, not null.
-            var expectedMatchId = Guid.Parse("4a7b6c25-8e19-4f3d-90ab-72c5e148d306");
-
-            Approval softDeletedApproval = CreateLookupStorageApproval(
-                approvalId: expectedMatchId,
-                entityType: LookupProbeEntityType,
-                entityId: LookupProbeEntityId,
-                approvalStatus: ApprovalStatus.Rejected,
-                isDeleted: true,
-                updatedWhen: GetRandomDateTimeOffset());
+            // given
+            using var cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken inputCancellationToken = cancellationTokenSource.Token;
 
             this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllApprovalsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new[] { softDeletedApproval }.AsQueryable());
+                broker.SelectApprovalByEntityAsync(
+                    It.IsAny<EntityType>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((Approval?)null);
 
             // when
-            ApprovalEntityMatch? actualMatch =
-                await this.approvalService.FindApprovalByEntityAsync(
-                    LookupProbeEntityType,
-                    LookupProbeEntityId,
-                    TestContext.Current.CancellationToken);
+            await this.approvalService.FindApprovalByEntityAsync(
+                LookupProbeEntityType,
+                LookupProbeEntityId,
+                inputCancellationToken);
 
-            // then: the closed row surfaces, so the flow reinstates it in place (§12.4.4 BR14)
-            actualMatch.Should().NotBeNull();
-            actualMatch!.Id.Should().Be(expectedMatchId);
-            actualMatch.ApprovalStatus.Should().Be(ApprovalStatus.Rejected);
-            actualMatch.IsDeleted.Should().BeTrue();
-
+            // then
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllApprovalsAsync(It.IsAny<CancellationToken>()),
+                broker.SelectApprovalByEntityAsync(
+                    LookupProbeEntityType, LookupProbeEntityId, inputCancellationToken),
                 Times.Once);
-
-            this.accessBrokerMock.VerifyNoOtherCalls();
-            this.securityAuditBrokerMock.VerifyNoOtherCalls();
-            this.dateTimeBrokerMock.VerifyNoOtherCalls();
-            this.storageBrokerMock.VerifyNoOtherCalls();
-            this.eventBrokerMock.VerifyNoOtherCalls();
-            this.loggingBrokerMock.VerifyNoOtherCalls();
-        }
-
-        [Fact]
-        public async Task ShouldPreferTheLiveRowWhenASoftDeletedRowSharesTheKeyAsync()
-        {
-            // given: an inconsistent store holding both. The live row is the one a resubmission
-            // collides with, and it is deliberately the OLDER of the two so a match decided by
-            // recency alone would return the deleted one instead.
-            var liveApprovalId = Guid.Parse("1c9d8e07-6b52-4a31-8d40-e37fa9b21c58");
-            var deletedApprovalId = Guid.Parse("7e3af410-2d68-4c95-b1a7-08fc35e6d942");
-
-            Approval liveApproval = CreateLookupStorageApproval(
-                approvalId: liveApprovalId,
-                entityType: LookupProbeEntityType,
-                entityId: LookupProbeEntityId,
-                approvalStatus: ApprovalStatus.Submitted,
-                isDeleted: false,
-                updatedWhen: new DateTimeOffset(2021, 3, 4, 0, 0, 0, TimeSpan.Zero));
-
-            Approval deletedApproval = CreateLookupStorageApproval(
-                approvalId: deletedApprovalId,
-                entityType: LookupProbeEntityType,
-                entityId: LookupProbeEntityId,
-                approvalStatus: ApprovalStatus.Dismissed,
-                isDeleted: true,
-                updatedWhen: new DateTimeOffset(2025, 9, 6, 0, 0, 0, TimeSpan.Zero));
-
-            this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllApprovalsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new[] { deletedApproval, liveApproval }.AsQueryable());
-
-            // when
-            ApprovalEntityMatch? actualMatch =
-                await this.approvalService.FindApprovalByEntityAsync(
-                    LookupProbeEntityType,
-                    LookupProbeEntityId,
-                    TestContext.Current.CancellationToken);
-
-            // then
-            actualMatch.Should().NotBeNull();
-            actualMatch!.Id.Should().Be(liveApprovalId);
-            actualMatch.ApprovalStatus.Should().Be(ApprovalStatus.Submitted);
-            actualMatch.IsDeleted.Should().BeFalse();
-        }
-
-        [Fact]
-        public async Task ShouldNotMatchARowThatSharesOnlyOneHalfOfTheKeyAsync()
-        {
-            // given: one row shares the entity id but carries a different entity type, the other
-            // shares the entity type but a different entity id. Dropping either conjunct of the
-            // match would return one of them and report a key as occupied when it is free.
-            Approval sameEntityIdOnlyApproval = CreateLookupStorageApproval(
-                approvalId: Guid.Parse("b06f5c31-4e28-49a7-92d3-5c8ab14e70f9"),
-                entityType: LookupOtherEntityType,
-                entityId: LookupProbeEntityId,
-                approvalStatus: ApprovalStatus.Approved,
-                isDeleted: false,
-                updatedWhen: GetRandomDateTimeOffset());
-
-            Approval sameEntityTypeOnlyApproval = CreateLookupStorageApproval(
-                approvalId: Guid.Parse("3d81a4f6-9c07-4b25-8e6f-27b09da5316e"),
-                entityType: LookupProbeEntityType,
-                entityId: LookupOtherEntityId,
-                approvalStatus: ApprovalStatus.Submitted,
-                isDeleted: false,
-                updatedWhen: GetRandomDateTimeOffset());
-
-            this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllApprovalsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new[]
-                    {
-                        sameEntityIdOnlyApproval,
-                        sameEntityTypeOnlyApproval
-                    }.AsQueryable());
-
-            // when
-            ApprovalEntityMatch? actualMatch =
-                await this.approvalService.FindApprovalByEntityAsync(
-                    LookupProbeEntityType,
-                    LookupProbeEntityId,
-                    TestContext.Current.CancellationToken);
-
-            // then
-            actualMatch.Should().BeNull();
         }
 
         [Fact]
@@ -306,7 +219,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                 expectedApprovalValidationException);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllApprovalsAsync(It.IsAny<CancellationToken>()),
+                broker.SelectApprovalByEntityAsync(
+                    It.IsAny<EntityType>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
                 Times.Never);
 
             this.loggingBrokerMock.Verify(broker =>
@@ -355,7 +269,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                 expectedApprovalValidationException);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllApprovalsAsync(It.IsAny<CancellationToken>()),
+                broker.SelectApprovalByEntityAsync(
+                    It.IsAny<EntityType>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
                 Times.Never);
 
             this.loggingBrokerMock.Verify(broker =>
@@ -387,7 +302,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                 innerException: failedStorageApprovalException);
 
             this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllApprovalsAsync(It.IsAny<CancellationToken>()))
+                broker.SelectApprovalByEntityAsync(
+                    It.IsAny<EntityType>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
                     .ThrowsAsync(sqlException);
 
             // when
@@ -406,7 +322,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                 expectedApprovalDependencyException);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllApprovalsAsync(It.IsAny<CancellationToken>()),
+                broker.SelectApprovalByEntityAsync(
+                    It.IsAny<EntityType>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
@@ -440,7 +357,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                 innerException: failedApprovalServiceException);
 
             this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllApprovalsAsync(It.IsAny<CancellationToken>()))
+                broker.SelectApprovalByEntityAsync(
+                    It.IsAny<EntityType>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
                     .ThrowsAsync(serviceException);
 
             // when
@@ -459,7 +377,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                 expectedApprovalServiceException);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllApprovalsAsync(It.IsAny<CancellationToken>()),
+                broker.SelectApprovalByEntityAsync(
+                    It.IsAny<EntityType>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
@@ -493,7 +412,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                 findApprovalByEntityTask.AsTask);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllApprovalsAsync(It.IsAny<CancellationToken>()),
+                broker.SelectApprovalByEntityAsync(
+                    It.IsAny<EntityType>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
                 Times.Never);
 
             this.accessBrokerMock.VerifyNoOtherCalls();
@@ -519,7 +439,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                 new OperationCanceledException(cancellationTokenSource.Token);
 
             this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllApprovalsAsync(It.IsAny<CancellationToken>()))
+                broker.SelectApprovalByEntityAsync(
+                    It.IsAny<EntityType>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
                     .ThrowsAsync(operationCanceledException);
 
             // when
@@ -537,7 +458,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
             actualOperationCanceledException.Should().BeSameAs(operationCanceledException);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllApprovalsAsync(It.IsAny<CancellationToken>()),
+                broker.SelectApprovalByEntityAsync(
+                    It.IsAny<EntityType>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.accessBrokerMock.VerifyNoOtherCalls();
@@ -569,7 +491,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                 innerException: timeoutApprovalException);
 
             this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllApprovalsAsync(It.IsAny<CancellationToken>()))
+                broker.SelectApprovalByEntityAsync(
+                    It.IsAny<EntityType>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
                     .ThrowsAsync(operationCanceledException);
 
             // when
@@ -588,7 +511,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                 expectedApprovalDependencyException);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllApprovalsAsync(It.IsAny<CancellationToken>()),
+                broker.SelectApprovalByEntityAsync(
+                    It.IsAny<EntityType>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>

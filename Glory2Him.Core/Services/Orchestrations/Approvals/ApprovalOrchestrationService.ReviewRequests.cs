@@ -270,15 +270,20 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 // OUTSTANDING set: rule 5 soft-deletes a withdrawal and rule 6 retires an answer.
                 // Pending-ness is therefore inherited rather than asserted here, and there is no
                 // second definition of it to drift.
-                IQueryable<ApprovalReviewRequest> allApprovalReviewRequests =
+                //
+                // Through the ROUND-KEYED member, so the narrowing and the await both happen
+                // below. The unkeyed read hands back a live queryable, and composing the
+                // ApprovalId filter onto it here left this orchestration with only a synchronous
+                // terminal operator to execute it with: a blocking SQL round trip on the request
+                // thread, and the one call in the chain the cancellation token never reached.
+                // Executing it asynchronously from here was not the alternative: an async
+                // terminal operator belongs to EF, and no service in this project imports EF
+                // outside its .Exceptions.cs.
+                IReadOnlyList<ApprovalReviewRequest> roundApprovalReviewRequests =
                     await this.approvalReviewRequestService
-                        .RetrieveAllApprovalReviewRequestsAsync(cancellationToken);
-
-                List<ApprovalReviewRequest> roundApprovalReviewRequests =
-                    allApprovalReviewRequests
-                        .Where(approvalReviewRequest =>
-                            approvalReviewRequest.ApprovalId == scope.ApprovalId)
-                        .ToList();
+                        .RetrieveApprovalReviewRequestsByApprovalIdAsync(
+                            approvalId: scope.ApprovalId,
+                            cancellationToken: cancellationToken);
 
                 // Ordered the way the candidates read is, and in memory for the same reason: a
                 // culture-aware comparison is not a thing the database can be asked for, and the

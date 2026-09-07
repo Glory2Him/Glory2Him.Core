@@ -87,8 +87,57 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             return reversed;
         }
 
+        // Stubs the pair probe and records the key the service asked it for. The endpoints the
+        // storage layer is handed are the CANONICAL ones - normalisation stayed in the service
+        // when the predicate moved down - so capturing them is how the reversed-order tests below
+        // state their case.
+        private sealed record PairProbeKey(
+            EntityType EntityAType,
+            EntityType EntityBType,
+            Guid EntityAEffectiveId,
+            Guid EntityBEffectiveId,
+            string UserId);
+
+        private PairProbeKey? capturedPairProbeKey;
+
+        private void SetupPairProbe(Association match)
+        {
+            this.capturedPairProbeKey = null;
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAssociationByPairAsync(
+                    It.IsAny<EntityType>(), It.IsAny<EntityType>(), It.IsAny<Guid>(),
+                    It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((
+                            EntityType entityAType,
+                            EntityType entityBType,
+                            Guid entityAEffectiveId,
+                            Guid entityBEffectiveId,
+                            string userId,
+                            CancellationToken _) =>
+                        {
+                            this.capturedPairProbeKey = new PairProbeKey(
+                                entityAType,
+                                entityBType,
+                                entityAEffectiveId,
+                                entityBEffectiveId,
+                                userId);
+
+                            return match;
+                        });
+        }
+
+        /// <summary>
+        /// What the service still owns: the key it composes, and the projection it returns.
+        ///
+        /// <para>WHICH ROW the key selects — that the probe is unfiltered so a tombstone and
+        /// another user's pending row both surface, and that a live row wins over a soft-deleted
+        /// one — is a predicate in <c>IStorageBroker.SelectAssociationByPairAsync</c> now, proved
+        /// against real SQL in <c>AssociationNarrowReadTests</c>. It had to move for the probe to
+        /// be awaited with the caller's token rather than executed synchronously.</para>
+        /// </summary>
         [Fact]
-        public async Task ShouldReturnTheMatchWhenALiveRowOccupiesThePairAsync()
+        public async Task ShouldProbeTheResolvedPairAndProjectTheRowAsync()
         {
             // given
             Association pairRequest = CreateResolvedPairRequest();
@@ -96,9 +145,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             Association storageRow = CreateStoredRowForPair(
                 pairRequest, ApprovalStatus.Submitted, isDeleted: false);
 
-            this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new[] { storageRow }.AsQueryable());
+            SetupPairProbe(storageRow);
 
             // when
             AssociationPairMatch? actualMatch =
@@ -114,23 +161,22 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             actualMatch.CreatedBy.Should().Be(storageRow.CreatedBy);
             actualMatch.DeletedBy.Should().BeNull();
 
-            this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()),
-                Times.Once);
+            // and the key was composed from the request's own endpoints, resolved to the
+            // EFFECTIVE ids the persisted computed columns carry
+            this.capturedPairProbeKey.Should().NotBeNull();
+            this.capturedPairProbeKey!.EntityAType.Should().Be(pairRequest.EntityAType);
+            this.capturedPairProbeKey.EntityBType.Should().Be(pairRequest.EntityBType);
+            this.capturedPairProbeKey.EntityAEffectiveId.Should().Be(pairRequest.EntityAGroupId);
+            this.capturedPairProbeKey.EntityBEffectiveId.Should().Be(pairRequest.EntityBKeyId);
+            this.capturedPairProbeKey.UserId.Should().Be(pairRequest.UserId);
         }
 
         [Fact]
         public async Task ShouldReturnNullWhenThePairIsUnoccupiedAsync()
         {
-            // given: the store holds only a row for a DIFFERENT pair
+            // given: nothing occupies the key
             Association pairRequest = CreateResolvedPairRequest();
-
-            Association otherPairRow = CreateStoredRowForPair(
-                CreateResolvedPairRequest(), ApprovalStatus.Approved, isDeleted: false);
-
-            this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new[] { otherPairRow }.AsQueryable());
+            SetupPairProbe(match: null);
 
             // when
             AssociationPairMatch? actualMatch =
@@ -138,85 +184,26 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     pairRequest,
                     TestContext.Current.CancellationToken);
 
-            // then
+            // then: null, not an error — the caller inserts on a free pair
             actualMatch.Should().BeNull();
         }
 
+        /// <summary>
+        /// The projection carries the PROVENANCE of a soft-deleted row — CreatedBy and DeletedBy —
+        /// so the resurrect rule can tell its own withdrawal from a moderator takedown.
+        /// </summary>
         [Fact]
-        public async Task ShouldSeeAnotherUsersPendingRowBecauseTheProbeIsUnfilteredAsync()
+        public async Task ShouldProjectTheProvenanceOfASoftDeletedRowAsync()
         {
-            // given: a pending row belonging to a DIFFERENT author. The read posture hides it
-            // from the current caller, so a visibility-filtered lookup would miss it and let the
-            // duplicate through — the whole reason the probe reads the unfiltered store.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
-
-            Association pairRequest = CreateResolvedPairRequest();
-
-            Association anotherUsersRow = CreateStoredRowForPair(
-                pairRequest, ApprovalStatus.Submitted, isDeleted: false);
-            anotherUsersRow.CreatedBy = $"someone-else-{Guid.NewGuid()}";
-
-            this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new[] { anotherUsersRow }.AsQueryable());
-
-            // when
-            AssociationPairMatch? actualMatch =
-                await this.associationService.FindAssociationByPairAsync(
-                    pairRequest,
-                    TestContext.Current.CancellationToken);
-
-            // then: found despite belonging to another user
-            actualMatch.Should().NotBeNull();
-            actualMatch!.Id.Should().Be(anotherUsersRow.Id);
-            actualMatch.ApprovalStatus.Should().Be(ApprovalStatus.Submitted);
-        }
-
-        [Fact]
-        public async Task ShouldPreferTheLiveRowOverASoftDeletedOneOnTheSamePairAsync()
-        {
-            // given: both a soft-deleted row and a live row occupy the pair (the unique index
-            // filters WHERE IsDeleted = 0, so a live row can coexist with deleted ones). The
-            // probe must return the LIVE one — that is the row a resubmission collides with.
-            Association pairRequest = CreateResolvedPairRequest();
-
-            Association deletedRow = CreateStoredRowForPair(
-                pairRequest, ApprovalStatus.Rejected, isDeleted: true);
-
-            Association liveRow = CreateStoredRowForPair(
-                pairRequest, ApprovalStatus.Approved, isDeleted: false);
-
-            this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new[] { deletedRow, liveRow }.AsQueryable());
-
-            // when
-            AssociationPairMatch? actualMatch =
-                await this.associationService.FindAssociationByPairAsync(
-                    pairRequest,
-                    TestContext.Current.CancellationToken);
-
-            // then
-            actualMatch.Should().NotBeNull();
-            actualMatch!.Id.Should().Be(liveRow.Id);
-            actualMatch.IsDeleted.Should().BeFalse();
-        }
-
-        [Fact]
-        public async Task ShouldReturnTheSoftDeletedRowWithItsProvenanceWhenNoLiveRowExistsAsync()
-        {
-            // given: only a soft-deleted row occupies the pair. The probe returns it — including
-            // its CreatedBy and DeletedBy — so the resurrect rule can decide whether to restore
-            // (own row) or refuse (a moderator takedown).
+            // given
             Association pairRequest = CreateResolvedPairRequest();
 
             Association deletedRow = CreateStoredRowForPair(
                 pairRequest, ApprovalStatus.Draft, isDeleted: true);
+
             deletedRow.DeletedBy = $"moderator-{Guid.NewGuid()}";
 
-            this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new[] { deletedRow }.AsQueryable());
+            SetupPairProbe(deletedRow);
 
             // when
             AssociationPairMatch? actualMatch =
@@ -232,89 +219,67 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             actualMatch.DeletedBy.Should().Be(deletedRow.DeletedBy);
         }
 
+        /// <summary>
+        /// NORMALISATION IS STILL THE SERVICE'S, which is why this test stayed here when the
+        /// predicate left. A caller cannot replicate the canonical order (it is an ordinal
+        /// type-name / SqlGuid comparison), so a reversed-order request is an ordinary input; if
+        /// the service did not canonicalise before asking, the storage layer would be handed a key
+        /// no stored row carries — and against a takedown row, whose unique index filters
+        /// WHERE IsDeleted = 0, the insert that followed would launder it.
+        ///
+        /// <para>Stated as an equality between the two keys rather than against a predicted
+        /// canonical order, so the test does not restate the ordering rule it is checking.</para>
+        /// </summary>
         [Fact]
-        public async Task ShouldMatchTheCanonicalRowWhenTheRequestEndpointsAreReversedAsync()
+        public async Task ShouldProbeTheSameKeyWhenTheRequestEndpointsAreReversedAsync()
         {
-            // given: the store holds one canonical row; the request arrives with its endpoints the
-            // other way round. Stored rows are canonicalized on write, so an orientation-sensitive
-            // probe would miss this and let the orchestration insert a colliding duplicate.
+            // given
             Association canonicalRequest = CreateResolvedPairRequest();
+            Association reversedRequest = ReverseEndpoints(canonicalRequest);
 
             Association storageRow = CreateStoredRowForPair(
                 canonicalRequest, ApprovalStatus.Approved, isDeleted: false);
 
-            Association reversedRequest = ReverseEndpoints(canonicalRequest);
-
-            this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new[] { storageRow }.AsQueryable());
+            SetupPairProbe(storageRow);
 
             // when
-            AssociationPairMatch? actualMatch =
+            await this.associationService.FindAssociationByPairAsync(
+                canonicalRequest,
+                TestContext.Current.CancellationToken);
+
+            PairProbeKey? canonicalProbeKey = this.capturedPairProbeKey;
+
+            SetupPairProbe(storageRow);
+
+            AssociationPairMatch? reversedMatch =
                 await this.associationService.FindAssociationByPairAsync(
                     reversedRequest,
                     TestContext.Current.CancellationToken);
 
-            // then: found despite the reversed input order
-            actualMatch.Should().NotBeNull();
-            actualMatch!.Id.Should().Be(storageRow.Id);
-            actualMatch.ApprovalStatus.Should().Be(ApprovalStatus.Approved);
+            // then: the same key both times, so the reversed request finds the canonical row
+            canonicalProbeKey.Should().NotBeNull();
+            this.capturedPairProbeKey.Should().Be(canonicalProbeKey);
+
+            reversedMatch.Should().NotBeNull();
+            reversedMatch!.Id.Should().Be(storageRow.Id);
         }
 
+        /// <summary>
+        /// UserId is part of the key, and the EDITORIAL row carries none. Passing it through
+        /// rather than defaulting it is what keeps one person's association out of another's
+        /// probe — and a null that became an empty string would key on a value no row holds.
+        /// </summary>
         [Fact]
-        public async Task ShouldSeeASoftDeletedTakedownRowWhenTheRequestEndpointsAreReversedAsync()
+        public async Task ShouldCarryTheRequestUserIdIntoTheProbeIncludingWhenItIsAbsentAsync()
         {
-            // given: a soft-deleted moderator-takedown row in canonical order, and a reversed-order
-            // resubmission. The unique index filters WHERE IsDeleted = 0, so the DB would NOT block
-            // a normalized insert — only the probe seeing this row stops the takedown being
-            // laundered. An orientation-sensitive probe would miss it and launder a fresh live row.
-            Association canonicalRequest = CreateResolvedPairRequest();
-
-            Association takedownRow = CreateStoredRowForPair(
-                canonicalRequest, ApprovalStatus.Rejected, isDeleted: true);
-            takedownRow.DeletedBy = $"moderator-{Guid.NewGuid()}";
-
-            Association reversedRequest = ReverseEndpoints(canonicalRequest);
-
-            this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new[] { takedownRow }.AsQueryable());
-
-            // when
-            AssociationPairMatch? actualMatch =
-                await this.associationService.FindAssociationByPairAsync(
-                    reversedRequest,
-                    TestContext.Current.CancellationToken);
-
-            // then: the takedown row is seen despite the reversed input order
-            actualMatch.Should().NotBeNull();
-            actualMatch!.Id.Should().Be(takedownRow.Id);
-            actualMatch.IsDeleted.Should().BeTrue();
-        }
-
-        [Fact]
-        public async Task ShouldMatchOnlyTheRowWithTheSameUserIdWhenPairsCollideOnUserAsync()
-        {
-            // given: the same canonical pair carries two live rows differing ONLY by UserId — legal
-            // because UserId is part of the unique index (an editorial row with no user, and a
-            // per-user reaction row). A probe for the editorial (null-user) pair must return the
-            // editorial row, not the newer reaction row — pinning the UserId conjunct of the match.
+            // given
             Association editorialRequest = CreateResolvedPairRequest();
             editorialRequest.UserId = null;
 
             Association editorialRow = CreateStoredRowForPair(
                 editorialRequest, ApprovalStatus.Approved, isDeleted: false);
-            editorialRow.UpdatedWhen = new DateTimeOffset(2020, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
-            Association reactionRow = CreateStoredRowForPair(
-                editorialRequest, ApprovalStatus.Submitted, isDeleted: false);
-            reactionRow.UserId = $"user-{Guid.NewGuid()}";
-            reactionRow.UpdatedWhen = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
-            reactionRow = WithDatabaseComputedEffectiveIds(reactionRow);
-
-            this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new[] { reactionRow, editorialRow }.AsQueryable());
+            SetupPairProbe(editorialRow);
 
             // when
             AssociationPairMatch? actualMatch =
@@ -322,11 +287,38 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     editorialRequest,
                     TestContext.Current.CancellationToken);
 
-            // then: the editorial row, not the newer reaction row (which a dropped UserId filter
-            // would return by the most-recent tie-break)
+            // then
             actualMatch.Should().NotBeNull();
             actualMatch!.Id.Should().Be(editorialRow.Id);
-            actualMatch.ApprovalStatus.Should().Be(ApprovalStatus.Approved);
+
+            this.capturedPairProbeKey.Should().NotBeNull();
+            this.capturedPairProbeKey!.UserId.Should().BeNull();
+        }
+
+        /// <summary>
+        /// The token reaches the database call — the point of the narrow read.
+        /// </summary>
+        [Fact]
+        public async Task ShouldPassTheCancellationTokenToTheStorageBrokerOnFindByPairAsync()
+        {
+            // given
+            Association pairRequest = CreateResolvedPairRequest();
+            using var cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken inputCancellationToken = cancellationTokenSource.Token;
+
+            SetupPairProbe(match: null);
+
+            // when
+            await this.associationService.FindAssociationByPairAsync(
+                pairRequest,
+                inputCancellationToken);
+
+            // then
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAssociationByPairAsync(
+                    It.IsAny<EntityType>(), It.IsAny<EntityType>(), It.IsAny<Guid>(),
+                    It.IsAny<Guid>(), It.IsAny<string>(), inputCancellationToken),
+                Times.Once);
         }
 
         [Fact]
@@ -356,7 +348,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             actualException.Should().BeEquivalentTo(expectedAssociationValidationException);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()),
+                broker.SelectAssociationByPairAsync(
+                    It.IsAny<EntityType>(), It.IsAny<EntityType>(), It.IsAny<Guid>(),
+                    It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
                 Times.Never);
         }
 
@@ -390,7 +384,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             actualException.Should().BeEquivalentTo(expectedAssociationValidationException);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()),
+                broker.SelectAssociationByPairAsync(
+                    It.IsAny<EntityType>(), It.IsAny<EntityType>(), It.IsAny<Guid>(),
+                    It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
                 Times.Never);
         }
 
@@ -413,7 +409,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             // then
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()),
+                broker.SelectAssociationByPairAsync(
+                    It.IsAny<EntityType>(), It.IsAny<EntityType>(), It.IsAny<Guid>(),
+                    It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
                 Times.Never);
         }
 
@@ -434,7 +432,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             await Assert.ThrowsAsync<OperationCanceledException>(findTask.AsTask);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()),
+                broker.SelectAssociationByPairAsync(
+                    It.IsAny<EntityType>(), It.IsAny<EntityType>(), It.IsAny<Guid>(),
+                    It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
                 Times.Never);
 
             // pins WHERE the guard sits, not merely that it exists. The operation mints an

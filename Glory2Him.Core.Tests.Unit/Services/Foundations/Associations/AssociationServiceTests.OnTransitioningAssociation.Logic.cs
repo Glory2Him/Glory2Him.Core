@@ -344,8 +344,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             // no row occupies the key the toggle moves onto
             this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new List<Association>().AsQueryable());
+                broker.ExistsLiveAssociationOnPairAsync(
+                    It.IsAny<EntityType>(), It.IsAny<EntityType>(), It.IsAny<string>(),
+                    It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(false);
 
             // when
             EventEnvelope<Association>? actualReplyEnvelope =
@@ -369,11 +372,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 EventBrokerIdentifiers.AssociationOnSettingAssociationScopeSubscriptionName,
                 storageAssociation);
 
-            // set-scope is the one transition that reads the collection: a scope toggle moves
-            // the row's effective id, so it re-runs the pair-uniqueness check an add relies on
-            // the index for
+            // set-scope is the one transition that probes for a colliding pair: a scope toggle
+            // moves the row's effective id, so it re-runs the pair-uniqueness check an add relies
+            // on the index for
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()),
+                broker.ExistsLiveAssociationOnPairAsync(
+                    It.IsAny<EntityType>(), It.IsAny<EntityType>(), It.IsAny<string>(),
+                    It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.storageBrokerMock.VerifyNoOtherCalls();

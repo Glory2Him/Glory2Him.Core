@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using EFxceptions.Models.Exceptions;
@@ -26,6 +27,9 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviewRequests
     {
         private delegate ValueTask<ApprovalReviewRequest> ReturningApprovalReviewRequestFunction();
         private delegate ValueTask<IQueryable<ApprovalReviewRequest>> ReturningApprovalReviewRequestsFunction();
+
+        private delegate ValueTask<IReadOnlyList<ApprovalReviewRequest>>
+            ReturningApprovalReviewRequestListFunction();
 
         private delegate ValueTask<EventEnvelope<ApprovalReviewRequest>?>
             ReturningApprovalReviewRequestEventEnvelopeFunction();
@@ -284,6 +288,54 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviewRequests
             try
             {
                 return await returningApprovalReviewRequestsFunction();
+            }
+            catch (OperationCanceledException operationCanceledException)
+                when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
+            {
+                var timeoutException =
+                    new TimeoutException("The dependency operation timed out.");
+
+                var timeoutApprovalReviewRequestException =
+                    new TimeoutApprovalReviewRequestException(
+                        message: "Failed approval review request timeout error occurred, contact support.",
+                        innerException: timeoutException,
+                        data: timeoutException.Data);
+
+                throw await CreateAndLogTimeoutDependencyExceptionAsync(exception: timeoutApprovalReviewRequestException);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SqlException sqlException)
+            {
+                var failedStorageApprovalReviewRequestException = new FailedStorageApprovalReviewRequestException(
+                    message: "Failed approval review request storage error occurred, contact support.",
+                    innerException: sqlException,
+                    data: sqlException.Data);
+
+                throw await CreateAndLogCriticalDependencyExceptionAsync(exception: failedStorageApprovalReviewRequestException);
+            }
+            catch (Exception exception)
+            {
+                var failedApprovalReviewRequestServiceException = new FailedApprovalReviewRequestServiceException(
+                    message: "Failed approval review request service error occurred, please contact support.",
+                    innerException: exception,
+                    data: exception.Data);
+
+                throw await CreateAndLogServiceExceptionAsync(failedApprovalReviewRequestServiceException);
+            }
+        }
+
+        // The same taxonomy the queryable read is wrapped in, over a materialised result. The
+        // two must not diverge: they answer the same question about the same table and differ
+        // only in where the query is executed.
+        private async ValueTask<IReadOnlyList<ApprovalReviewRequest>> TryCatch(
+            ReturningApprovalReviewRequestListFunction returningApprovalReviewRequestListFunction)
+        {
+            try
+            {
+                return await returningApprovalReviewRequestListFunction();
             }
             catch (OperationCanceledException operationCanceledException)
                 when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
