@@ -168,6 +168,17 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
                     content: retrievedContentItemSetting);
             });
 
+        // The deduplication question on its own, for the layer above. Same receiver name and same
+        // storage probe the Adding handler uses, so the two cannot answer differently — asking it
+        // twice is a repeated read, not a second rule.
+        public async ValueTask<bool> HasAlreadyAddedContentItemSettingAsync(
+            EventEnvelope<ContentItemSetting> envelope,
+            CancellationToken cancellationToken = default) =>
+            await AlreadyProcessedAsync(
+                envelope: envelope,
+                receiverName: EventBrokerIdentifiers.ContentItemSettingOnAddingContentItemSettingSubscriptionName,
+                cancellationToken: cancellationToken);
+
         private async ValueTask<bool> AlreadyProcessedAsync(
             EventEnvelope<ContentItemSetting> envelope,
             string receiverName,

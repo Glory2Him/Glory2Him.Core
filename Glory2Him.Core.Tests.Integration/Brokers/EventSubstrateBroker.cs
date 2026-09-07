@@ -40,6 +40,7 @@ using Glory2Him.Core.Services.Foundations.Links;
 using Glory2Him.Core.Services.Foundations.Reactions;
 using Glory2Him.Core.Services.Foundations.Tags;
 using Glory2Him.Core.Services.Orchestrations.Approvals;
+using Glory2Him.Core.Services.Orchestrations.ContentItemSettings;
 using Glory2Him.Core.Services.Processings.ContentItems;
 using Glory2Him.Core.Services.Processings.Links;
 using Microsoft.Data.SqlClient;
@@ -173,6 +174,13 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
             Provide<IApprovalSettingService>(new Mock<IApprovalSettingService>().Object);
             Provide<IAssociationService>(new Mock<IAssociationService>().Object);
             Provide<IContentItemSettingService>(new Mock<IContentItemSettingService>().Object);
+
+            // ContentItemSetting-Adding binds the ORCHESTRATION, not the foundation (#456), so
+            // this entry is what keeps that delivery resolvable — the comment above is the rule
+            // it satisfies. Missing, the Adding address throws mid-delivery and is recorded as a
+            // failed delivery with nothing surfacing.
+            Provide<IContentItemSettingOrchestrationService>(
+                new Mock<IContentItemSettingOrchestrationService>().Object);
             Provide<IContentItemProcessingService>(new Mock<IContentItemProcessingService>().Object);
             Provide<ILinkProcessingService>(new Mock<ILinkProcessingService>().Object);
             Provide<IApprovalOrchestrationService>(ApprovalOrchestrationService);

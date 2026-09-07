@@ -45,6 +45,7 @@ using Glory2Him.Core.Services.Foundations.Links;
 using Glory2Him.Core.Services.Foundations.Reactions;
 using Glory2Him.Core.Services.Foundations.Tags;
 using Glory2Him.Core.Services.Orchestrations.Approvals;
+using Glory2Him.Core.Services.Orchestrations.ContentItemSettings;
 using Glory2Him.Core.Services.Processings.ContentItems;
 using Glory2Him.Core.Services.Processings.Links;
 
@@ -1627,6 +1628,19 @@ namespace Glory2Him.Core.Registrations
                 cancellationToken: cancellationToken);
 
             // ── ContentItemSetting request handlers ──────────────────────────────
+            // ADD BINDS THE ORCHESTRATION; the other four bind the foundation, and the split is
+            // the point (#456). An override's ContentType is an authorization input — the write
+            // gate composes the publisher tier out of it (§12.5.2 business rule 6) — and it is
+            // DERIVED from the content item the row names, which is a second entity type and
+            // therefore lives one tier up. While this line named IContentItemSettingService, an
+            // add request published to this address reached the foundation's write gate with the
+            // caller's own ContentType still on the row, and every consequence #450 exists to
+            // remove was reachable that way even though the HTTP path had been fixed.
+            //
+            // Nothing else on this entity has a caller claim left to derive: modify pins both
+            // scope fields against the stored row, both removals and the retrieve read it. Those
+            // four are foundation-level and stay bound there rather than gaining a forwarding
+            // layer (§12.1).
             await this.eventBroker.SubscribeToContentItemSettingEventAsync(
                 subscription: new EventSubscription
                 {
@@ -1636,12 +1650,13 @@ namespace Glory2Him.Core.Registrations
                     Name = EventBrokerIdentifiers
                         .ContentItemSettingOnAddingContentItemSettingSubscriptionName,
 
-                    Description = "Handles add requests: stores the content item setting, " +
-                        "publishes ContentItemSetting-Added, and replies with the added entity."
+                    Description = "Handles add requests: derives an override's content type from " +
+                        "the content item it names, stores the content item setting, publishes " +
+                        "ContentItemSetting-Added, and replies with the added entity."
                 },
                 operation: ContentItemSettingEventOperation.Adding,
                 contentItemSettingEventHandler:
-                    Scoped<IContentItemSettingService, ContentItemSetting>(
+                    Scoped<IContentItemSettingOrchestrationService, ContentItemSetting>(
                         service => service.OnAddingContentItemSettingAsync),
                 cancellationToken: cancellationToken);
 

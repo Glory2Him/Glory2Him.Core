@@ -177,6 +177,34 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     cancellationToken: cancellationToken);
             });
 
+        // The identity-CARRYING twin of the read above. Same do-work, same visibility posture —
+        // the only difference is where the SecurityContext it is evaluated against comes from.
+        // The overload above mints one, which reads the ambient caller; this one is handed the
+        // envelope the reader is already acting under, so the subject stays the one that envelope
+        // was signed for. See the interface for why the event path cannot use the other (#456).
+        public ValueTask<ContentItem> RetrieveContentItemByIdAsync<TSource>(
+            Guid contentItemId,
+            EventEnvelope<TSource> inboundEnvelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // Chained off the reader's envelope, so the ORIGINAL caller's identity travels
+                // with it and causation stays linked. CreateNextAsync copies the security
+                // context forward; it does not mint one — which is the whole difference from
+                // the overload above.
+                EventEnvelope<ContentItem> readEnvelope =
+                    await this.eventEnvelopeBroker.CreateNextAsync(
+                        sourceEnvelope: inboundEnvelope,
+                        content: new ContentItem { Id = contentItemId });
+
+                return await DoRetrieveContentItemByIdAsync(
+                    contentItemId: contentItemId,
+                    inboundEnvelope: readEnvelope,
+                    cancellationToken: cancellationToken);
+            });
+
         public ValueTask<ContentItem> ModifyContentItemAsync(
             ContentItem contentItem,
             CancellationToken cancellationToken = default) =>

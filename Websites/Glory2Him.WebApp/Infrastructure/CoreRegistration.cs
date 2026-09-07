@@ -199,6 +199,10 @@ namespace Glory2Him.WebApp.Infrastructure
             // The layer the settings exposer binds to (§12.1: a caller binds to the
             // highest layer that exists). It derives an override's ContentType from the
             // content item it names, which is why it needs the ContentItem service too.
+            //
+            // The ContentItemSetting-Adding SUBSCRIPTION resolves it too (#456), so this
+            // registration is now load-bearing on both entry paths rather than only on the
+            // controller's — an unregistered service would fail a delivery silently.
             services.AddScoped<
                 IContentItemSettingOrchestrationService,
                 ContentItemSettingOrchestrationService>();
