@@ -136,7 +136,6 @@ describe('approvalCommentService', () => {
         // author before. Missing the last one rendered the row that just landed as "Unknown
         // author" until something else happened to refetch.
         it.each([
-            ['ApprovalComments'],
             ['ApprovalVerdict'],
             ['ReviewerDisplayNames']
         ])('should invalidate %s after a comment is added', async (queryKey) => {
@@ -155,11 +154,89 @@ describe('approvalCommentService', () => {
                 });
             });
 
-            // then
+            // then: these two are invalidated by PREFIX, so the key's tail is not the claim
             expect(invalidateQueries).toHaveBeenCalledWith(
                 expect.objectContaining({
                     queryKey: expect.arrayContaining([queryKey])
                 }));
+        });
+
+        // THE THREAD'S KEY IS ASSERTED WHOLE, unlike the two above. arrayContaining ignores the
+        // second element, and the second element is the only part that says WHICH thread — so an
+        // add that invalidated ['ApprovalComments', ''] would satisfy a looser assertion while
+        // matching no cached thread, leaving the row the moderator just wrote invisible until
+        // something unrelated refetched. Add is also the one write that takes the id from its own
+        // variables rather than off the response, so nothing else constrains that derivation.
+        it('should invalidate the thread of the approval the new comment belongs to', async () => {
+            // given
+            const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+
+            const { result } = renderHook(
+                () => approvalCommentService.useAddApprovalComment(), { wrapper });
+
+            // when
+            await act(async () => {
+                await result.current.mutateAsync({
+                    approvalId: 'approval-1',
+                    comment: 'anything',
+                    commentType: ApprovalCommentType.Comment
+                });
+            });
+
+            // then
+            expect(invalidateQueries).toHaveBeenCalledWith(
+                { queryKey: ['ApprovalComments', 'approval-1'] });
+        });
+
+        // The other two writes take the id off the RESPONSE, since neither caller holds it. Left
+        // unasserted, a write that invalidated the wrong thread would leave the row the reader
+        // just changed on screen in its old form.
+        it('should key the thread invalidation off the response on a modify', async () => {
+            // given
+            const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+
+            const { result } = renderHook(
+                () => approvalCommentService.useModifyApprovalComment(), { wrapper });
+
+            // when
+            await act(async () => {
+                await result.current.mutateAsync({
+                    id: 'comment-1',
+                    approvalId: 'approval-1',
+                    comment: 'Amended.',
+                    commentType: ApprovalCommentType.Comment,
+                    isResolved: false,
+                    createdBy: 'user-john',
+                    createdWhen: '2026-08-27T09:00:00Z',
+                    updatedBy: 'user-john',
+                    updatedWhen: '2026-08-27T09:00:00Z',
+                    isDeleted: false
+                });
+            });
+
+            // then
+            expect(invalidateQueries).toHaveBeenCalledWith(
+                { queryKey: ['ApprovalComments', 'approval-1'] });
+        });
+
+        it('should key the thread invalidation off the response on a remove', async () => {
+            // given
+            const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+
+            const { result } = renderHook(
+                () => approvalCommentService.useRemoveApprovalComment(), { wrapper });
+
+            // when
+            await act(async () => {
+                await result.current.mutateAsync({
+                    approvalCommentId: 'comment-1',
+                    deletionReason: 'Withdrawn by the author'
+                });
+            });
+
+            // then
+            expect(invalidateQueries).toHaveBeenCalledWith(
+                { queryKey: ['ApprovalComments', 'approval-1'] });
         });
 
         it('should key the thread invalidation on the approval the row belongs to', async () => {

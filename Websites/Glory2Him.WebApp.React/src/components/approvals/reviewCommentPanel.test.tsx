@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import { ReactElement } from 'react';
@@ -243,8 +243,16 @@ describe('ReviewCommentPanel', () => {
             expect(screen.getByRole('radio', { name: 'Question' })).toBeChecked();
         });
 
+        // ORDERING, which needs a save that is still IN FLIGHT to observe. Handed an
+        // already-resolved promise this test asserted nothing the one above it did not: clearing
+        // BEFORE the await and clearing after it look identical once the microtask queue drains.
+        // The deferred promise is the whole point — between the click and the resolve, the box
+        // must still hold the reader's words.
         it('should clear the box only after an awaited save resolves', async () => {
-            const saved = vi.fn().mockResolvedValue(undefined);
+            let releaseSave: () => void = () => { };
+
+            const saved = vi.fn().mockReturnValue(
+                new Promise<void>((resolve) => { releaseSave = resolve; }));
 
             renderPanel(<ReviewCommentPanel approvalId={approvalId} onSave={saved} />);
 
@@ -252,6 +260,12 @@ describe('ReviewCommentPanel', () => {
             await userEvent.type(box, 'a remark');
             await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
+            // in flight: raised, and the words are still there to be recovered
+            expect(saved).toHaveBeenCalledOnce();
+            expect(box).toHaveValue('a remark');
+
+            // and only now
+            await act(async () => { releaseSave(); });
             expect(box).toHaveValue('');
         });
 

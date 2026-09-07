@@ -8,6 +8,12 @@ import { ReviewerDisplayName } from '../../../models/foundations/approvals/appro
 // tests hand the panel finished items, and the page test mocks the service that produces them —
 // so the one place the wire row becomes a rendered row had no coverage at all until this file.
 
+// THE TWO AUDIT PAIRS MUST DIFFER, and the fixture is the only place that can make them. With
+// createdBy === updatedBy and createdWhen === updatedWhen, every assertion below passes just as
+// happily against the UPDATE columns — and repointing the projection at those is a real defect,
+// not a hypothetical: UpdatedBy is stamped by whoever last WROTE the row, so a publisher who
+// settles somebody's question would become its author, and the panel offers Edit and Delete on
+// authorId. Distinct values here are what make that mutation fail.
 const approvalComment = (overrides: Partial<ApprovalComment> = {}): ApprovalComment => ({
     id: 'comment-1',
     approvalId: 'approval-1',
@@ -16,14 +22,17 @@ const approvalComment = (overrides: Partial<ApprovalComment> = {}): ApprovalComm
     isResolved: false,
     createdBy: 'user-john',
     createdWhen: '2026-08-27T09:00:00Z',
-    updatedBy: 'user-john',
-    updatedWhen: '2026-08-27T09:00:00Z',
+    updatedBy: 'user-publisher',
+    updatedWhen: '2026-08-28T16:30:00Z',
     isDeleted: false,
     ...overrides
 });
 
+// user-publisher is answerable too, so a projection that read the UPDATE author would resolve a
+// NAME rather than falling back — the fallback would otherwise mask the mistake.
 const names: ReadonlyArray<ReviewerDisplayName> = [
-    { userId: 'user-john', displayName: 'John Mensah', userName: 'jmensah' }
+    { userId: 'user-john', displayName: 'John Mensah', userName: 'jmensah' },
+    { userId: 'user-publisher', displayName: 'Ada Okoro', userName: 'aokoro' }
 ];
 
 describe('toReviewCommentItems', () => {
@@ -39,12 +48,13 @@ describe('toReviewCommentItems', () => {
             commentType: ApprovalCommentType.Question,
             isResolved: false,
 
-            // CreatedBy is the author — the audit name, not a reviewer column
+            // CreatedBy is the author — the audit name, not a reviewer column, and not
+            // UpdatedBy, which belongs to whoever last touched the row
             authorId: 'user-john',
             authorDisplayName: 'John Mensah',
             authorUserName: 'jmensah',
             createdWhen: '2026-08-27T09:00:00Z',
-            updatedWhen: '2026-08-27T09:00:00Z'
+            updatedWhen: '2026-08-28T16:30:00Z'
         });
     });
 

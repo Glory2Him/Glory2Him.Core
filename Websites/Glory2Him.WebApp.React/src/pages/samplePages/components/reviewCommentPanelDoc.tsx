@@ -50,7 +50,7 @@ const {
     contentType={ContentType[contentItem.contentType] ?? ''}
     isLoading={areReviewCommentsLoading}
     isSubmitting={addComment.isPending || resolveComment.isPending}
-    onSave={(draft) => void saveAsync(draft)}
+    onSave={saveAsync}
     onModified={(item) => void modifyAsync(item)}
     onRemoveRequested={setCommentToRemove}
     onResolvedChanged={(item, isResolved) => void resolveAsync(item, isResolved)}
@@ -452,9 +452,12 @@ const panelProps: ReadonlyArray<ComponentPropRow> = [
     },
     {
         name: 'onSave',
-        type: '(draft: ReviewCommentDraft) => void',
+        type: '(draft: ReviewCommentDraft) => void | Promise<void>',
         description: 'A new comment: the words, the chosen type and the approvalId. Raised only '
-            + 'once the panel has refused a blank one and cleared its box.'
+            + 'once the panel has refused a blank one. MAY RETURN A PROMISE, and if it does the '
+            + 'panel waits on it and clears the box only when it resolves — so pass the handler '
+            + 'BY REFERENCE rather than wrapping it in void(...), and rethrow after your own '
+            + 'toast. Voiding it throws the reader’s words away on a refused write.'
     },
     {
         name: 'onClear',
