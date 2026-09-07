@@ -26,6 +26,18 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
 {
     public partial class LinkServiceTests
     {
+        // WHAT THESE TESTS CAN AND CANNOT SAY. They stub the narrow storage reads, so they sit
+        // ABOVE the predicate rather than at it — "does this read filter tombstones" is no longer
+        // answerable here, and the stubs below deliberately do not pretend otherwise. That
+        // question is answered against a real catalogue in LinkNarrowReadTests.
+        //
+        // What is still proved here is the half the SERVICE owns and the broker cannot: that the
+        // group is taken off the STORED row rather than from the caller, that the target excludes
+        // itself, and that the high-water mark counts what it is handed. That distinction matters
+        // because of how the original defect survived — the swap used the visibility-filtered
+        // collection read while its test stubbed that read to return the tombstone anyway. A stub
+        // that re-implements the predicate reproduces exactly that blind spot.
+
         /// <summary>
         /// A bad id is the CALLER's fault and must be reported as one. The guard lives inside
         /// TryCatchList, which originally had no Invalid/Unauthorized arm - so the exception fell
@@ -56,17 +68,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
                 Times.Never);
         }
 
-        // WHAT THESE TESTS CAN AND CANNOT SAY. They stub the narrow storage reads, so they sit
-        // ABOVE the predicate rather than at it — "does this read filter tombstones" is no longer
-        // answerable here, and the stubs below deliberately do not pretend otherwise. That
-        // question is answered against a real catalogue in LinkNarrowReadTests.
-        //
-        // What is still proved here is the half the SERVICE owns and the broker cannot: that the
-        // group is taken off the STORED row rather than from the caller, that the target excludes
-        // itself, and that the high-water mark counts what it is handed. That distinction matters
-        // because of how the original defect survived — the swap used the visibility-filtered
-        // collection read while its test stubbed that read to return the tombstone anyway. A stub
-        // that re-implements the predicate reproduces exactly that blind spot.
         [Fact]
         public async Task ShouldReturnWhateverRowHoldsTheGroupSlotAsync()
         {
@@ -136,19 +137,34 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
                 Times.Once);
         }
 
+        /// <summary>
+        /// A free slot answers null rather than reaching for another group's incumbent. The store
+        /// deliberately HAS a published row - in a different group - and names it as the row the
+        /// slot read would return, so the group the service passes is the only thing that refuses
+        /// it. Seeding nothing published would have made this pass whatever the service asked for.
+        /// </summary>
         [Fact]
         public async Task ShouldFindNoPublishedRowWhenTheGroupSlotIsFreeAsync()
         {
             // given
             var groupId = Guid.Parse("eeeeeeee-1111-1111-1111-111111111111");
             var targetId = Guid.Parse("eeeeeeee-3333-3333-3333-333333333333");
+            var otherGroupIncumbentId = Guid.Parse("eeeeeeee-4444-4444-4444-444444444444");
+
+            this.publishedLinkId = otherGroupIncumbentId;
 
             SetupProbeStore(
                 CreateProbeRow(
                     id: Guid.Parse("eeeeeeee-2222-2222-2222-222222222222"),
                     groupId: groupId, isPublished: false, isDeleted: false),
                 CreateProbeRow(
-                    id: targetId, groupId: groupId, isPublished: false, isDeleted: false));
+                    id: targetId, groupId: groupId, isPublished: false, isDeleted: false),
+
+                // published, and the slot read would name it - but it is another group's
+                CreateProbeRow(
+                    id: otherGroupIncumbentId,
+                    groupId: Guid.Parse("eeeeeeee-9999-9999-9999-999999999999"),
+                    isPublished: true, isDeleted: false));
 
             // when
             Guid? actualId = await this.linkService.FindPublishedSiblingLinkIdAsync(
@@ -158,6 +174,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
 
             // then
             actualId.Should().BeNull();
+
+            // and the group it asked about was the STORED row's, not the caller's
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectPublishedLinkInGroupAsync(
+                    groupId, targetId, It.IsAny<CancellationToken>()),
+                Times.Once);
         }
 
         [Fact]

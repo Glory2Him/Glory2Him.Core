@@ -353,7 +353,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
 
             var invalidContentItemProcessingException =
                 new InvalidContentItemProcessingException(
-                    message: "Only the latest version of a content item may be modified.");
+                    message: "A newer version of this content item exists in its group, so this " +
+                        "version can no longer be modified. That version may not be visible " +
+                        "to you.");
 
             var expectedContentItemProcessingValidationException =
                 new ContentItemProcessingValidationException(

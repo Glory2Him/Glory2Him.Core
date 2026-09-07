@@ -91,7 +91,9 @@ namespace Glory2Him.Core.Services.Processings.Links
             if (isLatestVersion is false)
             {
                 throw new InvalidLinkProcessingException(
-                    message: "Only the latest version of a link may be modified.");
+                    message: "A newer version of this link exists in its group, so this " +
+                        "version can no longer be modified. That version may not be visible " +
+                        "to you.");
             }
 
             bool isOwner =
