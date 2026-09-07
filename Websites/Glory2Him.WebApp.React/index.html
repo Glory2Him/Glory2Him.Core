@@ -71,8 +71,11 @@
     <!-- PWA: installed-app icon and Android/iOS chrome colour. The manifest link and the
          theme-color meta tag are both injected by vite plugins at build time (see
          vite.config.ts's `themeColor` constant and inject-pwa-theme-color plugin) so the
-         colour has one source instead of two literals that can drift apart. -->
-    <link rel="apple-touch-icon" href="/pwa/pwa-192x192.png" />
+         colour has one source instead of two literals that can drift apart. iOS ignores the
+         manifest icons and reads the apple-touch-icon tag instead; it wants 180x180 with no
+         alpha channel (transparent pixels paint black on the home screen), so that file is the
+         512 flattened onto white rather than a reference to one of the manifest icons. -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/pwa/apple-touch-icon-180x180.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Glory 2 Him" />
 
