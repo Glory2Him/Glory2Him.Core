@@ -8,14 +8,38 @@ import axios, { AxiosResponse } from 'axios';
 export const NETWORK_REACHABLE_EVENT = 'g2h-network-reachable';
 export const NETWORK_UNREACHABLE_EVENT = 'g2h-network-unreachable';
 
+// This interceptor is registered on the shared axios module, so it sees every request the app
+// makes — not just the same-origin ones GetAsync/PostAsync/etc. build. GetAsyncAbsolute exists
+// for a caller-supplied absolute URI, which could be cross-origin; a third-party outage there
+// says nothing about whether OUR origin is reachable, so only same-origin requests get to
+// report connectivity.
+const isSameOriginUrl = (url: string | undefined): boolean => {
+    if (!url) {
+        return false;
+    }
+
+    try {
+        return new URL(url, window.location.origin).origin === window.location.origin;
+    } catch {
+        return false;
+    }
+};
+
 export const markNetworkReachable = (response: AxiosResponse): AxiosResponse => {
-    window.dispatchEvent(new Event(NETWORK_REACHABLE_EVENT));
+    if (isSameOriginUrl(response.config.url)) {
+        window.dispatchEvent(new Event(NETWORK_REACHABLE_EVENT));
+    }
 
     return response;
 };
 
 export const markNetworkUnreachableIfUnreachable = (error: unknown): Promise<never> => {
-    if (axios.isAxiosError(error) && !error.response) {
+    // A cancelled request (AbortController/CancelToken) never gets a response either, but that
+    // means "something else superseded this call," not "the network is down" — axios.isCancel
+    // is the documented way to tell the two apart. No caller passes a signal through ApiBroker
+    // today, so this only guards against the first one that does.
+    if (axios.isAxiosError(error) && !error.response && !axios.isCancel(error)
+        && isSameOriginUrl(error.config?.url)) {
         window.dispatchEvent(new Event(NETWORK_UNREACHABLE_EVENT));
     }
 

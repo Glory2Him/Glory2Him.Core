@@ -135,16 +135,36 @@ export default defineConfig({
                         },
                     },
                     {
-                        // The Blogzine theme's CSS/JS/vendor assets and Profile-Image reads: same
-                        // proxying rules as the dev server (see server.proxy below), served by the
-                        // ASP.NET Core host at the same origin in production. Without these cached,
-                        // an installed app that opens offline renders the shell unstyled. Matched
-                        // on pathname for the same reason as the rule above.
-                        urlPattern: ({ url }) => /^\/(assets|Profile-Image)\//.test(url.pathname),
+                        // The Blogzine theme's CSS/JS/vendor assets: same proxying rule as the dev
+                        // server (see server.proxy below), served by the ASP.NET Core host at the
+                        // same origin in production. Without these cached, an installed app that
+                        // opens offline renders the shell unstyled. Matched on pathname for the
+                        // same reason as the rule above.
+                        //
+                        // Kept in a cache of its own, separate from /Profile-Image/* below: this is
+                        // a small, fixed set (the theme ships ~400 files total) that Workbox's
+                        // expiration plugin evicts by global LRU within one cache, with no
+                        // per-prefix partitioning — sharing a quota with an open-ended, one-entry-
+                        // per-user source would let enough distinct avatars evict the very CSS/JS
+                        // this rule exists to keep around, silently reintroducing the unstyled-shell
+                        // failure. maxEntries is generous relative to the theme's actual file count
+                        // so a normal browsing session's asset mix never approaches the cap.
+                        urlPattern: ({ url }) => url.pathname.startsWith('/assets/'),
                         handler: 'StaleWhileRevalidate',
                         options: {
                             cacheName: 'host-assets',
-                            expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 },
+                            expiration: { maxEntries: 300, maxAgeSeconds: 60 * 60 * 24 * 30 },
+                        },
+                    },
+                    {
+                        // /Profile-Image/{userId}: one entry per distinct user ever viewed, so
+                        // unlike the fixed theme assets above this genuinely is open-ended — its own
+                        // cache and a much smaller cap keep its churn from ever touching host-assets.
+                        urlPattern: ({ url }) => url.pathname.startsWith('/Profile-Image/'),
+                        handler: 'StaleWhileRevalidate',
+                        options: {
+                            cacheName: 'profile-images',
+                            expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 7 },
                         },
                     },
                     {

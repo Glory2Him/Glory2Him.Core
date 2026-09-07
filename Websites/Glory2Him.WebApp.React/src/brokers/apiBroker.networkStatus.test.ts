@@ -11,10 +11,13 @@ import {
 // is actually reachable — these two functions are what apiBroker.ts wires into axios's response
 // interceptor so useOnlineStatus.ts can react to real request outcomes instead.
 describe('apiBroker network-status signalling', () => {
-    it('should announce reachability on a successful response', () => {
+    const sameOriginUrl = `${window.location.origin}/api/frontend-configurations`;
+    const crossOriginUrl = 'https://third-party.example/widget';
+
+    it('should announce reachability on a successful same-origin response', () => {
         // given
         const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
-        const response = { status: 200, data: {} } as never;
+        const response = { status: 200, data: {}, config: { url: sameOriginUrl } } as never;
 
         // when
         const result = markNetworkReachable(response);
@@ -25,12 +28,29 @@ describe('apiBroker network-status signalling', () => {
             expect.objectContaining({ type: NETWORK_REACHABLE_EVENT }));
     });
 
-    it('should announce unreachability when a request never got a response', async () => {
+    // GetAsyncAbsolute takes a caller-supplied absolute URI, so a same-origin API is not the
+    // only thing this interceptor could ever see — a third party's own reachability says
+    // nothing about ours.
+    it('should stay quiet for a successful cross-origin response', () => {
+        // given
+        const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
+        const response = { status: 200, data: {}, config: { url: crossOriginUrl } } as never;
+
+        // when
+        markNetworkReachable(response);
+
+        // then
+        expect(dispatchSpy).not.toHaveBeenCalledWith(
+            expect.objectContaining({ type: NETWORK_REACHABLE_EVENT }));
+    });
+
+    it('should announce unreachability when a same-origin request never got a response', async () => {
         // given
         const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
         const networkError = Object.assign(new Error('Network Error'), {
             isAxiosError: true,
-            response: undefined
+            response: undefined,
+            config: { url: sameOriginUrl }
         });
 
         // when
@@ -41,12 +61,47 @@ describe('apiBroker network-status signalling', () => {
             expect.objectContaining({ type: NETWORK_UNREACHABLE_EVENT }));
     });
 
+    it('should stay quiet for a cross-origin request that never got a response', async () => {
+        // given
+        const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
+        const networkError = Object.assign(new Error('Network Error'), {
+            isAxiosError: true,
+            response: undefined,
+            config: { url: crossOriginUrl }
+        });
+
+        // when
+        await expect(markNetworkUnreachableIfUnreachable(networkError)).rejects.toBe(networkError);
+
+        // then
+        expect(dispatchSpy).not.toHaveBeenCalledWith(
+            expect.objectContaining({ type: NETWORK_UNREACHABLE_EVENT }));
+    });
+
+    // A cancelled request (component unmount, a superseded call) never gets a response either,
+    // but that means "something else superseded this call", not "the network is down".
+    it('should stay quiet for a cancelled request', async () => {
+        // given
+        const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
+        const cancelError = Object.assign(new axios.CanceledError('canceled'), {
+            config: { url: sameOriginUrl }
+        });
+
+        // when
+        await expect(markNetworkUnreachableIfUnreachable(cancelError)).rejects.toBe(cancelError);
+
+        // then
+        expect(dispatchSpy).not.toHaveBeenCalledWith(
+            expect.objectContaining({ type: NETWORK_UNREACHABLE_EVENT }));
+    });
+
     it('should stay quiet for an HTTP error the server actually answered', async () => {
         // given: a 404/500 proves the network works, unlike a request that got no response at all
         const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
         const httpError = Object.assign(new Error('Request failed with status code 404'), {
             isAxiosError: true,
-            response: { status: 404, data: {} }
+            response: { status: 404, data: {} },
+            config: { url: sameOriginUrl }
         });
 
         // when
