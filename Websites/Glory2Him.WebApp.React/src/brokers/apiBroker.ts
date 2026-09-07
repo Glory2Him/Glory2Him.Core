@@ -12,21 +12,24 @@ export const NETWORK_UNREACHABLE_EVENT = 'g2h-network-unreachable';
 // makes — not just the same-origin ones GetAsync/PostAsync/etc. build. GetAsyncAbsolute exists
 // for a caller-supplied absolute URI, which could be cross-origin; a third-party outage there
 // says nothing about whether OUR origin is reachable, so only same-origin requests get to
-// report connectivity.
-const isSameOriginUrl = (url: string | undefined): boolean => {
-    if (!url) {
+// report connectivity. Resolved against config.baseURL (falling back to our own origin) rather
+// than just window.location.origin, so a same-origin *relative* url doesn't read as same-origin
+// by construction the day something ever points ApiBroker at a baseURL of its own.
+const isSameOriginRequest = (config: { url?: string; baseURL?: string } | undefined): boolean => {
+    if (!config?.url) {
         return false;
     }
 
     try {
-        return new URL(url, window.location.origin).origin === window.location.origin;
+        return new URL(config.url, config.baseURL ?? window.location.origin).origin
+            === window.location.origin;
     } catch {
         return false;
     }
 };
 
 export const markNetworkReachable = (response: AxiosResponse): AxiosResponse => {
-    if (isSameOriginUrl(response.config.url)) {
+    if (isSameOriginRequest(response.config)) {
         window.dispatchEvent(new Event(NETWORK_REACHABLE_EVENT));
     }
 
@@ -39,7 +42,7 @@ export const markNetworkUnreachableIfUnreachable = (error: unknown): Promise<nev
     // is the documented way to tell the two apart. No caller passes a signal through ApiBroker
     // today, so this only guards against the first one that does.
     if (axios.isAxiosError(error) && !error.response && !axios.isCancel(error)
-        && isSameOriginUrl(error.config?.url)) {
+        && isSameOriginRequest(error.config)) {
         window.dispatchEvent(new Event(NETWORK_UNREACHABLE_EVENT));
     }
 

@@ -142,18 +142,21 @@ export default defineConfig({
                         // same reason as the rule above.
                         //
                         // Kept in a cache of its own, separate from /Profile-Image/* below: this is
-                        // a small, fixed set (the theme ships ~400 files total) that Workbox's
-                        // expiration plugin evicts by global LRU within one cache, with no
-                        // per-prefix partitioning — sharing a quota with an open-ended, one-entry-
-                        // per-user source would let enough distinct avatars evict the very CSS/JS
-                        // this rule exists to keep around, silently reintroducing the unstyled-shell
-                        // failure. maxEntries is generous relative to the theme's actual file count
-                        // so a normal browsing session's asset mix never approaches the cap.
+                        // a small, fixed set that Workbox's expiration plugin evicts by global LRU
+                        // within one cache, with no per-prefix partitioning — sharing a quota with
+                        // an open-ended, one-entry-per-user source would let enough distinct avatars
+                        // evict the very CSS/JS this rule exists to keep around, silently
+                        // reintroducing the unstyled-shell failure. maxEntries sits above the
+                        // theme's total file count under wwwroot/assets (~405 as of this writing —
+                        // re-check `find Websites/Glory2Him.WebApp/wwwroot/assets -type f | wc -l`
+                        // if this cap is ever revisited), so it can never evict a legitimate asset
+                        // even in the pathological case of one session touching every file the
+                        // theme ships.
                         urlPattern: ({ url }) => url.pathname.startsWith('/assets/'),
                         handler: 'StaleWhileRevalidate',
                         options: {
                             cacheName: 'host-assets',
-                            expiration: { maxEntries: 300, maxAgeSeconds: 60 * 60 * 24 * 30 },
+                            expiration: { maxEntries: 450, maxAgeSeconds: 60 * 60 * 24 * 30 },
                         },
                     },
                     {
