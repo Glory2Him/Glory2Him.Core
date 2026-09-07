@@ -2,6 +2,7 @@ import { Outlet, ScrollRestoration } from "react-router-dom";
 import OffcanvasMenuComponent from "./layouts/offcanvasMenu";
 import HeaderComponent from "./layouts/header";
 import FooterComponent from "./layouts/footer";
+import OfflineBanner from "./coreUI/offlineBanner";
 import { useBackToTop } from "../hooks/useBackToTop";
 import { useLazyLoad } from "../hooks/useLazyLoad";
 
@@ -15,6 +16,8 @@ export default function Root() {
 
     return (
         <>
+            <OfflineBanner />
+
             <OffcanvasMenuComponent />
 
             <HeaderComponent />

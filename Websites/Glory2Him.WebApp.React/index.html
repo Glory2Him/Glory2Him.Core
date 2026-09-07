@@ -68,6 +68,13 @@
     <!-- Favicon (served from the ASP.NET Core host's wwwroot; proxied by Vite in dev) -->
     <link rel="shortcut icon" href="/assets/images/favicon.ico" />
 
+    <!-- PWA: installed-app icon and Android/iOS chrome colour. The manifest link itself is
+         injected by vite-plugin-pwa at build time. -->
+    <link rel="apple-touch-icon" href="/pwa/pwa-192x192.png" />
+    <meta name="theme-color" content="#6c5440" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Glory 2 Him" />
+
     <!-- Google Font -->
     <link rel="preconnect" href="https://fonts.gstatic.com" />
     <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;700&family=Rubik:wght@400;500;700&display=swap" rel="stylesheet" />
