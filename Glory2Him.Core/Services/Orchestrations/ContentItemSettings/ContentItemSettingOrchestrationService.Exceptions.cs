@@ -21,17 +21,23 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItemSettings
 {
     internal partial class ContentItemSettingOrchestrationService
     {
-        private delegate ValueTask<ContentItemSetting> ReturningContentItemSettingFunction();
+        // Generic in the return type so the entity write path and the event path share ONE catch
+        // chain. The event handler returns a reply envelope rather than an entity, and a second
+        // chain for that second shape is the kind of duplication that drifts: a family added to
+        // one and forgotten on the other surfaces as a raw foundation exception escaping the layer
+        // (§12.2), and nothing fails until it does. ApprovalOrchestrationService is written this
+        // way for the same reason.
+        private delegate ValueTask<T> ReturningValueFunction<T>();
 
         private delegate ValueTask<IQueryable<ContentItemSetting>>
             ReturningContentItemSettingsFunction();
 
-        private async ValueTask<ContentItemSetting> TryCatch(
-            ReturningContentItemSettingFunction returningContentItemSettingFunction)
+        private async ValueTask<T> TryCatch<T>(
+            ReturningValueFunction<T> returningValueFunction)
         {
             try
             {
-                return await returningContentItemSettingFunction();
+                return await returningValueFunction();
             }
             catch (OperationCanceledException operationCanceledException)
                 when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
@@ -64,6 +70,24 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItemSettings
             {
                 throw await CreateAndLogValidationExceptionAsync(
                     exception: notFoundContentItemSettingOrchestrationException);
+            }
+
+            // THE EVENT PATH'S TWO, and both are validation failures rather than anything more
+            // exotic. An unverifiable envelope and a content type the item contradicts are each a
+            // request this service will not carry out, and the substrate treats any throw the same
+            // way — the delivery is recorded as Error and retried — so what the category buys is a
+            // consistent answer if this handler is ever called directly.
+            catch (InvalidContentItemSettingEventOrchestrationException
+                invalidContentItemSettingEventOrchestrationException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(
+                    exception: invalidContentItemSettingEventOrchestrationException);
+            }
+            catch (ContentTypeMismatchContentItemSettingOrchestrationException
+                contentTypeMismatchContentItemSettingOrchestrationException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(
+                    exception: contentTypeMismatchContentItemSettingOrchestrationException);
             }
 
             // THE FOUNDATION'S ANSWERS, CARRIED THROUGH IN KIND. A validation failure stays a

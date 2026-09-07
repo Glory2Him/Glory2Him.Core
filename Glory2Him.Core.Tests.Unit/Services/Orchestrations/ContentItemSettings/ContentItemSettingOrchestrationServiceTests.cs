@@ -11,8 +11,10 @@
 
 using System;
 using System.Linq.Expressions;
+using Glory2Him.Core.Brokers.Integrities;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 using Glory2Him.Core.Services.Foundations.ContentItems;
@@ -33,6 +35,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItemSettings
     {
         private readonly Mock<IContentItemSettingService> contentItemSettingServiceMock;
         private readonly Mock<IContentItemService> contentItemServiceMock;
+        private readonly Mock<IEnvelopeIntegrityBroker> envelopeIntegrityBrokerMock;
         private readonly Mock<ILoggingBroker> loggingBrokerMock;
 
         private readonly IContentItemSettingOrchestrationService
@@ -54,12 +57,23 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItemSettings
         {
             this.contentItemSettingServiceMock = new Mock<IContentItemSettingService>();
             this.contentItemServiceMock = new Mock<IContentItemService>();
+            this.envelopeIntegrityBrokerMock = new Mock<IEnvelopeIntegrityBroker>();
             this.loggingBrokerMock = new Mock<ILoggingBroker>();
+
+            // Valid by default. The verification tests override it; every other test on the event
+            // path would otherwise be asserting the guard rather than its own subject.
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    It.IsAny<EventEnvelope<It.IsAnyType>>(),
+                    It.IsAny<string>(),
+                    It.IsAny<EnvelopeDirection>()))
+                        .ReturnsAsync(true);
 
             this.contentItemSettingOrchestrationService =
                 new ContentItemSettingOrchestrationService(
                     contentItemSettingService: this.contentItemSettingServiceMock.Object,
                     contentItemService: this.contentItemServiceMock.Object,
+                    envelopeIntegrityBroker: this.envelopeIntegrityBrokerMock.Object,
                     loggingBroker: this.loggingBrokerMock.Object);
         }
 
@@ -167,6 +181,18 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItemSettings
             {
                 Id = Guid.NewGuid(),
                 ContentType = CallerClaimedContentType,
+            };
+
+        // A request envelope as the substrate hands one over: content, an identity, and the event
+        // id ProcessedEvents deduplicates on. Integrity is left to the broker mock, which answers
+        // for the signature rather than recomputing one.
+        private static EventEnvelope<ContentItemSetting> CreateRequestEnvelope(
+            ContentItemSetting? contentItemSetting) =>
+            new EventEnvelope<ContentItemSetting>
+            {
+                Content = contentItemSetting!,
+                SecurityContext = new SecurityContext { IsAuthenticated = true },
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() },
             };
 
         private static Guid GetRandomId() => Guid.NewGuid();

@@ -46,6 +46,7 @@ using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Services.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 using Glory2Him.Core.Services.Foundations.ContentItemSettings;
+using Glory2Him.Core.Services.Orchestrations.ContentItemSettings;
 using Glory2Him.Core.Models.Events.Processings;
 using Glory2Him.Core.Services.Orchestrations.Approvals;
 using Glory2Him.Core.Services.Processings.ContentItems;
@@ -70,6 +71,9 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
         private readonly Mock<IApprovalSettingService> approvalSettingServiceMock;
         private readonly Mock<IAssociationService> associationServiceMock;
         private readonly Mock<IContentItemSettingService> contentItemSettingServiceMock;
+
+        private readonly Mock<IContentItemSettingOrchestrationService>
+            contentItemSettingOrchestrationServiceMock;
         private readonly Mock<IContentItemProcessingService> contentItemProcessingServiceMock;
         private readonly Mock<ILinkProcessingService> linkProcessingServiceMock;
         private readonly Mock<IApprovalOrchestrationService> approvalOrchestrationServiceMock;
@@ -91,6 +95,9 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             this.approvalSettingServiceMock = new Mock<IApprovalSettingService>();
             this.associationServiceMock = new Mock<IAssociationService>();
             this.contentItemSettingServiceMock = new Mock<IContentItemSettingService>();
+
+            this.contentItemSettingOrchestrationServiceMock =
+                new Mock<IContentItemSettingOrchestrationService>();
             this.contentItemProcessingServiceMock = new Mock<IContentItemProcessingService>();
             this.linkProcessingServiceMock = new Mock<ILinkProcessingService>();
             this.approvalOrchestrationServiceMock = new Mock<IApprovalOrchestrationService>();
@@ -127,6 +134,10 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 .Returns(this.associationServiceMock.Object);
             serviceProviderMock.Setup(p => p.GetService(typeof(IContentItemSettingService)))
                 .Returns(this.contentItemSettingServiceMock.Object);
+
+            serviceProviderMock.Setup(p =>
+                p.GetService(typeof(IContentItemSettingOrchestrationService)))
+                    .Returns(this.contentItemSettingOrchestrationServiceMock.Object);
             serviceProviderMock.Setup(p => p.GetService(typeof(IContentItemProcessingService)))
                 .Returns(this.contentItemProcessingServiceMock.Object);
             serviceProviderMock.Setup(p => p.GetService(typeof(ILinkProcessingService)))
@@ -1199,8 +1210,16 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 expectedSubscriptionName:
                     EventBrokerIdentifiers.ContentItemSettingOnAddingContentItemSettingSubscriptionName,
                 expectedOperation: ContentItemSettingEventOperation.Adding,
+
+                // THE ORCHESTRATION, not the foundation, and the tier is the whole assertion
+                // (#456). An override's ContentType is derived from the content item it names,
+                // and the write gate composes the publisher tier out of that value — so an add
+                // request that reached the foundation directly decided its own authorization.
+                // The other four addresses below stay on the foundation: none of them has a
+                // caller claim left to derive.
                 expectedHandler:
-                    this.contentItemSettingServiceMock.Object.OnAddingContentItemSettingAsync);
+                    this.contentItemSettingOrchestrationServiceMock.Object
+                        .OnAddingContentItemSettingAsync);
 
             VerifyContentItemSettingSubscription(
                 expectedSubscriptionId:
@@ -1534,6 +1553,7 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             this.contentItemProcessingServiceMock.VerifyNoOtherCalls();
             this.linkProcessingServiceMock.VerifyNoOtherCalls();
             this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+            this.contentItemSettingOrchestrationServiceMock.VerifyNoOtherCalls();
         }
 
         // The registration binds a scope-opening lambda, not a method group, so a delegate
@@ -1606,7 +1626,9 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 this.approvalCommentServiceMock, this.approvalReviewServiceMock,
                 this.approvalReviewRequestServiceMock,
                 this.approvalSettingServiceMock, this.associationServiceMock,
-                this.contentItemSettingServiceMock, this.contentItemProcessingServiceMock,
+                this.contentItemSettingServiceMock,
+                this.contentItemSettingOrchestrationServiceMock,
+                this.contentItemProcessingServiceMock,
                 this.linkProcessingServiceMock, this.approvalOrchestrationServiceMock
             };
     }

@@ -23,6 +23,13 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
     /// registration decides what is connected. Every handler replies with the operation's
     /// outcome envelope (recorded on the delivery), or <c>null</c> when a duplicated request
     /// was skipped.
+    ///
+    /// <para><b><c>OnAddingContentItemSettingAsync</c> is no longer reached from the
+    /// registration.</b> That address binds <c>IContentItemSettingOrchestrationService</c>, which
+    /// derives the override's <c>ContentType</c> from the content item it names and then calls
+    /// this handler with the same envelope (#456). The capability stays here — the deduplication,
+    /// the write, the fact and the reply are all this service's — but the address is one tier up,
+    /// because the rule it carries reads a second entity type and a foundation may not.</para>
     /// </summary>
     public partial interface IContentItemSettingService
     {
