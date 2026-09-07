@@ -503,6 +503,13 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
             // The tip is DERIVED: the highest Version in the group. There is no
             // stored flag to disagree with the rows, which is what made a failed
             // fork able to leave a group with no tip at all (#265).
+            // The IsDeleted term is REDUNDANT TODAY and is kept deliberately. It states a §3.4.1
+            // DOMAIN rule - nobody edits a tombstone, so a removed row does not hold the tip -
+            // which merely coincides with the §14.7 VISIBILITY rule the foundation read applies
+            // for an unrelated reason. Deleting it would make a domain invariant depend on a
+            // security filter keeping its current shape, which is the conflation #271 was: "which
+            // row may be edited" and "which version number is free" are different questions, and
+            // an audit-shaped read that admitted tombstones would silently change this answer.
             ContentItem? latestContentItem = groupContentItems
                 .Where(contentItem => contentItem.IsDeleted == false)
                 .OrderByDescending(contentItem => contentItem.Version)
@@ -537,6 +544,12 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
 
             // the row the public currently reads — it stays published while a newer draft
             // moves through review, so it is found independently of IsLatestVersion
+            // The IsDeleted term is REDUNDANT TODAY and is kept deliberately, for the same reason
+            // as the tip read above: it states that the PUBLIC row must be live, which is a domain
+            // rule rather than the visibility filter's. The distinction is load-bearing elsewhere -
+            // FindPublishedSiblingContentItemIdAsync goes to an UNFILTERED storage read precisely
+            // because a tombstone still holds the published slot - so a reader must not conclude
+            // from this call site that deleted rows never carry IsPublished.
             ContentItem? publishedContentItem = groupContentItems.FirstOrDefault(contentItem =>
                 contentItem.IsPublished
                     && contentItem.IsDeleted == false);

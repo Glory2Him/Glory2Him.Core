@@ -9,7 +9,7 @@ components:
     name: StorageBroker
     layer: broker
     col: 6
-    description: "EF Core DbContext (derives from EFxceptionsContext) exposing per-entity Insert/Select/Update/Delete plus ProcessedEvents bookkeeping. It passes ITSELF into G2H.StorageClient's EFCoreClient for the actual persistence operations."
+    description: "EF Core DbContext (derives from EFxceptionsContext) exposing per-entity Insert/Select/Update/Delete plus ProcessedEvents bookkeeping. It passes ITSELF into G2H.StorageClient's EFCoreClient for the actual persistence operations. The KEYED reads are the exception: SelectContentItemsByGroupIdAsync, SelectApprovalByEntityAsync, ExistsLiveAssociationOnPairAsync and their siblings query the DbSets directly with an EF async terminal operator, so the cancellation token reaches the database and no live queryable is handed to a service. EFCoreClient has no keyed-read surface, which is why those edges land on EXT.EFCore instead."
     methods: []
     calls:
       - from: InsertProcessedEventAsync
@@ -198,6 +198,51 @@ components:
       - from: DeleteContentItemSettingAsync
         to: STC.EFCoreClient
         method: DeleteAsync
+      - from: SelectContentItemsByGroupIdAsync
+        to: EXT.EFCore
+        method: ToListAsync
+      - from: SelectContentItemVersionsInGroupAsync
+        to: EXT.EFCore
+        method: ToListAsync
+      - from: SelectContentItemInGroupAsync
+        to: EXT.EFCore
+        method: FirstOrDefaultAsync
+      - from: SelectPublishedContentItemInGroupAsync
+        to: EXT.EFCore
+        method: FirstOrDefaultAsync
+      - from: ExistsHigherLiveContentItemVersionInGroupAsync
+        to: EXT.EFCore
+        method: AnyAsync
+      - from: ExistsContentItemContentAsync
+        to: EXT.EFCore
+        method: AnyAsync
+      - from: SelectLinksByGroupIdAsync
+        to: EXT.EFCore
+        method: ToListAsync
+      - from: SelectLinkVersionsInGroupAsync
+        to: EXT.EFCore
+        method: ToListAsync
+      - from: SelectPublishedLinkInGroupAsync
+        to: EXT.EFCore
+        method: FirstOrDefaultAsync
+      - from: ExistsHigherLiveLinkVersionInGroupAsync
+        to: EXT.EFCore
+        method: AnyAsync
+      - from: SelectAssociationByPairAsync
+        to: EXT.EFCore
+        method: FirstOrDefaultAsync
+      - from: SelectOverlappingAssociationAsync
+        to: EXT.EFCore
+        method: FirstOrDefaultAsync
+      - from: ExistsLiveAssociationOnPairAsync
+        to: EXT.EFCore
+        method: AnyAsync
+      - from: SelectApprovalByEntityAsync
+        to: EXT.EFCore
+        method: FirstOrDefaultAsync
+      - from: SelectApprovalReviewRequestsByApprovalIdAsync
+        to: EXT.EFCore
+        method: ToListAsync
   - id: SecurityAuditBroker
     name: SecurityAuditBroker
     layer: broker
@@ -569,7 +614,9 @@ components:
     methods:
       - AddContentItemAsync
       - CheckContentItemContentExistsAsync
+      - CheckHigherContentItemVersionExistsAsync
       - RetrieveAllContentItemsAsync
+      - RetrieveContentItemsByGroupIdAsync
       - RetrieveContentItemByIdAsync
       - ModifyContentItemAsync
       - RemoveContentItemByIdAsync
@@ -579,7 +626,6 @@ components:
       - OnRemovingContentItemByIdAsync
       - OnHardRemovingContentItemByIdAsync
       - OnRetrievingContentItemByIdAsync
-      - DemoteContentItemVersionAsync
       - SubmitContentItemByIdAsync
       - TransitionContentItemApprovalAsync
       - UnpublishContentItemByIdAsync
@@ -606,6 +652,9 @@ components:
         method: GetIdentifierAsync
       - from: AddContentItemAsync
         to: StorageBroker
+        method: SelectContentItemInGroupAsync
+      - from: AddContentItemAsync
+        to: StorageBroker
         method: InsertProcessedEventAsync
       - from: AddContentItemAsync
         to: EventEnvelopeBroker
@@ -615,7 +664,7 @@ components:
         method: CreateAsync
       - from: CheckContentItemContentExistsAsync
         to: StorageBroker
-        method: SelectAllContentItemsAsync
+        method: ExistsContentItemContentAsync
       - from: RetrieveAllContentItemsAsync
         to: EventEnvelopeBroker
         method: CreateAsync
@@ -626,6 +675,36 @@ components:
         to: DateTimeBroker
         method: GetCurrentDateTimeOffsetAsync
       - from: RetrieveAllContentItemsAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: CheckHigherContentItemVersionExistsAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: CheckHigherContentItemVersionExistsAsync
+        to: StorageBroker
+        method: ExistsHigherLiveContentItemVersionInGroupAsync
+      - from: FindHighestVersionInGroupAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: FindHighestVersionInGroupAsync
+        to: StorageBroker
+        method: SelectContentItemVersionsInGroupAsync
+      - from: FindPublishedSiblingContentItemIdAsync
+        to: StorageBroker
+        method: SelectContentItemByIdAsync
+      - from: FindPublishedSiblingContentItemIdAsync
+        to: StorageBroker
+        method: SelectPublishedContentItemInGroupAsync
+      - from: RetrieveContentItemsByGroupIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveContentItemsByGroupIdAsync
+        to: StorageBroker
+        method: SelectContentItemsByGroupIdAsync
+      - from: RetrieveContentItemsByGroupIdAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: RetrieveContentItemsByGroupIdAsync
         to: SecurityAuditBroker
         method: GetUserIdAsync
       - from: RetrieveContentItemByIdAsync
@@ -730,27 +809,6 @@ components:
       - from: OnHardRemovingContentItemByIdAsync
         to: StorageBroker
         method: SelectProcessedEventExistsAsync
-      - from: DemoteContentItemVersionAsync
-        to: EventEnvelopeBroker
-        method: CreateAsync
-      - from: DemoteContentItemVersionAsync
-        to: StorageBroker
-        method: SelectContentItemByIdAsync
-      - from: DemoteContentItemVersionAsync
-        to: SecurityAuditBroker
-        method: GetUserIdAsync
-      - from: DemoteContentItemVersionAsync
-        to: SecurityAuditBroker
-        method: ApplyModifyAuditValuesAsync
-      - from: DemoteContentItemVersionAsync
-        to: StorageBroker
-        method: UpdateContentItemAsync
-      - from: DemoteContentItemVersionAsync
-        to: StorageBroker
-        method: InsertProcessedEventAsync
-      - from: DemoteContentItemVersionAsync
-        to: EventEnvelopeBroker
-        method: CreateNextAsync
     publishes:
       - method: AddContentItemAsync
         event: ContentItem.Added
@@ -760,8 +818,6 @@ components:
         event: ContentItem.Removed
       - method: HardRemoveContentItemByIdAsync
         event: ContentItem.HardRemoved
-      - method: DemoteContentItemVersionAsync
-        event: ContentItem.Demoted
     subscribes:
       - event: ContentItem.Adding
         handler: OnAddingContentItemAsync
@@ -784,6 +840,8 @@ components:
     description: "Foundation CRUD for Association. Reads apply publish-date visibility + ownership checks. Also exposes 5 approval state-transition verbs, each publishing its own fact (Approved/Rejected/Sorted/ConfidenceSet/Scoped); the approval verdicts ask IAccessBroker for the decision. Sort has no request event — it is call-only. The On*Async substrate handlers are wired by EventSubscriptionRegistration to the entity's request events; after the ProcessedEvents dedupe check they delegate to the same Do*Async path as the public methods (dual ProcessedEvents record: inbound + outbound envelope)."
     methods:
       - AddAssociationAsync
+      - FindAssociationByPairAsync
+      - FindOverlappingAssociationAsync
       - RetrieveAllAssociationsAsync
       - RetrieveAssociationByIdAsync
       - ModifyAssociationAsync
@@ -838,6 +896,21 @@ components:
       - from: RetrieveAllAssociationsAsync
         to: SecurityAuditBroker
         method: GetUserIdAsync
+      - from: FindAssociationByPairAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: FindAssociationByPairAsync
+        to: StorageBroker
+        method: SelectAssociationByPairAsync
+      - from: FindOverlappingAssociationAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: FindOverlappingAssociationAsync
+        to: StorageBroker
+        method: SelectOverlappingAssociationAsync
+      - from: SetAssociationScopeAsync
+        to: StorageBroker
+        method: ExistsLiveAssociationOnPairAsync
       - from: RetrieveAssociationByIdAsync
         to: EventEnvelopeBroker
         method: CreateAsync
@@ -1421,7 +1494,9 @@ components:
     description: "Foundation CRUD for Link. Reads apply publish-date visibility + ownership checks. The On*Async substrate handlers are wired by EventSubscriptionRegistration to the entity's request events; after the ProcessedEvents dedupe check they delegate to the same Do*Async path as the public methods (dual ProcessedEvents record: inbound + outbound envelope)."
     methods:
       - AddLinkAsync
+      - CheckHigherLinkVersionExistsAsync
       - RetrieveAllLinksAsync
+      - RetrieveLinksByGroupIdAsync
       - RetrieveLinkByIdAsync
       - ModifyLinkAsync
       - RemoveLinkByIdAsync
@@ -1431,7 +1506,6 @@ components:
       - OnRemovingLinkByIdAsync
       - OnHardRemovingLinkByIdAsync
       - OnRetrievingLinkByIdAsync
-      - DemoteLinkVersionAsync
       - SubmitLinkByIdAsync
       - TransitionLinkApprovalAsync
       - UnpublishLinkByIdAsync
@@ -1472,6 +1546,36 @@ components:
         to: DateTimeBroker
         method: GetCurrentDateTimeOffsetAsync
       - from: RetrieveAllLinksAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: CheckHigherLinkVersionExistsAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: CheckHigherLinkVersionExistsAsync
+        to: StorageBroker
+        method: ExistsHigherLiveLinkVersionInGroupAsync
+      - from: FindHighestVersionInGroupAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: FindHighestVersionInGroupAsync
+        to: StorageBroker
+        method: SelectLinkVersionsInGroupAsync
+      - from: FindPublishedSiblingLinkIdAsync
+        to: StorageBroker
+        method: SelectLinkByIdAsync
+      - from: FindPublishedSiblingLinkIdAsync
+        to: StorageBroker
+        method: SelectPublishedLinkInGroupAsync
+      - from: RetrieveLinksByGroupIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveLinksByGroupIdAsync
+        to: StorageBroker
+        method: SelectLinksByGroupIdAsync
+      - from: RetrieveLinksByGroupIdAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: RetrieveLinksByGroupIdAsync
         to: SecurityAuditBroker
         method: GetUserIdAsync
       - from: RetrieveLinkByIdAsync
@@ -1576,27 +1680,6 @@ components:
       - from: OnHardRemovingLinkByIdAsync
         to: StorageBroker
         method: SelectProcessedEventExistsAsync
-      - from: DemoteLinkVersionAsync
-        to: EventEnvelopeBroker
-        method: CreateAsync
-      - from: DemoteLinkVersionAsync
-        to: StorageBroker
-        method: SelectLinkByIdAsync
-      - from: DemoteLinkVersionAsync
-        to: SecurityAuditBroker
-        method: GetUserIdAsync
-      - from: DemoteLinkVersionAsync
-        to: SecurityAuditBroker
-        method: ApplyModifyAuditValuesAsync
-      - from: DemoteLinkVersionAsync
-        to: StorageBroker
-        method: UpdateLinkAsync
-      - from: DemoteLinkVersionAsync
-        to: StorageBroker
-        method: InsertProcessedEventAsync
-      - from: DemoteLinkVersionAsync
-        to: EventEnvelopeBroker
-        method: CreateNextAsync
     publishes:
       - method: AddLinkAsync
         event: Link.Added
@@ -1606,8 +1689,6 @@ components:
         event: Link.Removed
       - method: HardRemoveLinkByIdAsync
         event: Link.HardRemoved
-      - method: DemoteLinkVersionAsync
-        event: Link.Demoted
     subscribes:
       - event: Link.Adding
         handler: OnAddingLinkAsync
@@ -1994,6 +2075,7 @@ components:
     description: "Foundation CRUD for Approval. Reads apply ownership checks (no publish-date rule). The On*Async substrate handlers are wired by EventSubscriptionRegistration to the entity's request events; after the ProcessedEvents dedupe check they delegate to the same Do*Async path as the public methods (dual ProcessedEvents record: inbound + outbound envelope)."
     methods:
       - AddApprovalAsync
+      - FindApprovalByEntityAsync
       - RetrieveAllApprovalsAsync
       - RetrieveApprovalByIdAsync
       - ModifyApprovalAsync
@@ -2038,6 +2120,12 @@ components:
       - from: RetrieveAllApprovalsAsync
         to: SecurityAuditBroker
         method: GetUserIdAsync
+      - from: FindApprovalByEntityAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: FindApprovalByEntityAsync
+        to: StorageBroker
+        method: SelectApprovalByEntityAsync
       - from: RetrieveApprovalByIdAsync
         to: EventEnvelopeBroker
         method: CreateAsync
@@ -2537,6 +2625,7 @@ components:
     methods:
       - AddApprovalReviewRequestAsync
       - RetrieveAllApprovalReviewRequestsAsync
+      - RetrieveApprovalReviewRequestsByApprovalIdAsync
       - RetrieveApprovalReviewRequestByIdAsync
       - RemoveApprovalReviewRequestByIdAsync
       - HardRemoveApprovalReviewRequestByIdAsync
@@ -2592,6 +2681,15 @@ components:
         to: StorageBroker
         method: SelectAllApprovalReviewRequestsAsync
       - from: RetrieveAllApprovalReviewRequestsAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RetrieveApprovalReviewRequestsByApprovalIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveApprovalReviewRequestsByApprovalIdAsync
+        to: StorageBroker
+        method: SelectApprovalReviewRequestsByApprovalIdAsync
+      - from: RetrieveApprovalReviewRequestsByApprovalIdAsync
         to: SecurityAuditBroker
         method: GetUserIdAsync
       - from: RetrieveApprovalReviewRequestByIdAsync
@@ -2995,7 +3093,7 @@ components:
     name: ContentItemProcessingService
     layer: processing
     col: 4
-    description: "Core's public write/read surface for content: dedupe-by-hash, immutable-version forking on modify, group-based reads. Publishes ContentItemProcessing facts (Added/Modified/Removed) exactly once per operation. The On*Async handlers delegate to the same Do*Async path as the public methods. Has NO IStorageBroker — ProcessedEvents dedupe lives in the foundation services."
+    description: "Core's public write/read surface for content: dedupe-by-hash, immutable-version forking on modify, group-based reads. The three group reads go through the foundation's GROUP-KEYED read (RetrieveContentItemsByGroupIdAsync), which materialises the slice with the cancellation token - composing a group predicate onto the collection read's live queryable here left the exposer to execute it. Publishes ContentItemProcessing facts (Added/Modified/Removed) exactly once per operation, plus its own ContentItemProcessing-Approved once the publication swap has left the group consistent. The On*Async handlers delegate to the same Do*Async path as the public methods. Has NO IStorageBroker — ProcessedEvents dedupe lives in the foundation services."
     methods:
       - AddContentItemAsync
       - ModifyContentItemAsync
@@ -3029,7 +3127,10 @@ components:
         method: ModifyContentItemAsync
       - from: ModifyContentItemAsync
         to: FS.ContentItem
-        method: DemoteContentItemVersionAsync
+        method: CheckHigherContentItemVersionExistsAsync
+      - from: ModifyContentItemAsync
+        to: FS.ContentItem
+        method: FindHighestVersionInGroupAsync
       - from: ModifyContentItemAsync
         to: FS.ContentItem
         method: AddContentItemAsync
@@ -3050,13 +3151,13 @@ components:
         method: RetrieveAllContentItemsAsync
       - from: RetrieveContentItemsByGroupIdAsync
         to: FS.ContentItem
-        method: RetrieveAllContentItemsAsync
+        method: RetrieveContentItemsByGroupIdAsync
       - from: RetrieveLatestContentItemByGroupIdAsync
         to: FS.ContentItem
-        method: RetrieveAllContentItemsAsync
+        method: RetrieveContentItemsByGroupIdAsync
       - from: RetrievePublishedContentItemByGroupIdAsync
         to: FS.ContentItem
-        method: RetrieveAllContentItemsAsync
+        method: RetrieveContentItemsByGroupIdAsync
       - from: AddContentItemAsync
         to: EventEnvelopeBroker
         method: CreateAsync
@@ -3070,9 +3171,6 @@ components:
         to: EventEnvelopeBroker
         method: CreateAsync
       - from: RetrieveAllContentItemsAsync
-        to: EventEnvelopeBroker
-        method: CreateAsync
-      - from: RetrieveContentItemsByGroupIdAsync
         to: EventEnvelopeBroker
         method: CreateAsync
       - from: RetrieveLatestContentItemByGroupIdAsync
@@ -3112,9 +3210,6 @@ components:
         to: SecurityAuditBroker
         method: GetUserIdAsync
       - from: RetrieveAllContentItemsAsync
-        to: SecurityAuditBroker
-        method: GetUserIdAsync
-      - from: RetrieveContentItemsByGroupIdAsync
         to: SecurityAuditBroker
         method: GetUserIdAsync
       - from: RetrieveLatestContentItemByGroupIdAsync
@@ -3132,9 +3227,6 @@ components:
       - from: RetrieveAllPublicContentItemsAsync
         to: DateTimeBroker
         method: GetCurrentDateTimeOffsetAsync
-      - from: RetrieveContentItemsByGroupIdAsync
-        to: DateTimeBroker
-        method: GetCurrentDateTimeOffsetAsync
       - from: RetrieveLatestContentItemByGroupIdAsync
         to: DateTimeBroker
         method: GetCurrentDateTimeOffsetAsync
@@ -3159,6 +3251,18 @@ components:
       - from: RetrievePublishedContentItemByGroupIdAsync
         to: LoggingBroker
         method: LogWarningAsync
+      - from: OnApprovingContentItemAsync
+        to: FS.ContentItem
+        method: FindPublishedSiblingContentItemIdAsync
+      - from: OnApprovingContentItemAsync
+        to: FS.ContentItem
+        method: UnpublishContentItemByIdAsync
+      - from: OnApprovingContentItemAsync
+        to: FS.ContentItem
+        method: TransitionContentItemApprovalAsync
+      - from: OnApprovingContentItemAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
     publishes:
       - method: AddContentItemAsync
         event: ContentItemProcessing.Added
@@ -3166,6 +3270,8 @@ components:
         event: ContentItemProcessing.Modified
       - method: RemoveContentItemByIdAsync
         event: ContentItemProcessing.Removed
+      - method: OnApprovingContentItemAsync
+        event: ContentItemProcessing.Approved
     subscribes:
       - event: ContentItemProcessing.Adding
         handler: OnAddingContentItemAsync
@@ -3181,7 +3287,7 @@ components:
     name: LinkProcessingService
     layer: processing
     col: 4
-    description: "Core's public write/read surface for links: immutable-version forking on modify of a terminal row (Approved or Rejected), group-based reads, per-caller visibility. Publishes LinkProcessing facts (Added/Modified/Removed) exactly once per operation — a fork writes two foundation rows and still announces once. Same shape as ContentItemProcessingService minus the dedupe-by-hash rule: a Link carries no ContentType and no ContentHash, so there is no IHashBroker. The On*Async handlers delegate to the same Do*Async path as the public methods. Has NO IStorageBroker — ProcessedEvents dedupe lives in the foundation service."
+    description: "Core's public write/read surface for links: immutable-version forking on modify of a terminal row (Approved or Rejected), group-based reads through the foundation's GROUP-KEYED read (RetrieveLinksByGroupIdAsync), per-caller visibility. Publishes LinkProcessing facts (Added/Modified/Removed) exactly once per operation — a fork writes two foundation rows and still announces once - plus its own LinkProcessing-Approved after the publication swap. Same shape as ContentItemProcessingService minus the dedupe-by-hash rule: a Link carries no ContentType and no ContentHash, so there is no IHashBroker. The On*Async handlers delegate to the same Do*Async path as the public methods. Has NO IStorageBroker — ProcessedEvents dedupe lives in the foundation service."
     methods:
       - AddLinkAsync
       - ModifyLinkAsync
@@ -3209,7 +3315,10 @@ components:
         method: ModifyLinkAsync
       - from: ModifyLinkAsync
         to: FS.Link
-        method: DemoteLinkVersionAsync
+        method: CheckHigherLinkVersionExistsAsync
+      - from: ModifyLinkAsync
+        to: FS.Link
+        method: FindHighestVersionInGroupAsync
       - from: ModifyLinkAsync
         to: FS.Link
         method: AddLinkAsync
@@ -3230,13 +3339,13 @@ components:
         method: RetrieveAllLinksAsync
       - from: RetrieveLinksByGroupIdAsync
         to: FS.Link
-        method: RetrieveAllLinksAsync
+        method: RetrieveLinksByGroupIdAsync
       - from: RetrieveLatestLinkByGroupIdAsync
         to: FS.Link
-        method: RetrieveAllLinksAsync
+        method: RetrieveLinksByGroupIdAsync
       - from: RetrievePublishedLinkByGroupIdAsync
         to: FS.Link
-        method: RetrieveAllLinksAsync
+        method: RetrieveLinksByGroupIdAsync
       - from: AddLinkAsync
         to: EventEnvelopeBroker
         method: CreateAsync
@@ -3250,9 +3359,6 @@ components:
         to: EventEnvelopeBroker
         method: CreateAsync
       - from: RetrieveAllLinksAsync
-        to: EventEnvelopeBroker
-        method: CreateAsync
-      - from: RetrieveLinksByGroupIdAsync
         to: EventEnvelopeBroker
         method: CreateAsync
       - from: RetrieveLatestLinkByGroupIdAsync
@@ -3286,9 +3392,6 @@ components:
         to: SecurityAuditBroker
         method: GetUserIdAsync
       - from: RetrieveAllLinksAsync
-        to: SecurityAuditBroker
-        method: GetUserIdAsync
-      - from: RetrieveLinksByGroupIdAsync
         to: SecurityAuditBroker
         method: GetUserIdAsync
       - from: RetrieveLatestLinkByGroupIdAsync
@@ -3306,9 +3409,6 @@ components:
       - from: RetrieveAllPublicLinksAsync
         to: DateTimeBroker
         method: GetCurrentDateTimeOffsetAsync
-      - from: RetrieveLinksByGroupIdAsync
-        to: DateTimeBroker
-        method: GetCurrentDateTimeOffsetAsync
       - from: RetrieveLatestLinkByGroupIdAsync
         to: DateTimeBroker
         method: GetCurrentDateTimeOffsetAsync
@@ -3333,6 +3433,18 @@ components:
       - from: RetrievePublishedLinkByGroupIdAsync
         to: LoggingBroker
         method: LogWarningAsync
+      - from: OnApprovingLinkAsync
+        to: FS.Link
+        method: FindPublishedSiblingLinkIdAsync
+      - from: OnApprovingLinkAsync
+        to: FS.Link
+        method: UnpublishLinkByIdAsync
+      - from: OnApprovingLinkAsync
+        to: FS.Link
+        method: TransitionLinkApprovalAsync
+      - from: OnApprovingLinkAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
     publishes:
       - method: AddLinkAsync
         event: LinkProcessing.Added
@@ -3340,6 +3452,8 @@ components:
         event: LinkProcessing.Modified
       - method: RemoveLinkByIdAsync
         event: LinkProcessing.Removed
+      - method: OnApprovingLinkAsync
+        event: LinkProcessing.Approved
     subscribes:
       - event: LinkProcessing.Adding
         handler: OnAddingLinkAsync
@@ -3421,6 +3535,18 @@ components:
       - from: WithdrawApprovalReviewRequestAsync
         to: FS.ApprovalReviewRequest
         method: RemoveApprovalReviewRequestByIdAsync
+      - from: RetrieveApprovalReviewRequestsAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveApprovalReviewRequestsAsync
+        to: FS.Approval
+        method: FindApprovalByEntityAsync
+      - from: RetrieveApprovalReviewRequestsAsync
+        to: AccessBroker
+        method: RetrieveApprovalReviewerScopeByIdAsync
+      - from: RetrieveApprovalReviewRequestsAsync
+        to: FS.ApprovalReviewRequest
+        method: RetrieveApprovalReviewRequestsByApprovalIdAsync
       - from: OnApprovalReviewAddedAsync
         to: AccessBroker
         method: RetrieveApprovalReviewerScopeByIdAsync

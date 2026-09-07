@@ -464,6 +464,22 @@ namespace Glory2Him.WebApp.Controllers.Links
 
                 return Ok(retrievedLinks);
             }
+            // A BAD GROUP ID IS THE CALLER'S, so it answers 400. Without these two arms the
+            // validation exception escaped the action and ASP.NET turned it into a 500, filing a
+            // server-fault log for a malformed route parameter - while the sibling
+            // Groups/{groupId}/Latest route below answered 400 for the same input.
+            //
+            // No NotFound arm, and that is not an omission: an unknown group is an EMPTY LIST
+            // here, not an error, so a collection read has no not-found case to report. Nor can it
+            // conflict or lock, which is why the sibling's remaining arms are absent too.
+            catch (LinkProcessingValidationException linkProcessingValidationException)
+            {
+                return BadRequest(linkProcessingValidationException.InnerException);
+            }
+            catch (LinkProcessingDependencyValidationException linkProcessingDependencyValidationException)
+            {
+                return BadRequest(linkProcessingDependencyValidationException.InnerException);
+            }
             catch (LinkProcessingDependencyException linkProcessingDependencyException)
             {
                 return FailedDependency(linkProcessingDependencyException.InnerException);
