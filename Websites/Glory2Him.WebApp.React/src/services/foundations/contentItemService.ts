@@ -195,12 +195,28 @@ export const contentItemService = {
 
     useAddContentItem: () => {
         const contentItemBroker = new ContentItemBroker();
+        const queryClient = useQueryClient();
 
         return useMutation({
             meta: { suppressGlobalErrorToast: true },
 
             mutationFn: async (contentItem: ContentItemAddRequest) =>
-                await contentItemBroker.PostContentItemAsync(contentItem)
+                await contentItemBroker.PostContentItemAsync(contentItem),
+
+            // The search cache holds /myposts and is 60s fresh, so without this a contributor
+            // who had already opened My Posts lands back on a list rendered entirely from cache
+            // and does not find the Draft they were just thanked for. That became reachable when
+            // the contribution page stopped navigating to /myposts/{id} — a brand-new id always
+            // fetched, a cached list does not (design §3.4.2 rule 6 is why it no longer follows
+            // the returned id).
+            //
+            // Invalidating on EVERY success, including the quiet acknowledgement, is deliberate:
+            // the refetch is part of what the two arms must have in common. Skipping it for a
+            // duplicate would make the network trace differ, which is the same tell the response
+            // body was rewritten to remove.
+            onSuccess: () => {
+                queryClient.invalidateQueries({ queryKey: ['ContentItemsSearch'] });
+            }
         });
     }
 };

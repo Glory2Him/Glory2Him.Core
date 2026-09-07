@@ -25,10 +25,17 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
         /// authenticated and not blocked by the <c>ReadOnly</c> or <c>ContentItem-ReadOnly</c>
         /// roles, nor by <c>ContentItem-%ContentType%-ReadOnly</c> for the type being
         /// written (§18.6 rule 2). When the normalized content duplicates an existing non-deleted item of the
-        /// same content type (design §3.4.2), nothing is created and the call fails with an
-        /// already-exists validation error. On success this service publishes its own
-        /// <c>ContentItemProcessing-Added</c> completion fact, distinct from the
-        /// foundation's row-level <c>ContentItem-Added</c>.
+        /// same content type (design §3.4.2 rule 6), nothing is created and the caller is
+        /// <b>acknowledged rather than refused</b>: the returned content item is composed exactly
+        /// as the persisted one would have been — minted <c>Id</c> and <c>GroupId</c>,
+        /// <c>Version</c> 1, unpublished, <c>Draft</c>, the computed hash and the same audit
+        /// stamps — so that no caller can tell the two apart and use this surface to probe
+        /// whether given content has been submitted. Callers must therefore not assume the
+        /// returned <c>Id</c> resolves; on a duplicate it names no row.
+        /// <para>When a row IS created this service publishes its own
+        /// <c>ContentItemProcessing-Added</c> completion fact, distinct from the foundation's
+        /// row-level <c>ContentItem-Added</c>. Neither fact goes out for an acknowledgement:
+        /// a fact says a row exists, and none does.</para>
         /// </summary>
         ValueTask<ContentItem> AddContentItemAsync(
             ContentItem contentItem,

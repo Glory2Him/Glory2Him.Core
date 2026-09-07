@@ -343,8 +343,15 @@ export function ContentItemAddPanelDoc() {
                             validationIssues={showsApiIssues
                                 ? {
                                     Content: ['Text is required'],
-                                    ContentHash:
-                                        ['A content item already exists with the same content.']
+
+                                    // An add-surface message, deliberately. The duplicate-content
+                                    // error that used to sit here is no longer reachable on add:
+                                    // §3.4.2 rule 6 has a duplicate acknowledged rather than
+                                    // refused, so demonstrating it on the ADD panel taught an
+                                    // error state that cannot occur and reprinted the very
+                                    // sentence #412 removed. This one the add really can return.
+                                    ShareabilityBasis:
+                                        ['Value is not a supported shareability basis']
                                 }
                                 : undefined}
                             onAdded={(item) =>

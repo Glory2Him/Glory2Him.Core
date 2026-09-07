@@ -95,6 +95,12 @@ namespace Glory2Him.WebApp.Controllers.ContentItems
         {
             try
             {
+                // §3.4.2 rule 6: a duplicate contribution is ACKNOWLEDGED here, not refused. The
+                // service creates no row and answers with one composed exactly as the persisted
+                // one would have been, so this returns the same 201 and the same body it returns
+                // for a genuine add — there is deliberately no branch to find, because a branch
+                // is what a probe would look for. Only the modify arm refuses a duplicate, which
+                // is where PutContentItemAsync's already-exists mapping comes from.
                 ContentItem addedContentItem =
                     await this.contentItemProcessingService.AddContentItemAsync(contentItem, cancellationToken);
 
@@ -108,11 +114,6 @@ namespace Glory2Him.WebApp.Controllers.ContentItems
             catch (ContentItemProcessingValidationException contentItemProcessingValidationException)
             {
                 return BadRequest(contentItemProcessingValidationException.InnerException);
-            }
-            catch (ContentItemProcessingDependencyValidationException contentItemProcessingDependencyValidationException)
-                when (contentItemProcessingDependencyValidationException.InnerException is AlreadyExistsContentItemProcessingException)
-            {
-                return Conflict(contentItemProcessingDependencyValidationException.InnerException);
             }
             catch (ContentItemProcessingDependencyValidationException contentItemProcessingDependencyValidationException)
                 when (contentItemProcessingDependencyValidationException.InnerException
