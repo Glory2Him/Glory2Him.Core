@@ -28,8 +28,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviewRequests
     /// layer narrows and materialises rather than one the caller composes onto a live queryable
     /// and executes synchronously.
     ///
-    /// <para>These are also the only tests exercising the <c>IReadOnlyList</c> <c>TryCatch</c>
-    /// overload, so the failure cases below are the whole of its coverage.</para>
+    /// <para>These are also the only tests exercising <c>TryCatchList</c>, so the failure cases
+    /// below are the whole of its coverage - including the validation arm, which the wrapper
+    /// gained only once this read started guarding its id.</para>
     /// </summary>
     public partial class ApprovalReviewRequestServiceTests
     {
