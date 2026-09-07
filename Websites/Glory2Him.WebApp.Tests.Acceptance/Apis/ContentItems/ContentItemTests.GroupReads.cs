@@ -198,11 +198,18 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItems
 
         /// <summary>
         /// Pins the RESTRICTED option set this route now advertises. Because the service hands the
-        /// exposer a materialised set, <c>[EnableQuery]</c> composes over LINQ-to-Objects: string
-        /// comparison there is ordinal, while the catalogue collates
-        /// <c>SQL_Latin1_General_CP1_CI_AS</c>. A <c>$filter</c> that matches on the unkeyed
-        /// collection read would therefore match nothing here — so <c>$filter</c> and
-        /// <c>$orderby</c> are refused outright rather than answered differently.
+        /// exposer a materialised set, <c>[EnableQuery]</c> composes over LINQ-to-Objects, and the
+        /// two refused options diverge from the catalogue in DIFFERENT ways.
+        ///
+        /// <para><c>$filter</c> compares ordinally there, while the catalogue collates
+        /// <c>SQL_Latin1_General_CP1_CI_AS</c>, so a filter that matches on the unkeyed collection
+        /// read matches nothing here. <c>$orderby</c> is NOT ordinal - it follows the server's
+        /// current culture through ICU - which disagrees with that collation in its own way and
+        /// additionally makes the answer depend on how the HOST is configured. Both are refused
+        /// outright rather than answered differently.</para>
+        ///
+        /// <para>The allow-list refuses more than those two: see the route's own remarks for the
+        /// full set and for why <c>$select</c>, though safe on the merits, stays out.</para>
         ///
         /// <para>Both halves are asserted together on purpose: that the safe options still
         /// compose, and that the unsafe ones fail loudly. Dropping either half lets the route

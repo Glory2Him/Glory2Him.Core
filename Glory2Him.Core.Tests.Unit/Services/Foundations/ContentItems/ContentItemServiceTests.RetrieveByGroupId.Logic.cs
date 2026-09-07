@@ -11,6 +11,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -275,5 +276,56 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
             return contentItem;
         }
+        /// <summary>
+        /// THE LINEAGE'S OWN ORDER. This is the half of the paging contract that lives down here:
+        /// the exposer turns OData's <c>EnsureStableOrdering</c> off precisely so this ordering
+        /// survives, and with it off nothing else supplies one - the storage read carries no
+        /// ORDER BY, so without this the route would page in whatever order SQL happened to
+        /// return.
+        ///
+        /// <para>Seeded deliberately OUT of order, and out of Id order too, so a read that
+        /// forwarded the storage order or leaned on the entity key would fail rather than pass by
+        /// coincidence.</para>
+        /// </summary>
+        [Theory]
+        [MemberData(nameof(ReviewRoles))]
+        public async Task ShouldOrderGroupMembersByVersionOnRetrieveByGroupIdAsync(
+            string reviewRole)
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(reviewRole);
+            Guid inputGroupId = Guid.NewGuid();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+
+            List<ContentItem> storageContentItems = new[] { 3, 1, 2 }
+                .Select(version =>
+                {
+                    ContentItem contentItem =
+                        CreateContentItemFiller(randomDateTimeOffset).Create();
+
+                    contentItem.GroupId = inputGroupId;
+                    contentItem.Version = version;
+                    contentItem.IsDeleted = false;
+
+                    return contentItem;
+                })
+                .ToList();
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectContentItemsByGroupIdAsync(
+                    inputGroupId, It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageContentItems);
+
+            // when
+            IReadOnlyList<ContentItem> actualContentItems =
+                await this.contentItemService.RetrieveContentItemsByGroupIdAsync(
+                    inputGroupId,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualContentItems.Select(contentItem => contentItem.Version)
+                .Should().ContainInOrder(1, 2, 3);
+        }
+
     }
 }

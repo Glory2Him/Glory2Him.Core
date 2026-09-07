@@ -11,6 +11,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -274,5 +275,56 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
 
             return link;
         }
+        /// <summary>
+        /// THE LINEAGE'S OWN ORDER. This is the half of the paging contract that lives down here:
+        /// the exposer turns OData's <c>EnsureStableOrdering</c> off precisely so this ordering
+        /// survives, and with it off nothing else supplies one - the storage read carries no
+        /// ORDER BY, so without this the route would page in whatever order SQL happened to
+        /// return.
+        ///
+        /// <para>Seeded deliberately OUT of order, and out of Id order too, so a read that
+        /// forwarded the storage order or leaned on the entity key would fail rather than pass by
+        /// coincidence.</para>
+        /// </summary>
+        [Theory]
+        [MemberData(nameof(ReviewRoles))]
+        public async Task ShouldOrderGroupMembersByVersionOnRetrieveByGroupIdAsync(
+            string reviewRole)
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(reviewRole);
+            Guid inputGroupId = Guid.NewGuid();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+
+            List<Link> storageLinks = new[] { 3, 1, 2 }
+                .Select(version =>
+                {
+                    Link link =
+                        CreateLinkFiller(randomDateTimeOffset).Create();
+
+                    link.GroupId = inputGroupId;
+                    link.Version = version;
+                    link.IsDeleted = false;
+
+                    return link;
+                })
+                .ToList();
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectLinksByGroupIdAsync(
+                    inputGroupId, It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageLinks);
+
+            // when
+            IReadOnlyList<Link> actualLinks =
+                await this.linkService.RetrieveLinksByGroupIdAsync(
+                    inputGroupId,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualLinks.Select(link => link.Version)
+                .Should().ContainInOrder(1, 2, 3);
+        }
+
     }
 }

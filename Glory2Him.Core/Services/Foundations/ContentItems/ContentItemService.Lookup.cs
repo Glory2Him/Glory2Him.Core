@@ -177,7 +177,21 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                         contentItems: groupContentItems.AsQueryable(),
                         securityContext: envelope.SecurityContext);
 
-                return visibleContentItems.ToList();
+                // ORDERED BY VERSION, which is the lineage's own order and the only one meaningful
+                // to a caller reading a group. It is imposed HERE because this is the layer that
+                // declares the IReadOnlyList contract and already shapes this exact set in memory -
+                // the visibility filter above runs over it - so ordering is the same kind of work
+                // in the same place rather than a second home for one rule.
+                //
+                // It only takes effect because the exposer sets EnsureStableOrdering = false.
+                // OData otherwise re-sorts by the entity key and discards this entirely, which is
+                // measured, not assumed. The ThenBy is belt and braces: (GroupId, Version) is
+                // unique so Version already totally orders a group, but with OData's own tiebreak
+                // switched off nothing else would supply one if that ever changed.
+                return visibleContentItems
+                    .OrderBy(contentItem => contentItem.Version)
+                    .ThenBy(contentItem => contentItem.Id)
+                    .ToList();
             });
 
         private static void ValidateOnFindPublishedSiblingContentItem(Guid contentItemId) =>
