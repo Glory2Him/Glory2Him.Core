@@ -2746,14 +2746,14 @@ Current intended orchestrations:
 | Number | Name | Purpose |
 | --- | --- | --- |
 | 1 | `AssociationOrchestrationService` | Resolves an association's two endpoints against their respective entity services and runs the retrieve-or-add suggestion on add. Its only operation today is `AddAssociationAsync`; it has **no read surface**, so the §14.3 composite visibility rule is *not* implemented anywhere yet. |
-| 2 | ~~`ContentItemSettingsOrchestration`~~ | **Not an orchestration** — single-entity, so it belongs in §12.4 as `ContentItemSettingsProcessingService`. The layer above its foundation is earned by effective-setting resolution (merging the content type default with any item override), not by versioning. §12.5.2 below and its rules move to §12.4 when the service is built. |
+| 2 | `ContentItemSettingOrchestrationService` | **Built.** It spans two entity types: an override's `ContentType` is derived from the `ContentItem` it names rather than accepted from the caller, because the write gate composes the publisher tier from that value (§12.5.2 business rule 6). Reading a second entity is §12.1 rule 2's definition of an orchestration. An earlier note here struck this entry out as single-entity; that held only while every flow stayed inside `ContentItemSetting`, and one does not. A `ContentItemSettingsProcessingService` may still be earned for the effective-setting merge, which reads two rows of ONE entity — per §12.1 it would sit under this orchestration rather than replace it. |
 | 3 | `ApprovalOrchestrationService` | Orchestrates approval submission, review decisions, policy outcomes, and denormalized state updates. |
 
 > **Entries 4–9 were withdrawn.** `ApprovalReviewOrchestration`, `ApprovalCommentOrchestration`, `TagOrchestration`, `ReactionOrchestration`, `CommentOrchestration` and `BibleReferenceOrchestration` were each planned here before the §12.1 rule was applied. Every one touches a single entity type, so none needs anything above its foundation — `Tag`, `Reaction`, `Comment` and `BibleReference` are additionally Single-Row (§7.5.1) so they never fork, while `ApprovalReview` and `ApprovalComment` are not approvable entities at all; their surviving rules moved to §12.3.1, and their versioning rules were deleted. **Why they were deleted is not the same for all four**, and the single sentence that used to be here — "describing properties those types never had" — was true of three and false of the fourth. See §12.3.1's split, which §7.5.1 rule 1 already anticipated.
 >
 > **Entry 1 (`Association`) is provisional.** It does read several entity types, so it is not a processing service as written, but it takes seven entity services for a single operation, which breaks the dependency-count guidance regardless of which layer it sits in — four of its seven endpoint branches read a row only to discard it. Its endpoint-resolution design is being revisited and its classification is re-tested when that settles.
 >
-> **Entry 2 (`ContentItemSettings`) is a processing service**, not an orchestration: it is single-entity, and the layer above its foundation is earned by effective-setting resolution (merging the content type default with any item override) rather than by versioning. It moves to §12.4 when it is built.
+> **Entry 2 (`ContentItemSettings`) is an orchestration and is built.** An earlier note here called it single-entity; deriving an override's `ContentType` from the `ContentItem` it names reads a second entity type, which §12.1 rule 2 makes an orchestration. The effective-setting merge remains genuinely single-entity and may still earn a processing service beneath it (§12.5.2's banner has the full reasoning).
 >
 > **Entry 3 (`Approval`) is confirmed multi-entity** — it subscribes to entity facts and spans `Approval`, `ApprovalReview` and `ApprovalSetting`.
 
@@ -2771,11 +2771,13 @@ The failure mode is what makes this worth a rule rather than a convention. A rol
 
 **`Series` and `Topic` are seeded like every other member.** They are `ContentType` members on `ContentItem`, and §18.6 rule 5 scopes the narrow tier to the entity type rather than to a chosen subset of its content types. Withholding them would protect nothing — the coarse `ContentItem-Reviewers` still admits somebody to a series either way — and would only remove the ability to scope a person narrowly. A role assigned to nobody grants nothing.
 
-#### 12.5.2 ContentItemSettingsOrchestration
+#### 12.5.2 ContentItemSettingOrchestrationService
 
-> **Misfiled — this is a processing service, not an orchestration** (§12.1: single entity type). The section is left in place, rules intact, until the service is built and this content moves to §12.4; nothing here changes except which layer owns it. Read "orchestration" below as "processing service".
+> **It is an orchestration after all — the misfiling note is withdrawn.** This section was annotated "this is a processing service, not an orchestration (§12.1: single entity type)", and that reading held only while every flow stayed inside `ContentItemSetting`. One does not. Business rule 6 lets the publisher tier for a content type write an override OF that type, and the gate composes both the grant and the §18.6 block from the `ContentType` on the row — so while that value is the caller's to set, the row decides who may write it. Deriving it means READING the referenced `ContentItem`, which is a second entity type and therefore an orchestration by §12.1 rule 2, not a processing service by rule 1.
+>
+> `ContentItemSettingOrchestrationService` is that service, and the exposer binds to it. A processing service may still be earned later for single-entity work (§12.5's entry 2, and issue #209's effective-value merge); it would sit UNDER this one, per §12.1's closing note that an orchestration sits on top of a processing service rather than beside it.
 
-`ContentItemSettingsOrchestration` orchestrates the creation, modification, and policy resolution of content item settings across foundation services.
+`ContentItemSettingOrchestrationService` coordinates the content item setting flows that span a second entity type — today, deriving an override's `ContentType` from the content item it names. The single-entity rules below are the entity's and are enforced in its foundation.
 
 Responsibilities:
 
@@ -2799,7 +2801,7 @@ Business Rules:
    The `IsDeleted` term is not a loosening of rules 3 and 4 — a soft-deleted row is not a setting, being invisible to every caller including `Administrators` under §14.5 rule 3 and never resolved by rules 1 and 2. Without the term the row went on occupying its scope anyway, and since the API's delete *is* a soft delete, the ordinary way to remove a setting was the way that trapped its content type, or its content item, permanently (#326). `ApprovalSetting`'s two scope indexes carry the term for the same reason.
 5. **Every `ContentType` member must ALWAYS have a live default setting.** Rules 3 and 4 cap each scope at one row; this one puts a floor under the default scope. It is not optional configuration: rule 1 makes the default the setting that applies when no item override exists, so a content type without one has no resolvable setting at all and rendering for that type falls back to nothing.
 
-   **The rule belongs to the entity, not to this service.** §12.5.2 still describes a service that has not been built, and the invariant is enforced today — `ContentItemSettingService` refuses to remove a row whose `ContentItemId` is null. The refusal is a validation error naming the rule rather than a not-found: the row is there and every caller may read it, so the caller is being told the entity does not permit what they asked, which is the shape `BibleReference.USFM`'s immutability takes (§12.3.1 rule 2a). Overrides stay freely removable.
+   **The rule belongs to the entity, not to a service above it.** The invariant is enforced in the foundation — `ContentItemSettingService` refuses to remove a row whose `ContentItemId` is null — and stays there now that `ContentItemSettingOrchestrationService` exists, because it is a rule about the row rather than about coordinating anything. The refusal is a validation error naming the rule rather than a not-found: the row is there and every caller may read it, so the caller is being told the entity does not permit what they asked, which is the shape `BibleReference.USFM`'s immutability takes (§12.3.1 rule 2a). Overrides stay freely removable.
 
    **Hard removal is refused on the same terms — ruled.** The invariant is about the row existing, so the mechanism that removes it is irrelevant and no code path may leave a content type without a default even briefly. Hard delete as an escape hatch, with the startup re-seed as the repair, was considered and rejected: it leaves a window in which anything rendering that content type resolves nothing.
 
@@ -2812,19 +2814,17 @@ Business Rules:
 
    **The decision is made against the STORED row**, never the caller's copy, on every path that has one. A caller who could answer "is this a default?" for themselves could promote their own override into a default they may not author.
 
+   **An override's `ContentType` is DERIVED from the content item it names, never accepted from the caller** — by `ContentItemSettingOrchestrationService`, since reading that item spans a second entity type. Without it the row's own claim decides who may write the row: a holder of `ContentItem-Devotional-Publishers` could label a row `Devotional`, aim it at a quote, pass the gate, and take that quote's only override scope (`UX_ContentItemSettings_OverridePerEntity` is keyed on `ContentItemId` alone), leaving the quote's own publishers unable to create one or remove it. This is the same rule, and the same reason, as an association's denormalised `Entity{A,B}ContentType` (§4.1) — "derived from the resolved endpoint, never caller-supplied".
+
+   A per-type **default** names no item, so there is nothing to derive from and its content type is the whole of what the row declares; only an administrator may write one. And the read carries §16.6's visibility posture, so a caller who cannot see the item cannot resolve it at all — the attempt fails as an unresolvable reference before any role is consulted, which tells them less than a role refusal would.
+
    **The block is asked before the scope is, and covers BOTH scopes.** A `ContentItem`-scoped block bars a caller from a `ContentItemSetting` default as surely as from an override: the default is the row that configures every content item of that type, so a caller barred from the type is barred from the wider write too. Asking it only on the override branch inverts the rule — it stops the write that governs one item and waves through the one that governs all of them. This says nothing about any other settings entity; `ApprovalSetting`'s own write gate is unchanged and outside this rule.
 7. Disabling a feature in settings must prevent the creation of new associations of that type for the affected content items.
-8. The following fields are control fields and must never be accepted from an external caller. They must always be set internally by the orchestration or approval workflow:
-   - `ContentType`
-   - `ContentItemId`
-   - `ApprovalStatus`
-   - `IsDeleted`
-   - `CreatedBy`
-   - `CreatedWhen`
-   - `DeletedBy`
-   - `DeletedWhen`
-   - `DeletionReason`
-9. On every update, the orchestration must load the current entity from the database and map only the permitted caller-supplied setting fields (`TagsAllowed`, `ShowTags`, `ReactionsAllowed`, `ShowReactions`, `LinksAllowed`, `ShowLinks`, `AttachmentsAllowed`, `ShowAttachments`, `CommentsAllowed`, `ShowComments`, `BibleReferenceAllowed`, `ShowBibleReferences`, `LimitReactionsToLoveOnly`) onto that entity before saving.
+8. The following are control fields. `ContentType` and `ContentItemId` need stating precisely rather than simply listed, because a setting cannot be addressed at all without them:
+   - `ContentType` — **derived, not accepted**, on an item override: `ContentItemSettingOrchestrationService` reads the `ContentItem` the row names and overwrites whatever the caller sent (rule 6, #450), because the write gate composes the publisher tier from this value. On a per-type default there is no item to derive from and the field is the row's own subject, so it is caller-supplied and validated against the enum.
+   - `ContentItemId` — **caller-supplied on add, by necessity**: it is how a caller names the item being configured. It is pinned on modify by rule 9, so a row can never be moved to another item, nor flattened into a default.
+   - `ApprovalStatus`, `IsDeleted`, `CreatedBy`, `CreatedWhen`, `DeletedBy`, `DeletedWhen`, `DeletionReason` — never accepted from an external caller; set internally by the owning workflow.
+9. On every update the stored row must be loaded and the control fields above must not be permitted to change. This is the **foundation's** work rather than an orchestration's — it is a rule about one row (§12.3, and rule 5 above) — and `ContentItemSettingService.ValidateAgainstStorageContentItemSettingOnModify` enforces it by comparing the incoming `ContentItemId`, `ContentType`, `CreatedWhen`, `CreatedBy` and `UpdatedWhen` against the stored values and refusing any that differ, for every caller including `Administrators`. Note that this REFUSES a changed control field rather than silently mapping around it, so a caller learns their write was rejected. Only the setting fields themselves (`TagsAllowed`, `ShowTags`, `ReactionsAllowed`, `ShowReactions`, `LinksAllowed`, `ShowLinks`, `AttachmentsAllowed`, `ShowAttachments`, `CommentsAllowed`, `ShowComments`, `BibleReferenceAllowed`, `ShowBibleReferences`, `LimitReactionsToLoveOnly`) are amendable.
 10. Review dismissal is not the responsibility of this orchestration. Publishing `ContentItemSettingUpdatedEvent` is sufficient — `ApprovalOrchestrationService` must handle dismissal when it receives that event.
 
 #### 12.5.3 ApprovalOrchestrationService

@@ -14,6 +14,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings.Exceptions;
+using Glory2Him.Core.Models.Orchestrations.ContentItemSettings.Exceptions;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using RESTFulSense.Clients.Extensions;
@@ -100,7 +101,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ContentItemSettings
                     message: someMessage);
 
             var contentItemSettingValidationException =
-                new ContentItemSettingValidationException(
+                new ContentItemSettingOrchestrationValidationException(
                     message: someMessage,
                     innerException: notFoundContentItemSettingException);
 
@@ -140,7 +141,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ContentItemSettings
                     message: someMessage);
 
             var contentItemSettingValidationException =
-                new ContentItemSettingValidationException(
+                new ContentItemSettingOrchestrationValidationException(
                     message: someMessage,
                     innerException: unauthorizedContentItemSettingException);
 
@@ -183,7 +184,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ContentItemSettings
                     data: someInnerException.Data);
 
             var contentItemSettingDependencyValidationException =
-                new ContentItemSettingDependencyValidationException(
+                new ContentItemSettingOrchestrationDependencyValidationException(
                     message: someMessage,
                     innerException: lockedContentItemSettingException);
 
@@ -256,7 +257,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ContentItemSettings
                     data: someInnerException.Data);
 
             var contentItemSettingDependencyValidationException =
-                new ContentItemSettingDependencyValidationException(
+                new ContentItemSettingOrchestrationDependencyValidationException(
                     message: someMessage,
                     innerException: alreadyExistsContentItemSettingException);
 

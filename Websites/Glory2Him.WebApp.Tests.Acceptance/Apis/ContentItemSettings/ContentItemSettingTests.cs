@@ -15,6 +15,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.WebApp.Tests.Acceptance.Brokers;
+using Glory2Him.WebApp.Tests.Acceptance.Models.ContentItems;
 using Glory2Him.WebApp.Tests.Acceptance.Models.ContentItemSettings;
 using Tynamix.ObjectFiller;
 using CoreContentItemSetting = Glory2Him.Core.Models.Foundations.ContentItemSettings.ContentItemSetting;
@@ -80,9 +81,93 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
             return updatedContentItemSetting;
         }
 
+
+        // ── A REAL CONTENT ITEM BEHIND EVERY OVERRIDE ───────────────────────────────
+        //
+        // The suite used to mint a fresh Guid per override and say so: "ContentItemId carries no
+        // foreign key, so these ids name no real content item." That laxity was the bug — a
+        // publisher could point an override at another content type's item and take its only
+        // override scope. The orchestration now DERIVES an override's ContentType from the item
+        // it names (#450), so an id that names nothing is refused, and these fixtures have to be
+        // as real as the rule they exercise.
+        //
+        // The content type is chosen by the CALLER of this helper, because the derivation makes
+        // the item's type the row's type: a test that wants a Devotional override must stand a
+        // Devotional up first.
+        // THE ITEM IS LEFT BEHIND, deliberately. There is no core-level hard remover for a content
+        // item — only the HTTP soft delete — and soft-deleting one under a live override would
+        // change what the override points at rather than tidy up after it. It is safe here because
+        // the suite runs against a per-run catalogue (#302) and no content item assertion counts
+        // rows: ShouldGetAllContentItemsAsync matches each expected item with .Single() rather than
+        // asserting a total. A future count-based assertion would need this revisited.
+        private async ValueTask<ContentItem> PostRandomContentItemOfTypeAsync(ContentType contentType)
+        {
+            ContentItem randomContentItem = CreateRandomContentItemFiller(contentType).Create();
+
+            return await this.apiBroker.PostContentItemAsync(randomContentItem);
+        }
+
+        // An override whose ContentItemId names a real item of the given type, and whose
+        // ContentType already agrees with it — so the derivation confirms rather than corrects.
+        private async ValueTask<ContentItemSetting> CreateRandomOverrideSettingAsync(
+            ContentType contentType = ContentType.Story)
+        {
+            ContentItem contentItem = await PostRandomContentItemOfTypeAsync(contentType);
+            ContentItemSetting randomContentItemSetting = CreateRandomContentItemSetting();
+            randomContentItemSetting.ContentType = contentItem.ContentType;
+            randomContentItemSetting.ContentItemId = contentItem.Id;
+
+            return randomContentItemSetting;
+        }
+
+        private static Filler<ContentItem> CreateRandomContentItemFiller(ContentType contentType)
+        {
+            string user = Guid.NewGuid().ToString();
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            var filler = new Filler<ContentItem>();
+
+            filler.Setup()
+                .OnType<DateTimeOffset>().Use(now)
+                .OnType<DateTimeOffset?>().Use(now)
+
+                .OnProperty(contentItem => contentItem.ContentType).Use(contentType)
+                .OnProperty(contentItem => contentItem.Title)
+                    .Use(new Func<string>(() => $"Acceptance content item {Guid.NewGuid():N}"))
+                .OnProperty(contentItem => contentItem.Author).Use("Acceptance suite")
+
+                // Distinct per item: §3.4.2 refuses a duplicate by (ContentType, ContentHash)
+                // across non-deleted rows, so two fixtures sharing content would silently stop
+                // creating rows.
+                .OnProperty(contentItem => contentItem.Content)
+                    .Use(new Func<string>(() =>
+                        $"Body written by the acceptance suite. {Guid.NewGuid():N}"))
+
+                // Control fields (§12.4.1 rule 6) — never accepted from a caller. Sent as their
+                // defaults so a request cannot be read as an attempt to set them.
+                .OnProperty(contentItem => contentItem.ContentHash).Use((string)null)
+                .OnProperty(contentItem => contentItem.GroupId).Use(Guid.Empty)
+                .OnProperty(contentItem => contentItem.Version).Use(0)
+                .OnProperty(contentItem => contentItem.IsPublished).Use(false)
+                .OnProperty(contentItem => contentItem.PublishDate).Use((DateTimeOffset?)null)
+                .OnProperty(contentItem => contentItem.ApprovalStatus).Use(ApprovalStatus.Draft)
+                .OnProperty(contentItem => contentItem.IsApprovedByBypass).Use(false)
+                .OnProperty(contentItem => contentItem.ApprovedByBypassReason).Use((string)null)
+                .OnProperty(contentItem => contentItem.IsDeleted).Use(false)
+                .OnProperty(contentItem => contentItem.DeletionReason).Use((string)null)
+                .OnProperty(contentItem => contentItem.DeletedBy).Use((string)null)
+                .OnProperty(contentItem => contentItem.DeletedWhen).Use((DateTimeOffset?)null)
+
+                .OnProperty(contentItem => contentItem.CreatedWhen).Use(now)
+                .OnProperty(contentItem => contentItem.CreatedBy).Use(user)
+                .OnProperty(contentItem => contentItem.UpdatedWhen).Use(now)
+                .OnProperty(contentItem => contentItem.UpdatedBy).Use(user);
+
+            return filler;
+        }
+
         private async ValueTask<ContentItemSetting> PostRandomContentItemSettingAsync()
         {
-            ContentItemSetting randomContentItemSetting = CreateRandomContentItemSetting();
+            ContentItemSetting randomContentItemSetting = await CreateRandomOverrideSettingAsync();
 
             ContentItemSetting createdContentItemSetting =
                 await this.apiBroker.PostContentItemSettingAsync(randomContentItemSetting);
@@ -156,8 +241,12 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
                 // is keyed on ContentItemId instead, and a fresh Guid per row never collides —
                 // an unlimited supply, unlike the content types.
                 //
-                // ContentItemId carries no foreign key, so these ids name no real content item.
-                // That is the schema's choice rather than this suite's convenience.
+                // THE ID THIS MINTS NAMES NOTHING, and every test that POSTS overwrites it with a
+                // real item's id via CreateRandomOverrideSettingAsync. Since #450 the orchestration
+                // derives an override's ContentType by READING the item, so a fabricated id is
+                // refused — this placeholder survives only for the arrangements that never reach
+                // the API (rows seeded straight through the storage broker) and for keeping each
+                // drawn row in its own override scope.
                 .OnProperty(contentItemSetting => contentItemSetting.ContentType)
                     .Use(new Func<ContentType>(GetUnusedContentType))
                 .OnProperty(contentItemSetting => contentItemSetting.ContentItemId)

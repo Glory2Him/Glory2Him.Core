@@ -21,7 +21,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
         public async Task ShouldPostContentItemSettingAsync()
         {
             // given
-            ContentItemSetting randomContentItemSetting = CreateRandomContentItemSetting();
+            ContentItemSetting randomContentItemSetting = await CreateRandomOverrideSettingAsync();
             ContentItemSetting inputContentItemSetting = randomContentItemSetting;
             ContentItemSetting expectedContentItemSetting = inputContentItemSetting;
 
