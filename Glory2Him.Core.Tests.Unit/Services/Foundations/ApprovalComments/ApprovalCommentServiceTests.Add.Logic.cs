@@ -113,11 +113,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
             ApprovalCommentType commentType,
             bool isResolved)
         {
-            // given: BOTH birth pairings are legitimate and the add path applies no rule to
-            // either (§7.8 rule 1). A remark asks for nothing and is born settled; an ask holds
-            // the approval shut until somebody entitled to settles it. Pinning either — the
+            // given: THREE of the four birth pairings are legitimate and the add path pins
+            // neither field (§7.8 rule 1). A remark asks for nothing and is born settled; an ask
+            // holds the approval shut until somebody entitled to settles it. Pinning either — the
             // tempting "fix" §7.8 warns about — would make it impossible to leave a remark
             // without blocking the approval.
+            //
+            // The fourth, a settled ask, never reaches this service: the access gate refuses it
+            // above, which is why no row here states it.
             //
             // The FILLER draws neither field, so both are stated here: a test asserting on a
             // drawn value proves nothing about what the caller asked for.

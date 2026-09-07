@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -621,6 +621,10 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 CommentCreatedBy = GetRandomString(),
                 ApprovalState = ApprovalState.Submitted,
                 IsParentApprovalDeleted = false,
+                IsAsk = false,
+                IsSettled = false,
+                WasAsk = false,
+                WasSettled = false,
             };
 
             var invalidArgumentAccessException = new InvalidArgumentAccessException(

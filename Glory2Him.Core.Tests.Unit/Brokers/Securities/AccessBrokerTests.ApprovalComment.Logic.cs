@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -97,6 +97,85 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             this.capturedRecordApprovalCommentRequest.ApprovalState.Should().Be(expectedState);
         }
 
+        // THE ONE PIECE OF TRANSLATION THIS BROKER DOES, and until these two Theories nothing
+        // read it back: every call site passed Comment/false, so inverting the comparison or
+        // dropping the assignment left the whole .NET suite green. The enum belongs to Core and
+        // the bool to the security client — the reference runs one way — which makes this the
+        // seam where the two vocabularies meet and the only place a mistranslation can happen.
+        [Theory]
+        [InlineData(ApprovalCommentType.Question, true)]
+        [InlineData(ApprovalCommentType.Comment, false)]
+        public async Task ShouldTranslateTheCommentTypeOntoIsAskOnRecordAsync(
+            ApprovalCommentType commentType,
+            bool expectedIsAsk)
+        {
+            // given
+            SecurityContext securityContext = CreateAuthenticatedSecurityContext();
+
+            Approval approval = CreateApproval(
+                Guid.NewGuid(),
+                EntityType.ContentItem,
+                Guid.NewGuid(),
+                ApprovalStatus.Submitted);
+
+            SetupApprovalById(approval);
+
+            // when
+            await this.accessBroker.MayRecordApprovalCommentAsync(
+                approval.Id,
+                commentType,
+                isResolved: true,
+                securityContext,
+                TestContext.Current.CancellationToken);
+
+            // then
+            this.capturedRecordApprovalCommentRequest.IsAsk.Should().Be(expectedIsAsk);
+
+            // carried across untouched, unlike the type beside it
+            this.capturedRecordApprovalCommentRequest.IsSettled.Should().BeTrue();
+        }
+
+        // Both ENDS of the transition on the amend path, and they must not be crossed: reading
+        // the stored pairing into the incoming halves would let the veto compare a row with
+        // itself and permit every write.
+        [Theory]
+        [InlineData(ApprovalCommentType.Question, ApprovalCommentType.Comment, true, false)]
+        [InlineData(ApprovalCommentType.Comment, ApprovalCommentType.Question, false, true)]
+        public async Task ShouldTranslateBothEndsOfThePairingOnAmendAsync(
+            ApprovalCommentType commentType,
+            ApprovalCommentType storageCommentType,
+            bool expectedIsAsk,
+            bool expectedWasAsk)
+        {
+            // given
+            SecurityContext securityContext = CreateAuthenticatedSecurityContext();
+
+            Approval approval = CreateApproval(
+                Guid.NewGuid(),
+                EntityType.ContentItem,
+                Guid.NewGuid(),
+                ApprovalStatus.Submitted);
+
+            SetupApprovalById(approval);
+
+            // when
+            await this.accessBroker.MayAmendApprovalCommentAsync(
+                approval.Id,
+                GetRandomString(),
+                commentType,
+                isResolved: true,
+                storageCommentType: storageCommentType,
+                storageIsResolved: false,
+                securityContext,
+                TestContext.Current.CancellationToken);
+
+            // then
+            this.capturedAmendApprovalCommentRequest.IsAsk.Should().Be(expectedIsAsk);
+            this.capturedAmendApprovalCommentRequest.WasAsk.Should().Be(expectedWasAsk);
+            this.capturedAmendApprovalCommentRequest.IsSettled.Should().BeTrue();
+            this.capturedAmendApprovalCommentRequest.WasSettled.Should().BeFalse();
+        }
+
         [Fact]
         public async Task ShouldPassTheStoredCommentAuthorThroughOnAmendAsync()
         {
@@ -117,6 +196,10 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             await this.accessBroker.MayAmendApprovalCommentAsync(
                 approval.Id,
                 storedAuthor,
+                ApprovalCommentType.Comment,
+                isResolved: false,
+                storageCommentType: ApprovalCommentType.Comment,
+                storageIsResolved: false,
                 securityContext,
                 TestContext.Current.CancellationToken);
 
@@ -204,6 +287,10 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             AccessVerdict actualVerdict = await this.accessBroker.MayAmendApprovalCommentAsync(
                 approvalId,
                 GetRandomString(),
+                ApprovalCommentType.Comment,
+                isResolved: false,
+                storageCommentType: ApprovalCommentType.Comment,
+                storageIsResolved: false,
                 securityContext,
                 TestContext.Current.CancellationToken);
 

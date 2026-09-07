@@ -128,6 +128,10 @@ namespace Glory2Him.Core.Brokers.Securities
         public async ValueTask<AccessVerdict> MayAmendApprovalCommentAsync(
             Guid approvalId,
             string commentCreatedBy,
+            ApprovalCommentType commentType,
+            bool isResolved,
+            ApprovalCommentType storageCommentType,
+            bool storageIsResolved,
             SecurityContext securityContext,
             CancellationToken cancellationToken = default)
         {
@@ -149,6 +153,14 @@ namespace Glory2Him.Core.Brokers.Securities
                     CommentCreatedBy = commentCreatedBy,
                     ApprovalState = ToApprovalState(maybeApproval.ApprovalStatus),
                     IsParentApprovalDeleted = maybeApproval.IsDeleted,
+
+                    // Both ends of the transition, translated to the client's vocabulary and
+                    // passed through rather than compared here: this broker gathers, IAccessClient
+                    // rules (§8.6.1).
+                    IsAsk = commentType == ApprovalCommentType.Question,
+                    IsSettled = isResolved,
+                    WasAsk = storageCommentType == ApprovalCommentType.Question,
+                    WasSettled = storageIsResolved,
                 });
         }
 

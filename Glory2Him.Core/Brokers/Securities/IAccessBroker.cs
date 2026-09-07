@@ -193,9 +193,25 @@ namespace Glory2Him.Core.Brokers.Securities
         /// broker passes it through without verifying it, so a payload-supplied value would
         /// defeat the ownership gate it feeds.
         /// </param>
+        /// <param name="commentType">What the comment WOULD BE once this write lands.</param>
+        /// <param name="isResolved">The resolution this write would leave the row in.</param>
+        /// <param name="storageCommentType">
+        /// What the STORED row is. With <paramref name="storageIsResolved"/> it lets the decision
+        /// rule on the transition rather than the state, so a question somebody already settled
+        /// stays editable by its author.
+        /// </param>
+        /// <param name="storageIsResolved">The resolution the STORED row already carries.</param>
+        /// <remarks>
+        /// Withdrawal passes the stored pairing as both halves: a soft delete moves neither
+        /// field, so the transition veto has nothing to catch.
+        /// </remarks>
         ValueTask<AccessVerdict> MayAmendApprovalCommentAsync(
             Guid approvalId,
             string commentCreatedBy,
+            Models.Enums.ApprovalCommentType commentType,
+            bool isResolved,
+            Models.Enums.ApprovalCommentType storageCommentType,
+            bool storageIsResolved,
             Models.Events.SecurityContext securityContext,
             CancellationToken cancellationToken = default);
 

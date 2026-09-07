@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -325,6 +325,142 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
 
             actualVerdict.DenialReason.Should()
                 .Be(AccessDenialReason.ParentApprovalUnavailable);
+        }
+
+        /// <summary>
+        /// THE SAME PAIRING THE ADD PATH REFUSES, reached the long way round. A remark born
+        /// settled is permitted, and retyping a remark as a question is an ordinary owner edit —
+        /// so without this veto the two compose, in one extra call, into exactly the settled ask
+        /// <see cref="ShouldRefuseRecordingAnAskThatIsAlreadySettledAsync"/> refuses. Neither
+        /// half touches the resolve operation or its publisher tier.
+        /// </summary>
+        [Theory]
+        [InlineData(false, true)]
+        [InlineData(false, false)]
+        [InlineData(true, false)]
+        public async Task ShouldRefuseAmendingIntoASettledAskAsync(bool wasAsk, bool wasSettled)
+        {
+            // given: every stored pairing EXCEPT one that is already a settled ask
+            string authorId = GetRandomString();
+
+            AmendApprovalCommentRequest amendApprovalCommentRequest =
+                CreateRandomAmendApprovalCommentRequest(
+                    actor: CreateRandomAccessActor(userId: authorId),
+                    commentCreatedBy: authorId,
+                    isAsk: true,
+                    isSettled: true,
+                    wasAsk: wasAsk,
+                    wasSettled: wasSettled);
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayAmendApprovalCommentAsync(
+                    amendApprovalCommentRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeFalse();
+
+            actualVerdict.DenialReason.Should()
+                .Be(AccessDenialReason.SettledAskNotPermitted);
+        }
+
+        /// <summary>
+        /// THE VETO IS ON THE TRANSITION, NOT THE STATE, and this is the case that proves the
+        /// difference matters. A question somebody else settled through the resolve operation is
+        /// already a settled ask; its author must still be able to fix a typo in their own words.
+        /// Refusing by state would strand them — punished for a resolution they did not perform.
+        /// </summary>
+        [Fact]
+        public async Task ShouldPermitAmendingARowThatIsAlreadyASettledAskAsync()
+        {
+            // given
+            string authorId = GetRandomString();
+
+            AmendApprovalCommentRequest amendApprovalCommentRequest =
+                CreateRandomAmendApprovalCommentRequest(
+                    actor: CreateRandomAccessActor(userId: authorId),
+                    commentCreatedBy: authorId,
+                    isAsk: true,
+                    isSettled: true,
+                    wasAsk: true,
+                    wasSettled: true);
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayAmendApprovalCommentAsync(
+                    amendApprovalCommentRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeTrue();
+            actualVerdict.DenialReason.Should().Be(AccessDenialReason.None);
+        }
+
+        /// <summary>
+        /// Everything the veto does NOT cover still passes. The owner keeps a settled remark, an
+        /// outstanding ask, and the freedom to settle or re-open a REMARK of their own — the last
+        /// of which is why IsResolved is ruled by this gate rather than pinned outright in
+        /// <c>ValidateAgainstStorageApprovalCommentOnModify</c>.
+        /// </summary>
+        [Theory]
+        [InlineData(false, true, true, false)]
+        [InlineData(false, false, true, true)]
+        [InlineData(true, false, false, true)]
+        [InlineData(false, true, false, false)]
+        public async Task ShouldPermitEveryOtherAmendPairingAsync(
+            bool isAsk,
+            bool isSettled,
+            bool wasAsk,
+            bool wasSettled)
+        {
+            // given
+            string authorId = GetRandomString();
+
+            AmendApprovalCommentRequest amendApprovalCommentRequest =
+                CreateRandomAmendApprovalCommentRequest(
+                    actor: CreateRandomAccessActor(userId: authorId),
+                    commentCreatedBy: authorId,
+                    isAsk: isAsk,
+                    isSettled: isSettled,
+                    wasAsk: wasAsk,
+                    wasSettled: wasSettled);
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayAmendApprovalCommentAsync(
+                    amendApprovalCommentRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeTrue();
+            actualVerdict.DenialReason.Should().Be(AccessDenialReason.None);
+        }
+
+        /// <summary>
+        /// The pairing is asked LAST here too: someone who never wrote the comment learns that
+        /// they did not write it, not what the row's resolution looks like (§14.5).
+        /// </summary>
+        [Fact]
+        public async Task ShouldReportTheAuthorshipRefusalRatherThanTheSettledAskAsync()
+        {
+            // given
+            AmendApprovalCommentRequest amendApprovalCommentRequest =
+                CreateRandomAmendApprovalCommentRequest(
+                    actor: CreateRandomAccessActor(userId: GetRandomString()),
+                    commentCreatedBy: GetRandomString(),
+                    isAsk: true,
+                    isSettled: true,
+                    wasAsk: false,
+                    wasSettled: false);
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayAmendApprovalCommentAsync(
+                    amendApprovalCommentRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeFalse();
+
+            actualVerdict.DenialReason.Should()
+                .Be(AccessDenialReason.NotApprovalCommentAuthor);
         }
 
         [Fact]

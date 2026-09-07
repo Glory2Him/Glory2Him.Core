@@ -52,9 +52,10 @@ export const approvalCommentService = {
     //
     // isResolved IS DERIVED FROM THE TYPE, and this is the one place that mapping lives: a
     // Question is born OUTSTANDING and holds the approval shut, a Comment is born SETTLED and
-    // never blocks. That is §7.8's own sentence rather than a rule this client invents — the add
-    // path deliberately applies no rule to the field, so a caller who said nothing would make
-    // every remark a blocker.
+    // never blocks. That is §7.8's own sentence rather than a rule this client invents — the
+    // field carries no shape rule, so a caller who said nothing would make every remark a
+    // blocker. The server refuses the settled ask on both the add and the amend path, so this
+    // derivation agrees with the gate rather than standing in for it.
     useAddApprovalComment: () => {
         const approvalCommentBroker = new ApprovalCommentBroker();
         const queryClient = useQueryClient();

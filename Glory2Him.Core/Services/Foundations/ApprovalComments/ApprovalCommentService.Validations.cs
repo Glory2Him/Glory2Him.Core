@@ -101,15 +101,26 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
             await ThrowIfRefusedAsync(verdict, approvalId, "add a comment to");
         }
 
+        // Takes BOTH ends of the pairing because the decision rules on the transition: the row
+        // this write would leave behind, and the one storage already holds. Withdrawal passes the
+        // stored values as both, since a soft delete moves neither field.
         private async ValueTask ValidateUserMayAmendApprovalCommentAsync(
             Guid approvalId,
             string commentCreatedBy,
+            ApprovalCommentType commentType,
+            bool isResolved,
+            ApprovalCommentType storageCommentType,
+            bool storageIsResolved,
             SecurityContext securityContext,
             CancellationToken cancellationToken)
         {
             AccessVerdict verdict = await this.accessBroker.MayAmendApprovalCommentAsync(
                 approvalId: approvalId,
                 commentCreatedBy: commentCreatedBy,
+                commentType: commentType,
+                isResolved: isResolved,
+                storageCommentType: storageCommentType,
+                storageIsResolved: storageIsResolved,
                 securityContext: securityContext,
                 cancellationToken: cancellationToken);
 
@@ -371,11 +382,13 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                         secondName: nameof(ApprovalComment.ApprovalId)),
                     Parameter: nameof(ApprovalComment.ApprovalId)),
 
-                // IsResolved is deliberately NOT pinned. Modify is owner-only, and the owner may
-                // settle (or re-open) their own comment here as readily as through the resolve
-                // transition — pinning it would leave them unable to change a field that is
-                // theirs. What Resolve adds is the Administrators route (§14.7 rule 5), not exclusivity
-                // over the field.
+                // IsResolved is deliberately NOT pinned HERE — it is ruled a layer up instead, by
+                // the access gate this path already asks (ValidateUserMayAmendApprovalCommentAsync).
+                // A pin is unconditional and this rule is not: the owner may still settle or
+                // re-open a REMARK of their own, and may still edit an ask that was already
+                // settled. What the gate refuses is the one transition that lands on a settled
+                // ask, because arriving there IS resolving one and resolving answers to the
+                // publisher tier. Pinning the field outright would take the first two with it.
                 //
                 // The two paths publish different facts, and that costs nothing PROVIDED the
                 // approval workflow subscribes to BOTH ApprovalComment-Modified and -Resolved to
@@ -389,10 +402,11 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
 
                 // CommentType is not pinned either, and for the same reason: the row belongs to
                 // whoever wrote it, and correcting a remark into a question — or back — is the
-                // author changing their own words. It moves nothing on its own: what blocks an
-                // approval is IsResolved, and a caller who wants to block or unblock says so in
-                // that field. The pin list is open by default, so this is a deliberate absence
-                // rather than an oversight.
+                // author changing their own words. It moves nothing ON ITS OWN. What moves
+                // something is the PAIRING, and that is the gate's to judge rather than this
+                // list's: a settled remark retyped as a question would otherwise compose two
+                // permitted writes into the state the add path refuses outright. The pin list is
+                // open by default, so both absences are deliberate rather than oversights.
 
                 (Rule: IsSame(
                         firstDate: inputApprovalComment.UpdatedWhen,

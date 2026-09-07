@@ -64,5 +64,39 @@ namespace G2H.Security.Client.Models.Foundations.Access
         /// </para>
         /// </summary>
         public required bool IsParentApprovalDeleted { get; init; }
+
+        /// <summary>
+        /// Whether the comment would be an <b>ask</b> once this write lands.
+        ///
+        /// <para>A <c>bool</c> rather than a mirrored enum for the reason given on
+        /// <see cref="RecordApprovalCommentRequest.IsAsk"/>.</para>
+        /// </summary>
+        public required bool IsAsk { get; init; }
+
+        /// <summary>
+        /// Whether the comment would be settled once this write lands.
+        /// </summary>
+        public required bool IsSettled { get; init; }
+
+        /// <summary>
+        /// Whether the <b>stored</b> row is already an ask.
+        ///
+        /// <para><b>Read from storage, never from the request payload</b>, for the reason spelled
+        /// out on <see cref="CommentCreatedBy"/>: a payload-supplied value would let a caller
+        /// describe the row's prior state as whatever gets them past the pairing veto below.</para>
+        /// </summary>
+        public required bool WasAsk { get; init; }
+
+        /// <summary>
+        /// Whether the <b>stored</b> row is already settled. Read from storage, like
+        /// <see cref="WasAsk"/>.
+        ///
+        /// <para>The pair exists so the veto can rule on the TRANSITION rather than the state.
+        /// <see cref="RecordApprovalCommentRequest.IsSettled"/> refuses a settled ask outright
+        /// because creating one <i>is</i> resolving one; amending a row that already is one moves
+        /// nothing, and refusing that would strand its author — unable to fix their own typo on a
+        /// question somebody else legitimately settled through the resolve operation.</para>
+        /// </summary>
+        public required bool WasSettled { get; init; }
     }
 }

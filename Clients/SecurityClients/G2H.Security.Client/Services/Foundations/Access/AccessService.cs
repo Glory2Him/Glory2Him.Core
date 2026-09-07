@@ -243,6 +243,26 @@ namespace G2H.Security.Client.Services.Foundations.Access
                     "The parent approval is not open — before submission there is no thread, and once it closes what was said stands as recorded.");
             }
 
+            // THE SAME PAIRING THE ADD PATH REFUSES, because the add path is not the only way to
+            // reach it. A remark born settled is permitted, and retyping a remark as a question
+            // is an ordinary owner edit — so without this the two compose into a settled ask in
+            // one extra call, through a gate that never asks who may resolve, which is precisely
+            // what DecideMayRecordApprovalComment refuses to hand out.
+            //
+            // RULED ON THE TRANSITION, NOT THE STATE. The add gate can compare against nothing
+            // and so refuses the pairing outright; here the row already exists, and a row that is
+            // ALREADY a settled ask got that way through the resolve operation and its publisher
+            // tier. Editing its words moves nothing. Refusing by state instead of by transition
+            // would strand that comment's author, unable to fix a typo in their own question
+            // because somebody else had answered it.
+            if (request.IsAsk && request.IsSettled && (request.WasAsk && request.WasSettled) is false)
+            {
+                return Refuse(
+                    AccessDenialReason.SettledAskNotPermitted,
+                    "This change would leave a question already resolved — settling one is the "
+                        + "resolve operation's to grant, and it answers to a tier this gate does not ask about.");
+            }
+
             return Permit("Actor is the author of the comment and the round is open.");
         }
 

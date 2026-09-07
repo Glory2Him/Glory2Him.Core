@@ -49,9 +49,10 @@ export type ApprovalComment = {
 // model binding, before the service ever sees the row. The id IS the client's: the foundation
 // refuses an empty Guid and never mints one.
 //
-// isResolved travels because BOTH birth values are legitimate (§7.8 rule 1): a Question is born
-// outstanding and holds the approval shut, a Comment is born settled and never blocks. The add
-// path applies no rule to it, so saying nothing would silently make every remark a blocker.
+// isResolved travels because BOTH birth values are legitimate for a remark (§7.8 rule 1): a
+// Question is born outstanding and holds the approval shut, a Comment is born settled and never
+// blocks. The field carries no shape rule, so saying nothing would silently make every remark a
+// blocker. The one pairing the server refuses is a settled ask.
 export type ApprovalCommentAddRequest = Pick<
     ApprovalComment,
     'id' | 'approvalId' | 'comment' | 'commentType' | 'isResolved' | 'isDeleted'>;

@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -75,9 +75,11 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalComments
             ApprovalComment inputApprovalComment = CreateRandomApprovalComment(randomApproval.Id);
             inputApprovalComment.CommentType = bornAs;
 
-            // An ask is born outstanding: the add gate refuses a settled one, so the fixture has
-            // to state the pairing the server will accept rather than whatever the filler drew.
-            inputApprovalComment.IsResolved = bornAs == ApprovalCommentType.Comment;
+            // Born OUTSTANDING whichever type it starts as. The add gate refuses a settled ask,
+            // and the amend gate refuses retyping a settled remark INTO one — so an outstanding
+            // row is the only fixture from which both corrections are legitimate. Anything else
+            // would be this test asserting a bypass rather than a correction.
+            inputApprovalComment.IsResolved = false;
 
             ApprovalComment createdApprovalComment =
                 await this.apiBroker.PostApprovalCommentAsync(inputApprovalComment);
@@ -94,9 +96,103 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalComments
                 // then
                 actualApprovalComment.CommentType.Should().Be(correctedTo);
 
-                // and the resolution is untouched — the two are one decision at BIRTH only, and
-                // an amend is not a birth
+                // and the resolution is untouched: correcting the type is not resolving, and
+                // settling is the resolve operation's alone
                 actualApprovalComment.IsResolved.Should().Be(createdApprovalComment.IsResolved);
+            }
+            finally
+            {
+                await RemoveApprovalCommentAndApprovalAsync(
+                    createdApprovalComment.Id,
+                    randomApproval.Id);
+            }
+        }
+
+        /// <summary>
+        /// THE TWO-CALL ROUTE TO A SETTLED ASK, closed. Both halves are individually permitted —
+        /// a remark may be born settled, and its author may retype it as a question — so a rule
+        /// enforced only at birth is a rule enforced only against callers who do it in one step.
+        /// The amend gate asks the same pairing, which is what makes it an invariant rather than
+        /// a speed bump.
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnUnauthorizedOnPutIfARemarkIsRetypedIntoASettledAskAsync()
+        {
+            // given: a remark born settled, which the add gate permits
+            Approval randomApproval =
+                await this.apiBroker.InsertOpenApprovalAsync(Guid.NewGuid().ToString());
+
+            ApprovalComment settledRemark = CreateRandomApprovalComment(randomApproval.Id);
+            settledRemark.CommentType = ApprovalCommentType.Comment;
+            settledRemark.IsResolved = true;
+
+            ApprovalComment createdApprovalComment =
+                await this.apiBroker.PostApprovalCommentAsync(settledRemark);
+
+            try
+            {
+                // when: the second half, which alone is an ordinary owner edit
+                createdApprovalComment.CommentType = ApprovalCommentType.Question;
+
+                var putApprovalCommentTask =
+                    this.apiBroker.PutApprovalCommentAsync(createdApprovalComment).AsTask();
+
+                // then
+                await Assert.ThrowsAsync<HttpResponseUnauthorizedException>(
+                    () => putApprovalCommentTask);
+
+                // and the stored row never moved — a refused put must not land half of itself
+                ApprovalComment actualApprovalComment =
+                    await this.apiBroker.GetApprovalCommentByIdAsync(createdApprovalComment.Id);
+
+                actualApprovalComment.CommentType.Should().Be(ApprovalCommentType.Comment);
+                actualApprovalComment.IsResolved.Should().BeTrue();
+            }
+            finally
+            {
+                await RemoveApprovalCommentAndApprovalAsync(
+                    createdApprovalComment.Id,
+                    randomApproval.Id);
+            }
+        }
+
+        /// <summary>
+        /// The veto rules the TRANSITION, not the state. A question somebody else settled through
+        /// the resolve operation is already a settled ask; refusing to let its author fix a typo
+        /// would punish them for a resolution they did not perform.
+        /// </summary>
+        [Fact]
+        public async Task ShouldPutASettledAskWhenItWasAlreadySettledAsync()
+        {
+            // given
+            Approval randomApproval =
+                await this.apiBroker.InsertOpenApprovalAsync(Guid.NewGuid().ToString());
+
+            ApprovalComment inputApprovalComment = CreateRandomApprovalComment(randomApproval.Id);
+            inputApprovalComment.CommentType = ApprovalCommentType.Question;
+            inputApprovalComment.IsResolved = false;
+
+            ApprovalComment createdApprovalComment =
+                await this.apiBroker.PostApprovalCommentAsync(inputApprovalComment);
+
+            try
+            {
+                // settled through the operation that owns the flag, not through the amend path
+                ApprovalComment resolvedApprovalComment = await this.apiBroker
+                    .ResolveApprovalCommentAsync(createdApprovalComment.Id, isResolved: true);
+
+                // when
+                resolvedApprovalComment.Comment =
+                    CreateRandomApprovalComment(randomApproval.Id).Comment;
+                await this.apiBroker.PutApprovalCommentAsync(resolvedApprovalComment);
+
+                ApprovalComment actualApprovalComment = await this.apiBroker
+                    .GetApprovalCommentByIdAsync(createdApprovalComment.Id);
+
+                // then
+                actualApprovalComment.Comment.Should().Be(resolvedApprovalComment.Comment);
+                actualApprovalComment.CommentType.Should().Be(ApprovalCommentType.Question);
+                actualApprovalComment.IsResolved.Should().BeTrue();
             }
             finally
             {

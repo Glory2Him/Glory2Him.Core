@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -24,9 +24,10 @@ namespace Glory2Him.Core.Models.Enums
     ///
     /// <para><b>The type says what the row is; the flag says where it stands.</b> They are related
     /// at BIRTH only — a <see cref="Question"/> is created outstanding and a <see cref="Comment"/>
-    /// settled — and never afterwards. Nothing recomputes one from the other, and §7.8 rule 1 still
-    /// stands: the add path applies no rule to <c>IsResolved</c>, so a caller who states both is
-    /// taken at their word.</para>
+    /// settled — and never afterwards. Nothing recomputes one from the other. §7.8 rule 1 still
+    /// stands as a SHAPE rule — neither write path pins <c>IsResolved</c> — but a caller who states
+    /// both is no longer taken at their word: the PAIRING is refused wherever it can be reached, at
+    /// birth and on amend alike.</para>
     ///
     /// <para>APPEND-ONLY, and the members are persisted BY NAME — the storage broker converts this
     /// property with <c>HasConversion&lt;string&gt;()</c>, so a stored row reads "Question" rather
