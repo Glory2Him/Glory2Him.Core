@@ -368,7 +368,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
         public async Task ShouldThrowValidationExceptionOnModifyIfStorageCreatedByNotSameAsInputAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string randomUserId = GetRandomString();
             BibleReference randomBibleReference = CreateRandomModifyBibleReference(randomDateTimeOffset, randomUserId);
@@ -1060,7 +1060,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
         }
 
         [Fact]
-        public async Task ShouldThrowValidationExceptionOnModifyIfUserIsNotOwnerAndHasNoReviewRoleAndLogItAsync()
+        public async Task ShouldThrowValidationExceptionOnModifyIfUserIsNotOwnerAndHasNoPublisherRoleAndLogItAsync()
         {
             // given
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
@@ -1146,24 +1146,124 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
-        [Fact]
-        public async Task ShouldThrowValidationExceptionOnModifyIfApprovalStatusChangedByNonPublisherAndLogItAsync()
+        // THE INVERSION (§14.7 posture A.3, §18.6). Both rows below used to be ALLOWED: the
+        // review tier was in the modify gate, so a reviewer could rewrite the very text they
+        // were about to cast a verdict on — HR-3 one field away refused them the status and
+        // nothing refused them the content. They keep every read they had; only the write goes.
+        [Theory]
+        [InlineData(Roles.Reviewers)]
+        [InlineData(Roles.BibleReferenceReviewers)]
+        public async Task ShouldThrowValidationExceptionOnModifyIfAReviewerModifiesAnotherUsersRowAndLogItAsync(
+            string reviewerRole)
         {
             // given
-            // a reviewer holds write permission but is neither the owner nor in the Publishers
-            // tier, so mayTransitionApprovalStatus is false. The move is Draft -> Submitted — one
-            // the owner or a publisher WOULD be allowed — so the refusal comes from the carve-out
-            // gate, not from the status being a verdict.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(reviewerRole);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string randomUserId = GetRandomString();
-            string ownerUserId = GetRandomString();
+            BibleReference randomBibleReference = CreateRandomModifyBibleReference(randomDateTimeOffset, randomUserId);
+            BibleReference inputBibleReference = randomBibleReference;
+            BibleReference storageBibleReference = randomBibleReference.DeepClone();
+            storageBibleReference.CreatedBy = GetRandomString();
+            storageBibleReference.UpdatedWhen = storageBibleReference.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+
+            var unauthorizedBibleReferenceException = new UnauthorizedBibleReferenceException(
+                message: "The current user is not allowed to modify this bible reference.");
+
+            var expectedBibleReferenceValidationException = new BibleReferenceValidationException(
+                message: "Bible reference validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedBibleReferenceException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(inputBibleReference, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(inputBibleReference);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectBibleReferenceByIdAsync(
+                    inputBibleReference.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageBibleReference);
+
+            // when
+            ValueTask<BibleReference> modifyBibleReferenceTask =
+                this.bibleReferenceService.ModifyBibleReferenceAsync(
+                    inputBibleReference,
+                    TestContext.Current.CancellationToken);
+
+            BibleReferenceValidationException actualBibleReferenceValidationException =
+                await Assert.ThrowsAsync<BibleReferenceValidationException>(
+                    modifyBibleReferenceTask.AsTask);
+
+            // then
+            actualBibleReferenceValidationException.Should().BeEquivalentTo(
+                expectedBibleReferenceValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyModifyAuditValuesAsync(inputBibleReference, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Exactly(2));
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectBibleReferenceByIdAsync(
+                    inputBibleReference.Id,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateBibleReferenceAsync(
+                    It.IsAny<BibleReference>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedBibleReferenceValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnModifyIfApprovalStatusMovesToAVerdictAndLogItAsync()
+        {
+            // given
+            // The carve-out is the Draft <-> Submitted pair and nothing else, so the OWNER —
+            // the caller it is most plainly available to — is still refused a move onto a
+            // verdict through the general modify. Applying a verdict is the approval
+            // transition's alone (§9.7.1 rules 2-3).
+            //
+            // This test used to make the same point with a reviewer, whose
+            // mayTransitionApprovalStatus was false. A reviewer no longer reaches the pin at
+            // all — they are refused the modify itself, one step earlier (§14.7 posture A.3) —
+            // and that refusal is proved by
+            // ShouldThrowValidationExceptionOnModifyIfAReviewerModifiesAnotherUsersRowAndLogItAsync
+            // above.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
             BibleReference invalidBibleReference = CreateRandomModifyBibleReference(randomDateTimeOffset, randomUserId);
-            invalidBibleReference.CreatedBy = ownerUserId;
             invalidBibleReference.ApprovalStatus = ApprovalStatus.Draft;
             BibleReference storageBibleReference = invalidBibleReference.DeepClone();
             storageBibleReference.UpdatedWhen = storageBibleReference.UpdatedWhen.AddDays(GetRandomNegativeNumber());
-            invalidBibleReference.ApprovalStatus = ApprovalStatus.Submitted;
+            invalidBibleReference.ApprovalStatus = ApprovalStatus.Approved;
 
             var invalidBibleReferenceException =
                 new InvalidBibleReferenceException(

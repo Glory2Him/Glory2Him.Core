@@ -30,7 +30,7 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
             ValidateUserIsAllowedToContribute(securityContext);
             ValidateContentItemIsNotNull(contentItem);
             ValidateUserIsNotBlockedFromContentType(securityContext, contentItem.ContentType);
-            ValidateContentItem(contentItem);
+            ValidateContentItemOnAdd(contentItem);
         }
 
         private static void ValidateOnModifyContentItem(
@@ -138,17 +138,20 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
                 string.IsNullOrWhiteSpace(actorUserId) is false
                     && currentContentItem.CreatedBy == actorUserId;
 
-            // a not-yet-decided item may be corrected in place by a holder of Reviewers, Publishers or
-            // Administrators during review; a terminal one belongs to its owner alone, because the
-            // only edit it admits is a fork onto a fresh version (§3.4 rule 16) and a
-            // moderator forking someone else's decided row would author a version in
-            // their name
+            // A not-yet-decided item may be corrected in place by the PUBLISHER tier during
+            // review; a terminal one belongs to its owner alone, because the only edit it admits
+            // is a fork onto a fresh version (§3.4 rule 16) and a moderator forking someone
+            // else's decided row would author a version in their name.
+            //
+            // The review tier is deliberately absent (§14.7 posture A.3, §18.6): a reviewer casts
+            // reviews and writes approval comments, and never amends the text they are reviewing.
+            // They keep the read — HasReviewRole still admits them to the non-public version,
+            // which is what they need in order to review it at all.
+            //
+            // Asked about the STORED content type, so the narrow ContentItem-%ContentType%-
+            // Publishers tier is admitted here exactly as the foundation beneath admits it.
             bool hasModifyRole =
-                securityContext.Roles.Contains(Roles.Reviewers)
-                    || securityContext.Roles.Contains(Roles.ContentItemReviewers)
-                    || securityContext.Roles.Contains(Roles.Publishers)
-                    || securityContext.Roles.Contains(Roles.ContentItemPublishers)
-                    || securityContext.Roles.Contains(Roles.Administrators);
+                HasPublisherRole(securityContext, currentContentItem.ContentType);
 
             bool isTerminal =
                 currentContentItem.ApprovalStatus == ApprovalStatus.Approved
@@ -216,6 +219,19 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
             ContentType contentType) =>
             securityContext.Roles.Contains(
                     Roles.ReviewersFor(EntityType.ContentItem, contentType))
+                || securityContext.Roles.Contains(
+                    Roles.PublishersFor(EntityType.ContentItem, contentType));
+
+        // The publisher tier for THIS content type: the roles the approve operation itself
+        // requires, and the only ones besides the owner that may amend an in-flight version
+        // (§14.7 posture A.3). Strictly narrower than the review tier — a reviewer is absent by
+        // design (§8.6 HR-3).
+        private static bool HasPublisherRole(
+            SecurityContext securityContext,
+            ContentType contentType) =>
+            securityContext.Roles.Contains(Roles.Publishers)
+                || securityContext.Roles.Contains(Roles.ContentItemPublishers)
+                || securityContext.Roles.Contains(Roles.Administrators)
                 || securityContext.Roles.Contains(
                     Roles.PublishersFor(EntityType.ContentItem, contentType));
 
@@ -312,11 +328,40 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
             }
         }
 
-        private static void ValidateContentItem(ContentItem contentItem) =>
+        // EVERY caller-owned field of the add surface is ruled on HERE, and the last two are the
+        // reason (§3.4.2 rule 6, #412). A duplicate add is acknowledged without reaching the
+        // foundation, so any rule only the foundation asks answers one way for a duplicate and
+        // another way for a genuine submission — send a bad ShareabilityBasis with content that
+        // already exists and the acknowledgement comes back, send it with content that does not
+        // and a validation error does. That is a cleaner probe than the message this rule
+        // replaced. The foundation keeps asking both of these too: it is the last line of
+        // defence and has its own event address (§8.6.1, §14.6 rule 2), so this is duplication
+        // in the sense that rule means it — the same rule enforced at every layer that can be
+        // called alone, rather than a rule stated twice by accident.
+        //
+        // The control fields are not listed because the caller does not supply them:
+        // ComposeNewContentItemAsync sets Id, GroupId, Version and the three IApproval members
+        // itself, and the audit stamps are the audit broker's, so a caller cannot put a value
+        // the foundation would refuse into any of them.
+        //
+        // ValidateContentItemOnModify deliberately does NOT gain these two, and the asymmetry is
+        // the rule rather than an oversight. MapPermittedFields carries both onto the stored row
+        // on a modify, so they are caller-owned there too — but every modify reaches the
+        // foundation, which asks them, so both a duplicate and a genuine modify are answered by
+        // the same rule from the same place and neither tells the caller anything the other
+        // does not. It is the ADD's quiet arm, and only that, which returns without ever
+        // reaching the foundation; the rules are hoisted here to cover exactly that hole.
+        private static void ValidateContentItemOnAdd(ContentItem contentItem) =>
             Validate(
                 message: "Content item is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(contentItem.ContentType), Parameter: nameof(ContentItem.ContentType)),
                 (Rule: IsInvalid(contentItem.Content), Parameter: nameof(ContentItem.Content)),
+
+                (Rule: IsInvalid(contentItem.ShareabilityBasis),
+                    Parameter: nameof(ContentItem.ShareabilityBasis)),
+
+                (Rule: IsGreaterThan(contentItem.SharePermission, 500),
+                    Parameter: nameof(ContentItem.SharePermission)),
 
                 // The add path carries the caller's status onto the row it composes, so the pair
                 // §9.7.1 rule 1 admits is stated where that copy is made. The foundation asks the
@@ -380,6 +425,18 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
         {
             Condition = Enum.IsDefined(contentType) == false,
             Message = "Value is not a supported content type"
+        };
+
+        private static dynamic IsInvalid(ShareabilityBasis shareabilityBasis) => new
+        {
+            Condition = Enum.IsDefined(shareabilityBasis) == false,
+            Message = "Value is not a supported shareability basis"
+        };
+
+        private static dynamic IsGreaterThan(string? text, int maxLength) => new
+        {
+            Condition = (text ?? string.Empty).Length > maxLength,
+            Message = $"Text exceed max length of {maxLength} characters"
         };
 
         private static void Validate(

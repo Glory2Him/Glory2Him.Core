@@ -130,20 +130,20 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Links
         }
 
         /// <summary>
-        /// The review tier is owner-OR-role, so a reviewer may write a link they did not create.
-        /// Both tiers are exercised — the global <c>Reviewers</c> and the entity-scoped
-        /// <c>Link-Reviewers</c> — because the foundation tests for both and seeding only one
-        /// would leave half the rule dead.
+        /// Modify is owner-OR-the-PUBLISHER-tier, so a publisher may correct a link they did
+        /// not create while it is in flight. Both tiers are exercised — the global
+        /// <c>Publishers</c> and the entity-scoped <c>Link-Publishers</c> — because the foundation
+        /// tests for both and seeding only one would leave half the rule dead.
         /// </summary>
         [Theory]
-        [InlineData(Roles.Reviewers)]
-        [InlineData(Roles.LinkReviewers)]
-        public async Task ShouldAllowReviewerToModifyAnotherUsersLinkAsync(string reviewRoleName)
+        [InlineData(Roles.Publishers)]
+        [InlineData(Roles.LinkPublishers)]
+        public async Task ShouldAllowPublisherToModifyAnotherUsersLinkAsync(string publishRoleName)
         {
             // given
             Link randomLink = await PostRandomLinkAsync();
             Link modifiedLink = UpdateLinkWithRandomValues(randomLink);
-            this.apiBroker.ActAs(Guid.NewGuid().ToString(), reviewRoleName);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), publishRoleName);
 
             try
             {
@@ -161,15 +161,47 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Links
         }
 
         /// <summary>
-        /// Removal is owner-or-Administrators, deliberately narrower than modify: a reviewer holds write
-        /// permission on someone else's link but may not delete it.
+        /// THE INVERSION (design §14.7 posture A.3, §18.6). A reviewer reviews: they read the
+        /// non-public row and cast a verdict on it, and rewriting the text underneath that
+        /// verdict is not part of the job. Both tiers used to be ALLOWED here, and both are
+        /// exercised because seeding only one would leave half the rule dead.
+        /// </summary>
+        [Theory]
+        [InlineData(Roles.Reviewers)]
+        [InlineData(Roles.LinkReviewers)]
+        public async Task ShouldReturnUnauthorizedOnPutIfCallerIsOnlyAReviewerAsync(string reviewRoleName)
+        {
+            // given
+            Link randomLink = await PostRandomLinkAsync();
+            Link modifiedLink = UpdateLinkWithRandomValues(randomLink);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), reviewRoleName);
+
+            try
+            {
+                // when
+                var putLinkTask = this.apiBroker.PutLinkAsync(modifiedLink).AsTask();
+
+                // then
+                await Assert.ThrowsAsync<HttpResponseUnauthorizedException>(() => putLinkTask);
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+                await this.apiBroker.RemoveCoreLinkByIdAsync(randomLink.Id);
+            }
+        }
+
+        /// <summary>
+        /// Removal is owner-or-Administrators, deliberately narrower than modify: the publisher
+        /// tier may correct someone else's link in flight but may never delete it, and the
+        /// review tier may do neither.
         /// </summary>
         [Fact]
         public async Task ShouldReturnUnauthorizedOnDeleteIfCallerIsNeitherOwnerNorAdministratorAsync()
         {
             // given
             Link randomLink = await PostRandomLinkAsync();
-            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.LinkReviewers);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.LinkPublishers);
 
             try
             {

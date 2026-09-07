@@ -414,7 +414,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
 
         [Theory]
         [InlineData(ApprovalStatus.Draft, null)]
+        [InlineData(ApprovalStatus.Draft, Roles.Reviewers)]
+        [InlineData(ApprovalStatus.Draft, Roles.ContentItemReviewers)]
         [InlineData(ApprovalStatus.Submitted, null)]
+        [InlineData(ApprovalStatus.Submitted, Roles.Reviewers)]
+        [InlineData(ApprovalStatus.Submitted, Roles.ContentItemReviewers)]
         [InlineData(ApprovalStatus.Rejected, null)]
         [InlineData(ApprovalStatus.Dismissed, null)]
         [InlineData(ApprovalStatus.Approved, null)]
@@ -432,11 +436,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             ApprovalStatus approvalStatus,
             string? actorRole)
         {
-            // given: a plain authenticated user never touches someone else's item, and a
-            // terminal item — Approved or Rejected — belongs to its owner alone: no role
-            // (Reviewers, Publishers or Administrators) may modify it on the owner's behalf, because
-            // the only edit a terminal row admits is a fork, and a moderator forking
-            // someone else's decided row would author a version in their name
+            // given: three refusals, one test. A plain authenticated user never touches
+            // someone else's item. A REVIEWER never touches it either, at any status — the
+            // review tier is out of the modify gate entirely (§14.7 posture A.3, §18.6), and
+            // the Draft and Submitted rows below used to be ALLOWED. And a terminal item —
+            // Approved or Rejected — belongs to its owner alone: no role, the Publishers tier
+            // and Administrators included, may modify it on the owner's behalf, because the
+            // only edit a terminal row admits is a fork, and a moderator forking someone
+            // else's decided row would author a version in their name
             ContentItem randomContentItem = CreateRandomContentItem();
             ContentItem inputContentItem = randomContentItem;
 

@@ -102,12 +102,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         [Fact]
         public async Task ShouldThrowValidationExceptionOnModifyIfApprovalStateWasChangedAndLogItAsync()
         {
-            // given: the hole this suite exists to close. A reviewer holds write permission on
-            // the row for content edits, and without these pins the same modify call would let
-            // them mark a stranger's draft approved and published — no review role check, no
-            // publisher tier, no access decision, no approval conditions.
+            // given: the hole this suite exists to close. A publisher holds write permission on
+            // the row for content edits while it is in flight, and without these pins the same
+            // modify call would let them mark a stranger's draft approved and published — no
+            // access decision, no approval conditions, and none of the §8.6 hard rules the
+            // dedicated approve operation is where it is in order to apply. (The caller used to
+            // be a reviewer here; the review tier no longer reaches the modify at all, §14.7
+            // posture A.3, so the pins are now demonstrated against the tier that does.)
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.ContentItemReviewers);
+                CreateAuthenticatedSecurityContext(Roles.ContentItemPublishers);
 
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string actorUserId = GetRandomString();
@@ -162,7 +165,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         {
             // given
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.ContentItemReviewers);
+                CreateAuthenticatedSecurityContext(Roles.ContentItemPublishers);
 
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string actorUserId = GetRandomString();
@@ -198,7 +201,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         {
             // given
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.ContentItemReviewers);
+                CreateAuthenticatedSecurityContext(Roles.ContentItemPublishers);
 
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string actorUserId = GetRandomString();
@@ -403,9 +406,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 Times.Once);
         }
 
-        // A reviewer passes the write gate and may amend content, and must still never move an
-        // approval status (design §8.6 HR-3). The carve-out is gated on ownership or the
-        // Publishers tier, not on write permission.
+        // A reviewer does not pass the write gate at all any more (§14.7 posture A.3, §18.6):
+        // they may not amend the content, and so a fortiori may not move the status the content
+        // sits under (§8.6 HR-3). This test used to prove the second half alone, with the
+        // reviewer passing the gate and the carve-out refusing the status; the refusal now
+        // arrives one step earlier and covers the whole write.
 
         [Fact]
         public async Task ShouldThrowValidationExceptionOnModifyIfANonOwnerMovesTheSubmissionStatusAsync()
@@ -429,18 +434,33 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
             invalidContentItem.ApprovalStatus = ApprovalStatus.Submitted;
 
-            var invalidContentItemException = new InvalidContentItemException(
-                message: "Content item is invalid, fix the errors and try again.");
+            var unauthorizedContentItemException = new UnauthorizedContentItemException(
+                message: "The current user is not allowed to modify this content item.");
 
-            invalidContentItemException.AddData(
-                key: nameof(ContentItem.ApprovalStatus),
-                values: "Value is not the same as storage approval status");
+            var expectedContentItemValidationException = new ContentItemValidationException(
+                message: "Content item validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedContentItemException);
 
             SetupFailingModifyPathBrokers(
                 invalidContentItem, storageContentItem, actorUserId, randomDateTimeOffset);
 
-            // when . then
-            await AssertModifyIsRefusedAsync(invalidContentItem, invalidContentItemException);
+            // when
+            ValueTask<ContentItem> modifyContentItemTask =
+                this.contentItemService.ModifyContentItemAsync(
+                    invalidContentItem,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemValidationException actualContentItemValidationException =
+                await Assert.ThrowsAsync<ContentItemValidationException>(
+                    modifyContentItemTask.AsTask);
+
+            // then
+            actualContentItemValidationException.Should().BeEquivalentTo(
+                expectedContentItemValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()),
+                Times.Never);
         }
 
         // The Publishers tier may move the submission status on someone else's item — it is the

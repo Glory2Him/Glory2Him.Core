@@ -127,46 +127,11 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ContentItems
             this.contentItemProcessingServiceMock.VerifyNoOtherCalls();
         }
 
-        [Fact]
-        public async Task ShouldReturnConflictOnPostIfAlreadyExistsContentItemErrorOccurredAsync()
-        {
-            // given
-            ContentItem someContentItem = CreateRandomContentItem();
-            var someInnerException = new Exception();
-            string someMessage = GetRandomString();
+        // There is no already-exists test on POST, and its absence is the point: §3.4.2 rule 6
+        // has the add ACKNOWLEDGE a duplicate rather than refuse it, so the service raises no
+        // already-exists error on this path and the controller has no mapping for one. The
+        // refusal lives on PUT, where the rule asks for it, and is tested there.
 
-            var alreadyExistsContentItemProcessingException =
-                new AlreadyExistsContentItemProcessingException(
-                    message: someMessage);
-
-            var contentItemProcessingDependencyValidationException =
-                new ContentItemProcessingDependencyValidationException(
-                    message: someMessage,
-                    innerException: alreadyExistsContentItemProcessingException);
-
-            ConflictObjectResult expectedConflictObjectResult =
-                Conflict(alreadyExistsContentItemProcessingException);
-
-            var expectedActionResult =
-                new ActionResult<ContentItem>(expectedConflictObjectResult);
-
-            this.contentItemProcessingServiceMock.Setup(service =>
-                service.AddContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()))
-                    .ThrowsAsync(contentItemProcessingDependencyValidationException);
-
-            // when
-            ActionResult<ContentItem> actualActionResult =
-                await this.contentItemsController.PostContentItemAsync(someContentItem, default);
-
-            // then
-            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
-
-            this.contentItemProcessingServiceMock.Verify(service =>
-                service.AddContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()),
-                    Times.Once);
-
-            this.contentItemProcessingServiceMock.VerifyNoOtherCalls();
-        }
         [Theory]
         [MemberData(nameof(DependencyExceptions))]
         public async Task ShouldReturnFailedDependencyOnPostIfDependencyErrorOccurredAsync(

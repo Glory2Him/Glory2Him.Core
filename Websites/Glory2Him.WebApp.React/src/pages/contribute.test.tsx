@@ -19,6 +19,7 @@ import { createAuthState, signInAs } from '../tests/testAuth';
 const authState = createAuthState();
 const navigate = vi.fn();
 const toastError = vi.fn();
+const toastSuccess = vi.fn();
 const mutateAsync = vi.fn();
 let isPending = false;
 
@@ -36,6 +37,10 @@ vi.mock('react-router-dom', async () => {
 
 vi.mock('../brokers/toastBroker.error', () => ({
     toastError: (message: string) => toastError(message)
+}));
+
+vi.mock('../brokers/toastBroker.success', () => ({
+    toastSuccess: (message: string) => toastSuccess(message)
 }));
 
 vi.mock('../services/foundations/contentItemService', () => ({
@@ -169,7 +174,7 @@ describe('Contribute', () => {
         }));
     });
 
-    it('should land on the new item once it is persisted', async () => {
+    it('should thank the contributor and land on their posts once it is submitted', async () => {
         // given
         mutateAsync.mockResolvedValue({ id: 'content-item-1' });
         renderPage();
@@ -178,9 +183,42 @@ describe('Contribute', () => {
         await contributeAsync('He kept me through the night shift');
 
         // then
-        await waitFor(() => expect(navigate).toHaveBeenCalledWith('/myposts/content-item-1'));
+        await waitFor(() => expect(navigate).toHaveBeenCalledWith('/myposts'));
+
+        expect(toastSuccess).toHaveBeenCalledWith(
+            'Thank you for your submission. It will be reviewed before publishing.');
+
         expect(toastError).not.toHaveBeenCalled();
     });
+
+    // Design §3.4.2 rule 6: a contribution whose content has already been submitted is accepted
+    // QUIETLY. The API answers it exactly as it answers a genuine add — 201, an item-shaped body
+    // — having written no row, so the id it hands back resolves to nothing. Following it would
+    // land the contributor on a 404 and tell them their content is a duplicate, which is the
+    // leak this page used to have in words (#392, #412).
+    //
+    // THE RESPONSE CARRIES NOTHING USABLE ON PURPOSE. A duplicate and a genuine add are
+    // identical at this boundary, so a test that merely resolves a different id re-runs the case
+    // above and proves nothing. Withholding the body entirely is what actually pins the rule:
+    // any code that reaches into it to steer the journey fails here, and only code that ignores
+    // it passes.
+    it('should not read the response body, so a duplicate cannot be told from a new one',
+        async () => {
+            // given
+            mutateAsync.mockResolvedValue(undefined);
+            renderPage();
+
+            // when
+            await contributeAsync('He kept me through the night shift');
+
+            // then
+            await waitFor(() => expect(navigate).toHaveBeenCalledWith('/myposts'));
+
+            expect(toastSuccess).toHaveBeenCalledWith(
+                'Thank you for your submission. It will be reviewed before publishing.');
+
+            expect(toastError).not.toHaveBeenCalled();
+        });
 
     it('should mark the form up from the API messages and say why, staying put', async () => {
         // given
@@ -206,10 +244,13 @@ describe('Contribute', () => {
         expect(navigate).not.toHaveBeenCalled();
     });
 
+    // The duplicate-content refusal used to be this case's example, and is no longer reachable
+    // on the add path (§3.4.2 rule 6). Any other item-level failure still has to be said out
+    // loud, so the case stays with one that names no field.
     it('should still notify when the failure names no field at all', async () => {
-        // given: the duplicate-content conflict, which is about the item rather than a field
+        // given
         mutateAsync.mockRejectedValue(badRequestWith({
-            title: 'A content item already exists with the same content.'
+            title: 'Content item is invalid, fix the errors and try again.'
         }));
 
         renderPage();
@@ -219,7 +260,7 @@ describe('Contribute', () => {
 
         // then
         await waitFor(() => expect(toastError)
-            .toHaveBeenCalledWith('A content item already exists with the same content.'));
+            .toHaveBeenCalledWith('Content item is invalid, fix the errors and try again.'));
 
         expect(screen.getByLabelText(/^Testimony/)).not.toHaveClass('is-invalid');
     });
@@ -241,7 +282,7 @@ describe('Contribute', () => {
         await userEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
 
         // then
-        await waitFor(() => expect(navigate).toHaveBeenCalledWith('/myposts/content-item-1'));
+        await waitFor(() => expect(navigate).toHaveBeenCalledWith('/myposts'));
         expect(screen.queryByText('Text is required')).not.toBeInTheDocument();
     });
 

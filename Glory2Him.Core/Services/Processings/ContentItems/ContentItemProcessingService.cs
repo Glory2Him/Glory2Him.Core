@@ -242,28 +242,59 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
                 contentHash: contentHash,
                 cancellationToken: cancellationToken);
 
+            // §3.4.2 rule 6: the add arm ACCEPTS a duplicate. It creates no row, publishes no
+            // fact, and answers the contributor as though it had done both.
             if (duplicateContentExists)
             {
-                throw new AlreadyExistsContentItemProcessingException(
-                    message: "A content item already exists with the same content.");
+                return await ComposeQuietAcknowledgementContentItemAsync(
+                    contentItem: contentItem,
+                    contentHash: contentHash);
             }
 
-            // PublishDate is deliberately absent, for the same reason it is absent from the
-            // version fork below. It is an IApproval member (§9.7.1 rule 2), and the add
-            // surface may carry an ApprovalStatus of Draft or Submitted and nothing else —
-            // never IsPublished, never PublishDate (rule 1). Taking it from the caller here
-            // would let them schedule their own publication on the way in, on a row that is
-            // otherwise landed unpublished precisely so it cannot.
-            //
-            // THE STATUS IS THE CALLER'S, and it is the one control field that is. §9.7.1 rule
-            // 1 lands the row "with the ApprovalStatus the caller asked for — Submitted on the
-            // common path, Draft when saving work in progress" — the choice the contribution
-            // form's "Submit as" row exists to make. Pinning it to Draft here, as this once
-            // did, threw that answer away and filed every contribution as work in progress,
-            // with no route to review but a second, separate submit. The pair is all that is
-            // admitted: ValidateContentItem refuses anything else above, and the foundation
-            // refuses it again beneath (§8.6.1).
-            ContentItem newContentItem = new ContentItem
+            ContentItem newContentItem = await ComposeNewContentItemAsync(
+                contentItem: contentItem,
+                contentHash: contentHash);
+
+            ContentItem addedContentItem = await this.contentItemService.AddContentItemAsync(
+                contentItem: newContentItem,
+                cancellationToken: cancellationToken);
+
+            await PublishContentItemProcessingFactAsync(
+                inboundEnvelope: inboundEnvelope,
+                contentItem: addedContentItem,
+                operation: ContentItemProcessingEventOperation.Added);
+
+            return addedContentItem;
+        }
+
+        // The row an add lands, built in ONE place because two arms need it to look identical.
+        // The genuine arm hands it to the foundation; the quiet arm of §3.4.2 rule 6 answers
+        // with it and writes nothing. A field that differed between the two would be the whole
+        // of the leak, so neither arm composes its own.
+        //
+        // PublishDate is deliberately absent, for the same reason it is absent from the version
+        // fork below. It is an IApproval member (§9.7.1 rule 2), and the add surface may carry
+        // an ApprovalStatus of Draft or Submitted and nothing else — never IsPublished, never
+        // PublishDate (rule 1). Taking it from the caller here would let them schedule their own
+        // publication on the way in, on a row that is otherwise landed unpublished precisely so
+        // it cannot.
+        //
+        // THE STATUS IS THE CALLER'S, and it is the one control field that is. §9.7.1 rule 1
+        // lands the row "with the ApprovalStatus the caller asked for — Submitted on the common
+        // path, Draft when saving work in progress" — the choice the contribution form's
+        // "Submit as" row exists to make. Pinning it to Draft, as this once did, threw that
+        // answer away and filed every contribution as work in progress, with no route to review
+        // but a second, separate submit. The pair is all that is admitted: ValidateContentItemOnAdd
+        // refuses anything else above, and the foundation refuses it again beneath (§8.6.1).
+        //
+        // It travels on BOTH arms, which is the composer doing its job: a quiet acknowledgement
+        // that answered Draft while the genuine row would have been Submitted is a field the two
+        // differ on, and a field they differ on is the whole of the leak.
+        private async ValueTask<ContentItem> ComposeNewContentItemAsync(
+            ContentItem contentItem,
+            string contentHash)
+        {
+            return new ContentItem
             {
                 Id = await this.identifierBroker.GetIdentifierAsync(),
                 ContentType = contentItem.ContentType,
@@ -279,17 +310,59 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
                 ApprovalStatus = contentItem.ApprovalStatus,
                 IsDeleted = false
             };
+        }
 
-            ContentItem addedContentItem = await this.contentItemService.AddContentItemAsync(
-                contentItem: newContentItem,
-                cancellationToken: cancellationToken);
+        // §3.4.2 rule 6 in full: a duplicate add is acknowledged politely, creates nothing, and
+        // does not reveal the duplicate. BOTH halves used to be broken here — the caller was
+        // told the submission failed, and told why, in a message the SPA put on the screen
+        // verbatim (#392, #412). The message is what made this a probe: anyone able to POST
+        // could ask whether a given piece of content had already been submitted, including
+        // content they are not permitted to read.
+        //
+        // The answer is composed field for field the way the persisted row would have been,
+        // audit stamps included — those are the foundation's to apply on the genuine arm, so
+        // they are applied here for the arm that never reaches it. An acknowledgement a caller
+        // can tell apart from a real one names the duplicate as plainly as the message did.
+        //
+        // Two things are deliberately NOT done. Nothing is written, which is the rule itself.
+        // And no completion fact is published: a fact says a row was created, and no row was.
+        // The audiences differ — subscribers are told about rows, the contributor is thanked —
+        // and on the event path the returned envelope is recorded as that delivery's response
+        // rather than published, so it reaches the requester and nobody else.
+        //
+        // What this does not hide, and cannot: the row is absent from the contributor's own
+        // reads afterwards. Rule 6 creates no record, so no response shape can conjure one.
+        // The rule closes the answer, not the second look (design §3.4.2).
+        private async ValueTask<ContentItem> ComposeQuietAcknowledgementContentItemAsync(
+            ContentItem contentItem,
+            string contentHash)
+        {
+            ContentItem acknowledgedContentItem = await ComposeNewContentItemAsync(
+                contentItem: contentItem,
+                contentHash: contentHash);
 
-            await PublishContentItemProcessingFactAsync(
-                inboundEnvelope: inboundEnvelope,
-                contentItem: addedContentItem,
-                operation: ContentItemProcessingEventOperation.Added);
+            // THE STAMPS COME FROM THE SAME PLACE THE GENUINE ARM'S DO, and the inbound envelope
+            // is deliberately not that place. The genuine arm hands the row to the foundation's
+            // AddContentItemAsync, which mints its OWN envelope off the ambient context and
+            // stamps from that; it is never given this one. On the direct path the two are the
+            // same identity, so either source would do — but on the event path the inbound
+            // envelope carries the original requester while the ambient context is whatever the
+            // delivery runs as, and the codebase already knows they diverge there (see the
+            // forwarded envelope in DoTransitionContentItemApprovalAsync). Stamping from the
+            // envelope would have left a duplicate reply naming the requester where a genuine
+            // reply names the delivery identity — a field that differs between the arms, which
+            // is the one thing §3.4.2 rule 6 cannot afford. Minting the same way the foundation
+            // mints keeps them equal by construction rather than by coincidence.
+            //
+            // Whether the foundation SHOULD be stamping from ambient on the event path is a
+            // separate question and not this rule's to settle (§12.5.2 has the equivalent for
+            // ContentItemSetting). Whatever it answers, both arms move together.
+            EventEnvelope<ContentItem> auditEnvelope =
+                await this.eventEnvelopeBroker.CreateAsync(content: acknowledgedContentItem);
 
-            return addedContentItem;
+            return await this.securityAuditBroker.ApplyAddAuditValuesAsync(
+                entity: acknowledgedContentItem,
+                securityContext: auditEnvelope.SecurityContext);
         }
 
         private async ValueTask<ContentItem> DoModifyContentItemAsync(
