@@ -68,10 +68,14 @@ export const shareabilityBasisMembers: ReadonlyArray<ShareabilityBasis> = [
 
 // THE BASIS AN UNTOUCHED FORM CARRIES. It has to be a member of the offerable list above — the
 // retired Owned it used to be would leave the <select> showing an option it does not hold — and
-// of the four it is the one the list LEADS with: the dropdown shows its first option selected,
-// so any other default has the form open on a choice the reader has to scroll up to find. It is
-// also the commonest answer on the contribution page, whose leading surface is a quote somebody
-// is passing on rather than work of their own.
+// of the four it is the only one that ASKS THE UNTOUCHED FORM FOR NOTHING FURTHER: a permission
+// basis renders the mandatory Permission details field and refuses the submit until it is
+// answered, and an owned basis puts the signed-in reader's name in the Author box. Public domain
+// does neither, and it is the commonest answer on the contribution page besides — what is shared
+// there is most often something being passed on rather than work of the contributor's own.
+//
+// NOT A MATTER OF ORDERING, though it is also what the list leads with: the <select> is
+// CONTROLLED on this value, so whatever is named here stands selected wherever it sits.
 export const defaultShareabilityBasis: ShareabilityBasis =
     ShareabilityBasis.PublicDomain;
 

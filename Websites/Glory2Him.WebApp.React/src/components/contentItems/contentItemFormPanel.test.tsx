@@ -247,15 +247,17 @@ describe('ContentItemFormPanel', () => {
             // when
             renderWithAuth(<ContentItemFormPanel contentItemSettingCollection={settings} />);
 
-            // then: the option the list leads with is the one standing selected, so a
-            // contributor with something to pass on files it without opening the dropdown
-            expect(screen.getByLabelText(/How are you permitted to share this\?/))
-                .toHaveValue(String(defaultShareabilityBasis));
+            // then: the option a contributor READS is the one standing selected, named by its
+            // label rather than by defaultShareabilityBasis over again — so the day the default
+            // moves off public domain this fails instead of quietly following it
+            expect(screen.getByRole('option', { name: "It's public domain" }))
+                .toHaveProperty('selected', true);
 
             expect(defaultShareabilityBasis).toBe(ShareabilityBasis.PublicDomain);
 
-            expect(screen.getByRole('option', { name: "It's public domain" }))
-                .toHaveProperty('selected', true);
+            // and the panel seeds its draft from the model rather than from a literal of its own
+            expect(screen.getByLabelText(/How are you permitted to share this\?/))
+                .toHaveValue(String(defaultShareabilityBasis));
         });
 
         it('should ask for the permission detail only once permission is the basis', async () => {

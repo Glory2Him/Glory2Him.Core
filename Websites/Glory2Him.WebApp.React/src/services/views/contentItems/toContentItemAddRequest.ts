@@ -20,9 +20,10 @@ export const toContentItemAddRequest = (
     shareabilityBasis: formItem.shareabilityBasis,
     sharePermission: asOptionalText(formItem.sharePermission),
 
-    // The status the contributor filed under, not a status this projection decides. A form
-    // that never rendered the "Submit as" row leaves it unset, and the offerable default —
-    // Submitted, what the contribution page is for — is what travels then.
+    // The status the contributor filed under, not a status this projection decides. The form
+    // always answers — a surface that renders no "Submit as" row still emits the status the row
+    // would have shown — so the coalesce covers the field being optional on the model rather
+    // than a case the add surface can reach, and it names the same default the panel opens on.
     approvalStatus: formItem.approvalStatus ?? defaultContributorApprovalStatus
 });
 

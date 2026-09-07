@@ -285,11 +285,13 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 .Be(AccessDenialReason.ApprovalThresholdNotMet);
         }
 
-        // The waiver is not the administrator's alone: HR-4 route 3 is "bypass by a publisher
-        // or administrator", and AllowSelfApproval does not narrow it, because it is not a
-        // question about the bypass at all. What narrows route 3 is its own setting, below.
+        // AND IT IS THE ADMINISTRATOR'S ALONE. HR-2's whole population is publisher-tier
+        // authors — nobody else may decide at all (HR-3) — so exempting the tier would not
+        // narrow the rule, it would retire it: any publisher could clear it by asking for a
+        // bypass and typing one word, and create, submit, approve and publish their own work
+        // alone. The override belongs to the role the design gives overrides to.
         [Fact]
-        public async Task ShouldLetAPublisherBypassApproveTheirOwnEntityAsync()
+        public async Task ShouldRefuseAPublisherBypassApprovingTheirOwnEntityAsync()
         {
             // given
             string authorId = GetRandomString();
@@ -300,7 +302,8 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
 
             ApprovalPolicy approvalPolicy = CreateRandomApprovalPolicy(
                 requireApprovals: true,
-                allowSelfApproval: false);
+                allowSelfApproval: false,
+                doNotAllowBypassingSettings: false);
 
             DecideApprovalRequest decideApprovalRequest = CreateRandomDecideApprovalRequest(
                 actor: publisherAuthor,
@@ -314,8 +317,62 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 await this.accessService.MayDecideApprovalAsync(decideApprovalRequest);
 
             // then
-            actualVerdict.IsPermitted.Should().BeTrue();
-            actualVerdict.IsBypassUsed.Should().BeTrue();
+            actualVerdict.IsPermitted.Should().BeFalse();
+
+            actualVerdict.DenialReason.Should()
+                .Be(AccessDenialReason.SelfApprovalNotPermitted);
+
+            actualVerdict.IsBypassUsed.Should().BeFalse();
+        }
+
+        // The SCOPED publisher is the actor a real deployment hands this to (§18.6 rule 5 —
+        // trusted with stories but not testimonies), and HasPublisherTier admits them, so the
+        // refusal above is asserted against the role that will actually hold it.
+        [Fact]
+        public async Task ShouldRefuseAScopedPublisherBypassApprovingTheirOwnEntityAsync()
+        {
+            // given
+            string authorId = GetRandomString();
+            string entityType = GetRandomString();
+            string contentType = GetRandomString();
+
+            AccessActor scopedPublisherAuthor = CreateRandomAccessActor(
+                userId: authorId,
+
+                roles: new List<string>
+                {
+                    RoleNames.PublishersFor(entityType, contentType)
+                });
+
+            ApprovalPolicy approvalPolicy = CreateRandomApprovalPolicy(
+                entityType: entityType,
+                contentType: contentType,
+                requireApprovals: true,
+                allowSelfApproval: false);
+
+            DecideApprovalRequest decideApprovalRequest = CreateRandomDecideApprovalRequest(
+                actor: scopedPublisherAuthor,
+                policy: approvalPolicy,
+                entityCreatedBy: authorId,
+                isBypassRequested: true,
+                bypassReason: GetRandomString(),
+
+                roleSubjects: new List<RoleSubject>
+                {
+                    CreateRandomRoleSubject(
+                        entityType: entityType,
+                        contentType: contentType)
+                });
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayDecideApprovalAsync(decideApprovalRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeFalse();
+
+            actualVerdict.DenialReason.Should()
+                .Be(AccessDenialReason.SelfApprovalNotPermitted);
         }
 
         // The exception rides on the BYPASS, so the ordinary self-approve stays shut for an
