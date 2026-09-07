@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Force.DeepCloner;
 using Glory2Him.Core.Models.Configurations;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ApprovalComments;
@@ -103,6 +104,79 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [InlineData(ApprovalCommentType.Comment, true)]
+        [InlineData(ApprovalCommentType.Question, false)]
+        public async Task ShouldStoreTheCallersCommentTypeAndResolutionVerbatimOnAddAsync(
+            ApprovalCommentType commentType,
+            bool isResolved)
+        {
+            // given: THREE of the four birth pairings are legitimate and the add path pins
+            // neither field (§7.8 rule 1). A remark asks for nothing and is born settled; an ask
+            // holds the approval shut until somebody entitled to settles it. Pinning either — the
+            // tempting "fix" §7.8 warns about — would make it impossible to leave a remark
+            // without blocking the approval.
+            //
+            // The fourth, a settled ask, never reaches this service: the access gate refuses it
+            // above, which is why no row here states it.
+            //
+            // The FILLER draws neither field, so both are stated here: a test asserting on a
+            // drawn value proves nothing about what the caller asked for.
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+
+            ApprovalComment randomApprovalComment =
+                CreateApprovalCommentFiller(randomDateTimeOffset).Create();
+
+            randomApprovalComment.CommentType = commentType;
+            randomApprovalComment.IsResolved = isResolved;
+
+            ApprovalComment inputApprovalComment = randomApprovalComment;
+            ApprovalComment auditAppliedApprovalComment = inputApprovalComment.DeepClone();
+            ApprovalComment storageApprovalComment = auditAppliedApprovalComment.DeepClone();
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(inputApprovalComment, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(auditAppliedApprovalComment);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(auditAppliedApprovalComment.CreatedBy);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.InsertApprovalCommentAsync(
+                    auditAppliedApprovalComment, It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageApprovalComment);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishApprovalCommentAsync(
+                    It.IsAny<EventEnvelope<ApprovalComment>>(),
+                    ApprovalCommentEventOperation.Added))
+                    .Returns(new ValueTask<EventPublishResult<ApprovalComment>>(
+                        new EventPublishResult<ApprovalComment>()));
+
+            // when
+            ApprovalComment actualApprovalComment =
+                await this.approvalCommentService.AddApprovalCommentAsync(
+                    inputApprovalComment,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualApprovalComment.CommentType.Should().Be(commentType);
+            actualApprovalComment.IsResolved.Should().Be(isResolved);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertApprovalCommentAsync(
+                    It.Is<ApprovalComment>(inserted =>
+                        inserted.CommentType == commentType
+                            && inserted.IsResolved == isResolved),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
         }
     }
 }

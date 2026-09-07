@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -14,6 +14,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using G2H.Security.Client.Models.Foundations.Access;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ApprovalComments;
@@ -85,26 +86,41 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
         // the ownership question needs no cross-entity read at all.
         private async ValueTask ValidateUserMayRecordApprovalCommentAsync(
             Guid approvalId,
+            ApprovalCommentType commentType,
+            bool isResolved,
             SecurityContext securityContext,
             CancellationToken cancellationToken)
         {
             AccessVerdict verdict = await this.accessBroker.MayRecordApprovalCommentAsync(
                 approvalId: approvalId,
+                commentType: commentType,
+                isResolved: isResolved,
                 securityContext: securityContext,
                 cancellationToken: cancellationToken);
 
             await ThrowIfRefusedAsync(verdict, approvalId, "add a comment to");
         }
 
+        // Takes BOTH ends of the pairing because the decision rules on the transition: the row
+        // this write would leave behind, and the one storage already holds. Withdrawal passes the
+        // stored values as both, since a soft delete moves neither field.
         private async ValueTask ValidateUserMayAmendApprovalCommentAsync(
             Guid approvalId,
             string commentCreatedBy,
+            ApprovalCommentType commentType,
+            bool isResolved,
+            ApprovalCommentType storageCommentType,
+            bool storageIsResolved,
             SecurityContext securityContext,
             CancellationToken cancellationToken)
         {
             AccessVerdict verdict = await this.accessBroker.MayAmendApprovalCommentAsync(
                 approvalId: approvalId,
                 commentCreatedBy: commentCreatedBy,
+                commentType: commentType,
+                isResolved: isResolved,
+                storageCommentType: storageCommentType,
+                storageIsResolved: storageIsResolved,
                 securityContext: securityContext,
                 cancellationToken: cancellationToken);
 
@@ -233,6 +249,9 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                 (Rule: IsGreaterThan(approvalComment.Comment, 1000),
                     Parameter: nameof(ApprovalComment.Comment)),
 
+                (Rule: IsInvalid(approvalComment.CommentType),
+                    Parameter: nameof(ApprovalComment.CommentType)),
+
                 (Rule: IsGreaterThan(approvalComment.CreatedBy, 255),
                     Parameter: nameof(ApprovalComment.CreatedBy)),
 
@@ -280,6 +299,9 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
 
                 (Rule: IsGreaterThan(approvalComment.Comment, 1000),
                     Parameter: nameof(ApprovalComment.Comment)),
+
+                (Rule: IsInvalid(approvalComment.CommentType),
+                    Parameter: nameof(ApprovalComment.CommentType)),
 
                 (Rule: IsGreaterThan(approvalComment.CreatedBy, 255),
                     Parameter: nameof(ApprovalComment.CreatedBy)),
@@ -360,11 +382,13 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                         secondName: nameof(ApprovalComment.ApprovalId)),
                     Parameter: nameof(ApprovalComment.ApprovalId)),
 
-                // IsResolved is deliberately NOT pinned. Modify is owner-only, and the owner may
-                // settle (or re-open) their own comment here as readily as through the resolve
-                // transition — pinning it would leave them unable to change a field that is
-                // theirs. What Resolve adds is the Administrators route (§14.7 rule 5), not exclusivity
-                // over the field.
+                // IsResolved is deliberately NOT pinned HERE — it is ruled a layer up instead, by
+                // the access gate this path already asks (ValidateUserMayAmendApprovalCommentAsync).
+                // A pin is unconditional and this rule is not: the owner may still settle or
+                // re-open a REMARK of their own, and may still edit an ask that was already
+                // settled. What the gate refuses is the one transition that lands on a settled
+                // ask, because arriving there IS resolving one and resolving answers to the
+                // publisher tier. Pinning the field outright would take the first two with it.
                 //
                 // The two paths publish different facts, and that costs nothing PROVIDED the
                 // approval workflow subscribes to BOTH ApprovalComment-Modified and -Resolved to
@@ -375,6 +399,14 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                 // repo subscribes to any fact address. §10.17 inbound item (a) records the
                 // contract it must honour. Until then a flip through modify moves the gate with
                 // no consumer listening — which is a missing consumer, not a reason to pin.
+
+                // CommentType is not pinned either, and for the same reason: the row belongs to
+                // whoever wrote it, and correcting a remark into a question — or back — is the
+                // author changing their own words. It moves nothing ON ITS OWN. What moves
+                // something is the PAIRING, and that is the gate's to judge rather than this
+                // list's: a settled remark retyped as a question would otherwise compose two
+                // permitted writes into the state the add path refuses outright. The pin list is
+                // open by default, so both absences are deliberate rather than oversights.
 
                 (Rule: IsSame(
                         firstDate: inputApprovalComment.UpdatedWhen,
@@ -438,6 +470,15 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
         {
             Condition = date == default,
             Message = "Date is required"
+        };
+
+        // structural validation for an enum crossing a boundary — rejects an out-of-range value
+        // (a stale client sending a since-removed member); it cannot detect "caller forgot to set
+        // it", since ApprovalCommentType has no unset sentinel and Comment is what silence means
+        private static dynamic IsInvalid(ApprovalCommentType commentType) => new
+        {
+            Condition = Enum.IsDefined(commentType) == false,
+            Message = "Value is not a supported approval comment type"
         };
 
         private static dynamic IsNotSame(

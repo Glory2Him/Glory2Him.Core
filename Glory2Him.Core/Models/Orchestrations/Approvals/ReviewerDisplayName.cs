@@ -59,6 +59,11 @@ namespace Glory2Him.Core.Models.Orchestrations.Approvals
         /// The account's username, read off the resolved account like the display name beside it,
         /// so a surface can put it under the name and tell two people sharing one apart.
         /// Presentation only.
+        ///
+        /// <para>Never an email address: §18.3.1 rules a username may not contain an "@", so this
+        /// cannot become a contact detail leaking through a moderation surface. It goes no wider
+        /// than the display name beside it - this read is round-keyed and [Authorize]d, so a
+        /// caller who cannot see the round names nobody.</para>
         /// </summary>
         public required string UserName { get; init; }
     }

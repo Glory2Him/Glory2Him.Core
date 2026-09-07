@@ -105,8 +105,16 @@ export type ApprovalReviewRequest = {
 // GET api/Approvals/{entityType}/{entityId}/ReviewerDisplayNames — the names behind the account
 // ids a review row carries, for everybody the round involved. Asked in one round trip keyed on
 // the round rather than on ids the client gathered.
+// It also names the round's COMMENT AUTHORS, who are frequently neither reviewers nor invitees —
+// the submitter answering a question is the ordinary case — so the review thread resolves its
+// rows from the same read rather than inventing a second lookup.
 export type ReviewerDisplayName = {
     userId: string;
     displayName: string;
+
+    // The account's own username — what the review row puts under the display name, and what the
+    // comment thread puts in muted brackets beside it. Two accounts can share a display name, and
+    // on a thread that ambiguity is the difference between reading the submitter's answer and
+    // reading somebody else's.
     userName: string;
 };

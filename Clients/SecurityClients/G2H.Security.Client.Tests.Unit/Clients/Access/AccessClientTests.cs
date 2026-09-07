@@ -139,6 +139,8 @@ namespace G2H.Security.Client.Tests.Unit.Clients.Access
                 Actor = CreateRandomAccessActor(),
                 ApprovalState = ApprovalState.Submitted,
                 IsParentApprovalDeleted = false,
+                IsAsk = false,
+                IsSettled = false,
             };
 
         private static AmendApprovalCommentRequest CreateRandomAmendApprovalCommentRequest() =>
@@ -148,12 +150,17 @@ namespace G2H.Security.Client.Tests.Unit.Clients.Access
                 CommentCreatedBy = GetRandomString(),
                 ApprovalState = ApprovalState.Submitted,
                 IsParentApprovalDeleted = false,
+                IsAsk = false,
+                IsSettled = false,
+                WasAsk = false,
+                WasSettled = false,
             };
 
         private static ResolveApprovalCommentRequest CreateRandomResolveApprovalCommentRequest() =>
             new ResolveApprovalCommentRequest
             {
                 Actor = CreateRandomAccessActor(),
+                RoleSubjects = new List<RoleSubject>(),
                 CommentCreatedBy = GetRandomString(),
                 ApprovalState = ApprovalState.Submitted,
                 IsParentApprovalDeleted = false,

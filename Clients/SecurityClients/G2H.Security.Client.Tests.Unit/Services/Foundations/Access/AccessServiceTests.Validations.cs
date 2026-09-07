@@ -556,6 +556,8 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 Actor = null!,
                 ApprovalState = ApprovalState.Submitted,
                 IsParentApprovalDeleted = false,
+                IsAsk = false,
+                IsSettled = false,
             };
 
             var invalidArgumentAccessException = new InvalidArgumentAccessException(
@@ -619,6 +621,10 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 CommentCreatedBy = GetRandomString(),
                 ApprovalState = ApprovalState.Submitted,
                 IsParentApprovalDeleted = false,
+                IsAsk = false,
+                IsSettled = false,
+                WasAsk = false,
+                WasSettled = false,
             };
 
             var invalidArgumentAccessException = new InvalidArgumentAccessException(
@@ -679,6 +685,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             var requestWithoutActor = new ResolveApprovalCommentRequest
             {
                 Actor = null!,
+                RoleSubjects = new List<RoleSubject>(),
                 CommentCreatedBy = GetRandomString(),
                 ApprovalState = ApprovalState.Submitted,
                 IsParentApprovalDeleted = false,

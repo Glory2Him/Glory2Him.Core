@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -18,6 +18,11 @@ import {
     ApprovalVerdict,
     ReviewerCandidate
 } from '../../models/foundations/approvals/approval';
+
+import {
+    ApprovalComment,
+    ApprovalCommentType
+} from '../../models/foundations/approvals/approvalComment';
 
 // ONE ITEM UNDER MODERATION, in the admin shell. The reads are mocked at their own boundary;
 // what this suite pins is what the PAGE owns — the way back to the queue, the moderated face it
@@ -134,8 +139,12 @@ vi.mock('../../services/foundations/approvalService', () => ({
         useGetReviewerCandidates: () =>
             ({ data: reviewerCandidates, refetch: refetchCandidatesSpy }),
         useGetReviewRequests: () => ({ data: reviewRequests, refetch: refetchRequestsSpy }),
+        // The username is part of what this read answers with (§16.7.4) and is REQUIRED on the
+        // row, so the double carries one. A mock that omitted it would be asserting against a
+        // shape the endpoint never returns — and TypeScript cannot catch it here, because a
+        // vi.mock factory is an untyped literal.
         useGetReviewerDisplayNames: () => ({
-            data: [{ userId: 'user-john', displayName: 'John' }],
+            data: [{ userId: 'user-john', displayName: 'John', userName: 'john' }],
             refetch: refetchDisplayNamesSpy
         }),
 
@@ -144,6 +153,31 @@ vi.mock('../../services/foundations/approvalService', () => ({
         useResetApproval: () => ({ mutateAsync: resetWith, isPending: false }),
         useRequestReview: () => ({ mutateAsync: requestedWith, isPending: false }),
         useWithdrawReviewRequest: () => ({ mutateAsync: withdrawnWith, isPending: false })
+    }
+}));
+
+// THE REVIEW THREAD, mocked at the same boundary as the round it hangs off. useApprovalRound
+// assembles both, so leaving this real would put an unwrapped useQuery inside a harness with no
+// QueryClientProvider — and the page would fail for a reason that has nothing to do with it.
+let approvalComments: ApprovalComment[] = [];
+const commentAddedWith = vi.fn();
+const commentModifiedWith = vi.fn();
+const commentRemovedWith = vi.fn();
+const commentResolvedWith = vi.fn();
+
+const refetchCommentsSpy = vi.fn();
+
+vi.mock('../../services/foundations/approvalCommentService', () => ({
+    approvalCommentService: {
+        useGetApprovalComments: () => ({
+            data: approvalComments,
+            isLoading: false,
+            refetch: refetchCommentsSpy
+        }),
+        useAddApprovalComment: () => ({ mutateAsync: commentAddedWith, isPending: false }),
+        useModifyApprovalComment: () => ({ mutateAsync: commentModifiedWith, isPending: false }),
+        useRemoveApprovalComment: () => ({ mutateAsync: commentRemovedWith, isPending: false }),
+        useResolveApprovalComment: () => ({ mutateAsync: commentResolvedWith, isPending: false })
     }
 }));
 
@@ -241,14 +275,26 @@ describe('ContentItemModerationDetailPage', () => {
         removedWith.mockReset();
         removedWith.mockResolvedValue(undefined);
 
-        for (const write of [castWith, decidedWith, requestedWith, withdrawnWith]) {
+        approvalComments = [];
+
+        for (const write of [
+            castWith,
+            decidedWith,
+            requestedWith,
+            withdrawnWith,
+            commentAddedWith,
+            commentModifiedWith,
+            commentRemovedWith,
+            commentResolvedWith
+        ]) {
             write.mockReset();
             write.mockResolvedValue({ approvalId: 'approval-1' });
         }
 
         for (const refetch of [
             refetchVerdictSpy, refetchReviewsSpy, refetchCandidatesSpy,
-            refetchRequestsSpy, refetchDisplayNamesSpy, refetchContentItemSpy
+            refetchRequestsSpy, refetchDisplayNamesSpy, refetchContentItemSpy,
+            refetchCommentsSpy
         ]) {
             refetch.mockReset();
             refetch.mockResolvedValue(undefined);
@@ -959,6 +1005,24 @@ describe('ContentItemModerationDetailPage', () => {
                 expect(refetchContentItemSpy).toHaveBeenCalled();
             });
 
+        // THE THREAD IS ON THE SAME CHANNEL. §20.6.1 names "a comment added or resolved" as a
+        // trigger, and the thread is the read most likely to move under an open tab — two
+        // moderators working one submission is the case it exists for. It rides this poll rather
+        // than carrying a refetchInterval of its own, which would have polled a hidden tab and
+        // missed the reconnect.
+        it('re-fetches the review thread, so another moderator\'s comment appears unprompted',
+            async () => {
+                // given
+                openRound();
+                renderPage();
+
+                // when
+                await vi.advanceTimersByTimeAsync(15 * 1000);
+
+                // then
+                expect(refetchCommentsSpy).toHaveBeenCalled();
+            });
+
         // §7.9 leaves everybody listed whether or not they have answered, so no round event
         // moves the candidates — and it is the most expensive of the reads.
         it('leaves the reviewer candidates out of the poll', async () => {
@@ -972,5 +1036,219 @@ describe('ContentItemModerationDetailPage', () => {
             // then
             expect(refetchCandidatesSpy).not.toHaveBeenCalled();
         });
+    });
+
+    // THE CONVERSATION THE ROUND IS MADE OF. Mounted in the LEFT column beneath the bible
+    // references — a thread is about the submission, and the right column is a decision surface
+    // that has to stay readable at a glance while a thread grows without limit.
+    describe('the review thread', () => {
+        const openThread = () => {
+            contentItem = {
+                ...draftQuote,
+                createdBy: 'another-user',
+                approvalStatus: ApprovalStatus.Submitted
+            };
+
+            approvalVerdict = submittedVerdict;
+        };
+
+        const johnsQuestion: ApprovalComment = {
+            id: 'comment-1',
+            approvalId: 'approval-1',
+            comment: 'Does a crying face read as moved, or as sadness?',
+            commentType: ApprovalCommentType.Question,
+            isResolved: false,
+            createdBy: 'user-john',
+            createdWhen: '2026-08-27T09:00:00Z',
+            updatedBy: 'user-john',
+            updatedWhen: '2026-08-27T09:00:00Z',
+            isDeleted: false
+        };
+
+        // The same row written by the VIEWER, for the cases that need the author's own affordances
+        // — amending and withdrawing are the author's alone, whatever roles the reader holds.
+        const viewersQuestion: ApprovalComment = {
+            ...johnsQuestion,
+            createdBy: 'user-1',
+            updatedBy: 'user-1'
+        };
+
+        it('should mount the thread under the bible references, not beside the round', () => {
+            // given
+            openThread();
+            renderPage();
+
+            // then: both are in the same column, and the thread is the LAST of the two
+            const referencesHeading = screen.getByRole('heading', { name: 'Bible references' });
+            const threadHeading = screen.getByRole('heading', { name: 'Review Comments' });
+
+            expect(referencesHeading.compareDocumentPosition(threadHeading))
+                .toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+        });
+
+        it('should render the round comments with the author names it resolved', () => {
+            // given: the display-names read is what turns an account id into a name, and
+            // user-john is the one account the mocked read answers for
+            openThread();
+            approvalComments = [johnsQuestion];
+
+            renderPage();
+
+            // then
+            expect(screen.getByText('John')).toBeInTheDocument();
+
+            expect(screen.getByText(/Does a crying face read as moved/))
+                .toBeInTheDocument();
+        });
+
+        it('should say there is no thread when the verdict named no round', () => {
+            // given: a caller the verdict refused, or an item with no approval row at all
+            approvalVerdict = undefined;
+            renderPage();
+
+            expect(screen.getByText(/no approval round/)).toBeInTheDocument();
+        });
+
+        it('should post a new comment against the approval the verdict named', async () => {
+            // given
+            openThread();
+            renderPage();
+
+            // when
+            await userEvent.type(
+                screen.getByPlaceholderText('Write a comment or ask a question…'),
+                'Where is this quote from?');
+
+            await userEvent.click(screen.getByRole('radio', { name: 'Question' }));
+            await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+            // then
+            expect(commentAddedWith).toHaveBeenCalledWith({
+                approvalId: 'approval-1',
+                comment: 'Where is this quote from?',
+                commentType: ApprovalCommentType.Question
+            });
+        });
+
+        it('should settle a question the moment the tick is taken', async () => {
+            // given: an administrator on somebody else's question — the publisher tier the block
+            // actually stops
+            openThread();
+            approvalComments = [johnsQuestion];
+
+            renderPage();
+
+            // when
+            await userEvent.click(screen.getByRole('checkbox', { name: /Is resolved/ }));
+
+            // then
+            expect(commentResolvedWith).toHaveBeenCalledWith({
+                approvalCommentId: 'comment-1',
+                isResolved: true
+            });
+        });
+
+        // A withdrawal cannot be undone from any surface the site offers, so the page asks before
+        // it sends — and sends the SOFT delete, which is what leaves the §8.5 block.
+        it('should confirm before withdrawing a comment, and soft delete on OK', async () => {
+            // given
+            openThread();
+            approvalComments = [viewersQuestion];
+
+            renderPage();
+
+            // when
+            await userEvent.click(
+                screen.getByRole('button', { name: /^Delete comment by/ }));
+
+            // then: nothing has been sent yet
+            expect(commentRemovedWith).not.toHaveBeenCalled();
+            expect(screen.getByText('Are you sure?')).toBeInTheDocument();
+            expect(screen.getByText(/cannot be undone/)).toBeInTheDocument();
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Delete' }));
+
+            // then
+            expect(commentRemovedWith).toHaveBeenCalledWith({
+                approvalCommentId: 'comment-1',
+                deletionReason: 'Withdrawn by the author'
+            });
+        });
+
+        it('should send nothing when the withdrawal is cancelled', async () => {
+            // given
+            openThread();
+            approvalComments = [viewersQuestion];
+
+            renderPage();
+
+            // when
+            await userEvent.click(
+                screen.getByRole('button', { name: /^Delete comment by/ }));
+
+            await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+            // then
+            expect(commentRemovedWith).not.toHaveBeenCalled();
+        });
+
+        // The projection carries no audit values and the foundation pins four fields against
+        // storage, so an amend goes back as the STORED row with only the edits moved onto it.
+        it('should put back the stored row with only the edited fields moved', async () => {
+            // given
+            openThread();
+            approvalComments = [viewersQuestion];
+
+            renderPage();
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: /^Edit comment by/ }));
+
+            const editor = screen.getByLabelText('Edit your comment');
+            await userEvent.clear(editor);
+            await userEvent.type(editor, 'Rewritten.');
+
+            // Scoped to the row: the add box carries the same Save label, and the content item
+            // card on this page is an <article> too.
+            const row = editor.closest('article')!;
+            await userEvent.click(within(row).getByRole('button', { name: 'Save' }));
+
+            // then
+            expect(commentModifiedWith).toHaveBeenCalledWith({
+                ...viewersQuestion,
+                comment: 'Rewritten.'
+            });
+        });
+
+        it('should show the reason the server gave when a comment is refused', async () => {
+            // given
+            openThread();
+
+            commentAddedWith.mockRejectedValue({
+                isAxiosError: true,
+                response: { data: { message: 'The parent approval is not open for comment.' } }
+            });
+
+            renderPage();
+
+            // when
+            await userEvent.type(
+                screen.getByPlaceholderText('Write a comment or ask a question…'),
+                'anything');
+
+            await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+            // then
+            expect(toastErrorSpy).toHaveBeenCalledWith(
+                'The parent approval is not open for comment.');
+
+            // AND THE WORDS SURVIVE. The page rethrows after the toast precisely so the add face
+            // can tell a refusal from a success; swallowing it here would report the error and
+            // bin the comment in the same breath.
+            expect(screen.getByPlaceholderText('Write a comment or ask a question…'))
+                .toHaveValue('anything');
+        });
+
     });
 });

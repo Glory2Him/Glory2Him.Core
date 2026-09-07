@@ -15,6 +15,7 @@ import { ContentItemListPanelDoc } from './contentItemListPanelDoc';
 import { SharingPanelDoc } from './sharingPanelDoc';
 import { BibleReferenceAssociationPanelDoc } from './bibleReferenceAssociationPanelDoc';
 import { ReviewPanelDoc } from './reviewPanelDoc';
+import { ReviewCommentPanelDoc } from './reviewCommentPanelDoc';
 import { TagAssociationPanelDoc } from './tagAssociationPanelDoc';
 
 import {
@@ -968,5 +969,126 @@ describe('Component reference pages', () => {
 
                 expect(screen.getByRole('button', { name: 'Modify' })).toBeInTheDocument();
             });
+    });
+
+    describe('ReviewCommentPanelDoc', () => {
+        it('should document the component and run the thread live', () => {
+            // when
+            renderWithAuth(<ReviewCommentPanelDoc />);
+
+            // then
+            expect(screen.getByRole('heading', { name: 'Review Comment Panel', level: 1 }))
+                .toBeInTheDocument();
+
+            expect(screen.getByText('src/components/approvals/reviewCommentPanel.tsx'))
+                .toBeInTheDocument();
+
+            expect(screen.getByRole('heading', { name: 'Settled, not answered' }))
+                .toBeInTheDocument();
+
+            // the live panel, not a screenshot of one
+            expect(screen.getByPlaceholderText('Write a comment or ask a question…'))
+                .toBeInTheDocument();
+
+            expect(screen.getByText(/being moved to tears/)).toBeInTheDocument();
+        });
+
+        /// The board exists to show that the three gates move INDEPENDENTLY, which is the one
+        /// thing about this panel a props table cannot say.
+        it('should step the settled tick through the tiers that may take it', async () => {
+            // given: the page opens as the question's author, who may settle their own
+            renderWithAuth(<ReviewCommentPanelDoc />);
+
+            expect(screen.getByRole('checkbox', { name: /Is resolved/ })).toBeInTheDocument();
+
+            // when: another contributor, holding nothing
+            await userEvent.click(screen.getByRole(
+                'radio', { name: 'I am another contributor, holding no role' }));
+
+            // then: the box is still theirs — anybody who may contribute may speak — but the
+            // tick on somebody else's question is not
+            expect(screen.getByPlaceholderText('Write a comment or ask a question…'))
+                .toBeInTheDocument();
+
+            expect(screen.queryByRole('checkbox', { name: /Is resolved/ }))
+                .not.toBeInTheDocument();
+
+            // when: a reviewer, who is never held by the block and so may not lift it
+            await userEvent.click(screen.getByRole('radio', { name: 'I am a reviewer' }));
+
+            expect(screen.queryByRole('checkbox', { name: /Is resolved/ }))
+                .not.toBeInTheDocument();
+
+            // when: the publisher tier for THIS type
+            await userEvent.click(screen.getByRole(
+                'radio', { name: /I am a publisher of quotes/ }));
+
+            expect(screen.getByRole('checkbox', { name: /Is resolved/ })).toBeInTheDocument();
+
+            // when: a publisher of another type — the narrow tier widens up, never sideways
+            await userEvent.click(screen.getByRole(
+                'radio', { name: /I am a publisher of devotionals/ }));
+
+            expect(screen.queryByRole('checkbox', { name: /Is resolved/ }))
+                .not.toBeInTheDocument();
+        });
+
+        it('should show the sanction reaching the tick and the box differently', async () => {
+            // given
+            renderWithAuth(<ReviewCommentPanelDoc />);
+
+            // when: a publisher sanctioned on this content type. §18.6 rule 3 exempts the
+            // THREAD from a scoped block — a comment is speech about the content — but not
+            // IsResolved, which clears a §8.5 gate.
+            await userEvent.click(screen.getByRole(
+                'radio', { name: /I publish quotes but am sanctioned on them/ }));
+
+            expect(screen.getByPlaceholderText('Write a comment or ask a question…'))
+                .toBeInTheDocument();
+
+            expect(screen.queryByRole('checkbox', { name: /Is resolved/ }))
+                .not.toBeInTheDocument();
+
+            // when: the GLOBAL sanction, which reaches both
+            await userEvent.click(screen.getByRole(
+                'radio', { name: /I am an administrator holding the global ReadOnly/ }));
+
+            expect(screen.queryByPlaceholderText('Write a comment or ask a question…'))
+                .not.toBeInTheDocument();
+
+            expect(screen.queryByRole('checkbox', { name: /Is resolved/ }))
+                .not.toBeInTheDocument();
+        });
+
+        it('should open the box on whichever defaultType the board picks', async () => {
+            // given
+            renderWithAuth(<ReviewCommentPanelDoc />);
+
+            expect(screen.getByRole('radio', { name: 'Comment' })).toBeChecked();
+
+            // when
+            await userEvent.click(screen.getByRole(
+                'radio', { name: /^Question — opens on the blocking kind/ }));
+
+            // then
+            expect(screen.getByRole('radio', { name: 'Question' })).toBeChecked();
+        });
+
+        it('should report the last event the demo raised', async () => {
+            // given
+            renderWithAuth(<ReviewCommentPanelDoc />);
+
+            expect(screen.getByText('(none yet)')).toBeInTheDocument();
+
+            // when
+            await userEvent.type(
+                screen.getByPlaceholderText('Write a comment or ask a question…'),
+                'a remark');
+
+            await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+            // then
+            expect(screen.getByText('onSave — Comment: "a remark"')).toBeInTheDocument();
+        });
     });
 });

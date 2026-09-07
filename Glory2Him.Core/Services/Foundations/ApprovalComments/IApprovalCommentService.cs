@@ -48,10 +48,21 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
         /// the approval can proceed. Owns <see cref="ApprovalComment.IsResolved"/> and nothing
         /// else: the wording belongs to whoever wrote it and is only ever changed through modify.
         ///
-        /// <para>Open to the owner <b>or</b> an administrator. That widening is the operation's
-        /// reason to exist: the owner can equally flip the flag through modify, but an
-        /// administrator cannot, because modify is owner-only and admitting them there would hand
-        /// them the author's words as well (§14.7 rule 5).</para>
+        /// <para>Open to the owner <b>or</b> the publisher tier for the entity behind the approval
+        /// — the global <c>Publishers</c> and <c>Administrators</c>, and the scoped
+        /// <c>{Entity}-Publishers</c> / <c>{Entity}-{ContentType}-Publishers</c> names (§18.6).
+        /// That widening is the operation's reason to exist: the owner can equally flip the flag
+        /// through modify, but nobody else can, because modify is owner-only and admitting them
+        /// there would hand them the author's words as well (§14.7 rule 5).</para>
+        ///
+        /// <para><b>The publisher tier and not the review tier.</b> An outstanding comment holds
+        /// the approval shut under <c>RequireReviewCommentResolutionBeforeApprovals</c>, and the
+        /// people that block stops are the people who decide the approval. A reviewer is not held
+        /// by the gate; one who wants to answer an outstanding comment writes their own.</para>
+        ///
+        /// <para>The <c>ReadOnly</c> sanction is asked <b>first</b>, ahead of the owner branch, at
+        /// every scope the entity composes — closing the gap §18.6 rule 3 records against this
+        /// field, which is the one comment field that moves a §8.5 gate.</para>
         /// </summary>
         /// <param name="isResolved">
         /// The settled state to record. Unsettling (<c>false</c>) rides the same operation, and

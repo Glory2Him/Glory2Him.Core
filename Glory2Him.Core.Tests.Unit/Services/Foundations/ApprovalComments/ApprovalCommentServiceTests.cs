@@ -25,6 +25,7 @@ using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Brokers.EventEnvelopes;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalComments;
 using Glory2Him.Core.Models.Foundations.ApprovalComments.Exceptions;
@@ -350,6 +351,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
             this.accessBrokerMock.Setup(broker =>
                 broker.MayRecordApprovalCommentAsync(
                     It.IsAny<Guid>(),
+                    It.IsAny<ApprovalCommentType>(),
+                    It.IsAny<bool>(),
                     It.IsAny<SecurityContext>(),
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(refused);
@@ -358,6 +361,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
                 broker.MayAmendApprovalCommentAsync(
                     It.IsAny<Guid>(),
                     It.IsAny<string>(),
+                    It.IsAny<ApprovalCommentType>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<ApprovalCommentType>(),
+                    It.IsAny<bool>(),
                     It.IsAny<SecurityContext>(),
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(refused);
@@ -387,6 +394,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
             this.accessBrokerMock.Setup(broker =>
                 broker.MayRecordApprovalCommentAsync(
                     It.IsAny<Guid>(),
+                    It.IsAny<ApprovalCommentType>(),
+                    It.IsAny<bool>(),
                     It.IsAny<SecurityContext>(),
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(permitted);
@@ -395,6 +404,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
                 broker.MayAmendApprovalCommentAsync(
                     It.IsAny<Guid>(),
                     It.IsAny<string>(),
+                    It.IsAny<ApprovalCommentType>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<ApprovalCommentType>(),
+                    It.IsAny<bool>(),
                     It.IsAny<SecurityContext>(),
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(permitted);

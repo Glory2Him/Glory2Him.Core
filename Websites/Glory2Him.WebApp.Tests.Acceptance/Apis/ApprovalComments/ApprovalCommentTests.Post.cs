@@ -12,6 +12,7 @@
 using System;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.WebApp.Tests.Acceptance.Models.ApprovalComments;
 using RESTFulSense.Exceptions;
@@ -51,6 +52,92 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalComments
                 await RemoveApprovalCommentAndApprovalAsync(
                     inputApprovalComment.Id,
                     randomApproval.Id);
+            }
+        }
+
+        /// <summary>
+        /// Both birth pairings survive the round trip, which is the whole reason
+        /// <c>CommentType</c> is a column rather than a reading of <c>IsResolved</c> (§7.8). A
+        /// remark asks for nothing and is born settled; an ask holds the approval shut until
+        /// somebody entitled to settles it, and the two must still be tellable apart afterwards.
+        /// Stated explicitly rather than drawn: a value the filler chose proves nothing about
+        /// what the caller asked for.
+        /// </summary>
+        [Theory]
+        [InlineData(ApprovalCommentType.Comment, true)]
+        [InlineData(ApprovalCommentType.Question, false)]
+        public async Task ShouldPostApprovalCommentWithItsTypeAndResolutionAsync(
+            ApprovalCommentType commentType,
+            bool isResolved)
+        {
+            // given
+            Approval randomApproval =
+                await this.apiBroker.InsertOpenApprovalAsync(Guid.NewGuid().ToString());
+
+            ApprovalComment inputApprovalComment = CreateRandomApprovalComment(randomApproval.Id);
+            inputApprovalComment.CommentType = commentType;
+            inputApprovalComment.IsResolved = isResolved;
+
+            try
+            {
+                // when
+                await this.apiBroker.PostApprovalCommentAsync(inputApprovalComment);
+
+                ApprovalComment actualApprovalComment =
+                    await this.apiBroker.GetApprovalCommentByIdAsync(inputApprovalComment.Id);
+
+                // then
+                actualApprovalComment.CommentType.Should().Be(commentType);
+                actualApprovalComment.IsResolved.Should().Be(isResolved);
+            }
+            finally
+            {
+                await RemoveApprovalCommentAndApprovalAsync(
+                    inputApprovalComment.Id,
+                    randomApproval.Id);
+            }
+        }
+
+        /// <summary>
+        /// AN ASK MAY NOT BE BORN SETTLED, end to end. Creating a resolved question is resolving
+        /// one through a path that never asks who may resolve, so the access gate refuses it —
+        /// which is what stops the type-to-resolution pairing being a rule only the React client
+        /// happens to keep.
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnUnauthorizedOnPostIfAQuestionIsAlreadyResolvedAsync()
+        {
+            // given
+            Approval randomApproval =
+                await this.apiBroker.InsertOpenApprovalAsync(Guid.NewGuid().ToString());
+
+            ApprovalComment settledAsk = CreateRandomApprovalComment(randomApproval.Id);
+            settledAsk.CommentType = ApprovalCommentType.Question;
+            settledAsk.IsResolved = true;
+
+            try
+            {
+                // when
+                var postApprovalCommentTask =
+                    this.apiBroker.PostApprovalCommentAsync(settledAsk).AsTask();
+
+                // then
+                await Assert.ThrowsAsync<HttpResponseUnauthorizedException>(
+                    () => postApprovalCommentTask);
+
+                // and nothing was written — a refused post must leave no row behind
+                var getApprovalCommentTask =
+                    this.apiBroker.GetApprovalCommentByIdAsync(settledAsk.Id).AsTask();
+
+                await Assert.ThrowsAsync<HttpResponseNotFoundException>(
+                    () => getApprovalCommentTask);
+            }
+            finally
+            {
+                // The comment is removed too, unconditionally: if the rule regressed the row DID
+                // land, and leaving it would strand it behind the approval's foreign key.
+                await this.apiBroker.RemoveCoreApprovalCommentByIdAsync(settledAsk.Id);
+                await this.apiBroker.RemoveApprovalByIdAsync(randomApproval.Id);
             }
         }
 

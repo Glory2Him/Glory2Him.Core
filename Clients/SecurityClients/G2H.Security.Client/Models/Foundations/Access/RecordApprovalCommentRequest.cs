@@ -52,5 +52,30 @@ namespace G2H.Security.Client.Models.Foundations.Access
         /// </para>
         /// </summary>
         public required bool IsParentApprovalDeleted { get; init; }
+
+        /// <summary>
+        /// Whether the comment being created is an <b>ask</b> — a question or a change request —
+        /// rather than a remark.
+        ///
+        /// <para>A <c>bool</c> rather than a mirrored enum for the reason this whole package takes
+        /// strings for entity and content types: the vocabulary belongs to the consuming
+        /// application and the project reference runs the other way, so a second copy of
+        /// <c>ApprovalCommentType</c> here would be one more thing to keep in step for no decision
+        /// it would let this client make.</para>
+        /// </summary>
+        public required bool IsAsk { get; init; }
+
+        /// <summary>
+        /// The resolution the caller is asking to be born with — <c>true</c> for settled.
+        ///
+        /// <para>Gathered because the pairing of this with <see cref="IsAsk"/> is a gate question,
+        /// not a shape question. §7.8 rule 1 leaves the FIELD unconstrained on purpose — both
+        /// birth values are legitimate, and pinning it would have made it impossible to leave a
+        /// remark without blocking the approval. That reasoning predates
+        /// <c>ApprovalCommentType</c>: the add path could not tell an observation from an ask, so
+        /// it could not rule on either. Now it can, and exactly one of the four pairings is
+        /// refused — see <see cref="AccessDenialReason.SettledAskNotPermitted"/>.</para>
+        /// </summary>
+        public required bool IsSettled { get; init; }
     }
 }

@@ -9,6 +9,8 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System.Collections.Generic;
+
 namespace G2H.Security.Client.Models.Foundations.Access
 {
     /// <summary>
@@ -22,11 +24,19 @@ namespace G2H.Security.Client.Models.Foundations.Access
     /// clear a resolution flag, without a "which fields may I touch here" branch inside amend.
     /// </para>
     ///
-    /// <para>This is the one comment operation an administrator may perform on someone else's row,
-    /// and it is deliberately the only one: resolving records that a comment is settled — that it
-    /// no longer requires anything before the approval can proceed — which changes no words.
-    /// <c>UpdatedBy</c> then carries the admin's identity, so the intervention is visible rather
+    /// <para>This is the one comment operation somebody other than the author may perform on the
+    /// row, and it is deliberately the only one: resolving records that a comment is settled —
+    /// that it no longer requires anything before the approval can proceed — which changes no
+    /// words. <c>UpdatedBy</c> then carries the intervener's identity, so it is visible rather
     /// than silent, and the owner may set it back while the round is open.</para>
+    ///
+    /// <para><b>The tier admitted beside the author is the PUBLISHER tier, not the review tier.</b>
+    /// An outstanding comment holds the <i>approval</i> shut under
+    /// <c>RequireReviewCommentResolutionBeforeApprovals</c>, and the people that block stops are
+    /// exactly the people who decide the approval. A reviewer casts a verdict and is not held by
+    /// the gate, so admitting them here would hand the settling of somebody else's ask to somebody
+    /// the ask never blocked; a reviewer who wants to answer one writes a comment of their own.
+    /// </para>
     ///
     /// <para>Every property is <c>required</c> for the reason given on
     /// <see cref="ApprovalConditionsRequest"/>.</para>
@@ -37,6 +47,25 @@ namespace G2H.Security.Client.Models.Foundations.Access
         /// The user attempting to change the resolution flag.
         /// </summary>
         public required AccessActor Actor { get; init; }
+
+        /// <summary>
+        /// Every subject the publisher tier and the <c>ReadOnly</c> veto may be composed from
+        /// (§18.6). Usually one; an association names both its endpoints, so a publisher trusted
+        /// with either end qualifies.
+        ///
+        /// <para><b>This is also what finally brings the veto to <c>IsResolved</c>.</b> §18.6
+        /// rule 3 records that a scoped block does not reach the comment thread — a comment is
+        /// speech about the content, not a write to it — and singles out this one field as the
+        /// place that reasoning strains, because settling a comment clears a §8.5 gate. Carrying
+        /// the subjects is the closure that note names: the veto is asked here, first, ahead of
+        /// the author branch, because a sanction outranks every grant including the holder's own
+        /// rows (§18.6 rule 2).</para>
+        ///
+        /// <para>Carrying the subjects rather than a finished list of role names keeps the naming
+        /// convention in one place — the caller composes, this only reports what to compose from.
+        /// </para>
+        /// </summary>
+        public required IReadOnlyList<RoleSubject> RoleSubjects { get; init; }
 
         /// <summary>
         /// The <c>CreatedBy</c> of the comment being acted on.

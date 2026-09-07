@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -175,8 +175,16 @@ namespace Glory2Him.Core.Brokers.Securities
             Models.Events.SecurityContext securityContext,
             CancellationToken cancellationToken = default);
 
+        /// <param name="commentType">
+        /// What the comment being created IS. With <paramref name="isResolved"/> it forms the
+        /// birth pairing the decision function rules on: an ask may not be born settled, because
+        /// creating one that way IS resolving it, through a gate that never asks who may resolve.
+        /// </param>
+        /// <param name="isResolved">The resolution the caller is asking to be born with.</param>
         ValueTask<AccessVerdict> MayRecordApprovalCommentAsync(
             Guid approvalId,
+            Models.Enums.ApprovalCommentType commentType,
+            bool isResolved,
             Models.Events.SecurityContext securityContext,
             CancellationToken cancellationToken = default);
 
@@ -185,9 +193,25 @@ namespace Glory2Him.Core.Brokers.Securities
         /// broker passes it through without verifying it, so a payload-supplied value would
         /// defeat the ownership gate it feeds.
         /// </param>
+        /// <param name="commentType">What the comment WOULD BE once this write lands.</param>
+        /// <param name="isResolved">The resolution this write would leave the row in.</param>
+        /// <param name="storageCommentType">
+        /// What the STORED row is. With <paramref name="storageIsResolved"/> it lets the decision
+        /// rule on the transition rather than the state, so a question somebody already settled
+        /// stays editable by its author.
+        /// </param>
+        /// <param name="storageIsResolved">The resolution the STORED row already carries.</param>
+        /// <remarks>
+        /// Withdrawal passes the stored pairing as both halves: a soft delete moves neither
+        /// field, so the transition veto has nothing to catch.
+        /// </remarks>
         ValueTask<AccessVerdict> MayAmendApprovalCommentAsync(
             Guid approvalId,
             string commentCreatedBy,
+            Models.Enums.ApprovalCommentType commentType,
+            bool isResolved,
+            Models.Enums.ApprovalCommentType storageCommentType,
+            bool storageIsResolved,
             Models.Events.SecurityContext securityContext,
             CancellationToken cancellationToken = default);
 

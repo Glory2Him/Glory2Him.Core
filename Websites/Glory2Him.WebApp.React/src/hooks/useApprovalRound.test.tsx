@@ -23,6 +23,8 @@ const getReviewerCandidatesAsync = vi.fn();
 const getReviewRequestsAsync = vi.fn();
 const getReviewerDisplayNamesAsync = vi.fn();
 
+const getApprovalCommentsAsync = vi.fn();
+
 vi.mock('../brokers/apiBroker.approvals', () => ({
     default: class {
         GetApprovalVerdictAsync = getApprovalVerdictAsync;
@@ -30,6 +32,15 @@ vi.mock('../brokers/apiBroker.approvals', () => ({
         GetReviewerCandidatesAsync = getReviewerCandidatesAsync;
         GetReviewRequestsAsync = getReviewRequestsAsync;
         GetReviewerDisplayNamesAsync = getReviewerDisplayNamesAsync;
+    }
+}));
+
+// THE THREAD RIDES THE SAME CHAIN, so it is mocked at the same boundary and for the same reason:
+// its filter interpolates the approval id, so an ungated refetch would ask for
+// `approvalId eq  and isDeleted eq false` — malformed, refused, and refused silently.
+vi.mock('../brokers/apiBroker.approvalComments', () => ({
+    default: class {
+        GetApprovalCommentsAsync = getApprovalCommentsAsync;
     }
 }));
 
@@ -78,6 +89,7 @@ describe('useApprovalRound', () => {
         getReviewerCandidatesAsync.mockResolvedValue([]);
         getReviewRequestsAsync.mockResolvedValue([]);
         getReviewerDisplayNamesAsync.mockResolvedValue([]);
+        getApprovalCommentsAsync.mockResolvedValue([]);
 
         queryClient = new QueryClient({
             defaultOptions: { queries: { retry: false } }
@@ -96,6 +108,9 @@ describe('useApprovalRound', () => {
 
         expect(getApprovalReviewsAsync).toHaveBeenCalledWith('approval-1');
         expect(result.current.approvalReviewCollection).toHaveLength(1);
+
+        // the thread hangs off the same id, and waits on the same read to learn it
+        expect(getApprovalCommentsAsync).toHaveBeenCalledWith('approval-1');
     });
 
     it('should re-read the round on refresh, still naming the approval', async () => {
@@ -112,6 +127,10 @@ describe('useApprovalRound', () => {
         expect(getApprovalReviewsAsync).toHaveBeenCalledWith('approval-1');
         expect(getReviewRequestsAsync).toHaveBeenCalledTimes(1);
         expect(getReviewerDisplayNamesAsync).toHaveBeenCalledTimes(1);
+
+        // §20.6.1 names "a comment added or resolved" as a trigger, so the thread is in the
+        // channel rather than polling on its own
+        expect(getApprovalCommentsAsync).toHaveBeenCalledWith('approval-1');
     });
 
     // §7.9 leaves everybody in the candidate list whether or not they have answered, so no round
@@ -139,6 +158,7 @@ describe('useApprovalRound', () => {
             expect(getApprovalReviewsAsync).not.toHaveBeenCalled();
             expect(getReviewRequestsAsync).not.toHaveBeenCalled();
             expect(getReviewerDisplayNamesAsync).not.toHaveBeenCalled();
+            expect(getApprovalCommentsAsync).not.toHaveBeenCalled();
         };
 
         it('should ask for nothing on refresh when the caller disabled it', async () => {
@@ -175,7 +195,8 @@ describe('useApprovalRound', () => {
             });
         });
 
-        it('should never ask for reviews, on the first read or on any refresh', async () => {
+        it('should never ask for reviews or comments, on the first read or on any refresh',
+            async () => {
             // given
             const { result } = renderRound();
             await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -187,6 +208,7 @@ describe('useApprovalRound', () => {
             // then
             expect(result.current.approvalVerdict).toBeUndefined();
             expect(getApprovalReviewsAsync).not.toHaveBeenCalled();
+            expect(getApprovalCommentsAsync).not.toHaveBeenCalled();
         });
     });
 });

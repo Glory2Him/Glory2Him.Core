@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using Glory2Him.Core.Models.Enums;
 
 namespace Glory2Him.WebApp.Tests.Acceptance.Models.ApprovalComments
 {
@@ -23,6 +24,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Models.ApprovalComments
         public Guid Id { get; set; }
         public Guid ApprovalId { get; set; }
         public string Comment { get; set; }
+        public ApprovalCommentType CommentType { get; set; }
         public bool IsResolved { get; set; }
         public string CreatedBy { get; set; }
         public DateTimeOffset CreatedWhen { get; set; }

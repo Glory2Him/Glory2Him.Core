@@ -103,6 +103,11 @@ const samplePagesSection: NavItem = {
 
                 sample("Review Panel", "SamplePages/Components/Review-Panel"),
 
+                // Beside the round rather than inside its family: the thread is its own tree,
+                // but the two are read together and a moderator looking for one usually wants
+                // the other.
+                sample("Review Comment Panel", "SamplePages/Components/Review-Comment-Panel"),
+
                 // The ContentItemPanel family, in TREE ORDER — parent first, so a reader
                 // walking the list walks the composition root-down.
                 sample("Content Item List Panel", "SamplePages/Components/Content-Item-List-Panel"),

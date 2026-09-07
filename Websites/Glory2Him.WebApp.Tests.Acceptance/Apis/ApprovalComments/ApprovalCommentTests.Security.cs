@@ -391,14 +391,15 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalComments
         }
 
         /// <summary>
-        /// Resolve is owner-OR-Administrators, and that widening is the whole reason the operation exists
-        /// (§14.7 rule 5). A reviewer clears neither branch.
+        /// Resolve is owner-OR-the-publisher-tier, and that widening is the whole reason the operation
+        /// exists (§14.7 posture D rule 5). A reviewer clears neither branch: an outstanding comment holds
+        /// the APPROVAL shut, and a reviewer vouches rather than decides, so lifting the block is not
+        /// theirs to do. One who wants to answer an outstanding comment writes a comment of their own.
         /// </summary>
         [Theory]
         [InlineData(null)]
         [InlineData(Roles.Reviewers)]
-        [InlineData(Roles.Publishers)]
-        public async Task ShouldReturnUnauthorizedOnResolveIfCallerIsNeitherAuthorNorAdminAsync(
+        public async Task ShouldReturnUnauthorizedOnResolveIfCallerIsNeitherAuthorNorPublisherAsync(
             string roleName)
         {
             // given
@@ -427,11 +428,17 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalComments
         }
 
         /// <summary>
-        /// The Administrators branch of resolve, on a comment written by somebody else — the case modify
-        /// deliberately cannot express.
+        /// The tier branch of resolve, on a comment written by somebody else — the case modify
+        /// deliberately cannot express. Both spellings of the publisher tier reach it: an outstanding
+        /// comment holds the approval shut, and the people that block stops are the people who decide it.
+        /// <c>Administrators</c> is inside the tier, so §14.7 rule 5's original route survives the
+        /// widening rather than being replaced by it.
         /// </summary>
-        [Fact]
-        public async Task ShouldAllowAdministratorToResolveAnotherUsersApprovalCommentAsync()
+        [Theory]
+        [InlineData(Roles.Administrators)]
+        [InlineData(Roles.Publishers)]
+        public async Task ShouldAllowThePublisherTierToResolveAnotherUsersApprovalCommentAsync(
+            string roleName)
         {
             // given
             Approval randomApproval =
@@ -445,7 +452,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalComments
             try
             {
                 // when
-                this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Administrators);
+                this.apiBroker.ActAs(Guid.NewGuid().ToString(), roleName);
 
                 ApprovalComment resolvedApprovalComment = await this.apiBroker
                     .ResolveApprovalCommentAsync(createdApprovalComment.Id, isResolved: true);
@@ -453,7 +460,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalComments
                 // then
                 resolvedApprovalComment.IsResolved.Should().BeTrue();
 
-                // the Administrators settled the flag without touching the author's words or the audit
+                // the tier settled the flag without touching the author's words or the audit
                 resolvedApprovalComment.CreatedBy.Should().Be(contributorUserId);
                 resolvedApprovalComment.Comment.Should().Be(createdApprovalComment.Comment);
             }
@@ -463,6 +470,40 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalComments
 
                 await RemoveApprovalCommentAndApprovalAsync(
                     createdApprovalComment.Id,
+                    randomApproval.Id);
+            }
+        }
+
+        /// <summary>
+        /// The <c>ReadOnly</c> veto reaching <c>IsResolved</c> — the gap §18.6 rule 3 records against this
+        /// one field, because settling a comment clears a §8.5 gate. The sanction is asked ahead of every
+        /// grant, so it outranks the publisher tier that would otherwise admit this caller.
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnUnauthorizedOnResolveIfThePublisherIsSanctionedAsync()
+        {
+            // given
+            (Approval randomApproval, ApprovalComment randomApprovalComment) =
+                await PostRandomApprovalCommentOnOpenApprovalAsync();
+
+            this.apiBroker.ActAs(
+                Guid.NewGuid().ToString(), Roles.Publishers, Roles.ReadOnly);
+
+            try
+            {
+                // when
+                var resolveTask = this.apiBroker
+                    .ResolveApprovalCommentAsync(randomApprovalComment.Id, isResolved: true).AsTask();
+
+                // then
+                await Assert.ThrowsAsync<HttpResponseUnauthorizedException>(() => resolveTask);
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+
+                await RemoveApprovalCommentAndApprovalAsync(
+                    randomApprovalComment.Id,
                     randomApproval.Id);
             }
         }
