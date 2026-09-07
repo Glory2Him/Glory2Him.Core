@@ -10,173 +10,68 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
-using Force.DeepCloner;
-using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Links;
-using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
 {
     public partial class LinkProcessingServiceTests
     {
+        /// <summary>
+        /// The group's rows come back from the GROUP-KEYED foundation read, which owns both the
+        /// narrowing and the §14.7 visibility filter. This layer used to narrow the collection
+        /// read's live queryable and filter the result a second time; the visibility scenarios
+        /// that pinned that second filter now live in
+        /// <c>LinkServiceTests.RetrieveByGroupId.Logic</c>, at the one seam that still applies it.
+        ///
+        /// <para>What is left here is what this layer still owns: the group id it passes down,
+        /// and the set it hands back untouched.</para>
+        /// </summary>
         [Fact]
-        public async Task ShouldRetrieveOnlyGroupVersionsOnRetrieveByGroupIdAsync()
+        public async Task ShouldRetrieveGroupLinksFromTheGroupKeyedReadOnRetrieveByGroupIdAsync()
         {
-            // given: a group read is the whole version chain of one logical link (§15.1),
-            // so rows of other groups are excluded before the visibility filter runs
+            // given
             Guid inputGroupId = Guid.NewGuid();
-            DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
-
-            Link firstGroupVersion = CreateRandomPubliclyVisibleLink(
-                linkId: Guid.NewGuid(),
-                currentDateTime: currentDateTime,
-                hasPublishDate: true);
-
-            firstGroupVersion.GroupId = inputGroupId;
-
-            Link secondGroupVersion = CreateRandomPubliclyVisibleLink(
-                linkId: Guid.NewGuid(),
-                currentDateTime: currentDateTime,
-                hasPublishDate: false);
-
-            secondGroupVersion.GroupId = inputGroupId;
-
-            Link otherGroupLink = CreateRandomPubliclyVisibleLink(
-                linkId: Guid.NewGuid(),
-                currentDateTime: currentDateTime,
-                hasPublishDate: true);
-
-            otherGroupLink.GroupId = Guid.NewGuid();
-
-            IQueryable<Link> storageLinks = new[]
-            {
-                firstGroupVersion,
-                secondGroupVersion,
-                otherGroupLink
-            }.AsQueryable();
-
-            IQueryable<Link> expectedLinks = new[]
-            {
-                firstGroupVersion.DeepClone(),
-                secondGroupVersion.DeepClone()
-            }.AsQueryable();
-
-            EventEnvelope<Link> inboundEnvelope = CreateEventEnvelope(
-                link: new Link { GroupId = inputGroupId },
-                securityContext: new SecurityContext { IsAuthenticated = false });
-
-            this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputGroupId))))
-                    .ReturnsAsync(inboundEnvelope);
+            IReadOnlyList<Link> foundationLinks = CreateRandomLinks().ToList();
+            IReadOnlyList<Link> expectedLinks = foundationLinks;
 
             this.linkServiceMock.Setup(service =>
-                service.RetrieveAllLinksAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(storageLinks);
-
-            this.dateTimeBrokerMock.Setup(broker =>
-                broker.GetCurrentDateTimeOffsetAsync())
-                    .ReturnsAsync(currentDateTime);
+                service.RetrieveLinksByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(foundationLinks);
 
             // when
-            IQueryable<Link> actualLinks =
+            IReadOnlyList<Link> actualLinks =
                 await this.linkProcessingService.RetrieveLinksByGroupIdAsync(
                     inputGroupId,
                     TestContext.Current.CancellationToken);
 
             // then
-            actualLinks.Should().BeEquivalentTo(expectedLinks);
+            actualLinks.Should().BeSameAs(expectedLinks);
 
-            this.eventEnvelopeBrokerMock.Verify(broker =>
-                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputGroupId))),
-                Times.Once);
-
+            // the caller's group, unaltered, and the caller's token with it
             this.linkServiceMock.Verify(service =>
-                service.RetrieveAllLinksAsync(It.IsAny<CancellationToken>()),
+                service.RetrieveLinksByGroupIdAsync(
+                    inputGroupId, It.IsAny<CancellationToken>()),
                 Times.Once);
 
-            this.eventBrokerMock.VerifyNoOtherCalls();
+            // NO ENVELOPE IS MINTED. The filter that needed one moved down a layer, and minting
+            // a second envelope here would only re-run it over the set it already produced.
             this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
-            this.linkServiceMock.VerifyNoOtherCalls();
-            this.loggingBrokerMock.VerifyNoOtherCalls();
-        }
 
-        [Fact]
-        public async Task ShouldApplyPerCallerVisibilityOnRetrieveByGroupIdAsync()
-        {
-            // given: the group read applies the same per-caller filter as the general
-            // collection read — deleted rows are gone for everyone, and an owner also sees
-            // their own non-public versions of the group
-            Guid inputGroupId = Guid.NewGuid();
-            DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
-            string actorUserId = GetRandomString();
+            // the visibility filter is no longer applied at this layer, so neither the clock nor
+            // the caller's identity is consulted here
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
 
-            Link publicVersion = CreateRandomPubliclyVisibleLink(
-                linkId: Guid.NewGuid(),
-                currentDateTime: currentDateTime,
-                hasPublishDate: true);
-
-            publicVersion.GroupId = inputGroupId;
-
-            Link ownDraftVersion = CreateRandomNonPublicLink(createdBy: actorUserId);
-            ownDraftVersion.GroupId = inputGroupId;
-
-            Link otherDraftVersion = CreateRandomNonPublicLink(createdBy: GetRandomString());
-            otherDraftVersion.GroupId = inputGroupId;
-
-            Link deletedVersion = CreateRandomDeletedLink(currentDateTime);
-            deletedVersion.GroupId = inputGroupId;
-            deletedVersion.CreatedBy = actorUserId;
-
-            IQueryable<Link> storageLinks = new[]
-            {
-                publicVersion,
-                ownDraftVersion,
-                otherDraftVersion,
-                deletedVersion
-            }.AsQueryable();
-
-            IQueryable<Link> expectedLinks = new[]
-            {
-                publicVersion.DeepClone(),
-                ownDraftVersion.DeepClone()
-            }.AsQueryable();
-
-            SecurityContext securityContext = CreateAuthenticatedSecurityContext();
-
-            EventEnvelope<Link> inboundEnvelope = CreateEventEnvelope(
-                link: new Link { GroupId = inputGroupId },
-                securityContext: securityContext);
-
-            this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputGroupId))))
-                    .ReturnsAsync(inboundEnvelope);
-
-            this.linkServiceMock.Setup(service =>
-                service.RetrieveAllLinksAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(storageLinks);
-
-            this.dateTimeBrokerMock.Setup(broker =>
-                broker.GetCurrentDateTimeOffsetAsync())
-                    .ReturnsAsync(currentDateTime);
-
-            this.securityAuditBrokerMock.Setup(broker =>
-                broker.GetUserIdAsync(securityContext))
-                    .ReturnsAsync(actorUserId);
-
-            // when
-            IQueryable<Link> actualLinks =
-                await this.linkProcessingService.RetrieveLinksByGroupIdAsync(
-                    inputGroupId,
-                    TestContext.Current.CancellationToken);
-
-            // then
-            actualLinks.Should().BeEquivalentTo(expectedLinks);
             this.eventBrokerMock.VerifyNoOtherCalls();
+            this.linkServiceMock.VerifyNoOtherCalls();
+            this.identifierBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
     }

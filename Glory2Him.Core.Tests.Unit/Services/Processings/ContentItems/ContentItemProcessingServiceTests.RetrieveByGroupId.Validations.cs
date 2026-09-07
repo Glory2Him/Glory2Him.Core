@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -28,11 +29,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             // given: the group id is the whole instruction on this path — nothing selects
             // a group without it
             Guid invalidGroupId = Guid.Empty;
-            ContentItem randomContentItem = CreateRandomContentItem();
-
-            EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
-                contentItem: randomContentItem,
-                securityContext: CreateAuthenticatedSecurityContext());
 
             var invalidContentItemProcessingException =
                 new InvalidContentItemProcessingException(
@@ -47,12 +43,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                     message: "Content item processing validation error occurred, fix the errors and try again.",
                     innerException: invalidContentItemProcessingException);
 
-            this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(invalidGroupId))))
-                    .ReturnsAsync(inboundEnvelope);
-
             // when
-            ValueTask<IQueryable<ContentItem>> retrieveContentItemsByGroupIdTask =
+            ValueTask<IReadOnlyList<ContentItem>> retrieveContentItemsByGroupIdTask =
                 this.contentItemProcessingService.RetrieveContentItemsByGroupIdAsync(
                     invalidGroupId,
                     TestContext.Current.CancellationToken);

@@ -176,5 +176,92 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItems
                 await this.apiBroker.RemoveCoreContentItemByIdAsync(draftVersion.Id);
             }
         }
+
+        /// <summary>
+        /// Pins the VISIBLE SET of the group read, not just its contents. The route no longer
+        /// hands the exposer a live queryable — the group-keyed foundation read materialises it
+        /// with the caller's token — and this is the assertion that the set that reaches the wire
+        /// did not move: the group's non-deleted versions, all of them, and nothing else.
+        /// </summary>
+        [Fact]
+        public async Task ShouldServeExactlyTheGroupsNonDeletedVersionsFromTheGroupReadAsync()
+        {
+            // given
+            string authorUserId = Guid.NewGuid().ToString();
+            Guid groupId = Guid.NewGuid();
+            Guid otherGroupId = Guid.NewGuid();
+
+            CoreContentItem publishedVersion = await this.apiBroker.InsertContentItemVersionAsync(
+                groupId, version: 1, ApprovalStatus.Approved, isPublished: true, authorUserId);
+
+            CoreContentItem draftVersion = await this.apiBroker.InsertContentItemVersionAsync(
+                groupId, version: 2, ApprovalStatus.Submitted, isPublished: false, authorUserId);
+
+            CoreContentItem deletedVersion = await this.apiBroker.InsertContentItemVersionAsync(
+                groupId, version: 3, ApprovalStatus.Approved, isPublished: false, authorUserId,
+                isDeleted: true);
+
+            CoreContentItem otherGroupVersion = await this.apiBroker.InsertContentItemVersionAsync(
+                otherGroupId, version: 1, ApprovalStatus.Approved, isPublished: true, authorUserId);
+
+            try
+            {
+                // when
+                List<ContentItem> actualContentItems =
+                    await this.apiBroker.GetContentItemsByGroupIdAsync(groupId);
+
+                // then
+                actualContentItems.Select(contentItem => contentItem.Id)
+                    .Should().BeEquivalentTo(new[] { publishedVersion.Id, draftVersion.Id },
+                        because: "a takedown is gone for every caller and the read is keyed on "
+                            + "one group, so neither the deleted version nor another group's row "
+                            + "reaches the wire");
+            }
+            finally
+            {
+                await this.apiBroker.RemoveCoreContentItemByIdAsync(otherGroupVersion.Id);
+                await this.apiBroker.RemoveCoreContentItemByIdAsync(deletedVersion.Id);
+                await this.apiBroker.RemoveCoreContentItemByIdAsync(draftVersion.Id);
+                await this.apiBroker.RemoveCoreContentItemByIdAsync(publishedVersion.Id);
+            }
+        }
+
+        /// <summary>
+        /// The route still carries <c>[EnableQuery]</c>, so callers that compose OData options
+        /// onto it keep working — the options now run over the materialised set rather than being
+        /// pushed into the SQL, which is a difference in where the work happens and not in what
+        /// comes back.
+        /// </summary>
+        [Fact]
+        public async Task ShouldComposeODataOptionsOverTheGroupReadAsync()
+        {
+            // given
+            string authorUserId = Guid.NewGuid().ToString();
+            Guid groupId = Guid.NewGuid();
+
+            CoreContentItem firstVersion = await this.apiBroker.InsertContentItemVersionAsync(
+                groupId, version: 1, ApprovalStatus.Approved, isPublished: true, authorUserId);
+
+            CoreContentItem secondVersion = await this.apiBroker.InsertContentItemVersionAsync(
+                groupId, version: 2, ApprovalStatus.Submitted, isPublished: false, authorUserId);
+
+            try
+            {
+                // when
+                List<ContentItem> actualContentItems =
+                    await this.apiBroker.GetContentItemsByGroupIdAsync(
+                        groupId,
+                        odataQuery: "$orderby=Version%20desc&$top=1");
+
+                // then
+                actualContentItems.Should().ContainSingle()
+                    .Which.Id.Should().Be(secondVersion.Id);
+            }
+            finally
+            {
+                await this.apiBroker.RemoveCoreContentItemByIdAsync(secondVersion.Id);
+                await this.apiBroker.RemoveCoreContentItemByIdAsync(firstVersion.Id);
+            }
+        }
     }
 }

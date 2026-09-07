@@ -172,24 +172,18 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
                 return await DoRetrieveAllPublicContentItemsAsync(cancellationToken);
             });
 
-        public ValueTask<IQueryable<ContentItem>> RetrieveContentItemsByGroupIdAsync(
+        public ValueTask<IReadOnlyList<ContentItem>> RetrieveContentItemsByGroupIdAsync(
             Guid groupId,
             CancellationToken cancellationToken = default) =>
-            TryCatch(async () =>
+            TryCatchList(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var retrieveRequest = new ContentItem
-                {
-                    GroupId = groupId
-                };
-
-                EventEnvelope<ContentItem> envelope =
-                    await this.eventEnvelopeBroker.CreateAsync(content: retrieveRequest);
-
+                // no envelope is minted: the group-keyed foundation read mints its own to capture
+                // the ambient security context, and a second one here would only re-run the same
+                // filter, against the same context, over the set that filter already produced
                 return await DoRetrieveContentItemsByGroupIdAsync(
                     groupId: groupId,
-                    inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
             });
 
@@ -471,22 +465,21 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
                 securityContext: null);
         }
 
-        private async ValueTask<IQueryable<ContentItem>> DoRetrieveContentItemsByGroupIdAsync(
+        private async ValueTask<IReadOnlyList<ContentItem>> DoRetrieveContentItemsByGroupIdAsync(
             Guid groupId,
-            EventEnvelope<ContentItem> inboundEnvelope,
             CancellationToken cancellationToken)
         {
             ValidateGroupIdOnRetrieve(groupId);
 
-            IQueryable<ContentItem> allContentItems =
-                await this.contentItemService.RetrieveAllContentItemsAsync(cancellationToken);
-
-            IQueryable<ContentItem> groupContentItems = allContentItems.Where(contentItem =>
-                contentItem.GroupId == groupId);
-
-            return await ApplyCollectionReadVisibilityFilterAsync(
-                contentItems: groupContentItems,
-                securityContext: inboundEnvelope.SecurityContext);
+            // Through the GROUP-KEYED foundation read, which owns the narrowing and runs the
+            // §14.7 collection filter over it once. Composing the group predicate onto the
+            // collection read's live queryable here left the exposer to execute it — a blocking
+            // SQL round trip on the request thread with the cancellation token dropped at the one
+            // call that touches the database — and gave "the group's rows" a second home to
+            // drift in.
+            return await this.contentItemService.RetrieveContentItemsByGroupIdAsync(
+                groupId: groupId,
+                cancellationToken: cancellationToken);
         }
 
         private async ValueTask<ContentItem> DoRetrieveLatestContentItemByGroupIdAsync(

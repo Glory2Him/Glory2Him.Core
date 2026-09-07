@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -426,13 +427,17 @@ namespace Glory2Him.WebApp.Controllers.ContentItems
         [HttpGet("Groups/{groupId}")]
         [EnableQuery]
         [AllowAnonymous]
-        public async ValueTask<ActionResult<IQueryable<ContentItem>>> GetContentItemsByGroupId(
+        public async ValueTask<ActionResult<IReadOnlyList<ContentItem>>> GetContentItemsByGroupId(
             Guid groupId,
             CancellationToken cancellationToken)
         {
             try
             {
-                IQueryable<ContentItem> retrievedContentItems =
+                // A MATERIALISED set, not a live queryable: the read executes in the service with
+                // the caller's token instead of on this thread when the response is serialised.
+                // [EnableQuery] still composes $filter/$orderby/$top over it — a group is one
+                // content item's versions, so the options now run in memory over a bounded set.
+                IReadOnlyList<ContentItem> retrievedContentItems =
                     await this.contentItemProcessingService
                         .RetrieveContentItemsByGroupIdAsync(groupId, cancellationToken);
 

@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -30,18 +31,18 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ContentItems
         {
             // given
             Guid inputGroupId = Guid.NewGuid();
-            IQueryable<ContentItem> randomContentItems = CreateRandomContentItems();
-            IQueryable<ContentItem> expectedContentItems = randomContentItems;
+            IReadOnlyList<ContentItem> randomContentItems = CreateRandomContentItems().ToList();
+            IReadOnlyList<ContentItem> expectedContentItems = randomContentItems;
 
             var expectedObjectResult = new OkObjectResult(expectedContentItems);
-            var expectedActionResult = new ActionResult<IQueryable<ContentItem>>(expectedObjectResult);
+            var expectedActionResult = new ActionResult<IReadOnlyList<ContentItem>>(expectedObjectResult);
 
             contentItemProcessingServiceMock
                 .Setup(service => service.RetrieveContentItemsByGroupIdAsync(inputGroupId, It.IsAny<CancellationToken>()))
                     .ReturnsAsync(randomContentItems);
 
             // when
-            ActionResult<IQueryable<ContentItem>> actualActionResult =
+            ActionResult<IReadOnlyList<ContentItem>> actualActionResult =
                 await contentItemsController.GetContentItemsByGroupId(inputGroupId, default);
 
             // then

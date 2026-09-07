@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -33,26 +34,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             // given
             Guid inputGroupId = Guid.NewGuid();
 
-            EventEnvelope<Link> inboundEnvelope = CreateEventEnvelope(
-                link: new Link { GroupId = inputGroupId },
-                securityContext: CreateAuthenticatedSecurityContext());
-
             var expectedLinkProcessingDependencyValidationException =
                 new LinkProcessingDependencyValidationException(
                     message: "Link processing dependency validation error occurred, " +
                         "fix the errors and try again.",
                     innerException: (dependencyValidationException.InnerException as Xeption)!);
 
-            this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputGroupId))))
-                    .ReturnsAsync(inboundEnvelope);
-
             this.linkServiceMock.Setup(service =>
-                service.RetrieveAllLinksAsync(It.IsAny<CancellationToken>()))
-                    .ThrowsAsync(dependencyValidationException);
+                service.RetrieveLinksByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(dependencyValidationException);
 
             // when
-            ValueTask<IQueryable<Link>> retrieveLinksTask =
+            ValueTask<IReadOnlyList<Link>> retrieveLinksTask =
                 this.linkProcessingService.RetrieveLinksByGroupIdAsync(
                     inputGroupId,
                     TestContext.Current.CancellationToken);
@@ -82,25 +76,18 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             // given
             Guid inputGroupId = Guid.NewGuid();
 
-            EventEnvelope<Link> inboundEnvelope = CreateEventEnvelope(
-                link: new Link { GroupId = inputGroupId },
-                securityContext: CreateAuthenticatedSecurityContext());
-
             var expectedLinkProcessingDependencyException =
                 new LinkProcessingDependencyException(
                     message: "Link processing dependency error occurred, contact support.",
                     innerException: (dependencyException.InnerException as Xeption)!);
 
-            this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputGroupId))))
-                    .ReturnsAsync(inboundEnvelope);
-
             this.linkServiceMock.Setup(service =>
-                service.RetrieveAllLinksAsync(It.IsAny<CancellationToken>()))
-                    .ThrowsAsync(dependencyException);
+                service.RetrieveLinksByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(dependencyException);
 
             // when
-            ValueTask<IQueryable<Link>> retrieveLinksTask =
+            ValueTask<IReadOnlyList<Link>> retrieveLinksTask =
                 this.linkProcessingService.RetrieveLinksByGroupIdAsync(
                     inputGroupId,
                     TestContext.Current.CancellationToken);
@@ -129,10 +116,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             Guid inputGroupId = Guid.NewGuid();
             var operationCanceledException = new OperationCanceledException();
 
-            EventEnvelope<Link> inboundEnvelope = CreateEventEnvelope(
-                link: new Link { GroupId = inputGroupId },
-                securityContext: CreateAuthenticatedSecurityContext());
-
             var timeoutException =
                 new TimeoutException("The dependency operation timed out.");
 
@@ -147,16 +130,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                     message: "Link processing dependency error occurred, contact support.",
                     innerException: timeoutLinkProcessingException);
 
-            this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputGroupId))))
-                    .ReturnsAsync(inboundEnvelope);
-
             this.linkServiceMock.Setup(service =>
-                service.RetrieveAllLinksAsync(It.IsAny<CancellationToken>()))
-                    .ThrowsAsync(operationCanceledException);
+                service.RetrieveLinksByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(operationCanceledException);
 
             // when
-            ValueTask<IQueryable<Link>> retrieveLinksTask =
+            ValueTask<IReadOnlyList<Link>> retrieveLinksTask =
                 this.linkProcessingService.RetrieveLinksByGroupIdAsync(
                     inputGroupId,
                     TestContext.Current.CancellationToken);
@@ -186,7 +166,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             await cancellationTokenSource.CancelAsync();
 
             // when
-            ValueTask<IQueryable<Link>> retrieveLinksTask =
+            ValueTask<IReadOnlyList<Link>> retrieveLinksTask =
                 this.linkProcessingService.RetrieveLinksByGroupIdAsync(
                     inputGroupId,
                     cancellationTokenSource.Token);
@@ -217,12 +197,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                     message: "Link processing service error occurred, contact support.",
                     innerException: failedLinkProcessingServiceException);
 
-            this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputGroupId))))
-                    .ThrowsAsync(serviceException);
+            this.linkServiceMock.Setup(service =>
+                service.RetrieveLinksByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(serviceException);
 
             // when
-            ValueTask<IQueryable<Link>> retrieveLinksTask =
+            ValueTask<IReadOnlyList<Link>> retrieveLinksTask =
                 this.linkProcessingService.RetrieveLinksByGroupIdAsync(
                     inputGroupId,
                     TestContext.Current.CancellationToken);
@@ -238,6 +219,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedLinkProcessingServiceException))),
+                Times.Once);
+
+            this.linkServiceMock.Verify(service =>
+                service.RetrieveLinksByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.linkServiceMock.VerifyNoOtherCalls();

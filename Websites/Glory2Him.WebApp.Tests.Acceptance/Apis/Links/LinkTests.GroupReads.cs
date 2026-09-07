@@ -176,5 +176,92 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Links
                 await this.apiBroker.RemoveCoreLinkByIdAsync(draftVersion.Id);
             }
         }
+
+        /// <summary>
+        /// Pins the VISIBLE SET of the group read, not just its contents. The route no longer
+        /// hands the exposer a live queryable — the group-keyed foundation read materialises it
+        /// with the caller's token — and this is the assertion that the set that reaches the wire
+        /// did not move: the group's non-deleted versions, all of them, and nothing else.
+        /// </summary>
+        [Fact]
+        public async Task ShouldServeExactlyTheGroupsNonDeletedVersionsFromTheGroupReadAsync()
+        {
+            // given
+            string authorUserId = Guid.NewGuid().ToString();
+            Guid groupId = Guid.NewGuid();
+            Guid otherGroupId = Guid.NewGuid();
+
+            CoreLink publishedVersion = await this.apiBroker.InsertLinkVersionAsync(
+                groupId, version: 1, ApprovalStatus.Approved, isPublished: true, authorUserId);
+
+            CoreLink draftVersion = await this.apiBroker.InsertLinkVersionAsync(
+                groupId, version: 2, ApprovalStatus.Submitted, isPublished: false, authorUserId);
+
+            CoreLink deletedVersion = await this.apiBroker.InsertLinkVersionAsync(
+                groupId, version: 3, ApprovalStatus.Approved, isPublished: false, authorUserId,
+                isDeleted: true);
+
+            CoreLink otherGroupVersion = await this.apiBroker.InsertLinkVersionAsync(
+                otherGroupId, version: 1, ApprovalStatus.Approved, isPublished: true, authorUserId);
+
+            try
+            {
+                // when
+                List<Link> actualLinks =
+                    await this.apiBroker.GetLinksByGroupIdAsync(groupId);
+
+                // then
+                actualLinks.Select(link => link.Id)
+                    .Should().BeEquivalentTo(new[] { publishedVersion.Id, draftVersion.Id },
+                        because: "a takedown is gone for every caller and the read is keyed on "
+                            + "one group, so neither the deleted version nor another group's row "
+                            + "reaches the wire");
+            }
+            finally
+            {
+                await this.apiBroker.RemoveCoreLinkByIdAsync(otherGroupVersion.Id);
+                await this.apiBroker.RemoveCoreLinkByIdAsync(deletedVersion.Id);
+                await this.apiBroker.RemoveCoreLinkByIdAsync(draftVersion.Id);
+                await this.apiBroker.RemoveCoreLinkByIdAsync(publishedVersion.Id);
+            }
+        }
+
+        /// <summary>
+        /// The route still carries <c>[EnableQuery]</c>, so callers that compose OData options
+        /// onto it keep working — the options now run over the materialised set rather than being
+        /// pushed into the SQL, which is a difference in where the work happens and not in what
+        /// comes back.
+        /// </summary>
+        [Fact]
+        public async Task ShouldComposeODataOptionsOverTheGroupReadAsync()
+        {
+            // given
+            string authorUserId = Guid.NewGuid().ToString();
+            Guid groupId = Guid.NewGuid();
+
+            CoreLink firstVersion = await this.apiBroker.InsertLinkVersionAsync(
+                groupId, version: 1, ApprovalStatus.Approved, isPublished: true, authorUserId);
+
+            CoreLink secondVersion = await this.apiBroker.InsertLinkVersionAsync(
+                groupId, version: 2, ApprovalStatus.Submitted, isPublished: false, authorUserId);
+
+            try
+            {
+                // when
+                List<Link> actualLinks =
+                    await this.apiBroker.GetLinksByGroupIdAsync(
+                        groupId,
+                        odataQuery: "$orderby=Version%20desc&$top=1");
+
+                // then
+                actualLinks.Should().ContainSingle()
+                    .Which.Id.Should().Be(secondVersion.Id);
+            }
+            finally
+            {
+                await this.apiBroker.RemoveCoreLinkByIdAsync(secondVersion.Id);
+                await this.apiBroker.RemoveCoreLinkByIdAsync(firstVersion.Id);
+            }
+        }
     }
 }

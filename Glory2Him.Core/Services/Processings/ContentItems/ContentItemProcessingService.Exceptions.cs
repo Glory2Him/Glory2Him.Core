@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Events;
@@ -25,6 +26,8 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
         private delegate ValueTask<ContentItem> ReturningContentItemFunction();
 
         private delegate ValueTask<IQueryable<ContentItem>> ReturningContentItemsFunction();
+
+        private delegate ValueTask<IReadOnlyList<ContentItem>> ReturningContentItemListFunction();
 
         private delegate ValueTask<EventEnvelope<ContentItem>?> ReturningContentItemEventEnvelopeFunction();
 
@@ -199,6 +202,70 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
             try
             {
                 return await returningContentItemsFunction();
+            }
+            catch (OperationCanceledException operationCanceledException)
+                when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
+            {
+                var timeoutException =
+                    new TimeoutException("The dependency operation timed out.");
+
+                var timeoutContentItemProcessingException =
+                    new TimeoutContentItemProcessingException(
+                        message: "Failed content item processing timeout error occurred, contact support.",
+                        innerException: timeoutException,
+                        data: timeoutException.Data);
+
+                throw await CreateAndLogTimeoutDependencyExceptionAsync(
+                    exception: timeoutContentItemProcessingException);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (InvalidContentItemProcessingException invalidContentItemProcessingException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: invalidContentItemProcessingException);
+            }
+            catch (ContentItemValidationException contentItemValidationException)
+            {
+                throw await CreateAndLogDependencyValidationExceptionAsync(exception: contentItemValidationException);
+            }
+            catch (ContentItemDependencyValidationException contentItemDependencyValidationException)
+            {
+                throw await CreateAndLogDependencyValidationExceptionAsync(
+                    exception: contentItemDependencyValidationException);
+            }
+            catch (ContentItemDependencyException contentItemDependencyException)
+            {
+                throw await CreateAndLogDependencyExceptionAsync(exception: contentItemDependencyException);
+            }
+            catch (ContentItemServiceException contentItemServiceException)
+            {
+                throw await CreateAndLogDependencyExceptionAsync(exception: contentItemServiceException);
+            }
+            catch (Exception exception)
+            {
+                var failedContentItemProcessingServiceException =
+                    new FailedContentItemProcessingServiceException(
+                        message: "Failed content item processing service error occurred, " +
+                            "please contact support.",
+                        innerException: exception,
+                        data: exception.Data);
+
+                throw await CreateAndLogServiceExceptionAsync(
+                    exception: failedContentItemProcessingServiceException);
+            }
+        }
+
+        // The same taxonomy the queryable read is wrapped in, over a materialised result. The
+        // two must not diverge: they answer the same question about the same rows and differ
+        // only in where the query is executed.
+        private async ValueTask<IReadOnlyList<ContentItem>> TryCatchList(
+            ReturningContentItemListFunction returningContentItemListFunction)
+        {
+            try
+            {
+                return await returningContentItemListFunction();
             }
             catch (OperationCanceledException operationCanceledException)
                 when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
