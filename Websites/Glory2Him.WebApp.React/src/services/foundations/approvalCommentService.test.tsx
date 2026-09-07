@@ -3,7 +3,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { approvalCommentService } from './approvalCommentService';
-import { ApprovalCommentType } from '../../models/foundations/approvals/approvalComment';
+import {
+    ApprovalComment,
+    ApprovalCommentType
+} from '../../models/foundations/approvals/approvalComment';
 
 // THE THREAD'S WRITES, mocked at the BROKER so the requests this service composes are what gets
 // asserted. The derivation below is the single most consequential line in the family — it decides
@@ -78,6 +81,24 @@ describe('approvalCommentService', () => {
             // then
             expect(getApprovalCommentsAsync).not.toHaveBeenCalled();
         });
+    });
+
+    // THE ROW AS IT WAS READ, which is what an amend puts back: the foundation pins CreatedBy,
+    // CreatedWhen, ApprovalId and UpdatedWhen against storage, so a fresh object carrying only
+    // the new words is refused.
+    const storedCommentWith = (
+        overrides: Partial<ApprovalComment> = {}): ApprovalComment => ({
+        id: 'comment-1',
+        approvalId: 'approval-1',
+        comment: 'Does a crying face read as moved, or as sadness?',
+        commentType: ApprovalCommentType.Question,
+        isResolved: false,
+        createdBy: 'user-john',
+        createdWhen: '2026-08-27T09:00:00Z',
+        updatedBy: 'user-john',
+        updatedWhen: '2026-08-27T09:00:00Z',
+        isDeleted: false,
+        ...overrides
     });
 
     describe('adding', () => {
@@ -201,16 +222,9 @@ describe('approvalCommentService', () => {
             // when
             await act(async () => {
                 await result.current.mutateAsync({
-                    id: 'comment-1',
-                    approvalId: 'approval-1',
+                    approvalComment: storedCommentWith(),
                     comment: 'Amended.',
-                    commentType: ApprovalCommentType.Comment,
-                    isResolved: false,
-                    createdBy: 'user-john',
-                    createdWhen: '2026-08-27T09:00:00Z',
-                    updatedBy: 'user-john',
-                    updatedWhen: '2026-08-27T09:00:00Z',
-                    isDeleted: false
+                    commentType: ApprovalCommentType.Comment
                 });
             });
 
@@ -261,29 +275,122 @@ describe('approvalCommentService', () => {
     });
 
     describe('the other writes', () => {
+        // AN EDIT IS A PUT OF THE ROW THAT WAS READ — the foundation pins CreatedBy,
+        // CreatedWhen, ApprovalId and UpdatedWhen against storage — so what goes back is the
+        // stored row with only the edited fields moved onto it.
         it('should send the whole row on a modify', async () => {
             // given
-            const storedRow = {
-                id: 'comment-1',
-                approvalId: 'approval-1',
-                comment: 'Amended.',
+            const storedRow = storedCommentWith({
                 commentType: ApprovalCommentType.Comment,
-                isResolved: true,
-                createdBy: 'user-john',
-                createdWhen: '2026-08-27T09:00:00Z',
-                updatedBy: 'user-john',
-                updatedWhen: '2026-08-27T09:00:00Z',
-                isDeleted: false
-            };
+                isResolved: true
+            });
 
             const { result } = renderHook(
                 () => approvalCommentService.useModifyApprovalComment(), { wrapper });
 
             // when
-            await act(async () => { await result.current.mutateAsync(storedRow); });
+            await act(async () => {
+                await result.current.mutateAsync({
+                    approvalComment: storedRow,
+                    comment: 'Amended.',
+                    commentType: ApprovalCommentType.Comment
+                });
+            });
 
             // then
-            expect(putApprovalCommentAsync).toHaveBeenCalledWith(storedRow);
+            expect(putApprovalCommentAsync).toHaveBeenCalledWith({
+                ...storedRow,
+                comment: 'Amended.'
+            });
+        });
+
+        /// RETYPING MOVES THE SETTLED FLAG WITH THE TYPE (§7.8, §20.6.3), and it lives here
+        /// beside the birth derivation rather than in a page: a remark is born settled, so a
+        /// retype that carried the stored flag over produced a question already resolved — the
+        /// one pairing the amend gate refuses outright, which left the type uneditable.
+        it('should carry a remark retyped as a question back as outstanding', async () => {
+            // given
+            const storedRow = storedCommentWith({
+                commentType: ApprovalCommentType.Comment,
+                isResolved: true
+            });
+
+            const { result } = renderHook(
+                () => approvalCommentService.useModifyApprovalComment(), { wrapper });
+
+            // when
+            await act(async () => {
+                await result.current.mutateAsync({
+                    approvalComment: storedRow,
+                    comment: storedRow.comment,
+                    commentType: ApprovalCommentType.Question
+                });
+            });
+
+            // then
+            expect(putApprovalCommentAsync).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    commentType: ApprovalCommentType.Question,
+                    isResolved: false
+                }));
+        });
+
+        it('should carry a question retyped as a remark back as settled', async () => {
+            // given
+            const storedRow = storedCommentWith({
+                commentType: ApprovalCommentType.Question,
+                isResolved: false
+            });
+
+            const { result } = renderHook(
+                () => approvalCommentService.useModifyApprovalComment(), { wrapper });
+
+            // when
+            await act(async () => {
+                await result.current.mutateAsync({
+                    approvalComment: storedRow,
+                    comment: storedRow.comment,
+                    commentType: ApprovalCommentType.Comment
+                });
+            });
+
+            // then: a remark never blocks, so the round is no longer held by it
+            expect(putApprovalCommentAsync).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    commentType: ApprovalCommentType.Comment,
+                    isResolved: true
+                }));
+        });
+
+        /// ...and left ALONE where the type did not move, which is what makes it a transition
+        /// rather than a derivation: a settled ask may be edited by its author, and re-deriving
+        /// would silently re-open a resolution that answers to the publisher tier.
+        it('should leave the settled flag alone where only the words changed', async () => {
+            // given
+            const storedRow = storedCommentWith({
+                commentType: ApprovalCommentType.Question,
+                isResolved: true
+            });
+
+            const { result } = renderHook(
+                () => approvalCommentService.useModifyApprovalComment(), { wrapper });
+
+            // when
+            await act(async () => {
+                await result.current.mutateAsync({
+                    approvalComment: storedRow,
+                    comment: 'Rewritten.',
+                    commentType: ApprovalCommentType.Question
+                });
+            });
+
+            // then
+            expect(putApprovalCommentAsync).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    comment: 'Rewritten.',
+                    commentType: ApprovalCommentType.Question,
+                    isResolved: true
+                }));
         });
 
         it('should soft delete with the reason it was given', async () => {
