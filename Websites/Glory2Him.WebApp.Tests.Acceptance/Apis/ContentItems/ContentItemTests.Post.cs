@@ -85,11 +85,21 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItems
             ContentItem createdContentItem =
                 await this.apiBroker.PostContentItemAsync(firstContentItem);
 
+            // Set as soon as the acknowledgement comes back, so the finally can clean up after a
+            // REGRESSION as well as after a pass. If the quiet arm ever starts writing a row, the
+            // not-found assertion below fails and this id names a real row carrying the same
+            // (ContentType, ContentHash) as the fixture — left behind, it is a live duplicate that
+            // makes the FIRST post of every later run acknowledge instead of create, and the
+            // failure then reads as something else entirely.
+            Guid? acknowledgedContentItemId = null;
+
             try
             {
                 // when
                 ContentItem acknowledgedContentItem =
                     await this.apiBroker.PostContentItemAsync(duplicateContentItem);
+
+                acknowledgedContentItemId = acknowledgedContentItem.Id;
 
                 // then: the acknowledgement is shaped as a created item, down to the derived
                 // fields — an answer a caller could tell apart names the duplicate as plainly
@@ -119,6 +129,21 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItems
             finally
             {
                 await this.apiBroker.RemoveCoreContentItemByIdAsync(createdContentItem.Id);
+
+                if (acknowledgedContentItemId is not null)
+                {
+                    // Best effort: on a pass there is nothing there to remove, which is the whole
+                    // point of the test, so a failure to delete is not itself a failure.
+                    try
+                    {
+                        await this.apiBroker.RemoveCoreContentItemByIdAsync(
+                            acknowledgedContentItemId.Value);
+                    }
+                    catch (Exception)
+                    {
+                        // no row to remove — the rule held
+                    }
+                }
             }
         }
     }

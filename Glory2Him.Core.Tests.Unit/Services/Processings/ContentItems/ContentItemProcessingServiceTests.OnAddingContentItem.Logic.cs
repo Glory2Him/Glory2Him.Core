@@ -152,6 +152,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             string contentHash = ComputeContentHash(inputContentItem.Content);
             Guid contentItemId = Guid.NewGuid();
             Guid groupId = Guid.NewGuid();
+            string randomActor = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
             EventEnvelope<ContentItem> requestEnvelope = CreateEventEnvelope(
                 contentItem: inputContentItem,
@@ -172,7 +174,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 Version = 1,
                 IsPublished = false,
                 ApprovalStatus = ApprovalStatus.Draft,
-                IsDeleted = false
+                IsDeleted = false,
+
+                // Asserted, not waved at. The reply must carry stamps because a genuine reply
+                // does; a mock that handed the item back untouched would let the stamping be
+                // deleted without a test noticing, and the audit columns are part of what makes
+                // the two arms indistinguishable.
+                CreatedBy = randomActor,
+                UpdatedBy = randomActor,
+                CreatedWhen = randomDateTimeOffset,
+                UpdatedWhen = randomDateTimeOffset
             };
 
             var expectedReplyEnvelope = new EventEnvelope<ContentItem>
@@ -204,11 +215,34 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                     .ReturnsAsync(contentItemId)
                     .ReturnsAsync(groupId);
 
+            // THE STAMPS DO NOT COME OFF THE REQUEST ENVELOPE, and this is the path where that
+            // matters. The genuine arm's foundation mints its own envelope off the ambient
+            // context; during event delivery that is not the envelope's requester. So the quiet
+            // arm mints one the same way, and this setup matches ONLY that envelope's context —
+            // a service that stamped from requestEnvelope.SecurityContext would find no setup,
+            // get a null item back, and fail here rather than shipping a reply a requester could
+            // tell apart from a real one.
+            EventEnvelope<ContentItem> auditEnvelope = CreateEventEnvelope(
+                contentItem: new ContentItem(),
+                securityContext: CreateAuthenticatedSecurityContext());
+
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateAsync(It.Is<ContentItem>(item => item.Id == contentItemId)))
+                    .ReturnsAsync(auditEnvelope);
+
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyAddAuditValuesAsync(
                     It.IsAny<ContentItem>(),
-                    requestEnvelope.SecurityContext))
-                        .ReturnsAsync((ContentItem contentItem, SecurityContext _) => contentItem);
+                    auditEnvelope.SecurityContext))
+                        .ReturnsAsync((ContentItem contentItem, SecurityContext _) =>
+                        {
+                            contentItem.CreatedBy = randomActor;
+                            contentItem.UpdatedBy = randomActor;
+                            contentItem.CreatedWhen = randomDateTimeOffset;
+                            contentItem.UpdatedWhen = randomDateTimeOffset;
+
+                            return contentItem;
+                        });
 
             ContentItem? repliedContentItem = null;
 
@@ -247,7 +281,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             this.securityAuditBrokerMock.Verify(broker =>
                 broker.ApplyAddAuditValuesAsync(
                     It.IsAny<ContentItem>(),
-                    requestEnvelope.SecurityContext),
+                    auditEnvelope.SecurityContext),
+                Times.Once);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(It.Is<ContentItem>(item => item.Id == contentItemId)),
                 Times.Once);
 
             this.contentItemServiceMock.Verify(service =>

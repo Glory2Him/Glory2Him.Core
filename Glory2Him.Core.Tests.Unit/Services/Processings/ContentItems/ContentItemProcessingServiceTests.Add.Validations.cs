@@ -304,8 +304,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                     SameExceptionAs(expectedContentItemProcessingValidationException))),
                 Times.Once);
 
+            // ONE envelope and nothing else from this broker. Carried over from the
+            // duplicate-refusal test this replaced, because it is the guard that catches a
+            // refusal path quietly minting a second envelope or publishing a fact.
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(invalidContentItem),
+                Times.Once);
+
             // the probe never runs: the request is refused before the duplicate question is
             // asked, so an invalid submission cannot be used to ask it either
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
             this.hashBrokerMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
             this.identifierBrokerMock.VerifyNoOtherCalls();

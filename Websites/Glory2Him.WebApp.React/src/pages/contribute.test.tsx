@@ -190,25 +190,30 @@ describe('Contribute', () => {
     // QUIETLY. The API answers it exactly as it answers a genuine add — 201, an item-shaped body
     // — having written no row, so the id it hands back resolves to nothing. Following it would
     // land the contributor on a 404 and tell them their content is a duplicate, which is the
-    // leak this page used to have in words (#392, #412). Nothing here reads the body.
-    it('should answer a duplicate contribution exactly as it answers a new one', async () => {
-        // given: the response to a duplicate — well-formed, and pointing at a row that is not there
-        mutateAsync.mockResolvedValue({ id: 'never-persisted-1' });
-        renderPage();
+    // leak this page used to have in words (#392, #412).
+    //
+    // THE RESPONSE CARRIES NOTHING USABLE ON PURPOSE. A duplicate and a genuine add are
+    // identical at this boundary, so a test that merely resolves a different id re-runs the case
+    // above and proves nothing. Withholding the body entirely is what actually pins the rule:
+    // any code that reaches into it to steer the journey fails here, and only code that ignores
+    // it passes.
+    it('should not read the response body, so a duplicate cannot be told from a new one',
+        async () => {
+            // given
+            mutateAsync.mockResolvedValue(undefined);
+            renderPage();
 
-        // when
-        await contributeAsync('He kept me through the night shift');
+            // when
+            await contributeAsync('He kept me through the night shift');
 
-        // then
-        await waitFor(() => expect(navigate).toHaveBeenCalledWith('/myposts'));
+            // then
+            await waitFor(() => expect(navigate).toHaveBeenCalledWith('/myposts'));
 
-        expect(navigate).not.toHaveBeenCalledWith('/myposts/never-persisted-1');
+            expect(toastSuccess).toHaveBeenCalledWith(
+                'Thank you for your submission. It will be reviewed before publishing.');
 
-        expect(toastSuccess).toHaveBeenCalledWith(
-            'Thank you for your submission. It will be reviewed before publishing.');
-
-        expect(toastError).not.toHaveBeenCalled();
-    });
+            expect(toastError).not.toHaveBeenCalled();
+        });
 
     it('should mark the form up from the API messages and say why, staying put', async () => {
         // given

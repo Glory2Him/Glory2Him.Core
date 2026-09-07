@@ -248,8 +248,7 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
             {
                 return await ComposeQuietAcknowledgementContentItemAsync(
                     contentItem: contentItem,
-                    contentHash: contentHash,
-                    inboundEnvelope: inboundEnvelope);
+                    contentHash: contentHash);
             }
 
             ContentItem newContentItem = await ComposeNewContentItemAsync(
@@ -283,7 +282,7 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
             ContentItem contentItem,
             string contentHash)
         {
-            var newContentItem = new ContentItem
+            return new ContentItem
             {
                 Id = await this.identifierBroker.GetIdentifierAsync(),
                 ContentType = contentItem.ContentType,
@@ -299,8 +298,6 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
                 ApprovalStatus = ApprovalStatus.Draft,
                 IsDeleted = false
             };
-
-            return newContentItem;
         }
 
         // §3.4.2 rule 6 in full: a duplicate add is acknowledged politely, creates nothing, and
@@ -326,16 +323,34 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
         // The rule closes the answer, not the second look (design §3.4.2).
         private async ValueTask<ContentItem> ComposeQuietAcknowledgementContentItemAsync(
             ContentItem contentItem,
-            string contentHash,
-            EventEnvelope<ContentItem> inboundEnvelope)
+            string contentHash)
         {
             ContentItem acknowledgedContentItem = await ComposeNewContentItemAsync(
                 contentItem: contentItem,
                 contentHash: contentHash);
 
+            // THE STAMPS COME FROM THE SAME PLACE THE GENUINE ARM'S DO, and the inbound envelope
+            // is deliberately not that place. The genuine arm hands the row to the foundation's
+            // AddContentItemAsync, which mints its OWN envelope off the ambient context and
+            // stamps from that; it is never given this one. On the direct path the two are the
+            // same identity, so either source would do — but on the event path the inbound
+            // envelope carries the original requester while the ambient context is whatever the
+            // delivery runs as, and the codebase already knows they diverge there (see the
+            // forwarded envelope in DoTransitionContentItemApprovalAsync). Stamping from the
+            // envelope would have left a duplicate reply naming the requester where a genuine
+            // reply names the delivery identity — a field that differs between the arms, which
+            // is the one thing §3.4.2 rule 6 cannot afford. Minting the same way the foundation
+            // mints keeps them equal by construction rather than by coincidence.
+            //
+            // Whether the foundation SHOULD be stamping from ambient on the event path is a
+            // separate question and not this rule's to settle (§12.5.2 has the equivalent for
+            // ContentItemSetting). Whatever it answers, both arms move together.
+            EventEnvelope<ContentItem> auditEnvelope =
+                await this.eventEnvelopeBroker.CreateAsync(content: acknowledgedContentItem);
+
             return await this.securityAuditBroker.ApplyAddAuditValuesAsync(
                 entity: acknowledgedContentItem,
-                securityContext: inboundEnvelope.SecurityContext);
+                securityContext: auditEnvelope.SecurityContext);
         }
 
         private async ValueTask<ContentItem> DoModifyContentItemAsync(

@@ -327,6 +327,14 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
         // ComposeNewContentItemAsync sets Id, GroupId, Version and the three IApproval members
         // itself, and the audit stamps are the audit broker's, so a caller cannot put a value
         // the foundation would refuse into any of them.
+        //
+        // ValidateContentItemOnModify deliberately does NOT gain these two, and the asymmetry is
+        // the rule rather than an oversight. MapPermittedFields carries both onto the stored row
+        // on a modify, so they are caller-owned there too — but every modify reaches the
+        // foundation, which asks them, so both a duplicate and a genuine modify are answered by
+        // the same rule from the same place and neither tells the caller anything the other
+        // does not. It is the ADD's quiet arm, and only that, which returns without ever
+        // reaching the foundation; the rules are hoisted here to cover exactly that hole.
         private static void ValidateContentItemOnAdd(ContentItem contentItem) =>
             Validate(
                 message: "Content item is invalid, fix the errors and try again.",

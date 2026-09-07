@@ -393,6 +393,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 broker.CreateAsync(inputContentItem))
                     .ReturnsAsync(inboundEnvelope);
 
+            // The envelope the quiet arm mints for its audit stamps, exactly as the foundation
+            // mints one on the genuine arm. Its context is a DIFFERENT instance from the inbound
+            // envelope's on purpose: the audit mock below matches only this one, so a service
+            // that went back to stamping from the inbound envelope finds no setup and fails here.
+            // On the event path those two really are different identities.
+            EventEnvelope<ContentItem> auditEnvelope = CreateEventEnvelope(
+                contentItem: new ContentItem(),
+                securityContext: CreateAuthenticatedSecurityContext());
+
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateAsync(It.Is<ContentItem>(item => item.Id == contentItemId)))
+                    .ReturnsAsync(auditEnvelope);
+
             this.hashBrokerMock.Setup(broker =>
                 broker.ComputeSha256HashAsync(normalizedContent))
                     .ReturnsAsync(expectedContentHash);
@@ -413,7 +426,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyAddAuditValuesAsync(
                     It.IsAny<ContentItem>(),
-                    inboundEnvelope.SecurityContext))
+                    auditEnvelope.SecurityContext))
                         .ReturnsAsync((ContentItem contentItem, SecurityContext _) =>
                         {
                             contentItem.CreatedBy = randomActor;
@@ -454,7 +467,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             this.securityAuditBrokerMock.Verify(broker =>
                 broker.ApplyAddAuditValuesAsync(
                     It.IsAny<ContentItem>(),
-                    inboundEnvelope.SecurityContext),
+                    auditEnvelope.SecurityContext),
                 Times.Once);
 
             // NO ROW, which is the rule
@@ -463,9 +476,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 Times.Never);
 
             // AND NO FACT: the fact says a row was created and none was. The acknowledgement is
-            // for the caller alone; subscribers are told about rows.
+            // for the caller alone; subscribers are told about rows. Two envelopes are minted and
+            // neither is published — the inbound one, and the one the stamps come off.
             this.eventEnvelopeBrokerMock.Verify(broker =>
                 broker.CreateAsync(inputContentItem),
+                Times.Once);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(It.Is<ContentItem>(item => item.Id == contentItemId)),
                 Times.Once);
 
             this.eventBrokerMock.VerifyNoOtherCalls();

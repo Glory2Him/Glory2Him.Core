@@ -22,12 +22,14 @@ import {
 const putContentItemAsync = vi.fn();
 const deleteContentItemByIdAsync = vi.fn();
 const searchContentItemsAsync = vi.fn();
+const postContentItemAsync = vi.fn();
 
 vi.mock('../../brokers/apiBroker.contentItems', () => ({
     default: class {
         PutContentItemAsync = putContentItemAsync;
         DeleteContentItemByIdAsync = deleteContentItemByIdAsync;
         SearchContentItemsAsync = searchContentItemsAsync;
+        PostContentItemAsync = postContentItemAsync;
     }
 }));
 
@@ -155,6 +157,65 @@ describe('contentItemService.useModifyContentItem', () => {
         expect(invalidated).toContainEqual(['ContentItemsGetById', 'quote-1']);
         expect(invalidated).toContainEqual(['ContentItemsSearch']);
         expect(invalidated).toContainEqual(['ApprovalVerdict']);
+    });
+
+    // A CONTRIBUTION LANDS IN THE SAME FEEDS AN EDIT DOES, and the contribution page now sends
+    // the reader straight to one of them. /myposts reads the search cache and holds it fresh for
+    // a minute, so without this the contributor is thanked and then shown a list that does not
+    // have their draft in it — a plain "it did not work" for a submission that did. This became
+    // reachable when the page stopped navigating to /myposts/{id}, which fetched by a brand-new
+    // id and so could never be served from cache (design §3.4.2 rule 6).
+    //
+    // No ContentItemsGetById key here, unlike the edit and the takedown: an add names no
+    // existing row, and on a duplicate acknowledgement the id it does return names none either.
+    it('should invalidate the feeds a new contribution appears in', async () => {
+        // given
+        postContentItemAsync.mockResolvedValue(quote);
+
+        const { result } = renderHook(
+            () => contentItemService.useAddContentItem(), { wrapper });
+
+        // when
+        await result.current.mutateAsync({
+            contentType: ContentType.Quote,
+            title: null,
+            author: 'D. L. Moody',
+            content: 'Character is what you are in the dark.',
+            shareabilityBasis: ShareabilityBasis.PublicDomain,
+            sharePermission: null
+        });
+
+        await waitFor(() => expect(invalidated.length).toBeGreaterThan(0));
+
+        // then
+        expect(invalidated).toContainEqual(['ContentItemsSearch']);
+    });
+
+    // The quiet arm of §3.4.2 rule 6 answers with a body the page never reads, and it must not
+    // be told apart by what the CLIENT does either. A hook that skipped the refetch when the
+    // response looked unusable would put the duplicate on a different network trace from a
+    // genuine add, which is the same tell the response body was rewritten to remove.
+    it('should invalidate the same feeds whatever the response body carries', async () => {
+        // given
+        postContentItemAsync.mockResolvedValue(undefined);
+
+        const { result } = renderHook(
+            () => contentItemService.useAddContentItem(), { wrapper });
+
+        // when
+        await result.current.mutateAsync({
+            contentType: ContentType.Quote,
+            title: null,
+            author: 'D. L. Moody',
+            content: 'Character is what you are in the dark.',
+            shareabilityBasis: ShareabilityBasis.PublicDomain,
+            sharePermission: null
+        });
+
+        await waitFor(() => expect(invalidated.length).toBeGreaterThan(0));
+
+        // then
+        expect(invalidated).toContainEqual(['ContentItemsSearch']);
     });
 });
 

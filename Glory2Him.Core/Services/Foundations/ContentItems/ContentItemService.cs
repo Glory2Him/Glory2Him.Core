@@ -133,9 +133,18 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 ValidateUserIsAllowedToContribute(envelope.SecurityContext);
                 ValidateOnCheckContentItemContentExists(contentType, contentHash);
 
-                // deliberately unfiltered (§3.4.2/§14.6): the duplicate rule is global, and
-                // a boolean reveals no row data — only that identical content already
-                // exists, which the duplicate rule already reveals to submitters
+                // deliberately unfiltered (§3.4.2/§14.6): the duplicate rule is global, and a
+                // boolean reveals no row data — the caller must already hold the exact content
+                // to ask, and the answer names nothing it does not already have.
+                //
+                // The old justification — "which the duplicate rule already reveals to
+                // submitters" — no longer holds and is not what keeps this safe. Since #412 the
+                // ADD arm reveals nothing: a duplicate is acknowledged as though it succeeded
+                // (§3.4.2 rule 6). What still keeps an unfiltered probe acceptable is the gate
+                // above it and the shape of the answer, NOT a disclosure elsewhere in the
+                // system — so a future global rule copying this pattern must carry its own
+                // gate and its own boolean, and must not assume its caller was going to be
+                // told anyway.
                 //
                 // Asked as a QUESTION rather than answered by enumerating the collection read
                 // here. An Any(...) over that live queryable blocked the request thread and let
