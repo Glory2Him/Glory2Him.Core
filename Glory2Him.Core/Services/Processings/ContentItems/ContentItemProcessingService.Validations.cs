@@ -30,7 +30,7 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
             ValidateUserIsAllowedToContribute(securityContext);
             ValidateContentItemIsNotNull(contentItem);
             ValidateUserIsNotBlockedFromContentType(securityContext, contentItem.ContentType);
-            ValidateContentItem(contentItem);
+            ValidateContentItemOnAdd(contentItem);
         }
 
         private static void ValidateOnModifyContentItem(
@@ -312,11 +312,32 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
             }
         }
 
-        private static void ValidateContentItem(ContentItem contentItem) =>
+        // EVERY caller-owned field of the add surface is ruled on HERE, and the last two are the
+        // reason (§3.4.2 rule 6, #412). A duplicate add is acknowledged without reaching the
+        // foundation, so any rule only the foundation asks answers one way for a duplicate and
+        // another way for a genuine submission — send a bad ShareabilityBasis with content that
+        // already exists and the acknowledgement comes back, send it with content that does not
+        // and a validation error does. That is a cleaner probe than the message this rule
+        // replaced. The foundation keeps asking both of these too: it is the last line of
+        // defence and has its own event address (§8.6.1, §14.6 rule 2), so this is duplication
+        // in the sense that rule means it — the same rule enforced at every layer that can be
+        // called alone, rather than a rule stated twice by accident.
+        //
+        // The control fields are not listed because the caller does not supply them:
+        // ComposeNewContentItemAsync sets Id, GroupId, Version and the three IApproval members
+        // itself, and the audit stamps are the audit broker's, so a caller cannot put a value
+        // the foundation would refuse into any of them.
+        private static void ValidateContentItemOnAdd(ContentItem contentItem) =>
             Validate(
                 message: "Content item is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(contentItem.ContentType), Parameter: nameof(ContentItem.ContentType)),
-                (Rule: IsInvalid(contentItem.Content), Parameter: nameof(ContentItem.Content)));
+                (Rule: IsInvalid(contentItem.Content), Parameter: nameof(ContentItem.Content)),
+
+                (Rule: IsInvalid(contentItem.ShareabilityBasis),
+                    Parameter: nameof(ContentItem.ShareabilityBasis)),
+
+                (Rule: IsGreaterThan(contentItem.SharePermission, 500),
+                    Parameter: nameof(ContentItem.SharePermission)));
 
         private static void ValidateContentItemOnModify(ContentItem contentItem) =>
             Validate(
@@ -359,6 +380,18 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
         {
             Condition = Enum.IsDefined(contentType) == false,
             Message = "Value is not a supported content type"
+        };
+
+        private static dynamic IsInvalid(ShareabilityBasis shareabilityBasis) => new
+        {
+            Condition = Enum.IsDefined(shareabilityBasis) == false,
+            Message = "Value is not a supported shareability basis"
+        };
+
+        private static dynamic IsGreaterThan(string? text, int maxLength) => new
+        {
+            Condition = (text ?? string.Empty).Length > maxLength,
+            Message = $"Text exceed max length of {maxLength} characters"
         };
 
         private static void Validate(

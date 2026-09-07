@@ -13,6 +13,7 @@ using System;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.WebApp.Tests.Acceptance.Models.ContentItems;
+using RESTFulSense.Exceptions;
 
 namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItems
 {
@@ -62,6 +63,62 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItems
             finally
             {
                 await this.apiBroker.RemoveCoreContentItemByIdAsync(inputContentItem.Id);
+            }
+        }
+
+        // §3.4.2 rule 6 end to end, and it is the SECOND post that is under test. It must come
+        // back looking exactly like the first — 201, a body with an id, a group and version 1,
+        // no error and no mention of a duplicate — while creating nothing. Asserted from the
+        // wire rather than from the service because the leak this closes was a wire leak: the
+        // refusal reached the SPA and it printed the sentence (#392, #412).
+        [Fact]
+        public async Task ShouldAcknowledgeDuplicateContentOnPostWithoutCreatingItAsync()
+        {
+            // given
+            ContentItem randomContentItem = CreateRandomContentItem();
+            ContentItem firstContentItem = randomContentItem;
+
+            ContentItem duplicateContentItem = CreateRandomContentItem();
+            duplicateContentItem.ContentType = firstContentItem.ContentType;
+            duplicateContentItem.Content = firstContentItem.Content;
+
+            ContentItem createdContentItem =
+                await this.apiBroker.PostContentItemAsync(firstContentItem);
+
+            try
+            {
+                // when
+                ContentItem acknowledgedContentItem =
+                    await this.apiBroker.PostContentItemAsync(duplicateContentItem);
+
+                // then: the acknowledgement is shaped as a created item, down to the derived
+                // fields — an answer a caller could tell apart names the duplicate as plainly
+                // as the message it replaced
+                acknowledgedContentItem.Id.Should().NotBe(Guid.Empty);
+                acknowledgedContentItem.Id.Should().NotBe(createdContentItem.Id);
+                acknowledgedContentItem.GroupId.Should().NotBe(Guid.Empty);
+                acknowledgedContentItem.GroupId.Should().NotBe(createdContentItem.GroupId);
+                acknowledgedContentItem.Version.Should().Be(1);
+                acknowledgedContentItem.ContentHash.Should().Be(createdContentItem.ContentHash);
+                acknowledgedContentItem.CreatedBy.Should().NotBeNullOrWhiteSpace();
+                acknowledgedContentItem.UpdatedBy.Should().Be(acknowledgedContentItem.CreatedBy);
+                acknowledgedContentItem.CreatedWhen.Should().Be(acknowledgedContentItem.UpdatedWhen);
+
+                // and nothing was written: the acknowledged id resolves to nothing at all
+                var readAcknowledgedTask =
+                    this.apiBroker.GetContentItemByIdAsync(acknowledgedContentItem.Id).AsTask();
+
+                await Assert.ThrowsAsync<HttpResponseNotFoundException>(() => readAcknowledgedTask);
+
+                // and the row that was already there is untouched
+                ContentItem actualFirstContentItem =
+                    await this.apiBroker.GetContentItemByIdAsync(createdContentItem.Id);
+
+                actualFirstContentItem.Should().BeEquivalentTo(createdContentItem);
+            }
+            finally
+            {
+                await this.apiBroker.RemoveCoreContentItemByIdAsync(createdContentItem.Id);
             }
         }
     }

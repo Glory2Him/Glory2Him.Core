@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toastError } from '../brokers/toastBroker.error';
+import { toastSuccess } from '../brokers/toastBroker.success';
 import { ContentItemPanel } from '../components/contentItems/contentItemPanel';
 import { Spinner } from '../components/coreUI/spinner';
 
@@ -26,6 +27,11 @@ import { useDocumentTitle } from './useDocumentTitle';
 const contributeFailureText =
     'Your contribution could not be submitted. Please try again.';
 
+// Design §3.4.2 rule 6's own wording. It is the ONE thing said on a successful submission,
+// whether or not a row was written, so it must not hint at either.
+const contributeThanksText =
+    'Thank you for your submission. It will be reviewed before publishing.';
+
 export function Contribute() {
     useDocumentTitle('Share what He has done — Glory 2 Him');
     const navigate = useNavigate();
@@ -44,12 +50,21 @@ export function Contribute() {
         setValidationIssues(undefined);
 
         try {
-            const addedContentItem =
-                await addContentItem.mutateAsync(toContentItemAddRequest(formItem));
+            await addContentItem.mutateAsync(toContentItemAddRequest(formItem));
+
+            // THE RESPONSE BODY IS DELIBERATELY UNREAD, and that is the whole of design
+            // §3.4.2 rule 6 on this side. A contribution whose content has already been
+            // submitted is accepted quietly: the API answers 201 with an item shaped exactly
+            // like a created one, but no row was written, so following its id would land the
+            // contributor on a 404 — and a 404 tells them their content is a duplicate just as
+            // plainly as the error message this replaced (#392, #412). The page therefore
+            // thanks them and lands them on their own posts, which is the same journey for a
+            // genuine submission and for a duplicate.
+            toastSuccess(contributeThanksText);
 
             // The contributor's OWN surface, not the public one: a fresh submission is a
-            // Draft, and /myposts/{id} is where a draft is theirs to read.
-            navigate(`/myposts/${addedContentItem.id}`);
+            // Draft, and /myposts is where a draft is theirs to read.
+            navigate('/myposts');
         } catch (error) {
             const failure = toContentItemApiFailure(error, contributeFailureText);
 

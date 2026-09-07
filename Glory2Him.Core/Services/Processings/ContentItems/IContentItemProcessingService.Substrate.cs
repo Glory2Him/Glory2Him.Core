@@ -22,9 +22,14 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
         /// The event path of the processing service: handles <c>ContentItemProcessing-Adding</c> request
         /// envelopes, converging on the same do-work as <see cref="AddContentItemAsync"/>.
         /// The envelope's <c>SecurityContext</c> carries the original caller for the
-        /// contribution gate. Replies with the created content item's envelope; a
-        /// duplicate submission fails with an already-exists validation error, so a
-        /// replayed request can never create a second item.
+        /// contribution gate. Replies with the created content item's envelope.
+        /// <para>A duplicate submission is <b>accepted quietly</b> (design §3.4.2 rule 6): no
+        /// row is created and no completion fact is published, and the reply carries a content
+        /// item composed exactly as the persisted one would have been. The reply is recorded as
+        /// this delivery's response rather than published, so it answers the requester alone —
+        /// which is why the acknowledgement is safe here and the fact is not. A replayed request
+        /// therefore still cannot create a second item, and no longer fails permanently to say
+        /// so.</para>
         /// </summary>
         ValueTask<EventEnvelope<ContentItem>?> OnAddingContentItemAsync(
             EventEnvelope<ContentItem> envelope,

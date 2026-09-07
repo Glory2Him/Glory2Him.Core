@@ -242,48 +242,53 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        // There is no duplicate-content test here any more: §3.4.2 rule 6 has the add
+        // ACKNOWLEDGE a duplicate rather than refuse it, so the case is a logic test rather
+        // than a validation one and lives in Add.Logic.cs. The refusal is the modify arm's,
+        // and is tested in Modify.Validations.cs.
+
+        // The two rules below are the foundation's as well, and are asked here because the
+        // quiet arm never reaches the foundation (§3.4.2 rule 6, #412). Without them a caller
+        // sending a bad ShareabilityBasis learns whether the content already exists from
+        // whether they get an acknowledgement or a validation error — the probe the rule
+        // exists to close, reopened by a rule asked in only one of the two places.
         [Fact]
-        public async Task ShouldThrowValidationExceptionOnAddIfDuplicateContentExistsAndLogItAsync()
+        public async Task ShouldThrowValidationExceptionOnAddIfCallerSuppliedFieldsAreInvalidAndLogItAsync()
         {
             // given
-            ContentItem randomContentItem = CreateRandomContentItem();
-            ContentItem inputContentItem = randomContentItem;
-            string normalizedContent = NormalizeContent(inputContentItem.Content);
-            string contentHash = ComputeContentHash(inputContentItem.Content);
+            ContentItem invalidContentItem = CreateRandomContentItem();
+            invalidContentItem.ShareabilityBasis = (ShareabilityBasis)int.MaxValue;
+            invalidContentItem.SharePermission = new string('x', 501);
 
             EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
-                contentItem: inputContentItem,
+                contentItem: invalidContentItem,
                 securityContext: CreateAuthenticatedSecurityContext());
 
-            var alreadyExistsContentItemProcessingException =
-                new AlreadyExistsContentItemProcessingException(
-                    message: "A content item already exists with the same content.");
+            var invalidContentItemProcessingException =
+                new InvalidContentItemProcessingException(
+                    message: "Content item is invalid, fix the errors and try again.");
+
+            invalidContentItemProcessingException.AddData(
+                key: nameof(ContentItem.ShareabilityBasis),
+                values: "Value is not a supported shareability basis");
+
+            invalidContentItemProcessingException.AddData(
+                key: nameof(ContentItem.SharePermission),
+                values: "Text exceed max length of 500 characters");
 
             var expectedContentItemProcessingValidationException =
                 new ContentItemProcessingValidationException(
                     message: "Content item processing validation error occurred, fix the errors and try again.",
-                    innerException: alreadyExistsContentItemProcessingException);
+                    innerException: invalidContentItemProcessingException);
 
             this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(inputContentItem))
+                broker.CreateAsync(invalidContentItem))
                     .ReturnsAsync(inboundEnvelope);
-
-            this.hashBrokerMock.Setup(broker =>
-                broker.ComputeSha256HashAsync(normalizedContent))
-                    .ReturnsAsync(contentHash);
-
-            this.contentItemServiceMock.Setup(service =>
-                service.CheckContentItemContentExistsAsync(
-                    inputContentItem.ContentType,
-                    contentHash,
-                    null,
-                    It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(true);
 
             // when
             ValueTask<ContentItem> addContentItemTask =
                 this.contentItemProcessingService.AddContentItemAsync(
-                    inputContentItem,
+                    invalidContentItem,
                     TestContext.Current.CancellationToken);
 
             ContentItemProcessingValidationException actualContentItemProcessingValidationException =
@@ -294,32 +299,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             actualContentItemProcessingValidationException.Should().BeEquivalentTo(
                 expectedContentItemProcessingValidationException);
 
-            this.eventEnvelopeBrokerMock.Verify(broker =>
-                broker.CreateAsync(inputContentItem),
-                Times.Once);
-
-            this.hashBrokerMock.Verify(broker =>
-                broker.ComputeSha256HashAsync(normalizedContent),
-                Times.Once);
-
-            this.contentItemServiceMock.Verify(service =>
-                service.CheckContentItemContentExistsAsync(
-                    inputContentItem.ContentType,
-                    contentHash,
-                    null,
-                    It.IsAny<CancellationToken>()),
-                Times.Once);
-
-            this.contentItemServiceMock.Verify(service =>
-                service.AddContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()),
-                Times.Never);
-
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedContentItemProcessingValidationException))),
                 Times.Once);
 
-            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            // the probe never runs: the request is refused before the duplicate question is
+            // asked, so an invalid submission cannot be used to ask it either
             this.hashBrokerMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
             this.identifierBrokerMock.VerifyNoOtherCalls();

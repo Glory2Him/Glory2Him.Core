@@ -19,6 +19,7 @@ using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Processings;
 using Glory2Him.Core.Models.Foundations.ContentItems;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
@@ -336,6 +337,144 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             this.contentItemServiceMock.Verify(service =>
                 service.AddContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()),
                 Times.Once);
+        }
+
+        // §3.4.2 rule 6, the add arm. The contributor is thanked, nothing is written, and
+        // nothing in the answer says which of the two happened — the whole of the test is that
+        // the acknowledgement is the SAME OBJECT the genuine add would have produced, minted
+        // identifiers and audit stamps included. It used to be an already-exists error carrying
+        // the sentence "A content item already exists with the same content.", which the SPA
+        // put on the screen: anyone who could POST could ask whether a given piece of content
+        // had been submitted, including content they may not read (#392, #412).
+        [Fact]
+        public async Task ShouldAcknowledgeDuplicateContentOnAddWithoutCreatingItAsync()
+        {
+            // given
+            ContentItem randomContentItem = CreateRandomContentItem();
+            ContentItem inputContentItem = randomContentItem;
+            string normalizedContent = NormalizeContent(inputContentItem.Content);
+            string expectedContentHash = ComputeContentHash(inputContentItem.Content);
+            Guid contentItemId = Guid.NewGuid();
+            Guid groupId = Guid.NewGuid();
+            string randomActor = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+
+            EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
+                contentItem: inputContentItem,
+                securityContext: CreateAuthenticatedSecurityContext());
+
+            // the row the genuine arm would have handed to the foundation, field for field
+            var expectedAcknowledgedContentItem = new ContentItem
+            {
+                Id = contentItemId,
+                ContentType = inputContentItem.ContentType,
+                Title = inputContentItem.Title,
+                Author = inputContentItem.Author,
+                Content = inputContentItem.Content,
+                ShareabilityBasis = inputContentItem.ShareabilityBasis,
+                SharePermission = inputContentItem.SharePermission,
+                PublishDate = null,
+                ContentHash = expectedContentHash,
+                GroupId = groupId,
+                Version = 1,
+                IsPublished = false,
+                ApprovalStatus = ApprovalStatus.Draft,
+                IsDeleted = false,
+
+                // stamped here because the foundation, which stamps them on the genuine arm,
+                // is never reached — an answer missing them is an answer a caller can tell apart
+                CreatedBy = randomActor,
+                UpdatedBy = randomActor,
+                CreatedWhen = randomDateTimeOffset,
+                UpdatedWhen = randomDateTimeOffset
+            };
+
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateAsync(inputContentItem))
+                    .ReturnsAsync(inboundEnvelope);
+
+            this.hashBrokerMock.Setup(broker =>
+                broker.ComputeSha256HashAsync(normalizedContent))
+                    .ReturnsAsync(expectedContentHash);
+
+            this.contentItemServiceMock.Setup(service =>
+                service.CheckContentItemContentExistsAsync(
+                    inputContentItem.ContentType,
+                    expectedContentHash,
+                    null,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(true);
+
+            this.identifierBrokerMock.SetupSequence(broker =>
+                broker.GetIdentifierAsync())
+                    .ReturnsAsync(contentItemId)
+                    .ReturnsAsync(groupId);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(
+                    It.IsAny<ContentItem>(),
+                    inboundEnvelope.SecurityContext))
+                        .ReturnsAsync((ContentItem contentItem, SecurityContext _) =>
+                        {
+                            contentItem.CreatedBy = randomActor;
+                            contentItem.UpdatedBy = randomActor;
+                            contentItem.CreatedWhen = randomDateTimeOffset;
+                            contentItem.UpdatedWhen = randomDateTimeOffset;
+
+                            return contentItem;
+                        });
+
+            // when
+            ContentItem actualContentItem =
+                await this.contentItemProcessingService.AddContentItemAsync(
+                    inputContentItem,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualContentItem.Should().BeEquivalentTo(expectedAcknowledgedContentItem);
+
+            this.hashBrokerMock.Verify(broker =>
+                broker.ComputeSha256HashAsync(normalizedContent),
+                Times.Once);
+
+            this.contentItemServiceMock.Verify(service =>
+                service.CheckContentItemContentExistsAsync(
+                    inputContentItem.ContentType,
+                    expectedContentHash,
+                    null,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            // the same two identifiers a real add mints, so the answer cannot be told apart by
+            // an empty Id or an empty GroupId either
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                Times.Exactly(2));
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyAddAuditValuesAsync(
+                    It.IsAny<ContentItem>(),
+                    inboundEnvelope.SecurityContext),
+                Times.Once);
+
+            // NO ROW, which is the rule
+            this.contentItemServiceMock.Verify(service =>
+                service.AddContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            // AND NO FACT: the fact says a row was created and none was. The acknowledgement is
+            // for the caller alone; subscribers are told about rows.
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(inputContentItem),
+                Times.Once);
+
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.hashBrokerMock.VerifyNoOtherCalls();
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
         }
     }
 }

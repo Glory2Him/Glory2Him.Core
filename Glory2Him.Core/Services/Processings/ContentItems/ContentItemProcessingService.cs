@@ -242,19 +242,48 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
                 contentHash: contentHash,
                 cancellationToken: cancellationToken);
 
+            // §3.4.2 rule 6: the add arm ACCEPTS a duplicate. It creates no row, publishes no
+            // fact, and answers the contributor as though it had done both.
             if (duplicateContentExists)
             {
-                throw new AlreadyExistsContentItemProcessingException(
-                    message: "A content item already exists with the same content.");
+                return await ComposeQuietAcknowledgementContentItemAsync(
+                    contentItem: contentItem,
+                    contentHash: contentHash,
+                    inboundEnvelope: inboundEnvelope);
             }
 
-            // PublishDate is deliberately absent, for the same reason it is absent from the
-            // version fork below. It is an IApproval member (§9.7.1 rule 2), and the add
-            // surface may carry an ApprovalStatus of Draft or Submitted and nothing else —
-            // never IsPublished, never PublishDate (rule 1). Taking it from the caller here
-            // would let them schedule their own publication on the way in, on a row that is
-            // otherwise landed unpublished and in Draft precisely so it cannot.
-            ContentItem newContentItem = new ContentItem
+            ContentItem newContentItem = await ComposeNewContentItemAsync(
+                contentItem: contentItem,
+                contentHash: contentHash);
+
+            ContentItem addedContentItem = await this.contentItemService.AddContentItemAsync(
+                contentItem: newContentItem,
+                cancellationToken: cancellationToken);
+
+            await PublishContentItemProcessingFactAsync(
+                inboundEnvelope: inboundEnvelope,
+                contentItem: addedContentItem,
+                operation: ContentItemProcessingEventOperation.Added);
+
+            return addedContentItem;
+        }
+
+        // The row an add lands, built in ONE place because two arms need it to look identical.
+        // The genuine arm hands it to the foundation; the quiet arm of §3.4.2 rule 6 answers
+        // with it and writes nothing. A field that differed between the two would be the whole
+        // of the leak, so neither arm composes its own.
+        //
+        // PublishDate is deliberately absent, for the same reason it is absent from the version
+        // fork below. It is an IApproval member (§9.7.1 rule 2), and the add surface may carry
+        // an ApprovalStatus of Draft or Submitted and nothing else — never IsPublished, never
+        // PublishDate (rule 1). Taking it from the caller here would let them schedule their own
+        // publication on the way in, on a row that is otherwise landed unpublished and in Draft
+        // precisely so it cannot.
+        private async ValueTask<ContentItem> ComposeNewContentItemAsync(
+            ContentItem contentItem,
+            string contentHash)
+        {
+            var newContentItem = new ContentItem
             {
                 Id = await this.identifierBroker.GetIdentifierAsync(),
                 ContentType = contentItem.ContentType,
@@ -271,16 +300,42 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
                 IsDeleted = false
             };
 
-            ContentItem addedContentItem = await this.contentItemService.AddContentItemAsync(
-                contentItem: newContentItem,
-                cancellationToken: cancellationToken);
+            return newContentItem;
+        }
 
-            await PublishContentItemProcessingFactAsync(
-                inboundEnvelope: inboundEnvelope,
-                contentItem: addedContentItem,
-                operation: ContentItemProcessingEventOperation.Added);
+        // §3.4.2 rule 6 in full: a duplicate add is acknowledged politely, creates nothing, and
+        // does not reveal the duplicate. BOTH halves used to be broken here — the caller was
+        // told the submission failed, and told why, in a message the SPA put on the screen
+        // verbatim (#392, #412). The message is what made this a probe: anyone able to POST
+        // could ask whether a given piece of content had already been submitted, including
+        // content they are not permitted to read.
+        //
+        // The answer is composed field for field the way the persisted row would have been,
+        // audit stamps included — those are the foundation's to apply on the genuine arm, so
+        // they are applied here for the arm that never reaches it. An acknowledgement a caller
+        // can tell apart from a real one names the duplicate as plainly as the message did.
+        //
+        // Two things are deliberately NOT done. Nothing is written, which is the rule itself.
+        // And no completion fact is published: a fact says a row was created, and no row was.
+        // The audiences differ — subscribers are told about rows, the contributor is thanked —
+        // and on the event path the returned envelope is recorded as that delivery's response
+        // rather than published, so it reaches the requester and nobody else.
+        //
+        // What this does not hide, and cannot: the row is absent from the contributor's own
+        // reads afterwards. Rule 6 creates no record, so no response shape can conjure one.
+        // The rule closes the answer, not the second look (design §3.4.2).
+        private async ValueTask<ContentItem> ComposeQuietAcknowledgementContentItemAsync(
+            ContentItem contentItem,
+            string contentHash,
+            EventEnvelope<ContentItem> inboundEnvelope)
+        {
+            ContentItem acknowledgedContentItem = await ComposeNewContentItemAsync(
+                contentItem: contentItem,
+                contentHash: contentHash);
 
-            return addedContentItem;
+            return await this.securityAuditBroker.ApplyAddAuditValuesAsync(
+                entity: acknowledgedContentItem,
+                securityContext: inboundEnvelope.SecurityContext);
         }
 
         private async ValueTask<ContentItem> DoModifyContentItemAsync(

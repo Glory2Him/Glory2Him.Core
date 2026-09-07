@@ -183,82 +183,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
-        [Fact]
-        public async Task ShouldThrowValidationExceptionOnAddingContentItemEventIfDuplicateContentExistsAndLogItAsync()
-        {
-            // given: a replayed or duplicated submission request lands here too, so the
-            // duplicate-content rule keeps the event path from ever creating twice
-            ContentItem randomContentItem = CreateRandomContentItem();
-            ContentItem inputContentItem = randomContentItem;
-            string normalizedContent = NormalizeContent(inputContentItem.Content);
-            string contentHash = ComputeContentHash(inputContentItem.Content);
-
-            EventEnvelope<ContentItem> requestEnvelope = CreateEventEnvelope(
-                contentItem: inputContentItem,
-                securityContext: CreateAuthenticatedSecurityContext());
-
-            var alreadyExistsContentItemProcessingException =
-                new AlreadyExistsContentItemProcessingException(
-                    message: "A content item already exists with the same content.");
-
-            var expectedContentItemProcessingValidationException =
-                new ContentItemProcessingValidationException(
-                    message: "Content item processing validation error occurred, fix the errors and try again.",
-                    innerException: alreadyExistsContentItemProcessingException);
-
-            this.hashBrokerMock.Setup(broker =>
-                broker.ComputeSha256HashAsync(normalizedContent))
-                    .ReturnsAsync(contentHash);
-
-            this.contentItemServiceMock.Setup(service =>
-                service.CheckContentItemContentExistsAsync(
-                    inputContentItem.ContentType,
-                    contentHash,
-                    null,
-                    It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(true);
-
-            // when
-            ValueTask<EventEnvelope<ContentItem>?> onAddingTask =
-                this.contentItemProcessingService.OnAddingContentItemAsync(
-                    requestEnvelope,
-                    TestContext.Current.CancellationToken);
-
-            ContentItemProcessingValidationException actualContentItemProcessingValidationException =
-                await Assert.ThrowsAsync<ContentItemProcessingValidationException>(
-                    onAddingTask.AsTask);
-
-            // then
-            actualContentItemProcessingValidationException.Should().BeEquivalentTo(
-                expectedContentItemProcessingValidationException);
-
-            this.hashBrokerMock.Verify(broker =>
-                broker.ComputeSha256HashAsync(normalizedContent),
-                Times.Once);
-
-            this.contentItemServiceMock.Verify(service =>
-                service.CheckContentItemContentExistsAsync(
-                    inputContentItem.ContentType,
-                    contentHash,
-                    null,
-                    It.IsAny<CancellationToken>()),
-                Times.Once);
-
-            this.contentItemServiceMock.Verify(service =>
-                service.AddContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()),
-                Times.Never);
-
-            this.loggingBrokerMock.Verify(broker =>
-                broker.LogErrorAsync(It.Is(
-                    SameExceptionAs(expectedContentItemProcessingValidationException))),
-                Times.Once);
-
-            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
-            this.hashBrokerMock.VerifyNoOtherCalls();
-            this.contentItemServiceMock.VerifyNoOtherCalls();
-            this.identifierBrokerMock.VerifyNoOtherCalls();
-            this.loggingBrokerMock.VerifyNoOtherCalls();
-        }
+        // A replayed or duplicated submission request lands on this path too, and the
+        // duplicate-content rule still keeps it from ever creating twice — it just does so
+        // quietly now (§3.4.2 rule 6), so the case is a logic test and lives in
+        // OnAddingContentItem.Logic.cs rather than here.
 
         [Fact]
         public async Task ShouldThrowValidationExceptionOnAddingContentItemEventWhenIntegrityVerificationFailsAndLogItAsync()
