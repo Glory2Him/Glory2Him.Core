@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -414,6 +414,14 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             catch (OperationCanceledException)
             {
                 throw;
+            }
+            catch (UnauthorizedContentItemException unauthorizedContentItemException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: unauthorizedContentItemException);
+            }
+            catch (InvalidContentItemException invalidContentItemException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: invalidContentItemException);
             }
             catch (SqlException sqlException)
             {

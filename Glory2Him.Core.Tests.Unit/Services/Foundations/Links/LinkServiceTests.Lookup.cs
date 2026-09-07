@@ -26,19 +26,54 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
 {
     public partial class LinkServiceTests
     {
-        // These tests sit against the STORAGE BROKER, one layer below the probe, because that is
-        // the only seam at which "does this read filter tombstones" can be answered. The
-        // publication swap's own tests mock this probe, so they cannot see its predicate — which
-        // is exactly how the original defect survived: the swap used the visibility-filtered
-        // collection read while its test stubbed that read to return the tombstone anyway.
+        /// <summary>
+        /// A bad id is the CALLER's fault and must be reported as one. The guard lives inside
+        /// TryCatchList, which originally had no Invalid/Unauthorized arm - so the exception fell
+        /// through to catch (Exception) and came back as a LinkServiceException, telling
+        /// the caller "contact support" and filing an error log for their own bad input.
+        /// </summary>
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnRetrieveByGroupIdIfGroupIdIsInvalidAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+
+            // when
+            ValueTask<IReadOnlyList<Link>> retrieveTask =
+                this.linkService.RetrieveLinksByGroupIdAsync(
+                    Guid.Empty,
+                    TestContext.Current.CancellationToken);
+
+            LinkValidationException actualException =
+                await Assert.ThrowsAsync<LinkValidationException>(retrieveTask.AsTask);
+
+            // then
+            actualException.InnerException.Should().BeOfType<InvalidLinkException>();
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectLinksByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        // WHAT THESE TESTS CAN AND CANNOT SAY. They stub the narrow storage reads, so they sit
+        // ABOVE the predicate rather than at it — "does this read filter tombstones" is no longer
+        // answerable here, and the stubs below deliberately do not pretend otherwise. That
+        // question is answered against a real catalogue in LinkNarrowReadTests.
+        //
+        // What is still proved here is the half the SERVICE owns and the broker cannot: that the
+        // group is taken off the STORED row rather than from the caller, that the target excludes
+        // itself, and that the high-water mark counts what it is handed. That distinction matters
+        // because of how the original defect survived — the swap used the visibility-filtered
+        // collection read while its test stubbed that read to return the tombstone anyway. A stub
+        // that re-implements the predicate reproduces exactly that blind spot.
         [Fact]
         public async Task ShouldReturnWhateverRowHoldsTheGroupSlotAsync()
         {
-            // given: THE case the probe exists for. A soft delete never clears IsPublished and
-            // the slot index names that column alone, so a removed row still occupies the group's
-            // published slot — while being invisible to every caller-facing read. A probe that
-            // filtered it out would report no incumbent, the swap would skip the demote, and the
-            // promote would be refused by the unique index for every future approval in the group.
+            // given: a row the caller-facing reads would never show. WHY the slot read returns
+            // it — a soft delete never clears IsPublished, and the slot index names that column
+            // alone — is proved in LinkNarrowReadTests; what is proved here is that the service
+            // hands back whatever that read names, without filtering it a second time.
             var groupId = Guid.Parse("dddddddd-1111-1111-1111-111111111111");
             var tombstoneId = Guid.Parse("dddddddd-2222-2222-2222-222222222222");
             var targetId = Guid.Parse("dddddddd-3333-3333-3333-333333333333");
@@ -60,6 +95,45 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
 
             // then
             actualId.Should().Be(tombstoneId);
+        }
+
+
+        /// <summary>
+        /// THE TARGET MUST NOT FIND ITSELF. The storage read is told which row to ignore, and the
+        /// service supplies the target's own id for it — so this seeds a store whose only
+        /// slot-holder IS the target. A service that passed the wrong id, or Guid.Empty, gets the
+        /// target back and the swap would demote the very row it is promoting.
+        ///
+        /// <para>The other probe tests cannot catch that: their incumbent is a different row, so
+        /// the exclusion never decides the answer.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldNotReturnTheTargetItselfAsTheGroupIncumbentAsync()
+        {
+            // given
+            var groupId = Guid.Parse("aaaa1111-1111-1111-1111-111111111111");
+            var targetId = Guid.Parse("aaaa1111-3333-3333-3333-333333333333");
+
+            Link publishedTarget = CreateProbeRow(
+                id: targetId, groupId: groupId, isPublished: true, isDeleted: false);
+
+            // the storage read would name the TARGET, so only the excluded id can refuse it
+            this.publishedLinkId = targetId;
+            SetupProbeStore(publishedTarget);
+
+            // when
+            Guid? actualId = await this.linkService.FindPublishedSiblingLinkIdAsync(
+                linkId: targetId,
+                inboundEnvelope: CreateProbeEnvelope(targetId),
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            actualId.Should().BeNull();
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectPublishedLinkInGroupAsync(
+                    groupId, targetId, It.IsAny<CancellationToken>()),
+                Times.Once);
         }
 
         [Fact]

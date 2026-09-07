@@ -29,10 +29,14 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Every row of one group, materialised. The group is the unit three separate reads work
-        /// in - the edit tip, the published row, and whether a candidate is still the tip - and a
-        /// group holds a handful of versions, so one narrow read serves all three without any of
-        /// them enumerating the table.
+        /// Every row of one group, materialised, for the reads that need the ROWS: the group's
+        /// edit tip and its published row. A group holds a handful of versions, so serving both
+        /// from one narrow read costs nothing and neither has to enumerate the table.
+        ///
+        /// <para>Whether a candidate is STILL the tip is deliberately not one of them — that
+        /// answer is a boolean, and pulling every column of every version to compute it was waste
+        /// on the path each edit takes. See
+        /// <see cref="ExistsHigherLiveContentItemVersionInGroupAsync"/>.</para>
         ///
         /// <para>UNFILTERED, including soft-deleted rows: callers differ on whether a tombstone
         /// counts, and §14.7 visibility is the SERVICE's to apply. Both decisions belong to the
@@ -73,11 +77,6 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Whether identical content already exists live under one content type, optionally
-        /// ignoring a group - the duplicate rule of §3.4.2. Deliberately unfiltered: the rule is
-        /// global, and a boolean reveals nothing resubmitting would not already disclose.
-        /// </summary>
-        /// <summary>
         /// Whether the group holds a LIVE row at a higher version than the one given — the
         /// derivation behind "is this row still the group's edit tip" (§3.4.1, #265), asked as the
         /// boolean it is rather than by pulling every row of the group across the wire.
@@ -92,6 +91,11 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             int version,
             CancellationToken cancellationToken = default);
 
+        /// <summary>
+        /// Whether identical content already exists live under one content type, optionally
+        /// ignoring a group - the duplicate rule of §3.4.2. Deliberately unfiltered: the rule is
+        /// global, and a boolean reveals nothing resubmitting would not already disclose.
+        /// </summary>
         ValueTask<bool> ExistsContentItemContentAsync(
             ContentType contentType,
             string contentHash,

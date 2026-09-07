@@ -33,6 +33,38 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviewRequests
     /// </summary>
     public partial class ApprovalReviewRequestServiceTests
     {
+        /// <summary>
+        /// A bad round id is the CALLER's fault and must be reported as one. The guard lives inside
+        /// TryCatchList, which originally had no Invalid/Unauthorized arm - so it came back as an
+        /// ApprovalReviewRequestServiceException, which tells the caller their own bad input is a
+        /// server fault and files an error log for it.
+        /// </summary>
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnRetrieveByApprovalIdIfApprovalIdIsInvalidAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
+
+            // when
+            ValueTask<IReadOnlyList<ApprovalReviewRequest>> retrieveTask =
+                this.approvalReviewRequestService.RetrieveApprovalReviewRequestsByApprovalIdAsync(
+                    Guid.Empty,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalReviewRequestValidationException actualException =
+                await Assert.ThrowsAsync<ApprovalReviewRequestValidationException>(
+                    retrieveTask.AsTask);
+
+            // then
+            actualException.InnerException.Should()
+                .BeOfType<InvalidApprovalReviewRequestException>();
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectApprovalReviewRequestsByApprovalIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
         [Theory]
         [MemberData(nameof(ReviewRoles))]
         public async Task ShouldRetrieveApprovalReviewRequestsByApprovalIdWhenUserHasReviewRoleAsync(

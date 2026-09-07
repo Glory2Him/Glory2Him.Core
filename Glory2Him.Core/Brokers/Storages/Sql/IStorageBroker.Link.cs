@@ -31,6 +31,8 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
         /// Every row of one group, materialised - the link twin of
         /// <see cref="SelectContentItemsByGroupIdAsync"/>, and unfiltered for the same reasons:
         /// whether a tombstone counts, and §14.7 visibility, are both the caller's to decide.
+        /// Like its twin it serves the reads that need the ROWS, not the tip check, which is a
+        /// boolean - see <see cref="ExistsHigherLiveLinkVersionInGroupAsync"/>.
         /// </summary>
         ValueTask<List<Link>> SelectLinksByGroupIdAsync(
             Guid groupId,
@@ -45,11 +47,6 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// The row holding the group's published slot, ignoring one id. UNFILTERED on the
-        /// incumbent side: a soft delete never clears IsPublished and the slot index names that
-        /// column alone, so a tombstone still holds the slot.
-        /// </summary>
-        /// <summary>
         /// Whether the group holds a LIVE row at a higher version than the one given — the link
         /// twin of <see cref="ExistsHigherLiveContentItemVersionInGroupAsync"/>, unfiltered for
         /// the same reason: which row is the tip is a fact about storage, not a per-caller view.
@@ -59,6 +56,11 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             int version,
             CancellationToken cancellationToken = default);
 
+        /// <summary>
+        /// The row holding the group's published slot, ignoring one id. UNFILTERED on the
+        /// incumbent side: a soft delete never clears IsPublished and the slot index names that
+        /// column alone, so a tombstone still holds the slot.
+        /// </summary>
         ValueTask<Link?> SelectPublishedLinkInGroupAsync(
             Guid groupId,
             Guid excludedLinkId,

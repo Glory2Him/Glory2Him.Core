@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -327,9 +327,11 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviewRequests
             }
         }
 
-        // The same taxonomy the queryable read is wrapped in, over a materialised result. The
-        // two must not diverge: they answer the same question about the same table and differ
-        // only in where the query is executed.
+        // The queryable read's taxonomy over a materialised result, PLUS the two validation arms
+        // it has no use for. The keyed read guards its id - an unresolved round would key on
+        // Guid.Empty and answer with an empty list - and without these arms that guard threw
+        // InvalidApprovalReviewRequestException straight into catch (Exception), telling the
+        // caller their own bad input was a server fault and filing an error log for it.
         private async ValueTask<IReadOnlyList<ApprovalReviewRequest>> TryCatchList(
             ReturningApprovalReviewRequestListFunction returningApprovalReviewRequestListFunction)
         {
@@ -354,6 +356,14 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviewRequests
             catch (OperationCanceledException)
             {
                 throw;
+            }
+            catch (UnauthorizedApprovalReviewRequestException unauthorizedApprovalReviewRequestException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: unauthorizedApprovalReviewRequestException);
+            }
+            catch (InvalidApprovalReviewRequestException invalidApprovalReviewRequestException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: invalidApprovalReviewRequestException);
             }
             catch (SqlException sqlException)
             {

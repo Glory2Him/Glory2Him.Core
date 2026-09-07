@@ -26,6 +26,36 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 {
     public partial class ContentItemServiceTests
     {
+        /// <summary>
+        /// A bad id is the CALLER's fault and must be reported as one. The guard lives inside
+        /// TryCatchList, which originally had no Invalid/Unauthorized arm - so the exception fell
+        /// through to catch (Exception) and came back as a ContentItemServiceException, telling
+        /// the caller "contact support" and filing an error log for their own bad input.
+        /// </summary>
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnRetrieveByGroupIdIfGroupIdIsInvalidAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+
+            // when
+            ValueTask<IReadOnlyList<ContentItem>> retrieveTask =
+                this.contentItemService.RetrieveContentItemsByGroupIdAsync(
+                    Guid.Empty,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemValidationException actualException =
+                await Assert.ThrowsAsync<ContentItemValidationException>(retrieveTask.AsTask);
+
+            // then
+            actualException.InnerException.Should().BeOfType<InvalidContentItemException>();
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectContentItemsByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
         // WHAT THESE TESTS CAN AND CANNOT SAY. They stub the narrow storage reads, so they sit
         // ABOVE the predicate rather than at it — "does this read filter tombstones" is no longer
         // answerable here, and the stubs below deliberately do not pretend otherwise. That
@@ -72,6 +102,45 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
             // then
             actualId.Should().Be(tombstoneId);
+        }
+
+
+        /// <summary>
+        /// THE TARGET MUST NOT FIND ITSELF. The storage read is told which row to ignore, and the
+        /// service supplies the target's own id for it — so this seeds a store whose only
+        /// slot-holder IS the target. A service that passed the wrong id, or Guid.Empty, gets the
+        /// target back and the swap would demote the very row it is promoting.
+        ///
+        /// <para>The other probe tests cannot catch that: their incumbent is a different row, so
+        /// the exclusion never decides the answer.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldNotReturnTheTargetItselfAsTheGroupIncumbentAsync()
+        {
+            // given
+            var groupId = Guid.Parse("aaaa1111-1111-1111-1111-111111111111");
+            var targetId = Guid.Parse("aaaa1111-3333-3333-3333-333333333333");
+
+            ContentItem publishedTarget = CreateProbeRow(
+                id: targetId, groupId: groupId, isPublished: true, isDeleted: false);
+
+            // the storage read would name the TARGET, so only the excluded id can refuse it
+            this.publishedContentItemId = targetId;
+            SetupProbeStore(publishedTarget);
+
+            // when
+            Guid? actualId = await this.contentItemService.FindPublishedSiblingContentItemIdAsync(
+                contentItemId: targetId,
+                inboundEnvelope: CreateProbeEnvelope(targetId),
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            actualId.Should().BeNull();
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectPublishedContentItemInGroupAsync(
+                    groupId, targetId, It.IsAny<CancellationToken>()),
+                Times.Once);
         }
 
         [Fact]
