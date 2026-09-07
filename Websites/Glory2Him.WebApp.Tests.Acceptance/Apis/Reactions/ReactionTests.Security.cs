@@ -210,20 +210,20 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Reactions
         }
 
         /// <summary>
-        /// The review tier is owner-OR-role, so a reviewer may write a reaction they did not create.
-        /// Both tiers are exercised — the global <c>Reviewers</c> and the entity-scoped
-        /// <c>Reaction-Reviewers</c> — because the foundation tests for both and seeding only one
-        /// would leave half the rule dead.
+        /// Modify is owner-OR-the-PUBLISHER-tier, so a publisher may correct a reaction they did
+        /// not create while it is in flight. Both tiers are exercised — the global
+        /// <c>Publishers</c> and the entity-scoped <c>Reaction-Publishers</c> — because the foundation
+        /// tests for both and seeding only one would leave half the rule dead.
         /// </summary>
         [Theory]
-        [InlineData(Roles.Reviewers)]
-        [InlineData(Roles.ReactionReviewers)]
-        public async Task ShouldAllowReviewerToModifyAnotherUsersReactionAsync(string reviewRoleName)
+        [InlineData(Roles.Publishers)]
+        [InlineData(Roles.ReactionPublishers)]
+        public async Task ShouldAllowPublisherToModifyAnotherUsersReactionAsync(string publishRoleName)
         {
             // given
             Reaction randomReaction = await PostRandomReactionAsync();
             Reaction modifiedReaction = UpdateReactionWithRandomValues(randomReaction);
-            this.apiBroker.ActAs(Guid.NewGuid().ToString(), reviewRoleName);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), publishRoleName);
 
             try
             {
@@ -241,15 +241,47 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Reactions
         }
 
         /// <summary>
-        /// Removal is owner-or-Administrators, deliberately narrower than modify: a reviewer holds write
-        /// permission on someone else's reaction but may not delete it.
+        /// THE INVERSION (design §14.7 posture A.3, §18.6). A reviewer reviews: they read the
+        /// non-public row and cast a verdict on it, and rewriting the text underneath that
+        /// verdict is not part of the job. Both tiers used to be ALLOWED here, and both are
+        /// exercised because seeding only one would leave half the rule dead.
+        /// </summary>
+        [Theory]
+        [InlineData(Roles.Reviewers)]
+        [InlineData(Roles.ReactionReviewers)]
+        public async Task ShouldReturnUnauthorizedOnPutIfCallerIsOnlyAReviewerAsync(string reviewRoleName)
+        {
+            // given
+            Reaction randomReaction = await PostRandomReactionAsync();
+            Reaction modifiedReaction = UpdateReactionWithRandomValues(randomReaction);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), reviewRoleName);
+
+            try
+            {
+                // when
+                var putReactionTask = this.apiBroker.PutReactionAsync(modifiedReaction).AsTask();
+
+                // then
+                await Assert.ThrowsAsync<HttpResponseUnauthorizedException>(() => putReactionTask);
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+                await this.apiBroker.RemoveCoreReactionByIdAsync(randomReaction.Id);
+            }
+        }
+
+        /// <summary>
+        /// Removal is owner-or-Administrators, deliberately narrower than modify: the publisher
+        /// tier may correct someone else's reaction in flight but may never delete it, and the
+        /// review tier may do neither.
         /// </summary>
         [Fact]
         public async Task ShouldReturnUnauthorizedOnDeleteIfCallerIsNeitherOwnerNorAdministratorAsync()
         {
             // given
             Reaction randomReaction = await PostRandomReactionAsync();
-            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.ReactionReviewers);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.ReactionPublishers);
 
             try
             {

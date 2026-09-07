@@ -373,7 +373,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
         public async Task ShouldThrowValidationExceptionOnModifyIfStorageCreatedByNotSameAsInputAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string randomUserId = GetRandomString();
             Link randomLink = CreateRandomModifyLink(randomDateTimeOffset, randomUserId);
@@ -960,7 +960,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
         }
 
         [Fact]
-        public async Task ShouldThrowValidationExceptionOnModifyIfUserIsNotOwnerAndHasNoReviewRoleAndLogItAsync()
+        public async Task ShouldThrowValidationExceptionOnModifyIfUserIsNotOwnerAndHasNoPublisherRoleAndLogItAsync()
         {
             // given
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
@@ -1046,24 +1046,124 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
-        [Fact]
-        public async Task ShouldThrowValidationExceptionOnModifyIfApprovalStatusChangedByNonPublisherAndLogItAsync()
+        // THE INVERSION (§14.7 posture A.3, §18.6). Both rows below used to be ALLOWED: the
+        // review tier was in the modify gate, so a reviewer could rewrite the very text they
+        // were about to cast a verdict on — HR-3 one field away refused them the status and
+        // nothing refused them the content. They keep every read they had; only the write goes.
+        [Theory]
+        [InlineData(Roles.Reviewers)]
+        [InlineData(Roles.LinkReviewers)]
+        public async Task ShouldThrowValidationExceptionOnModifyIfAReviewerModifiesAnotherUsersRowAndLogItAsync(
+            string reviewerRole)
         {
             // given
-            // a reviewer holds write permission but is neither the owner nor in the Publishers
-            // tier, so mayTransitionApprovalStatus is false. The move is Draft -> Submitted — one
-            // the owner or a publisher WOULD be allowed — so the refusal comes from the carve-out
-            // gate, not from the status being a verdict.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(reviewerRole);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string randomUserId = GetRandomString();
-            string ownerUserId = GetRandomString();
+            Link randomLink = CreateRandomModifyLink(randomDateTimeOffset, randomUserId);
+            Link inputLink = randomLink;
+            Link storageLink = randomLink.DeepClone();
+            storageLink.CreatedBy = GetRandomString();
+            storageLink.UpdatedWhen = storageLink.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+
+            var unauthorizedLinkException = new UnauthorizedLinkException(
+                message: "The current user is not allowed to modify this link.");
+
+            var expectedLinkValidationException = new LinkValidationException(
+                message: "Link validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedLinkException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(inputLink, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(inputLink);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectLinkByIdAsync(
+                    inputLink.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageLink);
+
+            // when
+            ValueTask<Link> modifyLinkTask =
+                this.linkService.ModifyLinkAsync(
+                    inputLink,
+                    TestContext.Current.CancellationToken);
+
+            LinkValidationException actualLinkValidationException =
+                await Assert.ThrowsAsync<LinkValidationException>(
+                    modifyLinkTask.AsTask);
+
+            // then
+            actualLinkValidationException.Should().BeEquivalentTo(
+                expectedLinkValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyModifyAuditValuesAsync(inputLink, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Exactly(2));
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectLinkByIdAsync(
+                    inputLink.Id,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateLinkAsync(
+                    It.IsAny<Link>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedLinkValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnModifyIfApprovalStatusMovesToAVerdictAndLogItAsync()
+        {
+            // given
+            // The carve-out is the Draft <-> Submitted pair and nothing else, so the OWNER —
+            // the caller it is most plainly available to — is still refused a move onto a
+            // verdict through the general modify. Applying a verdict is the approval
+            // transition's alone (§9.7.1 rules 2-3).
+            //
+            // This test used to make the same point with a reviewer, whose
+            // mayTransitionApprovalStatus was false. A reviewer no longer reaches the pin at
+            // all — they are refused the modify itself, one step earlier (§14.7 posture A.3) —
+            // and that refusal is proved by
+            // ShouldThrowValidationExceptionOnModifyIfAReviewerModifiesAnotherUsersRowAndLogItAsync
+            // above.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
             Link invalidLink = CreateRandomModifyLink(randomDateTimeOffset, randomUserId);
-            invalidLink.CreatedBy = ownerUserId;
             invalidLink.ApprovalStatus = ApprovalStatus.Draft;
             Link storageLink = invalidLink.DeepClone();
             storageLink.UpdatedWhen = storageLink.UpdatedWhen.AddDays(GetRandomNegativeNumber());
-            invalidLink.ApprovalStatus = ApprovalStatus.Submitted;
+            invalidLink.ApprovalStatus = ApprovalStatus.Approved;
 
             var invalidLinkException =
                 new InvalidLinkException(

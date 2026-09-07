@@ -113,12 +113,16 @@ namespace Glory2Him.Core.Services.Processings.Links
                 string.IsNullOrWhiteSpace(actorUserId) is false
                     && currentLink.CreatedBy == actorUserId;
 
-            // a not-yet-decided link may be corrected in place by a holder of Reviewers, Publishers or
-            // Administrators during review; a terminal one belongs to its owner alone, because the
-            // only edit it admits is a fork onto a fresh version (§3.4 rule 16) and a
-            // moderator forking someone else's decided row would author a version in
-            // their name
-            bool hasModifyRole = HasReviewRole(securityContext);
+            // A not-yet-decided link may be corrected in place by the PUBLISHER tier during
+            // review; a terminal one belongs to its owner alone, because the only edit it admits
+            // is a fork onto a fresh version (§3.4 rule 16) and a moderator forking someone
+            // else's decided row would author a version in their name.
+            //
+            // The review tier is deliberately absent (§14.7 posture A.3, §18.6): a reviewer casts
+            // reviews and writes approval comments, and never amends the text they are reviewing.
+            // They keep the read — HasReviewRole still admits them to the non-public version,
+            // which is what they need in order to review it at all.
+            bool hasModifyRole = HasPublisherRole(securityContext);
 
             bool isTerminal =
                 currentLink.ApprovalStatus == ApprovalStatus.Approved
@@ -172,6 +176,14 @@ namespace Glory2Him.Core.Services.Processings.Links
             securityContext.Roles.Contains(Roles.Reviewers)
                 || securityContext.Roles.Contains(Roles.LinkReviewers)
                 || securityContext.Roles.Contains(Roles.Publishers)
+                || securityContext.Roles.Contains(Roles.LinkPublishers)
+                || securityContext.Roles.Contains(Roles.Administrators);
+
+        // the publisher tier: the roles the approve operation itself requires, and the only ones
+        // besides the owner that may amend an in-flight version (§14.7 posture A.3). Strictly
+        // narrower than the review tier — a reviewer is absent by design (§8.6 HR-3).
+        private static bool HasPublisherRole(SecurityContext securityContext) =>
+            securityContext.Roles.Contains(Roles.Publishers)
                 || securityContext.Roles.Contains(Roles.LinkPublishers)
                 || securityContext.Roles.Contains(Roles.Administrators);
 

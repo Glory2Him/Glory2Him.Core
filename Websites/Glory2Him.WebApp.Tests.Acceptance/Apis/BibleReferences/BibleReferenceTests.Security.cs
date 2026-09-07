@@ -210,20 +210,20 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.BibleReferences
         }
 
         /// <summary>
-        /// The review tier is owner-OR-role, so a reviewer may write a bibleReference they did not create.
-        /// Both tiers are exercised — the global <c>Reviewers</c> and the entity-scoped
-        /// <c>BibleReference-Reviewers</c> — because the foundation tests for both and seeding only one
-        /// would leave half the rule dead.
+        /// Modify is owner-OR-the-PUBLISHER-tier, so a publisher may correct a bibleReference they did
+        /// not create while it is in flight. Both tiers are exercised — the global
+        /// <c>Publishers</c> and the entity-scoped <c>BibleReference-Publishers</c> — because the foundation
+        /// tests for both and seeding only one would leave half the rule dead.
         /// </summary>
         [Theory]
-        [InlineData(Roles.Reviewers)]
-        [InlineData(Roles.BibleReferenceReviewers)]
-        public async Task ShouldAllowReviewerToModifyAnotherUsersBibleReferenceAsync(string reviewRoleName)
+        [InlineData(Roles.Publishers)]
+        [InlineData(Roles.BibleReferencePublishers)]
+        public async Task ShouldAllowPublisherToModifyAnotherUsersBibleReferenceAsync(string publishRoleName)
         {
             // given
             BibleReference randomBibleReference = await PostRandomBibleReferenceAsync();
             BibleReference modifiedBibleReference = UpdateBibleReferenceWithRandomValues(randomBibleReference);
-            this.apiBroker.ActAs(Guid.NewGuid().ToString(), reviewRoleName);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), publishRoleName);
 
             try
             {
@@ -241,15 +241,47 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.BibleReferences
         }
 
         /// <summary>
-        /// Removal is owner-or-Administrators, deliberately narrower than modify: a reviewer holds write
-        /// permission on someone else's bibleReference but may not delete it.
+        /// THE INVERSION (design §14.7 posture A.3, §18.6). A reviewer reviews: they read the
+        /// non-public row and cast a verdict on it, and rewriting the text underneath that
+        /// verdict is not part of the job. Both tiers used to be ALLOWED here, and both are
+        /// exercised because seeding only one would leave half the rule dead.
+        /// </summary>
+        [Theory]
+        [InlineData(Roles.Reviewers)]
+        [InlineData(Roles.BibleReferenceReviewers)]
+        public async Task ShouldReturnUnauthorizedOnPutIfCallerIsOnlyAReviewerAsync(string reviewRoleName)
+        {
+            // given
+            BibleReference randomBibleReference = await PostRandomBibleReferenceAsync();
+            BibleReference modifiedBibleReference = UpdateBibleReferenceWithRandomValues(randomBibleReference);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), reviewRoleName);
+
+            try
+            {
+                // when
+                var putBibleReferenceTask = this.apiBroker.PutBibleReferenceAsync(modifiedBibleReference).AsTask();
+
+                // then
+                await Assert.ThrowsAsync<HttpResponseUnauthorizedException>(() => putBibleReferenceTask);
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+                await this.apiBroker.RemoveCoreBibleReferenceByIdAsync(randomBibleReference.Id);
+            }
+        }
+
+        /// <summary>
+        /// Removal is owner-or-Administrators, deliberately narrower than modify: the publisher
+        /// tier may correct someone else's bibleReference in flight but may never delete it, and the
+        /// review tier may do neither.
         /// </summary>
         [Fact]
         public async Task ShouldReturnUnauthorizedOnDeleteIfCallerIsNeitherOwnerNorAdministratorAsync()
         {
             // given
             BibleReference randomBibleReference = await PostRandomBibleReferenceAsync();
-            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.BibleReferenceReviewers);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.BibleReferencePublishers);
 
             try
             {

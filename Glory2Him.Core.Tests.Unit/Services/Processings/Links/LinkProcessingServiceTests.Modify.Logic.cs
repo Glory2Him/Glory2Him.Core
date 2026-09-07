@@ -485,8 +485,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
         }
 
         [Theory]
-        [InlineData(ApprovalStatus.Draft, Roles.Reviewers)]
-        [InlineData(ApprovalStatus.Draft, Roles.LinkReviewers)]
+        [InlineData(ApprovalStatus.Draft, Roles.Publishers)]
+        [InlineData(ApprovalStatus.Draft, Roles.LinkPublishers)]
         [InlineData(ApprovalStatus.Submitted, Roles.Publishers)]
         [InlineData(ApprovalStatus.Submitted, Roles.LinkPublishers)]
         [InlineData(ApprovalStatus.Dismissed, Roles.Administrators)]
@@ -494,10 +494,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             ApprovalStatus approvalStatus,
             string modifyingRole)
         {
-            // given: while a link is not yet decided, a reviewer, Publishers or Administrators
+            // given: while a link is not yet decided, the Publishers tier or Administrators
             // (global or Link-scoped) may modify it in place alongside the owner; the link
             // stays on the same row and their identity lands on UpdatedBy downstream. A
-            // terminal link is deliberately absent — it belongs to its owner alone.
+            // REVIEWER is deliberately absent — the review tier is out of the modify gate
+            // (§14.7 posture A.3), which the reviewer rows of
+            // ShouldThrowValidationExceptionOnModifyIfActorIsNotPermitted cover. A terminal link
+            // is absent too — it belongs to its owner alone.
             Link randomLink = CreateRandomLink();
             Link inputLink = randomLink;
 
