@@ -150,6 +150,64 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        // THE STATUS THE CONTRIBUTOR FILED UNDER IS WHAT LANDS (§9.7.1 rule 1): Submitted on the
+        // common path, Draft when saving work in progress. Pinning it to Draft here — as this
+        // path once did — filed every contribution as work in progress whatever the form said,
+        // leaving the contributor no route into review but a second, separate submit.
+        [Theory]
+        [InlineData(ApprovalStatus.Draft)]
+        [InlineData(ApprovalStatus.Submitted)]
+        public async Task ShouldAddContentItemAtTheContributedStatusAsync(
+            ApprovalStatus contributedApprovalStatus)
+        {
+            // given
+            ContentItem inputContentItem = CreateRandomContentItem();
+            inputContentItem.ApprovalStatus = contributedApprovalStatus;
+            string normalizedContent = NormalizeContent(inputContentItem.Content);
+            string expectedContentHash = ComputeContentHash(inputContentItem.Content);
+
+            EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
+                contentItem: inputContentItem,
+                securityContext: CreateAuthenticatedSecurityContext());
+
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateAsync(inputContentItem))
+                    .ReturnsAsync(inboundEnvelope);
+
+            this.hashBrokerMock.Setup(broker =>
+                broker.ComputeSha256HashAsync(normalizedContent))
+                    .ReturnsAsync(expectedContentHash);
+
+            this.contentItemServiceMock.Setup(service =>
+                service.CheckContentItemContentExistsAsync(
+                    inputContentItem.ContentType,
+                    expectedContentHash,
+                    null,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(false);
+
+            ContentItem? capturedContentItem = null;
+
+            this.contentItemServiceMock.Setup(service =>
+                service.AddContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()))
+                    .Callback<ContentItem, CancellationToken>((contentItem, cancellationToken) =>
+                        capturedContentItem = contentItem)
+                    .ReturnsAsync(inputContentItem);
+
+            // when
+            await this.contentItemProcessingService.AddContentItemAsync(
+                inputContentItem,
+                TestContext.Current.CancellationToken);
+
+            // then
+            capturedContentItem!.ApprovalStatus.Should().Be(contributedApprovalStatus);
+
+            // and the row still lands unpublished whichever status it carries — publication is
+            // the approve operation's to grant, and no add surface may ask for it
+            capturedContentItem.IsPublished.Should().BeFalse();
+            capturedContentItem.PublishDate.Should().BeNull();
+        }
+
         [Fact]
         public async Task ShouldComputeContentHashPerFrozenContractOnAddAsync()
         {

@@ -1221,6 +1221,83 @@ describe('ContentItemModerationDetailPage', () => {
             });
         });
 
+        // RETYPING IS THE BIRTH RULE AGAIN (§20.6.3, §7.8): a Question is outstanding and holds
+        // the round shut, a Comment is settled and never blocks. Sending the type on its own left
+        // a retyped remark as a question already answered — the one pairing the amend gate
+        // refuses — so the save came back a flat refusal and only the words could be changed.
+        it('should carry a remark retyped as a question back as outstanding', async () => {
+            // given: a remark of the viewer's own, settled the way every remark is born
+            openThread();
+
+            approvalComments = [{
+                ...viewersQuestion,
+                commentType: ApprovalCommentType.Comment,
+                isResolved: true
+            }];
+
+            renderPage();
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: /^Edit comment by/ }));
+            const editor = screen.getByLabelText('Edit your comment');
+            const row = editor.closest('article')!;
+
+            await userEvent.click(within(row).getByRole('radio', { name: 'Question' }));
+            await userEvent.click(within(row).getByRole('button', { name: 'Save' }));
+
+            // then
+            expect(commentModifiedWith).toHaveBeenCalledWith(expect.objectContaining({
+                commentType: ApprovalCommentType.Question,
+                isResolved: false
+            }));
+        });
+
+        it('should carry a question retyped as a remark back as settled', async () => {
+            // given: an outstanding ask of the viewer's own
+            openThread();
+            approvalComments = [viewersQuestion];
+
+            renderPage();
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: /^Edit comment by/ }));
+            const editor = screen.getByLabelText('Edit your comment');
+            const row = editor.closest('article')!;
+
+            await userEvent.click(within(row).getByRole('radio', { name: 'Comment' }));
+            await userEvent.click(within(row).getByRole('button', { name: 'Save' }));
+
+            // then: a remark never blocks, so the round is no longer held by it
+            expect(commentModifiedWith).toHaveBeenCalledWith(expect.objectContaining({
+                commentType: ApprovalCommentType.Comment,
+                isResolved: true
+            }));
+        });
+
+        it('should leave the settled flag alone where only the words changed', async () => {
+            // given: a settled ask — settling one answers to the publisher tier, and re-deriving
+            // the flag on an ordinary typo fix would silently re-open it
+            openThread();
+            approvalComments = [{ ...viewersQuestion, isResolved: true }];
+
+            renderPage();
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: /^Edit comment by/ }));
+            const editor = screen.getByLabelText('Edit your comment');
+            await userEvent.clear(editor);
+            await userEvent.type(editor, 'Rewritten.');
+
+            const row = editor.closest('article')!;
+            await userEvent.click(within(row).getByRole('button', { name: 'Save' }));
+
+            // then
+            expect(commentModifiedWith).toHaveBeenCalledWith(expect.objectContaining({
+                commentType: ApprovalCommentType.Question,
+                isResolved: true
+            }));
+        });
+
         it('should show the reason the server gave when a comment is refused', async () => {
             // given
             openThread();

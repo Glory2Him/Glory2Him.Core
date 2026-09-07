@@ -1,5 +1,8 @@
 import { ContentItemAddRequest } from '../../../models/foundations/contentItems/contentItem';
-import { ContentItemFormItem } from '../../../models/components/contentItems/contentItemFormItem';
+import {
+    ContentItemFormItem,
+    defaultContributorApprovalStatus
+} from '../../../models/components/contentItems/contentItemFormItem';
 
 // Panel → wire, for the add. The wire→panel direction lives in toContentItemSearchItem now:
 // since the merge there is ONE projection for the whole family, and ContentItemPanel derives
@@ -15,7 +18,12 @@ export const toContentItemAddRequest = (
     author: asOptionalText(formItem.author),
     content: formItem.content,
     shareabilityBasis: formItem.shareabilityBasis,
-    sharePermission: asOptionalText(formItem.sharePermission)
+    sharePermission: asOptionalText(formItem.sharePermission),
+
+    // The status the contributor filed under, not a status this projection decides. A form
+    // that never rendered the "Submit as" row leaves it unset, and the offerable default —
+    // Submitted, what the contribution page is for — is what travels then.
+    approvalStatus: formItem.approvalStatus ?? defaultContributorApprovalStatus
 });
 
 const asOptionalText = (value: string | undefined): string | null => {

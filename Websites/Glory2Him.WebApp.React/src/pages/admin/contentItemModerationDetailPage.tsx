@@ -10,6 +10,7 @@ import { ReviewCommentPanel } from '../../components/approvals/reviewCommentPane
 import { ConfirmDialog } from '../../components/coreUI/confirmDialog';
 
 import {
+    ApprovalCommentType,
     ReviewCommentDraft,
     ReviewCommentItem
 } from '../../models/components/approvals/reviewCommentItem';
@@ -524,11 +525,28 @@ export const ContentItemModerationDetailPage = () => {
             return;
         }
 
+        // RETYPING IS THE BIRTH RULE AGAIN (§20.6.3): a Question is outstanding and holds the
+        // approval shut, a Comment is settled and never blocks. The add face derives IsResolved
+        // from the type for exactly that reason, and an edit that moves the type has to move the
+        // flag with it — a remark retyped as a question that kept its settled tick is a question
+        // already answered, which is the one pairing the amend gate refuses outright, so the save
+        // came back a flat refusal and only the words could ever be changed.
+        //
+        // The flag is left ALONE where the type did not move, and that is the whole of why this
+        // is a transition rather than a derivation: a settled ask may be edited by its author
+        // (the gate says so), and re-deriving would silently re-open it, undoing a resolution
+        // that answers to the publisher tier.
+        const isCommentTypeChanged = item.commentType !== storedComment.commentType;
+
         try {
             await modifyReviewComment.mutateAsync({
                 ...storedComment,
                 comment: item.comment,
-                commentType: item.commentType
+                commentType: item.commentType,
+
+                isResolved: isCommentTypeChanged
+                    ? item.commentType === ApprovalCommentType.Comment
+                    : storedComment.isResolved
             });
         } catch (error) {
             toastError(extractApiErrorMessage(

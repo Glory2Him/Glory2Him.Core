@@ -372,7 +372,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             filler.Setup()
                 .OnType<DateTimeOffset>().Use(dateTimeOffset)
                 .OnType<DateTimeOffset?>().Use(dateTimeOffset)
-                .OnProperty(contentItem => contentItem.ContentType).IgnoreIt();
+                .OnProperty(contentItem => contentItem.ContentType).IgnoreIt()
+
+                // PINNED, because the add path now CARRIES this value rather than overwriting
+                // it (§9.7.1 rule 1), and the pair it admits is Draft or Submitted. A filler
+                // free to mint Approved would hand the add tests an input its own validation
+                // refuses, on some runs and not others. Every test that cares about another
+                // status says so on the row it builds.
+                .OnProperty(contentItem => contentItem.ApprovalStatus)
+                    .Use(ApprovalStatus.Draft);
 
             return filler;
         }

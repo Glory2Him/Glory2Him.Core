@@ -68,10 +68,12 @@ export const shareabilityBasisMembers: ReadonlyArray<ShareabilityBasis> = [
 
 // THE BASIS AN UNTOUCHED FORM CARRIES. It has to be a member of the offerable list above — the
 // retired Owned it used to be would leave the <select> showing an option it does not hold — and
-// of the four it is deliberately the NARROWEST: a contributor who never opens the dropdown has
-// licensed this use and given nothing away.
+// of the four it is the one the list LEADS with: the dropdown shows its first option selected,
+// so any other default has the form open on a choice the reader has to scroll up to find. It is
+// also the commonest answer on the contribution page, whose leading surface is a quote somebody
+// is passing on rather than work of their own.
 export const defaultShareabilityBasis: ShareabilityBasis =
-    ShareabilityBasis.OwnedPermissionGranted;
+    ShareabilityBasis.PublicDomain;
 
 // Whether the basis says THE CONTRIBUTOR WROTE IT. Where it does, the Author field is the
 // submitter over again — the read surface already names them under "Submitted by" — so the field

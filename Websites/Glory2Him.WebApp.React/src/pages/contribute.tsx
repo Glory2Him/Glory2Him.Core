@@ -47,8 +47,8 @@ export function Contribute() {
             const addedContentItem =
                 await addContentItem.mutateAsync(toContentItemAddRequest(formItem));
 
-            // The contributor's OWN surface, not the public one: a fresh submission is a
-            // Draft, and /myposts/{id} is where a draft is theirs to read.
+            // The contributor's OWN surface, not the public one: a fresh contribution is a
+            // Draft or awaiting review, and /myposts/{id} is where either is theirs to read.
             navigate(`/myposts/${addedContentItem.id}`);
         } catch (error) {
             const failure = toContentItemApiFailure(error, contributeFailureText);

@@ -253,7 +253,16 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
             // surface may carry an ApprovalStatus of Draft or Submitted and nothing else —
             // never IsPublished, never PublishDate (rule 1). Taking it from the caller here
             // would let them schedule their own publication on the way in, on a row that is
-            // otherwise landed unpublished and in Draft precisely so it cannot.
+            // otherwise landed unpublished precisely so it cannot.
+            //
+            // THE STATUS IS THE CALLER'S, and it is the one control field that is. §9.7.1 rule
+            // 1 lands the row "with the ApprovalStatus the caller asked for — Submitted on the
+            // common path, Draft when saving work in progress" — the choice the contribution
+            // form's "Submit as" row exists to make. Pinning it to Draft here, as this once
+            // did, threw that answer away and filed every contribution as work in progress,
+            // with no route to review but a second, separate submit. The pair is all that is
+            // admitted: ValidateContentItem refuses anything else above, and the foundation
+            // refuses it again beneath (§8.6.1).
             ContentItem newContentItem = new ContentItem
             {
                 Id = await this.identifierBroker.GetIdentifierAsync(),
@@ -267,7 +276,7 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
                 GroupId = await this.identifierBroker.GetIdentifierAsync(),
                 Version = 1,
                 IsPublished = false,
-                ApprovalStatus = ApprovalStatus.Draft,
+                ApprovalStatus = contentItem.ApprovalStatus,
                 IsDeleted = false
             };
 

@@ -7,7 +7,10 @@ import { Contribute } from './contribute';
 import { AuthProvider } from '../components/securitys/authProvider';
 import { ContentItemSetting } from '../models/foundations/contentItemSettings/contentItemSetting';
 import { ContentType } from '../models/foundations/contentItemSettings/contentType';
-import { ShareabilityBasis } from '../models/components/contentItems/contentItemFormItem';
+import {
+    ApprovalStatus,
+    ShareabilityBasis
+} from '../models/components/contentItems/contentItemFormItem';
 import { createAuthState, signInAs } from '../tests/testAuth';
 
 // What the page OWNS is everything the panel does not: the POST, the redirect, the notification
@@ -112,13 +115,11 @@ const renderPage = () =>
             </AuthProvider>
         </MemoryRouter>);
 
+// NOTHING BUT THE WORDS IS TYPED, and that is the default doing its work: the form opens on
+// "It's public domain", which rests on nobody's permission and so asks for no detail. A
+// contributor who has something to share can file it without opening a dropdown.
 const contributeAsync = async (content: string) => {
     await userEvent.type(screen.getByLabelText(/^Testimony/), content);
-
-    // Mandatory under the permission default the form opens on.
-    await userEvent.type(
-        screen.getByLabelText(/Permission details/), 'By email from the author');
-
     await userEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
 };
 
@@ -156,11 +157,15 @@ describe('Contribute', () => {
             author: null,
             content: 'He kept me through the night shift',
 
-            // The basis an untouched form carries: the contributor's own work, shared here by
-            // their permission. The narrowest of the four offered, so a form nobody opened the
-            // dropdown on has licensed this use and given nothing away.
-            shareabilityBasis: ShareabilityBasis.OwnedPermissionGranted,
-            sharePermission: 'By email from the author'
+            // The basis an untouched form carries, and the option the dropdown shows selected:
+            // public domain, which rests on nobody's permission and so posts none.
+            shareabilityBasis: ShareabilityBasis.PublicDomain,
+            sharePermission: null,
+
+            // AND THE STATUS THE CONTRIBUTOR FILED UNDER. The button reads "Submit for review",
+            // so a form nobody opened the Submit as dropdown on is asking for one — and the
+            // status has to travel for the row to land as anything but a Draft.
+            approvalStatus: ApprovalStatus.Submitted
         }));
     });
 

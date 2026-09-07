@@ -242,6 +242,76 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        // §9.7.1 rule 1: the add surface may carry an ApprovalStatus of Draft or Submitted and
+        // nothing else. The status IS the caller's on this path — that is what lets a
+        // contribution land in review rather than as work in progress — so the pair it admits
+        // has to be stated where the copy is made, or a caller arrives already decided.
+        [Theory]
+        [InlineData(ApprovalStatus.Approved)]
+        [InlineData(ApprovalStatus.Rejected)]
+        [InlineData(ApprovalStatus.Dismissed)]
+        public async Task ShouldThrowValidationExceptionOnAddIfApprovalStatusIsDecidedAndLogItAsync(
+            ApprovalStatus decidedApprovalStatus)
+        {
+            // given
+            ContentItem inputContentItem = CreateRandomContentItem();
+            inputContentItem.ApprovalStatus = decidedApprovalStatus;
+
+            EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
+                contentItem: inputContentItem,
+                securityContext: CreateAuthenticatedSecurityContext());
+
+            var invalidContentItemProcessingException =
+                new InvalidContentItemProcessingException(
+                    message: "Content item is invalid, fix the errors and try again.");
+
+            invalidContentItemProcessingException.AddData(
+                key: nameof(ContentItem.ApprovalStatus),
+                values: "Value must be Draft or Submitted on add");
+
+            var expectedContentItemProcessingValidationException =
+                new ContentItemProcessingValidationException(
+                    message: "Content item processing validation error occurred, fix the errors and try again.",
+                    innerException: invalidContentItemProcessingException);
+
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateAsync(inputContentItem))
+                    .ReturnsAsync(inboundEnvelope);
+
+            // when
+            ValueTask<ContentItem> addContentItemTask =
+                this.contentItemProcessingService.AddContentItemAsync(
+                    inputContentItem,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemProcessingValidationException actualContentItemProcessingValidationException =
+                await Assert.ThrowsAsync<ContentItemProcessingValidationException>(
+                    addContentItemTask.AsTask);
+
+            // then
+            actualContentItemProcessingValidationException.Should().BeEquivalentTo(
+                expectedContentItemProcessingValidationException);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(inputContentItem),
+                Times.Once);
+
+            this.contentItemServiceMock.Verify(service =>
+                service.AddContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemProcessingValidationException))),
+                Times.Once);
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.hashBrokerMock.VerifyNoOtherCalls();
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         [Fact]
         public async Task ShouldThrowValidationExceptionOnAddIfDuplicateContentExistsAndLogItAsync()
         {
