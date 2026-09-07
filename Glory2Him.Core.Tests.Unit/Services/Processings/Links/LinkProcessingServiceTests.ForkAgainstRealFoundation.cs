@@ -130,9 +130,32 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             // IS the answer to "which row is the tip" — nothing else records it.
             var groupRows = new List<Link> { storageLink };
 
+            // The real foundation asks the storage layer for the group, and for the version
+            // numbers the group already owns, rather than narrowing a collection read here. Both
+            // are answered off the same list, so an insert that JOINS the group still moves the
+            // derived tip.
             storageBrokerMock.Setup(broker =>
-                broker.SelectAllLinksAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(() => groupRows.AsQueryable());
+                broker.SelectLinksByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((Guid groupId, CancellationToken _) =>
+                            groupRows.Where(row => row.GroupId == groupId).ToList());
+
+            storageBrokerMock.Setup(broker =>
+                broker.SelectLinkVersionsInGroupAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((Guid groupId, CancellationToken _) =>
+                            groupRows.Where(row => row.GroupId == groupId)
+                                .Select(row => row.Version)
+                                .ToList());
+
+            storageBrokerMock.Setup(broker =>
+                broker.SelectPublishedLinkInGroupAsync(
+                    It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((Guid groupId, Guid excludedLinkId, CancellationToken _) =>
+                            groupRows.FirstOrDefault(row =>
+                                row.GroupId == groupId
+                                    && row.IsPublished
+                                    && row.Id != excludedLinkId));
 
             securityAuditBrokerMock.Setup(broker =>
                 broker.GetUserIdAsync(It.IsAny<SecurityContext>()))

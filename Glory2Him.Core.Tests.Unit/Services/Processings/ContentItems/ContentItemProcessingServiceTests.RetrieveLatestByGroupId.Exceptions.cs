@@ -48,8 +48,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                     .ReturnsAsync(inboundEnvelope);
 
             this.contentItemServiceMock.Setup(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ThrowsAsync(dependencyValidationException);
+                service.RetrieveContentItemsByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(dependencyValidationException);
 
             // when
             ValueTask<ContentItem> retrieveLatestContentItemByGroupIdTask =
@@ -67,7 +68,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 expectedContentItemProcessingDependencyValidationException);
 
             this.contentItemServiceMock.Verify(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()),
+                service.RetrieveContentItemsByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
@@ -102,8 +104,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                     .ReturnsAsync(inboundEnvelope);
 
             this.contentItemServiceMock.Setup(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ThrowsAsync(dependencyException);
+                service.RetrieveContentItemsByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(dependencyException);
 
             // when
             ValueTask<ContentItem> retrieveLatestContentItemByGroupIdTask =
@@ -120,7 +123,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 expectedContentItemProcessingDependencyException);
 
             this.contentItemServiceMock.Verify(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()),
+                service.RetrieveContentItemsByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
@@ -164,8 +168,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                     .ReturnsAsync(inboundEnvelope);
 
             this.contentItemServiceMock.Setup(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ThrowsAsync(operationCanceledException);
+                service.RetrieveContentItemsByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(operationCanceledException);
 
             // when
             ValueTask<ContentItem> retrieveLatestContentItemByGroupIdTask =

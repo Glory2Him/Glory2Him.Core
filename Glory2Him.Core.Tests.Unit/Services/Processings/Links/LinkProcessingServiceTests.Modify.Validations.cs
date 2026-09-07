@@ -332,7 +332,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
 
             var invalidLinkProcessingException =
                 new InvalidLinkProcessingException(
-                    message: "Only the latest version of a link may be modified.");
+                    message: "A newer version of this link exists in its group, so this " +
+                        "version can no longer be modified. That version may not be visible " +
+                        "to you.");
 
             var expectedLinkProcessingValidationException =
                 new LinkProcessingValidationException(
@@ -370,9 +372,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             supersedingLink.Version.Should().BeGreaterThan(storageLink.Version);
             supersedingLink.IsDeleted.Should().BeFalse();
 
-            // and the refusal came from reading the group, not from trusting the row
+            // and the refusal came from asking the group, not from trusting the row
             this.linkServiceMock.Verify(service =>
-                service.RetrieveAllLinksAsync(It.IsAny<CancellationToken>()),
+                service.CheckHigherLinkVersionExistsAsync(
+                    It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.linkServiceMock.Verify(service =>

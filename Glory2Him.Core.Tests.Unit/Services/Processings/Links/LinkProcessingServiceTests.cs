@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading;
@@ -74,12 +75,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                 loggingBroker: this.loggingBrokerMock.Object);
         }
 
-        public static TheoryData<Xeption> DependencyValidationExceptions()
+        // The CASES, separated from the TheoryData that carries them, because the group-read
+        // theories pair each case with every group read (LinkProcessingServiceTests.GroupReads
+        // .Exceptions) rather than running it alone. One list, two shapes of consumer.
+        private static IEnumerable<Xeption> DependencyValidationExceptionCases()
         {
             string randomMessage = GetRandomString();
             var innerException = new Xeption(message: randomMessage);
 
-            return new TheoryData<Xeption>
+            return new Xeption[]
             {
                 new LinkValidationException(
                     message: randomMessage,
@@ -91,12 +95,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             };
         }
 
-        public static TheoryData<Xeption> DependencyExceptions()
+        private static IEnumerable<Xeption> DependencyExceptionCases()
         {
             string randomMessage = GetRandomString();
             var innerException = new Xeption(message: randomMessage);
 
-            return new TheoryData<Xeption>
+            return new Xeption[]
             {
                 new LinkDependencyException(
                     message: randomMessage,
@@ -106,6 +110,30 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                     message: randomMessage,
                     innerException: innerException)
             };
+        }
+
+        public static TheoryData<Xeption> DependencyValidationExceptions()
+        {
+            var theoryData = new TheoryData<Xeption>();
+
+            foreach (Xeption exception in DependencyValidationExceptionCases())
+            {
+                theoryData.Add(exception);
+            }
+
+            return theoryData;
+        }
+
+        public static TheoryData<Xeption> DependencyExceptions()
+        {
+            var theoryData = new TheoryData<Xeption>();
+
+            foreach (Xeption exception in DependencyExceptionCases())
+            {
+                theoryData.Add(exception);
+            }
+
+            return theoryData;
         }
 
         // the two statuses a modify may not amend in place — an edit of either forks a new
@@ -256,15 +284,34 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
         }
 
         // The tip is DERIVED — the highest Version among the group's live rows — so the modify
-        // flow asks the question of the whole table through RetrieveAllLinksAsync. A test that
+        // flow asks the question through the group-keyed foundation read. A test that
         // wants its storage row treated as the tip has to let that read see the group, and one
         // that wants it superseded seeds a higher-versioned sibling here rather than clearing a
         // flag that no longer exists.
         private void SetupGroupTipRead(params Link[] groupLinks)
         {
+            // The GROUP-KEYED foundation read. The stub narrows by the requested group
+            // exactly as the real read does, so seeding another group's rows still proves
+            // this operation asks for one group rather than for the table.
             this.linkServiceMock.Setup(service =>
-                service.RetrieveAllLinksAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(groupLinks.AsQueryable());
+                service.RetrieveLinksByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((Guid groupId, CancellationToken _) =>
+                            groupLinks
+                                .Where(link => link.GroupId == groupId)
+                                .ToList());
+
+            // The tip is DERIVED, and the foundation answers it as a BOOLEAN rather than by
+            // handing the group back - so the stub answers the same question off the same seeded
+            // rows.
+            this.linkServiceMock.Setup(service =>
+                service.CheckHigherLinkVersionExistsAsync(
+                    It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((Guid groupId, int version, CancellationToken _) =>
+                            groupLinks.Any(link =>
+                                link.GroupId == groupId
+                                    && link.IsDeleted == false
+                                    && link.Version > version));
 
             // The fork numbers from the group high-water mark, so the seeded group has to
             // report one. Set here beside the tip so a test cannot describe a group whose

@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,6 +22,36 @@ namespace Glory2Him.Core.Services.Foundations.Links
 {
     internal partial class LinkService
     {
+        // The tip DERIVATION, asked as the boolean it is. Reading the whole group back to run
+        // Any() in memory moved every column of every version across the wire on the modify hot
+        // path to answer one bit.
+        //
+        // UNFILTERED, like the high-water mark above it and for the same reason: a version
+        // question is structural. Answered from the caller-facing collection read - which is what
+        // it used to be - a contributor who could not SEE a newer sibling was told their row was
+        // the tip and edited it in place.
+        public ValueTask<bool> CheckHigherLinkVersionExistsAsync(
+            Guid groupId,
+            int version,
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var checkRequest = new Link { GroupId = groupId };
+
+                EventEnvelope<Link> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: checkRequest);
+
+                ValidateUserIsAllowedToContribute(envelope.SecurityContext);
+                ValidateOnFindHighestVersionInGroup(groupId);
+
+                return await this.storageBroker.ExistsHigherLiveLinkVersionInGroupAsync(
+                    groupId: groupId,
+                    version: version,
+                    cancellationToken: cancellationToken);
+            });
+
         public ValueTask<int> FindHighestVersionInGroupAsync(
             Guid groupId,
             CancellationToken cancellationToken = default) =>
@@ -48,13 +79,14 @@ namespace Glory2Him.Core.Services.Foundations.Links
                 //
                 // A lineage is not renumbered by removing a row from it — the same argument
                 // §9.7.7 rule 7 records for the published slot.
-                IQueryable<Link> allLinks =
-                    await this.storageBroker.SelectAllLinksAsync(cancellationToken);
-
-                var groupVersions = allLinks
-                    .Where(link => link.GroupId == groupId)
-                    .Select(link => link.Version)
-                    .ToList();
+                //
+                // The projection is asked for, not composed here: narrowing the collection read
+                // and calling ToList() on it blocked the request thread on a SQL round trip the
+                // cancellation token never reached.
+                List<int> groupVersions =
+                    await this.storageBroker.SelectLinkVersionsInGroupAsync(
+                        groupId: groupId,
+                        cancellationToken: cancellationToken);
 
                 return groupVersions.Count is 0
                     ? 0
@@ -99,18 +131,67 @@ namespace Glory2Him.Core.Services.Foundations.Links
                         message: $"Link not found with id: {linkId}.");
                 }
 
-                IQueryable<Link> allLinks =
-                    await this.storageBroker.SelectAllLinksAsync(cancellationToken);
-
                 // UNFILTERED on the incumbent side too: a soft delete never clears
                 // IsPublished and the slot index names that column alone, so a tombstone still
                 // holds the slot. Skipping it would leave the group permanently unpublishable.
-                Link? publishedLink = allLinks.FirstOrDefault(link =>
-                    link.GroupId == maybeLink.GroupId
-                        && link.IsPublished
-                        && link.Id != linkId);
+                //
+                // One row asked for, with the token, rather than a predicate composed onto the
+                // collection read's live queryable and executed synchronously.
+                Link? publishedLink = await this.storageBroker.SelectPublishedLinkInGroupAsync(
+                    groupId: maybeLink.GroupId,
+                    excludedLinkId: linkId,
+                    cancellationToken: cancellationToken);
 
                 return publishedLink?.Id;
+            });
+
+
+        public ValueTask<IReadOnlyList<Link>> RetrieveLinksByGroupIdAsync(
+            Guid groupId,
+            CancellationToken cancellationToken = default) =>
+            TryCatchList(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ValidateOnFindHighestVersionInGroup(groupId);
+
+                // the envelope exists to capture the ambient security context the visibility
+                // filter runs against — the request payload is empty, exactly as the unkeyed
+                // collection read builds it
+                EventEnvelope<Link> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: new Link());
+
+                // THE GROUP'S SLICE, ASKED FOR AS A SLICE, with the token. The narrowing used to
+                // be a Where composed onto the collection read's live queryable by whichever
+                // caller needed it, which left them a synchronous terminal operator as the only
+                // way to execute it.
+                List<Link> groupLinks = await this.storageBroker.SelectLinksByGroupIdAsync(
+                    groupId: groupId,
+                    cancellationToken: cancellationToken);
+
+                // THE SAME FILTER, not a second copy of it. The predicate is now evaluated in
+                // memory rather than in SQL, which is the only difference and one no caller can
+                // observe; writing an in-memory twin would give one visibility rule two homes to
+                // drift between.
+                IQueryable<Link> visibleLinks =
+                    await ApplyCollectionReadVisibilityFilterAsync(
+                        links: groupLinks.AsQueryable(),
+                        securityContext: envelope.SecurityContext);
+
+                // ORDERED BY VERSION, which is the lineage's own order and the only one meaningful
+                // to a caller reading a group. It is imposed HERE because this is the layer that
+                // declares the IReadOnlyList contract and already shapes this exact set in memory -
+                // the visibility filter above runs over it - so ordering is the same kind of work
+                // in the same place rather than a second home for one rule.
+                //
+                // It only takes effect because the exposer sets EnsureStableOrdering = false.
+                // OData otherwise re-sorts by the entity key and discards this entirely, which is
+                // measured, not assumed. The ThenBy is belt and braces: (GroupId, Version) is
+                // unique so Version already totally orders a group, but with OData's own tiebreak
+                // switched off nothing else would supply one if that ever changed.
+                return visibleLinks
+                    .OrderBy(link => link.Version)
+                    .ThenBy(link => link.Id)
+                    .ToList();
             });
 
         private static void ValidateOnFindPublishedSiblingLink(Guid linkId) =>

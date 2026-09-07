@@ -45,10 +45,22 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 IsDeleted = isDeleted,
             };
 
+        // The ROUND-KEYED foundation read. The stub answers for the approval it is asked about,
+        // which is the argument the resolver supplies and therefore the thing these tests can
+        // prove; it also drops deleted rows, because that is the member's CONTRACT rather than a
+        // predicate the resolver owns - the §14.7 filter runs in the foundation and is proved
+        // there, and a stub that returned tombstones would be describing a member that does not
+        // exist.
         private void SetupApprovalComments(params ApprovalComment[] approvalComments) =>
             this.approvalCommentServiceMock.Setup(service =>
-                service.RetrieveAllApprovalCommentsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(approvalComments.AsQueryable());
+                service.RetrieveApprovalCommentsByApprovalIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((Guid approvalId, CancellationToken _) =>
+                            approvalComments
+                                .Where(approvalComment =>
+                                    approvalComment.ApprovalId == approvalId
+                                        && approvalComment.IsDeleted == false)
+                                .ToList());
 
         // Answers only for ids it was actually ASKED about, which is what the real read does and
         // what lets a test prove the resolver never REQUESTED somebody rather than merely never

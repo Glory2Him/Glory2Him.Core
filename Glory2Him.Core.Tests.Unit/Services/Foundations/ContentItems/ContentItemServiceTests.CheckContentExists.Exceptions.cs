@@ -40,7 +40,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 innerException: failedStorageContentItemException);
 
             this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllContentItemsAsync(It.IsAny<CancellationToken>()))
+                broker.ExistsContentItemContentAsync(
+                    It.IsAny<ContentType>(), It.IsAny<string>(), It.IsAny<Guid?>(),
+                    It.IsAny<CancellationToken>()))
                     .ThrowsAsync(sqlException);
 
             // when
@@ -60,7 +62,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 expectedContentItemDependencyException);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllContentItemsAsync(It.IsAny<CancellationToken>()),
+                broker.ExistsContentItemContentAsync(
+                    It.IsAny<ContentType>(), It.IsAny<string>(), It.IsAny<Guid?>(),
+                    It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
@@ -97,7 +101,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 innerException: timeoutContentItemException);
 
             this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllContentItemsAsync(It.IsAny<CancellationToken>()))
+                broker.ExistsContentItemContentAsync(
+                    It.IsAny<ContentType>(), It.IsAny<string>(), It.IsAny<Guid?>(),
+                    It.IsAny<CancellationToken>()))
                     .ThrowsAsync(operationCanceledException);
 
             // when
@@ -117,7 +123,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 expectedContentItemDependencyException);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllContentItemsAsync(It.IsAny<CancellationToken>()),
+                broker.ExistsContentItemContentAsync(
+                    It.IsAny<ContentType>(), It.IsAny<string>(), It.IsAny<Guid?>(),
+                    It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
@@ -177,7 +185,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 innerException: failedContentItemServiceException);
 
             this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllContentItemsAsync(It.IsAny<CancellationToken>()))
+                broker.ExistsContentItemContentAsync(
+                    It.IsAny<ContentType>(), It.IsAny<string>(), It.IsAny<Guid?>(),
+                    It.IsAny<CancellationToken>()))
                     .ThrowsAsync(serviceException);
 
             // when
@@ -197,7 +207,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 expectedContentItemServiceException);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllContentItemsAsync(It.IsAny<CancellationToken>()),
+                broker.ExistsContentItemContentAsync(
+                    It.IsAny<ContentType>(), It.IsAny<string>(), It.IsAny<Guid?>(),
+                    It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>

@@ -113,16 +113,20 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 // is not load-bearing anywhere, because nothing decides an invariant from it. A
                 // name that does not resolve is simply absent and the surface renders its own
                 // fallback.
-                IQueryable<ApprovalComment> allApprovalComments =
-                    await this.approvalCommentService.RetrieveAllApprovalCommentsAsync(
-                        cancellationToken);
+                // Through the ROUND-KEYED member. Composing the ApprovalId filter onto the
+                // collection read's live queryable left this resolver with only a synchronous
+                // terminal operator to execute it - a blocking SQL round trip on the request
+                // thread, and the one call in the chain the cancellation token never reached.
+                //
+                // The IsDeleted term went with it: the foundation's filter already drops deleted
+                // rows, and restating it here would give one visibility rule two homes.
+                IReadOnlyList<ApprovalComment> roundApprovalComments =
+                    await this.approvalCommentService.RetrieveApprovalCommentsByApprovalIdAsync(
+                        approvalId: scope.ApprovalId,
+                        cancellationToken: cancellationToken);
 
-                roundUserIds.UnionWith(allApprovalComments
-                    .Where(approvalComment =>
-                        approvalComment.ApprovalId == scope.ApprovalId
-                            && approvalComment.IsDeleted == false)
-                    .Select(approvalComment => approvalComment.CreatedBy)
-                    .ToList());
+                roundUserIds.UnionWith(roundApprovalComments
+                    .Select(approvalComment => approvalComment.CreatedBy));
 
                 // The broker drops blank CreatedBy values as it gathers, but RequestedUserId
                 // arrives off the invitation row exactly as stored, so the blank filter belongs

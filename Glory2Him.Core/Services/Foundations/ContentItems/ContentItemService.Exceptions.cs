@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using EFxceptions.Models.Exceptions;
@@ -30,6 +31,8 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
 
         private delegate ValueTask<ContentItem> ReturningContentItemFunction();
         private delegate ValueTask<IQueryable<ContentItem>> ReturningContentItemsFunction();
+
+        private delegate ValueTask<IReadOnlyList<ContentItem>> ReturningContentItemListFunction();
 
         private delegate ValueTask<bool> ReturningBooleanFunction();
 
@@ -362,6 +365,70 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             catch (OperationCanceledException)
             {
                 throw;
+            }
+            catch (SqlException sqlException)
+            {
+                var failedStorageContentItemException = new FailedStorageContentItemException(
+                    message: "Failed content item storage error occurred, contact support.",
+                    innerException: sqlException,
+                    data: sqlException.Data);
+
+                throw await CreateAndLogCriticalDependencyExceptionAsync(exception: failedStorageContentItemException);
+            }
+            catch (Exception exception)
+            {
+                var failedContentItemServiceException = new FailedContentItemServiceException(
+                    message: "Failed content item service error occurred, please contact support.",
+                    innerException: exception,
+                    data: exception.Data);
+
+                throw await CreateAndLogServiceExceptionAsync(exception: failedContentItemServiceException);
+            }
+        }
+
+
+        // The same taxonomy the queryable read is wrapped in, over a materialised result. The two
+        // must not diverge: they answer the same question about the same table and differ only in
+        // where the query is executed.
+        private async ValueTask<IReadOnlyList<ContentItem>> TryCatchList(
+            ReturningContentItemListFunction returningContentItemListFunction)
+        {
+            try
+            {
+                return await returningContentItemListFunction();
+            }
+            catch (OperationCanceledException operationCanceledException)
+                when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
+            {
+                var timeoutException =
+                    new TimeoutException("The dependency operation timed out.");
+
+                var timeoutContentItemException =
+                    new TimeoutContentItemException(
+                        message: "Failed content item timeout error occurred, contact support.",
+                        innerException: timeoutException,
+                        data: timeoutException.Data);
+
+                throw await CreateAndLogTimeoutDependencyExceptionAsync(exception: timeoutContentItemException);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            // THE UNAUTHORIZED ARM CANNOT FIRE TODAY: none of the members this wraps runs a
+            // contribution gate, because a collection read is governed by its visibility filter
+            // instead. It is here so the wrapper matches its siblings, and so adding a gate later
+            // needs no second thought.
+            //
+            // The INVALID arm below is the one these reads do need - they guard their id, and
+            // without it a caller's Guid.Empty came back as a ServiceException.
+            catch (UnauthorizedContentItemException unauthorizedContentItemException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: unauthorizedContentItemException);
+            }
+            catch (InvalidContentItemException invalidContentItemException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: invalidContentItemException);
             }
             catch (SqlException sqlException)
             {

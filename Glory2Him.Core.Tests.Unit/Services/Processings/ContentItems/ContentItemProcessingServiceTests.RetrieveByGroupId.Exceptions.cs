@@ -10,11 +10,10 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
-using System.Linq;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
-using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Processings.ContentItems.Exceptions;
 using Moq;
@@ -32,11 +31,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             // given
             Guid randomGroupId = Guid.NewGuid();
             Guid inputGroupId = randomGroupId;
-            ContentItem randomContentItem = CreateRandomContentItem();
-
-            EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
-                contentItem: randomContentItem,
-                securityContext: CreateAuthenticatedSecurityContext());
 
             var expectedContentItemProcessingDependencyValidationException =
                 new ContentItemProcessingDependencyValidationException(
@@ -44,16 +38,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                         "fix the errors and try again.",
                     innerException: (dependencyValidationException.InnerException as Xeption)!);
 
-            this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputGroupId))))
-                    .ReturnsAsync(inboundEnvelope);
-
             this.contentItemServiceMock.Setup(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ThrowsAsync(dependencyValidationException);
+                service.RetrieveContentItemsByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(dependencyValidationException);
 
             // when
-            ValueTask<IQueryable<ContentItem>> retrieveContentItemsByGroupIdTask =
+            ValueTask<IReadOnlyList<ContentItem>> retrieveContentItemsByGroupIdTask =
                 this.contentItemProcessingService.RetrieveContentItemsByGroupIdAsync(
                     inputGroupId,
                     TestContext.Current.CancellationToken);
@@ -68,7 +59,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 expectedContentItemProcessingDependencyValidationException);
 
             this.contentItemServiceMock.Verify(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()),
+                service.RetrieveContentItemsByGroupIdAsync(
+                    inputGroupId, It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
@@ -87,27 +79,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             // given
             Guid randomGroupId = Guid.NewGuid();
             Guid inputGroupId = randomGroupId;
-            ContentItem randomContentItem = CreateRandomContentItem();
-
-            EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
-                contentItem: randomContentItem,
-                securityContext: CreateAuthenticatedSecurityContext());
 
             var expectedContentItemProcessingDependencyException =
                 new ContentItemProcessingDependencyException(
                     message: "Content item processing dependency error occurred, contact support.",
                     innerException: (dependencyException.InnerException as Xeption)!);
 
-            this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputGroupId))))
-                    .ReturnsAsync(inboundEnvelope);
-
             this.contentItemServiceMock.Setup(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ThrowsAsync(dependencyException);
+                service.RetrieveContentItemsByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(dependencyException);
 
             // when
-            ValueTask<IQueryable<ContentItem>> retrieveContentItemsByGroupIdTask =
+            ValueTask<IReadOnlyList<ContentItem>> retrieveContentItemsByGroupIdTask =
                 this.contentItemProcessingService.RetrieveContentItemsByGroupIdAsync(
                     inputGroupId,
                     TestContext.Current.CancellationToken);
@@ -121,7 +105,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 expectedContentItemProcessingDependencyException);
 
             this.contentItemServiceMock.Verify(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()),
+                service.RetrieveContentItemsByGroupIdAsync(
+                    inputGroupId, It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
@@ -139,12 +124,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             // dependency timeout, not a caller cancellation
             Guid randomGroupId = Guid.NewGuid();
             Guid inputGroupId = randomGroupId;
-            ContentItem randomContentItem = CreateRandomContentItem();
             var operationCanceledException = new OperationCanceledException();
-
-            EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
-                contentItem: randomContentItem,
-                securityContext: CreateAuthenticatedSecurityContext());
 
             var timeoutException =
                 new TimeoutException("The dependency operation timed out.");
@@ -160,16 +140,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                     message: "Content item processing dependency error occurred, contact support.",
                     innerException: timeoutContentItemProcessingException);
 
-            this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputGroupId))))
-                    .ReturnsAsync(inboundEnvelope);
-
             this.contentItemServiceMock.Setup(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ThrowsAsync(operationCanceledException);
+                service.RetrieveContentItemsByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(operationCanceledException);
 
             // when
-            ValueTask<IQueryable<ContentItem>> retrieveContentItemsByGroupIdTask =
+            ValueTask<IReadOnlyList<ContentItem>> retrieveContentItemsByGroupIdTask =
                 this.contentItemProcessingService.RetrieveContentItemsByGroupIdAsync(
                     inputGroupId,
                     TestContext.Current.CancellationToken);
@@ -200,7 +177,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             await cancellationTokenSource.CancelAsync();
 
             // when
-            ValueTask<IQueryable<ContentItem>> retrieveContentItemsByGroupIdTask =
+            ValueTask<IReadOnlyList<ContentItem>> retrieveContentItemsByGroupIdTask =
                 this.contentItemProcessingService.RetrieveContentItemsByGroupIdAsync(
                     inputGroupId,
                     cancellationTokenSource.Token);
@@ -236,12 +213,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                     message: "Content item processing service error occurred, contact support.",
                     innerException: failedContentItemProcessingServiceException);
 
-            this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputGroupId))))
-                    .ThrowsAsync(serviceException);
+            this.contentItemServiceMock.Setup(service =>
+                service.RetrieveContentItemsByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(serviceException);
 
             // when
-            ValueTask<IQueryable<ContentItem>> retrieveContentItemsByGroupIdTask =
+            ValueTask<IReadOnlyList<ContentItem>> retrieveContentItemsByGroupIdTask =
                 this.contentItemProcessingService.RetrieveContentItemsByGroupIdAsync(
                     inputGroupId,
                     TestContext.Current.CancellationToken);
@@ -257,6 +235,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedContentItemProcessingServiceException))),
+                Times.Once);
+
+            this.contentItemServiceMock.Verify(service =>
+                service.RetrieveContentItemsByGroupIdAsync(
+                    inputGroupId, It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.dateTimeBrokerMock.VerifyNoOtherCalls();

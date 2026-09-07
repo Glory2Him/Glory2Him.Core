@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -30,18 +31,18 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Links
         {
             // given
             Guid inputGroupId = Guid.NewGuid();
-            IQueryable<Link> randomLinks = CreateRandomLinks();
-            IQueryable<Link> expectedLinks = randomLinks;
+            IReadOnlyList<Link> randomLinks = CreateRandomLinks().ToList();
+            IReadOnlyList<Link> expectedLinks = randomLinks;
 
             var expectedObjectResult = new OkObjectResult(expectedLinks);
-            var expectedActionResult = new ActionResult<IQueryable<Link>>(expectedObjectResult);
+            var expectedActionResult = new ActionResult<IReadOnlyList<Link>>(expectedObjectResult);
 
             linkProcessingServiceMock
                 .Setup(service => service.RetrieveLinksByGroupIdAsync(inputGroupId, It.IsAny<CancellationToken>()))
                     .ReturnsAsync(randomLinks);
 
             // when
-            ActionResult<IQueryable<Link>> actualActionResult =
+            ActionResult<IReadOnlyList<Link>> actualActionResult =
                 await linksController.GetLinksByGroupId(inputGroupId, default);
 
             // then

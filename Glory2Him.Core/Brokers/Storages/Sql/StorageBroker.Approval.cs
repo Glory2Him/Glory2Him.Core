@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Microsoft.EntityFrameworkCore;
 
@@ -27,6 +28,18 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             Approval approval,
             CancellationToken cancellationToken = default) =>
             await InsertAsync(approval, cancellationToken);
+
+        public async ValueTask<Approval?> SelectApprovalByEntityAsync(
+            EntityType entityType,
+            Guid entityId,
+            CancellationToken cancellationToken = default) =>
+            await Approvals
+                .Where(approval =>
+                    approval.EntityType == entityType
+                        && approval.EntityId == entityId)
+                .OrderBy(approval => approval.IsDeleted)
+                .ThenByDescending(approval => approval.UpdatedWhen)
+                .FirstOrDefaultAsync(cancellationToken);
 
         public async ValueTask<IQueryable<Approval>> SelectAllApprovalsAsync(
             CancellationToken cancellationToken = default) =>

@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -26,6 +27,32 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             CancellationToken cancellationToken = default);
 
         ValueTask<IQueryable<ContentItem>> RetrieveAllContentItemsAsync(
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// The visible rows of ONE group, already materialised — the group-keyed twin of
+        /// <see cref="RetrieveAllContentItemsAsync"/>, carrying the identical §14.7 posture because it
+        /// re-runs the identical filter.
+        ///
+        /// <para>Every group-scoped question above this layer — the edit tip, the published row,
+        /// whether a candidate is still the tip — used to narrow the collection read's LIVE
+        /// queryable and then execute it with a synchronous terminal operator. That blocked the
+        /// request thread and left the cancellation token behind at the one call that reaches the
+        /// database. A group holds a handful of versions, so answering all of them from one narrow
+        /// read costs nothing and puts the await where EF already lives.</para>
+        ///
+        /// <para><b>NO TOMBSTONE EVER COMES BACK from here</b>, and a caller that needs one must
+        /// not reach for this member. The §14.7 filter opens with <c>IsDeleted == false</c> before
+        /// any role branch, so a soft-deleted row is dropped for every caller including an
+        /// administrator. That is right for a caller-facing read and wrong for the questions a
+        /// tombstone answers: which row holds the group's published slot (a soft delete never
+        /// clears <c>IsPublished</c>), and which version numbers are taken (#271). Both of those go
+        /// to their own unfiltered storage reads instead — see
+        /// <c>IStorageBroker.SelectPublishedContentItemInGroupAsync</c> and
+        /// <c>SelectContentItemVersionsInGroupAsync</c>.</para>
+        /// </summary>
+        ValueTask<IReadOnlyList<ContentItem>> RetrieveContentItemsByGroupIdAsync(
+            Guid groupId,
             CancellationToken cancellationToken = default);
 
         /// <summary>
@@ -163,6 +190,24 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         internal ValueTask<Guid?> FindPublishedSiblingContentItemIdAsync(
             Guid contentItemId,
             EventEnvelope<ContentItem> inboundEnvelope,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Whether the group holds a LIVE row at a higher version than the one given — what the
+        /// processing layer asks to learn that a row is no longer the group's edit tip and a
+        /// modify must fork rather than edit in place (§3.4.1, #265).
+        ///
+        /// <para>Computed over the UNFILTERED store, matching
+        /// <see cref="FindHighestVersionInGroupAsync"/> beside it rather than the collection
+        /// read. Version questions are structural: a lineage is not re-shaped by a row being
+        /// invisible to the person asking, and answering this from a per-caller view let a
+        /// contributor who cannot SEE a newer sibling edit a row that is not the tip. Only a
+        /// boolean is returned, so nothing leaks about the sibling itself. Requires a caller
+        /// allowed to contribute, like its high-water-mark sibling.</para>
+        /// </summary>
+        ValueTask<bool> CheckHigherContentItemVersionExistsAsync(
+            Guid groupId,
+            int version,
             CancellationToken cancellationToken = default);
 
         /// <summary>

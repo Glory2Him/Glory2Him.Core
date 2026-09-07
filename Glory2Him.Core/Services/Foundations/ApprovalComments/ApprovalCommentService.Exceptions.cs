@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using EFxceptions.Models.Exceptions;
@@ -26,6 +27,9 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
     {
         private delegate ValueTask<ApprovalComment> ReturningApprovalCommentFunction();
         private delegate ValueTask<IQueryable<ApprovalComment>> ReturningApprovalCommentsFunction();
+
+        private delegate ValueTask<IReadOnlyList<ApprovalComment>>
+            ReturningApprovalCommentListFunction();
 
         private delegate ValueTask<EventEnvelope<ApprovalComment>?>
             ReturningApprovalCommentEventEnvelopeFunction();
@@ -324,6 +328,67 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                     data: exception.Data);
 
                 throw await CreateAndLogServiceExceptionAsync(failedApprovalCommentServiceException);
+            }
+        }
+
+        // The queryable read's taxonomy over a materialised result, PLUS the validation arms it
+        // has no use for - this read guards its id, and without them a caller's Guid.Empty would
+        // come back as a ServiceException telling them the server was broken.
+        private async ValueTask<IReadOnlyList<ApprovalComment>> TryCatchList(
+            ReturningApprovalCommentListFunction returningApprovalCommentListFunction)
+        {
+            try
+            {
+                return await returningApprovalCommentListFunction();
+            }
+            catch (OperationCanceledException operationCanceledException)
+                when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
+            {
+                var timeoutException =
+                    new TimeoutException("The dependency operation timed out.");
+
+                var timeoutApprovalCommentException =
+                    new TimeoutApprovalCommentException(
+                        message: "Failed approval comment timeout error occurred, contact support.",
+                        innerException: timeoutException,
+                        data: timeoutException.Data);
+
+                throw await CreateAndLogTimeoutDependencyExceptionAsync(
+                    exception: timeoutApprovalCommentException);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (UnauthorizedApprovalCommentException unauthorizedApprovalCommentException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(
+                    exception: unauthorizedApprovalCommentException);
+            }
+            catch (InvalidApprovalCommentException invalidApprovalCommentException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(
+                    exception: invalidApprovalCommentException);
+            }
+            catch (SqlException sqlException)
+            {
+                var failedStorageApprovalCommentException = new FailedStorageApprovalCommentException(
+                    message: "Failed approval comment storage error occurred, contact support.",
+                    innerException: sqlException,
+                    data: sqlException.Data);
+
+                throw await CreateAndLogCriticalDependencyExceptionAsync(
+                    exception: failedStorageApprovalCommentException);
+            }
+            catch (Exception exception)
+            {
+                var failedApprovalCommentServiceException = new FailedApprovalCommentServiceException(
+                    message: "Failed approval comment service error occurred, please contact support.",
+                    innerException: exception,
+                    data: exception.Data);
+
+                throw await CreateAndLogServiceExceptionAsync(
+                    exception: failedApprovalCommentServiceException);
             }
         }
 

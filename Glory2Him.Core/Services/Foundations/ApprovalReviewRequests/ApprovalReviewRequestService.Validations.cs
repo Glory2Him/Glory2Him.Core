@@ -216,6 +216,13 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviewRequests
             }
         }
 
+        // An unresolved round would key the read on Guid.Empty and answer with an empty list,
+        // which a caller reads as "this round holds no invitations" rather than as the bug it is.
+        private static void ValidateOnRetrieveApprovalReviewRequestsByApprovalId(Guid approvalId) =>
+            Validate(
+                message: "Approval review request is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(approvalId), Parameter: nameof(ApprovalReviewRequest.ApprovalId)));
+
         private static void ValidateOnRetrieveApprovalReviewRequestById(Guid approvalReviewRequestId) =>
             Validate(
                 message: "Approval review request is invalid, fix the errors and try again.",

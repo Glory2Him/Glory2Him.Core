@@ -81,8 +81,38 @@ view you were on, and switching carries your current selection across.
   toggle reveals the DateTime / Identifier / Logging / Hash broker copies
   that are hidden by default for readability.
 
-## Current truths captured in the data (full re-scan 2026-08-21; targeted update 2026-08-28)
+## Current truths captured in the data (full re-scan 2026-08-21; targeted updates 2026-08-28 and 2026-09-07)
 
+- **The collection reads are no longer the answer to every question**
+  (2026-09-07). Where a caller used to take `RetrieveAll<Entity>Async`'s live
+  `IQueryable`, compose a predicate onto it and run a synchronous terminal
+  operator, the question is now asked of storage as a KEYED read. Fifteen
+  broker members carry it — `SelectContentItemsByGroupIdAsync`,
+  `SelectContentItemVersionsInGroupAsync`, `SelectContentItemInGroupAsync`,
+  `SelectPublishedContentItemInGroupAsync`,
+  `ExistsHigherLiveContentItemVersionInGroupAsync`,
+  `ExistsContentItemContentAsync`, the four `Link` counterparts,
+  `SelectAssociationByPairAsync`, `SelectOverlappingAssociationAsync`,
+  `ExistsLiveAssociationOnPairAsync`, `SelectApprovalByEntityAsync` and
+  `SelectApprovalReviewRequestsByApprovalIdAsync`. They are the **only**
+  `StorageBroker` members whose edges land on `EXT.EFCore` rather than on
+  `STC.EFCoreClient`: each queries its DbSet directly with an EF async terminal
+  operator (`ToListAsync` / `FirstOrDefaultAsync` / `AnyAsync`), which is what
+  carries the cancellation token to the database. `EFCoreClient` has no
+  keyed-read surface, so there was nothing there to route through.
+- **The processing tier's three group reads go through the foundation's
+  group-keyed read** (2026-09-07). `CIP`'s `RetrieveContentItemsByGroupIdAsync`,
+  `RetrieveLatestContentItemByGroupIdAsync` and
+  `RetrievePublishedContentItemByGroupIdAsync` — and `LP`'s three — now call
+  `FS.ContentItem.RetrieveContentItemsByGroupIdAsync` /
+  `FS.Link.RetrieveLinksByGroupIdAsync`, not the foundation's collection read.
+  The public group read also **mints no envelope of its own** any more: the
+  group-keyed foundation read mints one to capture the ambient security
+  context, and a second here would re-run the same §14.7 filter, against the
+  same context, over the set that filter already produced. That is why its
+  `EventEnvelopeBroker`, `SecurityAuditBroker` and `DateTimeBroker` edges are
+  gone from `CIP` and `LP` while the latest/published reads keep theirs — those
+  two still apply the single-row posture themselves.
 - **All 112 subscriptions are drawn.** `EventSubscriptionRegistration` wires
   112 and the data files carry 112. They first matched at 108 in the 2026-08-21
   scan (the 2026-08-11 scan drew 71 against 85); the four added since are
@@ -137,41 +167,52 @@ view you were on, and switching carries your current selection across.
   ProcessedEvents dedupe — its substrate guard is `IEnvelopeIntegrityBroker`
   instead. `IApprovalCommentService` is injected but currently unused.
 - **Circular event flows now exist, and the red edges are correct.** 14 of the
-  108 subscriptions are on fact addresses, all handled by `AO`. `AO` publishes
+  112 subscriptions are on fact addresses, all handled by `AO`. `AO` publishes
   `<Entity>-Approving`, each entity publishes `<Entity>-Added` / `-Modified`
   back, and Tarjan finds one cyclic component: `AO`, `CIP`, `LP`,
   `FS.Tag`, `FS.Comment`, `FS.Reaction`, `FS.BibleReference`,
-  `FS.Association`. 21 pub/sub pairs — 42 lines — render red. `FS.ContentItem`
+  `FS.Association`. 63 lines render red. `FS.ContentItem`
   and `FS.Link` stay out of it because `AO` addresses their processing tier.
   The `ApprovalReview` and `ApprovalComment` fact subscriptions stay purple:
-  nothing `AO` publishes reaches those two services.
+  nothing `AO` publishes reaches those two services. The two
+  `<Entity>Processing-Approved` facts added on 2026-09-07 stay purple-free
+  entirely — nothing subscribes to them.
 - **`EnvelopeIntegrityBroker` is new to the data.** Symmetric HMAC signing and
   verification of every envelope. It takes only `IConfiguration`, so it is a
   leaf with no outbound edges — but 16 components call it: `EventBroker` signs
   on publish and verifies on reply, and all 12 foundations, both processing
   services and the orchestration verify inside their substrate handlers.
-- **`Demote<Entity>VersionAsync` is gone** — reversed 2026-08-19 by
-  `4d674b7d` (#265), which derives the version tip instead of storing it.
+- **`Demote<Entity>VersionAsync` is gone, and the data finally agrees**
+  (removed from the YAML 2026-09-07; reversed in source 2026-08-19 by
+  `4d674b7d`, #265, which derives the version tip instead of storing it).
   There is no `Demote` verb, no `<Entity>-Demoted` address and no
-  `IsLatestVersion` column anywhere in `Glory2Him.Core/`. The fork edge from
-  each processing service now points at `FindHighestVersionInGroupAsync`.
-- **The publication swap lives in the processing tier.** `CIP` and `LP` each
-  gained `OnApproving<Entity>Async`, which clears the group's published slot
-  through `FindPublishedSibling<Entity>IdAsync` + `Unpublish<Entity>ByIdAsync`
-  before forwarding the promote to `Transition<Entity>ApprovalAsync`, then
-  publishes its own `<Entity>Processing-Approved` fact. That handler has no
-  public counterpart on the interface, so — uniquely — its publish and its
-  foundation calls hang off the handler row rather than a public method.
+  `IsLatestVersion` column anywhere in `Glory2Him.Core/`. The prose above said
+  so from 2026-08-21 while the data still carried the method row, seven call
+  edges and a `<Entity>.Demoted` publish per versioned foundation; the publish
+  drew nothing only because the manifest has no such event id, which is how it
+  survived unnoticed. Modify's branch now shows what actually runs:
+  `CheckHigher<Entity>VersionExistsAsync` decides whether the row is the tip,
+  and the fork asks `FindHighestVersionInGroupAsync` for the next number.
+- **The publication swap lives in the processing tier**, and its edges are
+  drawn as of 2026-09-07. `CIP` and `LP` each carry `OnApproving<Entity>Async`,
+  which clears the group's published slot through
+  `FindPublishedSibling<Entity>IdAsync` + `Unpublish<Entity>ByIdAsync` before
+  forwarding the promote to `Transition<Entity>ApprovalAsync`, then publishes
+  its own `<Entity>Processing-Approved` fact. That handler has no public
+  counterpart on the interface, so — uniquely — its publish and its foundation
+  calls hang off the handler row rather than a public method.
 - **`Glory2Him.WebApp` is no longer standalone.** It gained a project
   reference to `Glory2Him.Core` on 2026-08-13 (`1780e2bc`) and
   `Infrastructure/CoreRegistration.cs` registers ten Core brokers (the tenth,
   `IHashBroker`, was missing until `7a0d559a` — see below) plus all fifteen
   foundation, processing and orchestration services, the internal
   `IApprovalReviewWorkflowService` seam, and `IEventSubscriptionRegistration`.
-  Four OData controllers (`Tags`, `ApprovalComments`, `ApprovalReviews`,
-  `Approvals`) call them directly. **None of those four is modelled yet** —
-  they would be the first webapp→core edges in the graph, and adding them is
-  the next scan's job.
+  **Eleven** controller folders now call them directly — `Tags`,
+  `ApprovalComments`, `ApprovalReviews`, `Approvals`, `ApprovalSettings`,
+  `BibleReferences`, `Comments`, `ContentItems`, `ContentItemSettings`,
+  `Links` and `Reactions`; the count was four at the 2026-08-28 update.
+  **None of them is modelled yet** — they would be the first webapp→core edges
+  in the graph, and adding them is the next full scan's job.
 - **The substrate is live, and `RegisterAsync` is no longer test-only.**
   `Program.Configurations.cs` calls it at startup (`RegisterCoreEventSubstrateAsync`),
   so the 108 listeners and 166 addresses are registered in the running host
@@ -182,7 +223,8 @@ view you were on, and switching carries your current selection across.
   fails mid-delivery rather than at boot: `IHashBroker` was unregistered while
   `ContentItemProcessingService` carried five subscriptions.
 - Core's `StorageBroker` derives from `EFxceptionsContext` (EF Core
-  DbContext) and passes **itself** into G2H.StorageClient's `EFCoreClient`.
+  DbContext) and passes **itself** into G2H.StorageClient's `EFCoreClient` —
+  except for the fifteen keyed reads above, which go to EF directly.
 - `EventBroker` wraps EventHighway (SQL Server): one
   `Publish<Entity>Async` / `SubscribeTo<Entity>EventAsync` pair per entity;
   the operation enum selects the event address GUID.
@@ -201,7 +243,13 @@ view you were on, and switching carries your current selection across.
 - **`AssociationOrchestrationService`** (`Services/Orchestrations/Associations/`,
   added 2026-08-12) is not modelled. It has no events, so it does not affect
   the subscription count.
-- **The four WebApp controllers** above are not modelled.
+- **The eleven WebApp controllers** above are not modelled.
+- **`AO`'s `IAccessBroker.IsEntityVisibleAsync` edge is not drawn.**
+  `ResolveReviewerScopeAsync` calls it on the way into all three invitation
+  reads, so `RetrieveReviewerCandidatesAsync`, `RequestApprovalReviewAsync`
+  and `RetrieveApprovalReviewRequestsAsync` each miss one broker edge. The
+  2026-09-07 update added `RetrieveApprovalReviewRequestsAsync` at its
+  siblings' level of detail rather than fixing one of the three.
 - **7 of 184 event addresses are absent from the manifest** — the whole
   `Attachment` family. They are declared on `IEventBroker` but no service
   publishes or subscribes them, so nothing would be drawn. The manifest
@@ -217,6 +265,11 @@ view you were on, and switching carries your current selection across.
   `FS.ApprovalReviewRequest` follows its siblings rather than fixing this for
   one service alone, which would make the picture less consistent, not more.
   Correcting it is a template-wide edit and belongs to a full re-scan.
+- **The header counts moved on 2026-09-07** and the `/update-dependency-graph`
+  skill's verification numbers are now stale: single copy reads
+  **65 components · 1298 flows** (was 1256 before this update), per consumer
+  **153 nodes · 1626 flows**. Purple edges are 112 in both views, matching
+  `EventSubscriptionRegistration`; 63 lines render red in both.
 
 ## The data files
 

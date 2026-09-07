@@ -415,6 +415,13 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                     Parameter: nameof(ApprovalComment.UpdatedWhen)));
         }
 
+        // An unresolved round would key the read on Guid.Empty and answer with an empty list,
+        // which a caller reads as "nobody has spoken on this round" rather than as the bug it is.
+        private static void ValidateOnRetrieveApprovalCommentsByApprovalId(Guid approvalId) =>
+            Validate(
+                message: "Approval comment is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(approvalId), Parameter: nameof(ApprovalComment.ApprovalId)));
+
         private static void ValidateOnRetrieveApprovalCommentById(Guid approvalCommentId) =>
             Validate(
                 message: "Approval comment is invalid, fix the errors and try again.",

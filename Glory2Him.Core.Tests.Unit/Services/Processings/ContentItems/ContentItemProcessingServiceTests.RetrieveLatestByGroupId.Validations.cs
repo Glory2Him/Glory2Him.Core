@@ -130,9 +130,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputGroupId))))
                     .ReturnsAsync(inboundEnvelope);
 
+            // The GROUP-KEYED foundation read. The stub narrows by the requested group
+            // exactly as the real read does, so seeding another group's rows still proves
+            // this operation asks for one group rather than for the table.
             this.contentItemServiceMock.Setup(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(storageContentItems);
+                service.RetrieveContentItemsByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((Guid groupId, CancellationToken _) =>
+                            storageContentItems
+                                .Where(contentItem => contentItem.GroupId == groupId)
+                                .ToList());
 
             // when
             ValueTask<ContentItem> retrieveLatestContentItemByGroupIdTask =
@@ -149,7 +156,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 expectedContentItemProcessingValidationException);
 
             this.contentItemServiceMock.Verify(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()),
+                service.RetrieveContentItemsByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
                 Times.Once);
 
             // the outward answer is reason-free, so the true denial reason must land in
@@ -215,9 +223,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputGroupId))))
                     .ReturnsAsync(inboundEnvelope);
 
+            // The GROUP-KEYED foundation read. The stub narrows by the requested group
+            // exactly as the real read does, so seeding another group's rows still proves
+            // this operation asks for one group rather than for the table.
             this.contentItemServiceMock.Setup(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(storageContentItems);
+                service.RetrieveContentItemsByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((Guid groupId, CancellationToken _) =>
+                            storageContentItems
+                                .Where(contentItem => contentItem.GroupId == groupId)
+                                .ToList());
 
             this.dateTimeBrokerMock.Setup(broker =>
                 broker.GetCurrentDateTimeOffsetAsync())
@@ -238,7 +253,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 expectedContentItemProcessingValidationException);
 
             this.contentItemServiceMock.Verify(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()),
+                service.RetrieveContentItemsByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
                 Times.Once);
 
             // the outward answer is reason-free, so the true denial reason must land in
@@ -304,9 +320,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputGroupId))))
                     .ReturnsAsync(inboundEnvelope);
 
+            // The GROUP-KEYED foundation read. The stub narrows by the requested group
+            // exactly as the real read does, so seeding another group's rows still proves
+            // this operation asks for one group rather than for the table.
             this.contentItemServiceMock.Setup(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(storageContentItems);
+                service.RetrieveContentItemsByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((Guid groupId, CancellationToken _) =>
+                            storageContentItems
+                                .Where(contentItem => contentItem.GroupId == groupId)
+                                .ToList());
 
             this.dateTimeBrokerMock.Setup(broker =>
                 broker.GetCurrentDateTimeOffsetAsync())
@@ -331,7 +354,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 expectedContentItemProcessingValidationException);
 
             this.contentItemServiceMock.Verify(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()),
+                service.RetrieveContentItemsByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>

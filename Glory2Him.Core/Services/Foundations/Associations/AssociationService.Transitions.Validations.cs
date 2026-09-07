@@ -545,9 +545,6 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             Association association,
             CancellationToken cancellationToken)
         {
-            IQueryable<Association> allAssociations =
-                await this.storageBroker.SelectAllAssociationsAsync(cancellationToken);
-
             Guid entityAEffectiveId = ResolveEffectiveId(
                 association.EntityAScope,
                 association.EntityAGroupId,
@@ -558,14 +555,18 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 association.EntityBGroupId,
                 association.EntityBKeyId);
 
-            bool isOccupied = allAssociations.Any(other =>
-                other.Id != association.Id
-                    && other.IsDeleted == false
-                    && other.EntityAType == association.EntityAType
-                    && other.EntityBType == association.EntityBType
-                    && other.UserId == association.UserId
-                    && other.EntityAEffectiveId == entityAEffectiveId
-                    && other.EntityBEffectiveId == entityBEffectiveId);
+            // Asked as a QUESTION rather than answered by enumerating the table here. The
+            // Any(...) this replaced ran against the collection read's live queryable, so the
+            // check blocked the request thread and reached the database without the token every
+            // other call on this path carries.
+            bool isOccupied = await this.storageBroker.ExistsLiveAssociationOnPairAsync(
+                entityAType: association.EntityAType,
+                entityBType: association.EntityBType,
+                userId: association.UserId,
+                entityAEffectiveId: entityAEffectiveId,
+                entityBEffectiveId: entityBEffectiveId,
+                excludedAssociationId: association.Id,
+                cancellationToken: cancellationToken);
 
             if (isOccupied)
             {

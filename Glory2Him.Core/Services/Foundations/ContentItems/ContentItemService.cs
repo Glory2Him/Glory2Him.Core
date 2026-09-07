@@ -133,18 +133,18 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 ValidateUserIsAllowedToContribute(envelope.SecurityContext);
                 ValidateOnCheckContentItemContentExists(contentType, contentHash);
 
-                IQueryable<ContentItem> allContentItems =
-                    await this.storageBroker.SelectAllContentItemsAsync(cancellationToken);
-
                 // deliberately unfiltered (§3.4.2/§14.6): the duplicate rule is global, and
                 // a boolean reveals no row data — only that identical content already
                 // exists, which the duplicate rule already reveals to submitters
-                return allContentItems.Any(contentItem =>
-                    contentItem.ContentType == contentType
-                        && contentItem.ContentHash == contentHash
-                        && contentItem.IsDeleted == false
-                        && (excludedGroupId == null
-                            || contentItem.GroupId != excludedGroupId));
+                //
+                // Asked as a QUESTION rather than answered by enumerating the collection read
+                // here. An Any(...) over that live queryable blocked the request thread and let
+                // the one call that reaches the database go without the token.
+                return await this.storageBroker.ExistsContentItemContentAsync(
+                    contentType: contentType,
+                    contentHash: contentHash,
+                    excludedGroupId: excludedGroupId,
+                    cancellationToken: cancellationToken);
             });
 
         public ValueTask<ContentItem> RetrieveContentItemByIdAsync(
@@ -418,14 +418,10 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         // is exposed either way; the row is read to compare one enum and then discarded.
         private async ValueTask<ContentItem?> RetrieveGroupContentItemAsync(
             Guid groupId,
-            CancellationToken cancellationToken)
-        {
-            IQueryable<ContentItem> allContentItems =
-                await this.storageBroker.SelectAllContentItemsAsync(cancellationToken);
-
-            return allContentItems.FirstOrDefault(contentItem =>
-                contentItem.GroupId == groupId);
-        }
+            CancellationToken cancellationToken) =>
+            await this.storageBroker.SelectContentItemInGroupAsync(
+                groupId: groupId,
+                cancellationToken: cancellationToken);
 
         private async ValueTask<ContentItem> DoModifyContentItemAsync(
             ContentItem contentItem,

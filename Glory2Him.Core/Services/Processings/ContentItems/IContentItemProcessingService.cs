@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -125,8 +126,12 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
         /// <see cref="RetrieveAllContentItemsAsync"/>: deleted rows are gone for everyone,
         /// anonymous callers see only publicly visible versions, owners also see their own,
         /// and the review roles see every non-deleted version of the group.
+        ///
+        /// <para>The set is materialised by the group-keyed foundation read rather than handed
+        /// to the caller as a live queryable, so the query executes with the cancellation token
+        /// rather than on whichever thread later enumerates it.</para>
         /// </summary>
-        ValueTask<IQueryable<ContentItem>> RetrieveContentItemsByGroupIdAsync(
+        ValueTask<IReadOnlyList<ContentItem>> RetrieveContentItemsByGroupIdAsync(
             Guid groupId,
             CancellationToken cancellationToken = default);
 

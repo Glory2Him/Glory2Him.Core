@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -428,20 +429,86 @@ namespace Glory2Him.WebApp.Controllers.Links
         /// Every version of one group (§17.1 <c>/groups/{groupId}</c>), under the same per-caller
         /// filter as <see cref="Get"/>.
         /// </summary>
+        ///
+        /// <remarks>
+        /// <para><b>Why this route allows less than <see cref="Get"/> does.</b> The service hands
+        /// back a materialised set, so <see cref="EnableQueryAttribute"/> composes over
+        /// LINQ-to-Objects rather than pushing into SQL, and two options change meaning in that
+        /// move:</para>
+        ///
+        /// <para><c>$filter</c> compares ORDINALLY in memory - OData binds <c>eq</c> to
+        /// <c>Expression.Equal</c> and <c>contains</c> to <c>string.Contains(string)</c> - where
+        /// the catalogue's <c>SQL_Latin1_General_CP1_CI_AS</c> collation is case-INSENSITIVE. The
+        /// same filter that matches on <see cref="Get"/> would silently match nothing here.</para>
+        ///
+        /// <para><c>$orderby</c> is NOT ordinal, and an earlier version of this comment said it
+        /// was. In memory it is <c>Comparer&lt;string&gt;.Default</c>, i.e. the SERVER'S current
+        /// culture through ICU - which is a different divergence, not an absent one. It still
+        /// disagrees with the catalogue (measured: <c>Coop</c> and <c>co-op</c> swap, and the CI
+        /// collation treats <c>Alpha</c> and <c>alpha</c> as equal where ICU orders lowercase
+        /// first), and it additionally makes the answer depend on the HOST'S culture
+        /// configuration. Both are reasons to refuse it.</para>
+        ///
+        /// <para><b>This is an ALLOW-LIST, so it refuses more than those two.</b> Also rejected
+        /// with 400: <c>$select</c>, <c>$expand</c>, <c>$search</c>, <c>$compute</c>,
+        /// <c>$apply</c>, <c>$format</c>, <c>$skiptoken</c> and <c>$deltatoken</c>. Of these only
+        /// <c>$select</c> is safe on the merits - it projects rather than compares, and its
+        /// property-name resolution is culture-invariant (verified under <c>tr-TR</c>) - but
+        /// allowing it would serve a DIFFERENTLY-CASED payload from this one route, because OData
+        /// serialises a projection through its own converter in PascalCase and bypasses the
+        /// application's camelCase policy, and it silently returns empty objects for nested
+        /// members. It stays out until a client is ready for that; the reason is presentation,
+        /// not correctness.</para>
+        ///
+        /// <para><b>Paging.</b> <c>$top</c> and <c>$skip</c> are positional and carry no
+        /// comparison, so they stay - but the order they page is NOT free. OData's
+        /// <c>EnsureStableOrdering</c> would impose its own ordering by the entity key, which for
+        /// a version lineage means Guid order, and it DISCARDS any ordering applied upstream. So
+        /// it is turned off here, and the foundation orders by <c>Version</c> instead; the two
+        /// belong together, because either alone leaves this route unordered or meaninglessly
+        /// ordered. <c>$count</c> is allowed but inert on a bare JSON array - no
+        /// <c>@odata.count</c> is emitted, and page truncation emits no <c>@odata.nextLink</c>.</para>
+        /// </remarks>
         [HttpGet("Groups/{groupId}")]
-        [EnableQuery]
+        [EnableQuery(
+            EnsureStableOrdering = false,
+            AllowedQueryOptions =
+                AllowedQueryOptions.Top | AllowedQueryOptions.Skip | AllowedQueryOptions.Count)]
         [AllowAnonymous]
-        public async ValueTask<ActionResult<IQueryable<Link>>> GetLinksByGroupId(
+        public async ValueTask<ActionResult<IReadOnlyList<Link>>> GetLinksByGroupId(
             Guid groupId,
             CancellationToken cancellationToken)
         {
             try
             {
-                IQueryable<Link> retrievedLinks =
+                // A MATERIALISED set, not a live queryable: the read executes in the service with
+                // the caller's token instead of on this thread when the response is serialised.
+                //
+                // The cost, stated plainly: SQL now sees WHERE GroupId = @g and no TOP, so the
+                // whole lineage crosses the wire and is filtered and paged HERE. A group is one
+                // link's version lineage, seeked on the unique (GroupId, Version) index —
+                // small in practice, but no invariant bounds it.
+                IReadOnlyList<Link> retrievedLinks =
                     await this.linkProcessingService
                         .RetrieveLinksByGroupIdAsync(groupId, cancellationToken);
 
                 return Ok(retrievedLinks);
+            }
+            // A BAD GROUP ID IS THE CALLER'S, so it answers 400. Without these two arms the
+            // validation exception escaped the action and ASP.NET turned it into a 500, filing a
+            // server-fault log for a malformed route parameter - while the sibling
+            // Groups/{groupId}/Latest route below answered 400 for the same input.
+            //
+            // No NotFound arm, and that is not an omission: an unknown group is an EMPTY LIST
+            // here, not an error, so a collection read has no not-found case to report. Nor can it
+            // conflict or lock, which is why the sibling's remaining arms are absent too.
+            catch (LinkProcessingValidationException linkProcessingValidationException)
+            {
+                return BadRequest(linkProcessingValidationException.InnerException);
+            }
+            catch (LinkProcessingDependencyValidationException linkProcessingDependencyValidationException)
+            {
+                return BadRequest(linkProcessingDependencyValidationException.InnerException);
             }
             catch (LinkProcessingDependencyException linkProcessingDependencyException)
             {

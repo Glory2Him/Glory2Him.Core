@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using EFxceptions.Models.Exceptions;
@@ -26,6 +27,9 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviewRequests
     {
         private delegate ValueTask<ApprovalReviewRequest> ReturningApprovalReviewRequestFunction();
         private delegate ValueTask<IQueryable<ApprovalReviewRequest>> ReturningApprovalReviewRequestsFunction();
+
+        private delegate ValueTask<IReadOnlyList<ApprovalReviewRequest>>
+            ReturningApprovalReviewRequestListFunction();
 
         private delegate ValueTask<EventEnvelope<ApprovalReviewRequest>?>
             ReturningApprovalReviewRequestEventEnvelopeFunction();
@@ -302,6 +306,71 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviewRequests
             catch (OperationCanceledException)
             {
                 throw;
+            }
+            catch (SqlException sqlException)
+            {
+                var failedStorageApprovalReviewRequestException = new FailedStorageApprovalReviewRequestException(
+                    message: "Failed approval review request storage error occurred, contact support.",
+                    innerException: sqlException,
+                    data: sqlException.Data);
+
+                throw await CreateAndLogCriticalDependencyExceptionAsync(exception: failedStorageApprovalReviewRequestException);
+            }
+            catch (Exception exception)
+            {
+                var failedApprovalReviewRequestServiceException = new FailedApprovalReviewRequestServiceException(
+                    message: "Failed approval review request service error occurred, please contact support.",
+                    innerException: exception,
+                    data: exception.Data);
+
+                throw await CreateAndLogServiceExceptionAsync(failedApprovalReviewRequestServiceException);
+            }
+        }
+
+        // The queryable read's taxonomy over a materialised result, PLUS the two validation arms
+        // it has no use for. The keyed read guards its id - an unresolved round would key on
+        // Guid.Empty and answer with an empty list - and without these arms that guard threw
+        // InvalidApprovalReviewRequestException straight into catch (Exception), telling the
+        // caller their own bad input was a server fault and filing an error log for it.
+        private async ValueTask<IReadOnlyList<ApprovalReviewRequest>> TryCatchList(
+            ReturningApprovalReviewRequestListFunction returningApprovalReviewRequestListFunction)
+        {
+            try
+            {
+                return await returningApprovalReviewRequestListFunction();
+            }
+            catch (OperationCanceledException operationCanceledException)
+                when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
+            {
+                var timeoutException =
+                    new TimeoutException("The dependency operation timed out.");
+
+                var timeoutApprovalReviewRequestException =
+                    new TimeoutApprovalReviewRequestException(
+                        message: "Failed approval review request timeout error occurred, contact support.",
+                        innerException: timeoutException,
+                        data: timeoutException.Data);
+
+                throw await CreateAndLogTimeoutDependencyExceptionAsync(exception: timeoutApprovalReviewRequestException);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            // THE UNAUTHORIZED ARM CANNOT FIRE TODAY: none of the members this wraps runs a
+            // contribution gate, because a collection read is governed by its visibility filter
+            // instead. It is here so the wrapper matches its siblings, and so adding a gate later
+            // needs no second thought.
+            //
+            // The INVALID arm below is the one these reads do need - they guard their id, and
+            // without it a caller's Guid.Empty came back as a ServiceException.
+            catch (UnauthorizedApprovalReviewRequestException unauthorizedApprovalReviewRequestException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: unauthorizedApprovalReviewRequestException);
+            }
+            catch (InvalidApprovalReviewRequestException invalidApprovalReviewRequestException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: invalidApprovalReviewRequestException);
             }
             catch (SqlException sqlException)
             {

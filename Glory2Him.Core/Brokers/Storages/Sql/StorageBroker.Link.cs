@@ -28,6 +28,45 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             CancellationToken cancellationToken = default) =>
             await InsertAsync(link, cancellationToken);
 
+        public async ValueTask<List<Link>> SelectLinksByGroupIdAsync(
+            Guid groupId,
+            CancellationToken cancellationToken = default) =>
+            await Links
+                .Where(link => link.GroupId == groupId)
+                .ToListAsync(cancellationToken);
+
+        public async ValueTask<List<int>> SelectLinkVersionsInGroupAsync(
+            Guid groupId,
+            CancellationToken cancellationToken = default) =>
+            await Links
+                .Where(link => link.GroupId == groupId)
+                .Select(link => link.Version)
+                .ToListAsync(cancellationToken);
+
+        public async ValueTask<bool> ExistsHigherLiveLinkVersionInGroupAsync(
+            Guid groupId,
+            int version,
+            CancellationToken cancellationToken = default) =>
+            await Links
+                .AnyAsync(
+                    link =>
+                        link.GroupId == groupId
+                            && link.IsDeleted == false
+                            && link.Version > version,
+                    cancellationToken);
+
+        public async ValueTask<Link?> SelectPublishedLinkInGroupAsync(
+            Guid groupId,
+            Guid excludedLinkId,
+            CancellationToken cancellationToken = default) =>
+            await Links
+                .FirstOrDefaultAsync(
+                    link =>
+                        link.GroupId == groupId
+                            && link.IsPublished
+                            && link.Id != excludedLinkId,
+                    cancellationToken);
+
         public async ValueTask<IQueryable<Link>> SelectAllLinksAsync(
             CancellationToken cancellationToken = default) =>
             await SelectAllAsync<Link>(cancellationToken);

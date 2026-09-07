@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Microsoft.EntityFrameworkCore;
 
@@ -27,6 +28,68 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             ContentItem contentItem,
             CancellationToken cancellationToken = default) =>
             await InsertAsync(contentItem, cancellationToken);
+
+        public async ValueTask<List<ContentItem>> SelectContentItemsByGroupIdAsync(
+            Guid groupId,
+            CancellationToken cancellationToken = default) =>
+            await ContentItems
+                .Where(contentItem => contentItem.GroupId == groupId)
+                .ToListAsync(cancellationToken);
+
+        public async ValueTask<List<int>> SelectContentItemVersionsInGroupAsync(
+            Guid groupId,
+            CancellationToken cancellationToken = default) =>
+            await ContentItems
+                .Where(contentItem => contentItem.GroupId == groupId)
+                .Select(contentItem => contentItem.Version)
+                .ToListAsync(cancellationToken);
+
+        public async ValueTask<ContentItem?> SelectPublishedContentItemInGroupAsync(
+            Guid groupId,
+            Guid excludedContentItemId,
+            CancellationToken cancellationToken = default) =>
+            await ContentItems
+                .FirstOrDefaultAsync(
+                    contentItem =>
+                        contentItem.GroupId == groupId
+                            && contentItem.IsPublished
+                            && contentItem.Id != excludedContentItemId,
+                    cancellationToken);
+
+        public async ValueTask<ContentItem?> SelectContentItemInGroupAsync(
+            Guid groupId,
+            CancellationToken cancellationToken = default) =>
+            await ContentItems
+                .FirstOrDefaultAsync(
+                    contentItem => contentItem.GroupId == groupId,
+                    cancellationToken);
+
+        public async ValueTask<bool> ExistsHigherLiveContentItemVersionInGroupAsync(
+            Guid groupId,
+            int version,
+            CancellationToken cancellationToken = default) =>
+            await ContentItems
+                .AnyAsync(
+                    contentItem =>
+                        contentItem.GroupId == groupId
+                            && contentItem.IsDeleted == false
+                            && contentItem.Version > version,
+                    cancellationToken);
+
+        public async ValueTask<bool> ExistsContentItemContentAsync(
+            ContentType contentType,
+            string contentHash,
+            Guid? excludedGroupId = null,
+            CancellationToken cancellationToken = default) =>
+            await ContentItems
+                .AnyAsync(
+                    contentItem =>
+                        contentItem.ContentType == contentType
+                            && contentItem.ContentHash == contentHash
+                            && contentItem.IsDeleted == false
+                            && (excludedGroupId == null
+                                || contentItem.GroupId != excludedGroupId),
+                    cancellationToken);
 
         public async ValueTask<IQueryable<ContentItem>> SelectAllContentItemsAsync(
             CancellationToken cancellationToken = default) =>

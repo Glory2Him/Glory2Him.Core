@@ -58,6 +58,18 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             this.approvalServiceMock = new Mock<IApprovalWorkflowService>();
             this.approvalReviewServiceMock = new Mock<IApprovalReviewWorkflowService>();
             this.approvalCommentServiceMock = new Mock<IApprovalCommentService>();
+
+            // A ROUND WITH NO COMMENTS, unless a test says otherwise. Moq's default for
+            // ValueTask<IQueryable<T>> is an EMPTY queryable, but for ValueTask<IReadOnlyList<T>>
+            // it is NULL - so when this read stopped handing back a queryable, every test that
+            // never mentioned comments began dereferencing null. Stated here once rather than
+            // left to a default that differs by return type.
+            this.approvalCommentServiceMock.Setup(service =>
+                service.RetrieveApprovalCommentsByApprovalIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(
+                            (IReadOnlyList<global::Glory2Him.Core.Models.Foundations.ApprovalComments.ApprovalComment>)
+                                new List<global::Glory2Him.Core.Models.Foundations.ApprovalComments.ApprovalComment>());
             this.approvalReviewRequestServiceMock = new Mock<IApprovalReviewRequestService>();
 
             this.approvalReviewRequestWorkflowServiceMock =

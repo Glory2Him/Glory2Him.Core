@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Microsoft.EntityFrameworkCore;
 
@@ -26,6 +27,75 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
         public async ValueTask<Association> InsertAssociationAsync(
             Association association, CancellationToken cancellationToken = default) =>
                 await InsertAsync(association, cancellationToken);
+
+        public async ValueTask<Association?> SelectAssociationByPairAsync(
+            EntityType entityAType,
+            EntityType entityBType,
+            Guid entityAEffectiveId,
+            Guid entityBEffectiveId,
+            string userId,
+            CancellationToken cancellationToken = default) =>
+            await Associations
+                .Where(association =>
+                    association.EntityAType == entityAType
+                        && association.EntityBType == entityBType
+                        && association.EntityAEffectiveId == entityAEffectiveId
+                        && association.EntityBEffectiveId == entityBEffectiveId
+                        && association.UserId == userId)
+                .OrderBy(association => association.IsDeleted)
+                .ThenByDescending(association => association.UpdatedWhen)
+                .FirstOrDefaultAsync(cancellationToken);
+
+        public async ValueTask<Association?> SelectOverlappingAssociationAsync(
+            EntityType entityAType,
+            EntityType entityBType,
+            string userId,
+            Guid entityAGroupId,
+            Guid entityBGroupId,
+            Scope entityAScope,
+            Scope entityBScope,
+            Guid entityAEffectiveId,
+            Guid entityBEffectiveId,
+            Guid? excludedAssociationId = null,
+            CancellationToken cancellationToken = default) =>
+            await Associations
+                .Where(association =>
+                    association.IsDeleted == false
+                        && (excludedAssociationId == null
+                            || association.Id != excludedAssociationId)
+                        && association.EntityAType == entityAType
+                        && association.EntityBType == entityBType
+                        && association.UserId == userId
+                        && association.EntityAGroupId == entityAGroupId
+                        && association.EntityBGroupId == entityBGroupId
+                        && (entityAScope == Scope.AllVersions
+                            || association.EntityAScope == Scope.AllVersions
+                            || association.EntityAEffectiveId == entityAEffectiveId)
+                        && (entityBScope == Scope.AllVersions
+                            || association.EntityBScope == Scope.AllVersions
+                            || association.EntityBEffectiveId == entityBEffectiveId))
+                .OrderByDescending(association => association.UpdatedWhen)
+                .FirstOrDefaultAsync(cancellationToken);
+
+        public async ValueTask<bool> ExistsLiveAssociationOnPairAsync(
+            EntityType entityAType,
+            EntityType entityBType,
+            string userId,
+            Guid entityAEffectiveId,
+            Guid entityBEffectiveId,
+            Guid excludedAssociationId,
+            CancellationToken cancellationToken = default) =>
+            await Associations
+                .AnyAsync(
+                    association =>
+                        association.Id != excludedAssociationId
+                            && association.IsDeleted == false
+                            && association.EntityAType == entityAType
+                            && association.EntityBType == entityBType
+                            && association.UserId == userId
+                            && association.EntityAEffectiveId == entityAEffectiveId
+                            && association.EntityBEffectiveId == entityBEffectiveId,
+                    cancellationToken);
 
         public async ValueTask<IQueryable<Association>> SelectAllAssociationsAsync(
             CancellationToken cancellationToken = default) =>

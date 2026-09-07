@@ -26,19 +26,62 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 {
     public partial class ContentItemServiceTests
     {
-        // These tests sit against the STORAGE BROKER, one layer below the probe, because that is
-        // the only seam at which "does this read filter tombstones" can be answered. The
-        // publication swap's own tests mock this probe, so they cannot see its predicate — which
-        // is exactly how the original defect survived: the swap used the visibility-filtered
-        // collection read while its test stubbed that read to return the tombstone anyway.
+        // WHAT THESE TESTS CAN AND CANNOT SAY. They stub the narrow storage reads, so they sit
+        // ABOVE the predicate rather than at it — "does this read filter tombstones" is no longer
+        // answerable here, and the stubs below deliberately do not pretend otherwise. That
+        // question is answered against a real catalogue in ContentItemNarrowReadTests.
+        //
+        // What is still proved here is the half the SERVICE owns and the broker cannot: that the
+        // group is taken off the STORED row rather than from the caller, that the target excludes
+        // itself, and that the high-water mark counts what it is handed. That distinction matters
+        // because of how the original defect survived — the swap used the visibility-filtered
+        // collection read while its test stubbed that read to return the tombstone anyway. A stub
+        // that re-implements the predicate reproduces exactly that blind spot.
+
+        /// <summary>
+        /// A bad id is the CALLER's fault and must be reported as one. The guard lives inside
+        /// TryCatchList, which originally had no Invalid/Unauthorized arm - so the exception fell
+        /// through to catch (Exception) and came back as a ContentItemServiceException, telling
+        /// the caller "contact support" and filing an error log for their own bad input.
+        /// </summary>
         [Fact]
-        public async Task ShouldFindThePublishedTombstoneHoldingTheGroupSlotAsync()
+        public async Task ShouldThrowValidationExceptionOnRetrieveByGroupIdIfGroupIdIsInvalidAsync()
         {
-            // given: THE case the probe exists for. A soft delete never clears IsPublished and
-            // the slot index names that column alone, so a removed row still occupies the group's
-            // published slot — while being invisible to every caller-facing read. A probe that
-            // filtered it out would report no incumbent, the swap would skip the demote, and the
-            // promote would be refused by the unique index for every future approval in the group.
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+
+            // when
+            ValueTask<IReadOnlyList<ContentItem>> retrieveTask =
+                this.contentItemService.RetrieveContentItemsByGroupIdAsync(
+                    Guid.Empty,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemValidationException actualException =
+                await Assert.ThrowsAsync<ContentItemValidationException>(retrieveTask.AsTask);
+
+            // then
+            actualException.InnerException.Should().BeOfType<InvalidContentItemException>();
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectContentItemsByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        /// <summary>
+        /// The service resolves the group off the STORED target row and returns whatever the slot
+        /// read names — including a row no caller-facing read would show, because the probe never
+        /// consults one.
+        ///
+        /// <para>That the slot read itself is UNFILTERED — a soft delete never clears IsPublished
+        /// and the slot index names that column alone, so a tombstone still holds the slot — is a
+        /// storage predicate, proved in <c>ContentItemNarrowReadTests</c>. It cannot be proved from
+        /// here, and this stub does not pretend to.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnWhateverRowHoldsTheGroupSlotAsync()
+        {
+            // given
             var groupId = Guid.Parse("dddddddd-1111-1111-1111-111111111111");
             var tombstoneId = Guid.Parse("dddddddd-2222-2222-2222-222222222222");
             var targetId = Guid.Parse("dddddddd-3333-3333-3333-333333333333");
@@ -49,6 +92,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             ContentItem target = CreateProbeRow(
                 id: targetId, groupId: groupId, isPublished: false, isDeleted: false);
 
+            this.publishedContentItemId = tombstoneId;
             SetupProbeStore(tombstone, target);
 
             // when
@@ -61,19 +105,29 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             actualId.Should().Be(tombstoneId);
         }
 
+
+        /// <summary>
+        /// THE TARGET MUST NOT FIND ITSELF. The storage read is told which row to ignore, and the
+        /// service supplies the target's own id for it — so this seeds a store whose only
+        /// slot-holder IS the target. A service that passed the wrong id, or Guid.Empty, gets the
+        /// target back and the swap would demote the very row it is promoting.
+        ///
+        /// <para>The other probe tests cannot catch that: their incumbent is a different row, so
+        /// the exclusion never decides the answer.</para>
+        /// </summary>
         [Fact]
-        public async Task ShouldFindNoPublishedRowWhenTheGroupSlotIsFreeAsync()
+        public async Task ShouldNotReturnTheTargetItselfAsTheGroupIncumbentAsync()
         {
             // given
-            var groupId = Guid.Parse("eeeeeeee-1111-1111-1111-111111111111");
-            var targetId = Guid.Parse("eeeeeeee-3333-3333-3333-333333333333");
+            var groupId = Guid.Parse("aaaa1111-1111-1111-1111-111111111111");
+            var targetId = Guid.Parse("aaaa1111-3333-3333-3333-333333333333");
 
-            SetupProbeStore(
-                CreateProbeRow(
-                    id: Guid.Parse("eeeeeeee-2222-2222-2222-222222222222"),
-                    groupId: groupId, isPublished: false, isDeleted: false),
-                CreateProbeRow(
-                    id: targetId, groupId: groupId, isPublished: false, isDeleted: false));
+            ContentItem publishedTarget = CreateProbeRow(
+                id: targetId, groupId: groupId, isPublished: true, isDeleted: false);
+
+            // the storage read would name the TARGET, so only the excluded id can refuse it
+            this.publishedContentItemId = targetId;
+            SetupProbeStore(publishedTarget);
 
             // when
             Guid? actualId = await this.contentItemService.FindPublishedSiblingContentItemIdAsync(
@@ -83,13 +137,69 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
             // then
             actualId.Should().BeNull();
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectPublishedContentItemInGroupAsync(
+                    groupId, targetId, It.IsAny<CancellationToken>()),
+                Times.Once);
         }
 
+        /// <summary>
+        /// A free slot answers null rather than reaching for another group's incumbent. The store
+        /// deliberately HAS a published row - in a different group - and names it as the row the
+        /// slot read would return, so the group the service passes is the only thing that refuses
+        /// it. Seeding nothing published would have made this pass whatever the service asked for.
+        /// </summary>
+        [Fact]
+        public async Task ShouldFindNoPublishedRowWhenTheGroupSlotIsFreeAsync()
+        {
+            // given
+            var groupId = Guid.Parse("eeeeeeee-1111-1111-1111-111111111111");
+            var targetId = Guid.Parse("eeeeeeee-3333-3333-3333-333333333333");
+            var otherGroupIncumbentId = Guid.Parse("eeeeeeee-4444-4444-4444-444444444444");
+
+            this.publishedContentItemId = otherGroupIncumbentId;
+
+            SetupProbeStore(
+                CreateProbeRow(
+                    id: Guid.Parse("eeeeeeee-2222-2222-2222-222222222222"),
+                    groupId: groupId, isPublished: false, isDeleted: false),
+                CreateProbeRow(
+                    id: targetId, groupId: groupId, isPublished: false, isDeleted: false),
+
+                // published, and the slot read would name it - but it is another group's
+                CreateProbeRow(
+                    id: otherGroupIncumbentId,
+                    groupId: Guid.Parse("eeeeeeee-9999-9999-9999-999999999999"),
+                    isPublished: true, isDeleted: false));
+
+            // when
+            Guid? actualId = await this.contentItemService.FindPublishedSiblingContentItemIdAsync(
+                contentItemId: targetId,
+                inboundEnvelope: CreateProbeEnvelope(targetId),
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            actualId.Should().BeNull();
+
+            // and the group it asked about was the STORED row's, not the caller's
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectPublishedContentItemInGroupAsync(
+                    groupId, targetId, It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
+        /// <summary>
+        /// The two conjuncts the SERVICE supplies as arguments: the group, taken off the stored
+        /// target row rather than from the caller, and the target's own id, which the probe must
+        /// exclude so a row cannot find itself. A weaker call returns the wrong row here.
+        /// </summary>
         [Fact]
         public async Task ShouldExcludeTheTargetAndOtherGroupsFromThePublishedProbeAsync()
         {
-            // given: one decoy per conjunct, so a weaker predicate returns the wrong row rather
-            // than merely being able to.
+            // given: a decoy for each argument the service chooses. The IsPublished decoy is left
+            // in as documentation of the storage predicate, which is proved elsewhere.
+            this.publishedContentItemId = Guid.Parse("ffffffff-4444-4444-4444-444444444444");
             var groupId = Guid.Parse("ffffffff-1111-1111-1111-111111111111");
             var otherGroupId = Guid.Parse("ffffffff-9999-9999-9999-999999999999");
             var targetId = Guid.Parse("ffffffff-3333-3333-3333-333333333333");
@@ -140,7 +250,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             await Assert.ThrowsAsync<ContentItemValidationException>(probeTask.AsTask);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllContentItemsAsync(It.IsAny<CancellationToken>()),
+                broker.SelectContentItemVersionsInGroupAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
                 Times.Never);
         }
 
@@ -202,14 +313,43 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             actualHighestVersion.Should().Be(0);
         }
 
-        // The probe resolves its target by id and then reads the whole store, so the stub
-        // answers both. Every row goes into SelectXByIdAsync as well, which is what lets a
-        // ported test name any of them as the target.
+        // The probe resolves its target by id and then asks the storage layer two NARROW
+        // questions - which row holds the group's published slot, and what version numbers the
+        // group already owns. The stub answers both over the seeded rows, applying the arguments
+        // the SERVICE chooses: the group, which comes off the STORED row rather than from the
+        // caller, and the excluded id.
+        //
+        // The PREDICATES themselves - that the slot read is unfiltered so a tombstone still holds
+        // the slot, and that the version read counts tombstones (#271) - are no longer visible at
+        // this seam, because they moved into IStorageBroker with the await that lets the caller's
+        // token reach the database. They are proved against a real catalogue in
+        // ContentItemNarrowReadTests, which is a stronger statement than this seam could make:
+        // LINQ-to-Objects never had to translate them.
+        // Which row the STORAGE read would name as the group's published incumbent. Set by a test
+        // that cares; left empty otherwise, in which case the probe finds nothing.
+        private Guid publishedContentItemId;
+
         private void SetupProbeStore(params ContentItem[] rows)
         {
+            // Keyed on the GROUP and the EXCLUDED ID only — the two things the service decides.
+            // IsPublished is deliberately NOT evaluated here: that is the storage predicate, and a
+            // stub that re-implemented it would pass whether or not the real read still carried it.
             this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(rows.AsQueryable());
+                broker.SelectPublishedContentItemInGroupAsync(
+                    It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((Guid groupId, Guid excludedContentItemId, CancellationToken _) =>
+                            rows.FirstOrDefault(row =>
+                                row.GroupId == groupId
+                                    && row.Id != excludedContentItemId
+                                    && row.Id == publishedContentItemId));
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectContentItemVersionsInGroupAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((Guid groupId, CancellationToken _) =>
+                            rows.Where(row => row.GroupId == groupId)
+                                .Select(row => row.Version)
+                                .ToList());
 
             foreach (ContentItem row in rows)
             {
@@ -289,7 +429,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 Times.Never);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllContentItemsAsync(It.IsAny<CancellationToken>()),
+                broker.SelectContentItemVersionsInGroupAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
                 Times.Never);
         }
 
@@ -317,7 +458,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
             // and it never went on to read the store for an incumbent
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllContentItemsAsync(It.IsAny<CancellationToken>()),
+                broker.SelectContentItemVersionsInGroupAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
                 Times.Never);
         }
 
@@ -344,6 +486,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             ContentItem incumbent = CreateProbeRow(
                 id: incumbentId, groupId: groupId, isPublished: true, isDeleted: false);
 
+            this.publishedContentItemId = incumbentId;
+
             // exactly what CreateSystemAsync produces — no roles, and a subject that is the
             // deciding reviewer rather than the row's owner
             var systemEnvelope = new EventEnvelope<ContentItem>
@@ -364,6 +508,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 broker.SelectContentItemByIdAsync(targetId, It.IsAny<CancellationToken>()))
                     .ReturnsAsync(target);
 
+            this.publishedContentItemId = incumbentId;
             SetupProbeStore(target, incumbent);
 
             // when
