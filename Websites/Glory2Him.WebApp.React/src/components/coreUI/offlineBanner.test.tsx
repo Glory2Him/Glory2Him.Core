@@ -36,4 +36,30 @@ describe('OfflineBanner', () => {
         // then
         expect(screen.getByRole('status')).toHaveTextContent(/offline/i);
     });
+
+    // Regression guard: an in-flow banner placed before the header would already be scrolled
+    // out of view by the time useStickyHeader.ts fixes the header to the viewport top.
+    it('should stay pinned to the viewport rather than flow with the page', () => {
+        // given
+        setOnLine(false);
+
+        // when
+        render(<OfflineBanner />);
+
+        // then
+        expect(screen.getByRole('status')).toHaveClass('sticky-top');
+    });
+
+    // Regression guard: sticky-top's own default z-index (1020) ties with the header's, and
+    // equal z-index paints in DOM order — the banner is earlier in the DOM, so it would lose.
+    it('should paint above the sticky header rather than being tied with it', () => {
+        // given
+        setOnLine(false);
+
+        // when
+        render(<OfflineBanner />);
+
+        // then
+        expect(screen.getByRole('status')).toHaveStyle({ zIndex: 1030 });
+    });
 });
