@@ -106,10 +106,15 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
             }
 
             // THE SECOND SENTENCE IS NOT PADDING. The tip is derived from an UNFILTERED read, so
-            // this refusal can name a newer version the caller cannot see - a sibling authored
-            // under the system identity, or one imported. Told only "this is not the latest", a
-            // contributor looking at a view where it plainly IS the latest reads a bug rather
-            // than a rule, and raises a ticket nobody can reproduce.
+            // this refusal is not guaranteed to be about a version the caller can see. Told only
+            // "this is not the latest", a contributor looking at a view where it plainly IS the
+            // latest reads a bug rather than a rule, and raises a ticket nobody can reproduce.
+            //
+            // NO ROUTE THAT PRODUCES SUCH A SIBLING IS KNOWN TODAY: forks are owner-only, and the
+            // visibility filter always admits the caller's own rows, so every version of a group
+            // normally shares one author who sees all of them. This is the unfiltered read's
+            // posture written down rather than a case anyone has hit - it costs one sentence, and
+            // it stops the message asserting something the caller cannot check.
             //
             // Saying so leaks nothing: the row being edited is the caller's own, the refusal
             // already implies a successor, and the version is neither named nor described.

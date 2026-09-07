@@ -357,11 +357,13 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviewRequests
             {
                 throw;
             }
-            // The Invalid arm is what these reads need: they guard their id, and without it a
-            // caller's Guid.Empty came back as a ServiceException. The Unauthorized arm cannot
-            // fire today - none of the members this wraps runs a contribution gate, because a
-            // collection read is governed by its visibility filter instead. It is here so the
-            // wrapper matches its siblings, and so adding a gate later needs no second thought.
+            // THE UNAUTHORIZED ARM CANNOT FIRE TODAY: none of the members this wraps runs a
+            // contribution gate, because a collection read is governed by its visibility filter
+            // instead. It is here so the wrapper matches its siblings, and so adding a gate later
+            // needs no second thought.
+            //
+            // The INVALID arm below is the one these reads do need - they guard their id, and
+            // without it a caller's Guid.Empty came back as a ServiceException.
             catch (UnauthorizedApprovalReviewRequestException unauthorizedApprovalReviewRequestException)
             {
                 throw await CreateAndLogValidationExceptionAsync(exception: unauthorizedApprovalReviewRequestException);
