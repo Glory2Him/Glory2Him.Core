@@ -616,8 +616,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
         }
 
         [Theory]
-        [InlineData(ApprovalStatus.Draft, Roles.Reviewers)]
-        [InlineData(ApprovalStatus.Submitted, Roles.ContentItemReviewers)]
+        [InlineData(ApprovalStatus.Draft, Roles.Publishers)]
+        [InlineData(ApprovalStatus.Submitted, Roles.ContentItemPublishers)]
         [InlineData(ApprovalStatus.Submitted, Roles.Publishers)]
         [InlineData(ApprovalStatus.Draft, Roles.ContentItemPublishers)]
         [InlineData(ApprovalStatus.Dismissed, Roles.Administrators)]
@@ -625,11 +625,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             ApprovalStatus approvalStatus,
             string modifyingRole)
         {
-            // given: while an item is not yet decided, a reviewer, Publishers or Administrators
+            // given: while an item is not yet decided, the Publishers tier or Administrators
             // (global or ContentItem-scoped) may modify it in place alongside the owner;
             // the item stays on the same row and their identity lands on UpdatedBy
-            // downstream. A terminal item is deliberately absent — it belongs to its owner
-            // alone, which ShouldThrowValidationExceptionOnModifyIfActorIsNotPermitted covers
+            // downstream. A REVIEWER is deliberately absent — the review tier is out of the
+            // modify gate (§14.7 posture A.3), which the reviewer rows of
+            // ShouldThrowValidationExceptionOnModifyIfActorIsNotPermitted cover. A terminal item
+            // is absent too — it belongs to its owner alone, which
+            // ShouldThrowValidationExceptionOnModifyIfActorIsNotPermitted covers
             ContentItem randomContentItem = CreateRandomContentItem();
             ContentItem inputContentItem = randomContentItem;
             string normalizedContent = NormalizeContent(inputContentItem.Content);

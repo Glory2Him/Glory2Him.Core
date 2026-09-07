@@ -68,6 +68,17 @@
     <!-- Favicon (served from the ASP.NET Core host's wwwroot; proxied by Vite in dev) -->
     <link rel="shortcut icon" href="/assets/images/favicon.ico" />
 
+    <!-- PWA: installed-app icon and Android/iOS chrome colour. The manifest link and the
+         theme-color meta tag are both injected by vite plugins at build time (see
+         vite.config.ts's `themeColor` constant and inject-pwa-theme-color plugin) so the
+         colour has one source instead of two literals that can drift apart. iOS ignores the
+         manifest icons and reads the apple-touch-icon tag instead; it wants 180x180 with no
+         alpha channel (transparent pixels paint black on the home screen), so that file is the
+         512 flattened onto white rather than a reference to one of the manifest icons. -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/pwa/apple-touch-icon-180x180.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Glory 2 Him" />
+
     <!-- Google Font -->
     <link rel="preconnect" href="https://fonts.gstatic.com" />
     <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;700&family=Rubik:wght@400;500;700&display=swap" rel="stylesheet" />

@@ -1,5 +1,56 @@
 import axios, { AxiosResponse } from 'axios';
 
+// navigator.onLine (useOnlineStatus.ts) only reports whether a network adapter is connected,
+// not whether this origin is actually reachable. A response reaching the app at all — even an
+// error response — proves the network works; a request that never got one (no `error.response`)
+// is the real signal of connectivity loss. Exported as named functions rather than an inline
+// interceptor so a test can invoke them directly without faking real HTTP traffic.
+export const NETWORK_REACHABLE_EVENT = 'g2h-network-reachable';
+export const NETWORK_UNREACHABLE_EVENT = 'g2h-network-unreachable';
+
+// This interceptor is registered on the shared axios module, so it sees every request the app
+// makes — not just the same-origin ones GetAsync/PostAsync/etc. build. GetAsyncAbsolute exists
+// for a caller-supplied absolute URI, which could be cross-origin; a third-party outage there
+// says nothing about whether OUR origin is reachable, so only same-origin requests get to
+// report connectivity. Resolved against config.baseURL (falling back to our own origin) rather
+// than just window.location.origin, so a same-origin *relative* url doesn't read as same-origin
+// by construction the day something ever points ApiBroker at a baseURL of its own.
+const isSameOriginRequest = (config: { url?: string; baseURL?: string } | undefined): boolean => {
+    if (!config?.url) {
+        return false;
+    }
+
+    try {
+        return new URL(config.url, config.baseURL ?? window.location.origin).origin
+            === window.location.origin;
+    } catch {
+        return false;
+    }
+};
+
+export const markNetworkReachable = (response: AxiosResponse): AxiosResponse => {
+    if (isSameOriginRequest(response.config)) {
+        window.dispatchEvent(new Event(NETWORK_REACHABLE_EVENT));
+    }
+
+    return response;
+};
+
+export const markNetworkUnreachableIfUnreachable = (error: unknown): Promise<never> => {
+    // A cancelled request (AbortController/CancelToken) never gets a response either, but that
+    // means "something else superseded this call," not "the network is down" — axios.isCancel
+    // is the documented way to tell the two apart. No caller passes a signal through ApiBroker
+    // today, so this only guards against the first one that does.
+    if (axios.isAxiosError(error) && !error.response && !axios.isCancel(error)
+        && isSameOriginRequest(error.config)) {
+        window.dispatchEvent(new Event(NETWORK_UNREACHABLE_EVENT));
+    }
+
+    return Promise.reject(error);
+};
+
+axios.interceptors.response.use(markNetworkReachable, markNetworkUnreachableIfUnreachable);
+
 // Cookie-based authentication (ASP.NET Core Identity) — the browser sends the
 // auth cookie automatically on same-origin requests, so no token handling is
 // required here. In dev, Vite proxies /api to the ASP.NET Core host.

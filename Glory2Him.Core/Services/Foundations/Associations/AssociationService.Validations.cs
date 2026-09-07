@@ -218,17 +218,33 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                     association.EntityBType,
                     association.EntityBContentType);
 
-        // row-level write permission: the owner or a review role may write the row — the
-        // narrower workflow rules stay in the orchestration, which needs owner writes for
-        // resubmission and role writes for the publish flip
+        // row-level write permission: the owner or the endpoint-derived PUBLISHER tier may write
+        // the row — the narrower workflow rules stay in the orchestration, which needs owner
+        // writes for resubmission and role writes for the publish flip
+        //
+        // THE REVIEW TIER IS DELIBERATELY ABSENT (§14.7 posture A′ taking posture A.3's wording,
+        // §18.6). A reviewer reviews: they cast approval reviews and write approval comments, and
+        // that is the whole of their authority over somebody else's row. Amending the row
+        // underneath the verdict they are about to cast is not reviewing — it is HR-3 on the
+        // other surface, and this gate used to permit it while HR-3 refused the status change one
+        // field away.
+        //
+        // HasReviewRoleForAssociation is untouched and still used: it is what admits the review
+        // tier to non-public READS and to audit (§14.5, §14.7 posture A.4). A reviewer must still
+        // see the pairing they are reviewing; they simply may no longer write it.
+        //
+        // The publisher tier's amendment window is Draft and Submitted, and it is bounded not
+        // here but by ValidateStorageAssociationIsNotTerminal on the same path — which reads the
+        // STORED row, never the caller's copy, so nobody self-certifies past the terminal bar.
+        //
         // Returns whether the caller may also use the Draft <-> Submitted carve-out (design
         // §9.2 rules 4-6). The answer falls out of the ownership check this method already
         // performs, so it is returned rather than recomputed - a second GetUserIdAsync would
-        // be a wasted call and a second chance for the two answers to disagree.
-        //
-        // Note what the carve-out is NOT gated on: write permission. A reviewer passes the
-        // check below and may amend content, and must still never move an approval status
-        // (§8.6 HR-3).
+        // be a wasted call and a second chance for the two answers to disagree. Since this ruling
+        // the two questions have the same answer — everyone the gate admits is the owner or the
+        // publisher tier — and it is still computed rather than assumed, so that widening the
+        // write gate later cannot silently widen the status carve-out along with it (§14.6 rule
+        // 2: a duplicate check can only ever make the pair stricter).
         private async ValueTask<bool> ValidateUserCanModifyStorageAssociationAsync(
             Association storageAssociation,
             SecurityContext securityContext)
@@ -240,7 +256,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                     && storageAssociation.CreatedBy == actorUserId;
 
             if (isOwner is false
-                && HasReviewRoleForAssociation(securityContext, storageAssociation) is false)
+                && HasPublisherRoleForAssociation(securityContext, storageAssociation) is false)
             {
                 throw new UnauthorizedAssociationException(
                     message: "The current user is not allowed to modify this content item association.");
@@ -1023,8 +1039,11 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         // The one carve-out on modify (design §9.2 rules 4-6): the owner may move the status
         // between Draft and Submitted, because submitting is inseparable from the edit that
         // made the work ready. Everything else about the status stays pinned, and the caller
-        // must have been found eligible for the carve-out before this is reached - a reviewer
-        // holds write permission on the row and must still never move the status (HR-3).
+        // must have been found eligible for the carve-out before this is reached. The eligibility
+        // gate now admits only the owner and the publisher tier, so the flag is true wherever this
+        // is reached - it is kept as a parameter rather than assumed, so the pin still states its
+        // own subject and a later widening of the write gate cannot carry the status with it
+        // (HR-3, §14.6 rule 2).
         private static dynamic IsNotAPermittedStatusChangeOnModify(
             ApprovalStatus inputStatus,
             ApprovalStatus storageStatus,

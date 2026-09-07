@@ -220,9 +220,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         public async Task ShouldAllowModifyWhenTheRoleMatchesTheContentTypeAsync()
         {
             // given: the write gate has to honour the narrow tier too, or a content-type
-            // reviewer could read an item for review and then not be able to amend it
+            // publisher could read an item for review and then not be able to correct it.
+            // The role is the narrow PUBLISHER — the review tier is out of the modify gate
+            // entirely now (§14.7 posture A.3), and this test used to assert the opposite
+            // with ReviewersFor.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(
-                Roles.ReviewersFor(EntityType.ContentItem, ContentType.Testimony));
+                Roles.PublishersFor(EntityType.ContentItem, ContentType.Testimony));
 
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string actorUserId = GetRandomString();
@@ -260,7 +263,62 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         [Fact]
         public async Task ShouldDenyModifyWhenTheRoleIsForADifferentContentTypeAsync()
         {
-            // given: rule 4's second half on the write gate
+            // given: rule 4's second half on the write gate. The role is the narrow publisher,
+            // so the refusal is about the CONTENT TYPE and nothing else — a narrow reviewer
+            // would be refused whatever type it named, which is a different rule (below).
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(
+                Roles.PublishersFor(EntityType.ContentItem, ContentType.Testimony));
+
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string actorUserId = GetRandomString();
+            string ownerUserId = GetRandomString();
+
+            ContentItem inputContentItem =
+                CreateRandomModifyContentItem(randomDateTimeOffset, actorUserId);
+
+            inputContentItem.ContentType = ContentType.Story;
+            inputContentItem.CreatedBy = ownerUserId;
+
+            ContentItem storageContentItem = inputContentItem.DeepClone();
+            storageContentItem.UpdatedWhen = storageContentItem.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+
+            var unauthorizedContentItemException = new UnauthorizedContentItemException(
+                message: "The current user is not allowed to modify this content item.");
+
+            var expectedContentItemValidationException = new ContentItemValidationException(
+                message: "Content item validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedContentItemException);
+
+            SetupFailingModifyPathBrokers(
+                inputContentItem, storageContentItem, actorUserId, randomDateTimeOffset);
+
+            // when
+            ValueTask<ContentItem> modifyContentItemTask =
+                this.contentItemService.ModifyContentItemAsync(
+                    inputContentItem,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemValidationException actualContentItemValidationException =
+                await Assert.ThrowsAsync<ContentItemValidationException>(
+                    modifyContentItemTask.AsTask);
+
+            // then
+            actualContentItemValidationException.Should().BeEquivalentTo(
+                expectedContentItemValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        // THE INVERSION, on the narrow tier (§14.7 posture A.3, §18.6). The role matches the
+        // stored content type exactly, so nothing about scope refuses this caller — what refuses
+        // them is that they are a REVIEWER. Before this ruling this row was allowed, and a
+        // ContentItem-Testimony-Reviewers could rewrite the testimony they were reviewing.
+        [Fact]
+        public async Task ShouldDenyModifyWhenTheRoleIsAContentTypeReviewerAsync()
+        {
+            // given
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(
                 Roles.ReviewersFor(EntityType.ContentItem, ContentType.Testimony));
 
@@ -271,7 +329,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             ContentItem inputContentItem =
                 CreateRandomModifyContentItem(randomDateTimeOffset, actorUserId);
 
-            inputContentItem.ContentType = ContentType.Story;
+            inputContentItem.ContentType = ContentType.Testimony;
             inputContentItem.CreatedBy = ownerUserId;
 
             ContentItem storageContentItem = inputContentItem.DeepClone();
@@ -353,8 +411,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         [Fact]
         public async Task ShouldDenyTheSubmissionStatusMoveWhenThePublisherRoleIsForADifferentContentTypeAsync()
         {
-            // given: a Testimony publisher who also holds the coarse reviewer role passes
-            // the write gate on a Story, and must still not move its status
+            // given: a Testimony publisher who ALSO holds the coarse reviewer role, acting on a
+            // Story. The coarse review role used to carry them through the write gate, and the
+            // status pin then refused the move on its own. It no longer carries them anywhere:
+            // the review tier is out of the gate (§14.7 posture A.3) and their publisher grant
+            // names a content type this row is not, so the refusal now arrives one step earlier
+            // and covers the whole write rather than the one field.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(
                 Roles.ContentItemReviewers,
                 Roles.PublishersFor(EntityType.ContentItem, ContentType.Testimony));
@@ -375,18 +437,33 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
             invalidContentItem.ApprovalStatus = ApprovalStatus.Submitted;
 
-            var invalidContentItemException = new InvalidContentItemException(
-                message: "Content item is invalid, fix the errors and try again.");
+            var unauthorizedContentItemException = new UnauthorizedContentItemException(
+                message: "The current user is not allowed to modify this content item.");
 
-            invalidContentItemException.AddData(
-                key: nameof(ContentItem.ApprovalStatus),
-                values: "Value is not the same as storage approval status");
+            var expectedContentItemValidationException = new ContentItemValidationException(
+                message: "Content item validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedContentItemException);
 
             SetupFailingModifyPathBrokers(
                 invalidContentItem, storageContentItem, actorUserId, randomDateTimeOffset);
 
-            // when . then
-            await AssertModifyIsRefusedAsync(invalidContentItem, invalidContentItemException);
+            // when
+            ValueTask<ContentItem> modifyContentItemTask =
+                this.contentItemService.ModifyContentItemAsync(
+                    invalidContentItem,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemValidationException actualContentItemValidationException =
+                await Assert.ThrowsAsync<ContentItemValidationException>(
+                    modifyContentItemTask.AsTask);
+
+            // then
+            actualContentItemValidationException.Should().BeEquivalentTo(
+                expectedContentItemValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()),
+                Times.Never);
         }
     }
 }
