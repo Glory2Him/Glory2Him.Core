@@ -358,7 +358,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
         public async Task ShouldThrowValidationExceptionOnModifyIfStorageCreatedByNotSameAsInputAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string randomUserId = GetRandomString();
             Comment randomComment = CreateRandomModifyComment(randomDateTimeOffset, randomUserId);
@@ -945,7 +945,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
         }
 
         [Fact]
-        public async Task ShouldThrowValidationExceptionOnModifyIfUserIsNotOwnerAndHasNoReviewRoleAndLogItAsync()
+        public async Task ShouldThrowValidationExceptionOnModifyIfUserIsNotOwnerAndHasNoPublisherRoleAndLogItAsync()
         {
             // given
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
@@ -1031,24 +1031,124 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
-        [Fact]
-        public async Task ShouldThrowValidationExceptionOnModifyIfApprovalStatusChangedByNonPublisherAndLogItAsync()
+        // THE INVERSION (§14.7 posture A.3, §18.6). Both rows below used to be ALLOWED: the
+        // review tier was in the modify gate, so a reviewer could rewrite the very text they
+        // were about to cast a verdict on — HR-3 one field away refused them the status and
+        // nothing refused them the content. They keep every read they had; only the write goes.
+        [Theory]
+        [InlineData(Roles.Reviewers)]
+        [InlineData(Roles.CommentReviewers)]
+        public async Task ShouldThrowValidationExceptionOnModifyIfAReviewerModifiesAnotherUsersRowAndLogItAsync(
+            string reviewerRole)
         {
             // given
-            // a reviewer holds write permission but is neither the owner nor in the Publishers
-            // tier, so mayTransitionApprovalStatus is false. The move is Draft -> Submitted — one
-            // the owner or a publisher WOULD be allowed — so the refusal comes from the carve-out
-            // gate, not from the status being a verdict.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(reviewerRole);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string randomUserId = GetRandomString();
-            string ownerUserId = GetRandomString();
+            Comment randomComment = CreateRandomModifyComment(randomDateTimeOffset, randomUserId);
+            Comment inputComment = randomComment;
+            Comment storageComment = randomComment.DeepClone();
+            storageComment.CreatedBy = GetRandomString();
+            storageComment.UpdatedWhen = storageComment.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+
+            var unauthorizedCommentException = new UnauthorizedCommentException(
+                message: "The current user is not allowed to modify this comment.");
+
+            var expectedCommentValidationException = new CommentValidationException(
+                message: "Comment validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedCommentException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(inputComment, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(inputComment);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectCommentByIdAsync(
+                    inputComment.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageComment);
+
+            // when
+            ValueTask<Comment> modifyCommentTask =
+                this.commentService.ModifyCommentAsync(
+                    inputComment,
+                    TestContext.Current.CancellationToken);
+
+            CommentValidationException actualCommentValidationException =
+                await Assert.ThrowsAsync<CommentValidationException>(
+                    modifyCommentTask.AsTask);
+
+            // then
+            actualCommentValidationException.Should().BeEquivalentTo(
+                expectedCommentValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyModifyAuditValuesAsync(inputComment, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Exactly(2));
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectCommentByIdAsync(
+                    inputComment.Id,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateCommentAsync(
+                    It.IsAny<Comment>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedCommentValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnModifyIfApprovalStatusMovesToAVerdictAndLogItAsync()
+        {
+            // given
+            // The carve-out is the Draft <-> Submitted pair and nothing else, so the OWNER —
+            // the caller it is most plainly available to — is still refused a move onto a
+            // verdict through the general modify. Applying a verdict is the approval
+            // transition's alone (§9.7.1 rules 2-3).
+            //
+            // This test used to make the same point with a reviewer, whose
+            // mayTransitionApprovalStatus was false. A reviewer no longer reaches the pin at
+            // all — they are refused the modify itself, one step earlier (§14.7 posture A.3) —
+            // and that refusal is proved by
+            // ShouldThrowValidationExceptionOnModifyIfAReviewerModifiesAnotherUsersRowAndLogItAsync
+            // above.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
             Comment invalidComment = CreateRandomModifyComment(randomDateTimeOffset, randomUserId);
-            invalidComment.CreatedBy = ownerUserId;
             invalidComment.ApprovalStatus = ApprovalStatus.Draft;
             Comment storageComment = invalidComment.DeepClone();
             storageComment.UpdatedWhen = storageComment.UpdatedWhen.AddDays(GetRandomNegativeNumber());
-            invalidComment.ApprovalStatus = ApprovalStatus.Submitted;
+            invalidComment.ApprovalStatus = ApprovalStatus.Approved;
 
             var invalidCommentException =
                 new InvalidCommentException(

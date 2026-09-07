@@ -56,20 +56,37 @@ namespace Glory2Him.Core.Services.Foundations.Tags
                 || securityContext.Roles.Contains(Roles.Administrators);
 
         // the publisher tier: the roles the approve operation itself requires, and the only ones
-        // besides the owner that may move a submission status through the general modify. Strictly
-        // narrower than the review tier — a reviewer is absent by design (§8.6 HR-3).
+        // besides the owner admitted to the general modify at all — both to its content and to the
+        // submission status it may move. Strictly narrower than the review tier — a reviewer is
+        // absent by design (§8.6 HR-3, §14.7 posture A.3).
         private static bool HasPublisherRole(SecurityContext securityContext) =>
             securityContext.Roles.Contains(Roles.Publishers)
                 || securityContext.Roles.Contains(Roles.TagPublishers)
                 || securityContext.Roles.Contains(Roles.Administrators);
 
-        // row-level write permission: the owner or a review role may write the row — the
+        // row-level write permission: the owner or the PUBLISHER tier may write the row — the
         // narrower process rules stay in the orchestration (§14.6 altitude split).
+        //
+        // THE REVIEW TIER IS DELIBERATELY ABSENT (§14.7 posture A.3, §18.6). A reviewer reviews:
+        // they cast approval reviews and write approval comments, and that is the whole of their
+        // authority over somebody else's row. Rewriting the text underneath the verdict they are
+        // about to cast is not reviewing — it is HR-3 on the other surface, and this gate used to
+        // permit it while HR-3 refused the status change one field away.
+        //
+        // HasReviewRole is untouched and still used: it is what admits the review tier to
+        // non-public READS and to audit (§14.5, §14.7 posture A.4). A reviewer must still see the
+        // draft they are reviewing; they simply may no longer edit it.
+        //
+        // The publisher tier's amendment window is Draft and Submitted, and it is bounded not
+        // here but by ValidateStorageTagIsNotTerminal on the same path — which reads the STORED
+        // row, never the caller's copy, so nobody self-certifies past the terminal bar.
         //
         // Returns whether the caller may also use the Draft <-> Submitted carve-out (§9.2): the
         // owner or the Publishers tier. It falls out of the ownership check already performed, so
-        // it is returned rather than recomputed. A reviewer holds write permission but is NOT in
-        // the publisher tier, so it may amend content and still never move the status (HR-3).
+        // it is returned rather than recomputed. Since this ruling the two questions have the same
+        // answer — everyone the gate admits is one or the other — and it is still computed rather
+        // than assumed, so that widening the write gate later cannot silently widen the status
+        // carve-out along with it.
         private async ValueTask<bool> ValidateUserCanModifyStorageTagAsync(
             Tag storageTag,
             SecurityContext securityContext)
@@ -80,7 +97,7 @@ namespace Glory2Him.Core.Services.Foundations.Tags
                 string.IsNullOrWhiteSpace(actorUserId) is false
                     && storageTag.CreatedBy == actorUserId;
 
-            if (isOwner is false && HasReviewRole(securityContext) is false)
+            if (isOwner is false && HasPublisherRole(securityContext) is false)
             {
                 throw new UnauthorizedTagException(
                     message: "The current user is not allowed to modify this tag.");
@@ -498,8 +515,9 @@ namespace Glory2Him.Core.Services.Foundations.Tags
         // The one carve-out on modify (design §9.2 rules 4-6): the owner or Publishers tier may
         // move the status between Draft and Submitted, because submitting is inseparable from the
         // edit that made the work ready. Everything else about the status stays pinned, and the
-        // caller must have been found eligible before this is reached — a reviewer holds write
-        // permission on the row and must still never move the status (HR-3).
+        // caller must have been found eligible before this is reached. The eligibility gate now
+        // admits only those two, so the flag is true wherever this is reached — it is kept as a
+        // parameter rather than assumed, so the pin still states its own subject (HR-3).
         private static dynamic IsNotAPermittedStatusChangeOnModify(
             ApprovalStatus inputStatus,
             ApprovalStatus storageStatus,
