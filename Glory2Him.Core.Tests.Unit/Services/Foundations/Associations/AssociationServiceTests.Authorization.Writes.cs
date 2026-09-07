@@ -32,13 +32,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         public async Task ShouldThrowValidationExceptionOnModifyIfApprovalStateWasChangedAndLogItAsync()
         {
             // given: THE escalation this suite exists to prevent. A caller holding only
-            // Tag-Reviewers now passes the write gate on any association with a Tag endpoint
+            // Tag-Publishers passes the write gate on any association with a Tag endpoint
             // — that is the point of endpoint-derived authorization. If the general modify
             // still carried IApproval, that same caller could take a stranger's pending
             // association and publish it, approving content nobody with authority over the
-            // other endpoint ever saw.
+            // other endpoint ever saw. (The caller here used to be Tag-Reviewers; the review
+            // tier no longer reaches the modify at all, §14.7 posture A.3 and A′.)
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.TagReviewers);
+                CreateAuthenticatedSecurityContext(Roles.TagPublishers);
 
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string attackerUserId = GetRandomString();
@@ -114,7 +115,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         {
             // given
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.TagReviewers);
+                CreateAuthenticatedSecurityContext(Roles.TagPublishers);
 
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string attackerUserId = GetRandomString();
@@ -176,7 +177,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // says WHY, so rewriting the reason defeats the field just as completely as clearing
             // the flag does.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.TagReviewers);
+                CreateAuthenticatedSecurityContext(Roles.TagPublishers);
 
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string attackerUserId = GetRandomString();
@@ -332,9 +333,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         [Fact]
         public async Task ShouldThrowValidationExceptionOnModifyIfANonOwnerMovesTheSubmissionStatusAsync()
         {
-            // given: the other half of the carve-out. A Tag-Reviewers holder has write permission on
-            // the row and may amend it, and must still never move the status (§8.6 HR-3) — so
-            // the flag has to come from OWNERSHIP, not from passing the write gate.
+            // given: the other half of the carve-out, and the refusal has since moved a step
+            // earlier. A Tag-Reviewers holder used to have write permission on the row and was
+            // stopped only at the status (§8.6 HR-3); the review tier is now out of the modify
+            // gate entirely (§14.7 posture A.3 and A′), so they are refused the whole write.
             this.ambientSecurityContext =
                 CreateAuthenticatedSecurityContext(Roles.TagReviewers);
 
@@ -359,16 +361,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             invalidAssociation.ApprovalStatus = ApprovalStatus.Submitted;
 
-            var invalidAssociationException = new InvalidAssociationException(
-                message: "Content item association is invalid, fix the errors and try again.");
-
-            invalidAssociationException.AddData(
-                key: nameof(Association.ApprovalStatus),
-                values: "Value is not the same as storage approval status");
+            var unauthorizedAssociationException = new UnauthorizedAssociationException(
+                message: "The current user is not allowed to modify this content item association.");
 
             var expectedAssociationValidationException = new AssociationValidationException(
                 message: "Content item association validation error occurred, fix the errors and try again.",
-                innerException: invalidAssociationException);
+                innerException: unauthorizedAssociationException);
 
             SetupFailingModifyPathBrokers(
                 invalidAssociation, storageAssociation, invalidAssociation.UpdatedBy, randomDateTimeOffset);
@@ -742,21 +740,24 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         }
 
         [Fact]
-        public async Task ShouldAllowModifyWhenAScopedReviewRoleMatchesAnEndpointAsync()
+        public async Task ShouldAllowModifyWhenAScopedPublisherRoleMatchesAnEndpointAsync()
         {
             // given: the endpoint-derived WRITE permission. Reverting
-            // ValidateUserCanModifyStorageAssociationAsync to the old global-only check must
-            // turn this red — a Tag-Reviewers holder who is not the owner may edit the content of a
-            // Tag association, which is the capability this PR exists to grant.
+            // ValidateUserCanModifyStorageAssociationAsync to a global-only check must turn this
+            // red — a Tag-Publishers holder who is not the owner may edit a Tag association,
+            // which is the capability the endpoint derivation exists to grant. The role is the
+            // PUBLISHER tier: a Tag-Reviewers holder is refused here (§14.7 posture A.3 and A′),
+            // which ShouldThrowValidationExceptionOnModifyIfANonOwnerMovesTheSubmissionStatusAsync
+            // above asserts.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.TagReviewers);
+                CreateAuthenticatedSecurityContext(Roles.TagPublishers);
 
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
-            string reviewerUserId = GetRandomString();
+            string publisherUserId = GetRandomString();
             string ownerUserId = GetRandomString();
 
             Association inputAssociation =
-                CreateRandomModifyAssociation(randomDateTimeOffset, reviewerUserId);
+                CreateRandomModifyAssociation(randomDateTimeOffset, publisherUserId);
 
             inputAssociation.EntityAType = EntityType.BibleReference;
             inputAssociation.EntityAScope = Scope.ThisVersionOnly;
@@ -771,8 +772,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             // nothing on the entity is altered, and that is not an oversight: every non-audit
             // field an Association carries now belongs to a narrow operation and is pinned
-            // against storage here. What this test asserts is the GATE — that a Tag-Reviewers holder
-            // who is not the owner is admitted to the modify path at all.
+            // against storage here. What this test asserts is the GATE — that a Tag-Publishers
+            // holder who is not the owner is admitted to the modify path at all.
             Association expectedAssociation = inputAssociation.DeepClone();
 
             this.securityAuditBrokerMock.Setup(broker =>

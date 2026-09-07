@@ -157,8 +157,9 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 .ToArray();
 
         // the publisher tier: the roles the dedicated approve operation itself requires, and
-        // the only ones besides the owner that may move a submission status through modify.
-        // Strictly narrower than the review tier — a reviewer is absent by design (§8.6 HR-3).
+        // the only ones besides the owner admitted to the general modify at all — both to its
+        // content and to the submission status it may move. Strictly narrower than the review
+        // tier — a reviewer is absent by design (§8.6 HR-3, §14.7 posture A.3).
         private static bool HasPublisherRole(
             SecurityContext securityContext,
             ContentType contentType) =>
@@ -168,19 +169,33 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 || securityContext.Roles.Contains(
                     Roles.PublishersFor(EntityType.ContentItem, contentType));
 
-        // row-level write permission: the owner or a review role may write the row — the
+        // row-level write permission: the owner or the PUBLISHER tier may write the row — the
         // narrower process rules (approved items fork, only the latest version is amended)
         // stay in the orchestration, which needs owner writes to approved rows for the
         // version fork and role writes for the publish flip
         //
+        // THE REVIEW TIER IS DELIBERATELY ABSENT (§14.7 posture A.3, §18.6). A reviewer reviews:
+        // they cast approval reviews and write approval comments, and that is the whole of their
+        // authority over somebody else's row. Rewriting the text underneath the verdict they are
+        // about to cast is not reviewing — it is HR-3 on the other surface, and this gate used to
+        // permit it while HR-3 refused the status change one field away.
+        //
+        // HasReviewRole is untouched and still used: it is what admits the review tier to
+        // non-public READS and to audit (§14.5, §14.7 posture A.4). A reviewer must still see the
+        // draft they are reviewing; they simply may no longer edit it.
+        //
+        // The publisher tier's amendment window is Draft and Submitted, and it is bounded not
+        // here but by ValidateStorageContentItemIsNotTerminal on the same path — which reads the
+        // STORED row, never the caller's copy, so nobody self-certifies past the terminal bar.
+        //
         // Returns whether the caller may also use the Draft <-> Submitted carve-out (design
         // §9.2 rules 4-6). The answer falls out of the ownership check this method already
         // performs, so it is returned rather than recomputed - a second GetUserIdAsync would
-        // be a wasted call and a second chance for the two answers to disagree.
-        //
-        // Note what the carve-out is NOT gated on: write permission. A reviewer passes the
-        // check below and may amend content, and must still never move an approval status
-        // (§8.6 HR-3).
+        // be a wasted call and a second chance for the two answers to disagree. Since this
+        // ruling the two questions have the same answer — everyone the gate admits is the owner
+        // or the publisher tier — and it is still computed rather than assumed, so that widening
+        // the write gate later cannot silently widen the status carve-out along with it
+        // (§14.6 rule 2: a duplicate check can only ever make the pair stricter).
         private async ValueTask<bool> ValidateUserCanModifyStorageContentItemAsync(
             ContentItem storageContentItem,
             SecurityContext securityContext)
@@ -199,7 +214,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     && storageContentItem.CreatedBy == actorUserId;
 
             if (isOwner is false
-                && HasReviewRole(securityContext, storageContentItem.ContentType) is false)
+                && HasPublisherRole(securityContext, storageContentItem.ContentType) is false)
             {
                 throw new UnauthorizedContentItemException(
                     message: "The current user is not allowed to modify this content item.");
@@ -713,8 +728,11 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         // The one carve-out on modify (design §9.2 rules 4-6): an eligible caller may move the
         // status between Draft and Submitted, because submitting is inseparable from the edit
         // that made the work ready. Everything else about the status stays pinned, and the
-        // caller must have been found eligible before this is reached — a reviewer holds write
-        // permission on the row and must still never move the status (§8.6 HR-3).
+        // caller must have been found eligible before this is reached. The eligibility gate now
+        // admits only the owner and the publisher tier, so the flag is true wherever this is
+        // reached — it is kept as a parameter rather than assumed, so the pin still states its
+        // own subject and a later widening of the write gate cannot carry the status with it
+        // (§8.6 HR-3, §14.6 rule 2).
         private static dynamic IsNotAPermittedStatusChangeOnModify(
             ApprovalStatus inputStatus,
             ApprovalStatus storageStatus,
