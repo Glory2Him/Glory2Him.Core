@@ -100,12 +100,13 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         /// context is a forgery surface — anything in-process could hand it an authenticated
         /// context it did not earn. Keeping it internal means only Core's own friend set can reach
         /// it, and a public controller cannot take it through a constructor at all (CS0051).</para>
-        /// </summary>
+        ///
         /// <para>Generic in the SOURCE envelope's content type because it reads nothing off it but
         /// the carried context — the caller here holds a <c>ContentItemSetting</c> request, not a
         /// <c>ContentItem</c> one. The chaining is done inside, through
         /// <c>CreateNextAsync</c>, which copies the security context forward rather than minting
         /// one, exactly as the publication swap's overload does.</para>
+        /// </summary>
         internal ValueTask<ContentItem> RetrieveContentItemByIdAsync<TSource>(
             Guid contentItemId,
             EventEnvelope<TSource> inboundEnvelope,

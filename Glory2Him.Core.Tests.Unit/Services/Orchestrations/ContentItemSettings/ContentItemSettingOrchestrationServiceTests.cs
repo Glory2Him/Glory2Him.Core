@@ -195,6 +195,18 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItemSettings
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() },
             };
 
+        // An envelope with no metadata: nothing to deduplicate on, and Metadata.EventId is
+        // dereferenced further down, so the shape guard has to refuse it rather than let it reach
+        // the read.
+        private static EventEnvelope<ContentItemSetting> CreateRequestEnvelopeWithoutMetadata(
+            ContentItemSetting contentItemSetting) =>
+            new EventEnvelope<ContentItemSetting>
+            {
+                Content = contentItemSetting,
+                SecurityContext = new SecurityContext { IsAuthenticated = true },
+                Metadata = null!,
+            };
+
         private static Guid GetRandomId() => Guid.NewGuid();
 
         private static string GetRandomString() =>

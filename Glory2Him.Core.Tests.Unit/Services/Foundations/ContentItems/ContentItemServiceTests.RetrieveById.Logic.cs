@@ -9,11 +9,13 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
+using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
@@ -93,8 +95,30 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // the row's owner, carried on the envelope rather than found in the ambient context
             SecurityContext ownerSecurityContext = CreateAuthenticatedSecurityContext();
 
-            EventEnvelope<ContentItem> inboundEnvelope =
-                CreateRandomContentItemRequestEnvelope(securityContext: ownerSecurityContext);
+            // A ContentItemSetting-sourced envelope, because that is what the only production
+            // caller holds: ContentItemSettingOrchestrationService is deriving an override's
+            // ContentType and passes the ADD REQUEST it is handling. Testing the same-type case
+            // would leave the cross-type generic instantiation — the one that actually ships —
+            // uncovered.
+            var inboundEnvelope = new EventEnvelope<ContentItemSetting>
+            {
+                Content = new ContentItemSetting { Id = Guid.NewGuid() },
+                SecurityContext = ownerSecurityContext,
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateNextAsync(
+                    It.IsAny<EventEnvelope<ContentItemSetting>>(),
+                    It.IsAny<ContentItem>()))
+                        .Returns((EventEnvelope<ContentItemSetting> source, ContentItem content) =>
+                            new ValueTask<EventEnvelope<ContentItem>>(
+                                new EventEnvelope<ContentItem>
+                                {
+                                    Content = content,
+                                    SecurityContext = source.SecurityContext,
+                                    Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+                                }));
 
             // THE AMBIENT CALLER IS NOBODY. If the overload minted its own context — the defect
             // this exists to prevent — the gate would refuse before the owner test was reached.

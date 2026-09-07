@@ -108,6 +108,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItemSettings
                     It.IsAny<CancellationToken>()),
                 Times.Once);
 
+            this.contentItemSettingServiceMock.Verify(service =>
+                service.HasAlreadyAddedContentItemSettingAsync(
+                    inputEnvelope,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
             this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
             this.contentItemSettingServiceMock.VerifyNoOtherCalls();
@@ -197,6 +203,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItemSettings
                     EnvelopeDirection.Request),
                 Times.Once);
 
+            this.contentItemSettingServiceMock.Verify(service =>
+                service.HasAlreadyAddedContentItemSettingAsync(
+                    inputEnvelope,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
             this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
             this.contentItemSettingServiceMock.VerifyNoOtherCalls();
@@ -254,6 +266,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItemSettings
                     inputEnvelope,
                     "ContentItemSettingAdding",
                     EnvelopeDirection.Request),
+                Times.Once);
+
+            this.contentItemSettingServiceMock.Verify(service =>
+                service.HasAlreadyAddedContentItemSettingAsync(
+                    inputEnvelope,
+                    It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
@@ -319,6 +337,79 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItemSettings
                     inputEnvelope,
                     It.IsAny<CancellationToken>()),
                 Times.Once);
+
+            this.envelopeIntegrityBrokerMock.Verify(broker =>
+                broker.VerifyAsync(
+                    inputEnvelope,
+                    "ContentItemSettingAdding",
+                    EnvelopeDirection.Request),
+                Times.Once);
+
+            this.contentItemSettingServiceMock.Verify(service =>
+                service.HasAlreadyAddedContentItemSettingAsync(
+                    inputEnvelope,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.contentItemSettingServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // A REPLAY DOES NO WORK, which is the property the extra tier could quietly have cost.
+        // Deduplication lives in the foundation, and this handler now runs AHEAD of it — so
+        // without the early probe a re-delivered envelope would read the ContentItem before
+        // anything noticed the event was already applied. That matters when the item has since
+        // been soft-deleted or stopped being visible to the signed caller: the read fails, the
+        // delivery is recorded as an error and retried, for a write that already succeeded.
+        //
+        // Asserted as "the item was never read and the foundation handler was never called",
+        // because a short-circuit that still pays for the read is the bug half-fixed.
+        [Fact]
+        public async Task ShouldReturnNullWithoutResolvingTheContentItemWhenTheAddWasAlreadyAppliedAsync()
+        {
+            // given
+            ContentItemSetting randomContentItemSetting = CreateRandomOverrideRequest();
+
+            EventEnvelope<ContentItemSetting> inputEnvelope =
+                CreateRequestEnvelope(randomContentItemSetting);
+
+            this.contentItemSettingServiceMock.Setup(service =>
+                service.HasAlreadyAddedContentItemSettingAsync(
+                    inputEnvelope,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(true);
+
+            // when
+            EventEnvelope<ContentItemSetting>? actualReplyEnvelope =
+                await this.contentItemSettingOrchestrationService
+                    .OnAddingContentItemSettingAsync(
+                        inputEnvelope,
+                        TestContext.Current.CancellationToken);
+
+            // then
+            actualReplyEnvelope.Should().BeNull();
+
+            this.contentItemSettingServiceMock.Verify(service =>
+                service.HasAlreadyAddedContentItemSettingAsync(
+                    inputEnvelope,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            // the derivation never ran, so a since-deleted item cannot fail a settled replay
+            this.contentItemServiceMock.Verify(service =>
+                service.RetrieveContentItemByIdAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<EventEnvelope<ContentItemSetting>>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.contentItemSettingServiceMock.Verify(service =>
+                service.OnAddingContentItemSettingAsync(
+                    It.IsAny<EventEnvelope<ContentItemSetting>>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
 
             this.envelopeIntegrityBrokerMock.Verify(broker =>
                 broker.VerifyAsync(
@@ -403,14 +494,26 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItemSettings
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
-        // The shape guard the verification cannot stand in for: a null envelope has nothing to
-        // verify, and a null content has nothing to derive from.
-        [Fact]
-        public async Task ShouldThrowValidationExceptionOnAddingIfTheEnvelopeIsNotUsableAndLogItAsync()
+        // The shape guard the verification cannot stand in for, on EVERY arm it guards. A null
+        // envelope has nothing to verify, a null content has nothing to derive from, and null
+        // metadata has no event id to deduplicate on — and each is dereferenced further down
+        // (envelope.Content.ContentItemId, Metadata.EventId), so dropping any one of the three
+        // turns a malformed delivery into a NullReferenceException rather than a refusal.
+        // Testing only the middle arm left the other two free to be deleted silently.
+        public static TheoryData<EventEnvelope<ContentItemSetting>> UnusableEnvelopes() =>
+            new TheoryData<EventEnvelope<ContentItemSetting>>
+            {
+                null,
+                CreateRequestEnvelope(contentItemSetting: null),
+                CreateRequestEnvelopeWithoutMetadata(CreateRandomOverrideRequest()),
+            };
+
+        [Theory]
+        [MemberData(nameof(UnusableEnvelopes))]
+        public async Task ShouldThrowValidationExceptionOnAddingIfTheEnvelopeIsNotUsableAndLogItAsync(
+            EventEnvelope<ContentItemSetting> envelopeWithNoContent)
         {
             // given
-            EventEnvelope<ContentItemSetting> envelopeWithNoContent =
-                CreateRequestEnvelope(contentItemSetting: null);
 
             var invalidContentItemSettingEventOrchestrationException =
                 new InvalidContentItemSettingEventOrchestrationException(

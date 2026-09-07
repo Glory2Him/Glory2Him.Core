@@ -58,6 +58,23 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItemSettings
                     envelope: envelope,
                     operation: ContentItemSettingEventOperation.Adding);
 
+                // AHEAD OF THE DERIVATION, because the derivation is work and a replay should do
+                // none of it. The foundation asks this for itself too, but it asks it after this
+                // handler has already read the ContentItem — and a re-delivered envelope whose
+                // item has since been soft-deleted, or has stopped being visible to the signed
+                // caller, would fail that read and be recorded as a failed delivery for an event
+                // that was already applied. Before this address moved up a tier a duplicate
+                // short-circuited without touching the item at all; it still must.
+                bool alreadyAdded =
+                    await this.contentItemSettingService.HasAlreadyAddedContentItemSettingAsync(
+                        envelope: envelope,
+                        cancellationToken: cancellationToken);
+
+                if (alreadyAdded)
+                {
+                    return null;
+                }
+
                 // AN OVERRIDE'S TYPE IS THE ITEM'S TYPE. A default names no item, so there is
                 // nothing to resolve and its content type is the whole of what it declares —
                 // an administrator saying "this is the Devotional default", and only an

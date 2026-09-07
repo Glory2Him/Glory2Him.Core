@@ -31,32 +31,26 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItemSettings
         // A store that could not ANSWER is a different thing and must not be mistaken for a
         // missing row — IsContentItemNotFound lets those through to the dependency clause in the
         // .Exceptions partial, where they keep their category.
+        //
+        // The METHOD path's read: the item service mints its own envelope, which captures the
+        // ambient caller — and on an HTTP request the ambient caller IS the caller, so that is the
+        // right answer.
         private async ValueTask<ContentItem> ResolveContentItemAsync(
             Guid contentItemId,
-            CancellationToken cancellationToken)
-        {
-            try
-            {
-                return await this.contentItemService.RetrieveContentItemByIdAsync(
+            CancellationToken cancellationToken) =>
+            await ResolveContentItemAsync(
+                contentItemId: contentItemId,
+                read: async () => await this.contentItemService.RetrieveContentItemByIdAsync(
                     contentItemId,
-                    cancellationToken);
-            }
-            catch (Exception contentItemException)
-                when (IsContentItemNotFound(contentItemException))
-            {
-                throw new NotFoundContentItemSettingOrchestrationException(
-                    message: $"The content item was not found with id: {contentItemId}.");
-            }
-        }
+                    cancellationToken));
 
-        // THE EVENT PATH'S RESOLVE, and the only difference from the one above is WHOSE read it
-        // is. That one mints its context from the ambient caller, which on an HTTP request is the
-        // right answer. On a substrate delivery it is not: there may be no ambient context at all,
-        // in which case the read runs unauthenticated and answers not-found for every row that is
-        // not publicly visible — refusing a legitimate override on an unpublished item; or, since
-        // delivery is synchronous inside a publish and HttpContextAccessor flows on an AsyncLocal,
-        // it inherits whoever PUBLISHED, who for a relayed or system-minted envelope is not the
-        // subject the envelope was signed for — resolving a row the signed caller may not see.
+        // THE EVENT PATH'S READ, and the only difference is WHOSE it is. A substrate delivery has
+        // no ambient caller worth trusting: either none at all, so the read runs unauthenticated
+        // and answers not-found for every row that is not publicly visible — refusing a legitimate
+        // override on an unpublished item; or, since delivery is synchronous inside a publish and
+        // HttpContextAccessor flows on an AsyncLocal, whoever PUBLISHED, who for a relayed or
+        // system-minted envelope is not the subject the envelope was signed for — resolving a row
+        // the signed caller may not see.
         //
         // Handing the foundation the inbound envelope makes the read the SIGNED CALLER'S, so the
         // §16.6 posture the derivation is documented to carry is the posture it actually carries,
@@ -64,14 +58,25 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItemSettings
         private async ValueTask<ContentItem> ResolveContentItemAsync<TSource>(
             Guid contentItemId,
             EventEnvelope<TSource> inboundEnvelope,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken) =>
+            await ResolveContentItemAsync(
+                contentItemId: contentItemId,
+                read: async () => await this.contentItemService.RetrieveContentItemByIdAsync(
+                    contentItemId,
+                    inboundEnvelope,
+                    cancellationToken));
+
+        // ONE translation for both reads. The two differ only in which read they make; the
+        // not-found mapping, and the deliberate gap that lets a store-level failure through with
+        // its own category, are the same rule and live in one place so a change to either cannot
+        // be applied to one path and forgotten on the other.
+        private static async ValueTask<ContentItem> ResolveContentItemAsync(
+            Guid contentItemId,
+            Func<ValueTask<ContentItem>> read)
         {
             try
             {
-                return await this.contentItemService.RetrieveContentItemByIdAsync(
-                    contentItemId,
-                    inboundEnvelope,
-                    cancellationToken);
+                return await read();
             }
             catch (Exception contentItemException)
                 when (IsContentItemNotFound(contentItemException))
