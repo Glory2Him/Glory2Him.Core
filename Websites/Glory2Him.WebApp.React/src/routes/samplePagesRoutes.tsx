@@ -45,6 +45,7 @@ const AssociationPanelDoc = lazyNamed(() => import('../pages/samplePages/compone
 const BibleReferenceAssociationPanelDoc = lazyNamed(() => import('../pages/samplePages/components/bibleReferenceAssociationPanelDoc'), 'BibleReferenceAssociationPanelDoc');
 const TagAssociationPanelDoc = lazyNamed(() => import('../pages/samplePages/components/tagAssociationPanelDoc'), 'TagAssociationPanelDoc');
 const ReviewPanelDoc = lazyNamed(() => import('../pages/samplePages/components/reviewPanelDoc'), 'ReviewPanelDoc');
+const ReviewCommentPanelDoc = lazyNamed(() => import('../pages/samplePages/components/reviewCommentPanelDoc'), 'ReviewCommentPanelDoc');
 const ContentItemPanelDoc = lazyNamed(() => import('../pages/samplePages/components/contentItemPanelDoc'), 'ContentItemPanelDoc');
 const ContentItemSettingsPanelDoc = lazyNamed(() => import('../pages/samplePages/components/contentItemSettingsPanelDoc'), 'ContentItemSettingsPanelDoc');
 const ContentItemListPanelDoc = lazyNamed(() => import('../pages/samplePages/components/contentItemListPanelDoc'), 'ContentItemListPanelDoc');
@@ -129,6 +130,10 @@ export const samplePagesRoutes: RouteObject[] = [
             {
                 path: 'SamplePages/Components/Review-Panel',
                 element: secured(<ReviewPanelDoc />),
+            },
+            {
+                path: 'SamplePages/Components/Review-Comment-Panel',
+                element: secured(<ReviewCommentPanelDoc />),
             },
             {
                 path: 'SamplePages/Components/Content-Item-List-Panel',

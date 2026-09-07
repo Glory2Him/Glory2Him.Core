@@ -1,6 +1,6 @@
-import { useEffect, useRef } from 'react';
 import { ContentItemPanel } from './contentItemPanel';
 import { Spinner } from '../coreUI/spinner';
+import { useInfiniteScrollSentinel } from '../../hooks/useInfiniteScrollSentinel';
 
 import {
     ContentItemEvents,
@@ -86,46 +86,9 @@ export function ContentItemResultsPanel({
     emptyText = 'Nothing matched that search.',
     ...itemEventsAndText
 }: ContentItemResultsPanelProps) {
-    const sentinelRef = useRef<HTMLDivElement | null>(null);
 
-    // Held in a ref so the observer below depends only on the paging state. Without it, a
-    // consumer passing an inline arrow — the natural thing — would tear the observer down and
-    // rebuild it on every render.
-    const onLoadMoreRef = useRef(onLoadMore);
-
-    useEffect(() => {
-        onLoadMoreRef.current = onLoadMore;
-    });
-
-    // Progressive enhancement, read at render rather than at module load so a test (and a
-    // browser without it) takes the same path the fallback button is rendered for.
-    const supportsAutoLoad = typeof IntersectionObserver === 'function';
-
-    // DEPENDS ON isLoadingMore ON PURPOSE. The observer is torn down while a page is in flight
-    // and rebuilt when it lands, and observing fires an immediate callback — so a sentinel still
-    // on screen after the new rows arrive asks for the next page. Reading the flag inside the
-    // callback instead would stall the list: the sentinel never moves, so nothing would fire
-    // again to un-stick it.
-    useEffect(() => {
-        const sentinel = sentinelRef.current;
-
-        if (sentinel == null || hasMore === false || isLoadingMore || supportsAutoLoad === false) {
-            return;
-        }
-
-        const observer = new IntersectionObserver(
-            (entries) => {
-                if (entries.some((entry) => entry.isIntersecting)) {
-                    onLoadMoreRef.current?.();
-                }
-            },
-            // Asks a screen early, so the next page is usually there before the reader arrives.
-            { rootMargin: '200px 0px' });
-
-        observer.observe(sentinel);
-
-        return () => observer.disconnect();
-    }, [hasMore, isLoadingMore, supportsAutoLoad, contentItemCollection.length]);
+    const { sentinelRef, supportsAutoLoad } = useInfiniteScrollSentinel(
+        hasMore, isLoadingMore, onLoadMore, contentItemCollection.length);
 
     if (isLoading) {
         return (

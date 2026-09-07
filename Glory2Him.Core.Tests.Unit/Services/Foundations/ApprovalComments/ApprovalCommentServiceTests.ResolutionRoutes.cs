@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -219,8 +219,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
             // given: a comment born SETTLED is an intended capability, not a missing validation.
             // Not every comment asks for anything — an observation, or a reviewer recording
             // rationale so others can see the thinking behind a verdict, requires no response and
-            // must not hold the approval shut (§7.8). Add therefore applies no rule to
-            // IsResolved, and both birth values are correct.
+            // must not hold the approval shut (§7.8). Add therefore pins neither field, and both
+            // birth values are correct FOR A REMARK — it is the settled ASK the gate refuses.
             //
             // DO NOT "fix" this by pinning IsResolved false at creation the way IsDeleted is.
             // The analogy is false: IsDeleted has exactly one legitimate birth value and this

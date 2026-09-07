@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { approvalService } from '../services/foundations/approvalService';
+import { approvalCommentService } from '../services/foundations/approvalCommentService';
 import { EntityTypeName } from '../models/foundations/approvals/approval';
 
 import {
@@ -9,11 +10,19 @@ import {
 } from '../models/components/approvals/approvalReviewItem';
 
 import {
+    ReviewCommentItem
+} from '../models/components/approvals/reviewCommentItem';
+
+import {
     toApprovalReviewItem,
     toApprovalVerdictItem,
     toRequestedReviewerItem,
     toReviewerCandidateItem
 } from '../services/views/approvals/toReviewPanelItems';
+
+import {
+    toReviewCommentItems
+} from '../services/views/approvals/toReviewCommentItems';
 
 // ONE ROUND, ASSEMBLED. ReviewPanel takes five separate collections and no fetching of its own,
 // and four endpoints answer them — so the assembling is a page's job, and every page that shows
@@ -56,10 +65,22 @@ export const useApprovalRound = (
     const { data: reviewRequests, refetch: refetchRequests } =
         approvalService.useGetReviewRequests(entityType, entityId, enabled);
 
-    // The names of everybody the round involved, resolved server-side off the round itself —
-    // so nothing here gathers ids off the reviews, and the read does not wait on them.
+    // The names of everybody the round involved — its reviewers, its invitees AND its comment
+    // authors — resolved server-side off the round itself, so nothing here gathers ids off the
+    // rows and the read does not wait on them.
     const { data: reviewerDisplayNames, refetch: refetchDisplayNames } =
         approvalService.useGetReviewerDisplayNames(entityType, entityId, enabled);
+
+    // THE THREAD, on the same chain as the reviews and for the same reason: a comment names the
+    // approval it hangs off and nothing about the post being judged, so it waits on the verdict's
+    // id. It is assembled HERE rather than in a hook of its own because both things it needs —
+    // the approval id and the names — are already resolved on this one, and a second hook would
+    // resolve them again.
+    const {
+        data: approvalComments,
+        isLoading: areCommentsLoading,
+        refetch: refetchComments
+    } = approvalCommentService.useGetApprovalComments(approvalId, enabled);
 
     const approvalReviewCollection: ReadonlyArray<ApprovalReviewItem> = useMemo(
         () => (approvalReviews ?? []).map(
@@ -82,6 +103,10 @@ export const useApprovalRound = (
     const approvalVerdictItem: ApprovalVerdictItem | undefined = useMemo(
         () => approvalVerdict == null ? undefined : toApprovalVerdictItem(approvalVerdict),
         [approvalVerdict]);
+
+    const reviewCommentCollection: ReadonlyArray<ReviewCommentItem> = useMemo(
+        () => toReviewCommentItems(approvalComments ?? [], reviewerDisplayNames ?? []),
+        [approvalComments, reviewerDisplayNames]);
 
     // THE ROWS ARE WHAT IS LOADING, not the verdict alone. The panel's isLoading holds back the
     // reviews AND the outcome derived from them, so it must stay true until the reviews the
@@ -106,7 +131,18 @@ export const useApprovalRound = (
     //
     // THE NAMES STAY IN, though they look as static as the candidates: a reviewer whose FIRST
     // vote arrives through the poll is an id the names set has never carried, and without this
-    // their row renders under the panel's fallback instead of their name.
+    // their row renders under the panel's fallback instead of their name. The same is true, and
+    // more often, of a comment AUTHOR — the round's name set carries them too (§16.7.4), and the
+    // ordinary case is a submitter whose first trace on the round is the answer they just wrote.
+    //
+    // THE THREAD IS IN THE CHANNEL rather than polling on its own. §20.6.1 already names "a
+    // comment added or resolved" as a trigger, and it is the read most likely to move under an
+    // open tab — two moderators working one submission is the case the thread exists for. Giving
+    // it its own refetchInterval would have polled a HIDDEN tab, missed the reconnect case, and
+    // cancelled its own in-flight read on a slow network; joining here inherits all three
+    // answers, and one channel means one place to replace when SignalR lands. It is gated on
+    // approvalId exactly as the reviews are, and for the same reason: with no round the filter
+    // would go out as `approvalId eq ` and be refused every interval.
     //
     // REFETCH IS NOT INVALIDATION, and both of its differences bite here.
     //
@@ -134,6 +170,9 @@ export const useApprovalRound = (
             approvalId.length > 0
                 ? refetchReviews({ cancelRefetch: false })
                 : Promise.resolve(),
+            approvalId.length > 0
+                ? refetchComments({ cancelRefetch: false })
+                : Promise.resolve(),
             refetchRequests({ cancelRefetch: false }),
             refetchDisplayNames({ cancelRefetch: false })
         ]);
@@ -143,6 +182,7 @@ export const useApprovalRound = (
         approvalId,
         refetchVerdict,
         refetchReviews,
+        refetchComments,
         refetchRequests,
         refetchDisplayNames
     ]);
@@ -158,6 +198,18 @@ export const useApprovalRound = (
         requestedReviewerCollection,
         reviewerCandidateCollection,
         isLoading,
+
+        // THE THREAD, projected — and the raw rows beside it, because an edit is a PUT of the row
+        // that was read (the foundation pins four fields against storage) and the projection
+        // deliberately carries none of that.
+        reviewCommentCollection,
+        reviewComments: approvalComments ?? [],
+
+        // Its OWN loading flag rather than folded into isLoading. The thread and the round paint
+        // in different columns, and holding the review panel back for a comment read it does not
+        // use would make the decision surface slower for no reason.
+        areReviewCommentsLoading: approvalId.length > 0 && areCommentsLoading,
+
         refresh
     };
 };

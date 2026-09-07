@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Force.DeepCloner;
 using G2H.Security.Client.Models.Foundations.Access;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ApprovalComments;
@@ -80,6 +81,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
             this.accessBrokerMock.Verify(broker =>
                 broker.MayRecordApprovalCommentAsync(
                     randomApprovalComment.ApprovalId,
+                    randomApprovalComment.CommentType,
+                    randomApprovalComment.IsResolved,
                     It.IsAny<SecurityContext>(),
                     It.IsAny<CancellationToken>()),
                         Times.Once);
@@ -166,6 +169,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
                 broker.MayAmendApprovalCommentAsync(
                     storageApprovalComment.ApprovalId,
                     storageApprovalComment.CreatedBy,
+                    It.IsAny<ApprovalCommentType>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<ApprovalCommentType>(),
+                    It.IsAny<bool>(),
                     It.IsAny<SecurityContext>(),
                     It.IsAny<CancellationToken>()),
                         Times.Once);
@@ -230,6 +237,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
                 broker.MayAmendApprovalCommentAsync(
                     storageApprovalComment.ApprovalId,
                     storageApprovalComment.CreatedBy,
+                    It.IsAny<ApprovalCommentType>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<ApprovalCommentType>(),
+                    It.IsAny<bool>(),
                     It.IsAny<SecurityContext>(),
                     It.IsAny<CancellationToken>()),
                         Times.Once);

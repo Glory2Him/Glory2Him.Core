@@ -13,7 +13,8 @@ using System;
 using System.Linq;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings.Exceptions;
-using Glory2Him.Core.Services.Foundations.ContentItemSettings;
+using Glory2Him.Core.Models.Orchestrations.ContentItemSettings.Exceptions;
+using Glory2Him.Core.Services.Orchestrations.ContentItemSettings;
 using Glory2Him.WebApp.Controllers.ContentItemSettings;
 using Moq;
 using RESTFulSense.Controllers;
@@ -24,12 +25,12 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ContentItemSettings
 {
     public partial class ContentItemSettingsControllerTests : RESTFulController
     {
-        private readonly Mock<IContentItemSettingService> contentItemSettingServiceMock;
+        private readonly Mock<IContentItemSettingOrchestrationService> contentItemSettingServiceMock;
         private readonly ContentItemSettingsController contentItemSettingsController;
 
         public ContentItemSettingsControllerTests()
         {
-            contentItemSettingServiceMock = new Mock<IContentItemSettingService>();
+            contentItemSettingServiceMock = new Mock<IContentItemSettingOrchestrationService>();
             contentItemSettingsController = new ContentItemSettingsController(contentItemSettingServiceMock.Object);
         }
 
@@ -40,11 +41,11 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ContentItemSettings
 
             return new TheoryData<Xeption>
             {
-                new ContentItemSettingValidationException(
+                new ContentItemSettingOrchestrationValidationException(
                     message: someMessage,
                     innerException: someInnerException),
 
-                new ContentItemSettingDependencyValidationException(
+                new ContentItemSettingOrchestrationDependencyValidationException(
                     message: someMessage,
                     innerException: someInnerException)
             };
@@ -57,7 +58,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ContentItemSettings
 
             return new TheoryData<Xeption>
             {
-                new ContentItemSettingDependencyException(
+                new ContentItemSettingOrchestrationDependencyException(
                     message: someMessage,
                     innerException: someInnerException)
             };
@@ -70,7 +71,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ContentItemSettings
 
             return new TheoryData<Xeption>
             {
-                new ContentItemSettingServiceException(
+                new ContentItemSettingOrchestrationServiceException(
                     message: someMessage,
                     innerException: someInnerException)
             };

@@ -307,8 +307,14 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                 approvalComment: approvalComment,
                 securityContext: inboundEnvelope.SecurityContext);
 
+            // The birth pairing travels with the approval id: §7.8 rule 1 still leaves IsResolved
+            // free of a SHAPE rule, but whether an ask may be born already settled is a gate
+            // question — creating one that way is resolving it through a path that never asks who
+            // may resolve — and gate questions belong to IAccessClient.
             await ValidateUserMayRecordApprovalCommentAsync(
                 approvalId: approvalComment.ApprovalId,
+                commentType: approvalComment.CommentType,
+                isResolved: approvalComment.IsResolved,
                 securityContext: inboundEnvelope.SecurityContext,
                 cancellationToken: cancellationToken);
 
@@ -364,6 +370,10 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
             await ValidateUserMayAmendApprovalCommentAsync(
                 approvalId: maybeApprovalComment.ApprovalId,
                 commentCreatedBy: maybeApprovalComment.CreatedBy,
+                commentType: approvalComment.CommentType,
+                isResolved: approvalComment.IsResolved,
+                storageCommentType: maybeApprovalComment.CommentType,
+                storageIsResolved: maybeApprovalComment.IsResolved,
                 securityContext: inboundEnvelope.SecurityContext,
                 cancellationToken: cancellationToken);
 
@@ -421,9 +431,16 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                 storageApprovalComment: maybeApprovalComment,
                 securityContext: inboundEnvelope.SecurityContext);
 
+            // The stored pairing on both sides: withdrawing a comment moves neither its type nor
+            // its resolution, so the transition veto has nothing to catch here — and a settled ask
+            // must stay withdrawable by its author whatever the veto says about creating one.
             await ValidateUserMayAmendApprovalCommentAsync(
                 approvalId: maybeApprovalComment.ApprovalId,
                 commentCreatedBy: maybeApprovalComment.CreatedBy,
+                commentType: maybeApprovalComment.CommentType,
+                isResolved: maybeApprovalComment.IsResolved,
+                storageCommentType: maybeApprovalComment.CommentType,
+                storageIsResolved: maybeApprovalComment.IsResolved,
                 securityContext: inboundEnvelope.SecurityContext,
                 cancellationToken: cancellationToken);
 

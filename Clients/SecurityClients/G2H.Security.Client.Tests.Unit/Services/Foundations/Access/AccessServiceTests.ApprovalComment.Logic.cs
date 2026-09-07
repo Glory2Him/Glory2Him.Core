@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -114,6 +114,84 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             // then
             actualVerdict.IsPermitted.Should().BeTrue();
             actualVerdict.DenialReason.Should().Be(AccessDenialReason.None);
+        }
+
+        /// <summary>
+        /// AN ASK MAY NOT BE BORN SETTLED. Creating a resolved question IS resolving one, a moment
+        /// earlier and through a gate that never asks who may resolve — so without this any caller
+        /// could file a question that holds nothing shut and walk past
+        /// <c>RequireReviewCommentResolutionBeforeApprovals</c> without answering to the publisher
+        /// tier the resolve operation gates on (§14.7 rule 5).
+        /// </summary>
+        [Fact]
+        public async Task ShouldRefuseRecordingAnAskThatIsAlreadySettledAsync()
+        {
+            // given
+            RecordApprovalCommentRequest recordApprovalCommentRequest =
+                CreateRandomRecordApprovalCommentRequest(isAsk: true, isSettled: true);
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayRecordApprovalCommentAsync(recordApprovalCommentRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeFalse();
+
+            actualVerdict.DenialReason.Should()
+                .Be(AccessDenialReason.SettledAskNotPermitted);
+        }
+
+        /// <summary>
+        /// The other three pairings stand. §7.8 rule 1's reasoning is preserved exactly where it
+        /// still applies: a REMARK may be born either way, because refusing an outstanding one
+        /// would be the "impossible to leave a remark without holding the approval shut" outcome
+        /// that rule exists to prevent. And a remark born outstanding is fail-CLOSED — it blocks
+        /// where nothing had to, which grants nobody anything.
+        /// </summary>
+        [Theory]
+        [InlineData(false, false)]
+        [InlineData(false, true)]
+        [InlineData(true, false)]
+        public async Task ShouldPermitEveryOtherBirthPairingAsync(bool isAsk, bool isSettled)
+        {
+            // given
+            RecordApprovalCommentRequest recordApprovalCommentRequest =
+                CreateRandomRecordApprovalCommentRequest(isAsk: isAsk, isSettled: isSettled);
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayRecordApprovalCommentAsync(recordApprovalCommentRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeTrue();
+            actualVerdict.DenialReason.Should().Be(AccessDenialReason.None);
+        }
+
+        /// <summary>
+        /// The pairing is asked LAST, after the actor and the round. A caller who may not comment
+        /// at all must not learn anything about the thread from the shape of their own payload —
+        /// and a closed round refuses every comment, settled ask included, for the closed-round
+        /// reason (§14.5).
+        /// </summary>
+        [Fact]
+        public async Task ShouldReportTheClosedRoundRatherThanTheSettledAskAsync()
+        {
+            // given
+            RecordApprovalCommentRequest recordApprovalCommentRequest =
+                CreateRandomRecordApprovalCommentRequest(
+                approvalState: ApprovalState.Approved,
+                isAsk: true,
+                isSettled: true);
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayRecordApprovalCommentAsync(recordApprovalCommentRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeFalse();
+
+            actualVerdict.DenialReason.Should()
+                .Be(AccessDenialReason.ApprovalNotOpenForComment);
         }
 
         [Fact]
@@ -249,6 +327,142 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 .Be(AccessDenialReason.ParentApprovalUnavailable);
         }
 
+        /// <summary>
+        /// THE SAME PAIRING THE ADD PATH REFUSES, reached the long way round. A remark born
+        /// settled is permitted, and retyping a remark as a question is an ordinary owner edit —
+        /// so without this veto the two compose, in one extra call, into exactly the settled ask
+        /// <see cref="ShouldRefuseRecordingAnAskThatIsAlreadySettledAsync"/> refuses. Neither
+        /// half touches the resolve operation or its publisher tier.
+        /// </summary>
+        [Theory]
+        [InlineData(false, true)]
+        [InlineData(false, false)]
+        [InlineData(true, false)]
+        public async Task ShouldRefuseAmendingIntoASettledAskAsync(bool wasAsk, bool wasSettled)
+        {
+            // given: every stored pairing EXCEPT one that is already a settled ask
+            string authorId = GetRandomString();
+
+            AmendApprovalCommentRequest amendApprovalCommentRequest =
+                CreateRandomAmendApprovalCommentRequest(
+                    actor: CreateRandomAccessActor(userId: authorId),
+                    commentCreatedBy: authorId,
+                    isAsk: true,
+                    isSettled: true,
+                    wasAsk: wasAsk,
+                    wasSettled: wasSettled);
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayAmendApprovalCommentAsync(
+                    amendApprovalCommentRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeFalse();
+
+            actualVerdict.DenialReason.Should()
+                .Be(AccessDenialReason.SettledAskNotPermitted);
+        }
+
+        /// <summary>
+        /// THE VETO IS ON THE TRANSITION, NOT THE STATE, and this is the case that proves the
+        /// difference matters. A question somebody else settled through the resolve operation is
+        /// already a settled ask; its author must still be able to fix a typo in their own words.
+        /// Refusing by state would strand them — punished for a resolution they did not perform.
+        /// </summary>
+        [Fact]
+        public async Task ShouldPermitAmendingARowThatIsAlreadyASettledAskAsync()
+        {
+            // given
+            string authorId = GetRandomString();
+
+            AmendApprovalCommentRequest amendApprovalCommentRequest =
+                CreateRandomAmendApprovalCommentRequest(
+                    actor: CreateRandomAccessActor(userId: authorId),
+                    commentCreatedBy: authorId,
+                    isAsk: true,
+                    isSettled: true,
+                    wasAsk: true,
+                    wasSettled: true);
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayAmendApprovalCommentAsync(
+                    amendApprovalCommentRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeTrue();
+            actualVerdict.DenialReason.Should().Be(AccessDenialReason.None);
+        }
+
+        /// <summary>
+        /// Everything the veto does NOT cover still passes. The owner keeps a settled remark, an
+        /// outstanding ask, and the freedom to settle or re-open a REMARK of their own — the last
+        /// of which is why IsResolved is ruled by this gate rather than pinned outright in
+        /// <c>ValidateAgainstStorageApprovalCommentOnModify</c>.
+        /// </summary>
+        [Theory]
+        [InlineData(false, true, true, false)]
+        [InlineData(false, false, true, true)]
+        [InlineData(true, false, false, true)]
+        [InlineData(false, true, false, false)]
+        public async Task ShouldPermitEveryOtherAmendPairingAsync(
+            bool isAsk,
+            bool isSettled,
+            bool wasAsk,
+            bool wasSettled)
+        {
+            // given
+            string authorId = GetRandomString();
+
+            AmendApprovalCommentRequest amendApprovalCommentRequest =
+                CreateRandomAmendApprovalCommentRequest(
+                    actor: CreateRandomAccessActor(userId: authorId),
+                    commentCreatedBy: authorId,
+                    isAsk: isAsk,
+                    isSettled: isSettled,
+                    wasAsk: wasAsk,
+                    wasSettled: wasSettled);
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayAmendApprovalCommentAsync(
+                    amendApprovalCommentRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeTrue();
+            actualVerdict.DenialReason.Should().Be(AccessDenialReason.None);
+        }
+
+        /// <summary>
+        /// The pairing is asked LAST here too: someone who never wrote the comment learns that
+        /// they did not write it, not what the row's resolution looks like (§14.5).
+        /// </summary>
+        [Fact]
+        public async Task ShouldReportTheAuthorshipRefusalRatherThanTheSettledAskAsync()
+        {
+            // given
+            AmendApprovalCommentRequest amendApprovalCommentRequest =
+                CreateRandomAmendApprovalCommentRequest(
+                    actor: CreateRandomAccessActor(userId: GetRandomString()),
+                    commentCreatedBy: GetRandomString(),
+                    isAsk: true,
+                    isSettled: true,
+                    wasAsk: false,
+                    wasSettled: false);
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayAmendApprovalCommentAsync(
+                    amendApprovalCommentRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeFalse();
+
+            actualVerdict.DenialReason.Should()
+                .Be(AccessDenialReason.NotApprovalCommentAuthor);
+        }
+
         [Fact]
         public async Task ShouldRefuseResolvingACommentWhenTheParentApprovalIsDeletedAsync()
         {
@@ -356,15 +570,44 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             actualVerdict.DenialReason.Should().Be(AccessDenialReason.NotAuthenticated);
         }
 
-        [Theory]
-        [InlineData(RoleNames.Publishers)]
-        [InlineData(RoleNames.Reviewers)]
-        public async Task ShouldRefuseResolvingAnotherPersonsCommentWithoutAdminAsync(string role)
+        [Fact]
+        public async Task ShouldRefuseResolvingAnotherPersonsCommentOnTheReviewTierAsync()
         {
-            // given: the resolve gate widens to Administrators and to nobody else
+            // given: the gate widens to the PUBLISHER tier and stops there. A reviewer is never
+            // held by RequireReviewCommentResolutionBeforeApprovals — they cast a verdict, they
+            // do not decide the round — so settling somebody else's ask is not theirs to do. One
+            // who wants to answer an outstanding comment writes a comment of their own.
             ResolveApprovalCommentRequest resolveApprovalCommentRequest =
                 CreateRandomResolveApprovalCommentRequest(
-                actor: CreateRandomAccessActor(roles: new List<string> { role }),
+                actor: CreateRandomAccessActor(
+                    roles: new List<string> { RoleNames.Reviewers }),
+                commentCreatedBy: GetRandomString());
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayResolveApprovalCommentAsync(resolveApprovalCommentRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeFalse();
+            actualVerdict.DenialReason.Should().Be(AccessDenialReason.NotApprovalCommentAuthor);
+        }
+
+        [Fact]
+        public async Task ShouldRefuseResolvingAnotherPersonsCommentOnAnotherTypesPublishTierAsync()
+        {
+            // given: a publisher of ANOTHER content type. The narrow tier widens into the coarse
+            // one, never sideways (§18.6 rule 4), so this must not reach a devotional's thread.
+            RoleSubject subject = CreateRandomRoleSubject(
+                entityType: "ContentItem", contentType: "Devotional");
+
+            ResolveApprovalCommentRequest resolveApprovalCommentRequest =
+                CreateRandomResolveApprovalCommentRequest(
+                actor: CreateRandomAccessActor(
+                    roles: new List<string>
+                    {
+                        RoleNames.PublishersFor("ContentItem", "Quote")
+                    }),
+                roleSubjects: new List<RoleSubject> { subject },
                 commentCreatedBy: GetRandomString());
 
             // when
@@ -379,8 +622,10 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
         [Fact]
         public async Task ShouldPermitAnAdminResolvingAnotherPersonsCommentAsync()
         {
-            // given: resolving records that a comment is settled, which changes no words —
-            // the one comment operation an administrator may perform on someone else's row
+            // given: resolving records that a comment is settled, which changes no words — the
+            // one comment operation somebody other than the author may perform on the row.
+            // Administrators sits inside the publisher tier, so the §14.7 rule 5 route survives
+            // the widening rather than being replaced by it.
             ResolveApprovalCommentRequest resolveApprovalCommentRequest =
                 CreateRandomResolveApprovalCommentRequest(
                 actor: CreateRandomAccessActor(
@@ -394,6 +639,115 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             // then
             actualVerdict.IsPermitted.Should().BeTrue();
             actualVerdict.DenialReason.Should().Be(AccessDenialReason.None);
+        }
+
+        [Fact]
+        public async Task ShouldPermitAGlobalPublisherResolvingAnotherPersonsCommentAsync()
+        {
+            // given: an outstanding comment holds the APPROVAL shut, and the people that block
+            // stops are exactly the people who decide it
+            ResolveApprovalCommentRequest resolveApprovalCommentRequest =
+                CreateRandomResolveApprovalCommentRequest(
+                actor: CreateRandomAccessActor(
+                    roles: new List<string> { RoleNames.Publishers }),
+                commentCreatedBy: GetRandomString());
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayResolveApprovalCommentAsync(resolveApprovalCommentRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeTrue();
+            actualVerdict.DenialReason.Should().Be(AccessDenialReason.None);
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task ShouldPermitAScopedPublisherResolvingAnotherPersonsCommentAsync(
+            bool isNarrowRole)
+        {
+            // given: both spellings of the scoped tier reach the same subject —
+            // ContentItem-Devotional-Publishers ⊂ ContentItem-Publishers (§18.6 rule 4)
+            RoleSubject subject = CreateRandomRoleSubject(
+                entityType: "ContentItem", contentType: "Devotional");
+
+            string scopedRole = isNarrowRole
+                ? RoleNames.PublishersFor("ContentItem", "Devotional")
+                : RoleNames.PublishersFor("ContentItem");
+
+            ResolveApprovalCommentRequest resolveApprovalCommentRequest =
+                CreateRandomResolveApprovalCommentRequest(
+                actor: CreateRandomAccessActor(roles: new List<string> { scopedRole }),
+                roleSubjects: new List<RoleSubject> { subject },
+                commentCreatedBy: GetRandomString());
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayResolveApprovalCommentAsync(resolveApprovalCommentRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeTrue();
+            actualVerdict.DenialReason.Should().Be(AccessDenialReason.None);
+        }
+
+        [Fact]
+        public async Task ShouldRefuseResolvingWhenTheActorIsSanctionedOnTheSubjectAsync()
+        {
+            // given: the veto reaches IsResolved at last. §18.6 rule 3 records that a scoped block
+            // does not reach the comment thread and singles out THIS field as where that reasoning
+            // strains, because settling a comment clears a §8.5 gate. A publisher sanctioned on
+            // the type may no longer move it.
+            RoleSubject subject = CreateRandomRoleSubject(
+                entityType: "ContentItem", contentType: "Devotional");
+
+            ResolveApprovalCommentRequest resolveApprovalCommentRequest =
+                CreateRandomResolveApprovalCommentRequest(
+                actor: CreateRandomAccessActor(
+                    roles: new List<string>
+                    {
+                        RoleNames.PublishersFor("ContentItem"),
+                        RoleNames.ReadOnlyFor("ContentItem", "Devotional")
+                    }),
+                roleSubjects: new List<RoleSubject> { subject },
+                commentCreatedBy: GetRandomString());
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayResolveApprovalCommentAsync(resolveApprovalCommentRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeFalse();
+            actualVerdict.DenialReason.Should().Be(AccessDenialReason.BlockedByReadOnlyRole);
+        }
+
+        [Fact]
+        public async Task ShouldRefuseTheSanctionedAuthorResolvingTheirOwnCommentAsync()
+        {
+            // given: the veto is asked BEFORE the author branch, because a block covers the
+            // holder's own rows and the author admit is a grant like any other (§18.6 rule 2).
+            // Without that ordering a sanctioned contributor could still clear the one gate
+            // holding their own submission's approval shut.
+            string authorId = GetRandomString();
+
+            RoleSubject subject = CreateRandomRoleSubject(
+                entityType: "ContentItem", contentType: "Devotional");
+
+            ResolveApprovalCommentRequest resolveApprovalCommentRequest =
+                CreateRandomResolveApprovalCommentRequest(
+                actor: CreateRandomAccessActor(
+                    userId: authorId,
+                    roles: new List<string> { RoleNames.ReadOnly }),
+                roleSubjects: new List<RoleSubject> { subject },
+                commentCreatedBy: authorId);
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayResolveApprovalCommentAsync(resolveApprovalCommentRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeFalse();
+            actualVerdict.DenialReason.Should().Be(AccessDenialReason.BlockedByReadOnlyRole);
         }
 
         [Fact]

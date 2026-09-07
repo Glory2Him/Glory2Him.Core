@@ -34,6 +34,7 @@ using Glory2Him.Core.Services.Foundations.ApprovalSettings;
 using Glory2Him.Core.Services.Foundations.Reactions;
 using Glory2Him.Core.Services.Foundations.Links;
 using Glory2Him.Core.Services.Foundations.ContentItemSettings;
+using Glory2Him.Core.Services.Orchestrations.ContentItemSettings;
 using Glory2Him.Core.Services.Foundations.ContentItems;
 using Glory2Him.Core.Services.Foundations.Comments;
 using Glory2Him.Core.Services.Foundations.BibleReferences;
@@ -194,6 +195,13 @@ namespace Glory2Him.WebApp.Infrastructure
             services.AddScoped<IAssociationService, AssociationService>();
             services.AddScoped<IApprovalSettingService, ApprovalSettingService>();
             services.AddScoped<IContentItemSettingService, ContentItemSettingService>();
+
+            // The layer the settings exposer binds to (§12.1: a caller binds to the
+            // highest layer that exists). It derives an override's ContentType from the
+            // content item it names, which is why it needs the ContentItem service too.
+            services.AddScoped<
+                IContentItemSettingOrchestrationService,
+                ContentItemSettingOrchestrationService>();
             services.AddScoped<IContentItemProcessingService, ContentItemProcessingService>();
             services.AddScoped<ILinkProcessingService, LinkProcessingService>();
 

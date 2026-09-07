@@ -210,3 +210,34 @@ section.g2h-review-panel {
     color: var(--bs-danger);
     text-decoration: underline;
 }
+
+/* ── ReviewCommentPanel ───────────────────────────────────────────────────── */
+
+/* The same neutralisation ReviewPanel needs, and for the same reason: the Blogzine theme gives
+   every bare section page-band padding, wildly wrong for a panel sitting inside a column.
+   showBorder's p-3/p-lg-4 utilities carry !important and still win. */
+section.g2h-review-comment-panel {
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+/* One rule between rows, none under the last — a trailing line reads as the start of a row that
+   is not there. The colour is the theme's own border token, so it follows light/dark. */
+.g2h-review-comment-row + .g2h-review-comment-row {
+    border-top: 1px solid var(--bs-border-color);
+}
+
+/* Whatever somebody typed, laid out as they typed it — paragraphs and line breaks survive. A
+   very long unbroken token (a pasted URL) wraps rather than widening the panel and pushing the
+   timestamp off the row. */
+.g2h-review-comment-text {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+/* The infinite-scroll sentinel: a pixel tall rather than zero-area, because an
+   IntersectionObserver over an empty rectangle is unreliable and the failure is a thread that
+   quietly stops loading. */
+.g2h-review-comment-sentinel {
+    height: 1px;
+}

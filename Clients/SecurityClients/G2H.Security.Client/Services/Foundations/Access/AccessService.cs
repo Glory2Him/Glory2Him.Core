@@ -139,6 +139,29 @@ namespace G2H.Security.Client.Services.Foundations.Access
                     "The parent approval is not open for comment — it is either not yet submitted, or its round has closed.");
             }
 
+            // AN ASK IS BORN OUTSTANDING, and this is the gate that says so.
+            //
+            // §7.8 rule 1 leaves IsResolved unconstrained on the add path, and the reasoning it
+            // gives is precise: pinning it false at creation "would make it impossible to leave a
+            // remark without holding the approval shut". That was true while the add path could
+            // not tell a remark from an ask. ApprovalCommentType is exactly that missing fact, so
+            // the objection no longer holds and the field can be ruled on for the first time.
+            //
+            // ONLY ONE OF THE FOUR PAIRINGS IS REFUSED, and it is the one that un-gates an
+            // approval. Creating a settled ask IS resolving one — done a moment earlier, through
+            // a gate that never asks who may resolve — so it hands any caller a way past
+            // RequireReviewCommentResolutionBeforeApprovals without touching the operation that
+            // owns the flag (§14.7 rule 5) or answering to its publisher tier. A remark born
+            // outstanding is left alone: it blocks where nothing had to, which costs the round a
+            // resolution and grants nobody anything.
+            if (request.IsAsk && request.IsSettled)
+            {
+                return Refuse(
+                    AccessDenialReason.SettledAskNotPermitted,
+                    "A question may not be created already resolved — settling one is the resolve "
+                        + "operation's to grant, and it answers to a tier this gate does not ask about.");
+            }
+
             return Permit("Actor may add a comment to an open approval.");
         }
 
@@ -220,12 +243,40 @@ namespace G2H.Security.Client.Services.Foundations.Access
                     "The parent approval is not open — before submission there is no thread, and once it closes what was said stands as recorded.");
             }
 
+            // THE SAME PAIRING THE ADD PATH REFUSES, because the add path is not the only way to
+            // reach it. A remark born settled is permitted, and retyping a remark as a question
+            // is an ordinary owner edit — so without this the two compose into a settled ask in
+            // one extra call, through a gate that never asks who may resolve, which is precisely
+            // what DecideMayRecordApprovalComment refuses to hand out.
+            //
+            // RULED ON THE TRANSITION, NOT THE STATE. The add gate can compare against nothing
+            // and so refuses the pairing outright; here the row already exists, and a row that is
+            // ALREADY a settled ask got that way through the resolve operation and its publisher
+            // tier. Editing its words moves nothing. Refusing by state instead of by transition
+            // would strand that comment's author, unable to fix a typo in their own question
+            // because somebody else had answered it.
+            if (request.IsAsk && request.IsSettled && (request.WasAsk && request.WasSettled) is false)
+            {
+                return Refuse(
+                    AccessDenialReason.SettledAskNotPermitted,
+                    "This change would leave a question already resolved — settling one is the "
+                        + "resolve operation's to grant, and it answers to a tier this gate does not ask about.");
+            }
+
             return Permit("Actor is the author of the comment and the round is open.");
         }
 
-        // The one comment operation an administrator may perform on someone else's row, and deliberately
-        // the only one: resolving records that a comment is settled — that it no longer requires
-        // anything before the approval can proceed — which changes no words.
+        // The one comment operation somebody other than the author may perform on the row, and
+        // deliberately the only one: resolving records that a comment is settled — that it no
+        // longer requires anything before the approval can proceed — which changes no words.
+        //
+        // THE TIER BESIDE THE AUTHOR IS THE PUBLISHER TIER, not the review tier. An outstanding
+        // comment holds the APPROVAL shut under RequireReviewCommentResolutionBeforeApprovals,
+        // and the people that block stops are exactly the people who decide the approval. A
+        // reviewer is not held by the gate, so admitting them would hand the settling of somebody
+        // else's ask to somebody the ask never blocked; a reviewer answering one writes a comment
+        // of their own. HasPublisherTier already carries Administrators, so the administrator
+        // route §14.7 rule 5 opened is preserved rather than replaced.
         private static AccessVerdict DecideMayResolveApprovalComment(
             ResolveApprovalCommentRequest request)
         {
@@ -236,14 +287,26 @@ namespace G2H.Security.Client.Services.Foundations.Access
                     "Actor is not authenticated or carries no resolvable user id.");
             }
 
-            bool isAuthor = IsSameUser(request.Actor.UserId, request.CommentCreatedBy);
-            bool isAdmin = request.Actor.Roles.Contains(RoleNames.Administrators);
+            // The veto, and it comes BEFORE the author branch rather than after it — the same
+            // ordering DecideMayAmendApproval keeps, and for the same reason: a block covers the
+            // holder's OWN rows, and the author admit below is a grant like any other (§18.6
+            // rule 2). This is the closure of the gap §18.6 rule 3 records against IsResolved,
+            // which is the one comment field that moves a §8.5 gate.
+            if (IsBlockedFromSubjects(request.Actor, request.RoleSubjects))
+            {
+                return Refuse(
+                    AccessDenialReason.BlockedByReadOnlyRole,
+                    BlockedBySanctionExplanation);
+            }
 
-            if (isAuthor is false && isAdmin is false)
+            bool isAuthor = IsSameUser(request.Actor.UserId, request.CommentCreatedBy);
+
+            if (isAuthor is false
+                && HasPublisherTier(request.Actor, request.RoleSubjects) is false)
             {
                 return Refuse(
                     AccessDenialReason.NotApprovalCommentAuthor,
-                    "Actor is neither the comment's author nor an administrator resolving on their behalf.");
+                    "Actor is neither the comment's author nor in the publisher tier for this approval.");
             }
 
             if (request.IsParentApprovalDeleted)
@@ -262,7 +325,8 @@ namespace G2H.Security.Client.Services.Foundations.Access
 
             return isAuthor
                 ? Permit("Actor is the author of the comment and the round is open.")
-                : Permit("Actor is an administrator resolving on the author's behalf; UpdatedBy records them.");
+                : Permit("Actor holds the publisher tier for this approval and is resolving on the author's "
+                    + "behalf; UpdatedBy records them.");
         }
 
         // Order matters and is not arbitrary. Identity comes first, then role, then the rules

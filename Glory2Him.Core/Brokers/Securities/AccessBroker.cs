@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -93,6 +93,8 @@ namespace Glory2Him.Core.Brokers.Securities
         // single-entity — which is the whole reason these live here rather than there.
         public async ValueTask<AccessVerdict> MayRecordApprovalCommentAsync(
             Guid approvalId,
+            ApprovalCommentType commentType,
+            bool isResolved,
             SecurityContext securityContext,
             CancellationToken cancellationToken = default)
         {
@@ -113,12 +115,23 @@ namespace Glory2Him.Core.Brokers.Securities
                     Actor = actor,
                     ApprovalState = ToApprovalState(maybeApproval.ApprovalStatus),
                     IsParentApprovalDeleted = maybeApproval.IsDeleted,
+
+                    // The two halves of the birth pairing, passed through rather than decided
+                    // here: this broker gathers, IAccessClient rules (§8.6.1). Translated to the
+                    // client's own vocabulary — it takes no dependency on Core's enums, which is
+                    // why the reference runs one way only.
+                    IsAsk = commentType == ApprovalCommentType.Question,
+                    IsSettled = isResolved,
                 });
         }
 
         public async ValueTask<AccessVerdict> MayAmendApprovalCommentAsync(
             Guid approvalId,
             string commentCreatedBy,
+            ApprovalCommentType commentType,
+            bool isResolved,
+            ApprovalCommentType storageCommentType,
+            bool storageIsResolved,
             SecurityContext securityContext,
             CancellationToken cancellationToken = default)
         {
@@ -140,6 +153,14 @@ namespace Glory2Him.Core.Brokers.Securities
                     CommentCreatedBy = commentCreatedBy,
                     ApprovalState = ToApprovalState(maybeApproval.ApprovalStatus),
                     IsParentApprovalDeleted = maybeApproval.IsDeleted,
+
+                    // Both ends of the transition, translated to the client's vocabulary and
+                    // passed through rather than compared here: this broker gathers, IAccessClient
+                    // rules (§8.6.1).
+                    IsAsk = commentType == ApprovalCommentType.Question,
+                    IsSettled = isResolved,
+                    WasAsk = storageCommentType == ApprovalCommentType.Question,
+                    WasSettled = storageIsResolved,
                 });
         }
 
@@ -160,10 +181,22 @@ namespace Glory2Him.Core.Brokers.Securities
                 return RefuseMissingApproval(approvalId);
             }
 
+            // Subjects only, like MayAmendApprovalAsync beside it. The resolution decision reads
+            // neither the round's reviews nor its policies, so gathering them would be work whose
+            // result is discarded. What the subjects DO carry is the publisher tier the decision
+            // admits beside the author, and the ReadOnly veto — which is what finally brings the
+            // sanction to IsResolved, the one comment field that moves a §8.5 gate (§18.6 rule 3).
+            (_, IReadOnlyList<RoleSubject> roleSubjects, _, _, _, _) =
+                await ResolveEntityAsync(
+                    maybeApproval.EntityType,
+                    maybeApproval.EntityId,
+                    cancellationToken);
+
             return await this.securityClient.Access.MayResolveApprovalCommentAsync(
                 new ResolveApprovalCommentRequest
                 {
                     Actor = actor,
+                    RoleSubjects = roleSubjects,
                     CommentCreatedBy = commentCreatedBy,
                     ApprovalState = ToApprovalState(maybeApproval.ApprovalStatus),
                     IsParentApprovalDeleted = maybeApproval.IsDeleted,
