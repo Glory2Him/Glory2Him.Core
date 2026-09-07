@@ -273,6 +273,18 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                                 .Where(link => link.GroupId == groupId)
                                 .ToList());
 
+            // The tip is DERIVED, and the foundation answers it as a BOOLEAN rather than by
+            // handing the group back - so the stub answers the same question off the same seeded
+            // rows.
+            this.linkServiceMock.Setup(service =>
+                service.CheckHigherLinkVersionExistsAsync(
+                    It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((Guid groupId, int version, CancellationToken _) =>
+                            groupLinks.Any(link =>
+                                link.GroupId == groupId
+                                    && link.IsDeleted == false
+                                    && link.Version > version));
+
             // The fork numbers from the group high-water mark, so the seeded group has to
             // report one. Set here beside the tip so a test cannot describe a group whose
             // tip and highest version disagree by accident (#271).

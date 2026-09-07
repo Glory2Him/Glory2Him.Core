@@ -41,8 +41,15 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         /// database. A group holds a handful of versions, so answering all of them from one narrow
         /// read costs nothing and puts the await where EF already lives.</para>
         ///
-        /// <para>Tombstones are INCLUDED where the filter admits them; callers differ on whether a
-        /// soft-deleted row counts, and that decision is not this read's to take.</para>
+        /// <para><b>NO TOMBSTONE EVER COMES BACK from here</b>, and a caller that needs one must
+        /// not reach for this member. The §14.7 filter opens with <c>IsDeleted == false</c> before
+        /// any role branch, so a soft-deleted row is dropped for every caller including an
+        /// administrator. That is right for a caller-facing read and wrong for the questions a
+        /// tombstone answers: which row holds the group's published slot (a soft delete never
+        /// clears <c>IsPublished</c>), and which version numbers are taken (#271). Both of those go
+        /// to their own unfiltered storage reads instead — see
+        /// <c>IStorageBroker.SelectPublishedContentItemInGroupAsync</c> and
+        /// <c>SelectContentItemVersionsInGroupAsync</c>.</para>
         /// </summary>
         ValueTask<IReadOnlyList<ContentItem>> RetrieveContentItemsByGroupIdAsync(
             Guid groupId,
@@ -198,6 +205,24 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         /// version looked like the tip, and the fork numbered its successor onto the tombstone,
         /// failing at the index for every subsequent fork in that group.</para>
         /// </summary>
+        /// <summary>
+        /// Whether the group holds a LIVE row at a higher version than the one given — what the
+        /// processing layer asks to learn that a row is no longer the group's edit tip and a
+        /// modify must fork rather than edit in place (§3.4.1, #265).
+        ///
+        /// <para>Computed over the UNFILTERED store, matching
+        /// <see cref="FindHighestVersionInGroupAsync"/> beside it rather than the collection
+        /// read. Version questions are structural: a lineage is not re-shaped by a row being
+        /// invisible to the person asking, and answering this from a per-caller view let a
+        /// contributor who cannot SEE a newer sibling edit a row that is not the tip. Only a
+        /// boolean is returned, so nothing leaks about the sibling itself. Requires a caller
+        /// allowed to contribute, like its high-water-mark sibling.</para>
+        /// </summary>
+        ValueTask<bool> CheckHigherContentItemVersionExistsAsync(
+            Guid groupId,
+            int version,
+            CancellationToken cancellationToken = default);
+
         ValueTask<int> FindHighestVersionInGroupAsync(
             Guid groupId,
             CancellationToken cancellationToken = default);

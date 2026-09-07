@@ -77,6 +77,21 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
         /// ignoring a group - the duplicate rule of §3.4.2. Deliberately unfiltered: the rule is
         /// global, and a boolean reveals nothing resubmitting would not already disclose.
         /// </summary>
+        /// <summary>
+        /// Whether the group holds a LIVE row at a higher version than the one given — the
+        /// derivation behind "is this row still the group's edit tip" (§3.4.1, #265), asked as the
+        /// boolean it is rather than by pulling every row of the group across the wire.
+        ///
+        /// <para>UNFILTERED, and deliberately so: which row is the tip is a structural fact about
+        /// storage, exactly like the version high-water mark beside it. A per-caller view of it
+        /// would let a contributor who cannot SEE a newer sibling edit a row that is not the tip.
+        /// A boolean reveals nothing but the shape of a lineage the caller is already editing.</para>
+        /// </summary>
+        ValueTask<bool> ExistsHigherLiveContentItemVersionInGroupAsync(
+            Guid groupId,
+            int version,
+            CancellationToken cancellationToken = default);
+
         ValueTask<bool> ExistsContentItemContentAsync(
             ContentType contentType,
             string contentHash,

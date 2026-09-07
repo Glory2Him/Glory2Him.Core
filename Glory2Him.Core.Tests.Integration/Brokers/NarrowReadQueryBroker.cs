@@ -18,6 +18,7 @@ using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.Links;
+using Microsoft.EntityFrameworkCore;
 using Xunit;
 
 namespace Glory2Him.Core.Tests.Integration.Brokers
@@ -53,6 +54,32 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
         }
 
         internal IStorageBroker StorageBroker => this.storageBroker;
+
+        /// <summary>
+        /// Attempts an insert and returns the exception the database raised, or <c>null</c> when
+        /// the row was accepted.
+        ///
+        /// <para>Detaching on failure is not tidiness. A rejected <c>SaveChanges</c> leaves the
+        /// entity tracked in the <c>Added</c> state, and this fixture shares one context across the
+        /// whole collection — the next save would retry the rejected row and fail a test that has
+        /// nothing to do with it. Any test that EXPECTS an insert to be refused must come through
+        /// here rather than through <c>SeedAsync</c>.</para>
+        /// </summary>
+        public async ValueTask<Exception> TryInsertAsync(Approval approval)
+        {
+            try
+            {
+                await this.storageBroker.InsertApprovalAsync(approval, CancellationToken.None);
+
+                return null;
+            }
+            catch (Exception exception)
+            {
+                this.storageBroker.Entry(approval).State = EntityState.Detached;
+
+                return exception;
+            }
+        }
 
         public async ValueTask SeedAsync(params Approval[] approvals)
         {

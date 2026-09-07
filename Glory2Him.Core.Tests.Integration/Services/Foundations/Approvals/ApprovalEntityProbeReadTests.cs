@@ -12,6 +12,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using EFxceptions.Models.Exceptions;
 using FluentAssertions;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Models.Enums;
@@ -166,13 +167,19 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Approvals
                 isDeleted: false,
                 updatedWhen: new DateTimeOffset(2021, 3, 4, 0, 0, 0, TimeSpan.Zero));
 
-            // when
-            Func<Task> insertingASecondRowOnTheKey = async () =>
-                await this.broker.SeedAsync(liveApproval);
+            // when: through TryInsertAsync, which detaches the rejected row — left tracked in the
+            // Added state it would be retried by the next save anywhere in this collection
+            Exception actualException = await this.broker.TryInsertAsync(liveApproval);
 
-            // then: which is exactly why the probe must be unfiltered — the tombstone occupies
-            // the key, so a resubmission has to find it and reinstate it in place
-            await insertingASecondRowOnTheKey.Should().ThrowAsync<Exception>();
+            // then: the INDEX refused it, not something incidental. Asserting on any Exception
+            // would pass on a mapping fault or a dropped connection and prove nothing about the
+            // constraint this test exists to pin.
+            actualException.Should().BeOfType<DuplicateKeyWithUniqueIndexException>();
+
+            actualException.Message.Should().Contain(
+                "UX_Approvals_EntityType_EntityId",
+                because: "the key is refused by that index, which is what makes the tie the probe "
+                    + "orders around unreachable");
 
             Approval match = await this.broker.StorageBroker.SelectApprovalByEntityAsync(
                 ProbeEntityType,

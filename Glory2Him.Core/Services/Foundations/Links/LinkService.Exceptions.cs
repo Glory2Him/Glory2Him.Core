@@ -32,6 +32,8 @@ namespace Glory2Him.Core.Services.Foundations.Links
         private delegate ValueTask<Link> ReturningLinkFunction();
         private delegate ValueTask<IQueryable<Link>> ReturningLinksFunction();
 
+        private delegate ValueTask<bool> ReturningBooleanFunction();
+
         private delegate ValueTask<IReadOnlyList<Link>> ReturningLinkListFunction();
 
         private delegate ValueTask<EventEnvelope<Link>?>
@@ -376,6 +378,58 @@ namespace Glory2Him.Core.Services.Foundations.Links
                     data: exception.Data);
 
                 throw await CreateAndLogServiceExceptionAsync(exception: failedLinkServiceException);
+            }
+        }
+
+        private async ValueTask<bool> TryCatch(ReturningBooleanFunction returningBooleanFunction)
+        {
+            try
+            {
+                return await returningBooleanFunction();
+            }
+            catch (OperationCanceledException operationCanceledException)
+                when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
+            {
+                var timeoutException =
+                    new TimeoutException("The dependency operation timed out.");
+
+                var timeoutLinkException =
+                    new TimeoutLinkException(
+                        message: "Failed link timeout error occurred, contact support.",
+                        innerException: timeoutException,
+                        data: timeoutException.Data);
+
+                throw await CreateAndLogTimeoutDependencyExceptionAsync(exception: timeoutLinkException);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (UnauthorizedLinkException unauthorizedLinkException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: unauthorizedLinkException);
+            }
+            catch (InvalidLinkException invalidLinkException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: invalidLinkException);
+            }
+            catch (SqlException sqlException)
+            {
+                var failedStorageLinkException = new FailedStorageLinkException(
+                    message: "Failed link storage error occurred, contact support.",
+                    innerException: sqlException,
+                    data: sqlException.Data);
+
+                throw await CreateAndLogCriticalDependencyExceptionAsync(exception: failedStorageLinkException);
+            }
+            catch (Exception exception)
+            {
+                var failedLinkServiceException = new FailedLinkServiceException(
+                    message: "Failed link service error occurred, please contact support.",
+                    innerException: exception,
+                    data: exception.Data);
+
+                throw await CreateAndLogServiceExceptionAsync(failedLinkServiceException);
             }
         }
 

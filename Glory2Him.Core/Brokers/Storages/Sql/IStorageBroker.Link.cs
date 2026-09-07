@@ -49,6 +49,16 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
         /// incumbent side: a soft delete never clears IsPublished and the slot index names that
         /// column alone, so a tombstone still holds the slot.
         /// </summary>
+        /// <summary>
+        /// Whether the group holds a LIVE row at a higher version than the one given — the link
+        /// twin of <see cref="ExistsHigherLiveContentItemVersionInGroupAsync"/>, unfiltered for
+        /// the same reason: which row is the tip is a fact about storage, not a per-caller view.
+        /// </summary>
+        ValueTask<bool> ExistsHigherLiveLinkVersionInGroupAsync(
+            Guid groupId,
+            int version,
+            CancellationToken cancellationToken = default);
+
         ValueTask<Link?> SelectPublishedLinkInGroupAsync(
             Guid groupId,
             Guid excludedLinkId,

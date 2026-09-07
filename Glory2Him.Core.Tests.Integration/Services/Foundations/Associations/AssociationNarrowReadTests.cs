@@ -429,12 +429,283 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
             isOccupied.Should().BeFalse();
         }
 
-        // AllVersions on both endpoints, so each EFFECTIVE id the database computes is that
-        // endpoint's group id — which is what the reads above are keyed on.
+        /// <summary>
+        /// THE EDITORIAL PAIR, which carries NO UserId. This is the one conjunct where SQL's
+        /// three-valued logic differs from LINQ-to-Objects: <c>UserId = NULL</c> matches nothing
+        /// unless the provider compensates, so a probe that stopped matching editorial rows would
+        /// report every editorial pair as free and let the retrieve-or-add flow insert a duplicate.
+        /// Nothing above this layer can prove it — the unit test can only show the null reached
+        /// the argument.
+        /// </summary>
+        [Fact]
+        public async Task ShouldMatchTheEditorialRowWhoseUserIdIsNullAsync()
+        {
+            // given
+            Guid entityAGroupId = Guid.NewGuid();
+            Guid entityBGroupId = Guid.NewGuid();
+
+            Association editorialAssociation = CreateAssociation(
+                userId: null,
+                entityAGroupId: entityAGroupId,
+                entityBGroupId: entityBGroupId);
+
+            await SeedAsync(editorialAssociation);
+
+            // when
+            Association match = await this.broker.StorageBroker.SelectAssociationByPairAsync(
+                EntityType.ContentItem,
+                EntityType.Tag,
+                entityAGroupId,
+                entityBGroupId,
+                null,
+                TestContext.Current.CancellationToken);
+
+            // then
+            match.Should().NotBeNull();
+            match.Id.Should().Be(editorialAssociation.Id);
+        }
+
+        /// <summary>
+        /// The editorial pair and a per-user reaction row can legally share one canonical pair —
+        /// UserId is part of the unique index. A probe for the editorial pair must not return the
+        /// reaction row, which a dropped UserId conjunct would do via the recency tie-break.
+        /// </summary>
+        [Fact]
+        public async Task ShouldNotMatchAUserRowWhenProbingTheEditorialPairAsync()
+        {
+            // given: the reaction row is deliberately the more recently touched of the two
+            Guid entityAGroupId = Guid.NewGuid();
+            Guid entityBGroupId = Guid.NewGuid();
+
+            Association editorialAssociation = CreateAssociation(
+                userId: null,
+                entityAGroupId: entityAGroupId,
+                entityBGroupId: entityBGroupId);
+
+            editorialAssociation.UpdatedWhen =
+                new DateTimeOffset(2020, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
+            Association reactionAssociation = CreateAssociation(
+                userId: Guid.NewGuid().ToString(),
+                entityAGroupId: entityAGroupId,
+                entityBGroupId: entityBGroupId);
+
+            reactionAssociation.UpdatedWhen =
+                new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
+            await SeedAsync(editorialAssociation, reactionAssociation);
+
+            // when
+            Association match = await this.broker.StorageBroker.SelectAssociationByPairAsync(
+                EntityType.ContentItem,
+                EntityType.Tag,
+                entityAGroupId,
+                entityBGroupId,
+                null,
+                TestContext.Current.CancellationToken);
+
+            // then
+            match.Should().NotBeNull();
+            match.Id.Should().Be(editorialAssociation.Id);
+        }
+
+        /// <summary>
+        /// The reverse direction of the coverage-intersection rule: the STORED row spans the whole
+        /// group and the request pins one version, which the AllVersions row already covers.
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnOverlapWhenThisVersionOnlyRequestFallsInsideAnAllVersionsRowAsync()
+        {
+            // given
+            string userId = Guid.NewGuid().ToString();
+            Guid entityAGroupId = Guid.NewGuid();
+            Guid entityBGroupId = Guid.NewGuid();
+
+            Association spanningAssociation = CreateAssociation(
+                userId: userId,
+                entityAGroupId: entityAGroupId,
+                entityBGroupId: entityBGroupId);
+
+            await SeedAsync(spanningAssociation);
+
+            // when: the request pins ONE version of the same group
+            Association match = await this.broker.StorageBroker.SelectOverlappingAssociationAsync(
+                entityAType: EntityType.ContentItem,
+                entityBType: EntityType.Tag,
+                userId: userId,
+                entityAGroupId: entityAGroupId,
+                entityBGroupId: entityBGroupId,
+                entityAScope: Scope.ThisVersionOnly,
+                entityBScope: Scope.AllVersions,
+                entityAEffectiveId: Guid.NewGuid(),
+                entityBEffectiveId: entityBGroupId,
+                excludedAssociationId: null,
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            match.Should().NotBeNull();
+            match.Id.Should().Be(spanningAssociation.Id);
+        }
+
+        /// <summary>
+        /// THE B-ENDPOINT CLAUSE, which is why this test exists separately from its A-endpoint
+        /// twin. The predicate carries two independent coverage-intersection clauses, and a
+        /// copy-paste slip in the second — comparing the A effective id twice, or reading
+        /// entityAScope where entityBScope was meant — is invisible to any test that only varies
+        /// the A endpoint. Both endpoints are VERSIONED here (ContentItem and Link) so the B side
+        /// can carry its own scope and key id.
+        /// </summary>
+        [Fact]
+        public async Task ShouldNotReturnOverlapForTwoDifferentPinnedVersionsOfTheBEndpointAsync()
+        {
+            // given: the A endpoints match exactly, so only the B clause can refuse this
+            string userId = Guid.NewGuid().ToString();
+            Guid entityAGroupId = Guid.NewGuid();
+            Guid entityBGroupId = Guid.NewGuid();
+
+            Association pinnedOnBAssociation = CreateAssociation(
+                userId: userId,
+                entityAGroupId: entityAGroupId,
+                entityBGroupId: entityBGroupId,
+                entityBType: EntityType.Link);
+
+            pinnedOnBAssociation.EntityBScope = Scope.ThisVersionOnly;
+            pinnedOnBAssociation.EntityBKeyId = Guid.NewGuid();
+
+            await SeedAsync(pinnedOnBAssociation);
+
+            // when: the request pins a DIFFERENT version of the same B group
+            Association match = await this.broker.StorageBroker.SelectOverlappingAssociationAsync(
+                entityAType: EntityType.ContentItem,
+                entityBType: EntityType.Link,
+                userId: userId,
+                entityAGroupId: entityAGroupId,
+                entityBGroupId: entityBGroupId,
+                entityAScope: Scope.AllVersions,
+                entityBScope: Scope.ThisVersionOnly,
+                entityAEffectiveId: entityAGroupId,
+                entityBEffectiveId: Guid.NewGuid(),
+                excludedAssociationId: null,
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            match.Should().BeNull();
+        }
+
+        /// <summary>
+        /// The B-endpoint clause the other way round: a pinned B request DOES overlap a stored row
+        /// that spans the whole B group. Without this, a B clause that always refused would look
+        /// correct to the test above.
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnOverlapWhenPinnedBEndpointFallsInsideAnAllVersionsBRowAsync()
+        {
+            // given
+            string userId = Guid.NewGuid().ToString();
+            Guid entityAGroupId = Guid.NewGuid();
+            Guid entityBGroupId = Guid.NewGuid();
+
+            Association spanningBAssociation = CreateAssociation(
+                userId: userId,
+                entityAGroupId: entityAGroupId,
+                entityBGroupId: entityBGroupId,
+                entityBType: EntityType.Link);
+
+            await SeedAsync(spanningBAssociation);
+
+            // when
+            Association match = await this.broker.StorageBroker.SelectOverlappingAssociationAsync(
+                entityAType: EntityType.ContentItem,
+                entityBType: EntityType.Link,
+                userId: userId,
+                entityAGroupId: entityAGroupId,
+                entityBGroupId: entityBGroupId,
+                entityAScope: Scope.AllVersions,
+                entityBScope: Scope.ThisVersionOnly,
+                entityAEffectiveId: entityAGroupId,
+                entityBEffectiveId: Guid.NewGuid(),
+                excludedAssociationId: null,
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            match.Should().NotBeNull();
+            match.Id.Should().Be(spanningBAssociation.Id);
+        }
+
+        [Fact]
+        public async Task ShouldNotReturnOverlapWhenTheStoredRowBelongsToADifferentUserAsync()
+        {
+            // given: one person's association cannot double-render another person's
+            Guid entityAGroupId = Guid.NewGuid();
+            Guid entityBGroupId = Guid.NewGuid();
+
+            Association othersAssociation = CreateAssociation(
+                userId: Guid.NewGuid().ToString(),
+                entityAGroupId: entityAGroupId,
+                entityBGroupId: entityBGroupId);
+
+            await SeedAsync(othersAssociation);
+
+            // when
+            Association match = await this.broker.StorageBroker.SelectOverlappingAssociationAsync(
+                entityAType: EntityType.ContentItem,
+                entityBType: EntityType.Tag,
+                userId: Guid.NewGuid().ToString(),
+                entityAGroupId: entityAGroupId,
+                entityBGroupId: entityBGroupId,
+                entityAScope: Scope.AllVersions,
+                entityBScope: Scope.AllVersions,
+                entityAEffectiveId: entityAGroupId,
+                entityBEffectiveId: entityBGroupId,
+                excludedAssociationId: null,
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            match.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task ShouldNotReturnOverlapWhenOnlyOneEndpointSharesAGroupAsync()
+        {
+            // given: BOTH endpoints have to intersect. Sharing only the A group is two different
+            // pairings, not one rendered twice.
+            string userId = Guid.NewGuid().ToString();
+            Guid entityAGroupId = Guid.NewGuid();
+
+            Association otherPairAssociation = CreateAssociation(
+                userId: userId,
+                entityAGroupId: entityAGroupId,
+                entityBGroupId: Guid.NewGuid());
+
+            await SeedAsync(otherPairAssociation);
+
+            // when
+            Association match = await this.broker.StorageBroker.SelectOverlappingAssociationAsync(
+                entityAType: EntityType.ContentItem,
+                entityBType: EntityType.Tag,
+                userId: userId,
+                entityAGroupId: entityAGroupId,
+                entityBGroupId: Guid.NewGuid(),
+                entityAScope: Scope.AllVersions,
+                entityBScope: Scope.AllVersions,
+                entityAEffectiveId: entityAGroupId,
+                entityBEffectiveId: Guid.NewGuid(),
+                excludedAssociationId: null,
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            match.Should().BeNull();
+        }
+
+        // AllVersions on both endpoints unless a test narrows one, so each EFFECTIVE id the
+        // database computes is that endpoint's group id — which is what the reads above are keyed
+        // on. entityBType is a parameter because the B-endpoint tests need a VERSIONED endpoint
+        // there (Link) rather than a Tag, so the B side can carry its own scope and key id.
         private static Association CreateAssociation(
             string userId,
             Guid entityAGroupId,
-            Guid entityBGroupId)
+            Guid entityBGroupId,
+            EntityType entityBType = EntityType.Tag)
         {
             DateTimeOffset now = DateTimeOffset.UtcNow;
 
@@ -446,15 +717,18 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
                 EntityAGroupId = entityAGroupId,
                 EntityAKeyId = Guid.NewGuid(),
                 EntityAScope = Scope.AllVersions,
-                EntityBType = EntityType.Tag,
+                EntityBType = entityBType,
                 EntityBGroupId = entityBGroupId,
                 EntityBKeyId = Guid.NewGuid(),
                 EntityBScope = Scope.AllVersions,
                 UserId = userId,
                 ApprovalStatus = ApprovalStatus.Draft,
-                CreatedBy = userId,
+
+                // an EDITORIAL row carries no UserId, but somebody still created it - the audit
+                // columns are not the same field and must not be nulled along with it
+                CreatedBy = userId ?? $"editor-{Guid.NewGuid()}",
                 CreatedWhen = now,
-                UpdatedBy = userId,
+                UpdatedBy = userId ?? $"editor-{Guid.NewGuid()}",
                 UpdatedWhen = now,
                 DeletedBy = null,
                 DeletedWhen = null,

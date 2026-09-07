@@ -681,14 +681,13 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
             ContentItem candidate,
             CancellationToken cancellationToken)
         {
-            IReadOnlyList<ContentItem> groupContentItems =
-                await this.contentItemService.RetrieveContentItemsByGroupIdAsync(
-                    groupId: candidate.GroupId,
-                    cancellationToken: cancellationToken);
-
-            return groupContentItems.Any(contentItem =>
-                contentItem.IsDeleted == false
-                    && contentItem.Version > candidate.Version) is false;
+            // Asked as the boolean it is. Materialising the group to run Any() over it moved
+            // every column of every version across the wire to answer one bit, on the path every
+            // edit takes.
+            return await this.contentItemService.CheckHigherContentItemVersionExistsAsync(
+                groupId: candidate.GroupId,
+                version: candidate.Version,
+                cancellationToken: cancellationToken) is false;
         }
 
         private async ValueTask<ContentItem> ModifyContentItemInPlaceAsync(

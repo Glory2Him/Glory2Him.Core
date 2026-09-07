@@ -43,6 +43,18 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                 .Select(link => link.Version)
                 .ToListAsync(cancellationToken);
 
+        public async ValueTask<bool> ExistsHigherLiveLinkVersionInGroupAsync(
+            Guid groupId,
+            int version,
+            CancellationToken cancellationToken = default) =>
+            await Links
+                .AnyAsync(
+                    link =>
+                        link.GroupId == groupId
+                            && link.IsDeleted == false
+                            && link.Version > version,
+                    cancellationToken);
+
         public async ValueTask<Link?> SelectPublishedLinkInGroupAsync(
             Guid groupId,
             Guid excludedLinkId,

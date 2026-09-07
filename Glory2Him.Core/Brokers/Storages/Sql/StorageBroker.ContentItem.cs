@@ -64,6 +64,18 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                     contentItem => contentItem.GroupId == groupId,
                     cancellationToken);
 
+        public async ValueTask<bool> ExistsHigherLiveContentItemVersionInGroupAsync(
+            Guid groupId,
+            int version,
+            CancellationToken cancellationToken = default) =>
+            await ContentItems
+                .AnyAsync(
+                    contentItem =>
+                        contentItem.GroupId == groupId
+                            && contentItem.IsDeleted == false
+                            && contentItem.Version > version,
+                    cancellationToken);
+
         public async ValueTask<bool> ExistsContentItemContentAsync(
             ContentType contentType,
             string contentHash,

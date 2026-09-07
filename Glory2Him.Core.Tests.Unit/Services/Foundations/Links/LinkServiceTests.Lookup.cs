@@ -32,7 +32,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
         // is exactly how the original defect survived: the swap used the visibility-filtered
         // collection read while its test stubbed that read to return the tombstone anyway.
         [Fact]
-        public async Task ShouldFindThePublishedTombstoneHoldingTheGroupSlotAsync()
+        public async Task ShouldReturnWhateverRowHoldsTheGroupSlotAsync()
         {
             // given: THE case the probe exists for. A soft delete never clears IsPublished and
             // the slot index names that column alone, so a removed row still occupies the group's
@@ -49,6 +49,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             Link target = CreateProbeRow(
                 id: targetId, groupId: groupId, isPublished: false, isDeleted: false);
 
+            this.publishedLinkId = tombstoneId;
             SetupProbeStore(tombstone, target);
 
             // when
@@ -88,8 +89,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
         [Fact]
         public async Task ShouldExcludeTheTargetAndOtherGroupsFromThePublishedProbeAsync()
         {
-            // given: one decoy per conjunct, so a weaker predicate returns the wrong row rather
-            // than merely being able to.
+            // given: a decoy for each argument the service chooses - the group, taken off the
+            // stored target row, and the target's own id. The IsPublished decoy is left in as
+            // documentation of the storage predicate, which is proved in LinkNarrowReadTests.
+            this.publishedLinkId = Guid.Parse("ffffffff-4444-4444-4444-444444444444");
             var groupId = Guid.Parse("ffffffff-1111-1111-1111-111111111111");
             var otherGroupId = Guid.Parse("ffffffff-9999-9999-9999-999999999999");
             var targetId = Guid.Parse("ffffffff-3333-3333-3333-333333333333");
@@ -155,16 +158,23 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
         // the slot, and the version read that counts tombstones (#271) - moved into IStorageBroker
         // with the await that lets the caller's token reach the database, and are proved against a
         // real catalogue in LinkNarrowReadTests.
+        // Which row the STORAGE read would name as the group's published incumbent. Set by a test
+        // that cares; left empty otherwise, in which case the probe finds nothing.
+        private Guid publishedLinkId;
+
         private void SetupProbeStore(params Link[] rows)
         {
+            // Keyed on the GROUP and the EXCLUDED ID only — the two things the service decides.
+            // IsPublished is deliberately NOT evaluated here: that is the storage predicate, and a
+            // stub that re-implemented it would pass whether or not the real read still carried it.
             this.storageBrokerMock.Setup(broker =>
                 broker.SelectPublishedLinkInGroupAsync(
                     It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
                         .ReturnsAsync((Guid groupId, Guid excludedLinkId, CancellationToken _) =>
                             rows.FirstOrDefault(row =>
                                 row.GroupId == groupId
-                                    && row.IsPublished
-                                    && row.Id != excludedLinkId));
+                                    && row.Id != excludedLinkId
+                                    && row.Id == publishedLinkId));
 
             this.storageBrokerMock.Setup(broker =>
                 broker.SelectLinkVersionsInGroupAsync(
@@ -329,6 +339,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
                 broker.SelectLinkByIdAsync(targetId, It.IsAny<CancellationToken>()))
                     .ReturnsAsync(target);
 
+            this.publishedLinkId = incumbentId;
             SetupProbeStore(target, incumbent);
 
             // when

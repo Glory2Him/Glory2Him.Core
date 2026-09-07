@@ -289,6 +289,93 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ContentItems
             exists.Should().BeFalse();
         }
 
+        /// <summary>
+        /// The tip derivation, asked as a boolean. Three conjuncts, one decoy each: a tombstone at
+        /// a higher version does NOT hold the tip away from a live row (the mirror image of the
+        /// version high-water mark, which counts it), a higher version in ANOTHER group is
+        /// irrelevant, and the row itself is not "higher" than itself.
+        /// </summary>
+        [Fact]
+        public async Task ShouldReportAHigherLiveVersionInTheSameGroupAsync()
+        {
+            // given
+            Guid groupId = Guid.NewGuid();
+
+            ContentItem candidate = CreateContentItem(groupId: groupId, version: 1);
+            ContentItem newerLive = CreateContentItem(groupId: groupId, version: 2);
+
+            await SeedAsync(candidate, newerLive);
+
+            // when
+            bool exists =
+                await this.broker.StorageBroker.ExistsHigherLiveContentItemVersionInGroupAsync(
+                    groupId, 1, TestContext.Current.CancellationToken);
+
+            // then
+            exists.Should().BeTrue();
+        }
+
+        [Fact]
+        public async Task ShouldNotReportASoftDeletedHigherVersionAsHoldingTheTipAsync()
+        {
+            // given: the tombstone owns version 2 for NUMBERING purposes, but nobody edits it, so
+            // the live version 1 is still the tip
+            Guid groupId = Guid.NewGuid();
+
+            ContentItem candidate = CreateContentItem(groupId: groupId, version: 1);
+            ContentItem deletedNewer = CreateContentItem(groupId: groupId, version: 2);
+            deletedNewer.IsDeleted = true;
+
+            await SeedAsync(candidate, deletedNewer);
+
+            // when
+            bool exists =
+                await this.broker.StorageBroker.ExistsHigherLiveContentItemVersionInGroupAsync(
+                    groupId, 1, TestContext.Current.CancellationToken);
+
+            // then
+            exists.Should().BeFalse();
+        }
+
+        [Fact]
+        public async Task ShouldNotReportAHigherVersionFromAnotherGroupAsync()
+        {
+            // given
+            Guid groupId = Guid.NewGuid();
+
+            ContentItem candidate = CreateContentItem(groupId: groupId, version: 1);
+            ContentItem otherGroupNewer = CreateContentItem(groupId: Guid.NewGuid(), version: 9);
+
+            await SeedAsync(candidate, otherGroupNewer);
+
+            // when
+            bool exists =
+                await this.broker.StorageBroker.ExistsHigherLiveContentItemVersionInGroupAsync(
+                    groupId, 1, TestContext.Current.CancellationToken);
+
+            // then
+            exists.Should().BeFalse();
+        }
+
+        [Fact]
+        public async Task ShouldNotReportTheCandidatesOwnVersionAsHigherAsync()
+        {
+            // given: strictly greater, or a lone row would report itself as superseded
+            Guid groupId = Guid.NewGuid();
+
+            ContentItem candidate = CreateContentItem(groupId: groupId, version: 3);
+
+            await SeedAsync(candidate);
+
+            // when
+            bool exists =
+                await this.broker.StorageBroker.ExistsHigherLiveContentItemVersionInGroupAsync(
+                    groupId, 3, TestContext.Current.CancellationToken);
+
+            // then
+            exists.Should().BeFalse();
+        }
+
         private static ContentItem CreateContentItem(Guid groupId, int version)
         {
             string actorUserId = Guid.NewGuid().ToString();

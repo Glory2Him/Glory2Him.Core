@@ -24,9 +24,10 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviewRequests
         public ValueTask<IReadOnlyList<ApprovalReviewRequest>> RetrieveApprovalReviewRequestsByApprovalIdAsync(
             Guid approvalId,
             CancellationToken cancellationToken = default) =>
-            TryCatch(async () =>
+            TryCatchList(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                ValidateOnRetrieveApprovalReviewRequestsByApprovalId(approvalId);
 
                 // the envelope exists to capture the ambient security context the visibility
                 // filter runs against — the request payload is empty, exactly as the unkeyed

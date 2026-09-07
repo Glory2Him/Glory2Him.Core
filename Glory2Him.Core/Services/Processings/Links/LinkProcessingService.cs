@@ -623,14 +623,13 @@ namespace Glory2Him.Core.Services.Processings.Links
             Link candidate,
             CancellationToken cancellationToken)
         {
-            IReadOnlyList<Link> groupLinks =
-                await this.linkService.RetrieveLinksByGroupIdAsync(
-                    groupId: candidate.GroupId,
-                    cancellationToken: cancellationToken);
-
-            return groupLinks.Any(link =>
-                link.IsDeleted == false
-                    && link.Version > candidate.Version) is false;
+            // Asked as the boolean it is. Materialising the group to run Any() over it moved
+            // every column of every version across the wire to answer one bit, on the path every
+            // edit takes.
+            return await this.linkService.CheckHigherLinkVersionExistsAsync(
+                groupId: candidate.GroupId,
+                version: candidate.Version,
+                cancellationToken: cancellationToken) is false;
         }
 
         private async ValueTask<Link> ModifyLinkInPlaceAsync(

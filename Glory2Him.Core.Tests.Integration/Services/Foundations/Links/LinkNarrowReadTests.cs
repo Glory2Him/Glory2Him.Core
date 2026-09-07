@@ -144,6 +144,68 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Links
             incumbent.Should().BeNull();
         }
 
+        /// <summary>
+        /// The link twin of the content-item tip derivation: a tombstone at a higher version does
+        /// not take the tip away from a live row, and the row itself is not higher than itself.
+        /// </summary>
+        [Fact]
+        public async Task ShouldReportAHigherLiveVersionInTheSameGroupAsync()
+        {
+            // given
+            Guid groupId = Guid.NewGuid();
+
+            Link candidate = CreateLink(groupId: groupId, version: 1);
+            Link newerLive = CreateLink(groupId: groupId, version: 2);
+
+            await SeedAsync(candidate, newerLive);
+
+            // when
+            bool exists = await this.broker.StorageBroker.ExistsHigherLiveLinkVersionInGroupAsync(
+                groupId, 1, TestContext.Current.CancellationToken);
+
+            // then
+            exists.Should().BeTrue();
+        }
+
+        [Fact]
+        public async Task ShouldNotReportASoftDeletedHigherVersionAsHoldingTheTipAsync()
+        {
+            // given
+            Guid groupId = Guid.NewGuid();
+
+            Link candidate = CreateLink(groupId: groupId, version: 1);
+            Link deletedNewer = CreateLink(groupId: groupId, version: 2);
+            deletedNewer.IsDeleted = true;
+
+            await SeedAsync(candidate, deletedNewer);
+
+            // when
+            bool exists = await this.broker.StorageBroker.ExistsHigherLiveLinkVersionInGroupAsync(
+                groupId, 1, TestContext.Current.CancellationToken);
+
+            // then
+            exists.Should().BeFalse();
+        }
+
+        [Fact]
+        public async Task ShouldNotReportAHigherVersionFromAnotherGroupAsync()
+        {
+            // given
+            Guid groupId = Guid.NewGuid();
+
+            Link candidate = CreateLink(groupId: groupId, version: 1);
+            Link otherGroupNewer = CreateLink(groupId: Guid.NewGuid(), version: 9);
+
+            await SeedAsync(candidate, otherGroupNewer);
+
+            // when
+            bool exists = await this.broker.StorageBroker.ExistsHigherLiveLinkVersionInGroupAsync(
+                groupId, 1, TestContext.Current.CancellationToken);
+
+            // then
+            exists.Should().BeFalse();
+        }
+
         private static Link CreateLink(Guid groupId, int version)
         {
             string actorUserId = Guid.NewGuid().ToString();

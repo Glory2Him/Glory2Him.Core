@@ -330,7 +330,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviewRequests
         // The same taxonomy the queryable read is wrapped in, over a materialised result. The
         // two must not diverge: they answer the same question about the same table and differ
         // only in where the query is executed.
-        private async ValueTask<IReadOnlyList<ApprovalReviewRequest>> TryCatch(
+        private async ValueTask<IReadOnlyList<ApprovalReviewRequest>> TryCatchList(
             ReturningApprovalReviewRequestListFunction returningApprovalReviewRequestListFunction)
         {
             try

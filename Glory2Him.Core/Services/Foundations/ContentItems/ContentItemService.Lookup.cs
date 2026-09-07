@@ -22,6 +22,36 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
 {
     internal partial class ContentItemService
     {
+        // The tip DERIVATION, asked as the boolean it is. Reading the whole group back to run
+        // Any() in memory moved every column of every version across the wire on the modify hot
+        // path to answer one bit.
+        //
+        // UNFILTERED, like the high-water mark above it and for the same reason: a version
+        // question is structural. Answered from the caller-facing collection read - which is what
+        // it used to be - a contributor who could not SEE a newer sibling was told their row was
+        // the tip and edited it in place.
+        public ValueTask<bool> CheckHigherContentItemVersionExistsAsync(
+            Guid groupId,
+            int version,
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var checkRequest = new ContentItem { GroupId = groupId };
+
+                EventEnvelope<ContentItem> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: checkRequest);
+
+                ValidateUserIsAllowedToContribute(envelope.SecurityContext);
+                ValidateOnFindHighestVersionInGroup(groupId);
+
+                return await this.storageBroker.ExistsHigherLiveContentItemVersionInGroupAsync(
+                    groupId: groupId,
+                    version: version,
+                    cancellationToken: cancellationToken);
+            });
+
         public ValueTask<int> FindHighestVersionInGroupAsync(
             Guid groupId,
             CancellationToken cancellationToken = default) =>
@@ -122,6 +152,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             TryCatchList(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                ValidateOnFindHighestVersionInGroup(groupId);
 
                 // the envelope exists to capture the ambient security context the visibility
                 // filter runs against — the request payload is empty, exactly as the unkeyed

@@ -291,6 +291,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                                 .Where(contentItem => contentItem.GroupId == groupId)
                                 .ToList());
         
+            // The tip is DERIVED, and the foundation answers it as a BOOLEAN rather than by
+            // handing the group back - so the stub answers the same question off the same seeded
+            // rows. Keyed on the version the caller asks about, so a test that seeds a
+            // higher-versioned sibling still says "not the tip".
+            this.contentItemServiceMock.Setup(service =>
+                service.CheckHigherContentItemVersionExistsAsync(
+                    It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((Guid groupId, int version, CancellationToken _) =>
+                            groupContentItems.Any(contentItem =>
+                                contentItem.GroupId == groupId
+                                    && contentItem.IsDeleted == false
+                                    && contentItem.Version > version));
+
             // The fork numbers from the group high-water mark, so the seeded group has to
             // report one. Kept in the same helper as the tip so a test cannot describe a
             // group whose tip and highest version disagree by accident (#271).
@@ -301,12 +314,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                         .ReturnsAsync(groupContentItems.Max(contentItem => contentItem.Version));
 }
 
-        // the derivation costs one read of the group, which VerifyNoOtherCalls would
-        // otherwise flag
+        // the derivation costs one existence check, which VerifyNoOtherCalls would otherwise flag
         private void VerifyGroupTipResolved() =>
             this.contentItemServiceMock.Verify(service =>
-                service.RetrieveContentItemsByGroupIdAsync(
-                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+                service.CheckHigherContentItemVersionExistsAsync(
+                    It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<CancellationToken>()),
                 Times.Once);
 
         // a row that satisfies canonical content visibility (§14.1) as of currentDateTime
