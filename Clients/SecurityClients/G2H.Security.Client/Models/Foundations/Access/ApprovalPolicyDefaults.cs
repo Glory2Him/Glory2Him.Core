@@ -54,6 +54,19 @@ namespace G2H.Security.Client.Models.Foundations.Access
                 // unscored entity is null rather than zero.
                 BlockOnZeroApprovalScore = true,
                 RequireReviewCommentResolutionBeforeApprovals = true,
+
+                // §8.6.2 is not named by §8.4 rule 2 either — Berean postdates it — but the same
+                // fail-closed reading applies: an unseeded environment offers no AI reviewer and
+                // casts no AI vote. Both false satisfies CK_ApprovalSetting_AIVoteRequiresAIReviewer
+                // on its own terms, so there is no ordering to get wrong here.
+                IsAIReviewerOffered = false,
+                IsAIAllowedToVote = false,
+
+                // Never read while IsAIAllowedToVote is false (§8.6.2), which it always is here —
+                // 0.00 is not a claim about where a real deployment should set these, only that
+                // the system default casts no vote to threshold in the first place.
+                AIApprovalConfidenceRejectionThreshold = 0.00m,
+                AIApprovalConfidenceApprovalThreshold = 0.00m,
             };
     }
 }
