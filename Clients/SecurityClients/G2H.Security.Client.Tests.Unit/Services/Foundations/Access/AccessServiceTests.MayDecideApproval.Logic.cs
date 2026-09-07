@@ -240,6 +240,152 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             actualVerdict.DenialReason.Should().Be(AccessDenialReason.None);
         }
 
+        // ALLOWSELFAPPROVAL DOES NOT REACH THE BYPASS. It governs the ordinary route — the
+        // author closing their own round on the strength of the conditions. HR-4 route 3 is a
+        // different act with its own gate, and reading the setting into it left the override
+        // unreachable on exactly the team that needs it: the administrator who is also the only
+        // publisher, whose own submission then blocks on a threshold nobody else can meet.
+        [Fact]
+        public async Task ShouldLetAnAdministratorBypassApproveTheirOwnEntityAsync()
+        {
+            // given
+            string authorId = GetRandomString();
+
+            AccessActor administratorAuthor = CreateRandomAccessActor(
+                userId: authorId,
+                roles: new List<string> { RoleNames.Administrators });
+
+            // The blocking shape the exception exists for: approvals required, none recorded,
+            // and self-approval shut.
+            ApprovalPolicy approvalPolicy = CreateRandomApprovalPolicy(
+                requireApprovals: true,
+                requiredNumberOfApprovals: 2,
+                allowSelfApproval: false);
+
+            DecideApprovalRequest decideApprovalRequest = CreateRandomDecideApprovalRequest(
+                actor: administratorAuthor,
+                policy: approvalPolicy,
+                entityCreatedBy: authorId,
+                isBypassRequested: true,
+                bypassReason: GetRandomString());
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayDecideApprovalAsync(decideApprovalRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeTrue();
+            actualVerdict.DenialReason.Should().Be(AccessDenialReason.None);
+
+            // and the waiver is RECORDED as one, naming what it stood over — the whole value
+            // of taking this route rather than editing the policy and approving quietly
+            actualVerdict.IsBypassUsed.Should().BeTrue();
+
+            actualVerdict.BypassedBlockReason.Should()
+                .Be(AccessDenialReason.ApprovalThresholdNotMet);
+        }
+
+        // The waiver is not the administrator's alone: HR-4 route 3 is "bypass by a publisher
+        // or administrator", and AllowSelfApproval does not narrow it, because it is not a
+        // question about the bypass at all. What narrows route 3 is its own setting, below.
+        [Fact]
+        public async Task ShouldLetAPublisherBypassApproveTheirOwnEntityAsync()
+        {
+            // given
+            string authorId = GetRandomString();
+
+            AccessActor publisherAuthor = CreateRandomAccessActor(
+                userId: authorId,
+                roles: new List<string> { RoleNames.Publishers });
+
+            ApprovalPolicy approvalPolicy = CreateRandomApprovalPolicy(
+                requireApprovals: true,
+                allowSelfApproval: false);
+
+            DecideApprovalRequest decideApprovalRequest = CreateRandomDecideApprovalRequest(
+                actor: publisherAuthor,
+                policy: approvalPolicy,
+                entityCreatedBy: authorId,
+                isBypassRequested: true,
+                bypassReason: GetRandomString());
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayDecideApprovalAsync(decideApprovalRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeTrue();
+            actualVerdict.IsBypassUsed.Should().BeTrue();
+        }
+
+        // The exception rides on the BYPASS, so the ordinary self-approve stays shut for an
+        // administrator too: without a waiver there is nothing to attribute the approval to.
+        [Fact]
+        public async Task ShouldRefuseAnAdministratorApprovingTheirOwnEntityWithoutABypassAsync()
+        {
+            // given
+            string authorId = GetRandomString();
+
+            AccessActor administratorAuthor = CreateRandomAccessActor(
+                userId: authorId,
+                roles: new List<string> { RoleNames.Administrators });
+
+            ApprovalPolicy approvalPolicy = CreateRandomApprovalPolicy(
+                requireApprovals: false,
+                allowSelfApproval: false);
+
+            DecideApprovalRequest decideApprovalRequest = CreateRandomDecideApprovalRequest(
+                actor: administratorAuthor,
+                policy: approvalPolicy,
+                entityCreatedBy: authorId);
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayDecideApprovalAsync(decideApprovalRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeFalse();
+
+            actualVerdict.DenialReason.Should()
+                .Be(AccessDenialReason.SelfApprovalNotPermitted);
+        }
+
+        // DoNotAllowBypassingSettings closes route 3 entirely (HR-4), and the exception above
+        // does not reopen it: an environment that shut the bypass has shut it for the
+        // administrator-author as well.
+        [Fact]
+        public async Task ShouldRefuseAnAdministratorBypassOnTheirOwnEntityWhenBypassingIsClosedAsync()
+        {
+            // given
+            string authorId = GetRandomString();
+
+            AccessActor administratorAuthor = CreateRandomAccessActor(
+                userId: authorId,
+                roles: new List<string> { RoleNames.Administrators });
+
+            ApprovalPolicy approvalPolicy = CreateRandomApprovalPolicy(
+                requireApprovals: true,
+                allowSelfApproval: false,
+                doNotAllowBypassingSettings: true);
+
+            DecideApprovalRequest decideApprovalRequest = CreateRandomDecideApprovalRequest(
+                actor: administratorAuthor,
+                policy: approvalPolicy,
+                entityCreatedBy: authorId,
+                isBypassRequested: true,
+                bypassReason: GetRandomString());
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayDecideApprovalAsync(decideApprovalRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeFalse();
+
+            actualVerdict.DenialReason.Should()
+                .Be(AccessDenialReason.BypassNotPermitted);
+        }
+
         // HR-2.
         [Fact]
         public async Task ShouldRefuseTheAuthorApprovingTheirOwnEntityWhenSelfApprovalIsNotAllowedAsync()

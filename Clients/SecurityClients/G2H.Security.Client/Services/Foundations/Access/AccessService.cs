@@ -491,7 +491,29 @@ namespace G2H.Security.Client.Services.Foundations.Access
                 return Permit("Actor may reject this approval.");
             }
 
-            if (IsSameUser(request.Actor.UserId, request.EntityCreatedBy)
+            // HR-2, AND IT DOES NOT REACH THE BYPASS. AllowSelfApproval governs the ORDINARY
+            // route — HR-4 route 1, an author closing their own round on the strength of the
+            // conditions. The bypass is route 3, a different act with a different record and
+            // its own gate: DoNotAllowBypassingSettings, checked immediately below. That
+            // setting is the whole of what decides whether a waiver may be issued, and reading
+            // AllowSelfApproval into it as well answered a question nobody asked it.
+            //
+            // WHAT THAT COST WAS THE OVERRIDE ITSELF, precisely where it is needed. On a small
+            // team the administrator is often the only publisher, so their own submission
+            // blocks on a threshold nobody else can meet — and the one route the design leaves
+            // open for exactly that, a recorded and reasoned waiver, was refused before it was
+            // reached. What remained was editing the policy and approving quietly (the residual
+            // §8.6 names, which leaves no waiver on the row at all) or leaving the item
+            // stranded. The bypass is the better of the three: attributable, reasoned, and
+            // closable by configuration.
+            //
+            // NOTHING ELSE MOVES. The ordinary self-approve stays shut for everyone including
+            // Administrators, since the exemption rides on the bypass rather than on the role.
+            // HR-1 is untouched — nobody reviews their own content, whatever they hold — so a
+            // waiver can never be a vote. And §8.6 regardless-rule 1 is asked well above this
+            // line, so it still binds first and no waiver reaches past it.
+            if (request.IsBypassRequested is false
+                && IsSameUser(request.Actor.UserId, request.EntityCreatedBy)
                 && policy.AllowSelfApproval is false)
             {
                 return Refuse(
