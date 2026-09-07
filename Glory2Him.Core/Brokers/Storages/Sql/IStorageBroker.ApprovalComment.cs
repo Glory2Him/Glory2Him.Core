@@ -27,6 +27,18 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
         ValueTask<IQueryable<ApprovalComment>> SelectAllApprovalCommentsAsync(
             CancellationToken cancellationToken = default);
 
+        /// <summary>
+        /// The comments recorded against ONE approval, materialised here rather than handed back
+        /// as a queryable for a service to enumerate - the same shape, and the same reason, as
+        /// the review-request twin.
+        ///
+        /// <para>DELIBERATELY UNFILTERED beyond the approval id. Who may SEE a comment is §14.7's
+        /// question, answered by the service's own visibility filter over this result.</para>
+        /// </summary>
+        ValueTask<List<ApprovalComment>> SelectApprovalCommentsByApprovalIdAsync(
+            Guid approvalId,
+            CancellationToken cancellationToken = default);
+
         ValueTask<ApprovalComment> SelectApprovalCommentByIdAsync(
             Guid approvalCommentId,
             CancellationToken cancellationToken = default);

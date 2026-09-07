@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -24,6 +25,19 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
             CancellationToken cancellationToken = default);
 
         ValueTask<IQueryable<ApprovalComment>> RetrieveAllApprovalCommentsAsync(
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// The visible comments on ONE approval round, already materialised - the round-keyed twin
+        /// of <see cref="RetrieveAllApprovalCommentsAsync"/>, and the member every round-keyed
+        /// caller should reach for. The collection read hands back a LIVE queryable, so narrowing
+        /// it to one approval left the caller a synchronous terminal operator as the only way to
+        /// execute it: a blocking round trip with the cancellation token left behind.
+        ///
+        /// <para>Carries the identical §14.7 posture, because it re-runs the identical filter.</para>
+        /// </summary>
+        ValueTask<IReadOnlyList<ApprovalComment>> RetrieveApprovalCommentsByApprovalIdAsync(
+            Guid approvalId,
             CancellationToken cancellationToken = default);
 
         ValueTask<ApprovalComment> RetrieveApprovalCommentByIdAsync(
