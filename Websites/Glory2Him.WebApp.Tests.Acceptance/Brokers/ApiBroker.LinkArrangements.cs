@@ -90,7 +90,8 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
             int version,
             ApprovalStatus approvalStatus,
             bool isPublished,
-            string authorUserId)
+            string authorUserId,
+            bool isDeleted = false)
         {
             DateTimeOffset now = DateTimeOffset.UtcNow;
 
@@ -105,7 +106,13 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
                 ApprovalStatus = approvalStatus,
                 IsPublished = isPublished,
                 PublishDate = isPublished ? now : null,
-                IsDeleted = false,
+
+                // A TAKEDOWN, when a test asks for one: a removed row is gone for every
+                // caller, privileged or not, which is what the group read has to prove.
+                IsDeleted = isDeleted,
+                DeletedBy = isDeleted ? authorUserId : null,
+                DeletedWhen = isDeleted ? now : null,
+
                 CreatedBy = authorUserId,
                 CreatedWhen = now,
                 UpdatedBy = authorUserId,

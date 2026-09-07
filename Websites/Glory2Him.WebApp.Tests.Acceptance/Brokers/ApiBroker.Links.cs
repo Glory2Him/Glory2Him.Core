@@ -50,6 +50,12 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
             await this.apiFactoryClient.GetContentAsync<List<Link>>(
                 $"{linksRelativeUrl}/Groups/{groupId}");
 
+        // The group read carries [EnableQuery] with a restricted option set: $top/$skip/$count
+        // compose, $filter/$orderby are refused. This overload is how a test asks for either.
+        public async ValueTask<List<Link>> GetLinksByGroupIdAsync(Guid groupId, string odataQuery) =>
+            await this.apiFactoryClient.GetContentAsync<List<Link>>(
+                $"{linksRelativeUrl}/Groups/{groupId}?{odataQuery}");
+
         public async ValueTask<Link> GetLatestLinkByGroupIdAsync(Guid groupId) =>
             await this.apiFactoryClient.GetContentAsync<Link>(
                 $"{linksRelativeUrl}/Groups/{groupId}/Latest");

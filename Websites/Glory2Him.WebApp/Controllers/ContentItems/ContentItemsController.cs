@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -423,16 +424,36 @@ namespace Glory2Him.WebApp.Controllers.ContentItems
         /// Every version of one group (§17.1 <c>/groups/{groupId}</c>), under the same per-caller
         /// filter as <see cref="Get"/>.
         /// </summary>
+        ///
+        /// <remarks>
+        /// <para><b>Why this route allows less than <see cref="Get"/> does.</b> The service hands
+        /// back a materialised set, so <see cref="EnableQueryAttribute"/> composes over
+        /// LINQ-to-Objects rather than pushing into SQL. <c>$filter</c> and <c>$orderby</c> compare
+        /// strings ORDINALLY there, where the catalogue's <c>SQL_Latin1_General_CP1_CI_AS</c>
+        /// collation compares them case-INSENSITIVELY — so the same filter that matches on
+        /// <see cref="Get"/> would silently match nothing here. Rather than serve a quietly
+        /// different answer, the two options whose meaning would change are refused: a caller
+        /// sending them gets 400, not an empty array. <c>$top</c>, <c>$skip</c> and <c>$count</c>
+        /// carry no such ambiguity and stay, which is also what keeps this route paged.</para>
+        /// </remarks>
         [HttpGet("Groups/{groupId}")]
-        [EnableQuery]
+        [EnableQuery(AllowedQueryOptions =
+            AllowedQueryOptions.Top | AllowedQueryOptions.Skip | AllowedQueryOptions.Count)]
         [AllowAnonymous]
-        public async ValueTask<ActionResult<IQueryable<ContentItem>>> GetContentItemsByGroupId(
+        public async ValueTask<ActionResult<IReadOnlyList<ContentItem>>> GetContentItemsByGroupId(
             Guid groupId,
             CancellationToken cancellationToken)
         {
             try
             {
-                IQueryable<ContentItem> retrievedContentItems =
+                // A MATERIALISED set, not a live queryable: the read executes in the service with
+                // the caller's token instead of on this thread when the response is serialised.
+                //
+                // The cost, stated plainly: SQL now sees WHERE GroupId = @g and no TOP, so the
+                // whole lineage crosses the wire and is filtered and paged HERE. A group is one
+                // content item's version lineage, seeked on the unique (GroupId, Version) index —
+                // small in practice, but no invariant bounds it.
+                IReadOnlyList<ContentItem> retrievedContentItems =
                     await this.contentItemProcessingService
                         .RetrieveContentItemsByGroupIdAsync(groupId, cancellationToken);
 

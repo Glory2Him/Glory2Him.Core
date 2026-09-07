@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading;
@@ -74,12 +75,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                 loggingBroker: this.loggingBrokerMock.Object);
         }
 
-        public static TheoryData<Xeption> DependencyValidationExceptions()
+        // The CASES, separated from the TheoryData that carries them, because the group-read
+        // theories pair each case with every group read (LinkProcessingServiceTests.GroupReads
+        // .Exceptions) rather than running it alone. One list, two shapes of consumer.
+        private static IEnumerable<Xeption> DependencyValidationExceptionCases()
         {
             string randomMessage = GetRandomString();
             var innerException = new Xeption(message: randomMessage);
 
-            return new TheoryData<Xeption>
+            return new Xeption[]
             {
                 new LinkValidationException(
                     message: randomMessage,
@@ -91,12 +95,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             };
         }
 
-        public static TheoryData<Xeption> DependencyExceptions()
+        private static IEnumerable<Xeption> DependencyExceptionCases()
         {
             string randomMessage = GetRandomString();
             var innerException = new Xeption(message: randomMessage);
 
-            return new TheoryData<Xeption>
+            return new Xeption[]
             {
                 new LinkDependencyException(
                     message: randomMessage,
@@ -106,6 +110,30 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                     message: randomMessage,
                     innerException: innerException)
             };
+        }
+
+        public static TheoryData<Xeption> DependencyValidationExceptions()
+        {
+            var theoryData = new TheoryData<Xeption>();
+
+            foreach (Xeption exception in DependencyValidationExceptionCases())
+            {
+                theoryData.Add(exception);
+            }
+
+            return theoryData;
+        }
+
+        public static TheoryData<Xeption> DependencyExceptions()
+        {
+            var theoryData = new TheoryData<Xeption>();
+
+            foreach (Xeption exception in DependencyExceptionCases())
+            {
+                theoryData.Add(exception);
+            }
+
+            return theoryData;
         }
 
         // the two statuses a modify may not amend in place — an edit of either forks a new

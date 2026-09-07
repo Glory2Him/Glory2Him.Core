@@ -10,12 +10,12 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Links;
-using Glory2Him.Core.Models.Foundations.Links.Exceptions;
 using Glory2Him.Core.Models.Processings.Links.Exceptions;
 using Moq;
 using Xeptions;
@@ -24,51 +24,126 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
 {
     public partial class LinkProcessingServiceTests
     {
-        // The two single-row group reads share one exception surface: both resolve their row
-        // out of the same foundation collection read, so a dependency failure reaches the
-        // caller by the same path. They are parameterised together rather than copied, so a
-        // divergence between the two shows up as a failure instead of as a stale duplicate.
-        private ValueTask<Link> RetrieveByGroupIdAsync(
-            bool retrieveLatest,
+        public enum GroupRead
+        {
+            Latest,
+            Published,
+            Collection
+        }
+
+        private Task GroupReadTask(
+            GroupRead groupRead,
             Guid groupId,
             CancellationToken cancellationToken) =>
-            retrieveLatest
-                ? this.linkProcessingService.RetrieveLatestLinkByGroupIdAsync(
-                    groupId,
-                    cancellationToken)
+            groupRead switch
+            {
+                GroupRead.Latest =>
+                    this.linkProcessingService.RetrieveLatestLinkByGroupIdAsync(
+                        groupId, cancellationToken).AsTask(),
 
-                : this.linkProcessingService.RetrievePublishedLinkByGroupIdAsync(
-                    groupId,
-                    cancellationToken);
+                GroupRead.Published =>
+                    this.linkProcessingService.RetrievePublishedLinkByGroupIdAsync(
+                        groupId, cancellationToken).AsTask(),
+
+                _ =>
+                    this.linkProcessingService.RetrieveLinksByGroupIdAsync(
+                        groupId, cancellationToken).AsTask()
+            };
+
+        private void SetupInboundEnvelopeIfMinted(GroupRead groupRead, Guid groupId)
+        {
+            if (groupRead is GroupRead.Collection)
+            {
+                return;
+            }
+
+            EventEnvelope<Link> inboundEnvelope = CreateEventEnvelope(
+                link: new Link { GroupId = groupId },
+                securityContext: CreateAuthenticatedSecurityContext());
+
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(groupId))))
+                    .ReturnsAsync(inboundEnvelope);
+        }
+
+        private void SetupServiceErrorAtTheFirstOutwardCall(
+            GroupRead groupRead,
+            Guid groupId,
+            Exception serviceException)
+        {
+            if (groupRead is GroupRead.Collection)
+            {
+                this.linkServiceMock.Setup(service =>
+                    service.RetrieveLinksByGroupIdAsync(
+                        It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                            .ThrowsAsync(serviceException);
+
+                return;
+            }
+
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(groupId))))
+                    .ThrowsAsync(serviceException);
+        }
+
+        public static TheoryData<GroupRead, Xeption> GroupReadDependencyValidationExceptions()
+        {
+            var theoryData = new TheoryData<GroupRead, Xeption>();
+
+            foreach (GroupRead groupRead in Enum.GetValues<GroupRead>())
+            {
+                foreach (Xeption exception in DependencyValidationExceptionCases())
+                {
+                    theoryData.Add(groupRead, exception);
+                }
+            }
+
+            return theoryData;
+        }
+
+        public static TheoryData<GroupRead, Xeption> GroupReadDependencyExceptions()
+        {
+            var theoryData = new TheoryData<GroupRead, Xeption>();
+
+            foreach (GroupRead groupRead in Enum.GetValues<GroupRead>())
+            {
+                foreach (Xeption exception in DependencyExceptionCases())
+                {
+                    theoryData.Add(groupRead, exception);
+                }
+            }
+
+            return theoryData;
+        }
+
+        public static TheoryData<GroupRead> GroupReads()
+        {
+            var theoryData = new TheoryData<GroupRead>();
+
+            foreach (GroupRead groupRead in Enum.GetValues<GroupRead>())
+            {
+                theoryData.Add(groupRead);
+            }
+
+            return theoryData;
+        }
 
         [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
+        [MemberData(nameof(GroupReadDependencyValidationExceptions))]
         public async Task ShouldThrowDependencyValidationExceptionOnGroupReadIfValidationErrorOccursAndLogItAsync(
-            bool retrieveLatest)
+            GroupRead groupRead,
+            Xeption dependencyValidationException)
         {
             // given
             Guid inputGroupId = Guid.NewGuid();
-            string randomMessage = GetRandomString();
-            var innerException = new Xeption(message: randomMessage);
-
-            var dependencyValidationException = new LinkValidationException(
-                message: randomMessage,
-                innerException: innerException);
-
-            EventEnvelope<Link> inboundEnvelope = CreateEventEnvelope(
-                link: new Link { GroupId = inputGroupId },
-                securityContext: CreateAuthenticatedSecurityContext());
 
             var expectedLinkProcessingDependencyValidationException =
                 new LinkProcessingDependencyValidationException(
                     message: "Link processing dependency validation error occurred, " +
                         "fix the errors and try again.",
-                    innerException: innerException);
+                    innerException: (dependencyValidationException.InnerException as Xeption)!);
 
-            this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputGroupId))))
-                    .ReturnsAsync(inboundEnvelope);
+            SetupInboundEnvelopeIfMinted(groupRead, inputGroupId);
 
             this.linkServiceMock.Setup(service =>
                 service.RetrieveLinksByGroupIdAsync(
@@ -76,19 +151,24 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                         .ThrowsAsync(dependencyValidationException);
 
             // when
-            ValueTask<Link> groupReadTask = RetrieveByGroupIdAsync(
-                retrieveLatest,
+            Task groupReadTask = GroupReadTask(
+                groupRead,
                 inputGroupId,
                 TestContext.Current.CancellationToken);
 
             LinkProcessingDependencyValidationException
                 actualLinkProcessingDependencyValidationException =
                     await Assert.ThrowsAsync<LinkProcessingDependencyValidationException>(
-                        groupReadTask.AsTask);
+                        () => groupReadTask);
 
             // then
             actualLinkProcessingDependencyValidationException.Should().BeEquivalentTo(
                 expectedLinkProcessingDependencyValidationException);
+
+            this.linkServiceMock.Verify(service =>
+                service.RetrieveLinksByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+                Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
@@ -99,32 +179,20 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
         }
 
         [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
+        [MemberData(nameof(GroupReadDependencyExceptions))]
         public async Task ShouldThrowDependencyExceptionOnGroupReadIfDependencyErrorOccursAndLogItAsync(
-            bool retrieveLatest)
+            GroupRead groupRead,
+            Xeption dependencyException)
         {
             // given
             Guid inputGroupId = Guid.NewGuid();
-            string randomMessage = GetRandomString();
-            var innerException = new Xeption(message: randomMessage);
-
-            var dependencyException = new LinkDependencyException(
-                message: randomMessage,
-                innerException: innerException);
-
-            EventEnvelope<Link> inboundEnvelope = CreateEventEnvelope(
-                link: new Link { GroupId = inputGroupId },
-                securityContext: CreateAuthenticatedSecurityContext());
 
             var expectedLinkProcessingDependencyException =
                 new LinkProcessingDependencyException(
                     message: "Link processing dependency error occurred, contact support.",
-                    innerException: innerException);
+                    innerException: (dependencyException.InnerException as Xeption)!);
 
-            this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputGroupId))))
-                    .ReturnsAsync(inboundEnvelope);
+            SetupInboundEnvelopeIfMinted(groupRead, inputGroupId);
 
             this.linkServiceMock.Setup(service =>
                 service.RetrieveLinksByGroupIdAsync(
@@ -132,18 +200,23 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                         .ThrowsAsync(dependencyException);
 
             // when
-            ValueTask<Link> groupReadTask = RetrieveByGroupIdAsync(
-                retrieveLatest,
+            Task groupReadTask = GroupReadTask(
+                groupRead,
                 inputGroupId,
                 TestContext.Current.CancellationToken);
 
             LinkProcessingDependencyException actualLinkProcessingDependencyException =
                 await Assert.ThrowsAsync<LinkProcessingDependencyException>(
-                    groupReadTask.AsTask);
+                    () => groupReadTask);
 
             // then
             actualLinkProcessingDependencyException.Should().BeEquivalentTo(
                 expectedLinkProcessingDependencyException);
+
+            this.linkServiceMock.Verify(service =>
+                service.RetrieveLinksByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+                Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
@@ -154,18 +227,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
         }
 
         [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
+        [MemberData(nameof(GroupReads))]
         public async Task ShouldThrowDependencyExceptionOnGroupReadIfOperationCanceledExceptionOccursAndLogItAsync(
-            bool retrieveLatest)
+            GroupRead groupRead)
         {
             // given
             Guid inputGroupId = Guid.NewGuid();
             var operationCanceledException = new OperationCanceledException();
-
-            EventEnvelope<Link> inboundEnvelope = CreateEventEnvelope(
-                link: new Link { GroupId = inputGroupId },
-                securityContext: CreateAuthenticatedSecurityContext());
 
             var timeoutException =
                 new TimeoutException("The dependency operation timed out.");
@@ -181,9 +249,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                     message: "Link processing dependency error occurred, contact support.",
                     innerException: timeoutLinkProcessingException);
 
-            this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputGroupId))))
-                    .ReturnsAsync(inboundEnvelope);
+            SetupInboundEnvelopeIfMinted(groupRead, inputGroupId);
 
             this.linkServiceMock.Setup(service =>
                 service.RetrieveLinksByGroupIdAsync(
@@ -191,14 +257,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                         .ThrowsAsync(operationCanceledException);
 
             // when
-            ValueTask<Link> groupReadTask = RetrieveByGroupIdAsync(
-                retrieveLatest,
+            Task groupReadTask = GroupReadTask(
+                groupRead,
                 inputGroupId,
                 TestContext.Current.CancellationToken);
 
             LinkProcessingDependencyException actualLinkProcessingDependencyException =
                 await Assert.ThrowsAsync<LinkProcessingDependencyException>(
-                    groupReadTask.AsTask);
+                    () => groupReadTask);
 
             // then
             actualLinkProcessingDependencyException.Should().BeEquivalentTo(
@@ -213,10 +279,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
         }
 
         [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
+        [MemberData(nameof(GroupReads))]
         public async Task ShouldThrowServiceExceptionOnGroupReadIfServiceErrorOccursAndLogItAsync(
-            bool retrieveLatest)
+            GroupRead groupRead)
         {
             // given
             Guid inputGroupId = Guid.NewGuid();
@@ -233,19 +298,20 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                     message: "Link processing service error occurred, contact support.",
                     innerException: failedLinkProcessingServiceException);
 
-            this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputGroupId))))
-                    .ThrowsAsync(serviceException);
+            SetupServiceErrorAtTheFirstOutwardCall(
+                groupRead,
+                inputGroupId,
+                serviceException);
 
             // when
-            ValueTask<Link> groupReadTask = RetrieveByGroupIdAsync(
-                retrieveLatest,
+            Task groupReadTask = GroupReadTask(
+                groupRead,
                 inputGroupId,
                 TestContext.Current.CancellationToken);
 
             LinkProcessingServiceException actualLinkProcessingServiceException =
                 await Assert.ThrowsAsync<LinkProcessingServiceException>(
-                    groupReadTask.AsTask);
+                    () => groupReadTask);
 
             // then
             actualLinkProcessingServiceException.Should().BeEquivalentTo(
@@ -256,15 +322,22 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                     SameExceptionAs(expectedLinkProcessingServiceException))),
                 Times.Once);
 
+            if (groupRead is GroupRead.Collection)
+            {
+                this.linkServiceMock.Verify(service =>
+                    service.RetrieveLinksByGroupIdAsync(
+                        It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+                    Times.Once);
+            }
+
             this.linkServiceMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
         [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
+        [MemberData(nameof(GroupReads))]
         public async Task ShouldThrowOperationCanceledExceptionOnGroupReadIfCancellationRequestedAsync(
-            bool retrieveLatest)
+            GroupRead groupRead)
         {
             // given
             Guid inputGroupId = Guid.NewGuid();
@@ -272,13 +345,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             await cancellationTokenSource.CancelAsync();
 
             // when
-            ValueTask<Link> groupReadTask = RetrieveByGroupIdAsync(
-                retrieveLatest,
+            Task groupReadTask = GroupReadTask(
+                groupRead,
                 inputGroupId,
                 cancellationTokenSource.Token);
 
             // then
-            await Assert.ThrowsAsync<OperationCanceledException>(groupReadTask.AsTask);
+            await Assert.ThrowsAsync<OperationCanceledException>(() => groupReadTask);
 
             this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
             this.linkServiceMock.VerifyNoOtherCalls();

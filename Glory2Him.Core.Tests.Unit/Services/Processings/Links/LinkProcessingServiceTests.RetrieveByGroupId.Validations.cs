@@ -10,10 +10,9 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
-using System.Linq;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using FluentAssertions;
-using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Links;
 using Glory2Him.Core.Models.Processings.Links.Exceptions;
 using Moq;
@@ -28,10 +27,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             // given
             Guid invalidGroupId = Guid.Empty;
 
-            EventEnvelope<Link> inboundEnvelope = CreateEventEnvelope(
-                link: new Link { GroupId = invalidGroupId },
-                securityContext: CreateAuthenticatedSecurityContext());
-
             var invalidLinkProcessingException =
                 new InvalidLinkProcessingException(
                     message: "Link is invalid, fix the errors and try again.");
@@ -45,12 +40,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                     message: "Link processing validation error occurred, fix the errors and try again.",
                     innerException: invalidLinkProcessingException);
 
-            this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(invalidGroupId))))
-                    .ReturnsAsync(inboundEnvelope);
-
             // when
-            ValueTask<IQueryable<Link>> retrieveLinksTask =
+            ValueTask<IReadOnlyList<Link>> retrieveLinksTask =
                 this.linkProcessingService.RetrieveLinksByGroupIdAsync(
                     invalidGroupId,
                     TestContext.Current.CancellationToken);

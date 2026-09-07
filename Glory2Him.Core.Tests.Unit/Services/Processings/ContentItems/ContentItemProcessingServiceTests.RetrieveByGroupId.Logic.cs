@@ -10,284 +10,113 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
-using System.Linq;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Force.DeepCloner;
-using Glory2Him.Core.Models.Enums;
-using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
-using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
 {
     public partial class ContentItemProcessingServiceTests
     {
+        /// <summary>
+        /// The group's rows come back from the GROUP-KEYED foundation read, which owns both the
+        /// narrowing and the §14.7 visibility filter. This layer used to narrow the collection
+        /// read's live queryable and filter the result a second time; the visibility scenarios
+        /// that pinned that second filter now live in
+        /// <c>ContentItemServiceTests.RetrieveByGroupId.Logic</c>, at the one seam that still
+        /// applies it.
+        /// </summary>
+        ///
+        /// <remarks>
+        /// <para>What is left here is what this layer still owns: the group id and the token it
+        /// passes down, and the set it hands back untouched.</para>
+        /// </remarks>
         [Fact]
-        public async Task ShouldRetrieveOnlyPublicGroupContentItemsOnRetrieveByGroupIdIfCallerIsAnonymousAsync()
+        public async Task ShouldRetrieveGroupContentItemsFromTheGroupKeyedReadOnRetrieveByGroupIdAsync()
         {
-            // given: an anonymous caller reads only the publicly visible versions of the
-            // requested group — other groups' rows and the group's own non-public and
-            // deleted versions all drop out of the set
-            Guid randomGroupId = Guid.NewGuid();
-            Guid inputGroupId = randomGroupId;
+            // given: the set the foundation hands up ALREADY carries the §14.7 decision, so it can
+            // legitimately contain rows a filter at THIS layer would have taken out — a deleted row
+            // and another caller's draft. Both are seeded on purpose: if that filter ever comes back
+            // here, they go missing and this test goes red.
             DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
+            Guid inputGroupId = Guid.NewGuid();
 
-            ContentItem publicGroupContentItem = CreateRandomPubliclyVisibleContentItem(
+            // a token of this test's own making, so the assertion below cannot be satisfied by a
+            // dropped one the way It.IsAny<CancellationToken>() would
+            using var cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken inputCancellationToken = cancellationTokenSource.Token;
+
+            ContentItem publicContentItem = CreateRandomPubliclyVisibleContentItem(
                 contentItemId: Guid.NewGuid(),
                 currentDateTime: currentDateTime,
                 hasPublishDate: true);
 
-            publicGroupContentItem.GroupId = inputGroupId;
+            ContentItem otherCallersDraftContentItem =
+                CreateRandomNonPublicContentItem(createdBy: GetRandomString());
 
-            ContentItem nonPublicGroupContentItem = CreateRandomNonPublicContentItem(
-                createdBy: GetRandomString());
+            ContentItem deletedContentItem =
+                CreateRandomDeletedContentItem(currentDateTime);
 
-            nonPublicGroupContentItem.GroupId = inputGroupId;
-            ContentItem deletedGroupContentItem = CreateRandomDeletedContentItem(currentDateTime);
-            deletedGroupContentItem.GroupId = inputGroupId;
-
-            ContentItem otherGroupContentItem = CreateRandomPubliclyVisibleContentItem(
-                contentItemId: Guid.NewGuid(),
-                currentDateTime: currentDateTime,
-                hasPublishDate: true);
-
-            IQueryable<ContentItem> storageContentItems = new[]
+            IReadOnlyList<ContentItem> foundationContentItems = new List<ContentItem>
             {
-                publicGroupContentItem,
-                nonPublicGroupContentItem,
-                deletedGroupContentItem,
-                otherGroupContentItem
-            }.AsQueryable();
+                publicContentItem,
+                otherCallersDraftContentItem,
+                deletedContentItem
+            };
 
-            IQueryable<ContentItem> expectedContentItems = new[]
+            // deep clones, so "handed back untouched" is judged on the rows' VALUES rather than on
+            // the service happening to return the very list instance it was given
+            IReadOnlyList<ContentItem> expectedContentItems = new List<ContentItem>
             {
-                publicGroupContentItem.DeepClone()
-            }.AsQueryable();
-
-            EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
-                contentItem: new ContentItem { GroupId = inputGroupId },
-                securityContext: new SecurityContext { IsAuthenticated = false });
-
-            this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputGroupId))))
-                    .ReturnsAsync(inboundEnvelope);
+                publicContentItem.DeepClone(),
+                otherCallersDraftContentItem.DeepClone(),
+                deletedContentItem.DeepClone()
+            };
 
             this.contentItemServiceMock.Setup(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(storageContentItems);
-
-            this.dateTimeBrokerMock.Setup(broker =>
-                broker.GetCurrentDateTimeOffsetAsync())
-                    .ReturnsAsync(currentDateTime);
+                service.RetrieveContentItemsByGroupIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(foundationContentItems);
 
             // when
-            IQueryable<ContentItem> actualContentItems =
+            IReadOnlyList<ContentItem> actualContentItems =
                 await this.contentItemProcessingService.RetrieveContentItemsByGroupIdAsync(
                     inputGroupId,
-                    TestContext.Current.CancellationToken);
+                    inputCancellationToken);
 
-            // then
-            actualContentItems.Should().BeEquivalentTo(expectedContentItems);
+            // then: same rows, same order, nothing added and nothing dropped
+            actualContentItems.Should().BeEquivalentTo(
+                expectedContentItems,
+                options => options.WithStrictOrdering());
 
-            this.eventEnvelopeBrokerMock.Verify(broker =>
-                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputGroupId))),
-                Times.Once);
+            // stated separately because it is the whole point: the two rows a visibility filter at
+            // this layer would have removed are still in the set
+            actualContentItems.Should().Contain(contentItem =>
+                contentItem.Id == deletedContentItem.Id);
 
+            actualContentItems.Should().Contain(contentItem =>
+                contentItem.Id == otherCallersDraftContentItem.Id);
+
+            // the caller's group AND the caller's token, both pinned literally — this is the one
+            // assertion that would catch the token being dropped at the call that reaches storage
             this.contentItemServiceMock.Verify(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()),
+                service.RetrieveContentItemsByGroupIdAsync(
+                    inputGroupId, inputCancellationToken),
                 Times.Once);
 
-            this.dateTimeBrokerMock.Verify(broker =>
-                broker.GetCurrentDateTimeOffsetAsync(),
-                Times.Once);
-
-            // a public read never identifies the caller and, being a read, publishes no fact
-            this.securityAuditBrokerMock.VerifyNoOtherCalls();
-            this.eventBrokerMock.VerifyNoOtherCalls();
-
+            // NO ENVELOPE IS MINTED. The filter that needed one moved down a layer, and minting a
+            // second envelope here would only re-run it over the set it already produced.
             this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
-            this.dateTimeBrokerMock.VerifyNoOtherCalls();
-            this.hashBrokerMock.VerifyNoOtherCalls();
-            this.contentItemServiceMock.VerifyNoOtherCalls();
-            this.identifierBrokerMock.VerifyNoOtherCalls();
-            this.loggingBrokerMock.VerifyNoOtherCalls();
-        }
 
-        [Fact]
-        public async Task ShouldRetrievePublicAndOwnGroupContentItemsOnRetrieveByGroupIdIfCallerIsAuthenticatedAsync()
-        {
-            // given: the owner follows their own group through the workflow — their own
-            // non-public versions join the group's public ones, while another user's
-            // non-public version of the same group stays invisible
-            Guid randomGroupId = Guid.NewGuid();
-            Guid inputGroupId = randomGroupId;
-            DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
-            string actorUserId = GetRandomString();
-
-            ContentItem publicGroupContentItem = CreateRandomPubliclyVisibleContentItem(
-                contentItemId: Guid.NewGuid(),
-                currentDateTime: currentDateTime,
-                hasPublishDate: true);
-
-            publicGroupContentItem.GroupId = inputGroupId;
-
-            ContentItem ownNonPublicGroupContentItem = CreateRandomNonPublicContentItem(
-                createdBy: actorUserId);
-
-            ownNonPublicGroupContentItem.GroupId = inputGroupId;
-
-            ContentItem otherNonPublicGroupContentItem = CreateRandomNonPublicContentItem(
-                createdBy: GetRandomString());
-
-            otherNonPublicGroupContentItem.GroupId = inputGroupId;
-
-            ContentItem ownOtherGroupContentItem = CreateRandomNonPublicContentItem(
-                createdBy: actorUserId);
-
-            IQueryable<ContentItem> storageContentItems = new[]
-            {
-                publicGroupContentItem,
-                ownNonPublicGroupContentItem,
-                otherNonPublicGroupContentItem,
-                ownOtherGroupContentItem
-            }.AsQueryable();
-
-            IQueryable<ContentItem> expectedContentItems = new[]
-            {
-                publicGroupContentItem.DeepClone(),
-                ownNonPublicGroupContentItem.DeepClone()
-            }.AsQueryable();
-
-            SecurityContext securityContext = CreateAuthenticatedSecurityContext();
-
-            EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
-                contentItem: new ContentItem { GroupId = inputGroupId },
-                securityContext: securityContext);
-
-            this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputGroupId))))
-                    .ReturnsAsync(inboundEnvelope);
-
-            this.contentItemServiceMock.Setup(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(storageContentItems);
-
-            this.dateTimeBrokerMock.Setup(broker =>
-                broker.GetCurrentDateTimeOffsetAsync())
-                    .ReturnsAsync(currentDateTime);
-
-            this.securityAuditBrokerMock.Setup(broker =>
-                broker.GetUserIdAsync(securityContext))
-                    .ReturnsAsync(actorUserId);
-
-            // when
-            IQueryable<ContentItem> actualContentItems =
-                await this.contentItemProcessingService.RetrieveContentItemsByGroupIdAsync(
-                    inputGroupId,
-                    TestContext.Current.CancellationToken);
-
-            // then
-            actualContentItems.Should().BeEquivalentTo(expectedContentItems);
-
-            this.contentItemServiceMock.Verify(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()),
-                Times.Once);
-
-            this.dateTimeBrokerMock.Verify(broker =>
-                broker.GetCurrentDateTimeOffsetAsync(),
-                Times.Once);
-
-            this.securityAuditBrokerMock.Verify(broker =>
-                broker.GetUserIdAsync(securityContext),
-                Times.Once);
-
-            this.eventBrokerMock.VerifyNoOtherCalls();
-            this.hashBrokerMock.VerifyNoOtherCalls();
-            this.contentItemServiceMock.VerifyNoOtherCalls();
-            this.identifierBrokerMock.VerifyNoOtherCalls();
-            this.securityAuditBrokerMock.VerifyNoOtherCalls();
-            this.loggingBrokerMock.VerifyNoOtherCalls();
-        }
-
-        [Theory]
-        [InlineData(Roles.Reviewers)]
-        [InlineData(Roles.ContentItemReviewers)]
-        [InlineData(Roles.Publishers)]
-        [InlineData(Roles.ContentItemPublishers)]
-        [InlineData(Roles.Administrators)]
-        public async Task ShouldRetrieveAllNonDeletedGroupContentItemsOnRetrieveByGroupIdIfActorHasReviewRoleAsync(
-            string reviewRole)
-        {
-            // given: a review-role caller (§16.6) audits every non-deleted version of the
-            // group — drafts of anyone included — without the clock or the caller's
-            // identity ever being consulted; other groups stay out of the set
-            Guid randomGroupId = Guid.NewGuid();
-            Guid inputGroupId = randomGroupId;
-            DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
-
-            ContentItem publicGroupContentItem = CreateRandomPubliclyVisibleContentItem(
-                contentItemId: Guid.NewGuid(),
-                currentDateTime: currentDateTime,
-                hasPublishDate: true);
-
-            publicGroupContentItem.GroupId = inputGroupId;
-
-            ContentItem nonPublicGroupContentItem = CreateRandomNonPublicContentItem(
-                createdBy: GetRandomString());
-
-            nonPublicGroupContentItem.GroupId = inputGroupId;
-            ContentItem deletedGroupContentItem = CreateRandomDeletedContentItem(currentDateTime);
-            deletedGroupContentItem.GroupId = inputGroupId;
-
-            ContentItem otherGroupContentItem = CreateRandomNonPublicContentItem(
-                createdBy: GetRandomString());
-
-            IQueryable<ContentItem> storageContentItems = new[]
-            {
-                publicGroupContentItem,
-                nonPublicGroupContentItem,
-                deletedGroupContentItem,
-                otherGroupContentItem
-            }.AsQueryable();
-
-            IQueryable<ContentItem> expectedContentItems = new[]
-            {
-                publicGroupContentItem.DeepClone(),
-                nonPublicGroupContentItem.DeepClone()
-            }.AsQueryable();
-
-            SecurityContext securityContext = CreateAuthenticatedSecurityContext(reviewRole);
-
-            EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
-                contentItem: new ContentItem { GroupId = inputGroupId },
-                securityContext: securityContext);
-
-            this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputGroupId))))
-                    .ReturnsAsync(inboundEnvelope);
-
-            this.contentItemServiceMock.Setup(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(storageContentItems);
-
-            // when
-            IQueryable<ContentItem> actualContentItems =
-                await this.contentItemProcessingService.RetrieveContentItemsByGroupIdAsync(
-                    inputGroupId,
-                    TestContext.Current.CancellationToken);
-
-            // then
-            actualContentItems.Should().BeEquivalentTo(expectedContentItems);
-
-            this.contentItemServiceMock.Verify(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()),
-                Times.Once);
-
+            // the visibility filter is no longer applied at this layer, so neither the clock nor
+            // the caller's identity is consulted here
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
+
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.hashBrokerMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
