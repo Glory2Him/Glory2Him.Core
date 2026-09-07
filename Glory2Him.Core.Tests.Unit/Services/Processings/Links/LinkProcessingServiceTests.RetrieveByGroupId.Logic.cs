@@ -11,10 +11,10 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Force.DeepCloner;
 using Glory2Him.Core.Models.Foundations.Links;
 using Moq;
 
@@ -27,18 +27,55 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
         /// narrowing and the §14.7 visibility filter. This layer used to narrow the collection
         /// read's live queryable and filter the result a second time; the visibility scenarios
         /// that pinned that second filter now live in
-        /// <c>LinkServiceTests.RetrieveByGroupId.Logic</c>, at the one seam that still applies it.
-        ///
-        /// <para>What is left here is what this layer still owns: the group id it passes down,
-        /// and the set it hands back untouched.</para>
+        /// <c>LinkServiceTests.RetrieveByGroupId.Logic</c>, at the one seam that still
+        /// applies it.
         /// </summary>
+        ///
+        /// <remarks>
+        /// <para>What is left here is what this layer still owns: the group id and the token it
+        /// passes down, and the set it hands back untouched.</para>
+        /// </remarks>
         [Fact]
         public async Task ShouldRetrieveGroupLinksFromTheGroupKeyedReadOnRetrieveByGroupIdAsync()
         {
-            // given
+            // given: the set the foundation hands up ALREADY carries the §14.7 decision, so it can
+            // legitimately contain rows a filter at THIS layer would have taken out — a deleted row
+            // and another caller's draft. Both are seeded on purpose: if that filter ever comes back
+            // here, they go missing and this test goes red.
+            DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
             Guid inputGroupId = Guid.NewGuid();
-            IReadOnlyList<Link> foundationLinks = CreateRandomLinks().ToList();
-            IReadOnlyList<Link> expectedLinks = foundationLinks;
+
+            // a token of this test's own making, so the assertion below cannot be satisfied by a
+            // dropped one the way It.IsAny<CancellationToken>() would
+            using var cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken inputCancellationToken = cancellationTokenSource.Token;
+
+            Link publicLink = CreateRandomPubliclyVisibleLink(
+                linkId: Guid.NewGuid(),
+                currentDateTime: currentDateTime,
+                hasPublishDate: true);
+
+            Link otherCallersDraftLink =
+                CreateRandomNonPublicLink(createdBy: GetRandomString());
+
+            Link deletedLink =
+                CreateRandomDeletedLink(currentDateTime);
+
+            IReadOnlyList<Link> foundationLinks = new List<Link>
+            {
+                publicLink,
+                otherCallersDraftLink,
+                deletedLink
+            };
+
+            // deep clones, so "handed back untouched" is judged on the rows' VALUES rather than on
+            // the service happening to return the very list instance it was given
+            IReadOnlyList<Link> expectedLinks = new List<Link>
+            {
+                publicLink.DeepClone(),
+                otherCallersDraftLink.DeepClone(),
+                deletedLink.DeepClone()
+            };
 
             this.linkServiceMock.Setup(service =>
                 service.RetrieveLinksByGroupIdAsync(
@@ -49,19 +86,30 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             IReadOnlyList<Link> actualLinks =
                 await this.linkProcessingService.RetrieveLinksByGroupIdAsync(
                     inputGroupId,
-                    TestContext.Current.CancellationToken);
+                    inputCancellationToken);
 
-            // then
-            actualLinks.Should().BeSameAs(expectedLinks);
+            // then: same rows, same order, nothing added and nothing dropped
+            actualLinks.Should().BeEquivalentTo(
+                expectedLinks,
+                options => options.WithStrictOrdering());
 
-            // the caller's group, unaltered, and the caller's token with it
+            // stated separately because it is the whole point: the two rows a visibility filter at
+            // this layer would have removed are still in the set
+            actualLinks.Should().Contain(link =>
+                link.Id == deletedLink.Id);
+
+            actualLinks.Should().Contain(link =>
+                link.Id == otherCallersDraftLink.Id);
+
+            // the caller's group AND the caller's token, both pinned literally — this is the one
+            // assertion that would catch the token being dropped at the call that reaches storage
             this.linkServiceMock.Verify(service =>
                 service.RetrieveLinksByGroupIdAsync(
-                    inputGroupId, It.IsAny<CancellationToken>()),
+                    inputGroupId, inputCancellationToken),
                 Times.Once);
 
-            // NO ENVELOPE IS MINTED. The filter that needed one moved down a layer, and minting
-            // a second envelope here would only re-run it over the set it already produced.
+            // NO ENVELOPE IS MINTED. The filter that needed one moved down a layer, and minting a
+            // second envelope here would only re-run it over the set it already produced.
             this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
 
             // the visibility filter is no longer applied at this layer, so neither the clock nor

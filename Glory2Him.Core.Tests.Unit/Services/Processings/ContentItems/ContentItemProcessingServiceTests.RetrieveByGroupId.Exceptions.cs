@@ -11,11 +11,9 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
-using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Processings.ContentItems.Exceptions;
 using Moq;
@@ -62,7 +60,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
 
             this.contentItemServiceMock.Verify(service =>
                 service.RetrieveContentItemsByGroupIdAsync(
-                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+                    inputGroupId, It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
@@ -108,7 +106,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
 
             this.contentItemServiceMock.Verify(service =>
                 service.RetrieveContentItemsByGroupIdAsync(
-                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+                    inputGroupId, It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
@@ -241,7 +239,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
 
             this.contentItemServiceMock.Verify(service =>
                 service.RetrieveContentItemsByGroupIdAsync(
-                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+                    inputGroupId, It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.dateTimeBrokerMock.VerifyNoOtherCalls();

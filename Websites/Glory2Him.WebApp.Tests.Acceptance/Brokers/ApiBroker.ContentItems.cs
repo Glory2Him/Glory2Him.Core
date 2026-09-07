@@ -50,8 +50,8 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
             await this.apiFactoryClient.GetContentAsync<List<ContentItem>>(
                 $"{contentItemsRelativeUrl}/Groups/{groupId}");
 
-        // The group read still carries [EnableQuery], so the route composes OData options
-        // over the set the service materialised. This overload is how a test asks for one.
+        // The group read carries [EnableQuery] with a restricted option set: $top/$skip/$count
+        // compose, $filter/$orderby are refused. This overload is how a test asks for either.
         public async ValueTask<List<ContentItem>> GetContentItemsByGroupIdAsync(Guid groupId, string odataQuery) =>
             await this.apiFactoryClient.GetContentAsync<List<ContentItem>>(
                 $"{contentItemsRelativeUrl}/Groups/{groupId}?{odataQuery}");

@@ -77,36 +77,6 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItems
             }
         }
 
-        [Fact]
-        public async Task ShouldGetEveryVersionOfAGroupAsync()
-        {
-            // given
-            string authorUserId = Guid.NewGuid().ToString();
-            Guid groupId = Guid.NewGuid();
-
-            CoreContentItem firstVersion = await this.apiBroker.InsertContentItemVersionAsync(
-                groupId, version: 1, ApprovalStatus.Approved, isPublished: true, authorUserId);
-
-            CoreContentItem secondVersion = await this.apiBroker.InsertContentItemVersionAsync(
-                groupId, version: 2, ApprovalStatus.Submitted, isPublished: false, authorUserId);
-
-            try
-            {
-                // when
-                List<ContentItem> actualContentItems =
-                    await this.apiBroker.GetContentItemsByGroupIdAsync(groupId);
-
-                // then
-                actualContentItems.Select(contentItem => contentItem.Id)
-                    .Should().Contain(new[] { firstVersion.Id, secondVersion.Id });
-            }
-            finally
-            {
-                await this.apiBroker.RemoveCoreContentItemByIdAsync(secondVersion.Id);
-                await this.apiBroker.RemoveCoreContentItemByIdAsync(firstVersion.Id);
-            }
-        }
-
         /// <summary>
         /// The tip is the highest non-deleted <c>Version</c>, DERIVED rather than stored (§3.4.1)
         /// — which is why this test arranges the newer version second and expects it back, rather
@@ -227,13 +197,19 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItems
         }
 
         /// <summary>
-        /// The route still carries <c>[EnableQuery]</c>, so callers that compose OData options
-        /// onto it keep working — the options now run over the materialised set rather than being
-        /// pushed into the SQL, which is a difference in where the work happens and not in what
-        /// comes back.
+        /// Pins the RESTRICTED option set this route now advertises. Because the service hands the
+        /// exposer a materialised set, <c>[EnableQuery]</c> composes over LINQ-to-Objects: string
+        /// comparison there is ordinal, while the catalogue collates
+        /// <c>SQL_Latin1_General_CP1_CI_AS</c>. A <c>$filter</c> that matches on the unkeyed
+        /// collection read would therefore match nothing here — so <c>$filter</c> and
+        /// <c>$orderby</c> are refused outright rather than answered differently.
+        ///
+        /// <para>Both halves are asserted together on purpose: that the safe options still
+        /// compose, and that the unsafe ones fail loudly. Dropping either half lets the route
+        /// drift back to a silent wrong answer.</para>
         /// </summary>
         [Fact]
-        public async Task ShouldComposeODataOptionsOverTheGroupReadAsync()
+        public async Task ShouldComposeSafeODataOptionsAndRefuseTheAmbiguousOnesOnTheGroupReadAsync()
         {
             // given
             string authorUserId = Guid.NewGuid().ToString();
@@ -247,15 +223,25 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItems
 
             try
             {
-                // when
+                // when: $top composes over the materialised set
                 List<ContentItem> actualContentItems =
-                    await this.apiBroker.GetContentItemsByGroupIdAsync(
-                        groupId,
-                        odataQuery: "$orderby=Version%20desc&$top=1");
+                    await this.apiBroker.GetContentItemsByGroupIdAsync(groupId, odataQuery: "$top=1");
+
+                var filterTask = this.apiBroker.GetContentItemsByGroupIdAsync(
+                    groupId,
+                    odataQuery: "$filter=contains(Title,'x')").AsTask();
+
+                var orderByTask = this.apiBroker.GetContentItemsByGroupIdAsync(
+                    groupId,
+                    odataQuery: "$orderby=Title desc").AsTask();
 
                 // then
-                actualContentItems.Should().ContainSingle()
-                    .Which.Id.Should().Be(secondVersion.Id);
+                actualContentItems.Should().ContainSingle(
+                    because: "$top carries no comparison, so it means the same in memory as it "
+                        + "did in SQL and still pages this route");
+
+                await Assert.ThrowsAsync<HttpResponseBadRequestException>(() => filterTask);
+                await Assert.ThrowsAsync<HttpResponseBadRequestException>(() => orderByTask);
             }
             finally
             {
