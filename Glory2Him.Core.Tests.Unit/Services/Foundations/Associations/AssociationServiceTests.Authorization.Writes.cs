@@ -753,11 +753,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 CreateAuthenticatedSecurityContext(Roles.TagPublishers);
 
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
-            string reviewerUserId = GetRandomString();
+            string publisherUserId = GetRandomString();
             string ownerUserId = GetRandomString();
 
             Association inputAssociation =
-                CreateRandomModifyAssociation(randomDateTimeOffset, reviewerUserId);
+                CreateRandomModifyAssociation(randomDateTimeOffset, publisherUserId);
 
             inputAssociation.EntityAType = EntityType.BibleReference;
             inputAssociation.EntityAScope = Scope.ThisVersionOnly;
