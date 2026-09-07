@@ -360,6 +360,10 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                 RequireReapprovalOnChange = false,
                 RequireReviewCommentResolutionBeforeApprovals = false,
                 DoNotAllowBypassingSettings = true,
+                IsAIReviewerOffered = true,
+                IsAIAllowedToVote = true,
+                AIApprovalConfidenceRejectionThreshold = 2.50m,
+                AIApprovalConfidenceApprovalThreshold = 7.50m,
                 IsDeleted = false,
             };
 
@@ -454,6 +458,10 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             narrowPolicy.RequireReapprovalOnChange.Should().BeFalse();
             narrowPolicy.RequireReviewCommentResolutionBeforeApprovals.Should().BeFalse();
             narrowPolicy.DoNotAllowBypassingSettings.Should().BeTrue();
+            narrowPolicy.IsAIReviewerOffered.Should().BeTrue();
+            narrowPolicy.IsAIAllowedToVote.Should().BeTrue();
+            narrowPolicy.AIApprovalConfidenceRejectionThreshold.Should().Be(2.50m);
+            narrowPolicy.AIApprovalConfidenceApprovalThreshold.Should().Be(7.50m);
 
             this.auditClientMock.Verify(client =>
                 client.GetUserIdAsync(It.IsAny<ClaimsPrincipal>()),

@@ -79,6 +79,10 @@ const createApprovalSetting = (
         requireReapprovalOnChange: true,
         requireReviewCommentResolutionBeforeApprovals: true,
         doNotAllowBypassingSettings: false,
+        isAIReviewerOffered: false,
+        isAIAllowedToVote: false,
+        aiApprovalConfidenceRejectionThreshold: 2.5,
+        aiApprovalConfidenceApprovalThreshold: 7.5,
         createdBy: 'admin',
         createdWhen: '2026-09-01T09:00:00.000+00:00',
         updatedBy: 'admin',
@@ -183,6 +187,90 @@ describe('ApprovalSettingDetailPage', () => {
             expect(switchFor('Approving reviews are required')).toBeChecked();
             expect(switchFor('A rejected review blocks approval')).toBeChecked();
             expect(switchFor('A zero confidence score blocks approval')).toBeChecked();
+        });
+
+        // Berean (§8.6.2) ships off on a new row, the same posture ApprovalSettingSeedData
+        // ships everywhere, and the vote switch it gates opens disabled to say so before the
+        // reader ever tries it.
+        it('should open with Berean off and the vote switch disabled', () => {
+            // given
+            renderCreatePage();
+
+            // then
+            expect(switchFor('Offer Berean as a reviewer')).not.toBeChecked();
+            expect(switchFor('Allow Berean to additionally cast a vote')).toBeDisabled();
+        });
+
+        it('should enable the vote switch once Berean is offered', async () => {
+            // given
+            renderCreatePage();
+
+            // when
+            await userEvent.click(screen.getByText('Offer Berean as a reviewer'));
+
+            // then
+            expect(switchFor('Allow Berean to additionally cast a vote')).not.toBeDisabled();
+        });
+
+        // ISAIALLOWEDTOVOTE CANNOT OUTLIVE ISAIREVIEWEROFFERED (storage refuses the pair the
+        // other way round, CK_ApprovalSetting_AIVoteRequiresAIReviewer) — so switching the
+        // reviewer back off clears a vote the reader had already turned on, the same way
+        // choosing a new entity type clears a content type it can no longer carry.
+        it('should clear the vote when Berean is switched back off', async () => {
+            // given
+            renderCreatePage();
+            await userEvent.click(screen.getByText('Offer Berean as a reviewer'));
+            await userEvent.click(screen.getByText('Allow Berean to additionally cast a vote'));
+            expect(switchFor('Allow Berean to additionally cast a vote')).toBeChecked();
+
+            // when
+            await userEvent.click(screen.getByText('Offer Berean as a reviewer'));
+
+            // then
+            expect(switchFor('Allow Berean to additionally cast a vote')).not.toBeChecked();
+            expect(switchFor('Allow Berean to additionally cast a vote')).toBeDisabled();
+        });
+
+        // THE THRESHOLDS ARE READ ONLY WHEN THE VOTE IS CAST (§8.6.2) — disabled until then,
+        // mirroring how "How many" is disabled while approvals are not required.
+        it('should keep the confidence thresholds disabled until Berean may vote', async () => {
+            // given
+            renderCreatePage();
+
+            // then
+            expect(screen.getByLabelText('Reject below')).toBeDisabled();
+            expect(screen.getByLabelText('Approve above')).toBeDisabled();
+
+            // when
+            await userEvent.click(screen.getByText('Offer Berean as a reviewer'));
+            await userEvent.click(screen.getByText('Allow Berean to additionally cast a vote'));
+
+            // then
+            expect(screen.getByLabelText('Reject below')).not.toBeDisabled();
+            expect(screen.getByLabelText('Approve above')).not.toBeDisabled();
+        });
+
+        it('should write the chosen Berean settings', async () => {
+            // given
+            renderCreatePage();
+            await userEvent.click(screen.getByText('Offer Berean as a reviewer'));
+            await userEvent.click(screen.getByText('Allow Berean to additionally cast a vote'));
+
+            // when
+            await userEvent.clear(screen.getByLabelText('Reject below'));
+            await userEvent.type(screen.getByLabelText('Reject below'), '3');
+            await userEvent.clear(screen.getByLabelText('Approve above'));
+            await userEvent.type(screen.getByLabelText('Approve above'), '8');
+            await userEvent.click(screen.getByRole('button', { name: 'Create setting' }));
+
+            // then
+            await waitFor(() =>
+                expect(added).toHaveBeenCalledWith(expect.objectContaining({
+                    isAIReviewerOffered: true,
+                    isAIAllowedToVote: true,
+                    aiApprovalConfidenceRejectionThreshold: 3,
+                    aiApprovalConfidenceApprovalThreshold: 8
+                })));
         });
 
         it('should let the scope be chosen while the row is still being written', () => {

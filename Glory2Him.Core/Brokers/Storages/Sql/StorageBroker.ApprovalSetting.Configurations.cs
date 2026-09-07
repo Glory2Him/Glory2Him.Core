@@ -49,6 +49,17 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                             $"({nameof(ApprovalSetting.IsPersonal)} IS NULL OR " +
                             $"({nameof(ApprovalSetting.EntityType)} IS NOT NULL AND " +
                             $"{nameof(ApprovalSetting.EntityType)} = N'{nameof(EntityType.Association)}'))");
+
+                    // design §8.6.2: the vote is the CHILD switch, and this is what makes that
+                    // more than a comment. A row offering the vote while the reviewer itself is
+                    // off would describe Berean casting a verdict nobody asked it to attend —
+                    // the same shape the two scope checks above refuse for ContentType/IsPersonal,
+                    // applied to a feature pair instead of a scope pair.
+                    tableBuilder.HasCheckConstraint(
+                        name: "CK_ApprovalSetting_AIVoteRequiresAIReviewer",
+                        sql:
+                            $"({nameof(ApprovalSetting.IsAIAllowedToVote)} = 0 OR " +
+                            $"{nameof(ApprovalSetting.IsAIReviewerOffered)} = 1)");
                 });
 
             model.HasKey(approvalSetting => approvalSetting.Id);
@@ -106,6 +117,25 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             model.Property(approvalSetting => approvalSetting.DoNotAllowBypassingSettings)
                  .IsRequired()
                  .HasDefaultValue(false);
+
+            model.Property(approvalSetting => approvalSetting.IsAIReviewerOffered)
+                 .IsRequired()
+                 .HasDefaultValue(false);
+
+            model.Property(approvalSetting => approvalSetting.IsAIAllowedToVote)
+                 .IsRequired()
+                 .HasDefaultValue(false);
+
+            // decimal(4,2), the same precision as Association.ConfidenceScore (design §13.5) —
+            // both thresholds are values on that scale, not a narrower one. Non-nullable, unlike
+            // ConfidenceScore itself: a threshold with no value would compare against nothing.
+            model.Property(approvalSetting => approvalSetting.AIApprovalConfidenceRejectionThreshold)
+                 .HasPrecision(4, 2)
+                 .IsRequired();
+
+            model.Property(approvalSetting => approvalSetting.AIApprovalConfidenceApprovalThreshold)
+                 .HasPrecision(4, 2)
+                 .IsRequired();
 
             model.Property(approvalSetting => approvalSetting.CreatedBy)
                  .HasMaxLength(255)

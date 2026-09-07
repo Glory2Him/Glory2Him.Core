@@ -517,6 +517,14 @@ namespace Glory2Him.Core.Brokers.Securities
                     RequireReviewCommentResolutionBeforeApprovals =
                         setting.RequireReviewCommentResolutionBeforeApprovals,
                     DoNotAllowBypassingSettings = setting.DoNotAllowBypassingSettings,
+                    IsAIReviewerOffered = setting.IsAIReviewerOffered,
+                    IsAIAllowedToVote = setting.IsAIAllowedToVote,
+
+                    AIApprovalConfidenceRejectionThreshold =
+                        setting.AIApprovalConfidenceRejectionThreshold,
+
+                    AIApprovalConfidenceApprovalThreshold =
+                        setting.AIApprovalConfidenceApprovalThreshold,
                 })
                 .ToList();
         }

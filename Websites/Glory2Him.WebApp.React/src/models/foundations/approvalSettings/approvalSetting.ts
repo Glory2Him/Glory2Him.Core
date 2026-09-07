@@ -110,6 +110,17 @@ export type ApprovalSetting = {
     requireReviewCommentResolutionBeforeApprovals: boolean;
     doNotAllowBypassingSettings: boolean;
 
+    // The AI reviewer ("Berean") feature switch (design §8.6.2) and its child vote switch —
+    // isAIAllowedToVote requires isAIReviewerOffered, enforced in storage by
+    // CK_ApprovalSetting_AIVoteRequiresAIReviewer. Both fail closed.
+    isAIReviewerOffered: boolean;
+    isAIAllowedToVote: boolean;
+
+    // ConfidenceScore's own 0.00-10.00 scale (design §13.5), read only when isAIAllowedToVote is
+    // true — otherwise the score is reported in Berean's comment and nothing is cast.
+    aiApprovalConfidenceRejectionThreshold: number;
+    aiApprovalConfidenceApprovalThreshold: number;
+
     // ── Audit ─────────────────────────────────────────────────────────────────
     // Carried rather than displayed only: the save round-trips CreatedBy and CreatedWhen, which
     // the foundation compares against storage before it will accept the write.
@@ -149,14 +160,23 @@ export const toApprovalSettingAddRequest = (
         approvalSetting.requireReviewCommentResolutionBeforeApprovals,
 
     doNotAllowBypassingSettings: approvalSetting.doNotAllowBypassingSettings,
+    isAIReviewerOffered: approvalSetting.isAIReviewerOffered,
+    isAIAllowedToVote: approvalSetting.isAIAllowedToVote,
+
+    aiApprovalConfidenceRejectionThreshold:
+        approvalSetting.aiApprovalConfidenceRejectionThreshold,
+
+    aiApprovalConfidenceApprovalThreshold:
+        approvalSetting.aiApprovalConfidenceApprovalThreshold,
+
     isDeleted: approvalSetting.isDeleted
 });
 
-// What a NEW row opens on: the HOUSE POLICY, the same nine values ApprovalSettingSeedData writes
-// for every entity-type default. A content-type row an administrator adds narrows a seeded
-// default, so it opens matching that default and the administrator changes only what they
-// mean to — a form that opened looser than the row it overrides would make the ninth policy
-// quietly weaker than the eight.
+// What a NEW row opens on: the HOUSE POLICY, the same thirteen values ApprovalSettingSeedData
+// writes for every entity-type default. A content-type row an administrator adds narrows a
+// seeded default, so it opens matching that default and the administrator changes only what
+// they mean to — a form that opened looser than the row it overrides would make the policy
+// quietly weaker than its siblings.
 export const newApprovalSetting = (id: string): ApprovalSetting => ({
     id,
     entityType: EntityType.ContentItem,
@@ -171,6 +191,15 @@ export const newApprovalSetting = (id: string): ApprovalSetting => ({
     requireReapprovalOnChange: true,
     requireReviewCommentResolutionBeforeApprovals: true,
     doNotAllowBypassingSettings: false,
+
+    // Berean (§8.6.2) ships off everywhere — it is a proposed feature with no pipeline behind
+    // it, so a new row must not be the first to offer it. The thresholds match the design's
+    // own suggested band (§13.5) and are inert while the vote switch stays off.
+    isAIReviewerOffered: false,
+    isAIAllowedToVote: false,
+    aiApprovalConfidenceRejectionThreshold: 2.5,
+    aiApprovalConfidenceApprovalThreshold: 7.5,
+
     createdBy: '',
     createdWhen: '',
     updatedBy: '',

@@ -180,6 +180,15 @@ namespace Glory2Him.WebApp.Tests.Unit.Data
                 approvalSetting.RequireReapprovalOnChange.Should().BeTrue();
                 approvalSetting.RequireReviewCommentResolutionBeforeApprovals.Should().BeTrue();
                 approvalSetting.DoNotAllowBypassingSettings.Should().BeFalse();
+
+                // Berean (§8.6.2) ships off everywhere: it is a proposed feature with no
+                // pipeline behind it, so no seeded scope may offer it. The thresholds are inert
+                // while the vote switch is off, and are pinned to the design's own suggested
+                // band (§13.5) rather than asserted as meaningful values.
+                approvalSetting.IsAIReviewerOffered.Should().BeFalse();
+                approvalSetting.IsAIAllowedToVote.Should().BeFalse();
+                approvalSetting.AIApprovalConfidenceRejectionThreshold.Should().Be(2.50m);
+                approvalSetting.AIApprovalConfidenceApprovalThreshold.Should().Be(7.50m);
             }
         }
 
@@ -236,6 +245,10 @@ namespace Glory2Him.WebApp.Tests.Unit.Data
                 RequireReapprovalOnChange = shipped.RequireReapprovalOnChange,
                 RequireReviewCommentResolutionBeforeApprovals = shipped.RequireReviewCommentResolutionBeforeApprovals,
                 DoNotAllowBypassingSettings = shipped.DoNotAllowBypassingSettings,
+                IsAIReviewerOffered = shipped.IsAIReviewerOffered,
+                IsAIAllowedToVote = shipped.IsAIAllowedToVote,
+                AIApprovalConfidenceRejectionThreshold = shipped.AIApprovalConfidenceRejectionThreshold,
+                AIApprovalConfidenceApprovalThreshold = shipped.AIApprovalConfidenceApprovalThreshold,
                 CreatedBy = "an-administrator",
                 CreatedWhen = SeededWhen.AddDays(3),
                 UpdatedBy = "an-administrator",
@@ -249,6 +262,53 @@ namespace Glory2Him.WebApp.Tests.Unit.Data
             divergingFields.Should().BeEquivalentTo(
                 nameof(ApprovalSetting.RequiredNumberOfApprovals),
                 nameof(ApprovalSetting.BlockOnZeroApprovalScore));
+        }
+
+        /// <summary>
+        /// The Berean fields (§8.6.2) are the newest four, and the newest field is exactly the
+        /// one an unseeded/uncompared column drifts on silently (the documented incident this
+        /// suite exists to prevent) — so each is asserted here on its own rather than trusted to
+        /// the general case above.
+        /// </summary>
+        [Fact]
+        public void ShouldNameTheAIReviewerFieldsWhenTheyDiverge()
+        {
+            // given
+            ApprovalSetting shipped = BuildSeed().First();
+
+            var live = new ApprovalSetting
+            {
+                Id = Guid.NewGuid(),
+                EntityType = shipped.EntityType,
+                ContentType = shipped.ContentType,
+                IsPersonal = shipped.IsPersonal,
+                RequireApprovals = shipped.RequireApprovals,
+                RequiredNumberOfApprovals = shipped.RequiredNumberOfApprovals,
+                AutoApproveIfAllApprovalRequirementsMet = shipped.AutoApproveIfAllApprovalRequirementsMet,
+                AllowSelfApproval = shipped.AllowSelfApproval,
+                BlockOnReject = shipped.BlockOnReject,
+                BlockOnZeroApprovalScore = shipped.BlockOnZeroApprovalScore,
+                RequireReapprovalOnChange = shipped.RequireReapprovalOnChange,
+                RequireReviewCommentResolutionBeforeApprovals = shipped.RequireReviewCommentResolutionBeforeApprovals,
+                DoNotAllowBypassingSettings = shipped.DoNotAllowBypassingSettings,
+                IsAIReviewerOffered = true,
+                IsAIAllowedToVote = shipped.IsAIAllowedToVote,
+                AIApprovalConfidenceRejectionThreshold = shipped.AIApprovalConfidenceRejectionThreshold + 1,
+                AIApprovalConfidenceApprovalThreshold = shipped.AIApprovalConfidenceApprovalThreshold + 1,
+                CreatedBy = "an-administrator",
+                CreatedWhen = SeededWhen.AddDays(3),
+                UpdatedBy = "an-administrator",
+                UpdatedWhen = SeededWhen.AddDays(4)
+            };
+
+            // when
+            string[] divergingFields = ApprovalSettingSeedData.DescribeDivergence(live, shipped);
+
+            // then
+            divergingFields.Should().BeEquivalentTo(
+                nameof(ApprovalSetting.IsAIReviewerOffered),
+                nameof(ApprovalSetting.AIApprovalConfidenceRejectionThreshold),
+                nameof(ApprovalSetting.AIApprovalConfidenceApprovalThreshold));
         }
 
         [Fact]

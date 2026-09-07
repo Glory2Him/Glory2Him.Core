@@ -44,6 +44,13 @@ const newRouteSegment = 'New';
 // input refuses it first rather than letting the save round-trip into a 400.
 const minimumRequiredApprovals = 1;
 
+// ConfidenceScore's own 0.00-10.00 scale (design §13.5, §8.6.2) — the thresholds compare against
+// it directly, on a narrower scale a fractional value like the design's own 7.5 suggestion could
+// not even be entered.
+const minimumConfidenceThreshold = 0;
+const maximumConfidenceThreshold = 10;
+const confidenceThresholdStep = 0.01;
+
 // Only the boolean members can be wired to a switch, so a mistyped field name below is a compile
 // error rather than a switch that silently never moves. -? strips the optional modifier, or every
 // optional member would smuggle `undefined` into the union and satisfy nothing.
@@ -182,6 +189,20 @@ export const ApprovalSettingDetailPage = ({ isNew = false }: { isNew?: boolean }
                     isPersonal: allowsPersonalScope(entityType)
                         ? current.isPersonal
                         : null
+                });
+
+    // ISAIALLOWEDTOVOTE REQUIRES ISAIREVIEWEROFFERED (design §8.6.2), and storage refuses the
+    // pair the other way round (CK_ApprovalSetting_AIVoteRequiresAIReviewer) — so switching the
+    // reviewer off clears the vote in the same update, mirroring how choosing an entity type
+    // above clears whatever narrowing it can no longer carry.
+    const setAIReviewerOffered = (isAIReviewerOffered: boolean) =>
+        setEditModel((current) =>
+            current == null
+                ? current
+                : {
+                    ...current,
+                    isAIReviewerOffered,
+                    isAIAllowedToVote: isAIReviewerOffered && current.isAIAllowedToVote
                 });
 
     const saveAsync = async () => {
@@ -410,6 +431,103 @@ export const ApprovalSettingDetailPage = ({ isNew = false }: { isNew?: boolean }
                                 <div className="form-text mt-0">{policyField.help}</div>
                             </div>
                         ))}
+                    </Card>
+
+                    <Card cssClass="mb-4" headerContent="AI reviewer (Berean)">
+                        <p className="text-body-secondary small">
+                            Offers an automated first pass on a round, under its own system
+                            identity (design §8.6.2). It always comments in words once asked; the
+                            vote below is an additional, optional step.
+                        </p>
+
+                        <FormSwitch
+                            label="Offer Berean as a reviewer"
+                            value={editModel.isAIReviewerOffered}
+                            onValueChange={setAIReviewerOffered} />
+
+                        <div className="form-text mt-0 mb-3">
+                            With this off, Berean is never offered and performs no action of
+                            any kind.
+                        </div>
+
+                        <FormSwitch
+                            label="Allow Berean to additionally cast a vote"
+                            value={editModel.isAIAllowedToVote}
+                            disabled={editModel.isAIReviewerOffered === false}
+                            onValueChange={(value) => setField('isAIAllowedToVote', value)} />
+
+                        <div className="form-text mt-0 mb-3">
+                            With this off, Berean still comments with what it believes the
+                            verdict should be and the score behind it — a human casts the vote.
+                        </div>
+
+                        <div className="row g-3">
+                            <div className="col-md-6">
+                                <label
+                                    className="form-label"
+                                    htmlFor="approval-ai-rejection-threshold">
+                                    Reject below
+                                </label>
+
+                                <input
+                                    id="approval-ai-rejection-threshold"
+                                    className="form-control"
+                                    type="number"
+                                    min={minimumConfidenceThreshold}
+                                    max={maximumConfidenceThreshold}
+                                    step={confidenceThresholdStep}
+                                    disabled={editModel.isAIAllowedToVote === false}
+                                    value={editModel.aiApprovalConfidenceRejectionThreshold}
+                                    onChange={(event) => {
+                                        const parsed = Number(event.target.value);
+
+                                        setField(
+                                            'aiApprovalConfidenceRejectionThreshold',
+                                            Number.isFinite(parsed)
+                                                ? Math.min(Math.max(
+                                                    minimumConfidenceThreshold, parsed),
+                                                    maximumConfidenceThreshold)
+                                                : minimumConfidenceThreshold);
+                                    }} />
+
+                                <div className="form-text">
+                                    A confidence score below this files a rejected review.
+                                </div>
+                            </div>
+
+                            <div className="col-md-6">
+                                <label
+                                    className="form-label"
+                                    htmlFor="approval-ai-approval-threshold">
+                                    Approve above
+                                </label>
+
+                                <input
+                                    id="approval-ai-approval-threshold"
+                                    className="form-control"
+                                    type="number"
+                                    min={minimumConfidenceThreshold}
+                                    max={maximumConfidenceThreshold}
+                                    step={confidenceThresholdStep}
+                                    disabled={editModel.isAIAllowedToVote === false}
+                                    value={editModel.aiApprovalConfidenceApprovalThreshold}
+                                    onChange={(event) => {
+                                        const parsed = Number(event.target.value);
+
+                                        setField(
+                                            'aiApprovalConfidenceApprovalThreshold',
+                                            Number.isFinite(parsed)
+                                                ? Math.min(Math.max(
+                                                    minimumConfidenceThreshold, parsed),
+                                                    maximumConfidenceThreshold)
+                                                : minimumConfidenceThreshold);
+                                    }} />
+
+                                <div className="form-text">
+                                    A confidence score above this files an approved review.
+                                </div>
+                            </div>
+                        </div>
                     </Card>
 
                     <div className="d-flex gap-2 mb-4">

@@ -66,6 +66,17 @@ namespace Glory2Him.WebApp.Data
         internal const bool RequireReviewCommentResolutionBeforeApprovals = true;
         internal const bool DoNotAllowBypassingSettings = false;
 
+        // Berean (§8.6.2) ships off. It is a proposed feature with no build behind it yet
+        // (§8.6.2's own opening line), so offering it here would turn every seeded scope into a
+        // reviewer suggestion for a pipeline that does not exist. The two thresholds are inert
+        // while IsAIAllowedToVote is false either way, but a labelled placeholder on the design's
+        // own suggested band (§8.6.2, §13.5's "7.5 of 10") costs nothing and reads better than a
+        // bare zero if the switch is ever flipped on without visiting these first.
+        internal const bool IsAIReviewerOffered = false;
+        internal const bool IsAIAllowedToVote = false;
+        internal const decimal AIApprovalConfidenceRejectionThreshold = 2.50m;
+        internal const decimal AIApprovalConfidenceApprovalThreshold = 7.50m;
+
         public static async Task SeedAsync(IServiceProvider serviceProvider)
         {
             using IServiceScope scope = serviceProvider.CreateScope();
@@ -196,6 +207,10 @@ namespace Glory2Him.WebApp.Data
                     RequireReviewCommentResolutionBeforeApprovals,
 
                 DoNotAllowBypassingSettings = DoNotAllowBypassingSettings,
+                IsAIReviewerOffered = IsAIReviewerOffered,
+                IsAIAllowedToVote = IsAIAllowedToVote,
+                AIApprovalConfidenceRejectionThreshold = AIApprovalConfidenceRejectionThreshold,
+                AIApprovalConfidenceApprovalThreshold = AIApprovalConfidenceApprovalThreshold,
                 IsDeleted = false,
                 DeletedBy = null,
                 DeletedWhen = null,
@@ -214,7 +229,7 @@ namespace Glory2Him.WebApp.Data
                     : $"{approvalSetting.EntityType.Value} "
                         + (approvalSetting.IsPersonal.Value ? "(personal)" : "(editorial)");
 
-        // The nine policy fields, by name, where the live row disagrees with the shipped one.
+        // The thirteen policy fields, by name, where the live row disagrees with the shipped one.
         // Scope and audit fields are not policy and are not compared.
         internal static string[] DescribeDivergence(ApprovalSetting live, ApprovalSetting shipped)
         {
@@ -248,6 +263,20 @@ namespace Glory2Him.WebApp.Data
 
                 (nameof(ApprovalSetting.DoNotAllowBypassingSettings),
                     live.DoNotAllowBypassingSettings != shipped.DoNotAllowBypassingSettings),
+
+                (nameof(ApprovalSetting.IsAIReviewerOffered),
+                    live.IsAIReviewerOffered != shipped.IsAIReviewerOffered),
+
+                (nameof(ApprovalSetting.IsAIAllowedToVote),
+                    live.IsAIAllowedToVote != shipped.IsAIAllowedToVote),
+
+                (nameof(ApprovalSetting.AIApprovalConfidenceRejectionThreshold),
+                    live.AIApprovalConfidenceRejectionThreshold
+                        != shipped.AIApprovalConfidenceRejectionThreshold),
+
+                (nameof(ApprovalSetting.AIApprovalConfidenceApprovalThreshold),
+                    live.AIApprovalConfidenceApprovalThreshold
+                        != shipped.AIApprovalConfidenceApprovalThreshold),
             ];
 
             return comparisons

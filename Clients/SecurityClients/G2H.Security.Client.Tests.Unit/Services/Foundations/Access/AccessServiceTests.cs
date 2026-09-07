@@ -50,7 +50,11 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             bool blockOnZeroApprovalScore = false,
             bool requireReapprovalOnChange = false,
             bool requireReviewCommentResolutionBeforeApprovals = false,
-            bool doNotAllowBypassingSettings = false) =>
+            bool doNotAllowBypassingSettings = false,
+            bool isAIReviewerOffered = false,
+            bool isAIAllowedToVote = false,
+            decimal aiApprovalConfidenceRejectionThreshold = 0.00m,
+            decimal aiApprovalConfidenceApprovalThreshold = 0.00m) =>
             new ApprovalPolicy
             {
                 EntityType = isGlobal ? null : entityType ?? GetRandomString(),
@@ -68,6 +72,14 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                     requireReviewCommentResolutionBeforeApprovals,
 
                 DoNotAllowBypassingSettings = doNotAllowBypassingSettings,
+                IsAIReviewerOffered = isAIReviewerOffered,
+                IsAIAllowedToVote = isAIAllowedToVote,
+
+                AIApprovalConfidenceRejectionThreshold =
+                    aiApprovalConfidenceRejectionThreshold,
+
+                AIApprovalConfidenceApprovalThreshold =
+                    aiApprovalConfidenceApprovalThreshold,
             };
 
         private static RecordApprovalCommentRequest CreateRandomRecordApprovalCommentRequest(
