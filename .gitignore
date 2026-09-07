@@ -30,6 +30,14 @@ x86/
 [Aa][Rr][Mm]64[Ee][Cc]/
 bld/
 [Oo]bj/
+
+# MSBuild running on Linux can emit intermediate paths with LITERAL BACKSLASHES —
+# "obj\Debug/\package.g.props" is one directory named "obj\Debug" holding a file named
+# "\package.g.props", so the [Oo]bj/ rule above does not match it and `git add -A` sweeps
+# it into a commit. Windows cannot check such a path out at all: `git checkout` fails with
+# "invalid path" and exit 128, which takes the build down before it compiles anything.
+# Committed once by a Linux-side build and broke CI on the windows-latest runner.
+*obj\\*
 [Oo]ut/
 [Ll]og/
 [Ll]ogs/
