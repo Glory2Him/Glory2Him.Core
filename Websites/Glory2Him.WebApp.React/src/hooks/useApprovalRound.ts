@@ -65,6 +65,11 @@ export const useApprovalRound = (
     const { data: reviewRequests, refetch: refetchRequests } =
         approvalService.useGetReviewRequests(entityType, entityId, enabled);
 
+    // Berean's status (design §8.6.2) — keyed by entity like the candidates and requests above,
+    // for the same reason: nothing about it depends on the approval's id.
+    const { data: aiReviewerStatus, refetch: refetchAIReviewerStatus } =
+        approvalService.useGetAIReviewerStatus(entityType, entityId, enabled);
+
     // The names of everybody the round involved — its reviewers, its invitees AND its comment
     // authors — resolved server-side off the round itself, so nothing here gathers ids off the
     // rows and the read does not wait on them.
@@ -174,7 +179,8 @@ export const useApprovalRound = (
                 ? refetchComments({ cancelRefetch: false })
                 : Promise.resolve(),
             refetchRequests({ cancelRefetch: false }),
-            refetchDisplayNames({ cancelRefetch: false })
+            refetchDisplayNames({ cancelRefetch: false }),
+            refetchAIReviewerStatus({ cancelRefetch: false })
         ]);
     }, [
         enabled,
@@ -184,7 +190,8 @@ export const useApprovalRound = (
         refetchReviews,
         refetchComments,
         refetchRequests,
-        refetchDisplayNames
+        refetchDisplayNames,
+        refetchAIReviewerStatus
     ]);
 
     return {
@@ -209,6 +216,12 @@ export const useApprovalRound = (
         // in different columns, and holding the review panel back for a comment read it does not
         // use would make the decision surface slower for no reason.
         areReviewCommentsLoading: approvalId.length > 0 && areCommentsLoading,
+
+        // RAW, not projected: whether Berean is offered, requested and how far it's got are
+        // already the shape a consumer needs (build the ReviewerCandidateItem + status pair for
+        // ReviewPanel's aiReviewerCandidate/aiReviewerAssignment props from this), so there is
+        // nothing here for a view-service to translate.
+        aiReviewerStatus,
 
         refresh
     };

@@ -103,15 +103,32 @@ export interface ReviewPanelProps {
     // wears a glyph instead of initials.
     aiReviewerCandidate?: ReviewerCandidateItem;
 
+    // WHETHER BEREAN HAS BEEN ASKED ON THIS ROUND, and how far it's got. Supplying this is what
+    // puts a row for it in the list, ALONGSIDE the votes and pending requests rather than
+    // through either of those collections — Berean is not a role-bearing identity, so there is
+    // no ApprovalReview and no ApprovalReviewRequest for it to ride in on (§8.6.2). Absent means
+    // not currently assigned, exactly as aiReviewerCandidate absent means not offered.
+    //
+    // The row this renders is intentionally NOT the stacked identity-then-full-width-control
+    // shape every other row uses (see renderReviewRow's own note on why votes are stacked) —
+    // Berean's control is glyph-sized, not a button that needs the width, so it sits beside the
+    // name on one line.
+    aiReviewerAssignment?: {
+        candidate: ReviewerCandidateItem;
+        isAIReviewCompleted: boolean;
+        isAIReviewCommentsPresent: boolean;
+    };
+
     // THE SEAM the AI review pipeline is plumbed into. Fired INSTEAD OF onReviewRequested when
     // the AI reviewer is picked, never alongside it — the two are different operations and the
     // consumer must not post an AI assignment to the human review-request endpoint by accident.
     //
-    // What a consumer does with it is §8.6.2's business and none of the panel's: the design has
-    // it publish an assignment fact that an AI-review process consumes, calls the classification
-    // library from, and files a comment and/or a review under Berean's system identity. None of
-    // that exists yet (§13.4: "no AI broker or content-analysis service exists in code today"),
-    // which is why this is a callback and not a fetch.
+    // ALSO what the completed row's recycle control fires — assigning and re-requesting are the
+    // same operation from here (the consumer's endpoint is an upsert: absent creates, completed
+    // resets to pending), so there is no second callback for it.
+    //
+    // What a consumer does with it is §8.6.2's business and none of the panel's: it posts to the
+    // dedicated AIReviewer resource and refreshes the round, exactly like any other write here.
     onAIReviewerRequested?: (candidate: ReviewerCandidateItem) => void;
 
     // How many people may be waiting on at once. Counted on OUTSTANDING invitations, so an
@@ -189,6 +206,14 @@ export interface ReviewPanelProps {
     // Sits where a username sits, because that is what the AI reviewer has instead of one.
     aiReviewerTaglineText?: string;
     aiReviewerIconCssClass?: string;
+
+    // Berean's own row control — every state carries its own tooltip/accessible name, never
+    // only the "interesting" one, matching this file's rule that no icon-only control ships
+    // bare (see the picker row's visually-hidden action hint).
+    aiReviewPendingTooltip?: string;
+    aiReviewReRequestTooltip?: string;
+    aiReviewCommentsPresentTooltip?: string;
+    aiReviewCommentsAbsentTooltip?: string;
     pickerTitleText?: string;
     suggestionsSectionText?: string;
     requestedSectionText?: string;
@@ -263,6 +288,7 @@ export function ReviewPanel({
     reviewerCandidateCollection = [],
     suggestedReviewerCollection = [],
     aiReviewerCandidate,
+    aiReviewerAssignment,
     maxReviewerRequests = 15,
     isCandidatesLoading = false,
     onReviewerLookupRequested,
@@ -290,6 +316,10 @@ export function ReviewPanel({
     requestedVoteCssClass = 'btn-warning',
     aiReviewerTaglineText = 'Your AI Pair Reviewer',
     aiReviewerIconCssClass = 'bi-person-fill',
+    aiReviewPendingTooltip = "Berean's review is pending",
+    aiReviewReRequestTooltip = 'Re-request Berean review',
+    aiReviewCommentsPresentTooltip = 'Berean left review comments',
+    aiReviewCommentsAbsentTooltip = 'Berean left no comments',
     pickerTitleText = 'Request up to {max} reviewers',
     suggestionsSectionText = 'Suggestions',
     requestedSectionText = 'Requested',
@@ -381,9 +411,10 @@ export function ReviewPanel({
     // entry — is recognised the same way and cannot be styled as the AI reviewer in one list
     // and as a person in another.
     const isAIReviewer = (userId: string): boolean =>
-        aiReviewerCandidate != null
-            && userId.length > 0
-            && userId === aiReviewerCandidate.userId;
+        userId.length > 0
+        && ((aiReviewerCandidate != null && userId === aiReviewerCandidate.userId)
+            || (aiReviewerAssignment != null
+                && userId === aiReviewerAssignment.candidate.userId));
     const isSubmitted = approvalStatus === ApprovalStatus.Submitted;
 
     // The round reached an outcome. Both outcomes are resettable: a rejection is as easy to
@@ -466,6 +497,17 @@ export function ReviewPanel({
             userName: candidate.userName,
             vote: undefined as ApprovalStatus | undefined,
         })))
+        // BEREAN'S OWN ROW, from its dedicated prop rather than either collection above — it
+        // has neither an ApprovalReview nor an ApprovalReviewRequest to ride in on. Still ONE
+        // alphabetical list with everyone else: the question a reader asks ("where does this
+        // round stand?") is the same one for Berean as for a person.
+        .concat(aiReviewerAssignment == null ? [] : [{
+            key: `ai-reviewer-${aiReviewerAssignment.candidate.userId}`,
+            userId: aiReviewerAssignment.candidate.userId,
+            displayName: aiReviewerAssignment.candidate.displayName,
+            userName: aiReviewerAssignment.candidate.userName,
+            vote: undefined as ApprovalStatus | undefined,
+        }])
         .sort((left, right) => left.displayName.localeCompare(
             right.displayName, undefined, { sensitivity: 'base' }));
 
@@ -660,7 +702,13 @@ export function ReviewPanel({
         : [aiReviewerCandidate, ...suggestedReviewerCollection.filter(
             (candidate) => candidate.userId !== aiReviewerCandidate.userId)])
         .filter((candidate) => matchesFilter(candidate)
-            && requestedUserIds.has(candidate.userId) === false);
+            && requestedUserIds.has(candidate.userId) === false
+
+            // Berean wins the same tie a human's outstanding request does: once it has a live
+            // assignment (pending or completed) it renders in the round's own list instead,
+            // with its own recycle control standing in for the picker's re-ask.
+            && (aiReviewerAssignment == null
+                || candidate.userId !== aiReviewerAssignment.candidate.userId));
 
     // Everyone else, with the already-voted at the top so the assigned reader sees them first.
     // The two groups keep the order the consumer supplied within themselves; only the split is
@@ -1036,6 +1084,76 @@ export function ReviewPanel({
         </div>
     );
 
+    // BEREAN'S CONTROL, in its own row shape rather than renderReviewRow's stacked one — a dot
+    // or two glyph-sized icons never needs the full width a vote/requested button does, so it
+    // sits beside the name on one line instead of pushing it to a second (per the user's own
+    // mockup of this control).
+    //
+    // PENDING is the yellow dot alone — isAIReviewCompleted is false for the lifetime of this
+    // feature today, since nothing yet sets it true (design §8.6.2's classification pipeline is
+    // unbuilt), so this is the only state reachable through a live round right now; the
+    // completed state below exists so the row is ready the moment something starts setting it.
+    const renderAIReviewerControl = (): ReactNode => {
+        if (aiReviewerAssignment == null) {
+            return null;
+        }
+
+        if (aiReviewerAssignment.isAIReviewCompleted === false) {
+            return (
+                <span title={aiReviewPendingTooltip} className="d-inline-flex align-items-center">
+                    <i
+                        className="bi bi-circle-fill text-warning g2h-ai-reviewer-pending-dot"
+                        aria-hidden="true"></i>
+                    <span className="visually-hidden">{aiReviewPendingTooltip}</span>
+                </span>
+            );
+        }
+
+        return (
+            <div className="d-flex align-items-center gap-2">
+                <button
+                    type="button"
+                    className="btn btn-sm btn-link p-0 text-primary g2h-ai-reviewer-rerequest"
+                    title={aiReviewReRequestTooltip}
+                    aria-label={aiReviewReRequestTooltip}
+                    onClick={() => onAIReviewerRequested?.(aiReviewerAssignment.candidate)}>
+                    <i className="bi bi-arrow-repeat" aria-hidden="true"></i>
+                </button>
+
+                <span
+                    className={aiReviewerAssignment.isAIReviewCommentsPresent
+                        ? 'text-primary g2h-ai-reviewer-comments-present'
+                        : 'text-muted g2h-ai-reviewer-comments-absent'}
+                    title={aiReviewerAssignment.isAIReviewCommentsPresent
+                        ? aiReviewCommentsPresentTooltip
+                        : aiReviewCommentsAbsentTooltip}>
+                    <i className="bi bi-chat-dots" aria-hidden="true"></i>
+
+                    <span className="visually-hidden">
+                        {aiReviewerAssignment.isAIReviewCommentsPresent
+                            ? aiReviewCommentsPresentTooltip
+                            : aiReviewCommentsAbsentTooltip}
+                    </span>
+                </span>
+            </div>
+        );
+    };
+
+    const renderAIReviewerRow = (
+        identity: { userId: string; displayName: string; userName?: string },
+        key: string
+    ): ReactElement => (
+        <div
+            key={key}
+            className="py-2 border-bottom g2h-review-row d-flex align-items-center justify-content-between gap-2">
+            <div className="d-flex align-items-center gap-2">
+                {renderIdentity(identity, 34)}
+            </div>
+
+            {renderAIReviewerControl()}
+        </div>
+    );
+
     const viewerRow = (): ReactNode => {
         if (viewerReview != null || showPlaceholderRow) {
             const name = viewerReview?.reviewerDisplayName
@@ -1162,21 +1280,24 @@ export function ReviewPanel({
                 <div className="mb-4">
                     {renderedViewerRow}
 
-                    {otherRows.map((row) => renderReviewRow(
-                        row,
-                        row.vote != null ? (
-                            <span className={`btn btn-sm w-100 ${voteBadgeCssClass(row.vote)} g2h-review-vote-badge mb-0`}>
-                                {voteBadgeText(row.vote)}
-                            </span>
-                        ) : (
-                            // Asked and not yet answered. A warning chip rather than a muted one:
-                            // an outstanding request is the round waiting on somebody, which is
-                            // the thing a publisher is deciding whether to keep waiting for.
-                            <span className={`btn btn-sm w-100 ${requestedVoteCssClass} g2h-review-vote-badge mb-0`}>
-                                {requestedVoteText}
-                            </span>
-                        ),
-                        row.key))}
+                    {otherRows.map((row) => isAIReviewer(row.userId)
+                        ? renderAIReviewerRow(row, row.key)
+                        : renderReviewRow(
+                            row,
+                            row.vote != null ? (
+                                <span className={`btn btn-sm w-100 ${voteBadgeCssClass(row.vote)} g2h-review-vote-badge mb-0`}>
+                                    {voteBadgeText(row.vote)}
+                                </span>
+                            ) : (
+                                // Asked and not yet answered. A warning chip rather than a muted
+                                // one: an outstanding request is the round waiting on somebody,
+                                // which is the thing a publisher is deciding whether to keep
+                                // waiting for.
+                                <span className={`btn btn-sm w-100 ${requestedVoteCssClass} g2h-review-vote-badge mb-0`}>
+                                    {requestedVoteText}
+                                </span>
+                            ),
+                            row.key))}
 
                     {renderedViewerRow == null
                         && otherRows.length === 0

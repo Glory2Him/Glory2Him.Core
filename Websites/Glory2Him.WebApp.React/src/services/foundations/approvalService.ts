@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import ApprovalBroker from '../../brokers/apiBroker.approvals';
 
 import {
+    AIReviewerAssignment,
+    AIReviewerStatus,
     ApprovalOutcome,
     ApprovalReview,
     ApprovalReviewRequest,
@@ -107,6 +109,25 @@ export const approvalService = {
             queryKey: ['ReviewerDisplayNames', entityType, entityId],
             queryFn: async () =>
                 await approvalBroker.GetReviewerDisplayNamesAsync(entityType, entityId),
+            enabled: enabled && entityId.length > 0,
+            retry: false,
+            meta: { suppressGlobalErrorToast: true },
+            staleTime: approvalStaleTime
+        });
+    },
+
+    // Berean's status (design §8.6.2) — keyed by entity like the candidates and requests beside
+    // it, so it starts alongside them rather than waiting on the verdict's id.
+    useGetAIReviewerStatus: (
+        entityType: EntityTypeName,
+        entityId: string,
+        enabled = true) => {
+        const approvalBroker = new ApprovalBroker();
+
+        return useQuery<AIReviewerStatus>({
+            queryKey: ['AIReviewerStatus', entityType, entityId],
+            queryFn: async () =>
+                await approvalBroker.GetAIReviewerStatusAsync(entityType, entityId),
             enabled: enabled && entityId.length > 0,
             retry: false,
             meta: { suppressGlobalErrorToast: true },
@@ -258,6 +279,42 @@ export const approvalService = {
 
             onSuccess: (reviewRequest) => invalidateRound(queryClient, reviewRequest.approvalId)
         });
+    },
+
+    // ASSIGN Berean — or RE-REQUEST it once its review has completed; the endpoint is the same
+    // upsert either way, so one hook covers both actions.
+    useAssignAIReviewer: () => {
+        const approvalBroker = new ApprovalBroker();
+        const queryClient = useQueryClient();
+
+        return useMutation({
+            meta: { suppressGlobalErrorToast: true },
+
+            mutationFn: async (request: {
+                entityType: EntityTypeName;
+                entityId: string;
+            }): Promise<AIReviewerAssignment> =>
+                await approvalBroker.PostAIReviewerAsync(request.entityType, request.entityId),
+
+            onSuccess: (assignment) => invalidateRound(queryClient, assignment.approvalId)
+        });
+    },
+
+    useWithdrawAIReviewer: () => {
+        const approvalBroker = new ApprovalBroker();
+        const queryClient = useQueryClient();
+
+        return useMutation({
+            meta: { suppressGlobalErrorToast: true },
+
+            mutationFn: async (request: {
+                entityType: EntityTypeName;
+                entityId: string;
+            }): Promise<AIReviewerAssignment> =>
+                await approvalBroker.DeleteAIReviewerAsync(request.entityType, request.entityId),
+
+            onSuccess: (assignment) => invalidateRound(queryClient, assignment.approvalId)
+        });
     }
 };
 
@@ -274,4 +331,5 @@ const invalidateRound = (
     queryClient.invalidateQueries({ queryKey: ['ReviewerCandidates'] });
     queryClient.invalidateQueries({ queryKey: ['ReviewRequests'] });
     queryClient.invalidateQueries({ queryKey: ['ReviewerDisplayNames'] });
+    queryClient.invalidateQueries({ queryKey: ['AIReviewerStatus'] });
 };

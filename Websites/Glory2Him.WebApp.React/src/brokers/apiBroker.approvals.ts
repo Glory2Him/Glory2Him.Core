@@ -1,6 +1,8 @@
 import ApiBroker from './apiBroker';
 
 import {
+    AIReviewerAssignment,
+    AIReviewerStatus,
     ApprovalOutcome,
     ApprovalReview,
     ApprovalReviewAddRequest,
@@ -173,6 +175,40 @@ class ApprovalBroker {
         const result = await this.apiBroker.DeleteAsync(url);
 
         return result.data as ApprovalReviewRequest;
+    }
+
+    // BEREAN'S STATUS (design §8.6.2) — one small read answering both "should the picker offer
+    // it" and "what's it doing right now", keyed by the entity like the candidates and requests
+    // beside it.
+    async GetAIReviewerStatusAsync(
+        entityType: EntityTypeName,
+        entityId: string): Promise<AIReviewerStatus> {
+        const url = `${this.relativeApprovalsUrl}/${entityType}/${entityId}/AIReviewer`;
+        const result = await this.apiBroker.GetAsync(url);
+
+        return result.data as AIReviewerStatus;
+    }
+
+    // ASSIGN — or RE-REQUEST. The endpoint is an upsert: no live row creates one, a completed
+    // one resets to pending, a still-pending one is a no-op that just returns the standing row.
+    async PostAIReviewerAsync(
+        entityType: EntityTypeName,
+        entityId: string): Promise<AIReviewerAssignment> {
+        const url = `${this.relativeApprovalsUrl}/${entityType}/${entityId}/AIReviewer`;
+        const result = await this.apiBroker.PostAsync(url, {});
+
+        return result.data as AIReviewerAssignment;
+    }
+
+    // WITHDRAW. Unconditional — re-request now covers "ask again after completion", so there is
+    // no answered-invitation refusal to keep out of reach here the way there is for a person's.
+    async DeleteAIReviewerAsync(
+        entityType: EntityTypeName,
+        entityId: string): Promise<AIReviewerAssignment> {
+        const url = `${this.relativeApprovalsUrl}/${entityType}/${entityId}/AIReviewer`;
+        const result = await this.apiBroker.DeleteAsync(url);
+
+        return result.data as AIReviewerAssignment;
     }
 }
 

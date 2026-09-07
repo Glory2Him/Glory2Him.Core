@@ -1,6 +1,6 @@
 import { ReactElement } from 'react';
 import { MemoryRouter } from 'react-router-dom';
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider } from '../securitys/authProvider';
@@ -2352,9 +2352,11 @@ describe('ReviewPanel', () => {
             expect(screen.getByText('Mary')).toBeInTheDocument();
         });
 
-        /// Recognised by the SAME prop wherever the row turns up, so it cannot be styled as the
-        /// AI reviewer in the picker and as a person in the list beside it.
-        it('should render a requested AI reviewer in the review list', () => {
+        /// Recognised by its OWN dedicated prop rather than riding in on requestedReviewerCollection
+        /// — Berean is not a role-bearing identity, so there is no ApprovalReviewRequest for it
+        /// (design §8.6.2; see contentItemModerationDetailPage's AIReviewerAssignment wiring).
+        /// PENDING is a dot, never the "Requested" text badge every human row gets.
+        it('should render a pending AI reviewer as a dot rather than a Requested badge', () => {
             // given
             signInAs(authState, ['Publishers']);
 
@@ -2364,14 +2366,99 @@ describe('ReviewPanel', () => {
                     entityType="ContentItem"
                     approvalStatus={ApprovalStatus.Submitted}
                     aiReviewerCandidate={berean}
-                    requestedReviewerCollection={[berean]} />);
+                    aiReviewerAssignment={{
+                        candidate: berean,
+                        isAIReviewCompleted: false,
+                        isAIReviewCommentsPresent: false
+                    }} />);
 
             // then
             const bereanRow = screen.getByText('Berean').closest('.g2h-review-row');
 
             expect(bereanRow).not.toBeNull();
-            expect(bereanRow?.textContent).toContain('Your AI Pair Reviewer');
-            expect(bereanRow?.textContent).toContain('Requested');
+            expect(bereanRow?.textContent).not.toContain('Requested');
+            expect(within(bereanRow as HTMLElement)
+                .getByTitle("Berean's review is pending")).toBeInTheDocument();
+        });
+
+        /// COMPLETED swaps the dot for the recycle (re-request) and comments controls, and the
+        /// comments icon's tooltip says whether Berean actually left any.
+        it('should render a completed AI reviewer with recycle and comments controls', () => {
+            // given
+            signInAs(authState, ['Publishers']);
+
+            // when
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    aiReviewerCandidate={berean}
+                    aiReviewerAssignment={{
+                        candidate: berean,
+                        isAIReviewCompleted: true,
+                        isAIReviewCommentsPresent: true
+                    }} />);
+
+            // then
+            const bereanRow = screen.getByText('Berean').closest('.g2h-review-row') as HTMLElement;
+
+            expect(within(bereanRow).queryByTitle("Berean's review is pending")).toBeNull();
+
+            expect(within(bereanRow)
+                .getByTitle('Re-request Berean review')).toBeInTheDocument();
+
+            expect(within(bereanRow)
+                .getByTitle('Berean left review comments')).toBeInTheDocument();
+        });
+
+        /// ...and the muted variant when nothing was left, so the icon never claims comments
+        /// that are not there.
+        it('should show the no-comments tooltip when Berean left nothing', () => {
+            // given
+            signInAs(authState, ['Publishers']);
+
+            // when
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    aiReviewerCandidate={berean}
+                    aiReviewerAssignment={{
+                        candidate: berean,
+                        isAIReviewCompleted: true,
+                        isAIReviewCommentsPresent: false
+                    }} />);
+
+            // then
+            const bereanRow = screen.getByText('Berean').closest('.g2h-review-row') as HTMLElement;
+
+            expect(within(bereanRow).getByTitle('Berean left no comments')).toBeInTheDocument();
+        });
+
+        /// THE RECYCLE CONTROL FIRES THE SAME CALLBACK a fresh pick would — re-requesting is the
+        /// consumer's upsert, not a second seam.
+        it('should raise onAIReviewerRequested when the recycle control is clicked', async () => {
+            // given
+            signInAs(authState, ['Publishers']);
+            const onAIReviewerRequested = vi.fn();
+
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    aiReviewerCandidate={berean}
+                    aiReviewerAssignment={{
+                        candidate: berean,
+                        isAIReviewCompleted: true,
+                        isAIReviewCommentsPresent: false
+                    }}
+                    onAIReviewerRequested={onAIReviewerRequested} />);
+
+            // when
+            await userEvent.click(screen.getByTitle('Re-request Berean review'));
+
+            // then
+            expect(onAIReviewerRequested).toHaveBeenCalledWith(berean);
         });
     });
 

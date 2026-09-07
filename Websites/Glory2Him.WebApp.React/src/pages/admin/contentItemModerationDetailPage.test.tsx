@@ -13,6 +13,7 @@ import { createAuthState, signInAs } from '../../tests/testAuth';
 import { testContentItemSetting } from '../../tests/testContentItemSettings';
 
 import {
+    AIReviewerStatus,
     ApprovalReview,
     ApprovalReviewRequest,
     ApprovalVerdict,
@@ -121,11 +122,24 @@ let reviewRequests: ApprovalReviewRequest[] = [];
 let reviewerCandidates: ReviewerCandidate[] = [];
 let verdictAskedFor: ReadonlyArray<string> = [];
 
+// BEREAN'S STATUS (design §8.6.2). Offered by default, matching the picker being open to it in
+// every test that does not say otherwise — individual tests narrow this to pin isRequested,
+// isAIReviewCompleted or isAIReviewCommentsPresent.
+let aiReviewerStatus: AIReviewerStatus = {
+    isOffered: true,
+    isRequested: false,
+    isAIReviewCompleted: false,
+    isAIReviewCommentsPresent: false
+};
+
 const refetchVerdictSpy = vi.fn();
 const refetchReviewsSpy = vi.fn();
 const refetchCandidatesSpy = vi.fn();
 const refetchRequestsSpy = vi.fn();
 const refetchDisplayNamesSpy = vi.fn();
+const refetchAIReviewerStatusSpy = vi.fn();
+const assignAIReviewerWith = vi.fn();
+const withdrawAIReviewerWith = vi.fn();
 
 vi.mock('../../services/foundations/approvalService', () => ({
     approvalService: {
@@ -148,11 +162,16 @@ vi.mock('../../services/foundations/approvalService', () => ({
             refetch: refetchDisplayNamesSpy
         }),
 
+        useGetAIReviewerStatus: () =>
+            ({ data: aiReviewerStatus, refetch: refetchAIReviewerStatusSpy }),
+
         useCastApprovalReview: () => ({ mutateAsync: castWith, isPending: false }),
         useDecideApproval: () => ({ mutateAsync: decidedWith, isPending: false }),
         useResetApproval: () => ({ mutateAsync: resetWith, isPending: false }),
         useRequestReview: () => ({ mutateAsync: requestedWith, isPending: false }),
-        useWithdrawReviewRequest: () => ({ mutateAsync: withdrawnWith, isPending: false })
+        useWithdrawReviewRequest: () => ({ mutateAsync: withdrawnWith, isPending: false }),
+        useAssignAIReviewer: () => ({ mutateAsync: assignAIReviewerWith, isPending: false }),
+        useWithdrawAIReviewer: () => ({ mutateAsync: withdrawAIReviewerWith, isPending: false })
     }
 }));
 
@@ -291,14 +310,33 @@ describe('ContentItemModerationDetailPage', () => {
             write.mockResolvedValue({ approvalId: 'approval-1' });
         }
 
+        for (const write of [assignAIReviewerWith, withdrawAIReviewerWith]) {
+            write.mockReset();
+
+            write.mockResolvedValue({
+                id: 'ai-reviewer-assignment-1',
+                approvalId: 'approval-1',
+                isAIReviewCompleted: false,
+                isAIReviewCommentsPresent: false,
+                isDeleted: false
+            });
+        }
+
         for (const refetch of [
             refetchVerdictSpy, refetchReviewsSpy, refetchCandidatesSpy,
             refetchRequestsSpy, refetchDisplayNamesSpy, refetchContentItemSpy,
-            refetchCommentsSpy
+            refetchCommentsSpy, refetchAIReviewerStatusSpy
         ]) {
             refetch.mockReset();
             refetch.mockResolvedValue(undefined);
         }
+
+        aiReviewerStatus = {
+            isOffered: true,
+            isRequested: false,
+            isAIReviewCompleted: false,
+            isAIReviewCommentsPresent: false
+        };
 
         toastErrorSpy.mockReset();
         toastSuccessSpy.mockReset();
@@ -634,13 +672,13 @@ describe('ContentItemModerationDetailPage', () => {
             approvalVerdict = submittedVerdict;
         };
 
-        /// ── THE AI-REVIEW SEAM (design 8.6.2, issue #354) ──────────────────────────
+        /// ── THE AI-REVIEW SEAM (design §8.6.2, issue #354) ──────────────────────────
         ///
-        /// The page offers Berean and owns what picking it means. Nothing downstream exists yet,
-        /// so what these pin is the ABSENCE of a write: the placeholder id is not an account,
-        /// and posting it to the human review-request endpoint is the one mistake available
-        /// here. Without them, rewiring onAIReviewerRequested to requestReviewAsync passes the
-        /// whole suite.
+        /// The page offers Berean and owns what picking it means. Assigning it is now a real,
+        /// server-held AIReviewerAssignment row (Track A of #354) rather than page-local state,
+        /// so what these pin is that the page posts to the DEDICATED AI-reviewer endpoint —
+        /// never the human review-request one, which the placeholder id would only be refused
+        /// by.
         describe('the AI reviewer', () => {
             const pickBereanAsync = async () => {
                 await userEvent.click(
@@ -668,9 +706,9 @@ describe('ContentItemModerationDetailPage', () => {
                 expect(screen.getByText('Your AI Pair Reviewer')).toBeInTheDocument();
             });
 
-            /// THE ONE THAT MATTERS. 'ai-reviewer-berean' is a placeholder, not a GUID - the
-            /// endpoint can only refuse it, and the page must never send it.
-            it('should not post a review request when Berean is picked', async () => {
+            /// THE ONE THAT MATTERS. Berean has no account for the human endpoint to check, so
+            /// the page must route the click to its own dedicated resource instead.
+            it('should assign Berean through the AI-reviewer endpoint when picked', async () => {
                 // given
                 openRoundByAnotherAuthor();
                 renderPage();
@@ -679,25 +717,55 @@ describe('ContentItemModerationDetailPage', () => {
                 await pickBereanAsync();
 
                 // then
+                expect(assignAIReviewerWith).toHaveBeenCalledWith({
+                    entityType: 'ContentItem',
+                    entityId: 'quote-1'
+                });
+
                 expect(requestedWith).not.toHaveBeenCalled();
             });
 
-            /// ...and it says so rather than swallowing the click, so a moderator is not left
-            /// waiting on a review nobody is performing.
-            it('should tell the moderator that Berean cannot review yet', async () => {
+            it('should show the reason the server gave when Berean cannot be assigned',
+                async () => {
+                    // given
+                    openRoundByAnotherAuthor();
+
+                    assignAIReviewerWith.mockRejectedValue({
+                        isAxiosError: true,
+                        response: { data: { message: 'The AI reviewer is not offered here.' } }
+                    });
+
+                    renderPage();
+
+                    // when
+                    await pickBereanAsync();
+
+                    // then
+                    expect(toastErrorSpy).toHaveBeenCalledWith(
+                        'The AI reviewer is not offered here.');
+                });
+
+            /// Berean's own row, once a live assignment answers isRequested — read off the
+            /// dedicated status endpoint rather than merged in as though it were a plain
+            /// ApprovalReviewRequest, which it is not (§8.6.2: it is not a role-bearing
+            /// identity).
+            it('should render a pending Berean row once it has been assigned', () => {
                 // given
                 openRoundByAnotherAuthor();
-                renderPage();
+
+                aiReviewerStatus = {
+                    isOffered: true,
+                    isRequested: true,
+                    isAIReviewCompleted: false,
+                    isAIReviewCommentsPresent: false
+                };
 
                 // when
-                await pickBereanAsync();
+                renderPage();
 
                 // then
-                expect(toastSuccessSpy).toHaveBeenCalledWith(
-                    expect.stringContaining('Berean'));
-
-                expect(toastSuccessSpy).toHaveBeenCalledWith(
-                    expect.stringContaining('Nothing has been requested.'));
+                expect(screen.getByText('Berean')).toBeInTheDocument();
+                expect(screen.getByTitle("Berean's review is pending")).toBeInTheDocument();
             });
 
             /// The human path still works while Berean is on offer - so the routing above is a
@@ -986,6 +1054,7 @@ describe('ContentItemModerationDetailPage', () => {
                 expect(refetchReviewsSpy).toHaveBeenCalled();
                 expect(refetchRequestsSpy).toHaveBeenCalled();
                 expect(refetchDisplayNamesSpy).toHaveBeenCalled();
+                expect(refetchAIReviewerStatusSpy).toHaveBeenCalled();
             });
 
         // THE ITEM IS PART OF THE ROUND HERE. The panel's open-or-closed gates read the STORED

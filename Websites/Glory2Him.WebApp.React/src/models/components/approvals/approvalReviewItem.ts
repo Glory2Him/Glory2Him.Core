@@ -70,12 +70,13 @@ export type ReviewerCandidateItem = {
 // candidate offers no AI reviewer, which is the fail-closed posture §8.4 asks for expressed as
 // the absence of a prop rather than as a flag somebody has to remember to set.
 //
-// THE ID IS A PLACEHOLDER AND NOTHING READS IT AS AN ACCOUNT. Berean acts under a system
-// identity (§8.6.2), and that account does not exist yet — so this is deliberately NOT a GUID.
-// Anything that posted it to the review-request endpoints would be refused, which is the right
-// outcome while the backend half of #354 is unbuilt: the panel raises onAIReviewerRequested and
-// the consumer decides what that means. Replace this with the system account's id when the
-// identity lands, and nothing else here has to move.
+// THE ID IS A PLACEHOLDER AND NOTHING READS IT AS AN ACCOUNT. Berean is not a role-bearing
+// identity and never will be (§8.6.2), so this is deliberately NOT a GUID — it names a row in
+// the dedicated AIReviewerAssignment resource (GET/POST/DELETE api/Approvals/{entityType}/
+// {entityId}/AIReviewer), never a caller-supplied identity on the ordinary review-request
+// endpoints, which still refuse it exactly as before. The panel matches this id purely to
+// recognise "this row is Berean's" wherever one appears — in the picker, in a pending request,
+// in the round's own list — never to authenticate anything.
 export const BereanAIReviewerUserId = 'ai-reviewer-berean';
 
 export const BereanAIReviewer: ReviewerCandidateItem = {

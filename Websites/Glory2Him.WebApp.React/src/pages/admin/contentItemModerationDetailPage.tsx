@@ -32,22 +32,6 @@ import { EntityTypeName } from '../../models/foundations/approvals/approval';
 import { useApprovalRound } from '../../hooks/useApprovalRound';
 import { useApprovalRoundChanges } from '../../hooks/useApprovalRoundChanges';
 
-// WHERE THE §8.6.2 FEATURE SWITCH WILL BE READ, and it is named for it: IsAIReviewerOffered is
-// one of the ApprovalSetting fields #354 still has to add, so there is no policy row to resolve
-// yet and this constant stands in the place that resolved value will occupy. When the setting
-// lands this becomes a read off the resolved ApprovalSetting, and nothing else on this page
-// moves.
-//
-// ITS SIBLING IS NOT THIS PAGE'S CONCERN. §8.6.2 puts the vote behind a second, child switch —
-// IsAIAllowedToVote — which decides whether Berean casts an ApprovalReview alongside the comment
-// it always files. That is read where the round is decided, not where the reviewer is offered:
-// a Berean that may be asked but may not vote is offered from here identically.
-//
-// It is a constant rather than a hidden true so that the fail-closed posture is one edit away
-// while the backend is unbuilt: the AI reviewer is OFFERED here, but nothing it is offered for
-// exists — picking it raises the seam below and writes nothing anywhere.
-const isAIReviewerOffered = true;
-
 import {
     BibleReferenceAssociationPanel
 } from '../../components/associations/bibleReferenceAssociationPanel';
@@ -293,6 +277,7 @@ export const ContentItemModerationDetailPage = () => {
         approvalReviews,
         requestedReviewerCollection,
         reviewerCandidateCollection,
+        aiReviewerStatus,
         isLoading: isRoundLoading,
 
         // The thread, on the same chain: a comment names the approval it hangs off and nothing
@@ -342,6 +327,7 @@ export const ContentItemModerationDetailPage = () => {
     const resetApproval = approvalService.useResetApproval();
     const requestReview = approvalService.useRequestReview();
     const withdrawReviewRequest = approvalService.useWithdrawReviewRequest();
+    const assignAIReviewer = approvalService.useAssignAIReviewer();
 
     // The viewer's standing review, if any: a changed vote amends THAT row (§7.7 rule 1), and
     // the projection the panel renders does not carry what an amend has to send back.
@@ -360,27 +346,50 @@ export const ContentItemModerationDetailPage = () => {
                 && review.isDeleted !== true
                 && review.statusId !== ApprovalStatus.Dismissed);
 
-    // THE AI-REVIEW SEAM (design §8.6.2, issue #354). Assigning Berean is meant to publish an
-    // assignment fact that an AI-review process consumes and answers on the round.
+    // ASSIGN — OR RE-REQUEST — BEREAN (design §8.6.2, issue #354). One real, server-held
+    // AIReviewerAssignment row per approval, not the caller's own account, so the endpoint is
+    // an upsert rather than a plain create: absent creates one pending, a completed one resets
+    // to pending (the recycle control's "ask again"), a still-pending one is a no-op. Either
+    // way the round is invalidated and aiReviewerStatus below is what the panel repaints from —
+    // nothing here is assumed optimistically.
     //
-    // ON THIS PAGE THAT ANSWER IS COMMENTS, and only comments. §8.6.2 rules ContentItem out of
-    // confidence scoring deliberately — a score judges a PAIRING, and a content item is not one —
-    // so the threshold rules that produce a Berean vote are unreachable here whatever
-    // IsAIAllowedToVote resolves to. What Berean has to say about a content item arrives as
-    // ApprovalComments under its system identity, and a human decides.
-    //
-    // NONE OF IT EXISTS YET. §13.4 is explicit that no AI broker or content-analysis service is
-    // in code today, and §8.6.2's open rulings are unanswered. So this deliberately writes
-    // NOTHING: it does not post a review request, because Berean has no account for one to name,
-    // and it does not fake a pending row, because a "Requested" chip against a request nobody
-    // holds is the panel lying about the round.
-    //
-    // It says so instead, and that is the whole of it until the backend half lands here.
-    const requestAIReviewAsync = (candidate: ReviewerCandidateItem): void => {
-        toastSuccess(
-            `${candidate.displayName} cannot review yet — the AI review service is still to be `
-            + 'built. Nothing has been requested.');
+    // ON THIS PAGE, WHAT BEREAN ANSWERS WITH IS COMMENTS, and only comments — §8.6.2 rules
+    // ContentItem out of confidence scoring deliberately (a score judges a PAIRING, and a
+    // content item is not one), so the threshold rules that would produce a Berean vote are
+    // unreachable here whatever IsAIAllowedToVote resolves to. The process that actually runs
+    // Berean's analysis and files that comment is not built yet (§13.4), so isAIReviewCompleted
+    // and isAIReviewCommentsPresent stay false for as long as nothing sets them — the row this
+    // creates is real and persists, but nothing yet answers it.
+    const requestAIReviewAsync = async (candidate: ReviewerCandidateItem) => {
+        try {
+            await assignAIReviewer.mutateAsync({
+                entityType: EntityTypeName.ContentItem,
+                entityId: contentItemId
+            });
+        } catch (error) {
+            toastError(extractApiErrorMessage(
+                error, `${candidate.displayName} could not be assigned to review this post.`));
+        }
     };
+
+    // THE TWO THINGS THE PANEL NEEDS TO RENDER BEREAN, derived off the one status read rather
+    // than a second fetch or local state: isOffered decides whether it appears in the picker at
+    // all (mirrors aiReviewerCandidate's own absent-means-not-offered rule), and isRequested
+    // decides whether the round's own list carries its row. BereanAIReviewer supplies the
+    // identity either way — the server names no account for it to be resolved from.
+    const aiReviewerCandidateItem = aiReviewerStatus?.isOffered === true
+        ? BereanAIReviewer
+        : undefined;
+
+    const aiReviewerAssignmentItem = useMemo(
+        () => aiReviewerStatus?.isRequested === true
+            ? {
+                candidate: BereanAIReviewer,
+                isAIReviewCompleted: aiReviewerStatus.isAIReviewCompleted,
+                isAIReviewCommentsPresent: aiReviewerStatus.isAIReviewCommentsPresent
+            }
+            : undefined,
+        [aiReviewerStatus]);
 
     const castVoteAsync = async (vote: ReviewVote) => {
         if (approvalVerdict == null) {
@@ -759,10 +768,10 @@ export const ContentItemModerationDetailPage = () => {
                                 onReviewRequested={(candidate) => void requestReviewAsync(candidate)}
                                 onReviewRequestWithdrawn={(candidate) =>
                                     void withdrawReviewRequestAsync(candidate)}
-                                aiReviewerCandidate={
-                                    isAIReviewerOffered ? BereanAIReviewer : undefined}
+                                aiReviewerCandidate={aiReviewerCandidateItem}
+                                aiReviewerAssignment={aiReviewerAssignmentItem}
                                 onAIReviewerRequested={(candidate) =>
-                                    requestAIReviewAsync(candidate)}
+                                    void requestAIReviewAsync(candidate)}
                                 showBorder />
 
                             {/* BENEATH THE ROUND, in the same column: the round is about THIS
