@@ -49,6 +49,38 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItemSettings
             }
         }
 
+        // THE EVENT PATH'S RESOLVE, and the only difference from the one above is WHOSE read it
+        // is. That one mints its context from the ambient caller, which on an HTTP request is the
+        // right answer. On a substrate delivery it is not: there may be no ambient context at all,
+        // in which case the read runs unauthenticated and answers not-found for every row that is
+        // not publicly visible — refusing a legitimate override on an unpublished item; or, since
+        // delivery is synchronous inside a publish and HttpContextAccessor flows on an AsyncLocal,
+        // it inherits whoever PUBLISHED, who for a relayed or system-minted envelope is not the
+        // subject the envelope was signed for — resolving a row the signed caller may not see.
+        //
+        // Handing the foundation the inbound envelope makes the read the SIGNED CALLER'S, so the
+        // §16.6 posture the derivation is documented to carry is the posture it actually carries,
+        // on both entry paths. Caught by the Copilot review on #469.
+        private async ValueTask<ContentItem> ResolveContentItemAsync<TSource>(
+            Guid contentItemId,
+            EventEnvelope<TSource> inboundEnvelope,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                return await this.contentItemService.RetrieveContentItemByIdAsync(
+                    contentItemId,
+                    inboundEnvelope,
+                    cancellationToken);
+            }
+            catch (Exception contentItemException)
+                when (IsContentItemNotFound(contentItemException))
+            {
+                throw new NotFoundContentItemSettingOrchestrationException(
+                    message: $"The content item was not found with id: {contentItemId}.");
+            }
+        }
+
         private static void ValidateContentItemSettingIsNotNull(ContentItemSetting contentItemSetting)
         {
             if (contentItemSetting is null)

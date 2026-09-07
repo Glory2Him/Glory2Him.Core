@@ -75,6 +75,42 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             Guid contentItemId,
             CancellationToken cancellationToken = default);
 
+        /// <summary>
+        /// The same caller-filtered read, taking the envelope the reader is acting under so the
+        /// ORIGINAL caller's identity is CARRIED rather than re-asserted — the same reason
+        /// <see cref="UnpublishContentItemByIdAsync(System.Guid,
+        /// Glory2Him.Core.Models.Events.EventEnvelope{ContentItem}, System.Threading.CancellationToken)"/>
+        /// takes one.
+        ///
+        /// <para>The overload above mints its own envelope, which reads the AMBIENT caller. On an
+        /// HTTP request that is the right answer and this overload is not needed. On the event
+        /// substrate it is not: a delivery either has no ambient context at all — so the read runs
+        /// unauthenticated and answers not-found for every row that is not publicly visible — or,
+        /// because delivery is synchronous inside a publish and <c>HttpContextAccessor</c> flows on
+        /// an <c>AsyncLocal</c>, it inherits whoever PUBLISHED, who for a relayed or system-minted
+        /// envelope is not the subject the envelope was signed for. The first direction refuses a
+        /// legitimate read; the second resolves a row the signed caller may not see.</para>
+        ///
+        /// <para>Used by <c>ContentItemSettingOrchestrationService</c> to derive an override's
+        /// <c>ContentType</c> on the event path (§12.5.2 business rule 6, #456), so that
+        /// derivation carries §16.6's visibility posture on BOTH entry paths rather than only on
+        /// the one where the ambient context happens to be the caller.</para>
+        ///
+        /// <para><b>Internal, and narrow, on purpose.</b> A public method taking a caller-supplied
+        /// context is a forgery surface — anything in-process could hand it an authenticated
+        /// context it did not earn. Keeping it internal means only Core's own friend set can reach
+        /// it, and a public controller cannot take it through a constructor at all (CS0051).</para>
+        /// </summary>
+        /// <para>Generic in the SOURCE envelope's content type because it reads nothing off it but
+        /// the carried context — the caller here holds a <c>ContentItemSetting</c> request, not a
+        /// <c>ContentItem</c> one. The chaining is done inside, through
+        /// <c>CreateNextAsync</c>, which copies the security context forward rather than minting
+        /// one, exactly as the publication swap's overload does.</para>
+        internal ValueTask<ContentItem> RetrieveContentItemByIdAsync<TSource>(
+            Guid contentItemId,
+            EventEnvelope<TSource> inboundEnvelope,
+            CancellationToken cancellationToken = default);
+
         ValueTask<ContentItem> ModifyContentItemAsync(
             ContentItem contentItem,
             CancellationToken cancellationToken = default);

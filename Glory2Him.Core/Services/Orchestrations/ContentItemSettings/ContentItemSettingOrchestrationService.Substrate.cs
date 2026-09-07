@@ -64,8 +64,12 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItemSettings
                 // administrator may say it. Same branch, same reason, as the method path.
                 if (envelope.Content.ContentItemId is not null)
                 {
+                    // Resolved as the envelope's SIGNED caller, not as whatever identity happens
+                    // to be ambient on this delivery — see the resolve for why the difference
+                    // matters here and not on the method path.
                     ContentItem contentItem = await ResolveContentItemAsync(
                         contentItemId: envelope.Content.ContentItemId.Value,
+                        inboundEnvelope: envelope,
                         cancellationToken: cancellationToken);
 
                     ValidateContentTypeIsTheContentItems(

@@ -55,8 +55,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItemSettings
             bool wasContentItemResolvedFirst = false;
 
             this.contentItemServiceMock.Setup(service =>
-                service.RetrieveContentItemByIdAsync(contentItemId, It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(storageContentItem);
+                service.RetrieveContentItemByIdAsync(
+                    contentItemId,
+                    inputEnvelope,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageContentItem);
 
             this.contentItemSettingServiceMock.Setup(service =>
                 service.OnAddingContentItemSettingAsync(
@@ -85,8 +88,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItemSettings
                     EnvelopeDirection.Request),
                 Times.Once);
 
+            // THE ENVELOPE IS CARRIED INTO THE READ, which is the point rather than a detail. The
+            // ambient-context overload would evaluate this read as whoever the delivery happens to
+            // run under — nobody on a background delivery, the PUBLISHER on a synchronous one —
+            // instead of as the subject the envelope was signed for (#469 review).
             this.contentItemServiceMock.Verify(service =>
-                service.RetrieveContentItemByIdAsync(contentItemId, It.IsAny<CancellationToken>()),
+                service.RetrieveContentItemByIdAsync(
+                    contentItemId,
+                    inputEnvelope,
+                    It.IsAny<CancellationToken>()),
                 Times.Once);
 
             // THE SAME ENVELOPE, not a rebuilt one. Everything the foundation owns — the audit
@@ -137,8 +147,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItemSettings
                     innerException: contentTypeMismatchContentItemSettingOrchestrationException);
 
             this.contentItemServiceMock.Setup(service =>
-                service.RetrieveContentItemByIdAsync(contentItemId, It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(storageContentItem);
+                service.RetrieveContentItemByIdAsync(
+                    contentItemId,
+                    inputEnvelope,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageContentItem);
 
             // when
             ValueTask<EventEnvelope<ContentItemSetting>?> onAddingTask =
@@ -159,8 +172,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItemSettings
                     SameExceptionAs(expectedContentItemSettingOrchestrationValidationException))),
                 Times.Once);
 
+            // THE ENVELOPE IS CARRIED INTO THE READ, which is the point rather than a detail. The
+            // ambient-context overload would evaluate this read as whoever the delivery happens to
+            // run under — nobody on a background delivery, the PUBLISHER on a synchronous one —
+            // instead of as the subject the envelope was signed for (#469 review).
             this.contentItemServiceMock.Verify(service =>
-                service.RetrieveContentItemByIdAsync(contentItemId, It.IsAny<CancellationToken>()),
+                service.RetrieveContentItemByIdAsync(
+                    contentItemId,
+                    inputEnvelope,
+                    It.IsAny<CancellationToken>()),
                 Times.Once);
 
             // the write gate is never reached, which is the whole of the fix
@@ -219,6 +239,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItemSettings
             this.contentItemServiceMock.Verify(service =>
                 service.RetrieveContentItemByIdAsync(
                     It.IsAny<Guid>(),
+                    It.IsAny<EventEnvelope<ContentItemSetting>>(),
                     It.IsAny<CancellationToken>()),
                 Times.Never);
 
@@ -260,8 +281,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItemSettings
                 CreateContentItemOfType(contentItemId, ActualContentType);
 
             this.contentItemServiceMock.Setup(service =>
-                service.RetrieveContentItemByIdAsync(contentItemId, It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(storageContentItem);
+                service.RetrieveContentItemByIdAsync(
+                    contentItemId,
+                    inputEnvelope,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageContentItem);
 
             this.contentItemSettingServiceMock.Setup(service =>
                 service.OnAddingContentItemSettingAsync(
@@ -279,8 +303,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItemSettings
             // then
             actualReplyEnvelope.Should().BeNull();
 
+            // THE ENVELOPE IS CARRIED INTO THE READ, which is the point rather than a detail. The
+            // ambient-context overload would evaluate this read as whoever the delivery happens to
+            // run under — nobody on a background delivery, the PUBLISHER on a synchronous one —
+            // instead of as the subject the envelope was signed for (#469 review).
             this.contentItemServiceMock.Verify(service =>
-                service.RetrieveContentItemByIdAsync(contentItemId, It.IsAny<CancellationToken>()),
+                service.RetrieveContentItemByIdAsync(
+                    contentItemId,
+                    inputEnvelope,
+                    It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.contentItemSettingServiceMock.Verify(service =>
@@ -355,6 +386,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItemSettings
             this.contentItemServiceMock.Verify(service =>
                 service.RetrieveContentItemByIdAsync(
                     It.IsAny<Guid>(),
+                    It.IsAny<EventEnvelope<ContentItemSetting>>(),
                     It.IsAny<CancellationToken>()),
                 Times.Never);
 
