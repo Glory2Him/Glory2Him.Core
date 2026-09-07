@@ -168,24 +168,18 @@ namespace Glory2Him.Core.Services.Processings.Links
                 return await DoRetrieveAllPublicLinksAsync(cancellationToken);
             });
 
-        public ValueTask<IQueryable<Link>> RetrieveLinksByGroupIdAsync(
+        public ValueTask<IReadOnlyList<Link>> RetrieveLinksByGroupIdAsync(
             Guid groupId,
             CancellationToken cancellationToken = default) =>
-            TryCatch(async () =>
+            TryCatchList(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var retrieveRequest = new Link
-                {
-                    GroupId = groupId
-                };
-
-                EventEnvelope<Link> envelope =
-                    await this.eventEnvelopeBroker.CreateAsync(content: retrieveRequest);
-
+                // no envelope is minted: the group-keyed foundation read mints its own to capture
+                // the ambient security context, and a second one here would only re-run the same
+                // filter, against the same context, over the set that filter already produced
                 return await DoRetrieveLinksByGroupIdAsync(
                     groupId: groupId,
-                    inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
             });
 
@@ -419,22 +413,21 @@ namespace Glory2Him.Core.Services.Processings.Links
                 securityContext: null);
         }
 
-        private async ValueTask<IQueryable<Link>> DoRetrieveLinksByGroupIdAsync(
+        private async ValueTask<IReadOnlyList<Link>> DoRetrieveLinksByGroupIdAsync(
             Guid groupId,
-            EventEnvelope<Link> inboundEnvelope,
             CancellationToken cancellationToken)
         {
             ValidateGroupIdOnRetrieve(groupId);
 
-            IQueryable<Link> allLinks =
-                await this.linkService.RetrieveAllLinksAsync(cancellationToken);
-
-            IQueryable<Link> groupLinks = allLinks.Where(link =>
-                link.GroupId == groupId);
-
-            return await ApplyCollectionReadVisibilityFilterAsync(
-                links: groupLinks,
-                securityContext: inboundEnvelope.SecurityContext);
+            // Through the GROUP-KEYED foundation read, which owns the narrowing and runs the
+            // §14.7 collection filter over it once. Composing the group predicate onto the
+            // collection read's live queryable here left the exposer to execute it — a blocking
+            // SQL round trip on the request thread with the cancellation token dropped at the one
+            // call that touches the database — and gave "the group's rows" a second home to
+            // drift in.
+            return await this.linkService.RetrieveLinksByGroupIdAsync(
+                groupId: groupId,
+                cancellationToken: cancellationToken);
         }
 
         private async ValueTask<Link> DoRetrieveLatestLinkByGroupIdAsync(

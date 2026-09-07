@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Events;
@@ -25,6 +26,8 @@ namespace Glory2Him.Core.Services.Processings.Links
         private delegate ValueTask<Link> ReturningLinkFunction();
 
         private delegate ValueTask<IQueryable<Link>> ReturningLinksFunction();
+
+        private delegate ValueTask<IReadOnlyList<Link>> ReturningLinkListFunction();
 
         private delegate ValueTask<EventEnvelope<Link>?> ReturningLinkEventEnvelopeFunction();
 
@@ -189,6 +192,70 @@ namespace Glory2Him.Core.Services.Processings.Links
             try
             {
                 return await returningLinksFunction();
+            }
+            catch (OperationCanceledException operationCanceledException)
+                when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
+            {
+                var timeoutException =
+                    new TimeoutException("The dependency operation timed out.");
+
+                var timeoutLinkProcessingException =
+                    new TimeoutLinkProcessingException(
+                        message: "Failed link processing timeout error occurred, contact support.",
+                        innerException: timeoutException,
+                        data: timeoutException.Data);
+
+                throw await CreateAndLogTimeoutDependencyExceptionAsync(
+                    exception: timeoutLinkProcessingException);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (InvalidLinkProcessingException invalidLinkProcessingException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: invalidLinkProcessingException);
+            }
+            catch (LinkValidationException linkValidationException)
+            {
+                throw await CreateAndLogDependencyValidationExceptionAsync(exception: linkValidationException);
+            }
+            catch (LinkDependencyValidationException linkDependencyValidationException)
+            {
+                throw await CreateAndLogDependencyValidationExceptionAsync(
+                    exception: linkDependencyValidationException);
+            }
+            catch (LinkDependencyException linkDependencyException)
+            {
+                throw await CreateAndLogDependencyExceptionAsync(exception: linkDependencyException);
+            }
+            catch (LinkServiceException linkServiceException)
+            {
+                throw await CreateAndLogDependencyExceptionAsync(exception: linkServiceException);
+            }
+            catch (Exception exception)
+            {
+                var failedLinkProcessingServiceException =
+                    new FailedLinkProcessingServiceException(
+                        message: "Failed link processing service error occurred, " +
+                            "please contact support.",
+                        innerException: exception,
+                        data: exception.Data);
+
+                throw await CreateAndLogServiceExceptionAsync(
+                    exception: failedLinkProcessingServiceException);
+            }
+        }
+
+        // The same taxonomy the queryable read is wrapped in, over a materialised result. The
+        // two must not diverge: they answer the same question about the same rows and differ
+        // only in where the query is executed.
+        private async ValueTask<IReadOnlyList<Link>> TryCatchList(
+            ReturningLinkListFunction returningLinkListFunction)
+        {
+            try
+            {
+                return await returningLinkListFunction();
             }
             catch (OperationCanceledException operationCanceledException)
                 when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
