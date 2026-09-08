@@ -113,6 +113,12 @@ export interface ReviewPanelProps {
     // shape every other row uses (see renderReviewRow's own note on why votes are stacked) —
     // Berean's control is glyph-sized, not a button that needs the width, so it sits beside the
     // name on one line.
+    //
+    // A LIVE ASSIGNMENT ALSO PUTS BEREAN UNDER THE PICKER'S REQUESTED SECTION, which is the only
+    // route to unassigning it: the row in the round's own list carries a re-ask and never a
+    // withdraw, by the same design that keeps every human withdrawal in the picker. It joins that
+    // section from THIS prop rather than from requestedReviewerCollection, because there is no
+    // ApprovalReviewRequest for it to ride in on (§8.6.2).
     aiReviewerAssignment?: {
         candidate: ReviewerCandidateItem;
         isAIReviewCompleted: boolean;
@@ -130,6 +136,16 @@ export interface ReviewPanelProps {
     // What a consumer does with it is §8.6.2's business and none of the panel's: it posts to the
     // dedicated AIReviewer resource and refreshes the round, exactly like any other write here.
     onAIReviewerRequested?: (candidate: ReviewerCandidateItem) => void;
+
+    // THE OTHER HALF OF THAT SEAM. Fired INSTEAD OF onReviewRequestWithdrawn when the AI reviewer
+    // is picked out of the Requested section, never alongside it: Berean has no
+    // ApprovalReviewRequest row to delete and no account id to name one by (§8.6.2), so a
+    // withdrawal routed to the human endpoint is one the server can only refuse.
+    //
+    // What a consumer does with it is §8.6.2's business, as ever: it DELETEs the dedicated
+    // AIReviewer resource — nothing standing answers 204, which is a success like any other —
+    // and refreshes the round.
+    onAIReviewerWithdrawn?: (candidate: ReviewerCandidateItem) => void;
 
     // How many people may be waiting on at once. Counted on OUTSTANDING invitations, so an
     // answered request frees its slot.
@@ -223,6 +239,10 @@ export interface ReviewPanelProps {
     candidateFilterPlaceholderText?: string;
     noCandidatesText?: string;
     withdrawRequestTooltip?: string;
+
+    // Berean's own withdrawal, worded for what it actually removes — an AIReviewerAssignment,
+    // never a review request. Its own prop for the same reason every Berean state above has one.
+    withdrawAIReviewerTooltip?: string;
     bypassLabelText?: string;
     bypassReasonPlaceholderText?: string;
 
@@ -294,6 +314,7 @@ export function ReviewPanel({
     onReviewerLookupRequested,
     onReviewRequested,
     onAIReviewerRequested,
+    onAIReviewerWithdrawn,
     onReviewRequestWithdrawn,
     onReviewStatusChanged,
     onApprovalReset,
@@ -329,6 +350,7 @@ export function ReviewPanel({
     candidateFilterPlaceholderText = 'Filter by name',
     noCandidatesText = 'No eligible reviewers found.',
     withdrawRequestTooltip = 'Withdraw review request',
+    withdrawAIReviewerTooltip = 'Withdraw Berean review',
     bypassLabelText = 'Approve without waiting for requirements to be met (bypass rules)',
     bypassReasonPlaceholderText = 'Reason for bypassing the approval requirements',
     bypassReasonRequiredText = 'Give a reason for the bypass before submitting.',
@@ -647,7 +669,18 @@ export function ReviewPanel({
         onReviewRequested?.(candidate);
     };
 
+    // THE AI REVIEWER LEAVES BY THE SAME DOOR IT ARRIVED BY. There is no ApprovalReviewRequest
+    // behind Berean's row and no account id to name one by, so routing its withdrawal through
+    // onReviewRequestWithdrawn would hand the consumer a deletion it can only post to a surface
+    // with nothing to delete. The two callbacks are exclusive: whichever one fires, the other
+    // does not.
     const withdrawRequest = (candidate: ReviewerCandidateItem) => {
+        if (isAIReviewer(candidate.userId)) {
+            onAIReviewerWithdrawn?.(candidate);
+
+            return;
+        }
+
         onReviewRequestWithdrawn?.(candidate);
     };
 
@@ -686,7 +719,24 @@ export function ReviewPanel({
     // the person: an outstanding invitation is withdrawable and nothing else, so it belongs
     // under Requested wherever else it was offered from. The one thing lost is the suggestion
     // reason on that row, which is a sentence about why to ask somebody already asked.
-    const requestedPickerRows = requestedReviewerCollection.filter(matchesFilter);
+    //
+    // BEREAN JOINS THIS SECTION FROM ITS OWN PROP, because there is no ApprovalReviewRequest for
+    // it to ride in on (§8.6.2) and requestedReviewerCollection can therefore never carry it.
+    // Without that, the section which is the ONLY route to unassigning somebody could not offer
+    // the one assignment nothing else in the panel can withdraw — the round's own row carries a
+    // re-ask and no withdraw control, by design — and a Berean asked by accident would stand for
+    // good, short of a database edit.
+    //
+    // It leads the band for the same reason it leads the suggestions (§8.6.2), the human rows
+    // keeping the consumer's order behind it. The dedupe is defensive: a consumer that also hands
+    // Berean in requestedReviewerCollection must not produce the row twice. And it is keyed off
+    // the ASSIGNMENT rather than off aiReviewerCandidate, so a Berean assigned before
+    // IsAIReviewerOffered was switched off is still withdrawable.
+    const requestedPickerRows = (aiReviewerAssignment == null
+        ? requestedReviewerCollection
+        : [aiReviewerAssignment.candidate, ...requestedReviewerCollection.filter(
+            (candidate) => candidate.userId !== aiReviewerAssignment.candidate.userId)])
+        .filter(matchesFilter);
 
     // BEREAN LEADS THE SUGGESTIONS, ahead of every human one (§8.6.2), mirroring GitHub's
     // Copilot-reviewer suggestion. It sits INSIDE the Suggestions band rather than in a section
@@ -705,8 +755,10 @@ export function ReviewPanel({
             && requestedUserIds.has(candidate.userId) === false
 
             // Berean wins the same tie a human's outstanding request does: once it has a live
-            // assignment (pending or completed) it renders in the round's own list instead,
-            // with its own recycle control standing in for the picker's re-ask.
+            // assignment (pending or completed) it drops out of Suggestions and renders under
+            // REQUESTED, like anybody else's outstanding invitation, where a click withdraws it.
+            // The round's own list carries the assignment itself alongside — its pending dot,
+            // and once completed the recycle control that asks again.
             && (aiReviewerAssignment == null
                 || candidate.userId !== aiReviewerAssignment.candidate.userId));
 
@@ -982,6 +1034,8 @@ export function ReviewPanel({
     //
     //   requested -> withdraw (rule 5). This is the ONLY route to unassigning somebody, which is
     //   why the requested section exists as its own group rather than as ticks in the main list.
+    //   The AI reviewer's row in this section routes to onAIReviewerWithdrawn instead of
+    //   onReviewRequestWithdrawn — see withdrawRequest for why the two are exclusive.
     //
     //   everyone-who-has-voted -> nothing at all. A cast verdict is theirs (§8.6.1, owner-only),
     //   so there is no "unassign" to offer; the row is rendered ticked and inert rather than
@@ -1021,12 +1075,18 @@ export function ReviewPanel({
         // Mary Adeyemi" on screen - the mismatch WCAG 2.5.3 exists to stop, and one that breaks
         // voice control. Appending keeps the visible text in the name and still says what a
         // click will do.
+        //
+        // The AI reviewer's hint is its own: withdrawing Berean removes an AIReviewerAssignment
+        // rather than a review request, and naming a row that does not exist would say the one
+        // thing this hint is here to get right.
         const actionHint = isInert
             ? 'has already reviewed'
             : isBlockedByCap
                 ? 'request limit reached'
                 : kind === 'requested'
-                    ? withdrawRequestTooltip
+                    ? (isAIReviewer(candidate.userId)
+                        ? withdrawAIReviewerTooltip
+                        : withdrawRequestTooltip)
                     : requestReviewTooltip;
 
         return (

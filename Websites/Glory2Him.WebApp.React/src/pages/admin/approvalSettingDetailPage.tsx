@@ -51,6 +51,23 @@ const minimumConfidenceThreshold = 0;
 const maximumConfidenceThreshold = 10;
 const confidenceThresholdStep = 0.01;
 
+// THE PAIR HAS AN ORDER AS WELL AS A RANGE (design §8.6.2): approve-above must not sit below
+// reject-below, or a score between them satisfies §8.6.2's rule 1 and its rule 2 at once and
+// Berean has two verdicts to cast for one score. The foundation refuses that pair and
+// CK_ApprovalSetting_AIThresholdOrder stands behind it, so — in the same spirit as
+// minimumRequiredApprovals above — the form refuses it before the save round-trips into a 400.
+//
+// IT REFUSES RATHER THAN CORRECTS, and that is the one place this rule cannot follow "How many".
+// Clamping each box against the other would rewrite a number that was deliberately typed:
+// entering 8 to reject below, with 3 still sitting in approve above, would silently store 3, and
+// a policy that means something other than what the administrator entered is worse than a save
+// they are asked to fix. So both boxes keep what was typed and the save is held instead.
+const thresholdOrderMessageId = 'approval-ai-threshold-order';
+
+const thresholdOrderMessage =
+    'Approve above must not be below Reject below: a score between the two would file both a '
+        + 'rejection and an approval.';
+
 // Only the boolean members can be wired to a switch, so a mistyped field name below is a compile
 // error rather than a switch that silently never moves. -? strips the optional modifier, or every
 // optional member would smuggle `undefined` into the union and satisfy nothing.
@@ -205,8 +222,33 @@ export const ApprovalSettingDetailPage = ({ isNew = false }: { isNew?: boolean }
                     isAIAllowedToVote: isAIReviewerOffered && current.isAIAllowedToVote
                 });
 
+    // Derived on every render rather than checked on save alone, so the message arrives while the
+    // two boxes that caused it are still in front of the reader. UNCONDITIONAL of the vote
+    // switch, because the foundation is: it refuses the order however isAIAllowedToVote reads, so
+    // a guard that looked only while Berean may vote would let exactly the rows it skipped
+    // round-trip into the 400 this exists to prevent.
+    const isThresholdOrderInvalid = editModel != null
+        && editModel.aiApprovalConfidenceApprovalThreshold
+            < editModel.aiApprovalConfidenceRejectionThreshold;
+
+    // Only when there is something to describe, so a well-ordered pair is not announced as
+    // carrying an empty error. Both boxes point at the one message: the rule is about the PAIR,
+    // and is-invalid on its own is a colour rather than a sentence.
+    const thresholdOrderAttributes = isThresholdOrderInvalid
+        ? { 'aria-invalid': true, 'aria-describedby': thresholdOrderMessageId }
+        : {};
+
     const saveAsync = async () => {
         if (editModel == null) {
+            return;
+        }
+
+        // Held here rather than sent. The alert repeats what already sits under the two boxes
+        // because the button is at the far end of a long form and the fields may be scrolled off
+        // it — the same reason a refused save says anything at all.
+        if (isThresholdOrderInvalid) {
+            setActionError(thresholdOrderMessage);
+
             return;
         }
 
@@ -469,14 +511,24 @@ export const ApprovalSettingDetailPage = ({ isNew = false }: { isNew?: boolean }
                                     Reject below
                                 </label>
 
+                                {/* DISABLED WHILE THE VOTE IS OFF (§8.6.2 reads the thresholds
+                                    only when Berean may cast one) — EXCEPT while the pair is
+                                    the reason the save is being refused. The order rule holds
+                                    whatever the vote switch says, so a box that is at once the
+                                    fault and out of reach would strand an edit in front of a
+                                    message it could not answer. */}
                                 <input
                                     id="approval-ai-rejection-threshold"
-                                    className="form-control"
+                                    className={isThresholdOrderInvalid
+                                        ? 'form-control is-invalid'
+                                        : 'form-control'}
                                     type="number"
                                     min={minimumConfidenceThreshold}
                                     max={maximumConfidenceThreshold}
                                     step={confidenceThresholdStep}
-                                    disabled={editModel.isAIAllowedToVote === false}
+                                    disabled={editModel.isAIAllowedToVote === false
+                                        && isThresholdOrderInvalid === false}
+                                    {...thresholdOrderAttributes}
                                     value={editModel.aiApprovalConfidenceRejectionThreshold}
                                     onChange={(event) => {
                                         const parsed = Number(event.target.value);
@@ -504,12 +556,16 @@ export const ApprovalSettingDetailPage = ({ isNew = false }: { isNew?: boolean }
 
                                 <input
                                     id="approval-ai-approval-threshold"
-                                    className="form-control"
+                                    className={isThresholdOrderInvalid
+                                        ? 'form-control is-invalid'
+                                        : 'form-control'}
                                     type="number"
                                     min={minimumConfidenceThreshold}
                                     max={maximumConfidenceThreshold}
                                     step={confidenceThresholdStep}
-                                    disabled={editModel.isAIAllowedToVote === false}
+                                    disabled={editModel.isAIAllowedToVote === false
+                                        && isThresholdOrderInvalid === false}
+                                    {...thresholdOrderAttributes}
                                     value={editModel.aiApprovalConfidenceApprovalThreshold}
                                     onChange={(event) => {
                                         const parsed = Number(event.target.value);
@@ -528,6 +584,17 @@ export const ApprovalSettingDetailPage = ({ isNew = false }: { isNew?: boolean }
                                 </div>
                             </div>
                         </div>
+
+                        {/* d-block because this sits beside the row rather than beside either
+                            input, and Bootstrap only reveals invalid-feedback next to the
+                            is-invalid control it follows. */}
+                        {isThresholdOrderInvalid && (
+                            <div
+                                className="invalid-feedback d-block"
+                                id={thresholdOrderMessageId}>
+                                {thresholdOrderMessage}
+                            </div>
+                        )}
                     </Card>
 
                     <div className="d-flex gap-2 mb-4">

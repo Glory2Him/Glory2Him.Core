@@ -319,8 +319,9 @@ export const ContentItemModerationDetailPage = () => {
     // The panel decides nothing beyond what its own gates read; the server is the authority,
     // and a refusal from it is an ANSWER (§14.5) — HR-2, a reviewer who has spent their vote, a
     // bypass the policy shut — so each handler shows the reason it was given rather than a
-    // generic failure. Nothing is optimistic: every write invalidates the round on success and
-    // the panel repaints off the reads.
+    // generic failure. Nothing is optimistic: every write invalidates on success and the panel
+    // repaints off the reads — a human's write the whole round, Berean's two the one status read
+    // that can answer differently afterwards, for the reason each handler below gives.
     const { user } = useAuth();
     const castApprovalReview = approvalService.useCastApprovalReview();
     const decideApproval = approvalService.useDecideApproval();
@@ -328,6 +329,7 @@ export const ContentItemModerationDetailPage = () => {
     const requestReview = approvalService.useRequestReview();
     const withdrawReviewRequest = approvalService.useWithdrawReviewRequest();
     const assignAIReviewer = approvalService.useAssignAIReviewer();
+    const withdrawAIReviewer = approvalService.useWithdrawAIReviewer();
 
     // The viewer's standing review, if any: a changed vote amends THAT row (§7.7 rule 1), and
     // the projection the panel renders does not carry what an amend has to send back.
@@ -349,9 +351,11 @@ export const ContentItemModerationDetailPage = () => {
     // ASSIGN — OR RE-REQUEST — BEREAN (design §8.6.2, issue #354). One real, server-held
     // AIReviewerAssignment row per approval, not the caller's own account, so the endpoint is
     // an upsert rather than a plain create: absent creates one pending, a completed one resets
-    // to pending (the recycle control's "ask again"), a still-pending one is a no-op. Either
-    // way the round is invalidated and aiReviewerStatus below is what the panel repaints from —
-    // nothing here is assumed optimistically.
+    // to pending (the recycle control's "ask again"), a still-pending one is a no-op. The write
+    // invalidates BEREAN'S OWN STATUS READ ALONE rather than the whole round every human write
+    // invalidates: an assignment moves no vote, no candidate and no request, so the one read that
+    // can answer differently afterwards is the one that is re-read. aiReviewerStatus below is
+    // what the panel repaints from — nothing here is assumed optimistically.
     //
     // ON THIS PAGE, WHAT BEREAN ANSWERS WITH IS COMMENTS, and only comments — §8.6.2 rules
     // ContentItem out of confidence scoring deliberately (a score judges a PAIRING, and a
@@ -369,6 +373,28 @@ export const ContentItemModerationDetailPage = () => {
         } catch (error) {
             toastError(extractApiErrorMessage(
                 error, `${candidate.displayName} could not be assigned to review this post.`));
+        }
+    };
+
+    // WITHDRAW BEREAN — the DELETE of the one live AIReviewerAssignment row (§8.6.2), reached
+    // from the picker's Requested section, which is the panel's only route to unassigning
+    // anybody. Unconditional server-side: re-requesting already covers "ask again after it has
+    // answered", so there is no answered-invitation refusal to keep out of reach the way there is
+    // for a person's. Nothing standing answers 204 and is still a success — the status read is
+    // what says whether Berean is assigned, and it is re-read either way.
+    //
+    // NO SUCCESS TOAST: the row leaving the round's list is the feedback, exactly as its arrival
+    // is on assign.
+    const withdrawAIReviewAsync = async (candidate: ReviewerCandidateItem) => {
+        try {
+            await withdrawAIReviewer.mutateAsync({
+                entityType: EntityTypeName.ContentItem,
+                entityId: contentItemId
+            });
+        } catch (error) {
+            toastError(extractApiErrorMessage(
+                error,
+                `${candidate.displayName} could not be withdrawn from reviewing this post.`));
         }
     };
 
@@ -749,8 +775,11 @@ export const ContentItemModerationDetailPage = () => {
 
                                 THE WRITES go back out through the handlers above: a vote is
                                 a review row, a decision is the round's, a request is an
-                                invitation. Each invalidates the round, so what the panel shows
-                                next is what the server holds, not what the click assumed. */}
+                                invitation, and Berean's two are an assignment row that is
+                                nobody's account. Each invalidates what its own write can move —
+                                the whole round for a human's, Berean's status read alone for
+                                Berean's — so what the panel shows next is what the server holds,
+                                not what the click assumed. */}
                             <ReviewPanel
                                 entityType="ContentItem"
                                 contentType={ContentType[contentItem.contentType] ?? ''}
@@ -772,6 +801,8 @@ export const ContentItemModerationDetailPage = () => {
                                 aiReviewerAssignment={aiReviewerAssignmentItem}
                                 onAIReviewerRequested={(candidate) =>
                                     void requestAIReviewAsync(candidate)}
+                                onAIReviewerWithdrawn={(candidate) =>
+                                    void withdrawAIReviewAsync(candidate)}
                                 showBorder />
 
                             {/* BENEATH THE ROUND, in the same column: the round is about THIS

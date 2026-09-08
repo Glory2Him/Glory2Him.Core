@@ -204,13 +204,19 @@ class ApprovalBroker {
     // no answered-invitation refusal to keep out of reach here the way there is for a person's.
     // Nothing standing is 204 (no body) rather than 200, so the result is nullable — unused by
     // the hook either way, since Berean's own status read is what the UI repaints from.
+    //
+    // AN EMPTY BODY IS NOTHING STANDING, and it is checked for as an empty STRING rather than as
+    // undefined: axios materialises a 204 by handing the default transform an empty response
+    // body, which it cannot parse as JSON and gives back verbatim — so `?? null` alone would
+    // return '' and quietly contradict the nullable this promises.
     async DeleteAIReviewerAsync(
         entityType: EntityTypeName,
         entityId: string): Promise<AIReviewerAssignment | null> {
         const url = `${this.relativeApprovalsUrl}/${entityType}/${entityId}/AIReviewer`;
         const result = await this.apiBroker.DeleteAsync(url);
+        const assignment = result.data as AIReviewerAssignment | '' | null | undefined;
 
-        return (result.data ?? null) as AIReviewerAssignment | null;
+        return assignment == null || assignment === '' ? null : assignment;
     }
 }
 

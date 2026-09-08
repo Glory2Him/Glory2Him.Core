@@ -1840,7 +1840,10 @@ describe('ReviewPanel', () => {
 
         /// The same rule reaches the AI reviewer, which is pinned into the suggestions on every
         /// round it is offered on - so without this an asked Berean could never be unassigned.
-        it('should keep a requested AI reviewer withdrawable', async () => {
+        /// It joins the Requested band from aiReviewerAssignment rather than from the collection:
+        /// there is no ApprovalReviewRequest for it to ride in on (§8.6.2), and its row in the
+        /// round carries a re-ask and no withdraw control, by design.
+        it('should keep an assigned AI reviewer withdrawable', async () => {
             // given
             signInAs(authState, ['Reviewers']);
             const berean: ReviewerCandidateItem = {
@@ -1848,6 +1851,7 @@ describe('ReviewPanel', () => {
                 displayName: 'Berean'
             };
 
+            const onAIReviewerWithdrawn = vi.fn();
             const onReviewRequestWithdrawn = vi.fn();
             const onAIReviewerRequested = vi.fn();
 
@@ -1856,16 +1860,23 @@ describe('ReviewPanel', () => {
                     entityType="ContentItem"
                     approvalStatus={ApprovalStatus.Submitted}
                     aiReviewerCandidate={berean}
-                    requestedReviewerCollection={[berean]}
+                    aiReviewerAssignment={{
+                        candidate: berean,
+                        isAIReviewCompleted: false,
+                        isAIReviewCommentsPresent: false
+                    }}
                     onAIReviewerRequested={onAIReviewerRequested}
+                    onAIReviewerWithdrawn={onAIReviewerWithdrawn}
                     onReviewRequestWithdrawn={onReviewRequestWithdrawn} />);
 
             // when
             await userEvent.click(screen.getByRole('button', { name: 'Request a review' }));
             await userEvent.click(screen.getByRole('button', { name: /Berean/ }));
 
-            // then
-            expect(onReviewRequestWithdrawn).toHaveBeenCalledWith(berean);
+            // then: its own withdrawal, never the human one - Berean has no request row to
+            // delete and no account id to name one by
+            expect(onAIReviewerWithdrawn).toHaveBeenCalledWith(berean);
+            expect(onReviewRequestWithdrawn).not.toHaveBeenCalled();
             expect(onAIReviewerRequested).not.toHaveBeenCalled();
         });
 
@@ -2176,9 +2187,30 @@ describe('ReviewPanel', () => {
             displayName: 'Berean'
         };
 
+        const pendingAssignment = {
+            candidate: berean,
+            isAIReviewCompleted: false,
+            isAIReviewCommentsPresent: false
+        };
+
         const openPicker = async (): Promise<void> => {
             await userEvent.click(screen.getByRole('button', { name: 'Request a review' }));
         };
+
+        /// Scoped to ONE band of the picker rather than to the whole panel, because an assigned
+        /// Berean is on screen twice by design - its row in the round, and the picker row that
+        /// withdraws it - and once it has completed BOTH of those carry the word "Berean" in a
+        /// button name (the row's own recycle control).
+        const pickerSection = (title: string): HTMLElement =>
+            Array.from(document.querySelectorAll<HTMLElement>('.g2h-review-picker-section'))
+                .find((section) =>
+                    section.querySelector('.g2h-review-picker-section-title')?.textContent
+                        === title) as HTMLElement;
+
+        const pickerSectionNames = (title: string): Array<string | null> =>
+            Array.from(pickerSection(title)
+                .querySelectorAll('.g2h-review-identity-name'))
+                .map((element) => element.textContent);
 
         /// FAIL-CLOSED, and expressed as the absence of a prop rather than as a flag somebody
         /// has to remember to set to false.
@@ -2460,6 +2492,227 @@ describe('ReviewPanel', () => {
             // then
             expect(onAIReviewerRequested).toHaveBeenCalledWith(berean);
         });
+
+        /// ASSIGNED MEANS REQUESTED, wherever else Berean was offered from — the same tie a
+        /// human's outstanding invitation wins. Under Suggestions a click ASKS; the Requested
+        /// band is the only route to unassigning anybody (§7.9 rule 5), so leaving an assigned
+        /// Berean pinned to the suggestions is what made it unwithdrawable from any surface.
+        it('should move an assigned AI reviewer out of suggestions and into requested',
+            async () => {
+                // given
+                signInAs(authState, ['Reviewers']);
+
+                renderWithAuth(
+                    <ReviewPanel
+                        entityType="ContentItem"
+                        approvalStatus={ApprovalStatus.Submitted}
+                        aiReviewerCandidate={berean}
+                        aiReviewerAssignment={pendingAssignment}
+                        suggestedReviewerCollection={[mary]} />);
+
+                // when
+                await openPicker();
+
+                // then
+                expect(pickerSectionNames('Suggestions')).toEqual(['Mary']);
+                expect(pickerSectionNames('Requested')).toEqual(['Berean']);
+            });
+
+        /// THE OTHER HALF OF THE SEAM, and its converse in one act. Berean has no
+        /// ApprovalReviewRequest row to delete and no account id to name one by (§8.6.2), so a
+        /// withdrawal routed to the human endpoint is one the server can only refuse — while a
+        /// person standing beside it in the same band must still route to the human one.
+        it('should raise onAIReviewerWithdrawn for Berean and the human one for a person',
+            async () => {
+                // given
+                signInAs(authState, ['Reviewers']);
+                const onAIReviewerWithdrawn = vi.fn();
+                const onReviewRequestWithdrawn = vi.fn();
+
+                renderWithAuth(
+                    <ReviewPanel
+                        entityType="ContentItem"
+                        approvalStatus={ApprovalStatus.Submitted}
+                        aiReviewerCandidate={berean}
+                        aiReviewerAssignment={pendingAssignment}
+                        requestedReviewerCollection={[mary]}
+                        onAIReviewerWithdrawn={onAIReviewerWithdrawn}
+                        onReviewRequestWithdrawn={onReviewRequestWithdrawn} />);
+
+                // when
+                await openPicker();
+
+                await userEvent.click(
+                    within(pickerSection('Requested')).getByRole('button', { name: /Berean/ }));
+
+                // then
+                expect(onAIReviewerWithdrawn).toHaveBeenCalledWith(berean);
+                expect(onReviewRequestWithdrawn).not.toHaveBeenCalled();
+
+                // when: the person one row below, out of the same band
+                await userEvent.click(
+                    within(pickerSection('Requested')).getByRole('button', { name: /Mary/ }));
+
+                // then
+                expect(onReviewRequestWithdrawn).toHaveBeenCalledWith(mary);
+                expect(onAIReviewerWithdrawn).toHaveBeenCalledTimes(1);
+            });
+
+        /// The hint says what the click REMOVES, and the two are different things: withdrawing
+        /// Berean deletes an AIReviewerAssignment, withdrawing Mary deletes a review request.
+        /// A visually-hidden hint rather than an aria-label, so the announced name still holds
+        /// the visible one (WCAG 2.5.3).
+        it('should name the AI reviewer withdrawal for what it removes', async () => {
+            // given
+            signInAs(authState, ['Reviewers']);
+
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    aiReviewerCandidate={berean}
+                    aiReviewerAssignment={pendingAssignment}
+                    requestedReviewerCollection={[mary]} />);
+
+            // when
+            await openPicker();
+
+            // then
+            expect(screen.getByRole('button', { name: /Berean.*Withdraw Berean review/ }))
+                .toBeInTheDocument();
+
+            expect(screen.getByRole('button', { name: /Mary.*Withdraw review request/ }))
+                .toBeInTheDocument();
+        });
+
+        /// KEYED OFF THE ASSIGNMENT, not off the candidate. Switching IsAIReviewerOffered off
+        /// stops the picker suggesting Berean, and a round it was already assigned on would
+        /// otherwise be left holding an assignment with no control anywhere that could remove it.
+        it('should keep an assigned AI reviewer withdrawable after it stops being offered',
+            async () => {
+                // given: no candidate at all - the panel is not offering Berean any more
+                signInAs(authState, ['Reviewers']);
+                const onAIReviewerWithdrawn = vi.fn();
+
+                renderWithAuth(
+                    <ReviewPanel
+                        entityType="ContentItem"
+                        approvalStatus={ApprovalStatus.Submitted}
+                        aiReviewerAssignment={pendingAssignment}
+                        onAIReviewerWithdrawn={onAIReviewerWithdrawn} />);
+
+                // when
+                await openPicker();
+
+                await userEvent.click(
+                    within(pickerSection('Requested')).getByRole('button', { name: /Berean/ }));
+
+                // then
+                expect(onAIReviewerWithdrawn).toHaveBeenCalledWith(berean);
+            });
+
+        /// One row, not two. The dedupe is defensive: a consumer that also hands Berean in
+        /// requestedReviewerCollection - which the server never gives it a row for - must not
+        /// produce the picker row twice, because two rows read as two reviewers.
+        it('should render an assigned AI reviewer once when it is also listed as requested',
+            async () => {
+                // given
+                signInAs(authState, ['Reviewers']);
+
+                renderWithAuth(
+                    <ReviewPanel
+                        entityType="ContentItem"
+                        approvalStatus={ApprovalStatus.Submitted}
+                        aiReviewerCandidate={berean}
+                        aiReviewerAssignment={pendingAssignment}
+                        requestedReviewerCollection={[berean]} />);
+
+                // when
+                await openPicker();
+
+                // then
+                expect(pickerSectionNames('Requested')).toEqual(['Berean']);
+            });
+
+        /// THE CAP IS ABOUT PEOPLE. Berean holds no ApprovalReviewRequest, so it occupies none
+        /// of the slots the cap counts - and the cap never blocks a withdrawal in any case, or
+        /// reaching the limit would trap the round with no way to free a slot.
+        it('should neither spend a request slot nor lose its withdrawal at the cap', async () => {
+            // given: the cap is one, and Mary is the one person being waited on
+            signInAs(authState, ['Reviewers']);
+            const onAIReviewerWithdrawn = vi.fn();
+            const onReviewRequested = vi.fn();
+
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    aiReviewerCandidate={berean}
+                    aiReviewerAssignment={pendingAssignment}
+                    requestedReviewerCollection={[mary]}
+                    reviewerCandidateCollection={[paul]}
+                    maxReviewerRequests={1}
+                    onAIReviewerWithdrawn={onAIReviewerWithdrawn}
+                    onReviewRequested={onReviewRequested} />);
+
+            // when
+            await openPicker();
+
+            // then: the assignment cost nothing, so the cap is reached by Mary alone
+            expect(screen.getByRole('button', { name: /Paul/ })).toBeDisabled();
+
+            // and Berean is still withdrawable at the limit
+            const bereanRow =
+                within(pickerSection('Requested')).getByRole('button', { name: /Berean/ });
+
+            expect(bereanRow).toBeEnabled();
+
+            await userEvent.click(bereanRow);
+
+            expect(onAIReviewerWithdrawn).toHaveBeenCalledWith(berean);
+            expect(onReviewRequested).not.toHaveBeenCalled();
+        });
+
+        /// THE TWO DOORS STAY DISTINCT once Berean has answered: the row's recycle control asks
+        /// AGAIN (the consumer's upsert), the picker's Requested row unassigns. Nothing in the
+        /// round's own list withdraws, which is why the picker has to.
+        it('should offer the recycle and the withdrawal side by side once Berean has answered',
+            async () => {
+                // given
+                signInAs(authState, ['Reviewers']);
+                const onAIReviewerRequested = vi.fn();
+                const onAIReviewerWithdrawn = vi.fn();
+
+                renderWithAuth(
+                    <ReviewPanel
+                        entityType="ContentItem"
+                        approvalStatus={ApprovalStatus.Submitted}
+                        aiReviewerCandidate={berean}
+                        aiReviewerAssignment={{
+                            candidate: berean,
+                            isAIReviewCompleted: true,
+                            isAIReviewCommentsPresent: true
+                        }}
+                        onAIReviewerRequested={onAIReviewerRequested}
+                        onAIReviewerWithdrawn={onAIReviewerWithdrawn} />);
+
+                // when: the recycle control on the round's own row
+                await userEvent.click(screen.getByTitle('Re-request Berean review'));
+
+                // then
+                expect(onAIReviewerRequested).toHaveBeenCalledWith(berean);
+                expect(onAIReviewerWithdrawn).not.toHaveBeenCalled();
+
+                // when: the picker row, which is the only thing that unassigns
+                await openPicker();
+
+                await userEvent.click(
+                    within(pickerSection('Requested')).getByRole('button', { name: /Berean/ }));
+
+                // then
+                expect(onAIReviewerWithdrawn).toHaveBeenCalledWith(berean);
+                expect(onAIReviewerRequested).toHaveBeenCalledTimes(1);
+            });
     });
 
     describe('menu dismissal and labelling', () => {

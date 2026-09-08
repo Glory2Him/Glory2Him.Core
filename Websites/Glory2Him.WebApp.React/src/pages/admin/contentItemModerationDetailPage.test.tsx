@@ -768,6 +768,102 @@ describe('ContentItemModerationDetailPage', () => {
                 expect(screen.getByTitle("Berean's review is pending")).toBeInTheDocument();
             });
 
+            /// WITHDRAWING IT. Berean's row in the round carries a re-ask and no withdraw
+            /// control, so the picker's Requested band — the panel's only route to unassigning
+            /// anybody — is where an assignment is taken back. The page owns what that click
+            /// means, and it means the DEDICATED resource again: there is no
+            /// ApprovalReviewRequest to delete and no account id to name one by (§8.6.2).
+            const withdrawBereanAsync = async () => {
+                await userEvent.click(
+                    screen.getByRole('button', { name: 'Request a review' }));
+
+                await userEvent.click(screen.getByRole('button', { name: /Berean/ }));
+            };
+
+            const assignedBerean = () => {
+                openRoundByAnotherAuthor();
+
+                aiReviewerStatus = {
+                    isOffered: true,
+                    isRequested: true,
+                    isAIReviewCompleted: false,
+                    isAIReviewCommentsPresent: false
+                };
+            };
+
+            it('should withdraw Berean through the AI-reviewer endpoint when it is unpicked',
+                async () => {
+                    // given
+                    assignedBerean();
+                    renderPage();
+
+                    // when
+                    await withdrawBereanAsync();
+
+                    // then
+                    expect(withdrawAIReviewerWith).toHaveBeenCalledWith({
+                        entityType: 'ContentItem',
+                        entityId: 'quote-1'
+                    });
+
+                    // and neither the human withdrawal nor a second assignment
+                    expect(withdrawnWith).not.toHaveBeenCalled();
+                    expect(assignAIReviewerWith).not.toHaveBeenCalled();
+                });
+
+            /// NO SUCCESS TOAST: the row leaving the round's list is the feedback, exactly as
+            /// its arrival is on assign. Nothing standing answers 204 and is a success like any
+            /// other, so there is no error to raise on that path either.
+            it('should say nothing when the withdrawal succeeds', async () => {
+                // given: the 204 the endpoint answers when nothing was assigned
+                assignedBerean();
+                withdrawAIReviewerWith.mockResolvedValue(null);
+                renderPage();
+
+                // when
+                await withdrawBereanAsync();
+
+                // then
+                expect(toastSuccessSpy).not.toHaveBeenCalled();
+                expect(toastErrorSpy).not.toHaveBeenCalled();
+            });
+
+            it('should show the reason the server gave when Berean cannot be withdrawn',
+                async () => {
+                    // given
+                    assignedBerean();
+
+                    withdrawAIReviewerWith.mockRejectedValue({
+                        isAxiosError: true,
+                        response: { data: { message: 'The round is no longer open.' } }
+                    });
+
+                    renderPage();
+
+                    // when
+                    await withdrawBereanAsync();
+
+                    // then
+                    expect(toastErrorSpy).toHaveBeenCalledWith('The round is no longer open.');
+                });
+
+            /// A failure with no message of its own still has to say WHO could not be withdrawn
+            /// and from what — a bare "something went wrong" leaves the reader looking at a row
+            /// that is still there with no idea why.
+            it('should name Berean when the withdrawal failed for no stated reason', async () => {
+                // given
+                assignedBerean();
+                withdrawAIReviewerWith.mockRejectedValue(new Error('offline'));
+                renderPage();
+
+                // when
+                await withdrawBereanAsync();
+
+                // then
+                expect(toastErrorSpy).toHaveBeenCalledWith(
+                    'Berean could not be withdrawn from reviewing this post.');
+            });
+
             /// The human path still works while Berean is on offer - so the routing above is a
             /// decision about WHICH row was picked, not a page that has stopped requesting.
             it('should still post a review request for a person', async () => {
