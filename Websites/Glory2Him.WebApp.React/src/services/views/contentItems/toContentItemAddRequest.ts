@@ -1,5 +1,8 @@
 import { ContentItemAddRequest } from '../../../models/foundations/contentItems/contentItem';
-import { ContentItemFormItem } from '../../../models/components/contentItems/contentItemFormItem';
+import {
+    ContentItemFormItem,
+    defaultContributorApprovalStatus
+} from '../../../models/components/contentItems/contentItemFormItem';
 
 // Panel → wire, for the add. The wire→panel direction lives in toContentItemSearchItem now:
 // since the merge there is ONE projection for the whole family, and ContentItemPanel derives
@@ -15,7 +18,13 @@ export const toContentItemAddRequest = (
     author: asOptionalText(formItem.author),
     content: formItem.content,
     shareabilityBasis: formItem.shareabilityBasis,
-    sharePermission: asOptionalText(formItem.sharePermission)
+    sharePermission: asOptionalText(formItem.sharePermission),
+
+    // The status the contributor filed under, not a status this projection decides. The form
+    // always answers — a surface that renders no "Submit as" row still emits the status the row
+    // would have shown — so the coalesce covers the field being optional on the model rather
+    // than a case the add surface can reach, and it names the same default the panel opens on.
+    approvalStatus: formItem.approvalStatus ?? defaultContributorApprovalStatus
 });
 
 const asOptionalText = (value: string | undefined): string | null => {

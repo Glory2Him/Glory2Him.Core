@@ -87,6 +87,15 @@ const storySetting = settingFor(ContentType.Story, 'Story');
 const devotionalSetting = settingFor(ContentType.Devotional, 'Devotional');
 const settings = [storySetting, devotionalSetting];
 
+// THE ADD FORM OPENS ON "IT'S PUBLIC DOMAIN", which rests on nobody's permission and names
+// nobody as the author — so it renders neither the permission detail nor the author prefill. A
+// test about either has to ASK for the basis that carries it, rather than relying on what the
+// form happens to open on.
+const chooseBasisAsync = async (shareabilityBasis: ShareabilityBasis) =>
+    await userEvent.selectOptions(
+        screen.getByLabelText(/How are you permitted to share this\?/),
+        String(shareabilityBasis));
+
 const itemWith = (overrides: Partial<ContentItemFormItem> = {}): ContentItemFormItem => ({
     id: 'content-item-1',
     contentType: ContentType.Story,
@@ -191,8 +200,6 @@ describe('ContentItemFormPanel', () => {
                 <ContentItemFormPanel contentItemSettingCollection={settings} onAdded={onAdded} />);
 
             await userEvent.type(screen.getByLabelText(/Devotional/), 'A word for today');
-            await userEvent.type(
-                screen.getByLabelText(/Permission details/), 'By email from the author');
             await userEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
 
             // then
@@ -212,6 +219,7 @@ describe('ContentItemFormPanel', () => {
             await userEvent.click(screen.getByRole('button', { name: /Devotional/ }));
             await userEvent.type(screen.getByLabelText(/Title/), 'Morning');
             await userEvent.type(screen.getByLabelText(/Devotional/), 'A word for today');
+            await chooseBasisAsync(ShareabilityBasis.OwnedPermissionGranted);
             await userEvent.type(
                 screen.getByLabelText(/Permission details/), 'By email from the author');
             await userEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
@@ -223,15 +231,33 @@ describe('ContentItemFormPanel', () => {
                 contentType: ContentType.Devotional,
                 title: 'Morning',
 
-                // Untouched, and the form opens on an owned basis — so the field was showing the
-                // contributor's own name, and what it showed is what is filed.
+                // Untouched, under an owned basis — so the field was showing the contributor's
+                // own name, and what it showed is what is filed.
                 author: 'Tester',
                 content: 'A word for today',
-                shareabilityBasis: defaultShareabilityBasis,
-
-                // Mandatory under the permission default the form opens on.
+                shareabilityBasis: ShareabilityBasis.OwnedPermissionGranted,
                 sharePermission: 'By email from the author'
             }));
+        });
+
+        it('should open the sharing dropdown on "It\'s public domain"', () => {
+            // given
+            signInAs(authState);
+
+            // when
+            renderWithAuth(<ContentItemFormPanel contentItemSettingCollection={settings} />);
+
+            // then: the option a contributor READS is the one standing selected, named by its
+            // label rather than by defaultShareabilityBasis over again — so the day the default
+            // moves off public domain this fails instead of quietly following it
+            expect(screen.getByRole('option', { name: "It's public domain" }))
+                .toHaveProperty('selected', true);
+
+            expect(defaultShareabilityBasis).toBe(ShareabilityBasis.PublicDomain);
+
+            // and the panel seeds its draft from the model rather than from a literal of its own
+            expect(screen.getByLabelText(/How are you permitted to share this\?/))
+                .toHaveValue(String(defaultShareabilityBasis));
         });
 
         it('should ask for the permission detail only once permission is the basis', async () => {
@@ -263,6 +289,7 @@ describe('ContentItemFormPanel', () => {
 
             // when
             renderWithAuth(<ContentItemFormPanel contentItemSettingCollection={settings} />);
+            await chooseBasisAsync(ShareabilityBasis.OwnedPermissionGranted);
 
             // then
             expect(screen.getByLabelText(/Permission details/)).toBeInTheDocument();
@@ -632,7 +659,7 @@ describe('ContentItemFormPanel', () => {
         // permission named is refused here rather than posted. Everything else stays the
         // server's to judge.
         it('should refuse to submit a permission basis with no detail and say why', async () => {
-            // given: the form opens on the permission default
+            // given
             signInAs(authState);
             const onAdded = vi.fn();
 
@@ -640,6 +667,7 @@ describe('ContentItemFormPanel', () => {
                 <ContentItemFormPanel contentItemSettingCollection={settings} onAdded={onAdded} />);
 
             await userEvent.type(screen.getByLabelText(/^Story/), 'The whole story.');
+            await chooseBasisAsync(ShareabilityBasis.OwnedPermissionGranted);
 
             // when
             await userEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
@@ -663,6 +691,7 @@ describe('ContentItemFormPanel', () => {
                 <ContentItemFormPanel contentItemSettingCollection={settings} onAdded={onAdded} />);
 
             await userEvent.type(screen.getByLabelText(/^Story/), 'The whole story.');
+            await chooseBasisAsync(ShareabilityBasis.OwnedPermissionGranted);
             await userEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
 
             // when
@@ -756,6 +785,7 @@ describe('ContentItemFormPanel', () => {
                 <ContentItemFormPanel contentItemSettingCollection={settings} />);
 
             // when
+            await chooseBasisAsync(ShareabilityBasis.OwnedPermissionGranted);
             const sharePermission = screen.getByLabelText(/Permission details/);
 
             // then: the answer wanted here is PASTED evidence rather than a typed claim, so the
@@ -777,6 +807,7 @@ describe('ContentItemFormPanel', () => {
                 <ContentItemFormPanel contentItemSettingCollection={settings} onAdded={onAdded} />);
 
             await userEvent.type(screen.getByLabelText(/^Story/), 'The whole story.');
+            await chooseBasisAsync(ShareabilityBasis.OwnedPermissionGranted);
 
             // when
             await userEvent.type(screen.getByLabelText(/Permission details/), pastedEmail);
@@ -847,12 +878,13 @@ describe('ContentItemFormPanel', () => {
         });
 
         it('should stand last in the form, under the permission question and over the '
-            + 'buttons', () => {
+            + 'buttons', async () => {
                 // given
                 signInAs(authState);
 
                 // when
                 renderWithAuth(<ContentItemFormPanel contentItemSettingCollection={settings} />);
+                await chooseBasisAsync(ShareabilityBasis.OwnedPermissionGranted);
 
                 // then: what the contribution IS comes first, what to DO with it comes last
                 const sharePermission = screen.getByLabelText(/Permission details/);
@@ -879,10 +911,6 @@ describe('ContentItemFormPanel', () => {
             // when: the dropdown is never opened
             await userEvent.click(screen.getByRole('button', { name: /Story/ }));
             await userEvent.type(screen.getByLabelText(/Story/), 'The whole of it');
-
-            await userEvent.type(
-                screen.getByLabelText(/Permission details/), 'By email from the author');
-
             await userEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
 
             // then: the contribution page exists to put work in front of a reviewer
@@ -905,9 +933,6 @@ describe('ContentItemFormPanel', () => {
                 // when
                 await userEvent.click(screen.getByRole('button', { name: /Story/ }));
                 await userEvent.type(screen.getByLabelText(/Story/), 'The whole of it');
-
-                await userEvent.type(
-                    screen.getByLabelText(/Permission details/), 'By email from the author');
 
                 await userEvent.selectOptions(
                     screen.getByLabelText(/Submit as/), String(ApprovalStatus.Draft));
@@ -936,9 +961,6 @@ describe('ContentItemFormPanel', () => {
                 .toHaveValue(String(ApprovalStatus.Draft));
 
             // when: the dropdown is left where the consumer set it
-            await userEvent.type(
-                screen.getByLabelText(/Permission details/), 'By email from the author');
-
             await userEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
 
             // then
@@ -1257,10 +1279,6 @@ describe('ContentItemFormPanel', () => {
 
             await userEvent.click(screen.getByRole('button', { name: /Devotional/ }));
             await userEvent.type(screen.getByLabelText(/Devotional/), 'A word for today');
-
-            await userEvent.type(
-                screen.getByLabelText(/Permission details/), 'By email from the author');
-
             await userEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
 
             // then: the consumer can hand this straight to a detail surface
@@ -1670,8 +1688,6 @@ describe('ContentItemFormPanel', () => {
             // when
             await userEvent.click(screen.getByRole('button', { name: /Quote/ }));
             await userEvent.type(screen.getByLabelText(/Quote/), 'The quote itself');
-            await userEvent.type(
-                screen.getByLabelText(/Permission details/), 'By email from the author');
             await userEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
 
             // then: the reader cannot see them, the type is create-only, and the read surface
@@ -2126,15 +2142,27 @@ describe('ContentItemFormPanel', () => {
         // signInAs mints displayName 'Tester'.
         const ViewerName = 'Tester';
 
-        it('should put the contributor\'s own name in the field on an untouched form', async () => {
-            // given: the form opens on an owned basis
+        it('should put the contributor\'s own name in the field on an owned basis', async () => {
+            // given
+            signInAs(authState);
+
+            // when: the basis says the contributor wrote it
+            renderWithAuth(<ContentItemFormPanel contentItemSettingCollection={settings} />);
+            await chooseBasisAsync(ShareabilityBasis.OwnedPermissionGranted);
+
+            // then
+            expect(screen.getByLabelText(/Author/)).toHaveValue(ViewerName);
+        });
+
+        it('should leave the field empty on an untouched form', () => {
+            // given: the form opens on "It's public domain", which names nobody as the author
             signInAs(authState);
 
             // when
             renderWithAuth(<ContentItemFormPanel contentItemSettingCollection={settings} />);
 
-            // then
-            expect(screen.getByLabelText(/Author/)).toHaveValue(ViewerName);
+            // then: a name nobody claimed must not be sitting in the box waiting to be filed
+            expect(screen.getByLabelText(/Author/)).toHaveValue('');
         });
 
         it('should leave the field empty for a basis that names somebody else', async () => {
@@ -2163,6 +2191,7 @@ describe('ContentItemFormPanel', () => {
             // when
             await userEvent.type(screen.getByLabelText(/Title/), 'He carried me');
             await userEvent.type(screen.getByLabelText(/^Story/), 'The whole story.');
+            await chooseBasisAsync(ShareabilityBasis.OwnedPermissionGranted);
             await userEvent.type(
                 screen.getByLabelText(/Permission details/), 'By email from the author');
             await userEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
@@ -2185,6 +2214,7 @@ describe('ContentItemFormPanel', () => {
             await userEvent.clear(screen.getByLabelText(/Author/));
             await userEvent.type(screen.getByLabelText(/Author/), 'A. Pilgrim');
             await userEvent.type(screen.getByLabelText(/^Story/), 'The whole story.');
+            await chooseBasisAsync(ShareabilityBasis.OwnedPermissionGranted);
             await userEvent.type(
                 screen.getByLabelText(/Permission details/), 'By email from the author');
             await userEvent.click(screen.getByRole('button', { name: 'Submit for review' }));

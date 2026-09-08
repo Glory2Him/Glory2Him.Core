@@ -687,6 +687,13 @@ describe('ContentItemModerationDetailPage', () => {
                 await userEvent.click(screen.getByRole('button', { name: /Berean/ }));
             };
 
+            // THE ROUND'S OWN LIST, never the picker. Berean renders in both — offered in one
+            // and standing in the other — so a query over the whole document cannot tell "has
+            // been asked" from "can be asked", which is the entire distinction under test.
+            const bereanReviewRow = (): Element | null =>
+                Array.from(document.querySelectorAll('.g2h-review-row'))
+                    .find((row) => row.textContent?.includes('Berean') === true) ?? null;
+
             it('should offer Berean above the human candidates', async () => {
                 // given
                 openRoundByAnotherAuthor();
@@ -1379,11 +1386,43 @@ describe('ContentItemModerationDetailPage', () => {
             const row = editor.closest('article')!;
             await userEvent.click(within(row).getByRole('button', { name: 'Save' }));
 
-            // then
+            // then: the reader's intent, handed over whole. What the retype does to the settled
+            // flag is the service's rule and is asserted there.
             expect(commentModifiedWith).toHaveBeenCalledWith({
-                ...viewersQuestion,
-                comment: 'Rewritten.'
+                approvalComment: viewersQuestion,
+                comment: 'Rewritten.',
+                commentType: ApprovalCommentType.Question
             });
+        });
+
+        // RETYPING IS THE SERVICE'S RULE (§7.8, §20.6.3) and is asserted in
+        // approvalCommentService.test.tsx beside the birth derivation it shares. What belongs
+        // HERE is that the page carries the chosen type over at all — before this it sent the
+        // stored row's own type back, so the radio pair could not be moved.
+        it('should carry the type the author retyped the comment as', async () => {
+            // given: a remark of the viewer's own, settled the way every remark is born
+            openThread();
+
+            approvalComments = [{
+                ...viewersQuestion,
+                commentType: ApprovalCommentType.Comment,
+                isResolved: true
+            }];
+
+            renderPage();
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: /^Edit comment by/ }));
+            const editor = screen.getByLabelText('Edit your comment');
+            const row = editor.closest('article')!;
+
+            await userEvent.click(within(row).getByRole('radio', { name: 'Question' }));
+            await userEvent.click(within(row).getByRole('button', { name: 'Save' }));
+
+            // then
+            expect(commentModifiedWith).toHaveBeenCalledWith(expect.objectContaining({
+                commentType: ApprovalCommentType.Question
+            }));
         });
 
         it('should show the reason the server gave when a comment is refused', async () => {

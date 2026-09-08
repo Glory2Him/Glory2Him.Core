@@ -182,7 +182,8 @@ describe('contentItemService.useModifyContentItem', () => {
             author: 'D. L. Moody',
             content: 'Character is what you are in the dark.',
             shareabilityBasis: ShareabilityBasis.PublicDomain,
-            sharePermission: null
+            sharePermission: null,
+            approvalStatus: ApprovalStatus.Submitted
         });
 
         await waitFor(() => expect(invalidated.length).toBeGreaterThan(0));
@@ -209,7 +210,8 @@ describe('contentItemService.useModifyContentItem', () => {
             author: 'D. L. Moody',
             content: 'Character is what you are in the dark.',
             shareabilityBasis: ShareabilityBasis.PublicDomain,
-            sharePermission: null
+            sharePermission: null,
+            approvalStatus: ApprovalStatus.Submitted
         });
 
         await waitFor(() => expect(invalidated.length).toBeGreaterThan(0));

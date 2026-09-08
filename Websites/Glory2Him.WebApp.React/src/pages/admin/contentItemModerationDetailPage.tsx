@@ -68,6 +68,7 @@ import {
     ApprovalDecision,
     ApprovalStatus as ReviewVote,
     BereanAIReviewer,
+    BereanAIReviewerUserId,
     ReviewerCandidateItem
 } from '../../models/components/approvals/approvalReviewItem';
 
@@ -485,6 +486,11 @@ export const ContentItemModerationDetailPage = () => {
         }
     };
 
+    // NO AI BRANCH HERE ANY MORE. While Berean's invitation was this page's own state, the panel
+    // routed every withdrawal through one callback and the split was made here, because the two
+    // invitations were different kinds of thing. Both are server rows now — different resources,
+    // but rows — so the panel forks at the click instead, and this handler is only ever handed a
+    // person (see onAIReviewerWithdrawn below, and withdrawRequest in ReviewPanel).
     const withdrawReviewRequestAsync = async (candidate: ReviewerCandidateItem) => {
         try {
             await withdrawReviewRequest.mutateAsync({
@@ -560,8 +566,12 @@ export const ContentItemModerationDetailPage = () => {
         }
 
         try {
+            // THE READER'S INTENT, and nothing composed from it. What a retype does to the
+            // settled flag is §7.8's rule and lives with the other half of it, on the service
+            // that owns this wire shape — every other write handler on this page hands the hook
+            // what was asked for and lets the hook compose the row.
             await modifyReviewComment.mutateAsync({
-                ...storedComment,
+                approvalComment: storedComment,
                 comment: item.comment,
                 commentType: item.commentType
             });
