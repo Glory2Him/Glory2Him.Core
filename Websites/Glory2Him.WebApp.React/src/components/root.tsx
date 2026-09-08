@@ -3,7 +3,9 @@ import OffcanvasMenuComponent from "./layouts/offcanvasMenu";
 import HeaderComponent from "./layouts/header";
 import FooterComponent from "./layouts/footer";
 import OfflineBanner from "./coreUI/offlineBanner";
+import { InstallPrompt } from "./coreUI/installPrompt";
 import { useBackToTop } from "../hooks/useBackToTop";
+import { useInstallPrompt } from "../hooks/useInstallPrompt";
 import { useLazyLoad } from "../hooks/useLazyLoad";
 
 // The persistent Blogzine chrome around every page, ported from the Blazor MainLayout:
@@ -13,6 +15,10 @@ import { useLazyLoad } from "../hooks/useLazyLoad";
 export default function Root() {
     useBackToTop();
     useLazyLoad();
+
+    // The offer's own component stays a pure renderer, so the decision of whether to make it —
+    // and which platform's wording to use — is taken here and handed down as props.
+    const installPrompt = useInstallPrompt();
 
     return (
         <>
@@ -29,6 +35,11 @@ export default function Root() {
             {/* **************** MAIN CONTENT END **************** */}
 
             <FooterComponent />
+
+            <InstallPrompt
+                variant={installPrompt.variant}
+                onInstall={installPrompt.install}
+                onDismiss={installPrompt.dismiss} />
 
             {/* createBrowserRouter's client-side navigations do not reset scroll position on
                 their own — without this, landing on a short page (e.g. Contribute) after
