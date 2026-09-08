@@ -127,15 +127,21 @@ namespace Glory2Him.Core.Models.Foundations.ApprovalSettings
         /// <c>ApprovalReview</c>. On the score's own 0.00–10.00 <c>decimal(4,2)</c> scale (design
         /// §13.5) rather than a normalised one — there is one confidence scale in this system.
         /// Read only when <see cref="IsAIAllowedToVote"/> is true; otherwise the score is
-        /// reported in the comment and nothing is cast (design §8.6.2).
+        /// reported in the comment and nothing is cast (design §8.6.2). Staying on that scale is
+        /// enforced by <c>CK_ApprovalSetting_AIRejectionThresholdRange</c> and refused by the
+        /// service before a write reaches it — <c>decimal(4,2)</c> alone would admit -99.99.
         /// </summary>
         public decimal AIApprovalConfidenceRejectionThreshold { get; set; }
 
         /// <summary>
         /// <c>ConfidenceScore</c> value above which Berean files an <c>Approved</c>
         /// <c>ApprovalReview</c>. Same 0.00–10.00 <c>decimal(4,2)</c> scale as
-        /// <see cref="AIApprovalConfidenceRejectionThreshold"/>, and must be the higher of the
-        /// two — between them Berean files a comment only, and a human decides (design §8.6.2).
+        /// <see cref="AIApprovalConfidenceRejectionThreshold"/>, and never BELOW it — between them
+        /// Berean files a comment only, and a human decides (design §8.6.2).
+        /// <c>CK_ApprovalSetting_AIThresholdOrder</c> and the matching service rule are what make
+        /// that true rather than merely intended, and both permit the two being EQUAL: an equal
+        /// pair only closes the middle band and leaves the two verdicts disjoint, and it is the
+        /// pair <c>ApprovalPolicyDefaults</c> ships as its fail-closed fallback.
         /// </summary>
         public decimal AIApprovalConfidenceApprovalThreshold { get; set; }
 

@@ -162,6 +162,44 @@ namespace Glory2Him.WebApp.Tests.Unit.Data
             seededApprovalSettings.Should().HaveCount(Enum.GetValues<EntityType>().Length + 2);
         }
 
+        /// <summary>
+        /// The seeded thresholds are a pair the store will accept, on every row:
+        /// <c>CK_ApprovalSetting_AIRejectionThresholdRange</c>,
+        /// <c>CK_ApprovalSetting_AIApprovalThresholdRange</c> and
+        /// <c>CK_ApprovalSetting_AIThresholdOrder</c> hold both values to
+        /// <c>ConfidenceScore</c>'s own 0.00–10.00 scale (§8.6.2, §13.5) with the rejection
+        /// threshold at or below the approval one — and a seed that tripped one would take Core
+        /// initialisation down, exactly as <c>ShouldSeedNoScopeTheStoreWouldRefuse</c> guards
+        /// against for the scope constraints.
+        ///
+        /// <para>Written as the general rule rather than as the two shipped literals, which
+        /// <c>ShouldSeedTheReviewedPolicyOnEveryHousePolicyRow</c> already pins: this one has to
+        /// survive a future administrator-facing change to the band, and it covers the personal
+        /// association row too, which the house-policy assertions deliberately skip.</para>
+        /// </summary>
+        [Fact]
+        public void ShouldSeedNoThresholdPairTheStoreWouldRefuse()
+        {
+            // when
+            IReadOnlyList<ApprovalSetting> seededApprovalSettings = BuildSeed();
+
+            // then
+            seededApprovalSettings.Should().OnlyContain(
+                approvalSetting =>
+                    approvalSetting.AIApprovalConfidenceRejectionThreshold >= 0.00m
+                    && approvalSetting.AIApprovalConfidenceRejectionThreshold <= 10.00m);
+
+            seededApprovalSettings.Should().OnlyContain(
+                approvalSetting =>
+                    approvalSetting.AIApprovalConfidenceApprovalThreshold >= 0.00m
+                    && approvalSetting.AIApprovalConfidenceApprovalThreshold <= 10.00m);
+
+            seededApprovalSettings.Should().OnlyContain(
+                approvalSetting =>
+                    approvalSetting.AIApprovalConfidenceRejectionThreshold
+                        <= approvalSetting.AIApprovalConfidenceApprovalThreshold);
+        }
+
         [Fact]
         public void ShouldSeedTheReviewedPolicyOnEveryHousePolicyRow()
         {
@@ -185,6 +223,13 @@ namespace Glory2Him.WebApp.Tests.Unit.Data
                 // pipeline behind it, so no seeded scope may offer it. The thresholds are inert
                 // while the vote switch is off, and are pinned to the design's own suggested
                 // band (§13.5) rather than asserted as meaningful values.
+                //
+                // The two literals are also what AddApprovalSettingAIReviewerFields BACKFILLS
+                // into every pre-existing row — Core cannot reference this seed, so the pair is
+                // duplicated across that boundary on purpose, and these two lines are the pin
+                // the migration's own comment points at. Change the band and the migration has
+                // to move with it, or every upgraded deployment logs both thresholds as
+                // administrator-diverged on every start for values nobody chose.
                 approvalSetting.IsAIReviewerOffered.Should().BeFalse();
                 approvalSetting.IsAIAllowedToVote.Should().BeFalse();
                 approvalSetting.AIApprovalConfidenceRejectionThreshold.Should().Be(2.50m);
