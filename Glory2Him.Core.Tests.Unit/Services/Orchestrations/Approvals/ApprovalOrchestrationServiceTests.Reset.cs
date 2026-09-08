@@ -501,9 +501,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         ///
         /// <para>The ROW STAYS. That is the human posture applied to a row that is both halves at
         /// once: the reviews are dismissed and KEPT, and nothing here withdraws an invitation. The
-        /// removal assertion is what states the choice — swapping the modify for a remove would
-        /// pass a test that only checked the flags, and would leave a re-opened round without the
-        /// reviewer it had.</para>
+        /// removal assertion is what states the choice — swapping the return-to-pending for a
+        /// remove would pass a test that only checked the flags, and would leave a re-opened round
+        /// without the reviewer it had.</para>
+        ///
+        /// <para><b>What it catches.</b> Routing this back onto the caller-facing foundation.
+        /// Under an administrator that route would still work here — which is exactly why the
+        /// assertion is on the WORKFLOW seam and why the sibling on the edit path
+        /// (ApprovalOrchestrationServiceTests.Flows.cs) runs as a plain author: a test that only
+        /// ever ran as an administrator would pass against a version of this that records the
+        /// wrong actor and refuses every ordinary editor.</para>
         /// </summary>
         [Fact]
         public async Task ShouldReturnACompletedAIReviewerAssignmentToPendingOnResetAsync()
@@ -514,14 +521,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             Approval decidedApproval = SetupDecidedRound(ApprovalStatus.Approved);
             SetupEntityVisibility(isEntityVisible: true);
-
-            AIReviewerAssignment completedAssignment = CreateAIReviewerAssignment(
-                approvalId: decidedApproval.Id,
-                isAIReviewCompleted: true,
-                isAIReviewCommentsPresent: true);
-
-            SetupStoredAIReviewerAssignment(decidedApproval.Id, completedAssignment);
-            SetupAIReviewerAssignmentWrites();
+            var staleAssignmentId = Guid.NewGuid();
+            SetupResettableAIReviewerAssignment(decidedApproval.Id, staleAssignmentId);
+            SetupAIReviewerAssignmentReturnToPending();
 
             // when
             await this.approvalOrchestrationService.ResetApprovalAsync(
@@ -529,30 +531,44 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 entityId: decidedApproval.EntityId,
                 cancellationToken: TestContext.Current.CancellationToken);
 
-            // then
-            this.aiReviewerAssignmentServiceMock.Verify(service =>
-                service.ModifyAIReviewerAssignmentAsync(
-                    It.Is<AIReviewerAssignment>(assignment =>
-                        assignment.Id == completedAssignment.Id
-                            && assignment.IsAIReviewCompleted == false
-                            && assignment.IsAIReviewCommentsPresent == false),
+            // then: the id the GATHER named, through the seam that mints the system identity
+            // itself — the administrator who pressed Reset did not amend Berean's assignment, and
+            // UpdatedBy must not say they did
+            this.aiReviewerAssignmentWorkflowServiceMock.Verify(service =>
+                service.ReturnStaleAIReviewerAssignmentToPendingAsync(
+                    staleAssignmentId,
                     It.IsAny<CancellationToken>()),
                 Times.Once);
 
-            // and Berean is still ON the round
+            // and Berean is still ON the round — nothing withdrew the assignment
             this.aiReviewerAssignmentServiceMock.Verify(service =>
                 service.RemoveAIReviewerAssignmentByIdAsync(
                     It.IsAny<Guid>(),
                     It.IsAny<string>(),
                     It.IsAny<CancellationToken>()),
                 Times.Never);
+
+            // and the caller-facing foundation was not touched at all: neither its identity-
+            // filtered read nor its review-tier-gated write is on this path
+            this.aiReviewerAssignmentServiceMock.VerifyNoOtherCalls();
         }
 
         /// <summary>
         /// Silent when there is nothing to take back. A round where Berean was never asked is the
-        /// common case, and one already pending has nothing stale about it — a modify there would
-        /// spend a write and an <c>AIReviewerAssignment-Modified</c> fact restating what storage
-        /// already says.
+        /// common case, and one already pending has nothing stale about it — a write for either
+        /// would spend an <c>AIReviewerAssignment-Modified</c> fact restating what storage already
+        /// says.
+        ///
+        /// <para>Both arrive here as the same <c>null</c>, because the staleness predicate lives
+        /// in the gather rather than in this layer: which row is which is pinned in
+        /// AccessBrokerTests.FindResettableAIReviewerAssignmentId.Logic.cs, and the transition's
+        /// own refusal to rewrite an already-pending row in
+        /// AIReviewerAssignmentServiceTests.ReturnToPending.cs.</para>
+        ///
+        /// <para><b>What it catches.</b> A helper that called the seam unconditionally on the id
+        /// it was handed — <c>Guid?</c> has a value for "nothing", and dereferencing it without
+        /// the null check would put <c>Guid.Empty</c> through the transition and fault the whole
+        /// reset on a round Berean was never on.</para>
         /// </summary>
         [Fact]
         public async Task ShouldNotWriteAnAIReviewerAssignmentOnResetWhenNoneIsStaleAsync()
@@ -563,50 +579,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             Approval decidedApproval = SetupDecidedRound(ApprovalStatus.Approved);
             SetupEntityVisibility(isEntityVisible: true);
-            SetupAIReviewerAssignmentWrites();
+            SetupAIReviewerAssignmentReturnToPending();
 
-            // Berean was never asked. Moq's default for the round-keyed read is already null, but
-            // this states it: the whole point of the case is the absence.
-            SetupStoredAIReviewerAssignment(decidedApproval.Id, storageAssignment: null);
-
-            // when
-            await this.approvalOrchestrationService.ResetApprovalAsync(
-                entityType: decidedApproval.EntityType,
-                entityId: decidedApproval.EntityId,
-                cancellationToken: TestContext.Current.CancellationToken);
-
-            // then
-            this.aiReviewerAssignmentServiceMock.Verify(service =>
-                service.ModifyAIReviewerAssignmentAsync(
-                    It.IsAny<AIReviewerAssignment>(),
-                    It.IsAny<CancellationToken>()),
-                Times.Never);
-        }
-
-        /// <summary>
-        /// And the same silence for an assignment that is ALREADY pending — a round Berean was
-        /// asked about but never finished. Split from the absent case because the two reach the
-        /// same non-write through different guards, and a helper that checked only for the row's
-        /// existence would write here.
-        /// </summary>
-        [Fact]
-        public async Task ShouldNotRewriteAnAlreadyPendingAIReviewerAssignmentOnResetAsync()
-        {
-            // given
-            this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Administrators);
-
-            Approval decidedApproval = SetupDecidedRound(ApprovalStatus.Approved);
-            SetupEntityVisibility(isEntityVisible: true);
-
-            SetupStoredAIReviewerAssignment(
+            // Nothing to take back. Moq's default for ValueTask<Guid?> is already null, but this
+            // states it: the whole point of the case is the absence.
+            SetupResettableAIReviewerAssignment(
                 decidedApproval.Id,
-                CreateAIReviewerAssignment(
-                    approvalId: decidedApproval.Id,
-                    isAIReviewCompleted: false,
-                    isAIReviewCommentsPresent: false));
-
-            SetupAIReviewerAssignmentWrites();
+                aiReviewerAssignmentId: null);
 
             // when
             await this.approvalOrchestrationService.ResetApprovalAsync(
@@ -615,11 +594,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 cancellationToken: TestContext.Current.CancellationToken);
 
             // then
-            this.aiReviewerAssignmentServiceMock.Verify(service =>
-                service.ModifyAIReviewerAssignmentAsync(
-                    It.IsAny<AIReviewerAssignment>(),
+            this.aiReviewerAssignmentWorkflowServiceMock.Verify(service =>
+                service.ReturnStaleAIReviewerAssignmentToPendingAsync(
+                    It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()),
                 Times.Never);
+
+            this.aiReviewerAssignmentWorkflowServiceMock.VerifyNoOtherCalls();
+            this.aiReviewerAssignmentServiceMock.VerifyNoOtherCalls();
         }
 
         /// <summary>
@@ -682,21 +664,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                             });
                     });
 
-            SetupStoredAIReviewerAssignment(
-                decidedApproval.Id,
-                CreateAIReviewerAssignment(
-                    approvalId: decidedApproval.Id,
-                    isAIReviewCompleted: true));
+            SetupResettableAIReviewerAssignment(decidedApproval.Id, Guid.NewGuid());
 
-            this.aiReviewerAssignmentServiceMock.Setup(service =>
-                service.ModifyAIReviewerAssignmentAsync(
-                    It.IsAny<AIReviewerAssignment>(),
+            this.aiReviewerAssignmentWorkflowServiceMock.Setup(service =>
+                service.ReturnStaleAIReviewerAssignmentToPendingAsync(
+                    It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()))
-                        .ReturnsAsync((AIReviewerAssignment assignment, CancellationToken _) =>
+                        .ReturnsAsync((Guid aiReviewerAssignmentId, CancellationToken _) =>
                         {
                             order.Add("ai-reset");
 
-                            return assignment;
+                            return new AIReviewerAssignment { Id = aiReviewerAssignmentId };
                         });
 
             // when
@@ -714,10 +692,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         /// and a failure in it must not cost the entity its sync.
         ///
         /// <para>The round-one placement — between the dismissal and the command — made exactly
-        /// that trade. A withdrawal landing between the read and the write is refused by the
-        /// foundation, and on the old order that refusal left an approval at <c>Submitted</c>
-        /// with no reviews standing behind it while the entity remained <c>Approved</c> and on
-        /// the public site, with nothing to reconcile the two (§9.8).</para>
+        /// that trade. Storage failing under the write left an approval at <c>Submitted</c> with
+        /// no reviews standing behind it while the entity remained <c>Approved</c> and on the
+        /// public site, with nothing to reconcile the two (§9.8).</para>
         ///
         /// <para>The operation still FAILS — the caller is told, and the two flags are still
         /// stale — because a refusal nobody hears is worse than one they can answer by asking
@@ -732,27 +709,26 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             Approval decidedApproval = SetupDecidedRound(ApprovalStatus.Approved);
             SetupEntityVisibility(isEntityVisible: true);
+            SetupResettableAIReviewerAssignment(decidedApproval.Id, Guid.NewGuid());
 
-            SetupStoredAIReviewerAssignment(
-                decidedApproval.Id,
-                CreateAIReviewerAssignment(
-                    approvalId: decidedApproval.Id,
-                    isAIReviewCompleted: true,
-                    isAIReviewCommentsPresent: true));
+            // Storage failed under the transition. The seam reads a row and writes it back, so
+            // this is the failure it actually has — a row withdrawn between the gather and the
+            // write is answered unchanged rather than refused.
+            var storageFailure = new Exception("storage is unreachable");
 
-            // The row was withdrawn between the read above and this write, which the foundation
-            // refuses as a write on a removed row.
-            var withdrawnRowException = new AIReviewerAssignmentValidationException(
-                message: "AI reviewer assignment validation error occurred, "
-                    + "fix the errors and try again.",
-                innerException: new NotFoundAIReviewerAssignmentException(
-                    message: "AI reviewer assignment not found."));
+            var failedStorageException = new AIReviewerAssignmentDependencyException(
+                message: "AI reviewer assignment dependency error occurred, contact support.",
+                innerException: new FailedStorageAIReviewerAssignmentException(
+                    message: "Failed AI reviewer assignment storage error occurred, "
+                        + "contact support.",
+                    innerException: storageFailure,
+                    data: storageFailure.Data));
 
-            this.aiReviewerAssignmentServiceMock.Setup(service =>
-                service.ModifyAIReviewerAssignmentAsync(
-                    It.IsAny<AIReviewerAssignment>(),
+            this.aiReviewerAssignmentWorkflowServiceMock.Setup(service =>
+                service.ReturnStaleAIReviewerAssignmentToPendingAsync(
+                    It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()))
-                        .ThrowsAsync(withdrawnRowException);
+                        .ThrowsAsync(failedStorageException);
 
             // when
             ValueTask<ApprovalOutcome> resetTask =
@@ -761,7 +737,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     entityId: decidedApproval.EntityId,
                     cancellationToken: TestContext.Current.CancellationToken);
 
-            await Assert.ThrowsAsync<ApprovalOrchestrationDependencyValidationException>(
+            await Assert.ThrowsAsync<ApprovalOrchestrationDependencyException>(
                 resetTask.AsTask);
 
             // then: the entity was taken off the public site anyway

@@ -142,6 +142,10 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
                     new Mock<IApprovalReviewRequestWorkflowService>().Object,
 
                 aiReviewerAssignmentService: new Mock<IAIReviewerAssignmentService>().Object,
+
+                aiReviewerAssignmentWorkflowService:
+                    new Mock<IAIReviewerAssignmentWorkflowService>().Object,
+
                 identityUserService: new Mock<IIdentityUserService>().Object,
                 accessBroker: BuildAccessBrokerMock().Object,
                 eventEnvelopeBroker: new Mock<IEventEnvelopeBroker>().Object,

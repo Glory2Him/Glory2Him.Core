@@ -179,6 +179,15 @@ namespace Glory2Him.WebApp.Infrastructure
             // neighbour above.
             services.AddScoped<IAIReviewerAssignmentService, AIReviewerAssignmentService>();
 
+            // The workflow's own return-to-pending seam (§8.8 rule 1, §8.6 HR-4), resolved
+            // through the public door so there is one object. The system identity it runs under
+            // carries no roles, which is exactly why the public modify verb cannot serve it.
+            // Sits directly under the public service, the way IApprovalReviewWorkflowService
+            // sits under IApprovalReviewService above.
+            services.AddScoped<IAIReviewerAssignmentWorkflowService>(provider =>
+                (AIReviewerAssignmentService)provider
+                    .GetRequiredService<IAIReviewerAssignmentService>());
+
             // The read-only identity-store window (design 12.7.1). Scoped like every other
             // DbContext here: it is one, and a singleton would capture a connection for the life
             // of the process.

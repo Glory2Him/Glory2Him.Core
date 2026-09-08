@@ -20,6 +20,7 @@ using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Processings;
+using Glory2Him.Core.Models.Foundations.AIReviewerAssignments;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.Links;
@@ -1119,32 +1120,34 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         }
 
         /// <summary>
-        /// THE EDIT PATH DOES NOT TOUCH BEREAN'S ASSIGNMENT, and this test records that as a gap
-        /// rather than as a settled behaviour. §8.8's <c>RequireReapprovalOnChange</c> dismisses
-        /// every human review, while the assignment — keyed on the APPROVAL rather than on the
-        /// round's reviews — keeps reporting a completed pass with comments over text Berean
-        /// never saw. §8.6.2's re-trigger event is not built, so nothing corrects it. The §8.6
-        /// HR-4 override in Resets.cs closes the same gap on its own path.
+        /// THE EDIT PATH TAKES BEREAN'S VERDICT BACK TOO. §8.8 rule 1's
+        /// <c>RequireReapprovalOnChange</c> dismisses every human review, and Berean's assignment
+        /// is keyed on the APPROVAL rather than on those reviews — so without this it survives the
+        /// edit untouched and goes on reporting a finished pass, with comments, over text it never
+        /// saw. §8.6.2's re-trigger event is not built, so nothing else would correct it.
         ///
-        /// <para>Not closed by simply calling the reset here: every member of the
-        /// <c>AIReviewerAssignment</c> foundation is caller-gated on the review tier, and this
-        /// flow runs under the EDITOR's identity — an author revising their own submission, in
-        /// the ordinary case, holds no review role. The read would answer null, the write would
-        /// refuse, and a denial warning would be logged on every edit. Closing it needs the pair
-        /// the human half already has: a gathering seam for the read and a system-identity
-        /// workflow member for the write.</para>
+        /// <para><b>THE POINT OF THE WHOLE CHANGE, and what this test catches:</b> the editor
+        /// holds NO review role. That is the ordinary case — an author revising their own
+        /// submission, who cannot hold one, because HR-1 forbids reviewing your own content. Route
+        /// either half of this through the caller-facing <c>AIReviewerAssignment</c> foundation
+        /// and it silently does nothing for this caller: the round-keyed read answers null and
+        /// logs a denial, and the modify gate refuses outright. A version of this test that ran as
+        /// an administrator would pass against exactly that broken code, which is why the identity
+        /// below is arranged and not left at the fixture's default publisher.</para>
         ///
-        /// <para>Pinned so the day that pair arrives, this test fails and is rewritten into the
-        /// assertion it should have been — rather than the gap being re-discovered by a panel
-        /// showing a finished AI pass on re-opened content.</para>
+        /// <para>The unfiltered gather and the system-identity workflow seam are the same pair the
+        /// human dismissal already uses, and the last assertion is what holds them there: the
+        /// caller-facing foundation is not touched at all on this path.</para>
         /// </summary>
         [Fact]
-        public async Task ShouldNotYetReturnBereansAssignmentToPendingWhenAnEditDismissesTheReviewsAsync()
+        public async Task ShouldReturnBereansAssignmentToPendingWhenAnEditDismissesTheReviewsAsync()
         {
-            // given
+            // given: a plain author revising their own submitted content, holding no review role
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
             var approvalId = Guid.NewGuid();
             var entityId = Guid.NewGuid();
             var staleReviewId = Guid.NewGuid();
+            var staleAssignmentId = Guid.NewGuid();
 
             Approval storageApproval = CreateFlowApproval(
                 approvalId: approvalId,
@@ -1155,17 +1158,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Submitted, approvalId));
             SetupFlowApprovalRow(storageApproval);
             SetupDismissableReviews(approvalId, staleReviewId);
-
-            // A COMPLETED assignment is standing, so a flow that reached for it would have
-            // something to write — the absence below is about the flow, not about an empty round.
-            SetupStoredAIReviewerAssignment(
-                approvalId,
-                CreateAIReviewerAssignment(
-                    approvalId: approvalId,
-                    isAIReviewCompleted: true,
-                    isAIReviewCommentsPresent: true));
-
-            SetupAIReviewerAssignmentWrites();
+            SetupResettableAIReviewerAssignment(approvalId, staleAssignmentId);
+            SetupAIReviewerAssignmentReturnToPending();
 
             SetupFlowConditionsReads(
                 firstConditions: CreateFlowConditions(
@@ -1187,8 +1181,225 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     It.IsAny<CancellationToken>()),
                 Times.Once);
 
-            // and the AI half did not — not the write, and not even the read
+            // and so did the AI half — the round was asked what it holds, unfiltered
+            this.accessBrokerMock.Verify(broker =>
+                broker.FindResettableAIReviewerAssignmentIdAsync(
+                    approvalId,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            // and the id it named went back through the seam that mints the system identity
+            // itself, which is the only identity that can perform this write
+            this.aiReviewerAssignmentWorkflowServiceMock.Verify(service =>
+                service.ReturnStaleAIReviewerAssignmentToPendingAsync(
+                    staleAssignmentId,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            // AND NOT THROUGH THE CALLER-FACING FOUNDATION. Its read is identity-filtered and its
+            // write is review-tier gated, so for this caller both would fail quietly — the read
+            // answering null and the write refusing — and the flags would stay stale with only a
+            // denial in the log to show for it.
             this.aiReviewerAssignmentServiceMock.VerifyNoOtherCalls();
+        }
+
+        /// <summary>
+        /// Silent when there is nothing to take back — a round Berean was never asked about, which
+        /// is the overwhelmingly common case, and one whose assignment is already pending.
+        ///
+        /// <para>Both arrive here as the same <c>null</c>, because the staleness predicate lives
+        /// in the gather rather than in this flow. Which row is which is pinned where that
+        /// predicate lives (AccessBrokerTests.FindResettableAIReviewerAssignmentId.Logic.cs), and
+        /// the transition's own refusal to rewrite an already-pending row in
+        /// AIReviewerAssignmentServiceTests.ReturnToPending.cs.</para>
+        ///
+        /// <para><b>What it catches.</b> Calling the seam on the <c>Guid?</c> without checking it:
+        /// <c>Guid.Empty</c> would go through the transition and fault the edit flow of every
+        /// entity in the system that has no AI reviewer — which is nearly all of them.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldNotTouchBereansAssignmentOnEditWhenNothingIsStaleAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            var approvalId = Guid.NewGuid();
+            var entityId = Guid.NewGuid();
+            var staleReviewId = Guid.NewGuid();
+
+            Approval storageApproval = CreateFlowApproval(
+                approvalId: approvalId,
+                entityId: entityId,
+                entityType: EntityType.Link,
+                approvalStatus: ApprovalStatus.Submitted);
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Submitted, approvalId));
+            SetupFlowApprovalRow(storageApproval);
+            SetupDismissableReviews(approvalId, staleReviewId);
+            SetupAIReviewerAssignmentReturnToPending();
+
+            // Nothing to take back. Moq's default for ValueTask<Guid?> is already null, but this
+            // states it: the whole point of the case is the absence.
+            SetupResettableAIReviewerAssignment(approvalId, aiReviewerAssignmentId: null);
+
+            SetupFlowConditionsReads(
+                firstConditions: CreateFlowConditions(
+                    shouldResetStaleReviewsOnChange: true),
+
+                secondConditions: CreateFlowConditions(
+                    shouldResetStaleReviewsOnChange: true));
+
+            // when
+            await this.approvalOrchestrationService.ProcessEntityModifiedAsync(
+                EntityType.Link,
+                entityId,
+                TestContext.Current.CancellationToken);
+
+            // then: the human half still ran — the silence is about Berean alone
+            this.approvalReviewServiceMock.Verify(service =>
+                service.DismissStaleApprovalReviewAsync(
+                    staleReviewId,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.aiReviewerAssignmentWorkflowServiceMock.Verify(service =>
+                service.ReturnStaleAIReviewerAssignmentToPendingAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.aiReviewerAssignmentWorkflowServiceMock.VerifyNoOtherCalls();
+            this.aiReviewerAssignmentServiceMock.VerifyNoOtherCalls();
+        }
+
+        /// <summary>
+        /// THE RESET IS OFF, so nothing is dismissed and there is nothing stale — and the round is
+        /// not asked about Berean either.
+        ///
+        /// <para><b>What it catches.</b> Hoisting the AI half out of the
+        /// <c>RequireReapprovalOnChange</c> branch. The reviews still stand when the setting is
+        /// off (§9.7.4), so returning Berean to pending there would discard a finished pass on an
+        /// edit the round has decided does not invalidate anything — and would do it on every
+        /// edit, silently, since nothing else on this path would notice.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldNotTouchBereansAssignmentOnEditWhenTheStaleReviewResetIsOffAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            var approvalId = Guid.NewGuid();
+            var entityId = Guid.NewGuid();
+
+            Approval storageApproval = CreateFlowApproval(
+                approvalId: approvalId,
+                entityId: entityId,
+                entityType: EntityType.Link,
+                approvalStatus: ApprovalStatus.Submitted);
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Submitted, approvalId));
+            SetupFlowApprovalRow(storageApproval);
+
+            // A stale assignment IS standing, so a flow that reached for it would have something
+            // to write — the absence below is about the branch, not about an empty round.
+            SetupResettableAIReviewerAssignment(approvalId, Guid.NewGuid());
+            SetupAIReviewerAssignmentReturnToPending();
+
+            SetupFlowConditionsReads(
+                firstConditions: CreateFlowConditions(
+                    shouldResetStaleReviewsOnChange: false));
+
+            // when
+            await this.approvalOrchestrationService.ProcessEntityModifiedAsync(
+                EntityType.Link,
+                entityId,
+                TestContext.Current.CancellationToken);
+
+            // then: not even the gather, which is work done to throw away when nothing is being
+            // taken back
+            this.accessBrokerMock.Verify(broker =>
+                broker.FindResettableAIReviewerAssignmentIdAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.aiReviewerAssignmentWorkflowServiceMock.VerifyNoOtherCalls();
+            this.aiReviewerAssignmentServiceMock.VerifyNoOtherCalls();
+        }
+
+        /// <summary>
+        /// Berean's half runs LAST — after the human dismissal, and after the RE-EVALUATION the
+        /// dismissal makes necessary.
+        ///
+        /// <para>Nothing orders the two by data: the evaluation reads the round's reviews and
+        /// comments and never the assignment row, and §8.6.2's re-trigger event is not built, so
+        /// nothing subscribes in the other direction either. What decides the position is what a
+        /// throw costs.</para>
+        ///
+        /// <para><b>What it catches.</b> Moving the reset ahead of the evaluation. It is the
+        /// fallible write on this path, and a storage failure there would fault the flow with the
+        /// reviews ALREADY dismissed — and those dismissal facts are swallowed by the suppression
+        /// window, so nothing would re-test the round until its next input change and it would sit
+        /// unevaluated on reviews that no longer count. Last, the worst a throw costs is the two
+        /// flags, which a moderator puts right by asking Berean again.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnBereanToPendingOnlyAfterTheEditsReEvaluationAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            var approvalId = Guid.NewGuid();
+            var entityId = Guid.NewGuid();
+            var staleReviewId = Guid.NewGuid();
+            var order = new List<string>();
+
+            Approval storageApproval = CreateFlowApproval(
+                approvalId: approvalId,
+                entityId: entityId,
+                entityType: EntityType.Link,
+                approvalStatus: ApprovalStatus.Submitted);
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Submitted, approvalId));
+            SetupFlowApprovalRow(storageApproval);
+            SetupDismissableReviews(approvalId, staleReviewId);
+            SetupResettableAIReviewerAssignment(approvalId, Guid.NewGuid());
+
+            this.approvalReviewServiceMock.Setup(service =>
+                service.DismissStaleApprovalReviewAsync(
+                    staleReviewId,
+                    It.IsAny<CancellationToken>()))
+                        .Callback(() => order.Add("dismiss"))
+                        .ReturnsAsync((ApprovalReview)null);
+
+            this.aiReviewerAssignmentWorkflowServiceMock.Setup(service =>
+                service.ReturnStaleAIReviewerAssignmentToPendingAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((Guid aiReviewerAssignmentId, CancellationToken _) =>
+                        {
+                            order.Add("ai-reset");
+
+                            return new AIReviewerAssignment { Id = aiReviewerAssignmentId };
+                        });
+
+            // The evaluation is observed where it BEGINS — it re-reads the conditions, which is
+            // the whole reason it exists on this path.
+            SetupFlowConditionsReads(
+                firstConditions: CreateFlowConditions(
+                    shouldResetStaleReviewsOnChange: true),
+
+                secondConditions: CreateFlowConditions(
+                    shouldResetStaleReviewsOnChange: true),
+
+                onConditionsRead: () => order.Add("conditions-read"));
+
+            // when
+            await this.approvalOrchestrationService.ProcessEntityModifiedAsync(
+                EntityType.Link,
+                entityId,
+                TestContext.Current.CancellationToken);
+
+            // then
+            order.Should().Equal(
+                "conditions-read", "dismiss", "conditions-read", "ai-reset");
         }
 
         // The unfiltered view: what storage holds for the round, regardless of who is asking.

@@ -31,12 +31,17 @@ namespace Glory2Him.Core.Services.Foundations.AIReviewerAssignments
         // §14.6): an exposer may bind to either service directly, so no layer may assume
         // an upstream layer already gated the caller
 
-        // ONE gate for Add, Modify and Remove — unlike ApprovalReviewRequest, which narrows
-        // withdrawal to the review tier but leaves the door open in principle for a future
-        // owner-only nuance. There is no owner nuance to reserve room for here: Berean has no
-        // "requester" a different rule could ever apply to, so one gate serves every write.
-        private static void ValidateUserIsAllowedToManageAIReviewerAssignments(
-            SecurityContext securityContext)
+        // The half of the gate below that is NOT about the review tier: authenticated, and not
+        // under the block role. Split out because the workflow's return-to-pending transition
+        // reuses exactly this half and deliberately skips the other one — the system identity it
+        // runs under holds no roles, so a tier test would refuse the only caller that verb has
+        // (see AIReviewerAssignmentService.Transitions.cs).
+        //
+        // The ReadOnly message still says "managing", and stays word for word what it was:
+        // managing is the only kind of write this entity has, so it is the sentence the caller
+        // already receives, and re-wording it for the sake of the split would change an answer
+        // nobody's request had changed.
+        private static void ValidateUserIsAllowedToContribute(SecurityContext securityContext)
         {
             if (securityContext is null || securityContext.IsAuthenticated is false)
             {
@@ -49,6 +54,16 @@ namespace Glory2Him.Core.Services.Foundations.AIReviewerAssignments
                 throw new UnauthorizedAIReviewerAssignmentException(
                     message: "The current user is blocked from managing AI reviewer assignments.");
             }
+        }
+
+        // ONE gate for Add, Modify and Remove — unlike ApprovalReviewRequest, which narrows
+        // withdrawal to the review tier but leaves the door open in principle for a future
+        // owner-only nuance. There is no owner nuance to reserve room for here: Berean has no
+        // "requester" a different rule could ever apply to, so one gate serves every write.
+        private static void ValidateUserIsAllowedToManageAIReviewerAssignments(
+            SecurityContext securityContext)
+        {
+            ValidateUserIsAllowedToContribute(securityContext);
 
             if (HasReviewRole(securityContext) is false)
             {

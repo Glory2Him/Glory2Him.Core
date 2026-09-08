@@ -31,7 +31,19 @@ namespace Glory2Him.Core.Registrations
         /// </remarks>
         public static IServiceCollection AddAIReviewerAssignmentService(this IServiceCollection services)
         {
+            // ONE object behind two doors. Registering the same implementation against two
+            // service types would make two of them, because the container keys on the service
+            // type rather than the implementation. The second door resolves THROUGH the first,
+            // so the implementation type never enters the container as a service in its own
+            // right.
             services.AddSingleton<IAIReviewerAssignmentService, AIReviewerAssignmentService>();
+
+            // Registered HERE rather than left to the host, because the approval orchestration
+            // takes this seam (§8.8 rule 1, §8.6 HR-4) and the interface is internal — a host
+            // outside Core's friend set could not supply it itself.
+            services.AddSingleton<IAIReviewerAssignmentWorkflowService>(provider =>
+                (AIReviewerAssignmentService)provider
+                    .GetRequiredService<IAIReviewerAssignmentService>());
 
             return services;
         }

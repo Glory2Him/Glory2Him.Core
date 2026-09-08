@@ -296,6 +296,35 @@ namespace Glory2Him.Core.Brokers.Securities
             CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// The id of the round's ONE live <c>AIReviewerAssignment</c> when it still reports a
+        /// finished pass — Berean's half of what a dismissal has to take back — or <c>null</c>
+        /// when there is nothing to return to pending.
+        /// </summary>
+        /// <remarks>
+        /// <para>Actor-independent, for the same reason
+        /// <see cref="FindDismissableApprovalReviewIdsAsync"/> above is: what a round's reviewers
+        /// have recorded is a property of the approval, not of the caller.</para>
+        ///
+        /// <para>It exists because the caller-facing read is not.
+        /// <c>IAIReviewerAssignmentService.RetrieveAIReviewerAssignmentByApprovalIdAsync</c>
+        /// answers null — and logs a denial — for anyone outside the review tier, and the editor
+        /// whose change made the assignment stale is ordinarily the AUTHOR revising their own
+        /// submission, who holds no review role at all (HR-1 forbids reviewing your own content).
+        /// Deciding what to reset from that view resets nothing, throws nothing, and leaves the
+        /// two flags claiming a completed pass over text Berean never saw.</para>
+        ///
+        /// <para>The staleness predicate lives HERE rather than in the caller, exactly as its
+        /// neighbour above filters out the reviews that are already dismissed: "what needs
+        /// returning to pending" then has one home, and no caller receives a row it is meant to
+        /// skip. It is an optimisation and not the correctness boundary — the transition that
+        /// performs the write re-reads the row and re-checks it, because a flag read a moment
+        /// earlier is exactly the payload that verb must not trust.</para>
+        /// </remarks>
+        ValueTask<Guid?> FindResettableAIReviewerAssignmentIdAsync(
+            Guid approvalId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Gathers everything the invitation flow needs about an approval's subject (§7.9,
         /// §16.7.4) — the round's status, the entity's owner, the role subjects the review tier
         /// composes from, and who already holds an active review.

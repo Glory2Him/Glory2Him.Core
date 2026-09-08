@@ -39,5 +39,35 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             firstAIReviewerAssignmentService.Should().BeOfType<AIReviewerAssignmentService>();
             secondAIReviewerAssignmentService.Should().BeSameAs(firstAIReviewerAssignmentService);
         }
+
+        /// <summary>
+        /// ONE OBJECT BEHIND TWO DOORS. The workflow's return-to-pending seam (§8.8 rule 1, §8.6
+        /// HR-4) is the same implementation as the public service, and the second registration
+        /// resolves THROUGH the first so the container never makes a second of them.
+        ///
+        /// <para><b>What it catches.</b> Registering the implementation type against both service
+        /// types — the obvious spelling, and the wrong one: the container keys on the SERVICE
+        /// type, so that produces two singletons. Nothing in the graph would fail to build, and
+        /// the two would simply be different objects with independent state.</para>
+        /// </summary>
+        [Fact]
+        public void ShouldRegisterTheAIReviewerAssignmentWorkflowSeamAsTheSameSingleton()
+        {
+            // given
+            IServiceCollection services = CreateServicesWithBrokerStubs();
+
+            // when
+            services.AddAIReviewerAssignmentService();
+            ServiceProvider provider = services.BuildServiceProvider();
+
+            IAIReviewerAssignmentService publicAIReviewerAssignmentService =
+                provider.GetRequiredService<IAIReviewerAssignmentService>();
+
+            IAIReviewerAssignmentWorkflowService aiReviewerAssignmentWorkflowService =
+                provider.GetRequiredService<IAIReviewerAssignmentWorkflowService>();
+
+            // then
+            aiReviewerAssignmentWorkflowService.Should().BeSameAs(publicAIReviewerAssignmentService);
+        }
     }
 }

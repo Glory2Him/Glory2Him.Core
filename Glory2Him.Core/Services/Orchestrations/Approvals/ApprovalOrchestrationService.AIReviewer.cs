@@ -18,6 +18,7 @@ using Glory2Him.Core.Models.Foundations.AIReviewerAssignments;
 using Glory2Him.Core.Models.Foundations.AIReviewerAssignments.Exceptions;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
 using Glory2Him.Core.Models.Securities;
+using Glory2Him.Core.Services.Foundations.AIReviewerAssignments;
 
 namespace Glory2Him.Core.Services.Orchestrations.Approvals
 {
@@ -256,10 +257,17 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         /// Puts an assignment back to PENDING — Berean is still on the round, and whatever it
         /// last reported no longer describes the content.
         ///
-        /// <para>Shared by the re-request above and the stale-assignment reset below so the two
-        /// cannot drift on what pending means. The STORED row is what goes back, with only the
-        /// two flags moved: it already carries the audit values the foundation's modify compares
-        /// against storage, because it was just read from there.</para>
+        /// <para>The RE-REQUEST's write alone, and it goes through the caller-facing foundation
+        /// under the caller's own identity because asking Berean to look again is a person's act
+        /// and <c>UpdatedBy</c> must name them. The workflow's own reset writes the same two
+        /// fields and is a different act — nobody asked for it — so it goes through
+        /// <see cref="IAIReviewerAssignmentWorkflowService"/> instead and records the system. The
+        /// same split a moderator's withdrawal and the workflow's retirement already have on the
+        /// human side.</para>
+        ///
+        /// <para>The STORED row is what goes back, with only the two flags moved: it already
+        /// carries the audit values the foundation's modify compares against storage, because it
+        /// was just read from there.</para>
         /// </summary>
         private async ValueTask<AIReviewerAssignment> ReturnAIReviewerAssignmentToPendingAsync(
             AIReviewerAssignment storageAIReviewerAssignment,
@@ -273,14 +281,26 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 cancellationToken);
         }
 
-        // The AI half of §9.7.4's dismissal, and it has ONE caller: the §8.6 HR-4 administrator
-        // override in Resets.cs. Not "wherever a round's verdicts stop describing its content",
-        // which is what an earlier draft of this comment claimed — §8.8's
-        // RequireReapprovalOnChange branch of ProcessEntityModifiedAsync stops them describing it
-        // too, and cannot call this. Everything below goes through the CALLER-FACING foundation,
-        // which answers null on the read and refuses the write for anyone outside the review
-        // tier, and that flow runs under the editor's own identity. The gap is recorded at that
-        // site.
+        // The AI half of §9.7.4's dismissal, wherever a round's verdicts stop describing its
+        // content. TWO callers, and they are the same two the human dismissal has: §8.8 rule 1's
+        // RequireReapprovalOnChange branch of ProcessEntityModifiedAsync, which is the commoner
+        // of the two, and §8.6 HR-4's administrator override in Resets.cs. Sharing one helper is
+        // what stops the two drifting on what returning to pending means.
+        //
+        // NEITHER HALF GOES THROUGH THE CALLER-FACING FOUNDATION, and both for the reason
+        // DismissStaleApprovalReviewsAsync writes down for the human rows.
+        //
+        // The READ is the gathering seam because the caller-facing one is identity-filtered:
+        // RetrieveAIReviewerAssignmentByApprovalIdAsync answers null — and logs a denial — for
+        // anyone outside the review tier, and the edit path runs under the EDITOR's identity,
+        // which for the ordinary case (an author revising their own submission) carries no review
+        // role at all. An identity-filtered read must never be the input to an invariant.
+        //
+        // The WRITE is the workflow seam because returning Berean to pending is the WORKFLOW's
+        // act at both sites and nobody else's. Recording the editor, or the administrator who
+        // pressed Reset, would make UpdatedBy name somebody who did not perform it — and the
+        // public modify would refuse the editor outright anyway, since its gate asks for the
+        // review tier.
         //
         // The human reviews are dismissed and KEPT — the record that somebody looked
         // survives, and dismissal is only what stops it counting. Berean's assignment is both
@@ -290,32 +310,28 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         // withdraw, and leave the re-opened round without the reviewer it had.
         //
         // Silent when Berean was never asked, which is the common case, and silent again when the
-        // assignment is already pending: there is nothing to take back, and a modify would spend
-        // a write and an AIReviewerAssignment-Modified fact restating what storage already says.
+        // assignment is already pending: there is nothing to take back, and a write would spend
+        // an AIReviewerAssignment-Modified fact restating what storage already says. The null
+        // answer is what buys both — the gather applies that predicate itself, so this layer
+        // never receives a row it is meant to skip.
         private async ValueTask ResetStaleAIReviewerAssignmentAsync(
             Guid approvalId,
             CancellationToken cancellationToken)
         {
-            AIReviewerAssignment maybeAssignment =
-                await this.aiReviewerAssignmentService
-                    .RetrieveAIReviewerAssignmentByApprovalIdAsync(
-                        approvalId,
-                        cancellationToken);
+            Guid? maybeStaleAssignmentId =
+                await this.accessBroker.FindResettableAIReviewerAssignmentIdAsync(
+                    approvalId: approvalId,
+                    cancellationToken: cancellationToken);
 
-            if (maybeAssignment is null)
+            if (maybeStaleAssignmentId is null)
             {
                 return;
             }
 
-            if (maybeAssignment.IsAIReviewCompleted is false
-                && maybeAssignment.IsAIReviewCommentsPresent is false)
-            {
-                return;
-            }
-
-            await ReturnAIReviewerAssignmentToPendingAsync(
-                storageAIReviewerAssignment: maybeAssignment,
-                cancellationToken: cancellationToken);
+            await this.aiReviewerAssignmentWorkflowService
+                .ReturnStaleAIReviewerAssignmentToPendingAsync(
+                    aiReviewerAssignmentId: maybeStaleAssignmentId.Value,
+                    cancellationToken: cancellationToken);
         }
 
         // §8.6.2's feature switch, resolved through IAccessBroker rather than read here. This

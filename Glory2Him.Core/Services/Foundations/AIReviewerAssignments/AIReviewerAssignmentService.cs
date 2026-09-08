@@ -282,8 +282,8 @@ namespace Glory2Him.Core.Services.Foundations.AIReviewerAssignments
 
             ValidateStorageAIReviewerAssignment(maybeAIReviewerAssignment, aiReviewerAssignment.Id);
 
-            // A WITHDRAWN ASSIGNMENT IS CLOSED TO WRITES, and this is the only path that can still
-            // reach one. The orchestration's upsert reads by approval id, which returns live rows
+            // A WITHDRAWN ASSIGNMENT IS CLOSED TO WRITES, and this is the path a PERSON reaches
+            // one by. The orchestration's upsert reads by approval id, which returns live rows
             // only — but the future review process of §8.6.2 retrieves by id, and can arrive for a
             // pass that started before a moderator withdrew Berean. Without this it flips
             // IsAIReviewCompleted on a removed row, resurrecting an assignment nobody re-made.
@@ -293,6 +293,11 @@ namespace Glory2Him.Core.Services.Foundations.AIReviewerAssignments
             // different request with nothing left to write to — answering it quietly would tell the
             // caller its write landed. Reported as not found, matching the read posture above
             // (§14.5) and the modify guard ApprovalService takes for the same case.
+            //
+            // The workflow's return-to-pending transition reaches a withdrawn row too, and honours
+            // the same closure by writing nothing — but ANSWERS differently, returning the row
+            // unchanged, because its caller is not a person being told its write landed. See
+            // AIReviewerAssignmentService.Transitions.cs.
             //
             // After the permission gate at the top of this method, not before, following the remove
             // path: a caller who may not touch this row learns nothing about its deletion state

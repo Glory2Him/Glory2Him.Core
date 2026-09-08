@@ -331,6 +331,15 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
                     new Mock<IApprovalReviewRequestWorkflowService>().Object,
 
                 aiReviewerAssignmentService: new Mock<IAIReviewerAssignmentService>().Object,
+
+                // The fixture drives ProcessEntityModifiedAsync with the reset setting ON, so the
+                // §8.8 branch now also asks the access broker for a resettable assignment. Moq's
+                // default for ValueTask<Guid?> is null, which this probe wants: no assignment is
+                // named, the seam below is never reached, and the re-entrancy behaviour under
+                // measurement is unchanged. Stated rather than left to be re-derived.
+                aiReviewerAssignmentWorkflowService:
+                    new Mock<IAIReviewerAssignmentWorkflowService>().Object,
+
                 identityUserService: new Mock<IIdentityUserService>().Object,
                 accessBroker: accessBrokerMock.Object,
                 eventEnvelopeBroker: new Mock<IEventEnvelopeBroker>().Object,

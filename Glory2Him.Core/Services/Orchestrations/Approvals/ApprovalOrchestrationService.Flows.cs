@@ -101,33 +101,42 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                     approvalId: approval.Id,
                     cancellationToken: cancellationToken);
 
-                // BEREAN IS NOT DISMISSED HERE, AND THAT IS A KNOWN GAP RATHER THAN A DECISION.
-                // Its assignment is keyed on the APPROVAL rather than on the round's reviews, so
-                // an edit leaves it exactly as it stood — still reporting a finished pass, with
-                // comments, over text Berean never saw. §8.6.2's re-trigger event is not built,
-                // so nothing corrects it. The §8.6 HR-4 override in Resets.cs closes the same gap
-                // on its own path; this one, the commoner of the two, is still open.
-                //
-                // ResetStaleAIReviewerAssignmentAsync cannot simply be called here. It goes
-                // through the caller-facing AIReviewerAssignment foundation, whose read answers
-                // null and whose write refuses outright for anyone outside the review tier — and
-                // this flow runs under the EDITOR's identity, which for the ordinary case (an
-                // author revising their own submission) holds no review role at all. Calling it
-                // would read null, write nothing, and log a denial warning on every edit: the
-                // same identity-filtered trap DismissStaleApprovalReviewsAsync documents below,
-                // which is why the human half goes through a gathering seam and a workflow
-                // service that mints the System identity itself.
-                //
-                // Closing it needs the same pair for the AI row — an unfiltered round-keyed read
-                // and a system-identity write on the foundation — neither of which exists yet.
-
                 // RE-READ, and this is the whole reason evaluation takes its verdict rather than
                 // fetching one: the conditions above were measured against reviews that no longer
                 // count. Evaluating on them would auto-approve using approvals just discarded —
                 // exactly inverting what RequireReapprovalOnChange asked for.
-                return await EvaluateResolvedApprovalAsync(
+                ApprovalOutcome outcome = await EvaluateResolvedApprovalAsync(
                     approval: approval,
                     cancellationToken: cancellationToken);
+
+                // AND THE AI HALF OF THE SAME DISMISSAL. §8.8 rule 1 invalidates every verdict on
+                // the round, and Berean's is one of them — but its assignment is keyed on the
+                // APPROVAL rather than on the round's reviews, so nothing above touches it and it
+                // would go on reporting a finished pass, with comments, over text it never saw.
+                //
+                // It runs through the gathering seam and the workflow seam for exactly the
+                // reasons DismissStaleApprovalReviewsAsync documents below: this flow runs under
+                // the EDITOR's identity, and the ordinary editor is the author revising their own
+                // submission, who holds no review role (HR-1). An identity-filtered read would
+                // answer null and decide an invariant on it; a write under that identity would be
+                // refused, and would name the wrong actor if it were not.
+                //
+                // AFTER THE RE-EVALUATION, DELIBERATELY. Nothing orders the two by data — the
+                // evaluation reads the round's reviews and comments and never the assignment row,
+                // and §8.6.2's re-trigger event is not built, so nothing subscribes in the other
+                // direction either. What decides the position is what a throw costs. This is the
+                // fallible write; placed ahead of the evaluation, a storage failure faults the
+                // flow AFTER the reviews are already dismissed — and those dismissal facts were
+                // swallowed by the suppression window above, so nothing re-tests the round until
+                // its next input change and it sits unevaluated. Placed last, the evaluation the
+                // dismissal makes necessary always runs, and the worst a throw costs is the two
+                // flags, which a moderator puts right by asking Berean again. The same trade
+                // Resets.cs writes down for placing its AI step after the entity sync.
+                await ResetStaleAIReviewerAssignmentAsync(
+                    approvalId: approval.Id,
+                    cancellationToken: cancellationToken);
+
+                return outcome;
             });
 
         // §9.2 rules 3 and 6, §9.8: the carve-out moves the ENTITY between Draft and Submitted

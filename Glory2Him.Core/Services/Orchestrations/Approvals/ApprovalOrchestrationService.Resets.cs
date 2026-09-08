@@ -164,9 +164,19 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 // halves at once: the reviews are dismissed and kept, and nothing here withdraws
                 // an invitation. Only the flags go back.
                 //
+                // Written under the SYSTEM identity, through the workflow's own seam, and not as
+                // the administrator. The human dismissal two calls up already runs that way from
+                // this same operation; recording the person who pressed Reset as having amended
+                // Berean's assignment would make UpdatedBy name somebody who did not perform that
+                // act. Asking Berean again IS a person's act and stays on the public verb —
+                // these two are different acts and the audit trail has to tell them apart.
+                //
+                // The §8.8 edit path now reaches the same helper, so this site and that one
+                // cannot drift on what returning to pending means.
+                //
                 // LAST, AFTER THE SYNC, and that is the ordering this operation actually turns
-                // on. This is a fallible write — the foundation refuses it on a row withdrawn
-                // since the read, and storage can fail — and by the time it runs the approval
+                // on. This is a fallible write — storage can fail, and it reads a row and writes
+                // it back — and by the time it runs the approval
                 // has already moved to Submitted and its reviews are already dismissed. Placed
                 // ahead of the command, a throw here left the ENTITY Approved and publicly
                 // published against a round that no longer holds a verdict: the exact state the

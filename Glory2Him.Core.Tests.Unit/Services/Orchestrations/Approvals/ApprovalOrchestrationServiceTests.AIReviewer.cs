@@ -57,6 +57,36 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(storageAssignment);
 
+        // The GATHERING seam — what the dismissal paths read, and deliberately not the
+        // caller-facing round-keyed read above. That one is identity-filtered and answers null
+        // for anyone outside the review tier, which is the ordinary editor; this one is a
+        // property of the approval. It also carries the staleness predicate itself, so the
+        // orchestration receives an id only when there is something to take back — a round with
+        // no assignment and a round whose assignment is already pending both arrive here as the
+        // same null, and which is which is pinned where the predicate lives
+        // (AccessBrokerTests.FindResettableAIReviewerAssignmentId.Logic.cs).
+        //
+        // Keyed on the approval rather than It.IsAny so a test cannot pass by answering a
+        // question about a different round.
+        private void SetupResettableAIReviewerAssignment(
+            Guid approvalId,
+            Guid? aiReviewerAssignmentId) =>
+            this.accessBrokerMock.Setup(broker =>
+                broker.FindResettableAIReviewerAssignmentIdAsync(
+                    approvalId,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(aiReviewerAssignmentId);
+
+        // The workflow seam echoes back a pending row, so a test can assert on the returned row
+        // and on the argument and know they are the same thing.
+        private void SetupAIReviewerAssignmentReturnToPending() =>
+            this.aiReviewerAssignmentWorkflowServiceMock.Setup(service =>
+                service.ReturnStaleAIReviewerAssignmentToPendingAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((Guid aiReviewerAssignmentId, CancellationToken _) =>
+                            new AIReviewerAssignment { Id = aiReviewerAssignmentId });
+
         // The foundation echoes back what it wrote, so a test can assert on the returned row and
         // on the argument and know they are the same thing.
         private void SetupAIReviewerAssignmentWrites()

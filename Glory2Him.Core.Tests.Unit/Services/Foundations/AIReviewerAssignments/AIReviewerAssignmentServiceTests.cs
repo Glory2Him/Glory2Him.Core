@@ -48,9 +48,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.AIReviewerAssignments
         private readonly Mock<ILoggingBroker> loggingBrokerMock;
         private readonly IAIReviewerAssignmentService aiReviewerAssignmentService;
 
+        // The same instance through its workflow seam. Separate interfaces, one implementation —
+        // the split exists to keep "act as the system" off the public surface the exposers bind
+        // to, not to make two objects.
+        private readonly IAIReviewerAssignmentWorkflowService aiReviewerAssignmentWorkflowService;
+
         // the ambient caller the envelope broker captures on the direct path — tests
         // override this field (before acting) to run as a different caller
         private SecurityContext ambientSecurityContext;
+
+        // Whether CreateSystemAsync hands back a genuine system context. Always true in the real
+        // broker; a test flips it to false to reach the system-identity guard, which the public
+        // seam otherwise makes unreachable by minting the context itself.
+        private bool systemContextIsGenuine;
 
         public AIReviewerAssignmentServiceTests()
         {
@@ -64,6 +74,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.AIReviewerAssignments
             this.loggingBrokerMock = new Mock<ILoggingBroker>();
 
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
+            this.systemContextIsGenuine = true;
 
             this.eventEnvelopeBrokerMock.Setup(broker =>
                 broker.CreateAsync(It.IsAny<AIReviewerAssignment>()))
@@ -73,6 +84,31 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.AIReviewerAssignments
                             {
                                 Content = content,
                                 SecurityContext = this.ambientSecurityContext,
+                                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+                            }));
+
+            // The workflow's own path mints through here instead. Modelled the way the real
+            // broker behaves: the caller's SubjectId is kept — the audit answer to "who caused
+            // this" is a person — and the roles are DROPPED, so the system flag stands alone as
+            // the authority. That dropping is the whole reason the return-to-pending transition
+            // needs its own seam: a role-less context cannot pass the manage gate.
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateSystemAsync(It.IsAny<AIReviewerAssignment>()))
+                    .Returns((AIReviewerAssignment content) =>
+                        new ValueTask<EventEnvelope<AIReviewerAssignment>>(
+                            new EventEnvelope<AIReviewerAssignment>
+                            {
+                                Content = content,
+
+                                SecurityContext = new SecurityContext
+                                {
+                                    IsAuthenticated = true,
+                                    SubjectId = this.ambientSecurityContext?.SubjectId,
+                                    Username = this.ambientSecurityContext?.Username,
+                                    Roles = [],
+                                    IsSystemIdentity = this.systemContextIsGenuine
+                                },
+
                                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
                             }));
 
@@ -98,7 +134,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.AIReviewerAssignments
                     It.IsAny<EnvelopeDirection>()))
                         .ReturnsAsync(true);
 
-            this.aiReviewerAssignmentService = new AIReviewerAssignmentService(
+            var aiReviewerAssignmentServiceInstance = new AIReviewerAssignmentService(
                 storageBroker: this.storageBrokerMock.Object,
                 dateTimeBroker: this.dateTimeBrokerMock.Object,
                 identifierBroker: this.identifierBrokerMock.Object,
@@ -107,6 +143,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.AIReviewerAssignments
                 securityAuditBroker: this.securityAuditBrokerMock.Object,
                 envelopeIntegrityBroker: this.envelopeIntegrityBrokerMock.Object,
                 loggingBroker: this.loggingBrokerMock.Object);
+
+            this.aiReviewerAssignmentService = aiReviewerAssignmentServiceInstance;
+            this.aiReviewerAssignmentWorkflowService = aiReviewerAssignmentServiceInstance;
         }
 
         private static Expression<Func<Xeption, bool>> SameExceptionAs(Xeption expectedException) =>

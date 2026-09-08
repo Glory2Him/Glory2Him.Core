@@ -46,6 +46,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         private readonly Mock<IApprovalReviewRequestService> approvalReviewRequestServiceMock;
         private readonly Mock<IApprovalReviewRequestWorkflowService> approvalReviewRequestWorkflowServiceMock;
         private readonly Mock<IAIReviewerAssignmentService> aiReviewerAssignmentServiceMock;
+
+        private readonly Mock<IAIReviewerAssignmentWorkflowService>
+            aiReviewerAssignmentWorkflowServiceMock;
+
         private readonly Mock<IIdentityUserService> identityUserServiceMock;
         private readonly Mock<IAccessBroker> accessBrokerMock;
         private readonly Mock<IEventEnvelopeBroker> eventEnvelopeBrokerMock;
@@ -78,6 +82,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 new Mock<IApprovalReviewRequestWorkflowService>();
 
             this.aiReviewerAssignmentServiceMock = new Mock<IAIReviewerAssignmentService>();
+
+            this.aiReviewerAssignmentWorkflowServiceMock =
+                new Mock<IAIReviewerAssignmentWorkflowService>();
+
             this.identityUserServiceMock = new Mock<IIdentityUserService>();
 
             // Nobody is blocked unless a test says so. Without this the veto read would answer
@@ -143,6 +151,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     this.approvalReviewRequestWorkflowServiceMock.Object,
 
                 aiReviewerAssignmentService: this.aiReviewerAssignmentServiceMock.Object,
+
+                aiReviewerAssignmentWorkflowService:
+                    this.aiReviewerAssignmentWorkflowServiceMock.Object,
+
                 identityUserService: this.identityUserServiceMock.Object,
                 accessBroker: this.accessBrokerMock.Object,
                 eventEnvelopeBroker: this.eventEnvelopeBrokerMock.Object,

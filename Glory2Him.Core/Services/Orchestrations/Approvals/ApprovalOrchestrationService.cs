@@ -40,6 +40,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         private readonly IApprovalReviewRequestService approvalReviewRequestService;
         private readonly IApprovalReviewRequestWorkflowService approvalReviewRequestWorkflowService;
         private readonly IAIReviewerAssignmentService aiReviewerAssignmentService;
+        private readonly IAIReviewerAssignmentWorkflowService aiReviewerAssignmentWorkflowService;
         private readonly IIdentityUserService identityUserService;
         private readonly IAccessBroker accessBroker;
         private readonly IEventEnvelopeBroker eventEnvelopeBroker;
@@ -47,12 +48,13 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         private readonly IEnvelopeIntegrityBroker envelopeIntegrityBroker;
         private readonly ILoggingBroker loggingBroker;
 
-        // Three services and three brokers. The seven entity services are absent on purpose:
-        // the decision reaches its entity as a command event rather than a call (§16.7.1),
-        // which is what keeps this inside the dependency-count guidance §12.5 entry 1 is on
-        // record as breaking. IApprovalSettingService is absent for a different reason —
-        // resolving §8.4 here would put most-specific-wins in a second place beside the
-        // decision function (§8.6.1 rule 4).
+        // Eight service references over six foundations — three of them the workflow's own
+        // narrow write seams beside the public door — and five brokers. The seven entity
+        // services are absent on purpose: the decision reaches its entity as a command event
+        // rather than a call (§16.7.1), which is what keeps this inside the dependency-count
+        // guidance §12.5 entry 1 is on record as breaking. IApprovalSettingService is absent for
+        // a different reason — resolving §8.4 here would put most-specific-wins in a second place
+        // beside the decision function (§8.6.1 rule 4).
         public ApprovalOrchestrationService(
             IApprovalWorkflowService approvalService,
             IApprovalReviewWorkflowService approvalReviewWorkflowService,
@@ -60,6 +62,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             IApprovalReviewRequestService approvalReviewRequestService,
             IApprovalReviewRequestWorkflowService approvalReviewRequestWorkflowService,
             IAIReviewerAssignmentService aiReviewerAssignmentService,
+            IAIReviewerAssignmentWorkflowService aiReviewerAssignmentWorkflowService,
             IIdentityUserService identityUserService,
             IAccessBroker accessBroker,
             IEventEnvelopeBroker eventEnvelopeBroker,
@@ -73,6 +76,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             this.approvalReviewRequestService = approvalReviewRequestService;
             this.approvalReviewRequestWorkflowService = approvalReviewRequestWorkflowService;
             this.aiReviewerAssignmentService = aiReviewerAssignmentService;
+            this.aiReviewerAssignmentWorkflowService = aiReviewerAssignmentWorkflowService;
             this.identityUserService = identityUserService;
             this.accessBroker = accessBroker;
             this.eventEnvelopeBroker = eventEnvelopeBroker;

@@ -19,6 +19,7 @@ using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Foundations.AIReviewerAssignments;
 using Glory2Him.Core.Models.Foundations.ApprovalComments;
 using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
@@ -437,6 +438,42 @@ namespace Glory2Him.Core.Brokers.Securities
                         && approvalReview.StatusId != ApprovalStatus.Dismissed)
                 .Select(approvalReview => approvalReview.Id)
                 .ToList();
+        }
+
+        // Unfiltered, deliberately — see IAccessBroker for why the caller-facing read cannot
+        // answer this. The SAME storage read the foundation's round-keyed read uses, so the half
+        // that decides WHAT to return to pending and the half that reports Berean's status to a
+        // moderation panel read one view of one row.
+        //
+        // That read is already narrowed to the ONE live row (IsDeleted == false, backed by
+        // UX_AIReviewerAssignments_ApprovalId), so a withdrawn assignment is never offered up for
+        // a reset nobody could perform.
+        public async ValueTask<Guid?> FindResettableAIReviewerAssignmentIdAsync(
+            Guid approvalId,
+            CancellationToken cancellationToken = default)
+        {
+            AIReviewerAssignment? maybeAIReviewerAssignment =
+                await this.storageBroker.SelectAIReviewerAssignmentByApprovalIdAsync(
+                    approvalId: approvalId,
+                    cancellationToken: cancellationToken);
+
+            if (maybeAIReviewerAssignment is null)
+            {
+                return null;
+            }
+
+            // EITHER flag makes the row stale, not both together. The pairing invariant
+            // (IsAIReviewCommentsPresent cannot stand without IsAIReviewCompleted) means the
+            // comments-only case should be unreachable — but "still reports something Berean
+            // left behind" is the honest reading of what needs taking back, and a row written
+            // before that invariant existed is exactly the one a narrower test would strand.
+            bool isReportingAFinishedPass =
+                maybeAIReviewerAssignment.IsAIReviewCompleted
+                    || maybeAIReviewerAssignment.IsAIReviewCommentsPresent;
+
+            return isReportingAFinishedPass
+                ? maybeAIReviewerAssignment.Id
+                : null;
         }
 
         private async ValueTask<ApprovalReviewSnapshot> GatherAsync(
