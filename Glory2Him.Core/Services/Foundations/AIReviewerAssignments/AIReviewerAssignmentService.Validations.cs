@@ -121,6 +121,29 @@ namespace Glory2Him.Core.Services.Foundations.AIReviewerAssignments
                         secondName: nameof(AIReviewerAssignment.CreatedBy)),
                     Parameter: nameof(AIReviewerAssignment.UpdatedBy)),
 
+                // A NEW ASSIGNMENT IS PENDING, FULL STOP. Both flags are system-set-only and start
+                // false (§8.6.2: they record what Berean's pass eventually did, and it has not run
+                // yet), so a row arriving already completed claims work that never happened and one
+                // arriving already flagged claims comments Berean never filed. The orchestration's
+                // upsert creates with neither set, but it is not the gate: this operation has its
+                // own event address (§14.6).
+                (Rule: IsSetOnAdd(aiReviewerAssignment.IsAIReviewCompleted),
+                    Parameter: nameof(AIReviewerAssignment.IsAIReviewCompleted)),
+
+                (Rule: IsSetOnAdd(aiReviewerAssignment.IsAIReviewCommentsPresent),
+                    Parameter: nameof(AIReviewerAssignment.IsAIReviewCommentsPresent)),
+
+                // The pairing invariant below, restated on the add path. Strictly redundant today —
+                // the two rules above already refuse either flag on its own, so nothing can reach
+                // this one — and kept anyway because it is an invariant of the ROW rather than of
+                // the operation: it must hold wherever the row is written, and it is the half that
+                // would still have to stand if the birth-state rules were ever relaxed for a system
+                // re-import. A caller who sends the impossible pair is told both things.
+                (Rule: IsCommentsPresentWithoutCompletion(
+                        isAIReviewCompleted: aiReviewerAssignment.IsAIReviewCompleted,
+                        isAIReviewCommentsPresent: aiReviewerAssignment.IsAIReviewCommentsPresent),
+                    Parameter: nameof(AIReviewerAssignment.IsAIReviewCommentsPresent)),
+
                 (Rule: await IsNotRecentAsync(aiReviewerAssignment.CreatedWhen),
                     Parameter: nameof(AIReviewerAssignment.CreatedWhen)));
         }
@@ -168,6 +191,17 @@ namespace Glory2Him.Core.Services.Foundations.AIReviewerAssignments
                         secondDate: aiReviewerAssignment.CreatedWhen,
                         secondDateName: nameof(AIReviewerAssignment.CreatedWhen)),
                     Parameter: nameof(AIReviewerAssignment.UpdatedWhen)),
+
+                // IsAIReviewCommentsPresent RECORDS SOMETHING BEREAN LEFT BEHIND, so it cannot
+                // stand on a row that says the pass never finished — which is why the
+                // orchestration's re-request clears the two together rather than one at a time.
+                // Asked of the input alone rather than against storage: a modify writes the whole
+                // row, so the pairing the caller sends is the pairing that lands, and pinning it to
+                // the stored pair would refuse the legitimate both-to-false reset.
+                (Rule: IsCommentsPresentWithoutCompletion(
+                        isAIReviewCompleted: aiReviewerAssignment.IsAIReviewCompleted,
+                        isAIReviewCommentsPresent: aiReviewerAssignment.IsAIReviewCommentsPresent),
+                    Parameter: nameof(AIReviewerAssignment.IsAIReviewCommentsPresent)),
 
                 (Rule: await IsNotRecentAsync(aiReviewerAssignment.UpdatedWhen),
                     Parameter: nameof(AIReviewerAssignment.UpdatedWhen)));
@@ -266,6 +300,22 @@ namespace Glory2Him.Core.Services.Foundations.AIReviewerAssignments
             }
         }
 
+        // Reported as not-found rather than as a distinct "deleted" error, matching the read
+        // posture above: a removed id must not be distinguishable from one that never existed, or
+        // a modify becomes a probe for which assignments used to exist. Silent, unlike the read
+        // path's guard — a not-found answer to a READ hides a real denial reason that has to stay
+        // recoverable server-side, while a refused write hides nothing.
+        private static void ValidateStorageAIReviewerAssignmentIsNotDeleted(
+            AIReviewerAssignment storageAIReviewerAssignment,
+            Guid aiReviewerAssignmentId)
+        {
+            if (storageAIReviewerAssignment.IsDeleted)
+            {
+                throw new NotFoundAIReviewerAssignmentException(
+                    message: $"AI reviewer assignment not found with id: {aiReviewerAssignmentId}.");
+            }
+        }
+
         private static void ValidateAIReviewerAssignmentIsNotNull(
             AIReviewerAssignment aiReviewerAssignment)
         {
@@ -343,6 +393,20 @@ namespace Glory2Him.Core.Services.Foundations.AIReviewerAssignments
             Condition = (text ?? string.Empty).Length > maxLength,
             Message = $"Text exceed max length of {maxLength} characters"
         };
+
+        private static dynamic IsSetOnAdd(bool value) => new
+        {
+            Condition = value,
+            Message = "Value is not allowed on add"
+        };
+
+        private static dynamic IsCommentsPresentWithoutCompletion(
+            bool isAIReviewCompleted,
+            bool isAIReviewCommentsPresent) => new
+            {
+                Condition = isAIReviewCommentsPresent && isAIReviewCompleted is false,
+                Message = "Comments present requires a completed AI review."
+            };
 
         private async ValueTask<dynamic> IsNotRecentAsync(DateTimeOffset date)
         {

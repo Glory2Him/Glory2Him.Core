@@ -156,6 +156,100 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.AIReviewerAssignments
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        /// <summary>
+        /// Clearing both flags together is how the orchestration re-requests Berean on a round it
+        /// has already reviewed, so the pairing invariant must not stand in its way. It is asked
+        /// of the INPUT alone for exactly this reason: pinned against storage instead, a row that
+        /// currently says "completed, with comments" could never be reset, because the caller's
+        /// cleared comments flag would be measured against the stored completion it is replacing.
+        /// </summary>
+        [Fact]
+        public async Task ShouldModifyAIReviewerAssignmentWhenBothReviewFlagsAreClearedAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+
+            AIReviewerAssignment randomAIReviewerAssignment =
+                CreateRandomModifyAIReviewerAssignment(randomDateTimeOffset, randomUserId);
+
+            randomAIReviewerAssignment.IsAIReviewCompleted = false;
+            randomAIReviewerAssignment.IsAIReviewCommentsPresent = false;
+            AIReviewerAssignment inputAIReviewerAssignment = randomAIReviewerAssignment;
+            AIReviewerAssignment auditAppliedAIReviewerAssignment = inputAIReviewerAssignment.DeepClone();
+            AIReviewerAssignment storageAIReviewerAssignment = auditAppliedAIReviewerAssignment.DeepClone();
+
+            storageAIReviewerAssignment.UpdatedWhen =
+                storageAIReviewerAssignment.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+
+            // the row as Berean left it: a finished pass that filed comments
+            storageAIReviewerAssignment.IsAIReviewCompleted = true;
+            storageAIReviewerAssignment.IsAIReviewCommentsPresent = true;
+            AIReviewerAssignment auditPreservedAIReviewerAssignment = auditAppliedAIReviewerAssignment.DeepClone();
+            AIReviewerAssignment updatedAIReviewerAssignment = auditPreservedAIReviewerAssignment.DeepClone();
+            AIReviewerAssignment expectedAIReviewerAssignment = updatedAIReviewerAssignment.DeepClone();
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(
+                    inputAIReviewerAssignment, It.IsAny<SecurityContext>()))
+                        .ReturnsAsync(auditAppliedAIReviewerAssignment);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAIReviewerAssignmentByIdAsync(
+                    auditAppliedAIReviewerAssignment.Id,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageAIReviewerAssignment);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    auditAppliedAIReviewerAssignment,
+                    storageAIReviewerAssignment))
+                        .ReturnsAsync(auditPreservedAIReviewerAssignment);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateAIReviewerAssignmentAsync(
+                    auditPreservedAIReviewerAssignment, It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(updatedAIReviewerAssignment);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishAIReviewerAssignmentAsync(
+                    It.IsAny<EventEnvelope<AIReviewerAssignment>>(),
+                    AIReviewerAssignmentEventOperation.Modified))
+                        .Returns(new ValueTask<EventPublishResult<AIReviewerAssignment>>(
+                            new EventPublishResult<AIReviewerAssignment>()));
+
+            // when
+            AIReviewerAssignment actualAIReviewerAssignment =
+                await this.aiReviewerAssignmentService.ModifyAIReviewerAssignmentAsync(
+                    inputAIReviewerAssignment,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualAIReviewerAssignment.Should().BeEquivalentTo(expectedAIReviewerAssignment);
+            actualAIReviewerAssignment.IsAIReviewCompleted.Should().BeFalse();
+            actualAIReviewerAssignment.IsAIReviewCommentsPresent.Should().BeFalse();
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateAIReviewerAssignmentAsync(
+                    auditPreservedAIReviewerAssignment, It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishAIReviewerAssignmentAsync(
+                    It.IsAny<EventEnvelope<AIReviewerAssignment>>(),
+                    AIReviewerAssignmentEventOperation.Modified),
+                Times.Once);
+        }
+
         [Theory]
         [MemberData(nameof(ReviewRoles))]
         public async Task ShouldModifyAIReviewerAssignmentWhenUserHasReviewRoleAsync(string reviewRole)

@@ -59,7 +59,10 @@ namespace Glory2Him.Core.Models.Foundations.AIReviewerAssignments
         /// <para>Defaults <c>false</c> and is only ever set <c>true</c> by the future system
         /// process that runs the classification library (design §8.6.2) — nothing in this pass
         /// flips it. A human caller may still reach <c>Modify</c>, because the flag is a fact
-        /// about work having happened, not a permission this service arbitrates.</para>
+        /// about work having happened, not a permission this service arbitrates. The add path
+        /// refuses a row that arrives with it already set: an assignment is born pending, and a
+        /// row claiming a finished pass at the moment it is created claims work that never
+        /// ran.</para>
         /// </summary>
         public bool IsAIReviewCompleted { get; set; } = false;
 
@@ -68,7 +71,10 @@ namespace Glory2Him.Core.Models.Foundations.AIReviewerAssignments
         /// rows under its system identity as part of this assignment.
         ///
         /// <para>Defaults <c>false</c> for the same reason as <see cref="IsAIReviewCompleted"/>:
-        /// it is a fact the future review process records, not one this service computes.</para>
+        /// it is a fact the future review process records, not one this service computes. It is
+        /// refused on add for that same reason, and — on add and on modify alike — cannot stand
+        /// <c>true</c> while <see cref="IsAIReviewCompleted"/> is <c>false</c>: it records
+        /// something Berean left behind, and a pass that never finished left nothing.</para>
         /// </summary>
         public bool IsAIReviewCommentsPresent { get; set; } = false;
 
@@ -106,7 +112,8 @@ namespace Glory2Him.Core.Models.Foundations.AIReviewerAssignments
         /// <summary>
         /// Gets or sets a value indicating whether the AI reviewer assignment is removed.
         /// A removed assignment renders nowhere and frees the round's assignment slot, so
-        /// Berean can be assigned to it again.
+        /// Berean can be assigned to it again — a fresh row, because the withdrawn one is
+        /// closed to writes and reads alike, both reported as not found (§14.5).
         /// </summary>
         public bool IsDeleted { get; set; } = false;
 

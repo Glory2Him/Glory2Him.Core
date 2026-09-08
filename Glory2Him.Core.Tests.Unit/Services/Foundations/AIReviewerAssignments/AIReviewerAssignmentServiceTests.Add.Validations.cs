@@ -516,5 +516,234 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.AIReviewerAssignments
                     It.IsAny<AIReviewerAssignment>(), It.IsAny<CancellationToken>()),
                 Times.Never);
         }
+
+        /// <summary>
+        /// An assignment is born pending (design §8.6.2): the flag records that Berean's pass ran,
+        /// and at the moment the row is created it has not. A caller who sends it already set is
+        /// claiming work that never happened, so the add is refused rather than quietly cleared —
+        /// the caller's request and the row it would produce are not the same thing, and it is
+        /// entitled to know.
+        /// </summary>
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddIfIsAIReviewCompletedIsSetAndLogItAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+
+            AIReviewerAssignment randomAIReviewerAssignment =
+                CreateAIReviewerAssignmentFiller(randomDateTimeOffset).Create();
+
+            // the comments flag is left false so this test answers for the completion rule alone
+            randomAIReviewerAssignment.IsAIReviewCompleted = true;
+            AIReviewerAssignment inputAIReviewerAssignment = randomAIReviewerAssignment;
+
+            var invalidAIReviewerAssignmentException =
+                new InvalidAIReviewerAssignmentException(
+                    message: "AI reviewer assignment is invalid, fix the errors and try again.");
+
+            invalidAIReviewerAssignmentException.AddData(
+                key: nameof(AIReviewerAssignment.IsAIReviewCompleted),
+                values: "Value is not allowed on add");
+
+            var expectedAIReviewerAssignmentValidationException =
+                new AIReviewerAssignmentValidationException(
+                    message: "AI reviewer assignment validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: invalidAIReviewerAssignmentException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(
+                    inputAIReviewerAssignment, It.IsAny<SecurityContext>()))
+                        .ReturnsAsync(inputAIReviewerAssignment);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(inputAIReviewerAssignment.CreatedBy);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            ValueTask<AIReviewerAssignment> addAIReviewerAssignmentTask =
+                this.aiReviewerAssignmentService.AddAIReviewerAssignmentAsync(
+                    inputAIReviewerAssignment,
+                    TestContext.Current.CancellationToken);
+
+            AIReviewerAssignmentValidationException actualAIReviewerAssignmentValidationException =
+                await Assert.ThrowsAsync<AIReviewerAssignmentValidationException>(
+                    addAIReviewerAssignmentTask.AsTask);
+
+            // then
+            actualAIReviewerAssignmentValidationException.Should().BeEquivalentTo(
+                expectedAIReviewerAssignmentValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAIReviewerAssignmentValidationException))),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertAIReviewerAssignmentAsync(
+                    It.IsAny<AIReviewerAssignment>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        /// <summary>
+        /// The comments flag is refused on add for the same reason its companion is, and the row
+        /// arriving fully "finished" — both flags set, the shape a system re-import would take —
+        /// is refused on both counts at once rather than on whichever the rule list reaches first.
+        /// The comments rule cannot be observed alone on this path: clearing completion to isolate
+        /// it trips the pairing invariant instead, which is what the next test asserts.
+        /// </summary>
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddIfIsAIReviewCommentsPresentIsSetAndLogItAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+
+            AIReviewerAssignment randomAIReviewerAssignment =
+                CreateAIReviewerAssignmentFiller(randomDateTimeOffset).Create();
+
+            randomAIReviewerAssignment.IsAIReviewCompleted = true;
+            randomAIReviewerAssignment.IsAIReviewCommentsPresent = true;
+            AIReviewerAssignment inputAIReviewerAssignment = randomAIReviewerAssignment;
+
+            var invalidAIReviewerAssignmentException =
+                new InvalidAIReviewerAssignmentException(
+                    message: "AI reviewer assignment is invalid, fix the errors and try again.");
+
+            invalidAIReviewerAssignmentException.AddData(
+                key: nameof(AIReviewerAssignment.IsAIReviewCompleted),
+                values: "Value is not allowed on add");
+
+            invalidAIReviewerAssignmentException.AddData(
+                key: nameof(AIReviewerAssignment.IsAIReviewCommentsPresent),
+                values: "Value is not allowed on add");
+
+            var expectedAIReviewerAssignmentValidationException =
+                new AIReviewerAssignmentValidationException(
+                    message: "AI reviewer assignment validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: invalidAIReviewerAssignmentException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(
+                    inputAIReviewerAssignment, It.IsAny<SecurityContext>()))
+                        .ReturnsAsync(inputAIReviewerAssignment);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(inputAIReviewerAssignment.CreatedBy);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            ValueTask<AIReviewerAssignment> addAIReviewerAssignmentTask =
+                this.aiReviewerAssignmentService.AddAIReviewerAssignmentAsync(
+                    inputAIReviewerAssignment,
+                    TestContext.Current.CancellationToken);
+
+            AIReviewerAssignmentValidationException actualAIReviewerAssignmentValidationException =
+                await Assert.ThrowsAsync<AIReviewerAssignmentValidationException>(
+                    addAIReviewerAssignmentTask.AsTask);
+
+            // then
+            actualAIReviewerAssignmentValidationException.Should().BeEquivalentTo(
+                expectedAIReviewerAssignmentValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAIReviewerAssignmentValidationException))),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertAIReviewerAssignmentAsync(
+                    It.IsAny<AIReviewerAssignment>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        /// <summary>
+        /// Comments present without a completed pass is an impossible row — the flag records
+        /// something Berean left behind, and a pass that never finished left nothing — so the
+        /// invariant is stated on the add path as well as the modify one. Here it is redundant:
+        /// the birth-state rule refuses the same input first, and the caller is told both things,
+        /// under the one key, in the order the rule list declares them. Asserting the pair pins
+        /// that redundancy deliberately, so a later relaxation of the birth-state rules does not
+        /// silently take the invariant with it.
+        /// </summary>
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddIfCommentsPresentWithoutCompletionAndLogItAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+
+            AIReviewerAssignment randomAIReviewerAssignment =
+                CreateAIReviewerAssignmentFiller(randomDateTimeOffset).Create();
+
+            randomAIReviewerAssignment.IsAIReviewCompleted = false;
+            randomAIReviewerAssignment.IsAIReviewCommentsPresent = true;
+            AIReviewerAssignment inputAIReviewerAssignment = randomAIReviewerAssignment;
+
+            var invalidAIReviewerAssignmentException =
+                new InvalidAIReviewerAssignmentException(
+                    message: "AI reviewer assignment is invalid, fix the errors and try again.");
+
+            invalidAIReviewerAssignmentException.AddData(
+                key: nameof(AIReviewerAssignment.IsAIReviewCommentsPresent),
+                values: new[]
+                {
+                    "Value is not allowed on add",
+                    "Comments present requires a completed AI review."
+                });
+
+            var expectedAIReviewerAssignmentValidationException =
+                new AIReviewerAssignmentValidationException(
+                    message: "AI reviewer assignment validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: invalidAIReviewerAssignmentException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(
+                    inputAIReviewerAssignment, It.IsAny<SecurityContext>()))
+                        .ReturnsAsync(inputAIReviewerAssignment);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(inputAIReviewerAssignment.CreatedBy);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            ValueTask<AIReviewerAssignment> addAIReviewerAssignmentTask =
+                this.aiReviewerAssignmentService.AddAIReviewerAssignmentAsync(
+                    inputAIReviewerAssignment,
+                    TestContext.Current.CancellationToken);
+
+            AIReviewerAssignmentValidationException actualAIReviewerAssignmentValidationException =
+                await Assert.ThrowsAsync<AIReviewerAssignmentValidationException>(
+                    addAIReviewerAssignmentTask.AsTask);
+
+            // then
+            actualAIReviewerAssignmentValidationException.Should().BeEquivalentTo(
+                expectedAIReviewerAssignmentValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAIReviewerAssignmentValidationException))),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertAIReviewerAssignmentAsync(
+                    It.IsAny<AIReviewerAssignment>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
     }
 }

@@ -230,6 +230,171 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.AIReviewerAssignments
         }
 
         /// <summary>
+        /// A withdrawn assignment is closed to writes, and reports itself as not found rather
+        /// than as a distinct "removed" error — the same posture the read path takes (§14.5), so
+        /// a modify cannot become a probe for which assignments used to exist. Refused rather
+        /// than treated as a no-op, unlike a repeated REMOVE: removing an already-removed row is
+        /// one request answered twice, while writing to one is a different request with nothing
+        /// left to write to, and answering it quietly would tell the caller its write landed.
+        /// </summary>
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnModifyIfStorageAIReviewerAssignmentIsRemovedAndLogItAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+
+            AIReviewerAssignment randomAIReviewerAssignment =
+                CreateRandomModifyAIReviewerAssignment(randomDateTimeOffset, randomUserId);
+
+            AIReviewerAssignment inputAIReviewerAssignment = randomAIReviewerAssignment;
+            AIReviewerAssignment storageAIReviewerAssignment = randomAIReviewerAssignment.DeepClone();
+            storageAIReviewerAssignment.IsDeleted = true;
+
+            var notFoundAIReviewerAssignmentException = new NotFoundAIReviewerAssignmentException(
+                message: $"AI reviewer assignment not found with id: {inputAIReviewerAssignment.Id}.");
+
+            var expectedAIReviewerAssignmentValidationException = new AIReviewerAssignmentValidationException(
+                message: "AI reviewer assignment validation error occurred, fix the errors and try again.",
+                innerException: notFoundAIReviewerAssignmentException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(
+                    inputAIReviewerAssignment, It.IsAny<SecurityContext>()))
+                        .ReturnsAsync(inputAIReviewerAssignment);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAIReviewerAssignmentByIdAsync(
+                    inputAIReviewerAssignment.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageAIReviewerAssignment);
+
+            // when
+            ValueTask<AIReviewerAssignment> modifyAIReviewerAssignmentTask =
+                this.aiReviewerAssignmentService.ModifyAIReviewerAssignmentAsync(
+                    inputAIReviewerAssignment,
+                    TestContext.Current.CancellationToken);
+
+            AIReviewerAssignmentValidationException actualAIReviewerAssignmentValidationException =
+                await Assert.ThrowsAsync<AIReviewerAssignmentValidationException>(
+                    modifyAIReviewerAssignmentTask.AsTask);
+
+            // then
+            actualAIReviewerAssignmentValidationException.Should().BeEquivalentTo(
+                expectedAIReviewerAssignmentValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAIReviewerAssignmentValidationException))),
+                Times.Once);
+
+            // the guard sits ahead of the audit-preservation step, so the withdrawn row is never
+            // carried any further into the write
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    It.IsAny<AIReviewerAssignment>(),
+                    It.IsAny<AIReviewerAssignment>()),
+                Times.Never);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateAIReviewerAssignmentAsync(
+                    It.IsAny<AIReviewerAssignment>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            // silent, unlike the read path's guard: a not-found answer to a READ hides a real
+            // denial reason that has to stay recoverable server-side, while a refused write hides
+            // nothing, so the only log this path writes is the error above
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        /// <summary>
+        /// A row saying comments are present while the pass never finished is impossible, so the
+        /// modify path refuses it — asked of the INPUT alone rather than against storage, because
+        /// a modify writes the whole row: the pairing the caller sends is the pairing that lands.
+        /// </summary>
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnModifyIfCommentsPresentWithoutCompletionAndLogItAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+
+            AIReviewerAssignment randomAIReviewerAssignment =
+                CreateRandomModifyAIReviewerAssignment(randomDateTimeOffset, randomUserId);
+
+            AIReviewerAssignment invalidAIReviewerAssignment = randomAIReviewerAssignment;
+            invalidAIReviewerAssignment.IsAIReviewCompleted = false;
+            invalidAIReviewerAssignment.IsAIReviewCommentsPresent = true;
+
+            var invalidAIReviewerAssignmentException =
+                new InvalidAIReviewerAssignmentException(
+                    message: "AI reviewer assignment is invalid, fix the errors and try again.");
+
+            invalidAIReviewerAssignmentException.AddData(
+                key: nameof(AIReviewerAssignment.IsAIReviewCommentsPresent),
+                values: "Comments present requires a completed AI review.");
+
+            var expectedAIReviewerAssignmentValidationException =
+                new AIReviewerAssignmentValidationException(
+                    message: "AI reviewer assignment validation error occurred, fix the errors and try again.",
+                    innerException: invalidAIReviewerAssignmentException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(
+                    invalidAIReviewerAssignment, It.IsAny<SecurityContext>()))
+                        .ReturnsAsync(invalidAIReviewerAssignment);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            ValueTask<AIReviewerAssignment> modifyAIReviewerAssignmentTask =
+                this.aiReviewerAssignmentService.ModifyAIReviewerAssignmentAsync(
+                    invalidAIReviewerAssignment,
+                    TestContext.Current.CancellationToken);
+
+            AIReviewerAssignmentValidationException actualAIReviewerAssignmentValidationException =
+                await Assert.ThrowsAsync<AIReviewerAssignmentValidationException>(
+                    modifyAIReviewerAssignmentTask.AsTask);
+
+            // then
+            actualAIReviewerAssignmentValidationException.Should().BeEquivalentTo(
+                expectedAIReviewerAssignmentValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAIReviewerAssignmentValidationException))),
+                Times.Once);
+
+            // the rule sits in the input validation, ahead of the storage read, so an impossible
+            // pairing costs no round trip
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAIReviewerAssignmentByIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateAIReviewerAssignmentAsync(
+                    It.IsAny<AIReviewerAssignment>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        /// <summary>
         /// A row's scope is fixed at creation — which approval it was assigned against — pinned
         /// against storage rather than accepted from the caller, mirroring
         /// ContentItemSetting's scope-pinning rule.

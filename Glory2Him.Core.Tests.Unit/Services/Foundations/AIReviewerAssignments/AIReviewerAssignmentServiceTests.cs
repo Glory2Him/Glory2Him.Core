@@ -357,6 +357,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.AIReviewerAssignments
                 // drawn: a posture-sensitive test must never depend on the draw. Tests that want
                 // a removed row set it explicitly.
                 .OnProperty(aiReviewerAssignment => aiReviewerAssignment.IsDeleted).Use(false)
+
+                // The two system-facing flags are pinned for the same reason and a sharper one:
+                // an add refuses either of them already set, and add and modify alike refuse
+                // comments-present on a row that says the pass never finished. A drawn pair would
+                // red arrangements that are not about the flags at all, on whichever run happened
+                // to draw it. Tests about the flags set them explicitly.
+                .OnProperty(aiReviewerAssignment => aiReviewerAssignment.IsAIReviewCompleted).Use(false)
+                .OnProperty(aiReviewerAssignment =>
+                    aiReviewerAssignment.IsAIReviewCommentsPresent).Use(false)
+
                 .OnProperty(aiReviewerAssignment => aiReviewerAssignment.CreatedBy).Use(userId)
                 .OnProperty(aiReviewerAssignment => aiReviewerAssignment.UpdatedBy).Use(userId);
 

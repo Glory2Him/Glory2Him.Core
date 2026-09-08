@@ -282,6 +282,25 @@ namespace Glory2Him.Core.Services.Foundations.AIReviewerAssignments
 
             ValidateStorageAIReviewerAssignment(maybeAIReviewerAssignment, aiReviewerAssignment.Id);
 
+            // A WITHDRAWN ASSIGNMENT IS CLOSED TO WRITES, and this is the only path that can still
+            // reach one. The orchestration's upsert reads by approval id, which returns live rows
+            // only — but the future review process of §8.6.2 retrieves by id, and can arrive for a
+            // pass that started before a moderator withdrew Berean. Without this it flips
+            // IsAIReviewCompleted on a removed row, resurrecting an assignment nobody re-made.
+            //
+            // REFUSED rather than treated as a no-op, unlike the remove path below: removing an
+            // already-removed row is the same request answered twice, while writing to one is a
+            // different request with nothing left to write to — answering it quietly would tell the
+            // caller its write landed. Reported as not found, matching the read posture above
+            // (§14.5) and the modify guard ApprovalService takes for the same case.
+            //
+            // After the permission gate at the top of this method, not before, following the remove
+            // path: a caller who may not touch this row learns nothing about its deletion state
+            // either way.
+            ValidateStorageAIReviewerAssignmentIsNotDeleted(
+                storageAIReviewerAssignment: maybeAIReviewerAssignment,
+                aiReviewerAssignmentId: aiReviewerAssignment.Id);
+
             aiReviewerAssignment = await this.securityAuditBroker
                 .EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
                     entity: aiReviewerAssignment,
