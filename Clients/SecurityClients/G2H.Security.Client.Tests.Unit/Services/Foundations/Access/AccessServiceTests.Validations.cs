@@ -47,6 +47,74 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 .BeEquivalentTo(expectedAccessValidationException);
         }
 
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnResolveAIReviewerPolicyIfRequestIsNullAsync()
+        {
+            // given
+            ResolveAIReviewerPolicyRequest? nullResolveAIReviewerPolicyRequest = null;
+
+            var invalidArgumentAccessException = new InvalidArgumentAccessException(
+                message: "Invalid access argument. Please correct the error and try again.");
+
+            var expectedAccessValidationException = new AccessValidationException(
+                message: "Access validation errors occurred, please try again.",
+                innerException: invalidArgumentAccessException);
+
+            // when
+            ValueTask<AIReviewerPolicyVerdict> resolveAIReviewerPolicyTask =
+                this.accessService.ResolveAIReviewerPolicyAsync(
+                    nullResolveAIReviewerPolicyRequest!);
+
+            AccessValidationException actualAccessValidationException =
+                await Assert.ThrowsAsync<AccessValidationException>(
+                    resolveAIReviewerPolicyTask.AsTask);
+
+            // then
+            actualAccessValidationException.Should()
+                .BeEquivalentTo(expectedAccessValidationException);
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData("   ")]
+        public async Task ShouldThrowValidationExceptionOnResolveAIReviewerPolicyIfEntityTypeIsInvalidAsync(
+            string? invalidEntityType)
+        {
+            // given
+            var invalidResolveAIReviewerPolicyRequest = new ResolveAIReviewerPolicyRequest
+            {
+                CandidatePolicies = new List<ApprovalPolicy>(),
+                EntityType = invalidEntityType!,
+                ContentType = null,
+                IsPersonal = null,
+            };
+
+            var invalidArgumentAccessException = new InvalidArgumentAccessException(
+                message: "Invalid access argument. Please correct the error and try again.");
+
+            invalidArgumentAccessException.UpsertDataList(
+                key: nameof(ResolveAIReviewerPolicyRequest.EntityType),
+                value: "Text is required");
+
+            var expectedAccessValidationException = new AccessValidationException(
+                message: "Access validation errors occurred, please try again.",
+                innerException: invalidArgumentAccessException);
+
+            // when
+            ValueTask<AIReviewerPolicyVerdict> resolveAIReviewerPolicyTask =
+                this.accessService.ResolveAIReviewerPolicyAsync(
+                    invalidResolveAIReviewerPolicyRequest);
+
+            AccessValidationException actualAccessValidationException =
+                await Assert.ThrowsAsync<AccessValidationException>(
+                    resolveAIReviewerPolicyTask.AsTask);
+
+            // then
+            actualAccessValidationException.Should()
+                .BeEquivalentTo(expectedAccessValidationException);
+        }
+
         [Theory]
         [InlineData(null)]
         [InlineData("")]

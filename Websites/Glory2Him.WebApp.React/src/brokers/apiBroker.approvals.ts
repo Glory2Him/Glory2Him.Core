@@ -202,13 +202,15 @@ class ApprovalBroker {
 
     // WITHDRAW. Unconditional — re-request now covers "ask again after completion", so there is
     // no answered-invitation refusal to keep out of reach here the way there is for a person's.
+    // Nothing standing is 204 (no body) rather than 200, so the result is nullable — unused by
+    // the hook either way, since Berean's own status read is what the UI repaints from.
     async DeleteAIReviewerAsync(
         entityType: EntityTypeName,
-        entityId: string): Promise<AIReviewerAssignment> {
+        entityId: string): Promise<AIReviewerAssignment | null> {
         const url = `${this.relativeApprovalsUrl}/${entityType}/${entityId}/AIReviewer`;
         const result = await this.apiBroker.DeleteAsync(url);
 
-        return result.data as AIReviewerAssignment;
+        return (result.data ?? null) as AIReviewerAssignment | null;
     }
 }
 

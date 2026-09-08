@@ -20,6 +20,7 @@ using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Registrations;
+using Glory2Him.Core.Services.Foundations.AIReviewerAssignments;
 using Glory2Him.Core.Services.Foundations.ApprovalComments;
 using Glory2Him.Core.Brokers.Storages.Identity;
 using Glory2Him.Core.Services.Foundations.ApprovalReviewRequests;
@@ -173,6 +174,10 @@ namespace Glory2Him.WebApp.Infrastructure
             // InvalidOperationException at delivery time, which the substrate records as a
             // failed delivery and nothing surfaces. Bind a subscription, register its service.
             services.AddScoped<IApprovalReviewRequestService, ApprovalReviewRequestService>();
+
+            // §8.6.2: the same "bind a subscription, register its service" reasoning as its
+            // neighbour above.
+            services.AddScoped<IAIReviewerAssignmentService, AIReviewerAssignmentService>();
 
             // The read-only identity-store window (design 12.7.1). Scoped like every other
             // DbContext here: it is one, and a singleton would capture a connection for the life

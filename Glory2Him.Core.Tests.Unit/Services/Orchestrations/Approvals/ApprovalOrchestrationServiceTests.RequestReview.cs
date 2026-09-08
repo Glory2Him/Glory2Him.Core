@@ -613,6 +613,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     ActiveReviewerUserIds = Array.Empty<string>(),
                     RecordedReviewerUserIds = Array.Empty<string>(),
                     ActiveRequests = activeRequests,
+                    IsAIReviewerOffered = false,
                 };
 
             this.approvalServiceMock.Setup(service =>

@@ -25,6 +25,7 @@ using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Securities;
+using Glory2Him.Core.Services.Foundations.AIReviewerAssignments;
 using Glory2Him.Core.Services.Foundations.ApprovalComments;
 using Glory2Him.Core.Services.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Services.Foundations.ApprovalReviews;
@@ -44,6 +45,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         private readonly Mock<IApprovalCommentService> approvalCommentServiceMock;
         private readonly Mock<IApprovalReviewRequestService> approvalReviewRequestServiceMock;
         private readonly Mock<IApprovalReviewRequestWorkflowService> approvalReviewRequestWorkflowServiceMock;
+        private readonly Mock<IAIReviewerAssignmentService> aiReviewerAssignmentServiceMock;
         private readonly Mock<IIdentityUserService> identityUserServiceMock;
         private readonly Mock<IAccessBroker> accessBrokerMock;
         private readonly Mock<IEventEnvelopeBroker> eventEnvelopeBrokerMock;
@@ -75,6 +77,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             this.approvalReviewRequestWorkflowServiceMock =
                 new Mock<IApprovalReviewRequestWorkflowService>();
 
+            this.aiReviewerAssignmentServiceMock = new Mock<IAIReviewerAssignmentService>();
             this.identityUserServiceMock = new Mock<IIdentityUserService>();
 
             // Nobody is blocked unless a test says so. Without this the veto read would answer
@@ -139,6 +142,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 approvalReviewRequestWorkflowService:
                     this.approvalReviewRequestWorkflowServiceMock.Object,
 
+                aiReviewerAssignmentService: this.aiReviewerAssignmentServiceMock.Object,
                 identityUserService: this.identityUserServiceMock.Object,
                 accessBroker: this.accessBrokerMock.Object,
                 eventEnvelopeBroker: this.eventEnvelopeBrokerMock.Object,

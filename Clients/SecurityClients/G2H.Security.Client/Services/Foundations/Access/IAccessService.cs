@@ -19,6 +19,9 @@ namespace G2H.Security.Client.Services.Foundations.Access
         ValueTask<ApprovalConditionsVerdict> EvaluateApprovalConditionsAsync(
             ApprovalConditionsRequest approvalConditionsRequest);
 
+        ValueTask<AIReviewerPolicyVerdict> ResolveAIReviewerPolicyAsync(
+            ResolveAIReviewerPolicyRequest resolveAIReviewerPolicyRequest);
+
         ValueTask<AccessVerdict> MayRecordApprovalReviewAsync(
             RecordReviewRequest recordReviewRequest);
 

@@ -93,5 +93,17 @@ namespace Glory2Him.Core.Models.Securities
         /// them.
         /// </summary>
         public required IReadOnlyList<ActiveReviewRequest> ActiveRequests { get; init; }
+
+        /// <summary>
+        /// The resolved <c>ApprovalSetting.IsAIReviewerOffered</c> (design §8.6.2) — whether
+        /// Berean should be offered in the reviewer-request picker and may be assigned at all.
+        ///
+        /// <para>Lives here rather than behind its own broker call because it answers exactly
+        /// the same question this scope already exists to answer for a person: who may be
+        /// invited (§7.9). It is visible to the whole requesting tier this scope is gathered
+        /// for, not narrowed to Publishers/Administrators the way the Verdict is — a plain
+        /// Reviewer may ask for Berean just as they may ask for a person (§7.9 rule 2).</para>
+        /// </summary>
+        public required bool IsAIReviewerOffered { get; init; }
     }
 }

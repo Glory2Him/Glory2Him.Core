@@ -977,13 +977,33 @@ namespace Glory2Him.Core.Brokers.Securities
                 return null;
             }
 
-            (string entityCreatedBy, IReadOnlyList<RoleSubject> roleSubjects, _, _, _, _) =
+            (string entityCreatedBy, IReadOnlyList<RoleSubject> roleSubjects, _, bool? isPersonal, _, _) =
                 await ResolveEntityAsync(
                     maybeApproval.EntityType,
                     maybeApproval.EntityId,
                     cancellationToken);
 
             ApprovalReviewSnapshot snapshot = await GatherAsync(maybeApproval, cancellationToken);
+
+            // §8.6.2: the same resolved-policy question EvaluateApprovalConditionsByIdAsync
+            // asks, narrowed to the one field this flow needs.
+            IReadOnlyList<ApprovalPolicy> candidatePolicies = await GatherPoliciesAsync(
+                maybeApproval.EntityType,
+                cancellationToken);
+
+            AIReviewerPolicyVerdict aiReviewerPolicy =
+                await this.securityClient.Access.ResolveAIReviewerPolicyAsync(
+                    new ResolveAIReviewerPolicyRequest
+                    {
+                        CandidatePolicies = candidatePolicies,
+                        EntityType = maybeApproval.EntityType.ToString(),
+
+                        ContentType = maybeApproval.EntityType == EntityType.ContentItem
+                            ? roleSubjects[0].ContentType
+                            : null,
+
+                        IsPersonal = isPersonal,
+                    });
 
             // Only the reviews that still stand. A withdrawn review frees the person to be asked
             // again, and a dismissed one means their verdict no longer describes the current
@@ -1035,6 +1055,7 @@ namespace Glory2Him.Core.Brokers.Securities
                 ActiveReviewerUserIds = activeReviewerUserIds,
                 RecordedReviewerUserIds = recordedReviewerUserIds,
                 ActiveRequests = activeRequests,
+                IsAIReviewerOffered = aiReviewerPolicy.IsOffered,
             };
         }
     }

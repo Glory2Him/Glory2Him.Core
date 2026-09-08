@@ -15,6 +15,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Foundations.AIReviewerAssignments;
 using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
 
@@ -282,6 +283,40 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             Guid entityId,
             string requestedUserId,
             string? deletionReason = null,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Berean's status on this round (design §8.6.2) — whether it is offered, whether it has
+        /// been assigned, and how far its (not-yet-built) automated pass has gotten. Visible to
+        /// the whole requesting tier (§7.9 rule 2), not narrowed to Publishers/Administrators the
+        /// way <see cref="RetrieveApprovalVerdictAsync"/> is.
+        /// </summary>
+        ValueTask<AIReviewerStatus> RetrieveAIReviewerStatusAsync(
+            EntityType entityType,
+            Guid entityId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Assigns Berean to this round, or asks it again once a prior assignment has completed.
+        /// An UPSERT: no live row creates one pending, a completed one resets to pending (the
+        /// re-request action), a still-pending one is a no-op returning the standing row.
+        ///
+        /// <para>Refuses unless the round is <c>Submitted</c> and the resolved
+        /// <c>IsAIReviewerOffered</c> is true — fail-closed, asked fresh on every write.</para>
+        /// </summary>
+        ValueTask<AIReviewerAssignment> RequestAIReviewerAsync(
+            EntityType entityType,
+            Guid entityId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Withdraws Berean's assignment. Unconditional — re-requesting covers "ask again after
+        /// completion", so there is no answered-invitation state left to refuse the way the human
+        /// withdrawal does. Idempotent: nothing standing is a no-op, not a not-found.
+        /// </summary>
+        ValueTask<AIReviewerAssignment> WithdrawAIReviewerAsync(
+            EntityType entityType,
+            Guid entityId,
             CancellationToken cancellationToken = default);
     }
 }

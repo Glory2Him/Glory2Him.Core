@@ -19,6 +19,7 @@ using FluentAssertions;
 using Force.DeepCloner;
 using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Foundations.AIReviewerAssignments;
 using Glory2Him.Core.Models.Foundations.Approvals.Exceptions;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
 using Glory2Him.Core.Models.Orchestrations.Approvals.Exceptions;
@@ -814,7 +815,10 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
                 nameof(ApprovalsController.GetReviewerDisplayNamesAsync),
                 nameof(ApprovalsController.PostReviewRequestAsync),
                 nameof(ApprovalsController.GetReviewRequestsAsync),
-                nameof(ApprovalsController.DeleteReviewRequestAsync)
+                nameof(ApprovalsController.DeleteReviewRequestAsync),
+                nameof(ApprovalsController.GetAIReviewerAsync),
+                nameof(ApprovalsController.PostAIReviewerAsync),
+                nameof(ApprovalsController.DeleteAIReviewerAsync)
             };
 
             // When
@@ -847,6 +851,9 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
         [InlineData(nameof(ApprovalsController.PostReviewRequestAsync))]
         [InlineData(nameof(ApprovalsController.GetReviewRequestsAsync))]
         [InlineData(nameof(ApprovalsController.DeleteReviewRequestAsync))]
+        [InlineData(nameof(ApprovalsController.GetAIReviewerAsync))]
+        [InlineData(nameof(ApprovalsController.PostAIReviewerAsync))]
+        [InlineData(nameof(ApprovalsController.DeleteAIReviewerAsync))]
         public void ActionShouldCarryAuthorizeWithNoFixedRoleList(string actionName)
         {
             // Given
@@ -895,6 +902,9 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
         [InlineData(nameof(ApprovalsController.PostReviewRequestAsync))]
         [InlineData(nameof(ApprovalsController.GetReviewRequestsAsync))]
         [InlineData(nameof(ApprovalsController.DeleteReviewRequestAsync))]
+        [InlineData(nameof(ApprovalsController.GetAIReviewerAsync))]
+        [InlineData(nameof(ApprovalsController.PostAIReviewerAsync))]
+        [InlineData(nameof(ApprovalsController.DeleteAIReviewerAsync))]
         public void ActionShouldNotAllowAnonymous(string actionName)
         {
             // Given
@@ -2017,6 +2027,784 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
                     It.IsAny<Guid>(),
                     It.IsAny<string>(),
                     It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        // ── Berean (design §8.6.2, issue #354 Track A) ────────────────────────────────────
+
+        [Fact]
+        public async Task ShouldReturnStatusOnGetAIReviewerAsync()
+        {
+            // given
+            EntityType randomEntityType = GetRandomEntityType();
+            Guid randomEntityId = Guid.NewGuid();
+
+            var randomAIReviewerStatus = new AIReviewerStatus
+            {
+                IsOffered = GetRandomBoolean(),
+                IsRequested = GetRandomBoolean(),
+                IsAIReviewCompleted = GetRandomBoolean(),
+                IsAIReviewCommentsPresent = GetRandomBoolean(),
+            };
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.RetrieveAIReviewerStatusAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(randomAIReviewerStatus);
+
+            // when
+            ActionResult<AIReviewerStatus> actualActionResult =
+                await this.approvalsController.GetAIReviewerAsync(
+                    randomEntityType,
+                    randomEntityId,
+                    default);
+
+            // then
+            actualActionResult.Result.Should().BeOfType<OkObjectResult>();
+
+            ((OkObjectResult)actualActionResult.Result).Value
+                .Should().BeSameAs(randomAIReviewerStatus);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.RetrieveAIReviewerStatusAsync(
+                    randomEntityType,
+                    randomEntityId,
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(ValidationExceptions))]
+        public async Task ShouldReturnBadRequestOnGetAIReviewerIfValidationErrorAsync(
+            Xeption validationException)
+        {
+            // given
+            BadRequestObjectResult expectedBadRequestObjectResult =
+                BadRequest(validationException.InnerException);
+
+            var expectedActionResult =
+                new ActionResult<AIReviewerStatus>(expectedBadRequestObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.RetrieveAIReviewerStatusAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(validationException);
+
+            // when
+            ActionResult<AIReviewerStatus> actualActionResult =
+                await this.approvalsController.GetAIReviewerAsync(
+                    GetRandomEntityType(),
+                    Guid.NewGuid(),
+                    default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.RetrieveAIReviewerStatusAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldReturnUnauthorizedOnGetAIReviewerIfRefusedAsync()
+        {
+            // given
+            var unauthorizedException = new UnauthorizedApprovalOrchestrationException(
+                message: GetRandomString());
+
+            var validationException = new ApprovalOrchestrationValidationException(
+                message: GetRandomString(),
+                innerException: unauthorizedException);
+
+            UnauthorizedObjectResult expectedUnauthorizedObjectResult =
+                Unauthorized(unauthorizedException);
+
+            var expectedActionResult =
+                new ActionResult<AIReviewerStatus>(expectedUnauthorizedObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.RetrieveAIReviewerStatusAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(validationException);
+
+            // when
+            ActionResult<AIReviewerStatus> actualActionResult =
+                await this.approvalsController.GetAIReviewerAsync(
+                    GetRandomEntityType(),
+                    Guid.NewGuid(),
+                    default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.RetrieveAIReviewerStatusAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldReturnNotFoundOnGetAIReviewerIfApprovalDoesNotExistAsync()
+        {
+            // given
+            string someMessage = GetRandomString();
+
+            var notFoundApprovalOrchestrationException =
+                new NotFoundApprovalOrchestrationException(message: someMessage);
+
+            var approvalOrchestrationValidationException =
+                new ApprovalOrchestrationValidationException(
+                    message: someMessage,
+                    innerException: notFoundApprovalOrchestrationException);
+
+            NotFoundObjectResult expectedNotFoundObjectResult =
+                NotFound(notFoundApprovalOrchestrationException);
+
+            var expectedActionResult =
+                new ActionResult<AIReviewerStatus>(expectedNotFoundObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.RetrieveAIReviewerStatusAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(approvalOrchestrationValidationException);
+
+            // when
+            ActionResult<AIReviewerStatus> actualActionResult =
+                await this.approvalsController.GetAIReviewerAsync(
+                    GetRandomEntityType(),
+                    Guid.NewGuid(),
+                    default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.RetrieveAIReviewerStatusAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(DependencyExceptions))]
+        public async Task ShouldReturnFailedDependencyOnGetAIReviewerIfDependencyErrorAsync(
+            Xeption dependencyException)
+        {
+            // given
+            FailedDependencyObjectResult expectedFailedDependencyObjectResult =
+                FailedDependency(dependencyException.InnerException);
+
+            var expectedActionResult =
+                new ActionResult<AIReviewerStatus>(expectedFailedDependencyObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.RetrieveAIReviewerStatusAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(dependencyException);
+
+            // when
+            ActionResult<AIReviewerStatus> actualActionResult =
+                await this.approvalsController.GetAIReviewerAsync(
+                    GetRandomEntityType(),
+                    Guid.NewGuid(),
+                    default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.RetrieveAIReviewerStatusAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(ServerExceptions))]
+        public async Task ShouldReturnInternalServerErrorOnGetAIReviewerIfServerErrorAsync(
+            Xeption serverException)
+        {
+            // given
+            InternalServerErrorObjectResult expectedInternalServerErrorObjectResult =
+                InternalServerError(serverException);
+
+            var expectedActionResult =
+                new ActionResult<AIReviewerStatus>(expectedInternalServerErrorObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.RetrieveAIReviewerStatusAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(serverException);
+
+            // when
+            ActionResult<AIReviewerStatus> actualActionResult =
+                await this.approvalsController.GetAIReviewerAsync(
+                    GetRandomEntityType(),
+                    Guid.NewGuid(),
+                    default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.RetrieveAIReviewerStatusAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        /// <summary>
+        /// The upsert always has something real to hand back — create, reset or no-op all end
+        /// with a live row — so this is <c>200</c>, never the <c>204</c> the human invitation
+        /// answers with.
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnAssignmentOnPostAIReviewerAsync()
+        {
+            // given
+            EntityType randomEntityType = GetRandomEntityType();
+            Guid randomEntityId = Guid.NewGuid();
+            var randomAssignment = new AIReviewerAssignment { Id = Guid.NewGuid() };
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.RequestAIReviewerAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(randomAssignment);
+
+            // when
+            ActionResult<AIReviewerAssignment> actualActionResult =
+                await this.approvalsController.PostAIReviewerAsync(
+                    randomEntityType,
+                    randomEntityId,
+                    default);
+
+            // then
+            actualActionResult.Result.Should().BeOfType<OkObjectResult>();
+
+            ((OkObjectResult)actualActionResult.Result).Value
+                .Should().BeSameAs(randomAssignment);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.RequestAIReviewerAsync(
+                    randomEntityType,
+                    randomEntityId,
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(ValidationExceptions))]
+        public async Task ShouldReturnBadRequestOnPostAIReviewerIfValidationErrorAsync(
+            Xeption validationException)
+        {
+            // given
+            BadRequestObjectResult expectedBadRequestObjectResult =
+                BadRequest(validationException.InnerException);
+
+            var expectedActionResult =
+                new ActionResult<AIReviewerAssignment>(expectedBadRequestObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.RequestAIReviewerAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(validationException);
+
+            // when
+            ActionResult<AIReviewerAssignment> actualActionResult =
+                await this.approvalsController.PostAIReviewerAsync(
+                    GetRandomEntityType(),
+                    Guid.NewGuid(),
+                    default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.RequestAIReviewerAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldReturnUnauthorizedOnPostAIReviewerIfRefusedAsync()
+        {
+            // given
+            var unauthorizedException = new UnauthorizedApprovalOrchestrationException(
+                message: GetRandomString());
+
+            var validationException = new ApprovalOrchestrationValidationException(
+                message: GetRandomString(),
+                innerException: unauthorizedException);
+
+            UnauthorizedObjectResult expectedUnauthorizedObjectResult =
+                Unauthorized(unauthorizedException);
+
+            var expectedActionResult =
+                new ActionResult<AIReviewerAssignment>(expectedUnauthorizedObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.RequestAIReviewerAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(validationException);
+
+            // when
+            ActionResult<AIReviewerAssignment> actualActionResult =
+                await this.approvalsController.PostAIReviewerAsync(
+                    GetRandomEntityType(),
+                    Guid.NewGuid(),
+                    default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.RequestAIReviewerAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldReturnNotFoundOnPostAIReviewerIfApprovalDoesNotExistAsync()
+        {
+            // given
+            string someMessage = GetRandomString();
+
+            var notFoundApprovalOrchestrationException =
+                new NotFoundApprovalOrchestrationException(message: someMessage);
+
+            var approvalOrchestrationValidationException =
+                new ApprovalOrchestrationValidationException(
+                    message: someMessage,
+                    innerException: notFoundApprovalOrchestrationException);
+
+            NotFoundObjectResult expectedNotFoundObjectResult =
+                NotFound(notFoundApprovalOrchestrationException);
+
+            var expectedActionResult =
+                new ActionResult<AIReviewerAssignment>(expectedNotFoundObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.RequestAIReviewerAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(approvalOrchestrationValidationException);
+
+            // when
+            ActionResult<AIReviewerAssignment> actualActionResult =
+                await this.approvalsController.PostAIReviewerAsync(
+                    GetRandomEntityType(),
+                    Guid.NewGuid(),
+                    default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.RequestAIReviewerAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(DependencyExceptions))]
+        public async Task ShouldReturnFailedDependencyOnPostAIReviewerIfDependencyErrorAsync(
+            Xeption dependencyException)
+        {
+            // given
+            FailedDependencyObjectResult expectedFailedDependencyObjectResult =
+                FailedDependency(dependencyException.InnerException);
+
+            var expectedActionResult =
+                new ActionResult<AIReviewerAssignment>(expectedFailedDependencyObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.RequestAIReviewerAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(dependencyException);
+
+            // when
+            ActionResult<AIReviewerAssignment> actualActionResult =
+                await this.approvalsController.PostAIReviewerAsync(
+                    GetRandomEntityType(),
+                    Guid.NewGuid(),
+                    default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.RequestAIReviewerAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(ServerExceptions))]
+        public async Task ShouldReturnInternalServerErrorOnPostAIReviewerIfServerErrorAsync(
+            Xeption serverException)
+        {
+            // given
+            InternalServerErrorObjectResult expectedInternalServerErrorObjectResult =
+                InternalServerError(serverException);
+
+            var expectedActionResult =
+                new ActionResult<AIReviewerAssignment>(expectedInternalServerErrorObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.RequestAIReviewerAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(serverException);
+
+            // when
+            ActionResult<AIReviewerAssignment> actualActionResult =
+                await this.approvalsController.PostAIReviewerAsync(
+                    GetRandomEntityType(),
+                    Guid.NewGuid(),
+                    default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.RequestAIReviewerAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldReturnRemovedAssignmentOnDeleteAIReviewerAsync()
+        {
+            // given
+            EntityType randomEntityType = GetRandomEntityType();
+            Guid randomEntityId = Guid.NewGuid();
+            var randomAssignment = new AIReviewerAssignment { Id = Guid.NewGuid() };
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.WithdrawAIReviewerAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(randomAssignment);
+
+            // when
+            ActionResult<AIReviewerAssignment> actualActionResult =
+                await this.approvalsController.DeleteAIReviewerAsync(
+                    randomEntityType,
+                    randomEntityId,
+                    default);
+
+            // then
+            actualActionResult.Result.Should().BeOfType<OkObjectResult>();
+
+            ((OkObjectResult)actualActionResult.Result).Value
+                .Should().BeSameAs(randomAssignment);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.WithdrawAIReviewerAsync(
+                    randomEntityType,
+                    randomEntityId,
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        /// <summary>
+        /// Idempotent — nothing assigned is a <c>204</c>, not a <c>404</c>: withdrawing twice, or
+        /// withdrawing what was never there, is a stale panel rather than a mistake.
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnNoContentOnDeleteAIReviewerWhenNothingWasAssignedAsync()
+        {
+            // given
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.WithdrawAIReviewerAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((AIReviewerAssignment)null);
+
+            // when
+            ActionResult<AIReviewerAssignment> actualActionResult =
+                await this.approvalsController.DeleteAIReviewerAsync(
+                    GetRandomEntityType(),
+                    Guid.NewGuid(),
+                    default);
+
+            // then
+            actualActionResult.Result.Should().BeOfType<NoContentResult>();
+        }
+
+        [Theory]
+        [MemberData(nameof(ValidationExceptions))]
+        public async Task ShouldReturnBadRequestOnDeleteAIReviewerIfValidationErrorAsync(
+            Xeption validationException)
+        {
+            // given
+            BadRequestObjectResult expectedBadRequestObjectResult =
+                BadRequest(validationException.InnerException);
+
+            var expectedActionResult =
+                new ActionResult<AIReviewerAssignment>(expectedBadRequestObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.WithdrawAIReviewerAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(validationException);
+
+            // when
+            ActionResult<AIReviewerAssignment> actualActionResult =
+                await this.approvalsController.DeleteAIReviewerAsync(
+                    GetRandomEntityType(),
+                    Guid.NewGuid(),
+                    default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.WithdrawAIReviewerAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldReturnUnauthorizedOnDeleteAIReviewerIfRefusedAsync()
+        {
+            // given
+            var unauthorizedException = new UnauthorizedApprovalOrchestrationException(
+                message: GetRandomString());
+
+            var validationException = new ApprovalOrchestrationValidationException(
+                message: GetRandomString(),
+                innerException: unauthorizedException);
+
+            UnauthorizedObjectResult expectedUnauthorizedObjectResult =
+                Unauthorized(unauthorizedException);
+
+            var expectedActionResult =
+                new ActionResult<AIReviewerAssignment>(expectedUnauthorizedObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.WithdrawAIReviewerAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(validationException);
+
+            // when
+            ActionResult<AIReviewerAssignment> actualActionResult =
+                await this.approvalsController.DeleteAIReviewerAsync(
+                    GetRandomEntityType(),
+                    Guid.NewGuid(),
+                    default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.WithdrawAIReviewerAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldReturnNotFoundOnDeleteAIReviewerIfApprovalDoesNotExistAsync()
+        {
+            // given
+            string someMessage = GetRandomString();
+
+            var notFoundApprovalOrchestrationException =
+                new NotFoundApprovalOrchestrationException(message: someMessage);
+
+            var approvalOrchestrationValidationException =
+                new ApprovalOrchestrationValidationException(
+                    message: someMessage,
+                    innerException: notFoundApprovalOrchestrationException);
+
+            NotFoundObjectResult expectedNotFoundObjectResult =
+                NotFound(notFoundApprovalOrchestrationException);
+
+            var expectedActionResult =
+                new ActionResult<AIReviewerAssignment>(expectedNotFoundObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.WithdrawAIReviewerAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(approvalOrchestrationValidationException);
+
+            // when
+            ActionResult<AIReviewerAssignment> actualActionResult =
+                await this.approvalsController.DeleteAIReviewerAsync(
+                    GetRandomEntityType(),
+                    Guid.NewGuid(),
+                    default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.WithdrawAIReviewerAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(DependencyExceptions))]
+        public async Task ShouldReturnFailedDependencyOnDeleteAIReviewerIfDependencyErrorAsync(
+            Xeption dependencyException)
+        {
+            // given
+            FailedDependencyObjectResult expectedFailedDependencyObjectResult =
+                FailedDependency(dependencyException.InnerException);
+
+            var expectedActionResult =
+                new ActionResult<AIReviewerAssignment>(expectedFailedDependencyObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.WithdrawAIReviewerAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(dependencyException);
+
+            // when
+            ActionResult<AIReviewerAssignment> actualActionResult =
+                await this.approvalsController.DeleteAIReviewerAsync(
+                    GetRandomEntityType(),
+                    Guid.NewGuid(),
+                    default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.WithdrawAIReviewerAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(ServerExceptions))]
+        public async Task ShouldReturnInternalServerErrorOnDeleteAIReviewerIfServerErrorAsync(
+            Xeption serverException)
+        {
+            // given
+            InternalServerErrorObjectResult expectedInternalServerErrorObjectResult =
+                InternalServerError(serverException);
+
+            var expectedActionResult =
+                new ActionResult<AIReviewerAssignment>(expectedInternalServerErrorObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.WithdrawAIReviewerAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(serverException);
+
+            // when
+            ActionResult<AIReviewerAssignment> actualActionResult =
+                await this.approvalsController.DeleteAIReviewerAsync(
+                    GetRandomEntityType(),
+                    Guid.NewGuid(),
+                    default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.WithdrawAIReviewerAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()),
                         Times.Once);
 

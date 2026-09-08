@@ -283,6 +283,10 @@ export const approvalService = {
 
     // ASSIGN Berean — or RE-REQUEST it once its review has completed; the endpoint is the same
     // upsert either way, so one hook covers both actions.
+    //
+    // INVALIDATES ONLY AIReviewerStatus, not the whole round the way every write above does.
+    // Nothing about Berean's own assignment moves a human's votes, candidates or requests — the
+    // one thing this write can change is answered by that one read.
     useAssignAIReviewer: () => {
         const approvalBroker = new ApprovalBroker();
         const queryClient = useQueryClient();
@@ -296,7 +300,8 @@ export const approvalService = {
             }): Promise<AIReviewerAssignment> =>
                 await approvalBroker.PostAIReviewerAsync(request.entityType, request.entityId),
 
-            onSuccess: (assignment) => invalidateRound(queryClient, assignment.approvalId)
+            onSuccess: () =>
+                queryClient.invalidateQueries({ queryKey: ['AIReviewerStatus'] })
         });
     },
 
@@ -310,10 +315,11 @@ export const approvalService = {
             mutationFn: async (request: {
                 entityType: EntityTypeName;
                 entityId: string;
-            }): Promise<AIReviewerAssignment> =>
+            }): Promise<AIReviewerAssignment | null> =>
                 await approvalBroker.DeleteAIReviewerAsync(request.entityType, request.entityId),
 
-            onSuccess: (assignment) => invalidateRound(queryClient, assignment.approvalId)
+            onSuccess: () =>
+                queryClient.invalidateQueries({ queryKey: ['AIReviewerStatus'] })
         });
     }
 };

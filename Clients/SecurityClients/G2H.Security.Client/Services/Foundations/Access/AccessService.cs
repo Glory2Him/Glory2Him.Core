@@ -46,6 +46,25 @@ namespace G2H.Security.Client.Services.Foundations.Access
                         approvalConditionsRequest.ConfidenceScore));
             });
 
+        // §8.6.2. Resolves the same tiered policy EvaluateApprovalConditionsAsync does, but
+        // reports only IsAIReviewerOffered — the one field a caller deciding whether to offer
+        // Berean at all needs, without handing back the settings row itself.
+        public ValueTask<AIReviewerPolicyVerdict> ResolveAIReviewerPolicyAsync(
+            ResolveAIReviewerPolicyRequest resolveAIReviewerPolicyRequest) =>
+            TryCatch(() =>
+            {
+                ValidateOnResolveAIReviewerPolicy(resolveAIReviewerPolicyRequest);
+
+                ApprovalPolicy policy = ResolvePolicy(
+                    resolveAIReviewerPolicyRequest.CandidatePolicies,
+                    resolveAIReviewerPolicyRequest.EntityType,
+                    resolveAIReviewerPolicyRequest.ContentType,
+                    resolveAIReviewerPolicyRequest.IsPersonal);
+
+                return new ValueTask<AIReviewerPolicyVerdict>(
+                    new AIReviewerPolicyVerdict { IsOffered = policy.IsAIReviewerOffered });
+            });
+
         public ValueTask<AccessVerdict> MayRecordApprovalReviewAsync(
             RecordReviewRequest recordReviewRequest) =>
             TryCatch(() =>

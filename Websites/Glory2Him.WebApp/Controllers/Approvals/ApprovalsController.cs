@@ -15,6 +15,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Foundations.AIReviewerAssignments;
 using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests.Exceptions;
 using Glory2Him.Core.Models.Foundations.Approvals.Exceptions;
@@ -668,6 +669,186 @@ namespace Glory2Him.WebApp.Controllers.Approvals
                     cancellationToken);
 
                 return NoContent();
+            }
+            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
+                when (approvalOrchestrationValidationException.InnerException
+                    is NotFoundApprovalOrchestrationException)
+            {
+                return NotFound(approvalOrchestrationValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
+                when (approvalOrchestrationValidationException.InnerException
+                    is UnauthorizedApprovalOrchestrationException)
+            {
+                return Unauthorized(approvalOrchestrationValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
+            {
+                return BadRequest(approvalOrchestrationValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationDependencyValidationException
+                approvalOrchestrationDependencyValidationException)
+            {
+                return BadRequest(approvalOrchestrationDependencyValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationDependencyException approvalOrchestrationDependencyException)
+            {
+                return FailedDependency(approvalOrchestrationDependencyException.InnerException);
+            }
+            catch (ApprovalOrchestrationServiceException approvalOrchestrationServiceException)
+            {
+                return InternalServerError(approvalOrchestrationServiceException);
+            }
+        }
+
+        /// <summary>
+        /// Berean's status on this round (design §8.6.2) — whether it is offered, whether it has
+        /// been assigned, and how far its (not-yet-built) automated pass has gotten.
+        ///
+        /// <para><b>Same tier as the candidates and requests beside it</b>, not narrowed to the
+        /// verdict's Publishers/Administrators: asking for Berean is coordination, exactly like
+        /// asking a person (§7.9 rule 2), and this is the one read that answers whether the
+        /// picker should even suggest it.</para>
+        ///
+        /// <para>Not SELECTs only, like the candidates read: resolving the reviewer scope opens
+        /// a missing round (§16.7.2), so the same dependency-validation fault is reachable
+        /// here.</para>
+        /// </summary>
+        [HttpGet("{entityType}/{entityId}/AIReviewer")]
+        [Authorize]
+        public async ValueTask<ActionResult<AIReviewerStatus>> GetAIReviewerAsync(
+            EntityType entityType,
+            Guid entityId,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                AIReviewerStatus aiReviewerStatus =
+                    await this.approvalOrchestrationService.RetrieveAIReviewerStatusAsync(
+                        entityType,
+                        entityId,
+                        cancellationToken);
+
+                return Ok(aiReviewerStatus);
+            }
+            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
+                when (approvalOrchestrationValidationException.InnerException
+                    is NotFoundApprovalOrchestrationException)
+            {
+                return NotFound(approvalOrchestrationValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
+                when (approvalOrchestrationValidationException.InnerException
+                    is UnauthorizedApprovalOrchestrationException)
+            {
+                return Unauthorized(approvalOrchestrationValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
+            {
+                return BadRequest(approvalOrchestrationValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationDependencyValidationException
+                approvalOrchestrationDependencyValidationException)
+            {
+                return BadRequest(approvalOrchestrationDependencyValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationDependencyException approvalOrchestrationDependencyException)
+            {
+                return FailedDependency(approvalOrchestrationDependencyException.InnerException);
+            }
+            catch (ApprovalOrchestrationServiceException approvalOrchestrationServiceException)
+            {
+                return InternalServerError(approvalOrchestrationServiceException);
+            }
+        }
+
+        /// <summary>
+        /// Assigns Berean to this round, or asks it again once a prior assignment has completed
+        /// (design §8.6.2). An UPSERT, unlike <see cref="PostReviewRequestAsync"/>: there is no
+        /// per-user dimension for a second row to key on (see <c>AIReviewerAssignment</c>'s own
+        /// doc), so the same click means "create", "reset" or "no-op" depending on what the one
+        /// possible row is doing — and every one of those is a <c>200</c> carrying the live row,
+        /// never the <c>204</c> the human invitation answers with, because there is always
+        /// something real to hand back.
+        ///
+        /// <para>Refused with <c>400</c> when the round is not <c>Submitted</c> or the resolved
+        /// <c>IsAIReviewerOffered</c> is false — fail-closed, asked fresh on every write rather
+        /// than trusted from whatever the caller's picker last showed.</para>
+        /// </summary>
+        [HttpPost("{entityType}/{entityId}/AIReviewer")]
+        [Authorize]
+        public async ValueTask<ActionResult<AIReviewerAssignment>> PostAIReviewerAsync(
+            EntityType entityType,
+            Guid entityId,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                AIReviewerAssignment aiReviewerAssignment =
+                    await this.approvalOrchestrationService.RequestAIReviewerAsync(
+                        entityType,
+                        entityId,
+                        cancellationToken);
+
+                return Ok(aiReviewerAssignment);
+            }
+            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
+                when (approvalOrchestrationValidationException.InnerException
+                    is NotFoundApprovalOrchestrationException)
+            {
+                return NotFound(approvalOrchestrationValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
+                when (approvalOrchestrationValidationException.InnerException
+                    is UnauthorizedApprovalOrchestrationException)
+            {
+                return Unauthorized(approvalOrchestrationValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
+            {
+                return BadRequest(approvalOrchestrationValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationDependencyValidationException
+                approvalOrchestrationDependencyValidationException)
+            {
+                return BadRequest(approvalOrchestrationDependencyValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationDependencyException approvalOrchestrationDependencyException)
+            {
+                return FailedDependency(approvalOrchestrationDependencyException.InnerException);
+            }
+            catch (ApprovalOrchestrationServiceException approvalOrchestrationServiceException)
+            {
+                return InternalServerError(approvalOrchestrationServiceException);
+            }
+        }
+
+        /// <summary>
+        /// Withdraws Berean's assignment (design §8.6.2). Unconditional, unlike
+        /// <see cref="DeleteReviewRequestAsync"/>: re-requesting now covers "ask again after
+        /// completion" (see <see cref="PostAIReviewerAsync"/>), so there is no answered-invitation
+        /// state left for this to refuse.
+        ///
+        /// <para><c>200</c> carrying the removed row, or <c>204</c> when nothing was assigned —
+        /// idempotent, the same posture the human withdrawal takes for the same reason: a stale
+        /// panel is not a mistake.</para>
+        /// </summary>
+        [HttpDelete("{entityType}/{entityId}/AIReviewer")]
+        [Authorize]
+        public async ValueTask<ActionResult<AIReviewerAssignment>> DeleteAIReviewerAsync(
+            EntityType entityType,
+            Guid entityId,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                AIReviewerAssignment aiReviewerAssignment =
+                    await this.approvalOrchestrationService.WithdrawAIReviewerAsync(
+                        entityType,
+                        entityId,
+                        cancellationToken);
+
+                return aiReviewerAssignment is null ? NoContent() : Ok(aiReviewerAssignment);
             }
             catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
                 when (approvalOrchestrationValidationException.InnerException

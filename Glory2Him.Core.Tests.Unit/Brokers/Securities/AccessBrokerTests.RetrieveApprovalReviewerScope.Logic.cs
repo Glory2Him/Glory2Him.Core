@@ -15,6 +15,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
@@ -110,6 +111,42 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                 new[] { "standing-reviewer", "dismissed-reviewer", "withdrawn-reviewer" },
                 because: "the panel renders those rows, so the resolver has to name their "
                     + "authors whatever became of the verdicts");
+        }
+
+        // §8.6.2: the scope carries the resolved IsAIReviewerOffered so the invitation flow can
+        // answer "should Berean even be offered" without a second broker call.
+        [Fact]
+        public async Task ShouldCarryTheResolvedIsAIReviewerOfferedAsync()
+        {
+            // given
+            Guid approvalId = Guid.NewGuid();
+            Guid entityId = Guid.NewGuid();
+
+            Approval approval = CreateApproval(
+                approvalId: approvalId,
+                entityType: EntityType.ContentItem,
+                entityId: entityId,
+                approvalStatus: ApprovalStatus.Submitted);
+
+            SetupApprovalById(approval);
+            SetupEntityAuthor(EntityType.ContentItem, entityId, createdBy: "the-entity-owner");
+            SetupApprovalReviews();
+            SetupApprovalComments();
+            SetupApprovalReviewRequests();
+
+            this.accessClientMock.Setup(client =>
+                client.ResolveAIReviewerPolicyAsync(
+                    It.IsAny<ResolveAIReviewerPolicyRequest>()))
+                        .ReturnsAsync(new AIReviewerPolicyVerdict { IsOffered = true });
+
+            // when
+            ApprovalReviewerScope actualScope =
+                await this.accessBroker.RetrieveApprovalReviewerScopeByIdAsync(
+                    approvalId: approvalId,
+                    cancellationToken: default);
+
+            // then
+            actualScope.IsAIReviewerOffered.Should().BeTrue();
         }
     }
 }

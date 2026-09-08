@@ -52,6 +52,30 @@ namespace G2H.Security.Client.Clients.Access
             }
         }
 
+        public async ValueTask<AIReviewerPolicyVerdict> ResolveAIReviewerPolicyAsync(
+            ResolveAIReviewerPolicyRequest resolveAIReviewerPolicyRequest)
+        {
+            try
+            {
+                return await this.accessService
+                    .ResolveAIReviewerPolicyAsync(resolveAIReviewerPolicyRequest);
+            }
+            catch (AccessValidationException accessValidationException)
+            {
+                throw CreateAccessClientValidationException(
+                    accessValidationException.InnerException as Xeption);
+            }
+            catch (AccessServiceException accessServiceException)
+            {
+                throw CreateAccessClientDependencyException(
+                    accessServiceException.InnerException as Xeption);
+            }
+            catch (Exception exception)
+            {
+                throw CreateAccessClientServiceException(exception);
+            }
+        }
+
         public async ValueTask<AccessVerdict> MayRecordApprovalReviewAsync(
             RecordReviewRequest recordReviewRequest)
         {

@@ -80,6 +80,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                                     RequestedUserId = invitedId.ToString(),
                                 }
                             },
+                            IsAIReviewerOffered = false,
                         });
 
             // when
@@ -126,6 +127,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                             ActiveReviewerUserIds = Array.Empty<string>(),
                             RecordedReviewerUserIds = Array.Empty<string>(),
                             ActiveRequests = Array.Empty<ActiveReviewRequest>(),
+                            IsAIReviewerOffered = false,
                         });
 
             // when
@@ -220,6 +222,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                                     RequestedUserId = invitedId.ToString(),
                                 }
                             },
+                            IsAIReviewerOffered = false,
                         });
 
             var retirementException =

@@ -23,6 +23,7 @@ using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
+using Glory2Him.Core.Services.Foundations.AIReviewerAssignments;
 using Glory2Him.Core.Services.Foundations.ApprovalComments;
 using Glory2Him.Core.Services.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Services.Foundations.IdentityUsers;
@@ -38,6 +39,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         private readonly IApprovalCommentService approvalCommentService;
         private readonly IApprovalReviewRequestService approvalReviewRequestService;
         private readonly IApprovalReviewRequestWorkflowService approvalReviewRequestWorkflowService;
+        private readonly IAIReviewerAssignmentService aiReviewerAssignmentService;
         private readonly IIdentityUserService identityUserService;
         private readonly IAccessBroker accessBroker;
         private readonly IEventEnvelopeBroker eventEnvelopeBroker;
@@ -57,6 +59,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             IApprovalCommentService approvalCommentService,
             IApprovalReviewRequestService approvalReviewRequestService,
             IApprovalReviewRequestWorkflowService approvalReviewRequestWorkflowService,
+            IAIReviewerAssignmentService aiReviewerAssignmentService,
             IIdentityUserService identityUserService,
             IAccessBroker accessBroker,
             IEventEnvelopeBroker eventEnvelopeBroker,
@@ -69,6 +72,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             this.approvalCommentService = approvalCommentService;
             this.approvalReviewRequestService = approvalReviewRequestService;
             this.approvalReviewRequestWorkflowService = approvalReviewRequestWorkflowService;
+            this.aiReviewerAssignmentService = aiReviewerAssignmentService;
             this.identityUserService = identityUserService;
             this.accessBroker = accessBroker;
             this.eventEnvelopeBroker = eventEnvelopeBroker;
