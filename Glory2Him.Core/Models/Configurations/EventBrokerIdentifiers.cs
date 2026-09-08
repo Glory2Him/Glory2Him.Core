@@ -62,6 +62,7 @@ namespace Glory2Him.Core.Models.Configurations
 
             var entityEventAddresses = new[]
             {
+                AIReviewerAssignmentEventAddresses,
                 ApprovalEventAddresses,
                 ApprovalCommentEventAddresses,
                 ApprovalReviewEventAddresses,
