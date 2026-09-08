@@ -68,7 +68,6 @@ import {
     ApprovalDecision,
     ApprovalStatus as ReviewVote,
     BereanAIReviewer,
-    BereanAIReviewerUserId,
     ReviewerCandidateItem
 } from '../../models/components/approvals/approvalReviewItem';
 

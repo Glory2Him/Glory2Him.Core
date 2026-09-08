@@ -770,8 +770,13 @@ describe('ContentItemModerationDetailPage', () => {
                 // when
                 renderPage();
 
-                // then
-                expect(screen.getByText('Berean')).toBeInTheDocument();
+                // then: asked, in the ROUND's list — which is the assertion with teeth now that
+                // an assignment also puts Berean under the picker's Requested band. A
+                // document-wide query for the name would pass on either one.
+                const bereanRow = bereanReviewRow();
+
+                expect(bereanRow).not.toBeNull();
+                expect(bereanRow?.textContent).toContain('Berean');
                 expect(screen.getByTitle("Berean's review is pending")).toBeInTheDocument();
             });
 
