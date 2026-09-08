@@ -25,6 +25,7 @@ using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Registrations;
+using Glory2Him.Core.Services.Foundations.AIReviewerAssignments;
 using Glory2Him.Core.Services.Foundations.ApprovalComments;
 using Glory2Him.Core.Services.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Services.Foundations.ApprovalReviews;
@@ -140,6 +141,7 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
                 approvalReviewRequestWorkflowService:
                     new Mock<IApprovalReviewRequestWorkflowService>().Object,
 
+                aiReviewerAssignmentService: new Mock<IAIReviewerAssignmentService>().Object,
                 identityUserService: new Mock<IIdentityUserService>().Object,
                 accessBroker: BuildAccessBrokerMock().Object,
                 eventEnvelopeBroker: new Mock<IEventEnvelopeBroker>().Object,
