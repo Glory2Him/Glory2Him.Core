@@ -25,6 +25,14 @@ namespace Glory2Him.Core.Models.Securities
     /// and nothing else crosses back - the row bodies stay inside the broker, the same discipline
     /// ApprovalEntityMatch follows.</para>
     ///
+    /// <para>The §8.6.2 AI-reviewer switch deliberately does NOT live here. Berean is not a
+    /// role-bearing identity and holds no ApprovalReviewRequest, so it is not in the population
+    /// this scope describes; it is resolved on its own through
+    /// <c>IAccessBroker.ResolveAIReviewerPolicyByIdAsync</c>. Carrying it here made every caller
+    /// of this gather - the candidates read, the 16.7.4 name resolver a moderation panel polls,
+    /// and every invitation operation - pay an ApprovalSetting scan for a field only the
+    /// AI-reviewer paths read.</para>
+    ///
     /// <para>Gather-only: producing one writes nothing, decides nothing and grants nothing. The
     /// decisions it feeds are made above it.</para>
     /// </summary>
@@ -93,17 +101,5 @@ namespace Glory2Him.Core.Models.Securities
         /// them.
         /// </summary>
         public required IReadOnlyList<ActiveReviewRequest> ActiveRequests { get; init; }
-
-        /// <summary>
-        /// The resolved <c>ApprovalSetting.IsAIReviewerOffered</c> (design §8.6.2) — whether
-        /// Berean should be offered in the reviewer-request picker and may be assigned at all.
-        ///
-        /// <para>Lives here rather than behind its own broker call because it answers exactly
-        /// the same question this scope already exists to answer for a person: who may be
-        /// invited (§7.9). It is visible to the whole requesting tier this scope is gathered
-        /// for, not narrowed to Publishers/Administrators the way the Verdict is — a plain
-        /// Reviewer may ask for Berean just as they may ask for a person (§7.9 rule 2).</para>
-        /// </summary>
-        public required bool IsAIReviewerOffered { get; init; }
     }
 }

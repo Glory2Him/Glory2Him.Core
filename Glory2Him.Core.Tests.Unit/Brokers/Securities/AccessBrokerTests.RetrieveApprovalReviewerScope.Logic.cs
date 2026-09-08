@@ -113,10 +113,21 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                     + "authors whatever became of the verdicts");
         }
 
-        // §8.6.2: the scope carries the resolved IsAIReviewerOffered so the invitation flow can
-        // answer "should Berean even be offered" without a second broker call.
+        /// <summary>
+        /// §8.6.2's switch is NOT gathered here, and this is the test that keeps it that way. The
+        /// resolution moved to <c>ResolveAIReviewerPolicyByIdAsync</c> because Berean is not in
+        /// the population this scope describes — it holds no role and no
+        /// <c>ApprovalReviewRequest</c> — and because carrying it here charged every caller of
+        /// this gather a full <c>ApprovalSetting</c> scan for a field only the two AI-reviewer
+        /// paths read. That includes the §16.7.4 name resolver a moderation panel polls.
+        ///
+        /// <para>Asserted on the two calls the saving actually consists of: the settings read and
+        /// the decision function behind it. A test that only checked the returned scope could not
+        /// see either, because the field it would have looked for no longer exists to be
+        /// wrong.</para>
+        /// </summary>
         [Fact]
-        public async Task ShouldCarryTheResolvedIsAIReviewerOfferedAsync()
+        public async Task ShouldNotResolveTheAIReviewerPolicyWhileGatheringTheScopeAsync()
         {
             // given
             Guid approvalId = Guid.NewGuid();
@@ -134,19 +145,23 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             SetupApprovalComments();
             SetupApprovalReviewRequests();
 
-            this.accessClientMock.Setup(client =>
-                client.ResolveAIReviewerPolicyAsync(
-                    It.IsAny<ResolveAIReviewerPolicyRequest>()))
-                        .ReturnsAsync(new AIReviewerPolicyVerdict { IsOffered = true });
-
             // when
             ApprovalReviewerScope actualScope =
                 await this.accessBroker.RetrieveApprovalReviewerScopeByIdAsync(
                     approvalId: approvalId,
                     cancellationToken: default);
 
-            // then
-            actualScope.IsAIReviewerOffered.Should().BeTrue();
+            // then: the gather still answers, and it answered without asking about Berean
+            actualScope.Should().NotBeNull();
+
+            this.accessClientMock.Verify(client =>
+                client.ResolveAIReviewerPolicyAsync(
+                    It.IsAny<ResolveAIReviewerPolicyRequest>()),
+                Times.Never);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAllApprovalSettingsAsync(It.IsAny<CancellationToken>()),
+                Times.Never);
         }
     }
 }

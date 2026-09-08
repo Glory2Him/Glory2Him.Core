@@ -12,7 +12,6 @@
 using System;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Orchestrations.Approvals.Exceptions;
-using Glory2Him.Core.Models.Securities;
 
 namespace Glory2Him.Core.Services.Orchestrations.Approvals
 {
@@ -44,12 +43,18 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
 
         // Fail-closed (§8.4 rule 2): the resolved policy must say so explicitly, on every write,
         // never assumed from whatever the picker last showed the caller.
+        //
+        // The flag arrives from IAccessBroker.ResolveAIReviewerPolicyByIdAsync, which answers null
+        // for a round it cannot resolve — and the caller collapses that null to false, so an
+        // UNREAD policy reaches this gate looking exactly like a switched-off one. That is the
+        // fail-closed reading and it is deliberate: a verdict nobody could read is not a
+        // permission.
         private static void ValidateAIReviewerIsOffered(
-            ApprovalReviewerScope scope,
+            bool isAIReviewerOffered,
             EntityType entityType,
             Guid entityId)
         {
-            if (scope.IsAIReviewerOffered is false)
+            if (isAIReviewerOffered is false)
             {
                 throw new InvalidApprovalOrchestrationException(
                     message: $"The AI reviewer is not offered for {entityType} with id: "

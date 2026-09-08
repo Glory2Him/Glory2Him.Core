@@ -16,6 +16,7 @@ using System.Threading.Tasks;
 using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.AIReviewerAssignments;
+using Glory2Him.Core.Models.Foundations.AIReviewerAssignments.Exceptions;
 using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests.Exceptions;
 using Glory2Him.Core.Models.Foundations.Approvals.Exceptions;
@@ -773,7 +774,9 @@ namespace Glory2Him.WebApp.Controllers.Approvals
         ///
         /// <para>Refused with <c>400</c> when the round is not <c>Submitted</c> or the resolved
         /// <c>IsAIReviewerOffered</c> is false — fail-closed, asked fresh on every write rather
-        /// than trusted from whatever the caller's picker last showed.</para>
+        /// than trusted from whatever the caller's picker last showed. <c>409</c> is reserved for
+        /// the one collision the orchestration's re-read cannot dissolve: the winning row
+        /// withdrawn between the collision and the re-read.</para>
         /// </summary>
         [HttpPost("{entityType}/{entityId}/AIReviewer")]
         [Authorize]
@@ -807,6 +810,19 @@ namespace Glory2Him.WebApp.Controllers.Approvals
             catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
             {
                 return BadRequest(approvalOrchestrationValidationException.InnerException);
+            }
+
+            // THE COLLISION THAT OUTLIVED THE RE-READ. RequestAIReviewerAsync answers a losing
+            // race by handing back the winner's row, so reaching here means the winner was
+            // withdrawn in the sliver between the collision and the re-read — the caller's view
+            // of this round is genuinely stale, which is what 409 says and what 400 does not.
+            // Mirrors PostReviewRequestAsync's arm for the same state on the human path.
+            catch (ApprovalOrchestrationDependencyValidationException
+                approvalOrchestrationDependencyValidationException)
+                when (approvalOrchestrationDependencyValidationException.InnerException
+                    is AlreadyExistsAIReviewerAssignmentException)
+            {
+                return Conflict(approvalOrchestrationDependencyValidationException.InnerException);
             }
             catch (ApprovalOrchestrationDependencyValidationException
                 approvalOrchestrationDependencyValidationException)

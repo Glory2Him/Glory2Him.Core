@@ -107,7 +107,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                             ActiveReviewerUserIds = Array.Empty<string>(),
                             RecordedReviewerUserIds = Array.Empty<string>(),
                             ActiveRequests = Array.Empty<ActiveReviewRequest>(),
-                            IsAIReviewerOffered = false,
                         });
         }
 
@@ -141,7 +140,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                             ActiveReviewerUserIds = Array.Empty<string>(),
                             RecordedReviewerUserIds = Array.Empty<string>(),
                             ActiveRequests = Array.Empty<ActiveReviewRequest>(),
-                            IsAIReviewerOffered = false,
                         });
         }
 
@@ -200,8 +198,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
                             ActiveRequests =
                                 activeRequests ?? Array.Empty<ActiveReviewRequest>(),
-
-                            IsAIReviewerOffered = false,
                         });
         }
 

@@ -11,6 +11,7 @@
 
 using System;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Foundations.AIReviewerAssignments.Exceptions;
 using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests.Exceptions;
 using Glory2Him.Core.Models.Foundations.Approvals.Exceptions;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
@@ -133,6 +134,37 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             {
                 throw await CreateAndLogDependencyExceptionAsync(
                     exception: approvalReviewRequestServiceException);
+            }
+
+            // The AIReviewerAssignment foundation's exceptions (design 8.6.2), for exactly the
+            // reason the ApprovalReviewRequest arm above exists. Berean's assignment has the same
+            // four families and the same kinds of routine refusal — a ReadOnly caller, an
+            // assignment born already completed, a comments-present flag on a review that never
+            // ran, and the uniqueness collision that outlives RequestAIReviewerAsync's re-read —
+            // and every one of them is the caller's to fix. Left to the catch-all below they all
+            // reach the client as a 424, which says the server is broken about a request the
+            // server understood perfectly and declined.
+            catch (AIReviewerAssignmentValidationException aiReviewerAssignmentValidationException)
+            {
+                throw await CreateAndLogDependencyValidationExceptionAsync(
+                    exception: aiReviewerAssignmentValidationException);
+            }
+            catch (AIReviewerAssignmentDependencyValidationException
+                aiReviewerAssignmentDependencyValidationException)
+            {
+                throw await CreateAndLogDependencyValidationExceptionAsync(
+                    exception: aiReviewerAssignmentDependencyValidationException);
+            }
+            catch (AIReviewerAssignmentDependencyException
+                aiReviewerAssignmentDependencyException)
+            {
+                throw await CreateAndLogDependencyExceptionAsync(
+                    exception: aiReviewerAssignmentDependencyException);
+            }
+            catch (AIReviewerAssignmentServiceException aiReviewerAssignmentServiceException)
+            {
+                throw await CreateAndLogDependencyExceptionAsync(
+                    exception: aiReviewerAssignmentServiceException);
             }
             // Any OTHER downstream foundation exception — an endpoint service's dependency or
             // service failure (its validation failures are already turned into a not-found at the

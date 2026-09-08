@@ -20,6 +20,7 @@ using Force.DeepCloner;
 using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.AIReviewerAssignments;
+using Glory2Him.Core.Models.Foundations.AIReviewerAssignments.Exceptions;
 using Glory2Him.Core.Models.Foundations.Approvals.Exceptions;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
 using Glory2Him.Core.Models.Orchestrations.Approvals.Exceptions;
@@ -2349,6 +2350,66 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
                     It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()))
                         .ThrowsAsync(validationException);
+
+            // when
+            ActionResult<AIReviewerAssignment> actualActionResult =
+                await this.approvalsController.PostAIReviewerAsync(
+                    GetRandomEntityType(),
+                    Guid.NewGuid(),
+                    default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.RequestAIReviewerAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        /// <summary>
+        /// The one collision the orchestration's re-read cannot dissolve — the winning row
+        /// withdrawn in the sliver between the collision and the re-read — is a <c>409</c>, not
+        /// the <c>400</c> every other dependency-validation refusal on this action gets. The
+        /// caller's view of the round is stale rather than wrong, which is what 409 says.
+        ///
+        /// <para>Ordered ABOVE the plain BadRequest arm in the controller, so this test also pins
+        /// that ordering: swap the two arms and the <c>when</c> filter never runs.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnConflictOnPostAIReviewerIfAlreadyExistsErrorOccurredAsync()
+        {
+            // given
+            var someInnerException = new Exception();
+            string someMessage = GetRandomString();
+
+            var alreadyExistsAIReviewerAssignmentException =
+                new AlreadyExistsAIReviewerAssignmentException(
+                    message: someMessage,
+                    innerException: someInnerException,
+                    data: someInnerException.Data);
+
+            var approvalOrchestrationDependencyValidationException =
+                new ApprovalOrchestrationDependencyValidationException(
+                    message: someMessage,
+                    innerException: alreadyExistsAIReviewerAssignmentException);
+
+            ConflictObjectResult expectedConflictObjectResult =
+                Conflict(alreadyExistsAIReviewerAssignmentException);
+
+            var expectedActionResult =
+                new ActionResult<AIReviewerAssignment>(expectedConflictObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.RequestAIReviewerAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(approvalOrchestrationDependencyValidationException);
 
             // when
             ActionResult<AIReviewerAssignment> actualActionResult =

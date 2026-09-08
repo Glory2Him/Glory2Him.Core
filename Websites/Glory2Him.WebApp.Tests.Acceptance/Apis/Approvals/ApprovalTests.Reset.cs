@@ -231,21 +231,29 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Approvals
                 UpdatedWhen = arrangedWhen,
             };
 
-            await this.apiBroker.InsertCoreApprovalSettingAsync(autoApprovingPolicy);
+            CoreContentItem submitted = null;
+            Approval approval = null;
 
-            CoreContentItem submitted = await this.apiBroker.InsertContentItemVersionAsync(
-                groupId: Guid.NewGuid(),
-                version: 1,
-                approvalStatus: ApprovalStatus.Submitted,
-                isPublished: false,
-                authorUserId: authorUserId,
-                contentType: ContentType.VerseImage);
-
-            Approval approval = await this.apiBroker.InsertSubmittedApprovalAsync(
-                EntityType.ContentItem, submitted.Id, authorUserId);
-
+            // INSIDE THE TRY, all of it. The policy row holds
+            // UX_ApprovalSettings_EntityTypeContentType for (ContentItem, VerseImage) from the
+            // moment it is stored, and the two arrangements after it can throw — so an insert
+            // above the try is a row holding a scope this collection hands round with nothing
+            // left to release it.
             try
             {
+                await this.apiBroker.InsertCoreApprovalSettingAsync(autoApprovingPolicy);
+
+                submitted = await this.apiBroker.InsertContentItemVersionAsync(
+                    groupId: Guid.NewGuid(),
+                    version: 1,
+                    approvalStatus: ApprovalStatus.Submitted,
+                    isPublished: false,
+                    authorUserId: authorUserId,
+                    contentType: ContentType.VerseImage);
+
+                approval = await this.apiBroker.InsertSubmittedApprovalAsync(
+                    EntityType.ContentItem, submitted.Id, authorUserId);
+
                 await this.apiBroker.PostApprovalDecisionAsync(
                     EntityType.ContentItem, submitted.Id, decision: "Approve");
 
@@ -270,8 +278,16 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Approvals
             }
             finally
             {
-                await this.apiBroker.RemoveApprovalAsync(approval);
-                await this.apiBroker.RemoveCoreContentItemByIdAsync(submitted.Id);
+                if (approval is not null)
+                {
+                    await this.apiBroker.RemoveApprovalAsync(approval);
+                }
+
+                if (submitted is not null)
+                {
+                    await this.apiBroker.RemoveCoreContentItemByIdAsync(submitted.Id);
+                }
+
                 await this.apiBroker.RemoveCoreApprovalSettingByIdAsync(autoApprovingPolicy.Id);
             }
         }

@@ -10,10 +10,14 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Net;
+using System.Net.Http;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Foundations.AIReviewerAssignments;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.Approvals;
+using Glory2Him.Core.Models.Orchestrations.Approvals;
 
 namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
 {
@@ -96,5 +100,75 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
         public async ValueTask RemoveApprovalAsync(Approval approval) =>
             await this.storageBroker.DeleteApprovalAsync(approval);
 
+        /// <summary>
+        /// Berean's status on a round (§8.6.2), keyed on the entity like every other read on this
+        /// exposer — a moderation panel knows the item it is showing and never the approval's id.
+        /// </summary>
+        public async ValueTask<AIReviewerStatus> GetAIReviewerStatusAsync(
+            EntityType entityType,
+            Guid entityId) =>
+            await this.apiFactoryClient.GetContentAsync<AIReviewerStatus>(
+                $"{approvalsRelativeUrl}/{entityType}/{entityId}/AIReviewer");
+
+        /// <summary>
+        /// The UPSERT. No query values and no body — the entity key is the whole request, and what
+        /// the same call MEANS (create, reset, or nothing to do) is decided from the round's own
+        /// state rather than from anything sent here.
+        /// </summary>
+        public async ValueTask<AIReviewerAssignment> PostAIReviewerAsync(
+            EntityType entityType,
+            Guid entityId) =>
+            await this.apiFactoryClient.PostContentAsync<object, AIReviewerAssignment>(
+                relativeUrl: $"{approvalsRelativeUrl}/{entityType}/{entityId}/AIReviewer",
+                content: new { });
+
+        public async ValueTask<AIReviewerAssignment> DeleteAIReviewerAsync(
+            EntityType entityType,
+            Guid entityId) =>
+            await this.apiFactoryClient.DeleteContentAsync<AIReviewerAssignment>(
+                $"{approvalsRelativeUrl}/{entityType}/{entityId}/AIReviewer");
+
+        /// <summary>
+        /// The same route, answered with its STATUS CODE rather than a deserialised row. The
+        /// withdrawal is idempotent and answers <c>204</c> when nothing was assigned, and a
+        /// no-content response has no body for the typed call above to read — which makes the code
+        /// the only thing that distinguishes "removed it" from "there was nothing to remove".
+        /// </summary>
+        public async ValueTask<HttpStatusCode> DeleteAIReviewerReturningStatusAsync(
+            EntityType entityType,
+            Guid entityId)
+        {
+            HttpResponseMessage response = await this.httpClient.DeleteAsync(
+                $"{approvalsRelativeUrl}/{entityType}/{entityId}/AIReviewer");
+
+            return response.StatusCode;
+        }
+
+        /// <summary>
+        /// The stored row by its own id — read BENEATH the endpoints, because that is the only way
+        /// to see a withdrawn assignment. Removal is a soft delete, and the round-keyed read every
+        /// endpoint uses is filtered to live rows, so an assertion about what withdrawal did to
+        /// the row cannot be made through the API that made it.
+        /// </summary>
+        public async ValueTask<AIReviewerAssignment> GetCoreAIReviewerAssignmentByIdAsync(
+            Guid aiReviewerAssignmentId) =>
+            await this.storageBroker.SelectAIReviewerAssignmentByIdAsync(aiReviewerAssignmentId);
+
+        /// <summary>
+        /// Physical teardown, for the same reason <c>ApprovalSetting</c>'s is physical: the row
+        /// must not outlive the test, and a soft-deleted one still occupies its round's slot for
+        /// nothing.
+        /// </summary>
+        public async ValueTask RemoveCoreAIReviewerAssignmentByIdAsync(Guid aiReviewerAssignmentId)
+        {
+            AIReviewerAssignment storedAssignment =
+                await this.storageBroker.SelectAIReviewerAssignmentByIdAsync(
+                    aiReviewerAssignmentId);
+
+            if (storedAssignment is not null)
+            {
+                await this.storageBroker.DeleteAIReviewerAssignmentAsync(storedAssignment);
+            }
+        }
     }
 }

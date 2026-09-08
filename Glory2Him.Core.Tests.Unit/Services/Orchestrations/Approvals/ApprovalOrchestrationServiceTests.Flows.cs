@@ -1118,6 +1118,79 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     "content be approved on reviews of text it no longer matches");
         }
 
+        /// <summary>
+        /// THE EDIT PATH DOES NOT TOUCH BEREAN'S ASSIGNMENT, and this test records that as a gap
+        /// rather than as a settled behaviour. §8.8's <c>RequireReapprovalOnChange</c> dismisses
+        /// every human review, while the assignment — keyed on the APPROVAL rather than on the
+        /// round's reviews — keeps reporting a completed pass with comments over text Berean
+        /// never saw. §8.6.2's re-trigger event is not built, so nothing corrects it. The §8.6
+        /// HR-4 override in Resets.cs closes the same gap on its own path.
+        ///
+        /// <para>Not closed by simply calling the reset here: every member of the
+        /// <c>AIReviewerAssignment</c> foundation is caller-gated on the review tier, and this
+        /// flow runs under the EDITOR's identity — an author revising their own submission, in
+        /// the ordinary case, holds no review role. The read would answer null, the write would
+        /// refuse, and a denial warning would be logged on every edit. Closing it needs the pair
+        /// the human half already has: a gathering seam for the read and a system-identity
+        /// workflow member for the write.</para>
+        ///
+        /// <para>Pinned so the day that pair arrives, this test fails and is rewritten into the
+        /// assertion it should have been — rather than the gap being re-discovered by a panel
+        /// showing a finished AI pass on re-opened content.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldNotYetReturnBereansAssignmentToPendingWhenAnEditDismissesTheReviewsAsync()
+        {
+            // given
+            var approvalId = Guid.NewGuid();
+            var entityId = Guid.NewGuid();
+            var staleReviewId = Guid.NewGuid();
+
+            Approval storageApproval = CreateFlowApproval(
+                approvalId: approvalId,
+                entityId: entityId,
+                entityType: EntityType.Link,
+                approvalStatus: ApprovalStatus.Submitted);
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Submitted, approvalId));
+            SetupFlowApprovalRow(storageApproval);
+            SetupDismissableReviews(approvalId, staleReviewId);
+
+            // A COMPLETED assignment is standing, so a flow that reached for it would have
+            // something to write — the absence below is about the flow, not about an empty round.
+            SetupStoredAIReviewerAssignment(
+                approvalId,
+                CreateAIReviewerAssignment(
+                    approvalId: approvalId,
+                    isAIReviewCompleted: true,
+                    isAIReviewCommentsPresent: true));
+
+            SetupAIReviewerAssignmentWrites();
+
+            SetupFlowConditionsReads(
+                firstConditions: CreateFlowConditions(
+                    shouldResetStaleReviewsOnChange: true),
+
+                secondConditions: CreateFlowConditions(
+                    shouldResetStaleReviewsOnChange: true));
+
+            // when
+            await this.approvalOrchestrationService.ProcessEntityModifiedAsync(
+                EntityType.Link,
+                entityId,
+                TestContext.Current.CancellationToken);
+
+            // then: the human half ran
+            this.approvalReviewServiceMock.Verify(service =>
+                service.DismissStaleApprovalReviewAsync(
+                    staleReviewId,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            // and the AI half did not — not the write, and not even the read
+            this.aiReviewerAssignmentServiceMock.VerifyNoOtherCalls();
+        }
+
         // The unfiltered view: what storage holds for the round, regardless of who is asking.
         private void SetupDismissableReviews(Guid approvalId, params Guid[] approvalReviewIds) =>
             this.accessBrokerMock.Setup(broker =>

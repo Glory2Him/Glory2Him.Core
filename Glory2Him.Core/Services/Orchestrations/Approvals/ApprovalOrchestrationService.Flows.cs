@@ -101,6 +101,26 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                     approvalId: approval.Id,
                     cancellationToken: cancellationToken);
 
+                // BEREAN IS NOT DISMISSED HERE, AND THAT IS A KNOWN GAP RATHER THAN A DECISION.
+                // Its assignment is keyed on the APPROVAL rather than on the round's reviews, so
+                // an edit leaves it exactly as it stood — still reporting a finished pass, with
+                // comments, over text Berean never saw. §8.6.2's re-trigger event is not built,
+                // so nothing corrects it. The §8.6 HR-4 override in Resets.cs closes the same gap
+                // on its own path; this one, the commoner of the two, is still open.
+                //
+                // ResetStaleAIReviewerAssignmentAsync cannot simply be called here. It goes
+                // through the caller-facing AIReviewerAssignment foundation, whose read answers
+                // null and whose write refuses outright for anyone outside the review tier — and
+                // this flow runs under the EDITOR's identity, which for the ordinary case (an
+                // author revising their own submission) holds no review role at all. Calling it
+                // would read null, write nothing, and log a denial warning on every edit: the
+                // same identity-filtered trap DismissStaleApprovalReviewsAsync documents below,
+                // which is why the human half goes through a gathering seam and a workflow
+                // service that mints the System identity itself.
+                //
+                // Closing it needs the same pair for the AI row — an unfiltered round-keyed read
+                // and a system-identity write on the foundation — neither of which exists yet.
+
                 // RE-READ, and this is the whole reason evaluation takes its verdict rather than
                 // fetching one: the conditions above were measured against reviews that no longer
                 // count. Evaluating on them would auto-approve using approvals just discarded —

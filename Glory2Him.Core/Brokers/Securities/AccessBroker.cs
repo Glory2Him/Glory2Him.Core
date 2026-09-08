@@ -961,6 +961,56 @@ namespace Glory2Him.Core.Brokers.Securities
                 });
         }
 
+        // §8.6.2's feature switch, resolved the same way its neighbour above resolves the §8.5
+        // conditions — off the STORED approval's target, never a payload — and narrowed to the
+        // one field a caller deciding whether to offer Berean at all can use.
+        //
+        // ITS OWN MEMBER, and that is the point of it. This resolution used to ride on
+        // RetrieveApprovalReviewerScopeByIdAsync below, which made EVERY caller of that gather —
+        // the candidates read, the §16.7.4 display-name resolver a moderation panel polls, and
+        // every invitation operation — pay a full ApprovalSettings scan to answer a question only
+        // the two AI-reviewer paths ask. Berean is also not in the population that scope exists to
+        // describe: it holds no role and no invitation row, so a feature switch for it was never a
+        // field of a per-person invitation gather.
+        public async ValueTask<AIReviewerPolicyVerdict?> ResolveAIReviewerPolicyByIdAsync(
+            Guid approvalId,
+            CancellationToken cancellationToken = default)
+        {
+            Approval maybeApproval = await this.storageBroker.SelectApprovalByIdAsync(
+                approvalId,
+                cancellationToken);
+
+            if (maybeApproval is null)
+            {
+                return null;
+            }
+
+            (_, IReadOnlyList<RoleSubject> roleSubjects, _, bool? isPersonal, _, _) =
+                await ResolveEntityAsync(
+                    maybeApproval.EntityType,
+                    maybeApproval.EntityId,
+                    cancellationToken);
+
+            IReadOnlyList<ApprovalPolicy> candidatePolicies = await GatherPoliciesAsync(
+                maybeApproval.EntityType,
+                cancellationToken);
+
+            return await this.securityClient.Access.ResolveAIReviewerPolicyAsync(
+                new ResolveAIReviewerPolicyRequest
+                {
+                    CandidatePolicies = candidatePolicies,
+                    EntityType = maybeApproval.EntityType.ToString(),
+
+                    // Only ContentItem scopes its policies by content type; an association's
+                    // policy key is its own type and personality, never an endpoint's (§8.4).
+                    ContentType = maybeApproval.EntityType == EntityType.ContentItem
+                        ? roleSubjects[0].ContentType
+                        : null,
+
+                    IsPersonal = isPersonal,
+                });
+        }
+
         // Gather-only (§16.7.4). Every field is read from the STORED approval and its stored
         // entity — nothing here trusts a payload, because the owner it reports is what stops
         // somebody being invited to review their own work (§7.9 rule 3, HR-1).
@@ -977,33 +1027,13 @@ namespace Glory2Him.Core.Brokers.Securities
                 return null;
             }
 
-            (string entityCreatedBy, IReadOnlyList<RoleSubject> roleSubjects, _, bool? isPersonal, _, _) =
+            (string entityCreatedBy, IReadOnlyList<RoleSubject> roleSubjects, _, _, _, _) =
                 await ResolveEntityAsync(
                     maybeApproval.EntityType,
                     maybeApproval.EntityId,
                     cancellationToken);
 
             ApprovalReviewSnapshot snapshot = await GatherAsync(maybeApproval, cancellationToken);
-
-            // §8.6.2: the same resolved-policy question EvaluateApprovalConditionsByIdAsync
-            // asks, narrowed to the one field this flow needs.
-            IReadOnlyList<ApprovalPolicy> candidatePolicies = await GatherPoliciesAsync(
-                maybeApproval.EntityType,
-                cancellationToken);
-
-            AIReviewerPolicyVerdict aiReviewerPolicy =
-                await this.securityClient.Access.ResolveAIReviewerPolicyAsync(
-                    new ResolveAIReviewerPolicyRequest
-                    {
-                        CandidatePolicies = candidatePolicies,
-                        EntityType = maybeApproval.EntityType.ToString(),
-
-                        ContentType = maybeApproval.EntityType == EntityType.ContentItem
-                            ? roleSubjects[0].ContentType
-                            : null,
-
-                        IsPersonal = isPersonal,
-                    });
 
             // Only the reviews that still stand. A withdrawn review frees the person to be asked
             // again, and a dismissed one means their verdict no longer describes the current
@@ -1055,7 +1085,6 @@ namespace Glory2Him.Core.Brokers.Securities
                 ActiveReviewerUserIds = activeReviewerUserIds,
                 RecordedReviewerUserIds = recordedReviewerUserIds,
                 ActiveRequests = activeRequests,
-                IsAIReviewerOffered = aiReviewerPolicy.IsOffered,
             };
         }
     }

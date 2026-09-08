@@ -245,6 +245,33 @@ namespace Glory2Him.Core.Brokers.Securities
             CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// Resolves §8.6.2's AI-reviewer feature switch for a stored approval — whether Berean is
+        /// offered on this round and may be assigned to it at all.
+        ///
+        /// <para>Asked ON ITS OWN rather than gathered with
+        /// <see cref="RetrieveApprovalReviewerScopeByIdAsync"/>, and for two reasons. Berean is not
+        /// in the population that scope exists to describe: it holds no role and no
+        /// <c>ApprovalReviewRequest</c>, so a switch for it was never a field of a per-person
+        /// invitation gather. And carrying it there made every caller of that gather — including
+        /// the §16.7.4 name resolver a moderation panel polls — pay a full <c>ApprovalSetting</c>
+        /// scan to answer a question only the AI-reviewer paths ask.</para>
+        ///
+        /// <para>Resolution stays behind <c>IAccessClient</c> like every other policy question
+        /// here, so §8.4's most-specific-wins keeps ONE home and no caller re-implements the
+        /// tiering (§8.6.1 rule 4).</para>
+        ///
+        /// <para>Actor-independent — whether the feature is switched on is a property of the
+        /// approval's subject, not of who is asking. Whether the caller may act on it is the
+        /// separate question the requesting-tier gate answers.</para>
+        ///
+        /// <para>Returns <c>null</c> when no approval carries the id, so a caller fails closed on
+        /// an unresolved round rather than reading a manufactured <c>false</c> as a verdict.</para>
+        /// </summary>
+        ValueTask<AIReviewerPolicyVerdict?> ResolveAIReviewerPolicyByIdAsync(
+            Guid approvalId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// The ids of the reviews on an approval that still count toward it — not deleted, not
         /// already dismissed — read from storage without regard to who is asking.
         /// </summary>
@@ -284,6 +311,11 @@ namespace Glory2Him.Core.Brokers.Securities
         /// Whether a particular person may be invited is composed above this, because the tier
         /// naming convention (§18.6) belongs in one place and the role MEMBERSHIP behind it lives
         /// in the identity store (§12.7.1), which this broker does not read.</para>
+        ///
+        /// <para>Gathers nothing about Berean. §8.6.2's feature switch has its own member,
+        /// <see cref="ResolveAIReviewerPolicyByIdAsync"/> — it once travelled on this scope, and
+        /// every caller here paid an <c>ApprovalSetting</c> scan for a field only the AI-reviewer
+        /// paths read.</para>
         ///
         /// <para>Returns <c>null</c> when no approval carries the id, so a caller can report
         /// not-found rather than inferring it from an empty scope.</para>

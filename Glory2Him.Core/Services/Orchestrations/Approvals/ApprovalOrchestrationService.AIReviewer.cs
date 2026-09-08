@@ -12,8 +12,10 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.AIReviewerAssignments;
+using Glory2Him.Core.Models.Foundations.AIReviewerAssignments.Exceptions;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
 using Glory2Him.Core.Models.Securities;
 
@@ -29,6 +31,11 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
     /// duplicate-invitation machinery applies to it. It shares only what genuinely IS shared —
     /// <see cref="ResolveReviewerScopeAsync"/> and the requesting-tier gate — with the human
     /// flow.</para>
+    ///
+    /// <para>§8.6.2's offer is resolved through its own narrow broker read rather than gathered
+    /// with that scope, for the same reason: a switch for a non-person does not belong to a
+    /// per-person invitation gather, and riding along on it charged every human-flow caller an
+    /// <c>ApprovalSetting</c> scan for a field only these methods read.</para>
     /// </summary>
     internal partial class ApprovalOrchestrationService
     {
@@ -51,6 +58,10 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                     onSecurityContext: ValidateUserMayRequestApprovalReviews,
                     cancellationToken: cancellationToken);
 
+                bool isAIReviewerOffered = await IsAIReviewerOfferedAsync(
+                    approvalId: scope.ApprovalId,
+                    cancellationToken: cancellationToken);
+
                 AIReviewerAssignment maybeAssignment =
                     await this.aiReviewerAssignmentService
                         .RetrieveAIReviewerAssignmentByApprovalIdAsync(
@@ -59,7 +70,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
 
                 return new AIReviewerStatus
                 {
-                    IsOffered = scope.IsAIReviewerOffered,
+                    IsOffered = isAIReviewerOffered,
                     IsRequested = maybeAssignment is not null,
                     IsAIReviewCompleted = maybeAssignment?.IsAIReviewCompleted ?? false,
                     IsAIReviewCommentsPresent = maybeAssignment?.IsAIReviewCommentsPresent ?? false,
@@ -101,7 +112,11 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
 
                 // Fail-closed (§8.4 rule 2), asked fresh on every write rather than trusted from
                 // whatever the caller's own screen last showed.
-                ValidateAIReviewerIsOffered(scope, entityType, entityId);
+                bool isAIReviewerOffered = await IsAIReviewerOfferedAsync(
+                    approvalId: scope.ApprovalId,
+                    cancellationToken: cancellationToken);
+
+                ValidateAIReviewerIsOffered(isAIReviewerOffered, entityType, entityId);
 
                 AIReviewerAssignment maybeAssignment =
                     await this.aiReviewerAssignmentService
@@ -111,13 +126,56 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
 
                 if (maybeAssignment is null)
                 {
-                    return await this.aiReviewerAssignmentService.AddAIReviewerAssignmentAsync(
-                        new AIReviewerAssignment
+                    // The foundation re-decides the caller's tier and stamps the audit values;
+                    // this layer never assumes its own gate was the only one (§14.6 rule 2).
+                    try
+                    {
+                        return await this.aiReviewerAssignmentService
+                            .AddAIReviewerAssignmentAsync(
+                                new AIReviewerAssignment
+                                {
+                                    Id = Guid.NewGuid(),
+                                    ApprovalId = scope.ApprovalId,
+                                },
+                                cancellationToken);
+                    }
+
+                    // THE RACE, and this method's own doc already promises the answer to it. The
+                    // presence check reads a view a moment old, so two callers — a double click,
+                    // two moderators — can both find nothing and both write.
+                    // UX_AIReviewerAssignments_ApprovalId refuses the loser, correctly, because
+                    // one live assignment per round is the invariant; but "somebody else asked
+                    // half a second before you" is the same outcome as "you asked twice", which
+                    // the still-pending branch below answers with the standing row. Left
+                    // uncaught, the caller whose assignment actually stands is told it failed.
+                    //
+                    // Re-read rather than assumed: the row is the winner's and this caller has
+                    // never seen it. Narrower than the human sibling's re-read, which re-resolves
+                    // the whole ApprovalReviewerScope because a standing invitation exists only
+                    // as a field on it — the round's one AI row is readable by ApprovalId
+                    // directly, and the caller who cleared the requesting tier above clears the
+                    // foundation's read gate too.
+                    //
+                    // If it has already gone — withdrawn between the collision and the re-read, a
+                    // narrow window but a real one — the collision is the honest answer and goes
+                    // back to the caller unchanged.
+                    catch (AIReviewerAssignmentDependencyValidationException collisionException)
+                        when (collisionException.InnerException
+                            is AlreadyExistsAIReviewerAssignmentException)
+                    {
+                        AIReviewerAssignment winningAssignment =
+                            await this.aiReviewerAssignmentService
+                                .RetrieveAIReviewerAssignmentByApprovalIdAsync(
+                                    scope.ApprovalId,
+                                    cancellationToken);
+
+                        if (winningAssignment is null)
                         {
-                            Id = Guid.NewGuid(),
-                            ApprovalId = scope.ApprovalId,
-                        },
-                        cancellationToken);
+                            throw;
+                        }
+
+                        return winningAssignment;
+                    }
                 }
 
                 if (maybeAssignment.IsAIReviewCompleted is false)
@@ -125,15 +183,29 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                     return maybeAssignment;
                 }
 
-                // THE RESET. The stored row is what goes back, with only the two flags moved —
-                // it already carries the audit values the foundation's modify compares against
-                // storage, because it was just read from there.
-                maybeAssignment.IsAIReviewCompleted = false;
-                maybeAssignment.IsAIReviewCommentsPresent = false;
-
-                return await this.aiReviewerAssignmentService.ModifyAIReviewerAssignmentAsync(
-                    maybeAssignment,
-                    cancellationToken);
+                // THE RESET, and it carries no collision handling of its own. There is no unique
+                // index for a modify to violate, so two re-requests arriving together settle one
+                // of three ways, and none of them writes anything wrong.
+                //
+                // ORDINARILY the second is an idempotent repeat: the foundation stamps
+                // UpdatedWhen itself before comparing the input against storage, so both callers
+                // write the same two false flags.
+                //
+                // A WITHDRAWAL landing between the read above and this write is refused as a
+                // write on a removed row (ValidateStorageAIReviewerAssignmentIsNotDeleted), which
+                // is the honest answer to a request that no longer has a subject.
+                //
+                // AND THE THIRD IS A REFUSAL THIS LAYER TOLERATES rather than dissolves.
+                // ValidateAgainstStorageAIReviewerAssignmentOnModify pins the stamped
+                // UpdatedWhen against storage's and refuses when the two are the SAME, so a
+                // second re-request whose stamp falls in the same clock tick as the first one's
+                // write is refused instead of repeated. It reaches the caller as a dependency
+                // validation error rather than a 424, and pressing the control again answers it —
+                // which is cheaper, and far easier to reason about, than a retry loop around a
+                // write whose whole effect is to set two flags that are already set.
+                return await ReturnAIReviewerAssignmentToPendingAsync(
+                    storageAIReviewerAssignment: maybeAssignment,
+                    cancellationToken: cancellationToken);
             });
 
         /// <summary>
@@ -143,6 +215,10 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         ///
         /// <para>Idempotent — nothing standing is a no-op, not a not-found, the same posture the
         /// human withdrawal takes for the same reason: a stale panel is not a mistake.</para>
+        ///
+        /// <para>The §8.6.2 offer is NOT asked here, unlike the request path. Switching the
+        /// feature off must not strand the assignments made while it was on: taking Berean off a
+        /// round is the one act that has to keep working after the switch closes.</para>
         /// </summary>
         public ValueTask<AIReviewerAssignment> WithdrawAIReviewerAsync(
             EntityType entityType,
@@ -175,5 +251,91 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                         aiReviewerAssignmentId: maybeAssignment.Id,
                         cancellationToken: cancellationToken);
             });
+
+        /// <summary>
+        /// Puts an assignment back to PENDING — Berean is still on the round, and whatever it
+        /// last reported no longer describes the content.
+        ///
+        /// <para>Shared by the re-request above and the stale-assignment reset below so the two
+        /// cannot drift on what pending means. The STORED row is what goes back, with only the
+        /// two flags moved: it already carries the audit values the foundation's modify compares
+        /// against storage, because it was just read from there.</para>
+        /// </summary>
+        private async ValueTask<AIReviewerAssignment> ReturnAIReviewerAssignmentToPendingAsync(
+            AIReviewerAssignment storageAIReviewerAssignment,
+            CancellationToken cancellationToken)
+        {
+            storageAIReviewerAssignment.IsAIReviewCompleted = false;
+            storageAIReviewerAssignment.IsAIReviewCommentsPresent = false;
+
+            return await this.aiReviewerAssignmentService.ModifyAIReviewerAssignmentAsync(
+                storageAIReviewerAssignment,
+                cancellationToken);
+        }
+
+        // The AI half of §9.7.4's dismissal, and it has ONE caller: the §8.6 HR-4 administrator
+        // override in Resets.cs. Not "wherever a round's verdicts stop describing its content",
+        // which is what an earlier draft of this comment claimed — §8.8's
+        // RequireReapprovalOnChange branch of ProcessEntityModifiedAsync stops them describing it
+        // too, and cannot call this. Everything below goes through the CALLER-FACING foundation,
+        // which answers null on the read and refuses the write for anyone outside the review
+        // tier, and that flow runs under the editor's own identity. The gap is recorded at that
+        // site.
+        //
+        // The human reviews are dismissed and KEPT — the record that somebody looked
+        // survives, and dismissal is only what stops it counting. Berean's assignment is both
+        // halves in one row: the record of the ask AND the carrier of the two flags a panel reads
+        // as a finished pass. So the row STAYS, exactly as an invitation stays, and only the
+        // flags go back — withdrawing outright would remove an assignment nobody asked to
+        // withdraw, and leave the re-opened round without the reviewer it had.
+        //
+        // Silent when Berean was never asked, which is the common case, and silent again when the
+        // assignment is already pending: there is nothing to take back, and a modify would spend
+        // a write and an AIReviewerAssignment-Modified fact restating what storage already says.
+        private async ValueTask ResetStaleAIReviewerAssignmentAsync(
+            Guid approvalId,
+            CancellationToken cancellationToken)
+        {
+            AIReviewerAssignment maybeAssignment =
+                await this.aiReviewerAssignmentService
+                    .RetrieveAIReviewerAssignmentByApprovalIdAsync(
+                        approvalId,
+                        cancellationToken);
+
+            if (maybeAssignment is null)
+            {
+                return;
+            }
+
+            if (maybeAssignment.IsAIReviewCompleted is false
+                && maybeAssignment.IsAIReviewCommentsPresent is false)
+            {
+                return;
+            }
+
+            await ReturnAIReviewerAssignmentToPendingAsync(
+                storageAIReviewerAssignment: maybeAssignment,
+                cancellationToken: cancellationToken);
+        }
+
+        // §8.6.2's feature switch, resolved through IAccessBroker rather than read here. This
+        // service holds no IApprovalSettingService on purpose (see the constructor's own note):
+        // resolving §8.4 here would put most-specific-wins in a second place beside the decision
+        // function, which §8.6.1 rule 4 forbids.
+        //
+        // Fail-closed (§8.4 rule 2). The broker answers null for a round it cannot resolve, and
+        // that collapses to false here: a policy nobody could read is not a permission, and a
+        // round whose settings could not be resolved is not one Berean may be assigned to.
+        private async ValueTask<bool> IsAIReviewerOfferedAsync(
+            Guid approvalId,
+            CancellationToken cancellationToken)
+        {
+            AIReviewerPolicyVerdict maybeAIReviewerPolicy =
+                await this.accessBroker.ResolveAIReviewerPolicyByIdAsync(
+                    approvalId: approvalId,
+                    cancellationToken: cancellationToken);
+
+            return maybeAIReviewerPolicy?.IsOffered ?? false;
+        }
     }
 }

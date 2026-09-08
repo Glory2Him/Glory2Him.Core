@@ -16,6 +16,9 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Foundations.AIReviewerAssignments;
+using Glory2Him.Core.Models.Foundations.AIReviewerAssignments.Exceptions;
+using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Events;
@@ -488,6 +491,292 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     It.IsAny<SecurityContext>(),
                     It.IsAny<CancellationToken>()),
                 Times.Never);
+        }
+
+        /// <summary>
+        /// §9.7.4's dismissal, for the one reviewer that is not a person (§8.6.2). Berean's
+        /// assignment is keyed on the APPROVAL rather than on the round's reviews, so it survives
+        /// everything the reset does untouched — and its two flags would go on reporting a
+        /// completed pass, with comments, over content the override has just put back for review.
+        ///
+        /// <para>The ROW STAYS. That is the human posture applied to a row that is both halves at
+        /// once: the reviews are dismissed and KEPT, and nothing here withdraws an invitation. The
+        /// removal assertion is what states the choice — swapping the modify for a remove would
+        /// pass a test that only checked the flags, and would leave a re-opened round without the
+        /// reviewer it had.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnACompletedAIReviewerAssignmentToPendingOnResetAsync()
+        {
+            // given
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext(Roles.Administrators);
+
+            Approval decidedApproval = SetupDecidedRound(ApprovalStatus.Approved);
+            SetupEntityVisibility(isEntityVisible: true);
+
+            AIReviewerAssignment completedAssignment = CreateAIReviewerAssignment(
+                approvalId: decidedApproval.Id,
+                isAIReviewCompleted: true,
+                isAIReviewCommentsPresent: true);
+
+            SetupStoredAIReviewerAssignment(decidedApproval.Id, completedAssignment);
+            SetupAIReviewerAssignmentWrites();
+
+            // when
+            await this.approvalOrchestrationService.ResetApprovalAsync(
+                entityType: decidedApproval.EntityType,
+                entityId: decidedApproval.EntityId,
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            this.aiReviewerAssignmentServiceMock.Verify(service =>
+                service.ModifyAIReviewerAssignmentAsync(
+                    It.Is<AIReviewerAssignment>(assignment =>
+                        assignment.Id == completedAssignment.Id
+                            && assignment.IsAIReviewCompleted == false
+                            && assignment.IsAIReviewCommentsPresent == false),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            // and Berean is still ON the round
+            this.aiReviewerAssignmentServiceMock.Verify(service =>
+                service.RemoveAIReviewerAssignmentByIdAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        /// <summary>
+        /// Silent when there is nothing to take back. A round where Berean was never asked is the
+        /// common case, and one already pending has nothing stale about it — a modify there would
+        /// spend a write and an <c>AIReviewerAssignment-Modified</c> fact restating what storage
+        /// already says.
+        /// </summary>
+        [Fact]
+        public async Task ShouldNotWriteAnAIReviewerAssignmentOnResetWhenNoneIsStaleAsync()
+        {
+            // given
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext(Roles.Administrators);
+
+            Approval decidedApproval = SetupDecidedRound(ApprovalStatus.Approved);
+            SetupEntityVisibility(isEntityVisible: true);
+            SetupAIReviewerAssignmentWrites();
+
+            // Berean was never asked. Moq's default for the round-keyed read is already null, but
+            // this states it: the whole point of the case is the absence.
+            SetupStoredAIReviewerAssignment(decidedApproval.Id, storageAssignment: null);
+
+            // when
+            await this.approvalOrchestrationService.ResetApprovalAsync(
+                entityType: decidedApproval.EntityType,
+                entityId: decidedApproval.EntityId,
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            this.aiReviewerAssignmentServiceMock.Verify(service =>
+                service.ModifyAIReviewerAssignmentAsync(
+                    It.IsAny<AIReviewerAssignment>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        /// <summary>
+        /// And the same silence for an assignment that is ALREADY pending — a round Berean was
+        /// asked about but never finished. Split from the absent case because the two reach the
+        /// same non-write through different guards, and a helper that checked only for the row's
+        /// existence would write here.
+        /// </summary>
+        [Fact]
+        public async Task ShouldNotRewriteAnAlreadyPendingAIReviewerAssignmentOnResetAsync()
+        {
+            // given
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext(Roles.Administrators);
+
+            Approval decidedApproval = SetupDecidedRound(ApprovalStatus.Approved);
+            SetupEntityVisibility(isEntityVisible: true);
+
+            SetupStoredAIReviewerAssignment(
+                decidedApproval.Id,
+                CreateAIReviewerAssignment(
+                    approvalId: decidedApproval.Id,
+                    isAIReviewCompleted: false,
+                    isAIReviewCommentsPresent: false));
+
+            SetupAIReviewerAssignmentWrites();
+
+            // when
+            await this.approvalOrchestrationService.ResetApprovalAsync(
+                entityType: decidedApproval.EntityType,
+                entityId: decidedApproval.EntityId,
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            this.aiReviewerAssignmentServiceMock.Verify(service =>
+                service.ModifyAIReviewerAssignmentAsync(
+                    It.IsAny<AIReviewerAssignment>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        /// <summary>
+        /// Berean's half runs LAST — after the human dismissal, and after the entity sync that
+        /// unpublishes the content.
+        ///
+        /// <para>Its position against the SYNC is the load-bearing half. The reset is a fallible
+        /// write, so anything that follows it is something a failure can cost: standing between
+        /// the dismissal and the command, a throw left the approval back at <c>Submitted</c> with
+        /// its reviews dismissed while the entity stayed <c>Approved</c> and publicly published —
+        /// the state the operation exists to prevent.</para>
+        ///
+        /// <para>Its position against the DISMISSAL is intent rather than necessity today,
+        /// because nothing subscribes to <c>AIReviewerAssignment-Modified</c> — §8.6.2's trigger
+        /// event is deliberately not built. Pinned anyway: the day it exists, a re-triggered pass
+        /// reading a round whose human reviews still counted would answer about content nobody
+        /// had put back yet.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnBereanToPendingOnlyAfterTheEntityHasBeenUnpublishedAsync()
+        {
+            // given
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext(Roles.Administrators);
+
+            Approval decidedApproval = SetupDecidedRound(ApprovalStatus.Approved);
+            SetupEntityVisibility(isEntityVisible: true);
+
+            var staleReviewId = Guid.NewGuid();
+            var order = new List<string>();
+
+            this.accessBrokerMock.Setup(broker =>
+                broker.FindDismissableApprovalReviewIdsAsync(
+                    decidedApproval.Id,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(new List<Guid> { staleReviewId });
+
+            this.approvalReviewServiceMock.Setup(service =>
+                service.DismissStaleApprovalReviewAsync(
+                    staleReviewId,
+                    It.IsAny<CancellationToken>()))
+                        .Callback(() => order.Add("dismiss"))
+                        .ReturnsAsync((ApprovalReview)null);
+
+            // The sync is observed where it BEGINS — the command envelope is minted immediately
+            // before the publish, and the publish itself is a void-ish call this suite already
+            // reads through this same seam.
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateSystemAsync(It.IsAny<ContentItem>()))
+                    .Returns((ContentItem content) =>
+                    {
+                        order.Add("entity-sync");
+
+                        return new ValueTask<EventEnvelope<ContentItem>>(
+                            new EventEnvelope<ContentItem>
+                            {
+                                Content = content,
+                                SecurityContext = new SecurityContext(),
+                                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+                            });
+                    });
+
+            SetupStoredAIReviewerAssignment(
+                decidedApproval.Id,
+                CreateAIReviewerAssignment(
+                    approvalId: decidedApproval.Id,
+                    isAIReviewCompleted: true));
+
+            this.aiReviewerAssignmentServiceMock.Setup(service =>
+                service.ModifyAIReviewerAssignmentAsync(
+                    It.IsAny<AIReviewerAssignment>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((AIReviewerAssignment assignment, CancellationToken _) =>
+                        {
+                            order.Add("ai-reset");
+
+                            return assignment;
+                        });
+
+            // when
+            await this.approvalOrchestrationService.ResetApprovalAsync(
+                entityType: decidedApproval.EntityType,
+                entityId: decidedApproval.EntityId,
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            order.Should().Equal("dismiss", "entity-sync", "ai-reset");
+        }
+
+        /// <summary>
+        /// And the reason that order is the one to hold: the reset's AI step is a FALLIBLE write,
+        /// and a failure in it must not cost the entity its sync.
+        ///
+        /// <para>The round-one placement — between the dismissal and the command — made exactly
+        /// that trade. A withdrawal landing between the read and the write is refused by the
+        /// foundation, and on the old order that refusal left an approval at <c>Submitted</c>
+        /// with no reviews standing behind it while the entity remained <c>Approved</c> and on
+        /// the public site, with nothing to reconcile the two (§9.8).</para>
+        ///
+        /// <para>The operation still FAILS — the caller is told, and the two flags are still
+        /// stale — because a refusal nobody hears is worse than one they can answer by asking
+        /// Berean again. What it no longer does is fail with the content still published.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldStillSyncTheEntityWhenReturningBereanToPendingFailsAsync()
+        {
+            // given
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext(Roles.Administrators);
+
+            Approval decidedApproval = SetupDecidedRound(ApprovalStatus.Approved);
+            SetupEntityVisibility(isEntityVisible: true);
+
+            SetupStoredAIReviewerAssignment(
+                decidedApproval.Id,
+                CreateAIReviewerAssignment(
+                    approvalId: decidedApproval.Id,
+                    isAIReviewCompleted: true,
+                    isAIReviewCommentsPresent: true));
+
+            // The row was withdrawn between the read above and this write, which the foundation
+            // refuses as a write on a removed row.
+            var withdrawnRowException = new AIReviewerAssignmentValidationException(
+                message: "AI reviewer assignment validation error occurred, "
+                    + "fix the errors and try again.",
+                innerException: new NotFoundAIReviewerAssignmentException(
+                    message: "AI reviewer assignment not found."));
+
+            this.aiReviewerAssignmentServiceMock.Setup(service =>
+                service.ModifyAIReviewerAssignmentAsync(
+                    It.IsAny<AIReviewerAssignment>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(withdrawnRowException);
+
+            // when
+            ValueTask<ApprovalOutcome> resetTask =
+                this.approvalOrchestrationService.ResetApprovalAsync(
+                    entityType: decidedApproval.EntityType,
+                    entityId: decidedApproval.EntityId,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            await Assert.ThrowsAsync<ApprovalOrchestrationDependencyValidationException>(
+                resetTask.AsTask);
+
+            // then: the entity was taken off the public site anyway
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateSystemAsync(It.IsAny<ContentItem>()),
+                Times.Once);
+
+            // and so was every step ahead of it, so the failure costs only the two flags
+            this.approvalServiceMock.Verify(service =>
+                service.ModifyApprovalAsync(
+                    It.Is<Approval>(approval =>
+                        approval.ApprovalStatus == ApprovalStatus.Submitted),
+                    WorkflowAttribution.DecidingCaller,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
         }
     }
 }

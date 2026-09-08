@@ -154,6 +154,33 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                     approval: resetApproval,
                     cancellationToken: cancellationToken);
 
+                // AND THE SAME REASONING FOR THE ONE REVIEWER THAT IS NOT A PERSON (§8.6.2).
+                // Berean's assignment is keyed on the APPROVAL rather than on the round's
+                // reviews, so it survives everything above untouched — and its two flags would go
+                // on reporting a completed pass, with comments, over content the override has
+                // just put back for review.
+                //
+                // The row itself stays, which is the human posture applied to a row that is both
+                // halves at once: the reviews are dismissed and kept, and nothing here withdraws
+                // an invitation. Only the flags go back.
+                //
+                // LAST, AFTER THE SYNC, and that is the ordering this operation actually turns
+                // on. This is a fallible write — the foundation refuses it on a row withdrawn
+                // since the read, and storage can fail — and by the time it runs the approval
+                // has already moved to Submitted and its reviews are already dismissed. Placed
+                // ahead of the command, a throw here left the ENTITY Approved and publicly
+                // published against a round that no longer holds a verdict: the exact state the
+                // paragraph above says the reset exists to prevent. Placed last, the worst it
+                // costs is the two flags, and a moderator can put those right by asking Berean
+                // again.
+                //
+                // Nothing orders itself against this write in the other direction: §8.6.2's
+                // re-trigger event is deliberately not built, so no subscriber reads the round
+                // when AIReviewerAssignment-Modified lands.
+                await ResetStaleAIReviewerAssignmentAsync(
+                    approvalId: resetApproval.Id,
+                    cancellationToken: cancellationToken);
+
                 return new ApprovalOutcome
                 {
                     ApprovalId = resetApproval.Id,
