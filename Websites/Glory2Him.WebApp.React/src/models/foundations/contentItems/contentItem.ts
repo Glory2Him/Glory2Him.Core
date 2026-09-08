@@ -38,11 +38,11 @@ export type ContentItem = {
 };
 
 // EVERYTHING A CALLER MAY SEND on POST api/ContentItems, and nothing else. The processing service
-// composes the row it stores from these six members alone — it mints the Id and GroupId, computes
-// the ContentHash, and lands the row as an unpublished Draft; the foundation beneath it stamps the
-// audit fields from the envelope's SecurityContext. Sending more is not rejected, it is simply
-// discarded, so the type states what actually travels rather than inviting a caller to believe
-// otherwise.
+// composes the row it stores from these seven members alone — it mints the Id and GroupId, computes
+// the ContentHash, and lands the row unpublished at the status asked for; the foundation beneath it
+// stamps the audit fields from the envelope's SecurityContext. Sending more is not rejected, it is
+// simply discarded, so the type states what actually travels rather than inviting a caller to
+// believe otherwise.
 export type ContentItemAddRequest = {
     contentType: ContentType;
     title: string | null;
@@ -50,4 +50,10 @@ export type ContentItemAddRequest = {
     content: string;
     shareabilityBasis: ShareabilityBasis;
     sharePermission: string | null;
+
+    // THE ONE CONTROL FIELD THE ADD SURFACE MAY CARRY (design §9.7.1 rule 1): Draft or Submitted
+    // and nothing else — never IsPublished, never PublishDate, never a decided status. It is what
+    // the "Submit as" dropdown answers, and omitting it is what used to land every contribution
+    // as a Draft however the contributor filed it.
+    approvalStatus: ApprovalStatus;
 };

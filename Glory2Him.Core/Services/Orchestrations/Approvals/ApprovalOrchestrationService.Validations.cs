@@ -400,7 +400,8 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
 
                 AccessDenialReason.SelfApprovalNotPermitted =>
                     "You submitted this item, and self-approval is not permitted for this "
-                        + "content type.",
+                        + "content type. An administrator may approve it as a recorded bypass, "
+                        + "where this content type allows one.",
 
                 AccessDenialReason.ReviewerOnThisRoundMayNotDecide =>
                     "You have recorded a review on this round, so you may not also decide it.",

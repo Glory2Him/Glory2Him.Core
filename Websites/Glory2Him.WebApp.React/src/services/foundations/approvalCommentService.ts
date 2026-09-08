@@ -20,6 +20,18 @@ import {
 // One channel is also one thing to replace when SignalR lands.
 const approvalCommentStaleTime = 10 * 1000;
 
+// WHETHER A COMMENT OF THIS TYPE IS SETTLED, and the ONE place that mapping lives — read by the
+// add, which stamps it at birth, and by the amend, which moves it when the type moves. §7.8's
+// own sentence rather than a rule this client invents: a Question holds the approval shut and a
+// Comment never blocks. The field carries no shape rule of its own, so a caller who said nothing
+// would make every remark a blocker. The server refuses the settled ask on both paths, so this
+// agrees with the gate rather than standing in for it.
+//
+// NOT NAMED "at birth", deliberately: the retype path reads it too, and a name that said birth
+// would reintroduce the very split this predicate exists to close.
+const isSettledForType = (commentType: ApprovalCommentType): boolean =>
+    commentType === ApprovalCommentType.Comment;
+
 export const approvalCommentService = {
     useGetApprovalComments: (approvalId: string, enabled = true) => {
         const approvalCommentBroker = new ApprovalCommentBroker();
@@ -50,12 +62,8 @@ export const approvalCommentService = {
     // A COMMENT IS A ROW (§7.8). The id is minted here because the foundation refuses an empty
     // Guid and never generates one.
     //
-    // isResolved IS DERIVED FROM THE TYPE, and this is the one place that mapping lives: a
-    // Question is born OUTSTANDING and holds the approval shut, a Comment is born SETTLED and
-    // never blocks. That is §7.8's own sentence rather than a rule this client invents — the
-    // field carries no shape rule, so a caller who said nothing would make every remark a
-    // blocker. The server refuses the settled ask on both the add and the amend path, so this
-    // derivation agrees with the gate rather than standing in for it.
+    // isResolved IS DERIVED FROM THE TYPE by isSettledForType above — the add stamps it at
+    // birth, the amend moves it when the type moves, and both read the one predicate.
     useAddApprovalComment: () => {
         const approvalCommentBroker = new ApprovalCommentBroker();
         const queryClient = useQueryClient();
@@ -72,7 +80,7 @@ export const approvalCommentService = {
                 approvalId: request.approvalId,
                 comment: request.comment,
                 commentType: request.commentType,
-                isResolved: request.commentType === ApprovalCommentType.Comment,
+                isResolved: isSettledForType(request.commentType),
                 isDeleted: false
             }),
 
@@ -83,7 +91,19 @@ export const approvalCommentService = {
 
     // AN EDIT IS A PUT OF THE ROW THAT WAS READ, audit fields and all — the foundation compares
     // CreatedBy, CreatedWhen, ApprovalId and UpdatedWhen against storage before it will accept
-    // the write, so a fresh object carrying only the new words is refused.
+    // the write, so a fresh object carrying only the new words is refused. That is why the
+    // STORED ROW is taken here alongside the two fields an edit may move, rather than a
+    // composed object: composing it is this service's work, not a page's.
+    //
+    // RETYPING MOVES THE SETTLED FLAG WITH IT, by the same predicate the add stamps at birth. A
+    // remark is born settled, so sending a new type over the stored flag produced a question
+    // already resolved — the one pairing the amend gate refuses outright, which left the type
+    // uneditable and only the words changeable.
+    //
+    // WHERE THE TYPE DID NOT MOVE THE FLAG IS LEFT ALONE, and that is what makes this a
+    // transition rather than a derivation: a settled ask may be edited by its author, and
+    // re-deriving would silently re-open it — resolving and re-opening answer to their own
+    // operation and its tier (§14.7 rule 5).
     useModifyApprovalComment: () => {
         const approvalCommentBroker = new ApprovalCommentBroker();
         const queryClient = useQueryClient();
@@ -91,8 +111,24 @@ export const approvalCommentService = {
         return useMutation({
             meta: { suppressGlobalErrorToast: true },
 
-            mutationFn: async (approvalComment: ApprovalComment) =>
-                await approvalCommentBroker.PutApprovalCommentAsync(approvalComment),
+            mutationFn: async (request: {
+                approvalComment: ApprovalComment;
+                comment: string;
+                commentType: ApprovalCommentType;
+            }) => {
+                const isCommentTypeChanged =
+                    request.commentType !== request.approvalComment.commentType;
+
+                return await approvalCommentBroker.PutApprovalCommentAsync({
+                    ...request.approvalComment,
+                    comment: request.comment,
+                    commentType: request.commentType,
+
+                    isResolved: isCommentTypeChanged
+                        ? isSettledForType(request.commentType)
+                        : request.approvalComment.isResolved
+                });
+            },
 
             onSuccess: (approvalComment) =>
                 invalidateThread(queryClient, approvalComment.approvalId)

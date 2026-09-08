@@ -491,13 +491,32 @@ namespace G2H.Security.Client.Services.Foundations.Access
                 return Permit("Actor may reject this approval.");
             }
 
-            if (IsSameUser(request.Actor.UserId, request.EntityCreatedBy)
+            // HR-2, and the ADMINISTRATOR'S BYPASS is its one exception. The setting governs
+            // HR-4 route 1 — an author closing their own round on the strength of the
+            // conditions. Route 3 is the override, and refusing it here left an administrator
+            // whose own submission blocks on a threshold nobody else can meet with no route at
+            // all: not the recorded waiver the design keeps for that case, and not the
+            // unrecorded one of editing the policy and approving quietly.
+            //
+            // Narrow on every axis, because the exception is an override and overrides are the
+            // administrator's. A publisher-tier author is refused here as before — HR-2's whole
+            // population is publisher-tier authors, so exempting the tier would retire the rule
+            // rather than narrow it, and let one person create, submit, approve and publish
+            // alone. The ordinary self-approve stays shut for administrators too;
+            // DoNotAllowBypassingSettings still closes route 3 to everyone below; and HR-1 is
+            // untouched, so a waiver can never be a vote.
+            bool isAdministratorBypass =
+                request.IsBypassRequested && IsAdministrator(request.Actor);
+
+            if (isAdministratorBypass is false
+                && IsSameUser(request.Actor.UserId, request.EntityCreatedBy)
                 && policy.AllowSelfApproval is false)
             {
                 return Refuse(
                     AccessDenialReason.SelfApprovalNotPermitted,
                     "Actor is the author and the resolved policy does not allow "
-                        + "self-approval (HR-2).");
+                        + "self-approval (HR-2). Only an administrator may take the bypass "
+                        + "route over their own submission (HR-4 route 3).");
             }
 
             if (request.IsBypassRequested)

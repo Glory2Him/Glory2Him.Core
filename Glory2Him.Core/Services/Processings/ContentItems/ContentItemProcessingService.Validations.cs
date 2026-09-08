@@ -361,7 +361,15 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
                     Parameter: nameof(ContentItem.ShareabilityBasis)),
 
                 (Rule: IsGreaterThan(contentItem.SharePermission, 500),
-                    Parameter: nameof(ContentItem.SharePermission)));
+                    Parameter: nameof(ContentItem.SharePermission)),
+
+                // The add path carries the caller's status onto the row it composes, so the pair
+                // §9.7.1 rule 1 admits is stated where that copy is made. The foundation asks the
+                // same question again and is the line that must hold (§8.6.1) — this one is what
+                // answers a contributor in the terms of the surface they filed from, rather than
+                // as a dependency failure from a layer below.
+                (Rule: IsNotContributableStatus(contentItem.ApprovalStatus),
+                    Parameter: nameof(ContentItem.ApprovalStatus)));
 
         private static void ValidateContentItemOnModify(ContentItem contentItem) =>
             Validate(
@@ -389,6 +397,19 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
         {
             Condition = id == Guid.Empty,
             Message = "Id is required"
+        };
+
+        // §9.7.1 rule 1: an item is contributed into review or into the contributor's own
+        // drawer, and into nothing else. Approved, Rejected and Dismissed are a decision, and a
+        // decision is the approval transition's to award — never a value a caller may arrive
+        // holding.
+        private static dynamic IsNotContributableStatus(ApprovalStatus approvalStatus) => new
+        {
+            Condition = approvalStatus != ApprovalStatus.Draft
+                && approvalStatus != ApprovalStatus.Submitted,
+
+            Message = $"Value must be {nameof(ApprovalStatus.Draft)} " +
+                $"or {nameof(ApprovalStatus.Submitted)} on add"
         };
 
         private static dynamic IsInvalid(string text) => new

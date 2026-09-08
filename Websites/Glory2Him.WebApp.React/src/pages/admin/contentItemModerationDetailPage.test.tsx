@@ -649,6 +649,13 @@ describe('ContentItemModerationDetailPage', () => {
                 await userEvent.click(screen.getByRole('button', { name: /Berean/ }));
             };
 
+            // THE ROUND'S OWN LIST, never the picker. Berean renders in both — offered in one
+            // and standing in the other — so a query over the whole document cannot tell "has
+            // been asked" from "can be asked", which is the entire distinction under test.
+            const bereanReviewRow = (): Element | null =>
+                Array.from(document.querySelectorAll('.g2h-review-row'))
+                    .find((row) => row.textContent?.includes('Berean') === true) ?? null;
+
             it('should offer Berean above the human candidates', async () => {
                 // given
                 openRoundByAnotherAuthor();
@@ -697,7 +704,84 @@ describe('ContentItemModerationDetailPage', () => {
                     expect.stringContaining('Berean'));
 
                 expect(toastSuccessSpy).toHaveBeenCalledWith(
-                    expect.stringContaining('Nothing has been requested.'));
+                    expect.stringContaining('has not been sent.'));
+            });
+
+            /// THE OTHER HALF OF THE SEAM, and the one a moderator can see. Picking Berean has
+            /// to LOOK like asking somebody: the front end is finished when the only thing left
+            /// to build is the endpoint this handler will call. The chip and the tagline are
+            /// ReviewPanel's to draw — what is asserted here is that the page hands it the
+            /// invitation at all.
+            it('should show Berean under Requested once it has been picked', async () => {
+                // given
+                openRoundByAnotherAuthor();
+                renderPage();
+
+                // then: nothing is standing on the round before the click
+                expect(bereanReviewRow()).toBeNull();
+
+                // when
+                await pickBereanAsync();
+
+                // then: the invitation renders in the round beside the human ones, and it
+                // renders having written nothing anywhere
+                const bereanRow = bereanReviewRow();
+
+                expect(bereanRow).not.toBeNull();
+                expect(bereanRow?.textContent).toContain('Berean');
+                expect(bereanRow?.textContent).toContain('Your AI Pair Reviewer');
+                expect(bereanRow?.textContent).toContain('Requested');
+                expect(requestedWith).not.toHaveBeenCalled();
+            });
+
+            /// An invitation that cannot be taken back is not an invitation. The Requested
+            /// section is the panel's only unassign route and it raises the SAME callback for
+            /// everybody, so the page is what has to tell the two apart.
+            it('should withdraw a picked Berean without calling the API', async () => {
+                // given
+                openRoundByAnotherAuthor();
+                renderPage();
+                await pickBereanAsync();
+
+                // when: the picker is still open, and the row now sits under Requested
+                await userEvent.click(screen.getByRole('button', { name: /Berean/ }));
+
+                // then: the round no longer carries it, and nothing was sent either way.
+                // Berean is BACK under Suggestions in the still-open picker, which is why this
+                // asks the review list rather than the document.
+                expect(bereanReviewRow()).toBeNull();
+                expect(withdrawnWith).not.toHaveBeenCalled();
+            });
+
+            /// ...and a person's withdrawal still goes to the server while Berean's does not,
+            /// so the split above is a decision about WHICH row rather than a page that has
+            /// stopped withdrawing.
+            it('should still withdraw a person\u2019s request through the API', async () => {
+                // given
+                openRoundByAnotherAuthor();
+
+                reviewRequests = [{
+                    id: 'request-1',
+                    approvalId: 'approval-1',
+                    requestedUserId: 'user-mary',
+                    requestedUserDisplayName: 'Mary Adeyemi',
+                    isDeleted: false
+                }];
+
+                renderPage();
+
+                // when
+                await userEvent.click(
+                    screen.getByRole('button', { name: 'Request a review' }));
+
+                await userEvent.click(screen.getByRole('button', { name: /Mary/ }));
+
+                // then
+                expect(withdrawnWith).toHaveBeenCalledWith({
+                    entityType: 'ContentItem',
+                    entityId: 'quote-1',
+                    requestedUserId: 'user-mary'
+                });
             });
 
             /// The human path still works while Berean is on offer - so the routing above is a
@@ -1214,11 +1298,43 @@ describe('ContentItemModerationDetailPage', () => {
             const row = editor.closest('article')!;
             await userEvent.click(within(row).getByRole('button', { name: 'Save' }));
 
-            // then
+            // then: the reader's intent, handed over whole. What the retype does to the settled
+            // flag is the service's rule and is asserted there.
             expect(commentModifiedWith).toHaveBeenCalledWith({
-                ...viewersQuestion,
-                comment: 'Rewritten.'
+                approvalComment: viewersQuestion,
+                comment: 'Rewritten.',
+                commentType: ApprovalCommentType.Question
             });
+        });
+
+        // RETYPING IS THE SERVICE'S RULE (§7.8, §20.6.3) and is asserted in
+        // approvalCommentService.test.tsx beside the birth derivation it shares. What belongs
+        // HERE is that the page carries the chosen type over at all — before this it sent the
+        // stored row's own type back, so the radio pair could not be moved.
+        it('should carry the type the author retyped the comment as', async () => {
+            // given: a remark of the viewer's own, settled the way every remark is born
+            openThread();
+
+            approvalComments = [{
+                ...viewersQuestion,
+                commentType: ApprovalCommentType.Comment,
+                isResolved: true
+            }];
+
+            renderPage();
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: /^Edit comment by/ }));
+            const editor = screen.getByLabelText('Edit your comment');
+            const row = editor.closest('article')!;
+
+            await userEvent.click(within(row).getByRole('radio', { name: 'Question' }));
+            await userEvent.click(within(row).getByRole('button', { name: 'Save' }));
+
+            // then
+            expect(commentModifiedWith).toHaveBeenCalledWith(expect.objectContaining({
+                commentType: ApprovalCommentType.Question
+            }));
         });
 
         it('should show the reason the server gave when a comment is refused', async () => {

@@ -84,6 +84,7 @@ import {
     ApprovalDecision,
     ApprovalStatus as ReviewVote,
     BereanAIReviewer,
+    BereanAIReviewerUserId,
     ReviewerCandidateItem
 } from '../../models/components/approvals/approvalReviewItem';
 
@@ -360,6 +361,19 @@ export const ContentItemModerationDetailPage = () => {
                 && review.isDeleted !== true
                 && review.statusId !== ApprovalStatus.Dismissed);
 
+    // WHETHER BEREAN HAS BEEN ASKED, and the only place that answer lives. Every other
+    // invitation on this round is a row the server holds and this page reads back; this one has
+    // no row to read, so it is state — un-persisted, gone on reload, seen by nobody else, and
+    // written nowhere. That is the honest cost of finishing the surface ahead of the endpoint,
+    // and it is not worth buying off with localStorage: durable client state about a round the
+    // server does not hold is a lie with a longer life.
+    //
+    // IT HOLDS THE ITEM, NOT A BOOLEAN. /Admin/Posts/:contentItemId renders one element with no
+    // key, so moving between two posts RE-RENDERS rather than remounts — a bare flag would carry
+    // Berean's chip onto the next post the moderator opened. Derived rather than cleared in an
+    // effect, so it cannot be stale for even one render.
+    const [aiReviewerRequestedForItemId, setAIReviewerRequestedForItemId] = useState('');
+
     // THE AI-REVIEW SEAM (design §8.6.2, issue #354). Assigning Berean is meant to publish an
     // assignment fact that an AI-review process consumes and answers on the round.
     //
@@ -375,12 +389,74 @@ export const ContentItemModerationDetailPage = () => {
     // and it does not fake a pending row, because a "Requested" chip against a request nobody
     // holds is the panel lying about the round.
     //
-    // It says so instead, and that is the whole of it until the backend half lands here.
+    // It says so instead — and it SHOWS the assignment, which is the half that is this page's
+    // to finish. The invitation is held HERE, in page state, and merged into the collection the
+    // panel renders (see requestedReviewerCollectionWithAIReviewer below): the front end is then
+    // complete on its own terms, and what remains for the backend is an endpoint for this
+    // handler to call.
+    //
+    // AN EARLIER VERSION OF THIS COMMENT REFUSED TO SHOW IT, on the ground that a "Requested"
+    // chip against a request nobody holds is the panel lying about the round. The reasoning was
+    // sound and the conclusion was not: it left the one UI state the feature is made of
+    // unreachable and unreviewable, so nobody could tell a finished surface from an unfinished
+    // one. What makes the compromise honest is that the invitation is LOCAL and says so — it
+    // lives for this page visit, it is written nowhere, and a reload has it gone. Nothing is
+    // read back as though the server held it.
     const requestAIReviewAsync = (candidate: ReviewerCandidateItem): void => {
+        setAIReviewerRequestedForItemId(contentItemId);
+
         toastSuccess(
             `${candidate.displayName} cannot review yet — the AI review service is still to be `
-            + 'built. Nothing has been requested.');
+            + 'built. The invitation below is held for this visit only and has not been sent.');
     };
+
+    // THE AI REVIEWER LEAVES BY THE SAME DOOR IT CAME IN. ReviewPanel deliberately routes a
+    // withdrawal through the ONE callback — an invitation under Requested is withdrawable and
+    // that is the only thing a click there can mean, Berean included — so the split is made
+    // here, where the two invitations are actually different things: a person's is a row the
+    // server holds, and Berean's is this page's state.
+    // Silent, deliberately: the row leaving the round IS the feedback, and a toast saying the
+    // invitation was withdrawn would report a server action where there was none.
+    const withdrawAIReviewRequest = (): void => setAIReviewerRequestedForItemId('');
+
+    const isAIReviewerCandidate = (candidate: ReviewerCandidateItem): boolean =>
+        candidate.userId === BereanAIReviewerUserId;
+
+    // WHAT THE PANEL IS HANDED: the round's real invitations, plus Berean's when it is standing.
+    // The merge is here rather than in the panel because the panel is presentation and this is a
+    // fact about the round — and rather than in useApprovalRound, which assembles what the SERVER
+    // holds and must not be taught to invent a row.
+    //
+    // The panel needs nothing else to render it: an AI reviewer in this collection already draws
+    // with its tagline where a username sits, wears the Requested chip, drops out of Suggestions,
+    // counts against the invitation cap and offers the withdraw a click there means. That is the
+    // whole reason the seam is worth finishing this way — the front end was one collection short
+    // of complete, not one component short.
+    // THREE CONDITIONS, ALL DERIVED. The invitation belongs to THIS item; it is only ever
+    // standing while the reviewer is on offer at all — the panel's own Berean row is gated on
+    // the same value, and the day isAIReviewerOffered becomes a resolved ApprovalSetting a
+    // switch flipped mid-session would otherwise leave a merged Berean rendering as an unknown
+    // person; and it lives only while the round is open, because the cog that withdraws it is
+    // gated on Submitted, so a chip surviving a decision could never be taken off.
+    const isAIReviewerRequested =
+        isAIReviewerOffered
+        && aiReviewerRequestedForItemId === contentItemId
+        && contentItem?.approvalStatus === ApprovalStatus.Submitted;
+
+    const requestedReviewerCollectionWithAIReviewer:
+        ReadonlyArray<ReviewerCandidateItem> = useMemo(
+            () => isAIReviewerRequested === false
+                ? requestedReviewerCollection
+
+                // Filtered, not appended blindly: the day the backend lands, Berean arrives in
+                // the server's own collection and this state can still be standing from the
+                // click that put it there. Two Bereans in one list is the bug that would follow.
+                : [
+                    ...requestedReviewerCollection.filter(
+                        (candidate) => isAIReviewerCandidate(candidate) === false),
+                    BereanAIReviewer
+                ],
+            [isAIReviewerRequested, requestedReviewerCollection]);
 
     const castVoteAsync = async (vote: ReviewVote) => {
         if (approvalVerdict == null) {
@@ -451,6 +527,12 @@ export const ContentItemModerationDetailPage = () => {
     };
 
     const withdrawReviewRequestAsync = async (candidate: ReviewerCandidateItem) => {
+        if (isAIReviewerCandidate(candidate)) {
+            withdrawAIReviewRequest();
+
+            return;
+        }
+
         try {
             await withdrawReviewRequest.mutateAsync({
                 entityType: EntityTypeName.ContentItem,
@@ -525,8 +607,12 @@ export const ContentItemModerationDetailPage = () => {
         }
 
         try {
+            // THE READER'S INTENT, and nothing composed from it. What a retype does to the
+            // settled flag is §7.8's rule and lives with the other half of it, on the service
+            // that owns this wire shape — every other write handler on this page hands the hook
+            // what was asked for and lets the hook compose the row.
             await modifyReviewComment.mutateAsync({
-                ...storedComment,
+                approvalComment: storedComment,
                 comment: item.comment,
                 commentType: item.commentType
             });
@@ -749,7 +835,8 @@ export const ContentItemModerationDetailPage = () => {
                                 approvalStatus={contentItem.approvalStatus}
                                 approvalVerdict={approvalVerdict}
                                 approvalReviewCollection={approvalReviewCollection}
-                                requestedReviewerCollection={requestedReviewerCollection}
+                                requestedReviewerCollection={
+                                    requestedReviewerCollectionWithAIReviewer}
                                 reviewerCandidateCollection={reviewerCandidateCollection}
                                 isLoading={isRoundLoading}
                                 onReviewStatusChanged={(vote) => void castVoteAsync(vote)}

@@ -62,8 +62,9 @@ export function Contribute() {
             // genuine submission and for a duplicate.
             toastSuccess(contributeThanksText);
 
-            // The contributor's OWN surface, not the public one: a fresh submission is a
-            // Draft, and /myposts is where a draft is theirs to read.
+            // The contributor's OWN surface, not the public one: a fresh contribution is a
+            // Draft or awaiting review, depending on what the "Submit as" row was left on, and
+            // /myposts is where either is theirs to read.
             navigate('/myposts');
         } catch (error) {
             const failure = toContentItemApiFailure(error, contributeFailureText);
