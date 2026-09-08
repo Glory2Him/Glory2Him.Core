@@ -704,7 +704,7 @@ describe('ContentItemModerationDetailPage', () => {
                     expect.stringContaining('Berean'));
 
                 expect(toastSuccessSpy).toHaveBeenCalledWith(
-                    expect.stringContaining('Nothing has been requested.'));
+                    expect.stringContaining('has not been sent.'));
             });
 
             /// THE OTHER HALF OF THE SEAM, and the one a moderator can see. Picking Berean has

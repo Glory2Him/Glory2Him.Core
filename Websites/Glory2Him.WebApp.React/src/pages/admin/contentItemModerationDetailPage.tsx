@@ -407,7 +407,7 @@ export const ContentItemModerationDetailPage = () => {
 
         toastSuccess(
             `${candidate.displayName} cannot review yet — the AI review service is still to be `
-            + 'built. Nothing has been requested.');
+            + 'built. The invitation below is held for this visit only and has not been sent.');
     };
 
     // THE AI REVIEWER LEAVES BY THE SAME DOOR IT CAME IN. ReviewPanel deliberately routes a
