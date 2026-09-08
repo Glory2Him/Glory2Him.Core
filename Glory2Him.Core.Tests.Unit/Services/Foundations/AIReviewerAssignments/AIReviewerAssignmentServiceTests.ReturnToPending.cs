@@ -108,6 +108,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.AIReviewerAssignments
 
             // The audit values were stamped from a SYSTEM context, which is what makes UpdatedBy
             // mean "nobody asked for this; the content moved underneath it".
+            //
+            // PINNED ON THE SUBJECT, not only on the flag. IsSystemIdentity alone is satisfied by
+            // CreateElevatedAsync too, and that verb KEEPS the caller as the subject — so a
+            // transition switched to it would still pass a flag-only assertion while stamping
+            // UpdatedBy with the author whose edit triggered the reset, which is the one thing
+            // this seam exists to prevent. The caller survives on DelegatedBySubjectId, so the
+            // trail back to the person is kept without making them the actor.
             this.securityAuditBrokerMock.Verify(broker =>
                 broker.ApplyModifyAuditValuesAsync(
                     It.Is<AIReviewerAssignment>(aiReviewerAssignment =>
@@ -115,7 +122,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.AIReviewerAssignments
                             && aiReviewerAssignment.IsAIReviewCompleted == false
                             && aiReviewerAssignment.IsAIReviewCommentsPresent == false),
                     It.Is<SecurityContext>(securityContext =>
-                        securityContext.IsSystemIdentity)),
+                        securityContext.IsSystemIdentity
+                            && securityContext.SubjectId == SystemIdentity.UserId
+                            && securityContext.Username == SystemIdentity.Username
+                            && securityContext.DelegatedBySubjectId
+                                == this.ambientSecurityContext.SubjectId)),
                 Times.Once);
 
             // THE ROW STAYS. Berean is still on the round — only the flags went back, and a

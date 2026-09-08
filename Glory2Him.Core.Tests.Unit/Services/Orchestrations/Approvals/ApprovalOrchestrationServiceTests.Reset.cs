@@ -150,6 +150,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     It.IsAny<CancellationToken>()),
                 Times.Never);
 
+            VerifyBereanWasNotReturnedToPending();
+
             this.eventEnvelopeBrokerMock.Verify(broker =>
                 broker.CreateSystemAsync(It.IsAny<ContentItem>()),
                 Times.Never);
@@ -356,6 +358,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()),
                 Times.Never);
+
+            VerifyBereanWasNotReturnedToPending();
         }
 
         /// <summary>
@@ -399,6 +403,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()),
                 Times.Never);
+
+            VerifyBereanWasNotReturnedToPending();
         }
 
         /// <summary>
@@ -434,6 +440,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     It.IsAny<WorkflowAttribution>(),
                     It.IsAny<CancellationToken>()),
                 Times.Never);
+
+            VerifyBereanWasNotReturnedToPending();
         }
 
         /// <summary>
@@ -754,5 +762,35 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     It.IsAny<CancellationToken>()),
                 Times.Once);
         }
+        /// <summary>
+        /// THE REFUSAL TESTS' PIN ON THE AI HALF, and it is not decoration. Returning Berean to
+        /// pending is a SYSTEM-identity write: the foundation transition asks only
+        /// <c>IsSystemIdentity</c>, so no gate beneath the orchestration will refuse it. The
+        /// administrator gate and the §18.6 ReadOnly veto in <c>ResetApprovalAsync</c> are the
+        /// only things standing between a caller and that write, and both sit ABOVE it purely by
+        /// statement order.
+        ///
+        /// <para>Without this, hoisting the call above those gates leaves every refusal test
+        /// green while letting a non-administrator — or an administrator under a block — clear
+        /// the two flags on any round they can name. The human dismissal is pinned against the
+        /// same mistake by its own <c>Times.Never</c>; this is that pin for the half added later.
+        /// Both halves are named, because the read alone reaching storage is already the
+        /// ordering error, whether or not the write follows.</para>
+        /// </summary>
+        private void VerifyBereanWasNotReturnedToPending()
+        {
+            this.accessBrokerMock.Verify(broker =>
+                broker.FindResettableAIReviewerAssignmentIdAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.aiReviewerAssignmentWorkflowServiceMock.Verify(service =>
+                service.ReturnStaleAIReviewerAssignmentToPendingAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
     }
 }

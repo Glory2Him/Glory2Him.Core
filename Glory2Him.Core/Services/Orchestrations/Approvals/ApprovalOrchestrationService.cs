@@ -48,7 +48,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         private readonly IEnvelopeIntegrityBroker envelopeIntegrityBroker;
         private readonly ILoggingBroker loggingBroker;
 
-        // Eight service references over six foundations — three of them the workflow's own
+        // Eight service references over six foundations — four of them the workflow's own
         // narrow write seams beside the public door — and five brokers. The seven entity
         // services are absent on purpose: the decision reaches its entity as a command event
         // rather than a call (§16.7.1), which is what keeps this inside the dependency-count

@@ -87,11 +87,23 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.AIReviewerAssignments
                                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
                             }));
 
-            // The workflow's own path mints through here instead. Modelled the way the real
-            // broker behaves: the caller's SubjectId is kept — the audit answer to "who caused
-            // this" is a person — and the roles are DROPPED, so the system flag stands alone as
-            // the authority. That dropping is the whole reason the return-to-pending transition
-            // needs its own seam: a role-less context cannot pass the manage gate.
+            // The workflow's own path mints through here instead, and this models what
+            // EventEnvelopeBroker.CreateSystemContextAsync ACTUALLY does with
+            // isCarryingOutACallersDecision: false — the SYSTEM becomes the subject, the caller
+            // survives only on DelegatedBySubjectId, and the roles are DROPPED so the system flag
+            // stands alone as the authority.
+            //
+            // Those are three different claims and each one is load-bearing here. The dropped
+            // roles are why the return-to-pending transition needs its own seam at all: a
+            // role-less context cannot pass the manage gate. The replaced subject is what makes
+            // UpdatedBy name the workflow rather than the author whose edit triggered the reset —
+            // which is the whole audit claim this transition rests on, and it is asserted in
+            // ReturnToPending.cs. The kept DelegatedBySubjectId is what stops that being an
+            // erasure: the causal trail to the person still exists, it is just not the actor.
+            //
+            // KEEPING THE CALLER'S SubjectId HERE WOULD BE CreateElevatedAsync, a different verb
+            // with a different meaning, and a stub shaped that way would pass the inverse
+            // assertion against production code that had been switched to it.
             this.eventEnvelopeBrokerMock.Setup(broker =>
                 broker.CreateSystemAsync(It.IsAny<AIReviewerAssignment>()))
                     .Returns((AIReviewerAssignment content) =>
@@ -103,10 +115,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.AIReviewerAssignments
                                 SecurityContext = new SecurityContext
                                 {
                                     IsAuthenticated = true,
-                                    SubjectId = this.ambientSecurityContext?.SubjectId,
-                                    Username = this.ambientSecurityContext?.Username,
+                                    SubjectId = SystemIdentity.UserId,
+                                    Username = SystemIdentity.Username,
+                                    DelegatedBySubjectId = this.ambientSecurityContext?.SubjectId,
                                     Roles = [],
-                                    IsSystemIdentity = this.systemContextIsGenuine
+                                    IsSystemIdentity = this.systemContextIsGenuine,
+                                    AuthenticationType = AuthenticationType.System
                                 },
 
                                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
