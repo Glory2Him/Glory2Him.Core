@@ -51,20 +51,17 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
         public EventFactAcceptanceTests(EventSubstrateBroker broker) =>
             this.broker = broker;
 
-        // Added AND Modified, for both entities. Every event name is its own literal on the
-        // receiving side, so covering one operation proves nothing about the other — and the
-        // -Modified arm is the more consequential one. A refused -Added leaves an approval that
-        // was never opened, which is at least visibly absent; a refused -Modified means §9.7.4
-        // re-approval-on-change never runs, so an already-Approved row that is then edited keeps
-        // its verdict and its stale reviews, silently.
+        // -Modified only. -Added delivery for these two is already pinned exactly by
+        // EventSubscriptionWiringTests.ShouldRouteTheVersionedEntityFromTheProcessingTierOnlyAsync,
+        // so re-proving it here would be the same mechanism proven twice (#487). -Modified is
+        // kept because nothing else in the suite ever publishes it through the real substrate —
+        // §9.7.4 re-approval-on-change depends on it, and a refused -Modified means an
+        // already-Approved row that is then edited silently keeps its stale verdict.
         [Theory]
-        [InlineData(nameof(ContentItem), false)]
-        [InlineData(nameof(ContentItem), true)]
-        [InlineData(nameof(Link), false)]
-        [InlineData(nameof(Link), true)]
-        public async Task ShouldAcceptTheVersionedEntityFactFromItsProcessingTierAsync(
-            string entityName,
-            bool isModifiedFact)
+        [InlineData(nameof(ContentItem))]
+        [InlineData(nameof(Link))]
+        public async Task ShouldAcceptTheVersionedEntityModifiedFactFromItsProcessingTierAsync(
+            string entityName)
         {
             // given: the processing tier is the tier that owns these two entities' top-layer
             // fact, so the name it signs is the name its receiver must verify
@@ -78,16 +75,12 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
                         {
                             Content = new ContentItem { Id = Guid.NewGuid() }
                         },
-                        isModifiedFact
-                            ? ContentItemProcessingEventOperation.Modified
-                            : ContentItemProcessingEventOperation.Added)),
+                        ContentItemProcessingEventOperation.Modified)),
 
                 nameof(Link) => DeliveryOutcomes(
                     await this.broker.EventBroker.PublishLinkProcessingAsync(
                         new EventEnvelope<Link> { Content = new Link { Id = Guid.NewGuid() } },
-                        isModifiedFact
-                            ? LinkProcessingEventOperation.Modified
-                            : LinkProcessingEventOperation.Added)),
+                        LinkProcessingEventOperation.Modified)),
 
                 _ => throw new ArgumentOutOfRangeException(
                     nameof(entityName), entityName, "Only the versioned entities have a tier.")
@@ -95,35 +88,32 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
 
             // then
             outcomes.Should().Equal(new[] { true },
-                because: $"the approval workflow must ACCEPT the {entityName} fact its own " +
-                    "processing tier signed. The event name is inside the HMAC, so a receiver " +
-                    "verifying a different name than the publisher composed refuses a genuine " +
-                    "envelope — the fact arrives and is thrown away by its own recipient");
+                because: $"the approval workflow must ACCEPT the {entityName} Modified fact " +
+                    "its own processing tier signed. The event name is inside the HMAC, so a " +
+                    "receiver verifying a different name than the publisher composed refuses a " +
+                    "genuine envelope — the fact arrives and is thrown away by its own recipient");
         }
 
+        // -Modified only — see the note above. -Added delivery for these four is already pinned
+        // exactly by EventSubscriptionWiringTests.ShouldReachTheApprovalWorkflowFromTheFoundationTierAsync.
         [Theory]
-        [InlineData(nameof(Tag), false)]
-        [InlineData(nameof(Tag), true)]
-        [InlineData(nameof(Comment), false)]
-        [InlineData(nameof(Comment), true)]
-        [InlineData(nameof(Reaction), false)]
-        [InlineData(nameof(Reaction), true)]
-        [InlineData(nameof(BibleReference), false)]
-        [InlineData(nameof(BibleReference), true)]
-        public async Task ShouldAcceptTheSingleRowEntityFactFromItsFoundationAsync(
-            string entityName,
-            bool isModifiedFact)
+        [InlineData(nameof(Tag))]
+        [InlineData(nameof(Comment))]
+        [InlineData(nameof(Reaction))]
+        [InlineData(nameof(BibleReference))]
+        public async Task ShouldAcceptTheSingleRowEntityModifiedFactFromItsFoundationAsync(
+            string entityName)
         {
             // given: these four have no processing tier, so the foundation signs their fact
 
             // when
             IReadOnlyList<bool> outcomes =
-                await PublishFoundationFactAsync(entityName, isModifiedFact);
+                await PublishFoundationFactAsync(entityName, isModifiedFact: true);
 
             // then
             outcomes.Should().Equal(new[] { true },
-                because: $"the approval workflow must ACCEPT the {entityName} fact its own " +
-                    "foundation signed");
+                because: $"the approval workflow must ACCEPT the {entityName} Modified fact " +
+                    "its own foundation signed");
         }
 
         [Theory]
