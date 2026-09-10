@@ -443,3 +443,13 @@ Documentation/api.bible/
 
 # Deployment artefact produced by Tools/new-database-script.sh
 Glory2Him.Core.Database.sql
+
+# Throw-away broker wire-up probes. Brokers carry no logic and get no tests; the
+# only exception is a disposable probe under DeleteMe/Brokers/ that confirms an
+# external resource is actually connected, so a wire-up mistake surfaces in
+# minutes instead of weeks later when someone builds over it. It proves the
+# connection, never behaviour, and it must never reach source control: build.yml
+# globs *Tests.Unit*.csproj recursively and runs every match, so a committed
+# probe would execute on an agent that cannot reach the external resource and
+# break the build somewhere unrelated to the change in flight.
+DeleteMe/

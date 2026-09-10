@@ -84,19 +84,21 @@ actual test run, never against the description of the work.
    is wired up correctly so that mistake surfaces immediately rather than weeks
    later. It is never a substitute for exposer-level coverage.
 
-   Verify the diff for this explicitly — it is the kind of thing that slips
-   through and breaks the pipeline for someone else:
+   **No broker test may ever reach source control.** Verify this explicitly — it
+   is the kind of thing that slips past a summary and breaks the pipeline for
+   someone else:
 
-   - Does the change add or leave any file under a `DeleteMe/` path? Look at the
-     diff and at the working tree, not just at what the summary claims.
-   - If one is present, is it excluded from compilation in the same commit —
-     `<Compile Remove="DeleteMe\**\*.cs" />` in that test project's `.csproj`?
-   - A probe that is committed **and** compiled is **BLOCKING**. CI globs
-     `*Tests.Unit*.csproj` recursively and runs every match, so it will execute on
-     a build agent that cannot reach the external resource, failing the build in a
-     place unrelated to the change in flight.
-   - A probe committed *with* the exclusion is ADVISORY: it works, but the default
-     is still deletion, so ask why it was kept.
+   - Is any file under a `DeleteMe/` path tracked by git? Check what is actually
+     tracked, not just the diff — `git ls-files` over the path settles it, and a
+     file added with `-f` will not show up as a new change in a later diff.
+   - **Any tracked broker test or probe is BLOCKING**, with no exception for one
+     that has been excluded from compilation. CI globs `*Tests.Unit*.csproj`
+     recursively and runs every match, so it would execute on a build agent that
+     cannot reach the external resource, failing the build in a place unrelated
+     to the change in flight.
+   - Does `.gitignore` still carry the `DeleteMe/` entry? Its removal is a finding
+     in its own right, even with nothing currently tracked, because it is what
+     stops the next probe being committed by accident.
 
 6. **Mutation check.** Pick the two or three most important pieces of new logic.
    Work out by hand what would break if you inverted a condition, changed a
