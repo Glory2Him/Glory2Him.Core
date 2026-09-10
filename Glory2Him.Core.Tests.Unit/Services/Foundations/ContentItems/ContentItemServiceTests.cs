@@ -26,6 +26,7 @@ using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Brokers.EventEnvelopes;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
 using Glory2Him.Core.Models.Securities;
@@ -109,6 +110,18 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                                     SecurityContext = sourceEnvelope.SecurityContext,
                                     Metadata = new EventMetadata { EventId = Guid.NewGuid() }
                                 }));
+
+            // Every transition publishes through one tail that now INSPECTS its result
+            // (§10.19), so a publish left unstubbed would hand the service Moq's null default
+            // rather than an empty result. Defaulted to a fully delivered publish, so the tests
+            // that only assert the fact went out are unaffected; the delivery tests override it
+            // to report a contained failure.
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishContentItemAsync(
+                    It.IsAny<EventEnvelope<ContentItem>>(),
+                    It.IsAny<ContentItemEventOperation>()))
+                        .Returns(new ValueTask<EventPublishResult<ContentItem>>(
+                            new EventPublishResult<ContentItem>()));
 
             this.contentItemService = new ContentItemService(
                 storageBroker: this.storageBrokerMock.Object,

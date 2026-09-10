@@ -16,6 +16,7 @@ using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Exceptions;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 
@@ -397,9 +398,26 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     sourceEnvelope: inboundEnvelope,
                     content: updatedContentItem);
 
-            await this.eventBroker.PublishContentItemAsync(
-                envelope: outboundEnvelope,
-                operation: operation);
+            EventPublishResult<ContentItem> publishResult =
+                await this.eventBroker.PublishContentItemAsync(
+                    envelope: outboundEnvelope,
+                    operation: operation);
+
+            // §10.19. Delivery is contained, so a subscriber that failed says so HERE and
+            // nowhere else, and nothing redelivers it. ContentItem-Submitted reaches the
+            // approval round; dropping it diverges the round from the row permanently,
+            // because the read-triggered repair only opens a MISSING round (§16.7.2).
+            // Unconditional because an unsubscribed address reports no deliveries at all —
+            // the subscription list answers this, and a copy of it does not belong in a
+            // service.
+            //
+            // Logged, never thrown: the row is already committed above, and failing the
+            // caller now would report a completed write as a failed one.
+            if (publishResult.HasFailedDeliveries)
+            {
+                await this.loggingBroker.LogCriticalAsync(
+                    FailedEventDeliveryException.ForFailedDeliveries(publishResult, operation));
+            }
 
             await RecordEventProcessedAsync(
                 envelope: outboundEnvelope,
