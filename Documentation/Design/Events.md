@@ -29,8 +29,8 @@ Two corrections made in this merge, stated explicitly rather than silently:
 1. `EventSubstrate.md` §5.10 said envelope integrity was "**Not implemented**." It
    is now implemented — `IEnvelopeIntegrityBroker.SignAsync`/`VerifyAsync`, real
    HMAC, exercised throughout `EventBroker` and covered by
-   `EnvelopeIntegrityBrokerTests`. §10 below carries the corrected, current
-   description; §10's reasoning for *why* the signature must bind the destination
+   `EnvelopeIntegrityBrokerTests`. §EVN10 below carries the corrected, current
+   description; §EVN10's reasoning for *why* the signature must bind the destination
    name and direction (not just identity) is `EventSubstrate.md` §5.10's
    contribution, preserved because the current implementation follows it exactly.
 2. Nothing describing the discarded generic scheme (`IEventReceiver<T>`,
@@ -68,7 +68,18 @@ collisions:
 1. Create operations emit an `-Added` fact.
 2. Update operations emit a `-Modified` fact.
 3. Soft delete operations emit a `-Removed` fact.
-4. No hard delete facts are required because hard deletes are not planned.
+4. Hard delete operations emit a `-Removed` fact too — `HardRemoved` is
+   published to the **same** address as `Removed`, deliberately, for every
+   entity. The two are told apart by the composed event name, which is bound
+   into the envelope's signature, not by a separate address. This corrects an
+   earlier claim in this section (carried forward unchecked from
+   `G2H Design.md` §10.2 rule 4 during the unification, then caught by review):
+   every entity has a `HardRemovingById` request handler registered in
+   `EventSubscriptionRegistration`, and `EventBrokerIdentifiers` maps every
+   entity's `HardRemoved` onto its `Removed` address — hard deletes are
+   implemented and event-invokable, universally, not merely planned. §EVN18(a)
+   already documented this correctly for the workflow records; this rule did
+   not match it.
 5. A service publishes a fact only about its **own** unit of work. A foundation
    `-Added` means a row was written; an orchestration `-Added` means that
    orchestrated process completed with its gates passed and its invariants
@@ -143,7 +154,10 @@ address by `ContentItemService`.
 > semantics as much as it is about the fact that announces it. Left here, where
 > it was already colocated, rather than deciding that boundary now.
 
-Hard deletes are not planned.
+Hard deletes are implemented and event-invokable (§EVN2 rule 4) — this
+paragraph originally said otherwise; corrected during review. What follows
+concerns soft delete specifically, which is the default and the far more
+common path; hard delete does not go through the fields below.
 
 Soft delete should be implemented through:
 
@@ -181,7 +195,10 @@ or a separate delete-request entity that itself participates in approval.
 ## EVN6. The Event Envelope *(formerly §10.6)*
 
 All events should be wrapped in an `EventEnvelope<T>` that carries the business
-payload alongside security, request, and event metadata.
+payload alongside security, request, event metadata, and — since §EVN10 —
+integrity. The example below was missing `Integrity` before review; the real
+model has carried it since signing was implemented, and an example omitting it
+would lead a reader to construct an envelope that ships unsigned.
 
 ```csharp
 public sealed class EventEnvelope<T>
@@ -193,6 +210,8 @@ public sealed class EventEnvelope<T>
     public RequestContext RequestContext { get; init; }
 
     public EventMetadata Metadata { get; init; }
+
+    public EnvelopeIntegrity Integrity { get; init; }
 }
 ```
 
@@ -284,7 +303,7 @@ path. **No rule is ever decided on it.** Authorisation compares `SubjectId`, and
 audit stamps `CreatedBy`/`UpdatedBy` from the subject claim — two accounts can
 share a display name, so a rule matching on a name is a privilege escalation.
 
-### 7.1 Authentication Flow Examples
+### EVN7.1 Authentication Flow Examples *(formerly §10.7.1)*
 
 **OpenID Connect user login:**
 
@@ -586,8 +605,11 @@ through `IEventEnvelopeFactory.CreateNextAsync` (fresh `EventId`, `CausationId`
 = source event, security/request context carried forward). Substrate handlers
 categorize failures into the service's typed exceptions and rethrow —
 deliveries record `Error` and retry; failures are never swallowed. Hard removal
-is deliberately not event-invokable, and reads publish no fact — a retrieve's
-reply rides the delivery's response.
+**is** event-invokable, via `HardRemovingById` on every entity's request
+address, publishing `HardRemoved` onto the same address as `Removed` (§EVN2
+rule 4, §EVN18(a)) — this paragraph originally claimed the opposite; corrected
+during review. Reads publish no fact — a retrieve's reply rides the delivery's
+response.
 
 The broker keeps per-entity pub/sub methods (`PublishContentItemAsync`,
 `SubscribeToContentItemEventAsync`, and so on), so publishing and subscribing
@@ -725,8 +747,18 @@ should confirm:
 7. Event id is present.
 8. Authenticated operations have valid identity details.
 9. Machine operations have valid client details.
+10. **The signature verifies** — `IEnvelopeIntegrityBroker.VerifyAsync` against
+    the event name this handler serves and the expected direction. This item
+    was missing from the checklist inherited from `G2H Design.md`, even though
+    real receivers already reject on a missing or mismatched signature
+    (§EVN10); added during review rather than left as a gap between the
+    documented contract and the actual behaviour.
 
-Example validation:
+Example validation, corrected to include the check every real receiver performs
+(`ApprovalOrchestrationService.Validations.cs` is the real implementation this
+is drawn from — see §EVN18 for the accepted-name-set reasoning behind the
+`acceptedEventNames` array, needed because a shared removal address accepts two
+names):
 
 ```csharp
 private static void ValidateEnvelope<T>(EventEnvelope<T> envelope)
@@ -755,6 +787,25 @@ private static void ValidateEnvelope<T>(EventEnvelope<T> envelope)
     {
         throw new InvalidEventEnvelopeException("Event metadata is required.");
     }
+}
+
+private async ValueTask ValidateEnvelopeIntegrityAsync<T>(
+    EventEnvelope<T> envelope,
+    string[] acceptedEventNames)
+{
+    foreach (string eventName in acceptedEventNames ?? Array.Empty<string>())
+    {
+        bool isSignatureValid = await this.envelopeIntegrityBroker.VerifyAsync(
+            envelope, eventName, EnvelopeDirection.Request);
+
+        if (isSignatureValid)
+        {
+            return;
+        }
+    }
+
+    throw new InvalidEventEnvelopeException(
+        "Event envelope signature is missing or does not match an accepted name.");
 }
 ```
 
@@ -1301,7 +1352,7 @@ domain throughout. Concepts it proposed that were **not** what got built:
   illustrative scaffolding, never real code in this repository.
 
 What did survive, corrected and carried forward into this document: the
-signing rationale (§10), the intent-vs-reaction principle and the
+signing rationale (§EVN10), the intent-vs-reaction principle and the
 event-spaghetti-avoidance rules (§EVN20), and the intentional-dispatch pattern
 (§EVN21) — none of these depended on the discarded scheme.
 

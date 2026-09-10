@@ -1686,7 +1686,7 @@ Because the approval is per-row, a fork's previous and new versions each mirror 
 
 ## 10. Event Design
 
-Moved to `Documentation/Design/Events.md` — unifies this section with the
+Moved to [`Documentation/Design/Events.md`](Design/Events.md) — unifies this section with the
 former standalone `EventSubstrate.md`, removing the duplication between them.
 Sections there carry an `EVN` prefix (`§EVN1`, `§EVN2`, ...) rather than
 restarting bare at 1, so a citation stays unambiguous once other
