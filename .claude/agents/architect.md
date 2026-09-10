@@ -48,10 +48,14 @@ What you settle, in this order:
   envelope. It is never read from an ambient accessor, and an identity-filtered
   read must never be what decides an invariant — a read that returns nothing
   because the caller cannot see it is not the same as a row that does not exist.
-- **Brokers hold no logic.** If a decision needs making, it does not belong in a
-  broker. Narrow reads are still the broker's job: the predicate and the await
-  both live there, not a materialised list filtered above.
-- **Never skip a layer.** A layer depends only on the layer directly below it.
+- **Brokers hold no logic** (`the-standard-brokers`). Narrow reads are still the
+  broker's job: the predicate and the await both live there, not a materialised
+  list filtered above.
+- **Never skip a layer — with one named exception.** A layer depends only on the
+  layer directly below it, except that an orchestration may depend on foundation
+  services directly, under the same-kind rule two bullets below. Nowhere else in
+  this solution is a level skipped; do not generalise the exception past that one
+  case.
 - **Two-Three (Florance Pattern).** For Orchestrator services, the dependencies
   of services (not brokers) should be limited to two or three, not one, four, or more.
 - **One kind of dependency, never a mix.** An orchestration may depend on

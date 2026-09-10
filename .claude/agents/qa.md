@@ -46,8 +46,9 @@ mocked-boundary blind spot, and reading the tests rather than their names.
    method). Do not report a missing cancellation path against a config,
    migration or documentation change, or against an operation with no token.
 
-3. **Layer discipline.** Does any layer call three layers below it? Did a
-   decision land in a broker? Does the entity count match the layer — one entity,
+3. **Layer discipline.** Does any layer call two layers below it — skip even one
+   level, e.g. Processing reaching straight for a broker? Did a decision land in
+   a broker? Does the entity count match the layer — one entity,
    or more than three, in an orchestration, or two in a foundation, is a
    structural finding. Does an event's tense and register match its layer and
    direction?
