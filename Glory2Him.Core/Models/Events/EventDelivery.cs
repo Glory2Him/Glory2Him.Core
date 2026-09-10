@@ -15,8 +15,13 @@ namespace Glory2Him.Core.Models.Events
 {
     /// <summary>
     /// The outcome of delivering a published event to one subscription, observed at dispatch
-    /// time. A failed delivery may still succeed later through retries; the durable record of
-    /// every delivery lives in the event store.
+    /// time. The durable record of every delivery lives in the event store.
+    ///
+    /// <para><b>Nothing redelivers a failed one today.</b> This type used to say a failure may
+    /// still succeed later through retries; the substrate does expose a pending-event sweep, but
+    /// no caller in Core invokes it, so the dispatch-time outcome is the final one rather than a
+    /// first attempt. That is why §10.19 makes inspecting the result an obligation instead of a
+    /// courtesy — see <see cref="EventPublishResult{T}.HasFailedDeliveries"/>.</para>
     /// </summary>
     /// <typeparam name="T">The type of the domain event content payload.</typeparam>
     public sealed class EventDelivery<T>

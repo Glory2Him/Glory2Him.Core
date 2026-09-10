@@ -16,7 +16,12 @@ using Xeptions;
 namespace Glory2Him.Core.Models.Events.Exceptions
 {
     /// <summary>
-    /// A fact was published and at least one subscription failed to receive it (§10.19).
+    /// An event was published and at least one subscription failed to receive it (§10.19).
+    ///
+    /// <para>An EVENT rather than a fact, and the distinction is not pedantry: the approving
+    /// command travels through this same helper, and telling an operator a subscription "did not
+    /// receive the fact" about a <c>-Approving</c> instruction describes the wrong kind of event
+    /// and sends them looking for a fact nobody published.</para>
     ///
     /// <para><b>This is never thrown.</b> It exists to carry a message into
     /// <c>ILoggingBroker.LogCriticalAsync</c>, which is the only logging tier that takes an
@@ -39,17 +44,17 @@ namespace Glory2Him.Core.Models.Events.Exceptions
         /// <summary>
         /// Describes every unsuccessful delivery on a publish result.
         ///
-        /// <para>The address is composed from the OPERATION's type rather than the content's,
-        /// and that is not interchangeable: <c>ApprovalOrchestrationService</c> publishes
-        /// <c>ContentItem</c> content to the PROCESSING address, so naming the address after
-        /// the content would name the wrong one in the log.</para>
+        /// <para>The event name is composed from the OPERATION's type rather than the
+        /// content's, and that is not interchangeable: <c>ApprovalOrchestrationService</c>
+        /// publishes <c>ContentItem</c> content to the PROCESSING service's address, so naming
+        /// the event after the content would point an operator at the wrong service.</para>
         /// </summary>
         public static FailedEventDeliveryException ForFailedDeliveries<TContent, TOperation>(
             EventPublishResult<TContent> publishResult,
             TOperation operation)
             where TOperation : struct, Enum
         {
-            string address = ComposeAddress(operation);
+            string eventName = ComposeEventName(operation);
 
             string failedDeliveries = string.Join(
                 separator: "; ",
@@ -58,16 +63,23 @@ namespace Glory2Him.Core.Models.Events.Exceptions
                     .Select(DescribeDelivery));
 
             return new FailedEventDeliveryException(
-                message: $"Failed event delivery on '{address}' for event " +
+                message: $"Failed event delivery of '{eventName}', event id " +
                     $"'{publishResult.EventId}'. The publisher completed and its write stands, " +
-                    $"but these subscriptions did not receive the fact and nothing redelivers " +
-                    $"it: {failedDeliveries}. Contact support.");
+                    $"but these subscriptions did not receive it and nothing redelivers it: " +
+                    $"{failedDeliveries}. Contact support.");
         }
 
-        // "TagEventOperation" + Submitted -> "Tag-Submitted"; "ContentItemProcessingEventOperation"
-        // + Approving -> "ContentItemProcessing-Approving". The suffix is stripped rather than the
-        // subject being passed in, so no call site can name an address its publish did not use.
-        private static string ComposeAddress<TOperation>(TOperation operation)
+        // "TagEventOperation" + Submitted -> "TagSubmitted"; "ContentItemProcessingEventOperation"
+        // + Approving -> "ContentItemProcessingApproving". The suffix is stripped rather than the
+        // subject being passed in, so no call site can name an event its publish did not send.
+        //
+        // The composed EVENT NAME rather than the event address, and they are not
+        // interchangeable: HardRemoved is published to the same address as Removed and is
+        // distinguished purely by this name (see TagEventOperation), so an address composed this
+        // way would announce a "Tag-HardRemoved" that was never registered and send an operator
+        // hunting a subscription that does not exist. The event name is unambiguous for every
+        // operation, and it is what the event store holds the row under (§10.10).
+        private static string ComposeEventName<TOperation>(TOperation operation)
             where TOperation : struct, Enum
         {
             const string operationSuffix = "EventOperation";
@@ -77,7 +89,7 @@ namespace Glory2Him.Core.Models.Events.Exceptions
                 ? operationTypeName[..^operationSuffix.Length]
                 : operationTypeName;
 
-            return $"{subject}-{operation}";
+            return $"{subject}{operation}";
         }
 
         private static string DescribeDelivery<TContent>(EventDelivery<TContent> delivery) =>

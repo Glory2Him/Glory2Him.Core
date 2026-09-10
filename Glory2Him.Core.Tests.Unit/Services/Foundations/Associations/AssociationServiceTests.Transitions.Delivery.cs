@@ -13,6 +13,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using FluentAssertions;
 using Force.DeepCloner;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Enums;
@@ -80,10 +81,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     It.IsAny<SecurityContext>()))
                         .ReturnsAsync((Association entity, SecurityContext _) => entity);
 
+            Association savedAssociation = null;
+
             this.storageBrokerMock.Setup(broker =>
                 broker.UpdateAssociationAsync(
                     It.IsAny<Association>(),
                     It.IsAny<CancellationToken>()))
+                        .Callback<Association, CancellationToken>(
+                            (entity, _) => savedAssociation = entity.DeepClone())
                         .ReturnsAsync((Association entity, CancellationToken _) =>
                             entity.DeepClone());
 
@@ -99,7 +104,23 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 inputAssociation,
                 TestContext.Current.CancellationToken);
 
-            // then: the contained failure is reported rather than dropped
+            // then: the re-open COMMITTED. The six sibling entities assert this through the
+            // returned row; Association's transition is reached through the decision switch, so
+            // it is asserted on what reached storage. Without it a regression that logged the
+            // contained failure but skipped or altered the write would still pass, and §10.19's
+            // whole premise is that the write stands and only its fact went astray.
+            savedAssociation.Should().NotBeNull();
+            savedAssociation.ApprovalStatus.Should().Be(ApprovalStatus.Submitted);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateAssociationAsync(
+                    It.Is<Association>(association =>
+                        association.Id == storageAssociation.Id
+                            && association.ApprovalStatus == ApprovalStatus.Submitted),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            // and: the contained failure is reported rather than dropped
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogCriticalAsync(It.Is(
                     SameExceptionAs(
