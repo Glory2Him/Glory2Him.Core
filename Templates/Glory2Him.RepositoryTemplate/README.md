@@ -1,9 +1,12 @@
 # Glory 2 Him repository template
 
-Staged for review. `template/` is the payload that becomes
-`Glory2Him/Glory2Him.Template` — the repository new org repos are created from with
-**Use this template**. Nothing here is wired into Glory2Him.Core's build; this folder
-is a holding area and can be deleted once the template repository exists.
+**Shipped.** `template/` was pushed to
+[Glory2Him/Glory2Him.Template](https://github.com/Glory2Him/Glory2Him.Template), which
+is marked as a template repository and carries all 112 labels. That repository is now
+the source of truth — this folder is the working copy it was built from and can be
+deleted. Do not edit it expecting the template to change; edit the template repository.
+
+Nothing here is wired into Glory2Him.Core's build.
 
 ## What is in the payload
 
