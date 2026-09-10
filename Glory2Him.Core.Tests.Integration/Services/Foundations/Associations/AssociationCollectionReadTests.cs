@@ -64,11 +64,11 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
         /// row set that leaves any of them unexercised proves less than the SQL strings did.
         /// The B-side branch needs a row whose only route in is <c>EntityBContentType</c> —
         /// canonical ordering decides which endpoint a content item lands on, so the B side is
-        /// not a mirror that can be assumed. And the endpoint-TYPE conjunct needs a row
-        /// carrying a content type on an endpoint that is not a content item: the service
-        /// refuses to write one, but no check constraint does (see the note on
-        /// <c>ResolveReviewableContentTypes</c>), so the column can hold it and the query is
-        /// what must not be fooled by it.</para>
+        /// not a mirror that can be assumed. And the two endpoint-TYPE conjuncts need a row
+        /// carrying a content type on endpoints that are not content items, on BOTH sides —
+        /// the service refuses to write such a pair, but no check constraint does (see the
+        /// note on <c>ResolveReviewableContentTypes</c>), so the column can hold it and the
+        /// query is what must not be fooled by it.</para>
         /// </summary>
         [Fact]
         public async Task ShouldReturnRowsFromBothTiersWhenTheCallerHoldsCoarseAndNarrowRolesAsync()
@@ -118,21 +118,26 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
                 createdBy: Guid.NewGuid().ToString(),
                 entityBContentType: ContentType.Story);
 
-            // a reviewable content type parked on an endpoint that is not a content item.
-            // Dropping the EntityAType == ContentItem conjunct lets this one in.
-            Association contentTypeOnNonContentItemEndpointAssociation = CreateAssociation(
+            // a reviewable content type parked on BOTH endpoints, neither of them a content
+            // item. Carrying it on one endpoint only would mutation-test one conjunct and
+            // leave the other free: with the B column null, dropping
+            // EntityBType == ContentItem changes no answer here, because the null still fails
+            // the IS NOT NULL guard. Populated on both, this single row dies if EITHER
+            // endpoint-type conjunct goes.
+            Association contentTypeOnNonContentItemEndpointsAssociation = CreateAssociation(
                 entityAType: EntityType.Comment,
                 entityAContentType: ContentType.Testimony,
                 entityBType: EntityType.Link,
                 isPublished: false,
-                createdBy: Guid.NewGuid().ToString());
+                createdBy: Guid.NewGuid().ToString(),
+                entityBContentType: ContentType.Testimony);
 
             await SeedAsync(
                 coarseReachableAssociation,
                 narrowEndpointAReachableAssociation,
                 narrowEndpointBReachableAssociation,
                 otherContentTypeOnEndpointBAssociation,
-                contentTypeOnNonContentItemEndpointAssociation);
+                contentTypeOnNonContentItemEndpointsAssociation);
 
             // when
             IQueryable<Association> query =
@@ -156,7 +161,7 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
                 association.Id == otherContentTypeOnEndpointBAssociation.Id);
 
             actualAssociations.Should().NotContain(association =>
-                association.Id == contentTypeOnNonContentItemEndpointAssociation.Id);
+                association.Id == contentTypeOnNonContentItemEndpointsAssociation.Id);
         }
 
         [Fact]
