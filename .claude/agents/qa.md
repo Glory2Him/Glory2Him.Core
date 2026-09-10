@@ -78,12 +78,25 @@ actual test run, never against the description of the work.
    test that died mid-run, and both are defects worth reporting even when the
    assertions passed.
 
-   **A broker wire-up probe is throw-away.** Brokers carry no logic and need no
-   tests. The one exception is a disposable probe under `DeleteMe/Brokers/` in the
-   unit test project, confirming an external resource is wired up correctly so
-   that mistake surfaces immediately rather than weeks later. If one has survived
-   into the committed suite, that is a finding — the folder name is the
-   instruction. A probe is never a substitute for exposer-level coverage.
+   **A broker wire-up probe is throw-away, and you check that it left.** Brokers
+   carry no logic and need no tests. The one exception is a disposable probe under
+   `DeleteMe/Brokers/` in the unit test project, confirming an external resource
+   is wired up correctly so that mistake surfaces immediately rather than weeks
+   later. It is never a substitute for exposer-level coverage.
+
+   Verify the diff for this explicitly — it is the kind of thing that slips
+   through and breaks the pipeline for someone else:
+
+   - Does the change add or leave any file under a `DeleteMe/` path? Look at the
+     diff and at the working tree, not just at what the summary claims.
+   - If one is present, is it excluded from compilation in the same commit —
+     `<Compile Remove="DeleteMe\**\*.cs" />` in that test project's `.csproj`?
+   - A probe that is committed **and** compiled is **BLOCKING**. CI globs
+     `*Tests.Unit*.csproj` recursively and runs every match, so it will execute on
+     a build agent that cannot reach the external resource, failing the build in a
+     place unrelated to the change in flight.
+   - A probe committed *with* the exclusion is ADVISORY: it works, but the default
+     is still deletion, so ask why it was kept.
 
 6. **Mutation check.** Pick the two or three most important pieces of new logic.
    Work out by hand what would break if you inverted a condition, changed a

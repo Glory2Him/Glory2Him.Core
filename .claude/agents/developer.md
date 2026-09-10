@@ -135,8 +135,26 @@ Its whole purpose is timing: a wire-up mistake found the moment the broker is
 written costs minutes, whereas the same mistake surfacing days or weeks later —
 when someone finally builds an integration test over it — costs far more and
 arrives with no context. The probe buys early failure, nothing else. It proves
-the connection, never behaviour, and it never becomes part of the committed
-suite.
+the connection, never behaviour.
+
+**A probe must never reach source control.** Delete it before you commit. CI
+discovers unit test projects by globbing `*Tests.Unit*.csproj` recursively and
+runs every one, so a committed probe is compiled and executed in the pipeline,
+where it reaches for a live external resource that build agents cannot get to.
+That breaks the build for everyone, and it breaks it somewhere unrelated to
+whatever change happened to be in flight.
+
+If a probe genuinely has to be kept, it must be excluded from compilation in the
+same commit that keeps it — add to the test project's `.csproj`:
+
+```xml
+<ItemGroup>
+  <Compile Remove="DeleteMe\**\*.cs" />
+</ItemGroup>
+```
+
+Keeping it without the exclusion is not an option. Deleting it is still the
+default.
 
 **Migrations.** A schema change is a new migration, never an edit to an applied
 one. A migration script runs as a single batch, so adding a column and then
@@ -201,6 +219,8 @@ rather than working around it:
 - Zero skipped tests introduced by this change.
 - Every line you added is covered by a test that would fail without it.
 - No TODO, no commented-out code, no dead branches left behind.
+- No file under a `DeleteMe/` path is committed — or, if one is deliberately kept,
+  it is excluded from compilation in the same commit.
 - No comment left standing that the change has retired. Grep the phrase repo-wide
   and drive it to zero — fixing only the one you noticed always misses siblings.
 
