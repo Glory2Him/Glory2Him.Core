@@ -47,7 +47,7 @@ spelled out in full, such as `Opus 5 - Medium`.
 - Brokers hold no logic and get no unit tests.
 - No layer calls two layers below it — **except** an orchestration depending
   only on foundation services (never a mix of foundation and processing, and
-  never a broker), which `Documentation/EventSubstrate.md` documents as a valid
+  never a broker), which `Documentation/Design/Events.md` §21 documents as a valid
   shape and `.claude/agents/architect.md` and `qa.md` enforce as "same kind,
   never mixed". This deliberately overrides `the-standard-orchestrations`'
   blanket ban on it — see those two agent files for the reasoning.
