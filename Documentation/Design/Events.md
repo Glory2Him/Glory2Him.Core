@@ -3,13 +3,15 @@
 Unifies `G2H Design.md` §10 "Event Design" and the standalone `EventSubstrate.md`
 into one authoritative document, removing the duplication between them.
 
-Section numbers below are **preserved from their original `§10.X` position** in
-`G2H Design.md`, not restarted at 1 — this repository's C# comments cite design
-sections extensively (61 files cite `§10.X` alone), and renumbering would have
-meant editing every one of them for no benefit to the reader. New content merged
-in from `EventSubstrate.md` gets its own numbers that don't collide. A section
-carries a *(formerly §10.X)* note where a number moved so old citations remain
-greppable.
+Section numbers below carry an **`EVN` prefix** (`EVN1`, `EVN2`, ...) — flat,
+not restarted-with-decimals — so a bare `§EVN4` is unambiguous once other
+`Documentation/Design/*.md` files exist with their own prefixes (`ARC`, `DOM`,
+`SEC`, `UI`) and their own local numbering. This repository's C# comments cite
+design sections extensively (61 files cite `§10.X` alone from this section's
+former life in `G2H Design.md`), so every section also carries a
+*(formerly §10.X)* annotation — the literal string `§10.X` still appears on the
+right heading, so an old citation resolves by grep even though the citable
+number itself is now prefixed and did not survive verbatim.
 
 ## 0. What changed in this unification
 
@@ -34,19 +36,19 @@ Two corrections made in this merge, stated explicitly rather than silently:
 2. Nothing describing the discarded generic scheme (`IEventReceiver<T>`,
    `StoredEvent`, REST fan-out, replay, the background worker, the Student
    example) is carried forward as current design — presenting it as such would be
-   actively misleading. It is not deleted either: §22 names every discarded piece
+   actively misleading. It is not deleted either: §EVN22 names every discarded piece
    and why, and the original text remains fully recoverable from git history (see
-   §22 for the exact pointer).
+   §EVN22 for the exact pointer).
 
 ---
 
-## 1. Purpose *(formerly §10.1)*
+## EVN1. Purpose *(formerly §10.1)*
 
 The component design uses events to decouple entity creation and update
 operations from approval record creation, approval reset behaviour, and
 denormalized read state updates.
 
-## 2. Naming and Addressing *(formerly §10.2)*
+## EVN2. Naming and Addressing *(formerly §10.2)*
 
 Every service publishes consistent lifecycle events on its own event addresses.
 An address is named `<Subject>-<Verb>`, where the **subject is the service** —
@@ -92,10 +94,10 @@ collisions:
     appropriate, for example setting `ApprovalStatus = ApprovalStatus.Approved`
     when the threshold is met.
 
-## 3. Recommended Domain Events *(formerly §10.3)*
+## EVN3. Recommended Domain Events *(formerly §10.3)*
 
 Recommended domain events. The names below identify each event's **intent**; the
-address actually registered for it follows the `<Subject>-<Verb>` scheme in §2 —
+address actually registered for it follows the `<Subject>-<Verb>` scheme in §EVN2 —
 for example `ContentItemCreatedEvent` is published on the `ContentItem-Added`
 address by `ContentItemService`.
 
@@ -135,7 +137,7 @@ address by `ContentItemService`.
 | `ApprovalCommentUpdatedEvent` | Propagate comment update to audit history. |
 | `ApprovalCommentDeletedEvent` | Record soft delete and remove comment from public visibility. |
 
-## 4. Soft Delete Behaviour *(formerly §10.4)*
+## EVN4. Soft Delete Behaviour *(formerly §10.4)*
 
 > May belong under `Domain.md` once #481 continues — it is about entity deletion
 > semantics as much as it is about the fact that announces it. Left here, where
@@ -161,7 +163,7 @@ Soft-deleted entities:
 4. Must remain available for audit.
 5. Must remain available for administrative review.
 
-## 5. Delete Approval Direction *(formerly §10.5)*
+## EVN5. Delete Approval Direction *(formerly §10.5)*
 
 Deletion is not part of `ApprovalStatus`.
 
@@ -176,7 +178,7 @@ public bool PendingDeletion { get; set; }
 
 or a separate delete-request entity that itself participates in approval.
 
-## 6. The Event Envelope *(formerly §10.6)*
+## EVN6. The Event Envelope *(formerly §10.6)*
 
 All events should be wrapped in an `EventEnvelope<T>` that carries the business
 payload alongside security, request, and event metadata.
@@ -202,7 +204,7 @@ This design ensures that orchestration services and event handlers do not depend
 directly on `HttpContext`, `IHttpContextAccessor`, `ClaimsPrincipal`, or raw JWT
 tokens.
 
-## 7. Security Context *(formerly §10.7)*
+## EVN7. Security Context *(formerly §10.7)*
 
 `SecurityContext` is a normalized representation of the authenticated caller
 extracted at the application entry point.
@@ -346,7 +348,7 @@ new SecurityContext
 };
 ```
 
-## 8. Request Context *(formerly §10.8)*
+## EVN8. Request Context *(formerly §10.8)*
 
 `RequestContext` contains operational information about the original request or
 process that triggered the event.
@@ -370,7 +372,7 @@ public sealed class RequestContext
 useful for audit trails, diagnostics, tracing, distributed workflow correlation,
 support investigations, and replay analysis.
 
-## 9. Event Metadata *(formerly §10.9)*
+## EVN9. Event Metadata *(formerly §10.9)*
 
 `EventMetadata` contains information about the event instance itself.
 
@@ -417,7 +419,7 @@ CorrelationId: A
 CausationId: 2
 ```
 
-## 10. Envelope Integrity — Signing *(new; corrects EventSubstrate.md §5.10)*
+## EVN10. Envelope Integrity — Signing *(new; corrects EventSubstrate.md §5.10)*
 
 **Implemented.** `IEnvelopeIntegrityBroker.SignAsync` / `VerifyAsync` are real,
 used by every `EventBroker` publish and every substrate handler's verification,
@@ -523,12 +525,12 @@ agreed by signer and verifier. Do not sign "the JSON," because property order,
 culture and null handling are all free to vary between serializer versions;
 define the canonical form explicitly, and version it.
 
-## 11. Current Implementation — EventHighway Substrate *(formerly §10.10)*
+## EVN11. Current Implementation — EventHighway Substrate *(formerly §10.10)*
 
 Events are published through the `EventBroker`, which wraps
 [EventHighway](https://github.com/The-Standard-Organization/EventHighway) — a
 durable, SQL-backed pub/sub substrate. Each service owns a set of event addresses
-named `<Subject>-<Verb>` (§2), split into two families: **requests** in the
+named `<Subject>-<Verb>` (§EVN2), split into two families: **requests** in the
 present tense (`ContentItem-Adding`, `-Modifying`, `-RemovingById`,
 `-RetrievingById`), answered by responder handlers on the owning service, and
 **facts** in the past tense (`ContentItem-Added`, `-Modified`, `-Removed`),
@@ -577,7 +579,7 @@ template):
   with the outcome envelope on the delivery.
 
 The `DoXAsync` methods own auditing, validation, storage, and publishing the
-past-tense fact, so the two paths cannot diverge; §19 rules where the storage
+past-tense fact, so the two paths cannot diverge; §EVN19 rules where the storage
 half ends and the publishing half begins, because nothing binds them and a
 failed publish strands the row it was announcing; every hop chains causation
 through `IEventEnvelopeFactory.CreateNextAsync` (fresh `EventId`, `CausationId`
@@ -616,7 +618,7 @@ Subscribed handler (registered in EventSubscriptionRegistration)
 Orchestration Service
 ```
 
-## 12. Future Disconnected Processing *(formerly §10.11)*
+## EVN12. Future Disconnected Processing *(formerly §10.11)*
 
 If the application later moves to background workers, queues, Azure Service Bus,
 RabbitMQ, Kafka, or another distributed event mechanism, the same envelope can be
@@ -648,7 +650,7 @@ At that point there is no active `HttpContext`, no original request scope, and
 the original token may have expired. The `EventEnvelope<T>` prevents the
 architecture from depending on request-specific state.
 
-## 13. Controller Pattern *(formerly §10.12)*
+## EVN13. Controller Pattern *(formerly §10.12)*
 
 Controllers are thin exposure points. Like brokers, they exist only to let
 requests into the business domain — they carry no business logic and must not
@@ -681,7 +683,7 @@ public async ValueTask<IActionResult> PostStudentAsync(
 }
 ```
 
-## 14. Event Handler Pattern *(formerly §10.13)*
+## EVN14. Event Handler Pattern *(formerly §10.13)*
 
 Event handlers should accept the envelope and pass it to the relevant
 orchestration service.
@@ -709,7 +711,7 @@ public sealed class StudentCreatedEventHandler
 }
 ```
 
-## 15. Envelope Validation *(formerly §10.14)*
+## EVN15. Envelope Validation *(formerly §10.14)*
 
 The envelope should be validated before orchestration proceeds. Validation
 should confirm:
@@ -756,7 +758,7 @@ private static void ValidateEnvelope<T>(EventEnvelope<T> envelope)
 }
 ```
 
-## 16. Anti-Patterns *(formerly §10.15)*
+## EVN16. Anti-Patterns *(formerly §10.15)*
 
 Avoid passing `HttpContext` into orchestration services:
 
@@ -784,7 +786,7 @@ Avoid scattering magic-string role and scope names throughout orchestration
 services. Keep role and claim names in a central constants class and perform
 checks through `ISecurityBroker`.
 
-## 17. Authorization in Orchestration Services *(formerly §10.16)*
+## EVN17. Authorization in Orchestration Services *(formerly §10.16)*
 
 Authorization is performed where the business decision is required — inside the
 orchestration service — using `ISecurityBroker` directly. A separate
@@ -845,7 +847,7 @@ Rules:
    `ISecurityBroker.GetCurrentSecurityContextAsync()` inside the service that
    creates the envelope (`IEventEnvelopeFactory`).
 
-## 18. Approval Workflow Wiring *(formerly §10.17)*
+## EVN18. Approval Workflow Wiring *(formerly §10.17)*
 
 The approval workflow both **consumes** entity lifecycle facts and **causes**
 entity writes. Wired naively that cycle does not terminate, so the wiring is
@@ -864,7 +866,7 @@ upper layers it happens to be does not.
    `ContentItem` that is `ContentItemProcessing-Added` / `-Modified`, and for
    `Link` that is `LinkProcessing-Added` / `-Modified`. It does not subscribe to
    those entities' `-Removed` at all; the workflow records' removals are the
-   documented exception (§18(a)). Per §2 rule 6 it must not also subscribe to
+   documented exception (§EVN18(a)). Per §EVN2 rule 6 it must not also subscribe to
    the foundation facts for the same reaction.
 
    Where an approvable entity has nothing above its foundation — today that is
@@ -874,7 +876,7 @@ upper layers it happens to be does not.
    version fork there is no multi-row bookkeeping write to misread. A
    **Versioned** entity must have a service above its foundation before it can
    participate in approval, for the reason in rule 2.
-2. The reason is §2 rule 5. A version fork used to write two foundation rows and
+2. The reason is §EVN2 rule 5. A version fork used to write two foundation rows and
    therefore emit two foundation facts. Reacting to the second — the demotion of
    the previous latest — would have reset the still-published previous version's
    approval and dismissed its review history, for a write that changed only a
@@ -1031,7 +1033,7 @@ Lettered here so the numbered rules above keep their cross-references.
 
 4. Every write the approval workflow causes on an entity's approval state goes
    through `Transition<Entity>ApprovalAsync` on the owning foundation service,
-   published as `<Entity>-Approving` / `-Approved`. §2 rule 7 already
+   published as `<Entity>-Approving` / `-Approved`. §EVN2 rule 7 already
    establishes this vocabulary — a transition owning a narrower field scope
    than a general modify is a separate method and therefore a separate verb.
    Its scope is the whole of `IApproval`, so no separate publish verb is
@@ -1054,7 +1056,7 @@ Lettered here so the numbered rules above keep their cross-references.
    *redeliveries of one event*. It does not stop *new events caused by a
    handler's own write*: a write-back publishes on an envelope minted by
    `CreateNextAsync` with a **fresh** `EventId`, which the receiver has never
-   seen. Under the inline dispatch of §11 the repetition would be synchronous
+   seen. Under the inline dispatch of §EVN11 the repetition would be synchronous
    re-entry inside the original request.
 7. The changed-field gate is the second line of defence. Rules 1 and 4 above
    are the first.
@@ -1067,9 +1069,9 @@ Lettered here so the numbered rules above keep their cross-references.
    every approvable entity's orchestration to subscribe to approval facts and
    would have reintroduced the cycle at one remove.
 
-## 19. Write and Publish Atomicity — ruled, not built *(formerly §10.18)*
+## EVN19. Write and Publish Atomicity — ruled, not built *(formerly §10.18)*
 
-Every write in the §11 foundation shape commits its row and **then** publishes
+Every write in the §EVN11 foundation shape commits its row and **then** publishes
 the fact announcing it, with nothing binding the two. If the publish throws —
 an unreachable event store, or every configured signing key's validity window
 having lapsed or left a gap over *now* — the row stays and the fact never goes
@@ -1112,7 +1114,7 @@ itself is at-least-once.**
 
 3. **Rolling the row back on a failed publish is refused on mechanism, not
    preference.** It is the obvious alternative and it does not work here. Per
-   §11 every publish persists the event and then dispatches it **inline** to
+   §EVN11 every publish persists the event and then dispatches it **inline** to
    the in-process handlers subscribed to that address, and
    `EventSubscriptionRegistration` opens a fresh DI scope **per delivery** — so
    each handler gets its own `StorageBroker`, its own `DbContext`, and
@@ -1180,7 +1182,7 @@ itself is at-least-once.**
 
 10. **This is the service template, not one service.** Every
     `Do<Verb><Entity>Async` that writes and then publishes takes this shape; a
-    service that opts out reintroduces the defect for its entity. §2 rule 5 is
+    service that opts out reintroduces the defect for its entity. §EVN2 rule 5 is
     unchanged in substance — a service still publishes exactly one fact about
     its own completed unit of work — but "once the work is done" now means once
     the work is *committed*, with the fact following. Reads publish no fact and
@@ -1200,7 +1202,7 @@ itself is at-least-once.**
     sent, and closing it would need a unit of work across services that does
     not exist today.
 
-## 20. Design Principles *(new; from EventSubstrate.md §2-3, §30)*
+## EVN20. Design Principles *(new; from EventSubstrate.md §2-3, §30)*
 
 > **Service calls are for intent. Events are for reaction.**
 
@@ -1220,12 +1222,12 @@ Avoiding event spaghetti:
 9. Use correlation and causation IDs everywhere.
 10. Treat replay as a first-class design concern.
 
-## 21. Future Pattern: Intentional Dispatch Events *(new; from EventSubstrate.md §34)*
+## EVN21. Future Pattern: Intentional Dispatch Events *(new; from EventSubstrate.md §34)*
 
 **Not yet used anywhere in this codebase.** Documented as a considered pattern
 for if and when it is needed, not as current design.
 
-The rule "service calls are for intent, events are for reaction" (§20) describes
+The rule "service calls are for intent, events are for reaction" (§EVN20) describes
 the common case. There is a legitimate exception where **intent itself is
 triggered by an incoming external signal** — in that case, an orchestration
 service may publish an event as a deliberate dispatch mechanism, not as a normal
@@ -1267,7 +1269,7 @@ publish events in dependency order and await each receiver before the next, or
 call dependent foundation services directly first and publish events for the
 rest.
 
-## 22. Superseded Draft — what `EventSubstrate.md` originally sketched
+## EVN22. Superseded Draft — what `EventSubstrate.md` originally sketched
 
 The full original text is fully recoverable from git history — this section
 exists so a reader does not have to go looking for it to know what was there and
@@ -1284,7 +1286,7 @@ domain throughout. Concepts it proposed that were **not** what got built:
   `Func<EventEnvelope<T>, CancellationToken, ValueTask>` handler.
 - **Generic `StoredEvent` / `EventDelivery` / `DeadLetteredEvent` tables** and an
   `IEventStorageBroker` owning them directly. The real system delegates all of
-  this to EventHighway (§11) rather than building custom storage.
+  this to EventHighway (§EVN11) rather than building custom storage.
 - **External REST fan-out** (`IExternalEventDispatcher`, `EventRoute`,
   `RestExternalEventDispatcher`) and a **retry/dead-letter policy** with a
   background `ExternalEventDeliveryWorker`. None of this exists; nothing in the
@@ -1300,8 +1302,8 @@ domain throughout. Concepts it proposed that were **not** what got built:
 
 What did survive, corrected and carried forward into this document: the
 signing rationale (§10), the intent-vs-reaction principle and the
-event-spaghetti-avoidance rules (§20), and the intentional-dispatch pattern
-(§21) — none of these depended on the discarded scheme.
+event-spaghetti-avoidance rules (§EVN20), and the intentional-dispatch pattern
+(§EVN21) — none of these depended on the discarded scheme.
 
 To recover the original document in full: `git log --follow -- Documentation/EventSubstrate.md`
 finds the commits; the file existed at that path up to the commit that unified

@@ -1688,9 +1688,12 @@ Because the approval is per-row, a fork's previous and new versions each mirror 
 
 Moved to `Documentation/Design/Events.md` — unifies this section with the
 former standalone `EventSubstrate.md`, removing the duplication between them.
-Section numbers there are preserved as `§10.X` (not restarted), so every
-existing `§10.X` citation in code and elsewhere in this document still points
-to the right place.
+Sections there carry an `EVN` prefix (`§EVN1`, `§EVN2`, ...) rather than
+restarting bare at 1, so a citation stays unambiguous once other
+`Documentation/Design/*.md` files exist with their own prefixes. Every former
+`§10.X` citation in code still resolves by grep — each section keeps a
+`(formerly §10.X)` annotation naming its old position — even though the citable
+number itself is now `§EVNx`, not `§10.X` verbatim.
 
 ## 11. Topic and Feed Design
 

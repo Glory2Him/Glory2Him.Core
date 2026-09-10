@@ -18,7 +18,7 @@ namespace Glory2Him.Core.Brokers.Integrities
     /// Signs and verifies event envelopes so tampering with a stored event — an added role, a
     /// modified payload, or a message that never went through the proper code path — is detectable
     /// on receive. Symmetric HMAC over a shared secret: the envelope is internal-only, so there is
-    /// no external verifier to need asymmetric keys (design §14.6 rule 4, Events.md §10).
+    /// no external verifier to need asymmetric keys (design §14.6 rule 4, Events.md §EVN10).
     ///
     /// <para><b>The implementation refuses to construct on a host with no signing key configured</b>,
     /// so nothing that signs can be resolved and every endpoint behind one answers 500. That has to
