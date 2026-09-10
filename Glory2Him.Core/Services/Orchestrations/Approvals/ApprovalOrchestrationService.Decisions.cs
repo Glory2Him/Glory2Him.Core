@@ -16,6 +16,7 @@ using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Bases;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Exceptions;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
@@ -269,11 +270,30 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             TEntity command,
             TOperation operation,
             Func<EventEnvelope<TEntity>, TOperation, ValueTask<EventPublishResult<TEntity>>> publish)
+            where TOperation : struct, Enum
         {
             EventEnvelope<TEntity> commandEnvelope =
                 await this.eventEnvelopeBroker.CreateSystemAsync(content: command);
 
-            await publish(commandEnvelope, operation);
+            EventPublishResult<TEntity> publishResult =
+                await publish(commandEnvelope, operation);
+
+            // §10.19. This is the one publish in the solution that is not merely announcing a
+            // fact — it is the INSTRUCTION that carries a recorded decision to the entity that
+            // owns it. The approval row is already committed by the time this runs, so a
+            // delivery that failed leaves the approval saying Approved and the entity still
+            // sitting at Submitted, with nothing to notice it: delivery is contained, so the
+            // failure appears only here, and nothing redelivers it.
+            //
+            // Logged rather than thrown, for the same reason the foundations log: the decision
+            // the caller asked for WAS recorded, and reporting it as failed would be wrong.
+            // ApprovalOutcome.IsEntitySyncRequested stays true — §16.7.1 defines it as
+            // requested rather than landed, and the command was in fact published.
+            if (publishResult.HasFailedDeliveries)
+            {
+                await this.loggingBroker.LogCriticalAsync(
+                    FailedEventDeliveryException.ForFailedDeliveries(publishResult, operation));
+            }
         }
 
         // The decided state, and nothing else. Publication is asked for only alongside an

@@ -105,6 +105,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             this.envelopeIntegrityBrokerMock = new Mock<IEnvelopeIntegrityBroker>();
             this.loggingBrokerMock = new Mock<ILoggingBroker>();
 
+            // EVERY ENTITY COMMAND IS DELIVERED unless a test says otherwise. PublishCommandAsync
+            // now inspects what it publishes (§10.19), and Moq's default for
+            // ValueTask<EventPublishResult<T>> is NULL rather than an empty result - the same
+            // return-type trap the comments read above records. The decide tests only ever
+            // VERIFIED the publish, so without this every one of them would fault on the
+            // inspection instead of on its own subject.
+            SetupDeliveredEntityCommands();
+
             // The subject is VISIBLE unless a test says otherwise. Without this every gate
             // added for §9.7.6 rule 3 would read the mock's default false and refuse, and a
             // suite about thresholds and tiers would be answering "the entity was taken down".
@@ -387,5 +395,90 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
         private static Expression<Func<Xeption, bool>> SameExceptionAs(Xeption expectedException) =>
             actualException => actualException.SameExceptionAs(expectedException);
+
+        // One delivered result per address PublishEntityApprovalCommandAsync can reach. Fully
+        // qualified rather than imported: this file names seven entity models it otherwise has
+        // no business knowing about, and several collide with test-local names.
+        private void SetupDeliveredEntityCommands()
+        {
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishTagAsync(
+                    It.IsAny<EventEnvelope<global::Glory2Him.Core.Models.Foundations.Tags.Tag>>(),
+                    It.IsAny<global::Glory2Him.Core.Models.Events.Foundations.TagEventOperation>()))
+                        .Returns(new ValueTask<EventPublishResult<
+                            global::Glory2Him.Core.Models.Foundations.Tags.Tag>>(
+                                new EventPublishResult<
+                                    global::Glory2Him.Core.Models.Foundations.Tags.Tag>()));
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishContentItemProcessingAsync(
+                    It.IsAny<EventEnvelope<
+                        global::Glory2Him.Core.Models.Foundations.ContentItems.ContentItem>>(),
+                    It.IsAny<global::Glory2Him.Core.Models.Events.Processings
+                        .ContentItemProcessingEventOperation>()))
+                        .Returns(new ValueTask<EventPublishResult<
+                            global::Glory2Him.Core.Models.Foundations.ContentItems.ContentItem>>(
+                                new EventPublishResult<
+                                    global::Glory2Him.Core.Models.Foundations.ContentItems
+                                        .ContentItem>()));
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishLinkProcessingAsync(
+                    It.IsAny<EventEnvelope<global::Glory2Him.Core.Models.Foundations.Links.Link>>(),
+                    It.IsAny<global::Glory2Him.Core.Models.Events.Processings
+                        .LinkProcessingEventOperation>()))
+                        .Returns(new ValueTask<EventPublishResult<
+                            global::Glory2Him.Core.Models.Foundations.Links.Link>>(
+                                new EventPublishResult<
+                                    global::Glory2Him.Core.Models.Foundations.Links.Link>()));
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishCommentAsync(
+                    It.IsAny<EventEnvelope<
+                        global::Glory2Him.Core.Models.Foundations.Comments.Comment>>(),
+                    It.IsAny<global::Glory2Him.Core.Models.Events.Foundations
+                        .CommentEventOperation>()))
+                        .Returns(new ValueTask<EventPublishResult<
+                            global::Glory2Him.Core.Models.Foundations.Comments.Comment>>(
+                                new EventPublishResult<
+                                    global::Glory2Him.Core.Models.Foundations.Comments.Comment>()));
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishReactionAsync(
+                    It.IsAny<EventEnvelope<
+                        global::Glory2Him.Core.Models.Foundations.Reactions.Reaction>>(),
+                    It.IsAny<global::Glory2Him.Core.Models.Events.Foundations
+                        .ReactionEventOperation>()))
+                        .Returns(new ValueTask<EventPublishResult<
+                            global::Glory2Him.Core.Models.Foundations.Reactions.Reaction>>(
+                                new EventPublishResult<
+                                    global::Glory2Him.Core.Models.Foundations.Reactions
+                                        .Reaction>()));
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishBibleReferenceAsync(
+                    It.IsAny<EventEnvelope<global::Glory2Him.Core.Models.Foundations
+                        .BibleReferences.BibleReference>>(),
+                    It.IsAny<global::Glory2Him.Core.Models.Events.Foundations
+                        .BibleReferenceEventOperation>()))
+                        .Returns(new ValueTask<EventPublishResult<
+                            global::Glory2Him.Core.Models.Foundations.BibleReferences
+                                .BibleReference>>(
+                                    new EventPublishResult<
+                                        global::Glory2Him.Core.Models.Foundations.BibleReferences
+                                            .BibleReference>()));
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishAssociationAsync(
+                    It.IsAny<EventEnvelope<
+                        global::Glory2Him.Core.Models.Foundations.Associations.Association>>(),
+                    It.IsAny<global::Glory2Him.Core.Models.Events.Foundations
+                        .AssociationEventOperation>()))
+                        .Returns(new ValueTask<EventPublishResult<
+                            global::Glory2Him.Core.Models.Foundations.Associations.Association>>(
+                                new EventPublishResult<
+                                    global::Glory2Him.Core.Models.Foundations.Associations
+                                        .Association>()));
+        }
     }
 }
