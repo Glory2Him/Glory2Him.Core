@@ -20,6 +20,9 @@ Nothing here is wired into Glory2Him.Core's build.
 | `.github/labels.json` | Generated from the 103 title prefixes in `prLinter.yml`, plus 9 model-effort labels |
 | `.github/workflows/labels.yml` | New — creates and updates labels from the manifest |
 | `.github/workflows/prLinter.yml` | Copied verbatim — title prefix labelling, issue link check, author assignment |
+| `.claude/agents/` | The four roles, copied and genericized — see below |
+| `.claude/skills/` | The 43 vendored The Standard skills, copied verbatim |
+| `skills-lock.json` | Copied verbatim — the provenance record for those skills |
 
 Images are **not** in the payload. `create-template-repo.sh` copies `Glory2Him.ico`
 and `Glory2Him-Square.png` from `Resources/Images` when it assembles. The README
@@ -29,6 +32,53 @@ duplicated into every new repository.
 
 `build.yml` is deliberately excluded — it globs for `*Tests.Unit*.csproj` and assumes
 a .NET solution, so it belongs to a .NET repository rather than to every repository.
+
+## The `.claude` folder
+
+`skills/` is 43 skill directories and 3.7 MB, copied verbatim. They are **vendored**
+from `hassanhabib/the-standard-skills` — `skills-lock.json` records the six source
+packs and their content hashes, which is why it comes along. Copying freezes them:
+every repository made from the template gets exactly these rules and works offline,
+but nothing pulls upstream fixes in. The alternative is to ship only
+`skills-lock.json` and have each repository install from it, which stays current at
+the cost of a step before the skills exist. Copying is the choice here because a
+template that does nothing until someone runs an installer is a template people
+forget to finish.
+
+Two things were **left out**:
+
+- **`launch.json`** — every entry in it names a Glory2Him.Core project
+  (`Websites/Glory2Him.WebApp`, the dependency graph server). A launch config
+  pointing at projects that do not exist is worse than no launch config.
+- **The `update-dependency-graph` skill** — it reads and rewrites
+  `Documentation/DependencyGraph/graph.yml` and `projects/*.yml`, a subsystem the
+  template does not ship. It would trigger on "refresh the dependency graph" and
+  then fail on missing files.
+
+The four agents were copied and genericized — 13 references across 884 lines:
+
+- `Documentation/G2H Design.md` became `Documentation/Design.md` in all four. That
+  is now the org convention for a new repository's design document; the agents treat
+  it as authoritative over any issue that disagrees with it.
+- "the architect for Glory2Him.Core" became "the architect for this repository".
+- The local IIS republish step (`D:\Sites\Deploy-Glory2HimWebApp.ps1`) was dropped
+  from `developer.md`.
+- The three routes for verifying work under a mocked security context are kept in
+  `developer.md` and `qa.md` as shapes rather than paths — the React
+  `authProvider.tsx` and `TestAuthHandler.cs` file names are gone, and the text asks
+  each repository to record its own once they exist. The rule that matters survives
+  intact: never extend the test auth handler into the shipped host.
+
+Two `Glory2Him` mentions remain inside the vendored skills — an example root
+namespace in a comment in `the-standard-foundations`, and a `using
+G2H.StorageClient.Clients;` in the `the-standard-brokers` storage broker template.
+Both were left alone: editing vendored content creates a third variant of a file
+whose hash is recorded in `skills-lock.json`.
+
+A `CLAUDE.md` is **not** in the payload. The agents assume one — it is what points at
+the design document and states the non-negotiables — but the Glory2Him.Core copy is
+mostly about migrations, the React app and this solution's layout. Worth writing a
+generic one for the template.
 
 ## The three `.gitignore` rules that were removed
 
