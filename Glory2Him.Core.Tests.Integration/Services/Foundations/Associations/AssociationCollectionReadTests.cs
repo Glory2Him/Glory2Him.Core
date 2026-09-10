@@ -48,56 +48,74 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
             this.seededAssociations = new List<Association>();
         }
 
+        /// <summary>
+        /// Both tiers reaching the expression tree at once, asserted on the ROWS that come back.
+        ///
+        /// <para>This replaced a test that read <c>ToQueryString()</c> and matched substrings of
+        /// the generated SQL — <c>= N'Tag'</c>, <c>[a].[EntityAType] =</c>, and the rest (#486).
+        /// Those assertions gated the build on EF's SQL formatting, which changes across provider
+        /// upgrades with no change in behaviour. Everything they were reaching for is visible in
+        /// the result set instead: a predicate EF cannot translate still throws before any row is
+        /// returned, and enum values parameterised as numbers rather than the
+        /// <c>HasConversion&lt;string&gt;()</c> names would match nothing, so the reachable rows
+        /// below would be missing.</para>
+        /// </summary>
         [Fact]
-        public async Task ShouldTranslateTheReviewableSetsToSqlAsync()
+        public async Task ShouldReturnRowsFromBothTiersWhenTheCallerHoldsCoarseAndNarrowRolesAsync()
         {
             // given: a caller holding both a coarse and a narrow scoped role, so both the
             // entity-type set and the content-type set are non-empty and both reach the
             // expression tree
+            string actorUserId = Guid.NewGuid().ToString();
+
             this.broker.ActAs(
-                actorUserId: Guid.NewGuid().ToString(),
+                actorUserId,
                 Roles.TagReviewers,
                 "ContentItem-Testimony-Reviewers");
+
+            Association coarseReachableAssociation = CreateAssociation(
+                entityAType: EntityType.ContentItem,
+                entityAContentType: ContentType.Story,
+                entityBType: EntityType.Tag,
+                isPublished: false,
+                createdBy: Guid.NewGuid().ToString());
+
+            Association narrowReachableAssociation = CreateAssociation(
+                entityAType: EntityType.ContentItem,
+                entityAContentType: ContentType.Testimony,
+                entityBType: EntityType.Reaction,
+                isPublished: false,
+                createdBy: Guid.NewGuid().ToString());
+
+            Association unreachableAssociation = CreateAssociation(
+                entityAType: EntityType.Comment,
+                entityAContentType: null,
+                entityBType: EntityType.Link,
+                isPublished: false,
+                createdBy: Guid.NewGuid().ToString());
+
+            await SeedAsync(
+                coarseReachableAssociation,
+                narrowReachableAssociation,
+                unreachableAssociation);
 
             // when
             IQueryable<Association> query =
                 await this.broker.AssociationService.RetrieveAllAssociationsAsync(
                     CancellationToken.None);
 
-            string sql = query.ToQueryString();
+            List<Association> actualAssociations =
+                await query.ToListAsync(TestContext.Current.CancellationToken);
 
-            // then: reaching a SQL string at all is the first half of the proof — a predicate
-            // EF cannot translate throws here rather than producing one
-            sql.Should().NotBeNullOrWhiteSpace();
-            sql.Should().Contain("SELECT");
+            // then: both tiers answer, and neither one widens to everything
+            actualAssociations.Should().Contain(association =>
+                association.Id == coarseReachableAssociation.Id);
 
-            // The enum columns are mapped HasConversion<string>(), so the parameters SQL sees
-            // must be the member NAMES. If EF parameterised the underlying numbers the
-            // predicate would silently match nothing.
-            //
-            // Asserting on the bare words "Tag" and "Testimony" would not show that: both
-            // appear in the SELECT projection as part of column names. This asserts on the
-            // parameter's declared VALUE — an N-prefixed string literal, which is what a
-            // numeric parameterisation could not produce.
-            sql.Should().Contain("= N'Tag'",
-                because: "the reviewable entity type is parameterised as its name, not its number");
+            actualAssociations.Should().Contain(association =>
+                association.Id == narrowReachableAssociation.Id);
 
-            sql.Should().Contain("= N'Testimony'",
-                because: "the reviewable content type is parameterised as its name, not its number");
-
-            // The role predicate itself must be server-side. Asserting on a projected column
-            // proves nothing — every column is in the SELECT list regardless — so this looks
-            // for the role clauses in the WHERE.
-            sql.Should().Contain("[a].[EntityAType] =",
-                because: "the endpoint-A role clause is evaluated by the server");
-
-            sql.Should().Contain("[a].[EntityBType] =",
-                because: "the endpoint-B role clause is evaluated by the server");
-
-            // EF must emit its own null guard around the nullable enum rather than relying on
-            // C# short-circuit ordering, which SQL does not guarantee
-            sql.Should().Contain("[a].[EntityAContentType] IS NOT NULL");
-            sql.Should().Contain("[a].[EntityBContentType] IS NOT NULL");
+            actualAssociations.Should().NotContain(association =>
+                association.Id == unreachableAssociation.Id);
         }
 
         [Fact]
