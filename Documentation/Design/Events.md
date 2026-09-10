@@ -1621,9 +1621,18 @@ itself is at-least-once.**
 The substrate carries both families, and §EVN2 tells them apart by tense: a
 past-tense address is a **fact**, published once a service's own unit of work is
 done, for any number of subscribers — including none — to react to; a
-present-participle address is a **request**, a command delivered to the one
-service that owns the operation. Almost every rule below depends on which family
-an address belongs to, so that is settled first.
+present-participle address is a **request**, delivered to the one service that
+owns the operation. Almost every rule below depends on which family an address
+belongs to, so that is settled first.
+
+A request is not always a command. The family holds two kinds, and only one of
+them changes anything: a **command** asks the owning service to do something
+(`-Adding`, `-Modifying`, `-RemovingById`, `-Approving`), and a **query** asks it
+for data and leaves the system as it found it (`-RetrievingById`). Neither is a
+reaction to something that happened — that is what separates the whole request
+family from the fact family — so an event on this substrate is not, by nature,
+either a notification or a reaction. It is whichever of the three its address
+says it is.
 
 **Facts are announcements.** The publisher describes its own completed unit of
 work (§EVN2 rule 5) and does not know what is bound to the address; the set can
@@ -1631,18 +1640,29 @@ change without it. A fact therefore never names a receiver and never says what
 to do next. Nothing replies to a fact either — a handler returning the inbound
 envelope would put its own name on a fact another service published.
 
-**Requests are commands, and that is deliberate.** A request address belongs to
+**Requests are addressed, and that is deliberate.** A request address belongs to
 the service that owns the operation, is bound to exactly one handler — the
 `On<Verb><Entity>Async` method on that service (§EVN11, §EVN14) — and carries
 the data to act on. Three in four of the subscriptions in
 `EventSubscriptionRegistration` are request handlers, so this is the substrate's
 majority traffic rather than a corner of it. A handler may return a reply, which
 the broker signs with `EnvelopeDirection.Reply`, stores on the delivery row and
-hands back in `EventPublishResult.Deliveries`; that is the channel a read
-answers on, since `-RetrievingById` publishes no fact.
+hands back in `EventPublishResult.Deliveries`.
 
-Sending a command over the substrate is bounded rather than open. It holds only
-when:
+**A query is a request that asks and does not tell.** `-RetrievingById` is the
+joint-largest request operation on the substrate — fifteen subscriptions, level
+with `-Adding` and `-RemovingById` — so reading over the substrate is ordinary
+traffic, not a curiosity. It publishes no fact, because nothing happened worth announcing; the
+answer comes back on the reply channel above, which is the whole reason that
+channel exists. It also skips the `ProcessedEvents` bookkeeping every mutating
+handler performs: a read is naturally idempotent, so a redelivered query costs a
+second read and nothing else. That exemption is the practical test for which
+kind of request an address carries — if delivering it twice would be wrong, it
+is a command.
+
+Sending a **command** over the substrate is bounded rather than open. A query is
+bound only by the first of these, since it changes nothing for the others to
+protect. A command holds only when:
 
 - **The address already belongs to the receiving service**, which owns the
   operation and the rules that govern it. A publisher never invents an address
@@ -1666,11 +1686,14 @@ Avoiding event spaghetti:
    not in a chain of services reacting to each other's facts.
 2. A reaction lives in the subscribing service's own `.Substrate` partial. There
    is no handler class to put one in (§EVN14).
-3. A fact describes what happened, never what to do next. A command belongs on a
-   request address, under the conditions above, and nowhere else.
-4. Handlers are idempotent. `ProcessedEvents` is unique on `EventId` +
-   `ReceiverName` and a deduplicated delivery replies `null`, so a redelivered
-   envelope is a no-op (§EVN19 rule 4).
+3. A fact describes what happened, never what to do next. Telling a service to
+   act, and asking it for data, both belong on its own request address — the
+   first under the conditions above, the second freely — and neither belongs on
+   a fact.
+4. Mutating handlers are made idempotent explicitly: `ProcessedEvents` is unique
+   on `EventId` + `ReceiverName` and a deduplicated delivery replies `null`, so a
+   redelivered envelope is a no-op (§EVN19 rule 4). Read handlers keep no such
+   record and are exempt by nature, which is the distinction rule 3 turns on.
 5. Do not rely on the relative order of two subscribers on one address, or on
    the order of two publishes. No address carries two subscriptions today, so
    the first half constrains future wiring; the second bites now.
