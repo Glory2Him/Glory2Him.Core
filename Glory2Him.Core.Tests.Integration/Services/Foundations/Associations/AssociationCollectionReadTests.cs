@@ -59,6 +59,16 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
         /// returned, and enum values parameterised as numbers rather than the
         /// <c>HasConversion&lt;string&gt;()</c> names would match nothing, so the reachable rows
         /// below would be missing.</para>
+        ///
+        /// <para>Five rows, because the narrow tier is FOUR conjuncts over two endpoints and a
+        /// row set that leaves any of them unexercised proves less than the SQL strings did.
+        /// The B-side branch needs a row whose only route in is <c>EntityBContentType</c> —
+        /// canonical ordering decides which endpoint a content item lands on, so the B side is
+        /// not a mirror that can be assumed. And the endpoint-TYPE conjunct needs a row
+        /// carrying a content type on an endpoint that is not a content item: the service
+        /// refuses to write one, but no check constraint does (see the note on
+        /// <c>ResolveReviewableContentTypes</c>), so the column can hold it and the query is
+        /// what must not be fooled by it.</para>
         /// </summary>
         [Fact]
         public async Task ShouldReturnRowsFromBothTiersWhenTheCallerHoldsCoarseAndNarrowRolesAsync()
@@ -73,6 +83,7 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
                 Roles.TagReviewers,
                 "ContentItem-Testimony-Reviewers");
 
+            // in through the coarse tier, on the B endpoint
             Association coarseReachableAssociation = CreateAssociation(
                 entityAType: EntityType.ContentItem,
                 entityAContentType: ContentType.Story,
@@ -80,24 +91,48 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
                 isPublished: false,
                 createdBy: Guid.NewGuid().ToString());
 
-            Association narrowReachableAssociation = CreateAssociation(
+            // in through the narrow tier, on the A endpoint
+            Association narrowEndpointAReachableAssociation = CreateAssociation(
                 entityAType: EntityType.ContentItem,
                 entityAContentType: ContentType.Testimony,
                 entityBType: EntityType.Reaction,
                 isPublished: false,
                 createdBy: Guid.NewGuid().ToString());
 
-            Association unreachableAssociation = CreateAssociation(
+            // in through the narrow tier, on the B endpoint — its ONLY route in, so this dies
+            // if the B-side branch stops translating or reads the wrong column
+            Association narrowEndpointBReachableAssociation = CreateAssociation(
                 entityAType: EntityType.Comment,
                 entityAContentType: null,
+                entityBType: EntityType.ContentItem,
+                isPublished: false,
+                createdBy: Guid.NewGuid().ToString(),
+                entityBContentType: ContentType.Testimony);
+
+            // the B-side control: right endpoint type, wrong content type
+            Association otherContentTypeOnEndpointBAssociation = CreateAssociation(
+                entityAType: EntityType.Comment,
+                entityAContentType: null,
+                entityBType: EntityType.ContentItem,
+                isPublished: false,
+                createdBy: Guid.NewGuid().ToString(),
+                entityBContentType: ContentType.Story);
+
+            // a reviewable content type parked on an endpoint that is not a content item.
+            // Dropping the EntityAType == ContentItem conjunct lets this one in.
+            Association contentTypeOnNonContentItemEndpointAssociation = CreateAssociation(
+                entityAType: EntityType.Comment,
+                entityAContentType: ContentType.Testimony,
                 entityBType: EntityType.Link,
                 isPublished: false,
                 createdBy: Guid.NewGuid().ToString());
 
             await SeedAsync(
                 coarseReachableAssociation,
-                narrowReachableAssociation,
-                unreachableAssociation);
+                narrowEndpointAReachableAssociation,
+                narrowEndpointBReachableAssociation,
+                otherContentTypeOnEndpointBAssociation,
+                contentTypeOnNonContentItemEndpointAssociation);
 
             // when
             IQueryable<Association> query =
@@ -107,15 +142,21 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
             List<Association> actualAssociations =
                 await query.ToListAsync(TestContext.Current.CancellationToken);
 
-            // then: both tiers answer, and neither one widens to everything
+            // then: both tiers answer on both endpoints, and neither widens to everything
             actualAssociations.Should().Contain(association =>
                 association.Id == coarseReachableAssociation.Id);
 
             actualAssociations.Should().Contain(association =>
-                association.Id == narrowReachableAssociation.Id);
+                association.Id == narrowEndpointAReachableAssociation.Id);
+
+            actualAssociations.Should().Contain(association =>
+                association.Id == narrowEndpointBReachableAssociation.Id);
 
             actualAssociations.Should().NotContain(association =>
-                association.Id == unreachableAssociation.Id);
+                association.Id == otherContentTypeOnEndpointBAssociation.Id);
+
+            actualAssociations.Should().NotContain(association =>
+                association.Id == contentTypeOnNonContentItemEndpointAssociation.Id);
         }
 
         [Fact]
@@ -232,12 +273,15 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
             this.seededAssociations.AddRange(associations);
         }
 
+        // entityBContentType defaults to null because most cases only need the A side; the
+        // B-side narrow tier is a separate branch of the filter and has to be able to set it
         private static Association CreateAssociation(
             EntityType entityAType,
             ContentType? entityAContentType,
             EntityType entityBType,
             bool isPublished,
-            string createdBy)
+            string createdBy,
+            ContentType? entityBContentType = null)
         {
             DateTimeOffset now = DateTimeOffset.UtcNow;
 
@@ -253,7 +297,7 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
                 EntityBKeyId = Guid.NewGuid(),
                 EntityBGroupId = Guid.NewGuid(),
                 EntityBScope = Scope.AllVersions,
-                EntityBContentType = null,
+                EntityBContentType = entityBContentType,
                 ApprovalStatus = ApprovalStatus.Draft,
                 IsPublished = isPublished,
                 IsDeleted = false,
