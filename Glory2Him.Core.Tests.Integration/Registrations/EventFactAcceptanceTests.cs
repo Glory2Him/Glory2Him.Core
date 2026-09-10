@@ -51,17 +51,24 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
         public EventFactAcceptanceTests(EventSubstrateBroker broker) =>
             this.broker = broker;
 
-        // -Modified only. -Added delivery for these two is already pinned exactly by
-        // EventSubscriptionWiringTests.ShouldRouteTheVersionedEntityFromTheProcessingTierOnlyAsync,
-        // so re-proving it here would be the same mechanism proven twice (#487). -Modified is
-        // kept because nothing else in the suite ever publishes it through the real substrate —
-        // §9.7.4 re-approval-on-change depends on it, and a refused -Modified means an
-        // already-Approved row that is then edited silently keeps its stale verdict.
+        // Added AND Modified, for both entities. The wiring theory
+        // (EventSubscriptionWiringTests.ShouldRouteTheVersionedEntityFromTheProcessingTierOnlyAsync)
+        // looked like it made the -Added half of this redundant, and it does not:
+        // EventSubstrateBroker.SubscriptionsReached selects delivery.SubscriptionId for every
+        // delivery WITHOUT checking IsSuccess, so that theory proves the envelope reached the
+        // right listener, never that the listener's HMAC verification accepted it. A publisher
+        // composing the wrong event name would still show up as "reached" there. Only the
+        // `outcomes.Should().Equal(new[] { true })` assertion below actually proves acceptance —
+        // caught by Copilot review on PR #492, confirmed by reading SubscriptionsReached's
+        // source before restoring this.
         [Theory]
-        [InlineData(nameof(ContentItem))]
-        [InlineData(nameof(Link))]
-        public async Task ShouldAcceptTheVersionedEntityModifiedFactFromItsProcessingTierAsync(
-            string entityName)
+        [InlineData(nameof(ContentItem), false)]
+        [InlineData(nameof(ContentItem), true)]
+        [InlineData(nameof(Link), false)]
+        [InlineData(nameof(Link), true)]
+        public async Task ShouldAcceptTheVersionedEntityFactFromItsProcessingTierAsync(
+            string entityName,
+            bool isModifiedFact)
         {
             // given: the processing tier is the tier that owns these two entities' top-layer
             // fact, so the name it signs is the name its receiver must verify
@@ -75,12 +82,16 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
                         {
                             Content = new ContentItem { Id = Guid.NewGuid() }
                         },
-                        ContentItemProcessingEventOperation.Modified)),
+                        isModifiedFact
+                            ? ContentItemProcessingEventOperation.Modified
+                            : ContentItemProcessingEventOperation.Added)),
 
                 nameof(Link) => DeliveryOutcomes(
                     await this.broker.EventBroker.PublishLinkProcessingAsync(
                         new EventEnvelope<Link> { Content = new Link { Id = Guid.NewGuid() } },
-                        LinkProcessingEventOperation.Modified)),
+                        isModifiedFact
+                            ? LinkProcessingEventOperation.Modified
+                            : LinkProcessingEventOperation.Added)),
 
                 _ => throw new ArgumentOutOfRangeException(
                     nameof(entityName), entityName, "Only the versioned entities have a tier.")
@@ -88,32 +99,36 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
 
             // then
             outcomes.Should().Equal(new[] { true },
-                because: $"the approval workflow must ACCEPT the {entityName} Modified fact " +
-                    "its own processing tier signed. The event name is inside the HMAC, so a " +
-                    "receiver verifying a different name than the publisher composed refuses a " +
-                    "genuine envelope — the fact arrives and is thrown away by its own recipient");
+                because: $"the approval workflow must ACCEPT the {entityName} fact its own " +
+                    "processing tier signed. The event name is inside the HMAC, so a receiver " +
+                    "verifying a different name than the publisher composed refuses a genuine " +
+                    "envelope — the fact arrives and is thrown away by its own recipient");
         }
 
-        // -Modified only — see the note above. -Added delivery for these four is already pinned
-        // exactly by EventSubscriptionWiringTests.ShouldReachTheApprovalWorkflowFromTheFoundationTierAsync.
+        // Added AND Modified, for all four — see the note above the versioned-entity theory.
         [Theory]
-        [InlineData(nameof(Tag))]
-        [InlineData(nameof(Comment))]
-        [InlineData(nameof(Reaction))]
-        [InlineData(nameof(BibleReference))]
-        public async Task ShouldAcceptTheSingleRowEntityModifiedFactFromItsFoundationAsync(
-            string entityName)
+        [InlineData(nameof(Tag), false)]
+        [InlineData(nameof(Tag), true)]
+        [InlineData(nameof(Comment), false)]
+        [InlineData(nameof(Comment), true)]
+        [InlineData(nameof(Reaction), false)]
+        [InlineData(nameof(Reaction), true)]
+        [InlineData(nameof(BibleReference), false)]
+        [InlineData(nameof(BibleReference), true)]
+        public async Task ShouldAcceptTheSingleRowEntityFactFromItsFoundationAsync(
+            string entityName,
+            bool isModifiedFact)
         {
             // given: these four have no processing tier, so the foundation signs their fact
 
             // when
             IReadOnlyList<bool> outcomes =
-                await PublishFoundationFactAsync(entityName, isModifiedFact: true);
+                await PublishFoundationFactAsync(entityName, isModifiedFact);
 
             // then
             outcomes.Should().Equal(new[] { true },
-                because: $"the approval workflow must ACCEPT the {entityName} Modified fact " +
-                    "its own foundation signed");
+                because: $"the approval workflow must ACCEPT the {entityName} fact its own " +
+                    "foundation signed");
         }
 
         [Theory]
