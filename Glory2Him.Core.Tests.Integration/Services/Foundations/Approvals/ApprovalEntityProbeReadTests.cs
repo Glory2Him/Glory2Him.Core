@@ -48,6 +48,18 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Approvals
             this.seededApprovals = new List<Approval>();
         }
 
+        // A plain miss on an unoccupied key used to be asserted here too. #486 removed it as
+        // subsumed by the half-key test at the bottom, which is the one with real bite — that one
+        // fails if either conjunct is dropped, where a lone miss on an entirely different key
+        // does not. That reasoning holds and the miss stays deleted.
+        //
+        // The plain HIT was removed on the same grounds and put back, because the grounds were
+        // wrong. Every other read-back in this file resolves a SOFT-DELETED row: the unfiltered
+        // match seeds isDeleted: true, and the index-refusal test asserts on the tombstone that
+        // won the key. Mutate the probe to `... && approval.IsDeleted` and all three still pass,
+        // while in production every live approval reads as absent and the flow inserts a
+        // duplicate the unique index then refuses. This is the only test that says a live row on
+        // an occupied key comes back at all.
         [Fact]
         public async Task ShouldReturnTheRowOccupyingTheKeyAsync()
         {
@@ -72,30 +84,7 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Approvals
             // then
             match.Should().NotBeNull();
             match.Id.Should().Be(storageApproval.Id);
-            match.ApprovalStatus.Should().Be(ApprovalStatus.Approved);
-        }
-
-        [Fact]
-        public async Task ShouldReturnNullWhenTheKeyIsUnoccupiedAsync()
-        {
-            // given: the store holds only a row on a different key entirely
-            Approval otherKeyApproval = CreateApproval(
-                entityType: OtherEntityType,
-                entityId: Guid.NewGuid(),
-                approvalStatus: ApprovalStatus.Submitted,
-                isDeleted: false,
-                updatedWhen: DateTimeOffset.UtcNow);
-
-            await SeedAsync(otherKeyApproval);
-
-            // when
-            Approval match = await this.broker.StorageBroker.SelectApprovalByEntityAsync(
-                ProbeEntityType,
-                Guid.NewGuid(),
-                TestContext.Current.CancellationToken);
-
-            // then
-            match.Should().BeNull();
+            match.IsDeleted.Should().BeFalse();
         }
 
         /// <summary>
