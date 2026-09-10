@@ -42,9 +42,11 @@ namespace Glory2Him.Core.Models.Events
         public IReadOnlyList<EventDelivery<T>> Deliveries { get; init; } = [];
 
         /// <summary>
-        /// Whether any subscription failed to receive the event at dispatch time. False for an
-        /// address nobody subscribes to, which is what lets a publisher inspect without first
-        /// knowing whether its address is subscribed (§10.19 rule 1).
+        /// Whether any subscription reported an unsuccessful delivery at dispatch time — which
+        /// usually means a handler that received the envelope and then threw, rather than one the
+        /// event never reached, because <see cref="EventDelivery{T}.IsSuccess"/> is the listener's
+        /// own status. False for an address nobody subscribes to, which is what lets a publisher
+        /// inspect without first knowing whether its address is subscribed (§10.19 rule 1).
         /// </summary>
         public bool HasFailedDeliveries =>
             Deliveries.Any(delivery => delivery.IsSuccess is false);

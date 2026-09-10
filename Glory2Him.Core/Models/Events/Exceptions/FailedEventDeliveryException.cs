@@ -16,21 +16,32 @@ using Xeptions;
 namespace Glory2Him.Core.Models.Events.Exceptions
 {
     /// <summary>
-    /// An event was published and at least one subscription failed to receive it (§10.19).
+    /// An event was published and at least one subscription reported an unsuccessful delivery
+    /// (§10.19).
     ///
     /// <para>An EVENT rather than a fact, and the distinction is not pedantry: the approving
-    /// command travels through this same helper, and telling an operator a subscription "did not
-    /// receive the fact" about a <c>-Approving</c> instruction describes the wrong kind of event
-    /// and sends them looking for a fact nobody published.</para>
+    /// command travels through this same helper, and telling an operator a subscription failed to
+    /// receive a "fact" about a <c>-Approving</c> instruction describes the wrong kind of event
+    /// and sends them looking for something nobody published.</para>
+    ///
+    /// <para><b>UNSUCCESSFUL rather than undelivered</b>, and that is not a hedge either.
+    /// <c>IsSuccess</c> is set from the listener status, so the commonest case by far is a
+    /// subscription that DID receive the envelope and then threw part-way through its own work —
+    /// which is exactly what <c>HandlerFailureContainmentTests</c> measured. A line saying the
+    /// subscription never received it would point an operator at the substrate when the fault is
+    /// inside the handler.</para>
     ///
     /// <para><b>This is never thrown.</b> It exists to carry a message into
     /// <c>ILoggingBroker.LogCriticalAsync</c>, which is the only logging tier that takes an
-    /// exception. The write that caused the fact is already committed by the time a publisher
-    /// can see this, so raising it would report a committed write as failed — the outcome the
-    /// substrate's containment behaviour exists to prevent (§10.19 rule 2).</para>
+    /// exception. The write the event announces — or, for a command, the decision it carries —
+    /// is already committed by the time a publisher can see this, so raising it would report a
+    /// committed write as failed, the outcome the substrate's containment behaviour exists to
+    /// prevent (§10.19 rule 2).</para>
     ///
     /// <para><b>It carries the substrate's diagnostics and nothing else</b> — the persisted event
-    /// id, the address, and each failed subscription's id, status and response. Never the
+    /// id, the composed event name, and each failed subscription's id, status and response. Never
+    /// an address: <c>HardRemoved</c> shares <c>Removed</c>'s, so only the name discriminates.
+    /// And never the
     /// envelope's content or its <c>SecurityContext</c>: the line exists so a divergence can be
     /// found and repaired, and an event's content in a log is a copy of the row with none of
     /// §14.1's visibility rules attached (§10.19 rule 3).</para>
@@ -65,8 +76,8 @@ namespace Glory2Him.Core.Models.Events.Exceptions
             return new FailedEventDeliveryException(
                 message: $"Failed event delivery of '{eventName}', event id " +
                     $"'{publishResult.EventId}'. The publisher completed and its write stands, " +
-                    $"but these subscriptions did not receive it and nothing redelivers it: " +
-                    $"{failedDeliveries}. Contact support.");
+                    $"but these subscriptions reported an unsuccessful delivery and nothing " +
+                    $"redelivers it: {failedDeliveries}. Contact support.");
         }
 
         // "TagEventOperation" + Submitted -> "TagSubmitted"; "ContentItemProcessingEventOperation"

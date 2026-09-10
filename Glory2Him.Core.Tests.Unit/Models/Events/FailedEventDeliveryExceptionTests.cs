@@ -173,7 +173,10 @@ namespace Glory2Him.Core.Tests.Unit.Models.Events
         [Fact]
         public void ShouldCarryNeitherThePayloadNorTheCallerIdentity()
         {
-            // given: a payload and a caller both carrying text that would be unmistakable in a log
+            // given: a payload AND a caller identity, each carrying text unmistakable in a log.
+            // Both sentinels matter: the identity is the one a well-meaning edit is likeliest to
+            // append ("which caller's publish failed?"), and with only a Content sentinel this
+            // test would pass while the SecurityContext leaked.
             var publishResult = new EventPublishResult<Tag>
             {
                 EventId = Guid.NewGuid(),
@@ -187,6 +190,11 @@ namespace Glory2Him.Core.Tests.Unit.Models.Events
                         Response = new EventEnvelope<Tag>
                         {
                             Content = new Tag { Name = "a-secret-tag-name" },
+                            SecurityContext = new SecurityContext
+                            {
+                                SubjectId = "a-secret-caller-id",
+                                Username = "a-secret-caller-name",
+                            },
                         },
                     },
                 },
@@ -200,6 +208,43 @@ namespace Glory2Him.Core.Tests.Unit.Models.Events
 
             // then
             actualException.Message.Should().NotContain("a-secret-tag-name");
+            actualException.Message.Should().NotContain("a-secret-caller-id");
+            actualException.Message.Should().NotContain("a-secret-caller-name");
+        }
+
+        /// <summary>
+        /// UNSUCCESSFUL, never undelivered. <c>IsSuccess</c> is set from the listener's own
+        /// status, so the commonest failure by far is a subscription that RECEIVED the envelope
+        /// and then threw part-way through its own work — the exact case
+        /// <c>HandlerFailureContainmentTests</c> measured.
+        ///
+        /// <para>A line saying the subscription never received the event would send an operator
+        /// to the substrate — connectivity, registration, the event store — when the fault is
+        /// inside a handler they own. Worth a test of its own because the wrong wording reads
+        /// perfectly naturally and would survive review.</para>
+        /// </summary>
+        [Fact]
+        public void ShouldNotClaimASubscriptionNeverReceivedTheEvent()
+        {
+            // given
+            var publishResult = new EventPublishResult<Tag>
+            {
+                EventId = Guid.NewGuid(),
+                Deliveries = new List<EventDelivery<Tag>>
+                {
+                    new EventDelivery<Tag> { IsSuccess = false, Status = "Error" },
+                },
+            };
+
+            // when
+            FailedEventDeliveryException actualException =
+                FailedEventDeliveryException.ForFailedDeliveries(
+                    publishResult,
+                    TagEventOperation.Submitted);
+
+            // then
+            actualException.Message.Should().Contain("unsuccessful delivery");
+            actualException.Message.Should().NotContain("did not receive");
         }
 
         /// <summary>
