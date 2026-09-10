@@ -120,6 +120,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             // then: the caller's write stands and is reported as the success it was
             actualReaction.Should().BeEquivalentTo(expectedReaction);
 
+            // and: that equivalence alone does NOT prove the row was written — the returned
+            // object is a clone of the audit-applied one, so a regression that skipped storage
+            // and handed back the in-memory transition would satisfy it just as well. The write
+            // is asserted on its own, the way the Association delivery test already does.
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateReactionAsync(
+                    auditAppliedReaction,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
             // and: the contained failure is REPORTED rather than dropped, at the tier this
             // solution reserves for something an operator has to act on
             this.loggingBrokerMock.Verify(broker =>
