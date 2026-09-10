@@ -40,8 +40,7 @@ namespace Glory2Him.Core.Infrastructure.Services
 
                     PullRequest = new PullRequestEvent
                     {
-                        Types = ["opened", "synchronize", "reopened", "closed"],
-                        Branches = [branchName]
+                        Types = ["opened", "synchronize", "reopened", "closed"]
                     }
                 },
 
@@ -322,8 +321,7 @@ namespace Glory2Him.Core.Infrastructure.Services
                 {
                     PullRequest = new PullRequestEvent
                     {
-                        Types = ["opened", "edited", "synchronize", "reopened", "closed"],
-                        Branches = [branchName]
+                        Types = ["opened", "edited", "synchronize", "reopened", "closed"]
                     }
                 },
 
