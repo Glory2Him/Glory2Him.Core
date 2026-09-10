@@ -326,10 +326,15 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ContentItems
         /// <summary>
         /// One negative fact carrying all three decoys at once, which is what the three separate
         /// negatives it replaced (#486) bought between them. Seeding them together loses nothing:
-        /// the assertion is still false only while every conjunct stands, so the test dies under
-        /// any single-conjunct mutation — drop <c>IsDeleted == false</c> and the tombstone at
+        /// each decoy is a row the predicate must keep excluding, so the test dies under any
+        /// mutation that BROADENS a conjunct — drop <c>IsDeleted == false</c> and the tombstone at
         /// version 4 answers, drop <c>GroupId == groupId</c> and the other group's version 9 does,
         /// weaken <c>&gt;</c> to <c>&gt;=</c> and the candidate reports itself as superseded.
+        ///
+        /// <para>It says nothing about a mutation that NARROWS one: reversing <c>&gt;</c> to
+        /// <c>&lt;</c> leaves this false and this test green. That direction is
+        /// <see cref="ShouldReportAHigherLiveVersionInTheSameGroupAsync"/>'s to catch, which is
+        /// why the positive fact stays — the two are a pair, not a fact and a spare.</para>
         /// </summary>
         [Fact]
         public async Task ShouldNotReportADecoyAsHoldingTheTipAsync()
