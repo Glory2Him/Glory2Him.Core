@@ -19,6 +19,7 @@ using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Exceptions;
 using Glory2Him.Core.Models.Events.Foundations;
+using Glory2Him.Core.Models.Foundations.ProcessedEvents;
 using Glory2Him.Core.Models.Foundations.Tags;
 using Glory2Him.Core.Models.Securities;
 using Moq;
@@ -140,6 +141,106 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                 Times.Once);
 
             this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        /// <summary>
+        /// §10.19 rule 2 again, at the seam where placement decides whether the rule holds at
+        /// all: the outbound dedup write sits between the publish and the report, and that write
+        /// CAN fail.
+        ///
+        /// <para>Reporting after it means a failing <c>InsertProcessedEventAsync</c> unwinds
+        /// <c>SaveTransitionAsync</c> before <c>HasFailedDeliveries</c> is ever read — so a
+        /// contained subscriber failure goes entirely unreported, which is the exact gap this
+        /// section exists to close. The two failures are independent: nothing about the dedup row
+        /// failing makes the delivery any less dropped, and the operator needs both.</para>
+        ///
+        /// <para>The report therefore runs BEFORE the dedup write. It used to run after, so that
+        /// a faulting log sink could not cost the outbound event its dedup row — but containment
+        /// is what guarantees that now, not ordering, which frees the report to sit where a
+        /// bookkeeping failure cannot swallow it.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldStillReportTheFailedDeliveryWhenTheDedupWriteFailsAsync()
+        {
+            // given
+            Tag storageTag = CreateSubmittableStorageTag();
+
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+
+            Tag submittedTag = storageTag.DeepClone();
+            submittedTag.ApprovalStatus = ApprovalStatus.Submitted;
+
+            Tag auditAppliedTag = submittedTag.DeepClone();
+            Tag updatedTag = auditAppliedTag.DeepClone();
+
+            var failedPublishResult = new EventPublishResult<Tag>
+            {
+                EventId = Guid.NewGuid(),
+                Deliveries = new List<EventDelivery<Tag>>
+                {
+                    new EventDelivery<Tag>
+                    {
+                        SubscriptionId = Guid.NewGuid(),
+                        IsSuccess = false,
+                        IsFailure = true,
+                        Status = "Error",
+                        ResponseCode = "500",
+                        ResponseMessage = "the handler failed",
+                    },
+                },
+            };
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(storageTag.CreatedBy);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(GetRandomDateTimeOffset());
+
+            SetupTagStorageRead(storageTag);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(
+                    It.IsAny<Tag>(),
+                    It.IsAny<SecurityContext>()))
+                        .ReturnsAsync(auditAppliedTag);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateTagAsync(
+                    auditAppliedTag,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(updatedTag);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishTagAsync(
+                    It.IsAny<EventEnvelope<Tag>>(),
+                    TagEventOperation.Submitted))
+                        .Returns(new ValueTask<EventPublishResult<Tag>>(failedPublishResult));
+
+            // and: the dedup bookkeeping that follows the publish fails
+            this.storageBrokerMock.Setup(broker =>
+                broker.InsertProcessedEventAsync(
+                    It.IsAny<ProcessedEvent>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(new Exception("the dedup row could not be written"));
+
+            // when: the transition therefore faults, as it should — the dedup failure is real
+            await Assert.ThrowsAnyAsync<Exception>(async () =>
+                await this.tagService.SubmitTagByIdAsync(
+                    storageTag.Id,
+                    TestContext.Current.CancellationToken));
+
+            // then: the CONTAINED DELIVERY FAILURE was still reported. Without it, the only
+            // record that a required fact was dropped would have been lost to an unrelated
+            // bookkeeping fault.
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogCriticalAsync(It.Is(
+                    SameExceptionAs(
+                        FailedEventDeliveryException.ForFailedDeliveries(
+                            failedPublishResult,
+                            TagEventOperation.Submitted)))),
+                Times.Once);
         }
 
         /// <summary>
