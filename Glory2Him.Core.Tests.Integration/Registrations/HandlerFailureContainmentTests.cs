@@ -98,6 +98,26 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
                         "successful would hide the failure from the only caller placed to see " +
                         "it");
 
+                // and: the substrate classifies it as a FAILURE, not merely as not-successful.
+                //
+                // This is the assertion §10.19 rests on and the only one that measures it. Every
+                // publisher now reports on EventDelivery.IsFailure, which the broker sets from
+                // the substrate's status enum — but every unit test sets that flag by hand, so
+                // nothing else would notice the mapping breaking. If a real Error delivery
+                // stopped being classified as a failure, every required delivery in the solution
+                // would look clean and the swallowed-failure behaviour would come back silently.
+                deliveries.Should().Contain(delivery => delivery.IsFailure,
+                    because: "a handler that threw is the substrate's Error status, and " +
+                        "EventPublishResult.FailedDeliveries keys on IsFailure rather than on " +
+                        "the inverse of IsSuccess");
+
+                // and: nothing else is dressed up as a failure. Pending and Replay are ordinary
+                // transient outcomes, and reporting either as failed would fire §10.19's Critical
+                // line — which claims a permanent, unrepairable divergence — on healthy traffic.
+                deliveries.Should().OnlyContain(
+                    delivery => delivery.IsFailure == (delivery.Status == "Error"),
+                    because: "only the substrate's Error status is a failure");
+
                 // Deliberately NOT asserting that sibling subscribers survived. ApprovalReview-
                 // Added binds exactly ONE subscription, so there are no siblings to survive, and
                 // an earlier version of this test asserted two deliveries because a local

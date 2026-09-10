@@ -106,7 +106,7 @@ namespace Glory2Him.Core.Tests.Unit.Models.Events
                 EventId = Guid.NewGuid(),
                 Deliveries = new List<EventDelivery<Tag>>
                 {
-                    new EventDelivery<Tag> { IsSuccess = false, Status = "Error" },
+                    new EventDelivery<Tag> { IsSuccess = false, IsFailure = true, Status = "Error" },
                 },
             };
 
@@ -136,7 +136,7 @@ namespace Glory2Him.Core.Tests.Unit.Models.Events
                 EventId = Guid.NewGuid(),
                 Deliveries = new List<EventDelivery<ContentItem>>
                 {
-                    new EventDelivery<ContentItem> { IsSuccess = false, Status = "Error" },
+                    new EventDelivery<ContentItem> { IsSuccess = false, IsFailure = true, Status = "Error" },
                 },
             };
 
@@ -397,7 +397,7 @@ namespace Glory2Him.Core.Tests.Unit.Models.Events
                 EventId = Guid.NewGuid(),
                 Deliveries = new List<EventDelivery<Tag>>
                 {
-                    new EventDelivery<Tag> { IsSuccess = false, Status = "Error" },
+                    new EventDelivery<Tag> { IsSuccess = false, IsFailure = true, Status = "Error" },
                 },
             };
 
@@ -427,7 +427,7 @@ namespace Glory2Him.Core.Tests.Unit.Models.Events
                 EventId = Guid.NewGuid(),
                 Deliveries = new List<EventDelivery<Tag>>
                 {
-                    new EventDelivery<Tag> { IsSuccess = false, Status = "Error" },
+                    new EventDelivery<Tag> { IsSuccess = false, IsFailure = true, Status = "Error" },
                 },
             };
 
