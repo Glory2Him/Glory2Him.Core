@@ -11,6 +11,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using G2H.Security.Client.Models.Foundations.Access;
@@ -21,6 +22,7 @@ using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.Tags;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
@@ -40,7 +42,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         /// one.</para>
         /// </summary>
         [Fact]
-        public async Task ShouldLogCriticalWhenTheApprovingCommandIsNotDeliveredAsync()
+        public async Task ShouldLogCriticalWhenTheApprovingCommandDeliveryFailsAsync()
         {
             // given
             var approvalId = Guid.NewGuid();
@@ -58,7 +60,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 bypassVerdict: PermittedVerdict());
 
             SetupDecisionSystemEnvelopes();
-            SetupDecisionApprovalRow(storageApproval);
+            List<Approval> savedApprovals = SetupDecisionApprovalRow(storageApproval);
 
             var failedPublishResult = new EventPublishResult<Tag>
             {
@@ -101,10 +103,28 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                             TagEventOperation.Approving)))),
                 Times.Once);
 
-            // and: the decision itself still stands. It was recorded before the command went
-            // out, and the caller asked for the decision rather than for its delivery — so
-            // failing them here would report a committed decision as one that never happened.
+            // and: the decision itself still stands, asserted on what was WRITTEN rather than on
+            // the outcome merely existing. It was recorded before the command went out, and the
+            // caller asked for the decision rather than for its delivery — so failing them here
+            // would report a committed decision as one that never happened. A test satisfied by
+            // a non-null outcome would also pass if the write were skipped entirely while the
+            // command and logging paths still ran, which is the regression worth catching.
+            Approval decidedApproval = savedApprovals.Should().ContainSingle().Subject;
+            decidedApproval.Id.Should().Be(approvalId);
+            decidedApproval.ApprovalStatus.Should().Be(ApprovalStatus.Approved);
+
+            this.approvalServiceMock.Verify(service =>
+                service.ModifyApprovalAsync(
+                    It.Is<Approval>(approval =>
+                        approval.Id == approvalId
+                            && approval.ApprovalStatus == ApprovalStatus.Approved),
+                    WorkflowAttribution.DecidingCaller,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            // and: the caller is told the decided status, not a stale one
             actualOutcome.Should().NotBeNull();
+            actualOutcome.ApprovalStatus.Should().Be(ApprovalStatus.Approved);
 
             // IsEntitySyncRequested is unchanged by a failed delivery. §16.7.1 defines it as
             // REQUESTED rather than landed, and the command was in fact published — narrowing

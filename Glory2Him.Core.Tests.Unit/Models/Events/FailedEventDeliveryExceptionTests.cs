@@ -35,6 +35,58 @@ namespace Glory2Him.Core.Tests.Unit.Models.Events
     public class FailedEventDeliveryExceptionTests
     {
         /// <summary>
+        /// The WHOLE message, character for character, for the simplest possible case.
+        ///
+        /// <para>The other tests here assert the parts that carry meaning; this one exists
+        /// because they cannot catch a regression in the prefix, the ordering, or the separators
+        /// between those parts. An operator greps these lines, so the shape is part of the
+        /// contract and not merely presentation.</para>
+        ///
+        /// <para>It is deliberately the only exact-match assertion in the file. Pinning the full
+        /// string in every case would make each of them fail for reasons that have nothing to do
+        /// with what they are about, and the first careless fix would be to loosen them all.</para>
+        /// </summary>
+        [Fact]
+        public void ShouldComposeTheWholeMessageInTheDocumentedShape()
+        {
+            // given
+            var eventId = Guid.NewGuid();
+            var subscriptionId = Guid.NewGuid();
+
+            var publishResult = new EventPublishResult<Tag>
+            {
+                EventId = eventId,
+                Deliveries = new List<EventDelivery<Tag>>
+                {
+                    new EventDelivery<Tag>
+                    {
+                        SubscriptionId = subscriptionId,
+                        IsSuccess = false,
+                        Status = "Error",
+                        ResponseCode = "500",
+                        ResponseMessage = "the handler failed",
+                    },
+                },
+            };
+
+            string expectedMessage =
+                $"Failed event delivery of 'TagSubmitted', event id '{eventId}'. " +
+                $"The publisher completed and its write stands, but these subscriptions " +
+                $"reported an unsuccessful delivery and nothing redelivers it: " +
+                $"subscription '{subscriptionId}' reported status 'Error' " +
+                $"(code '500', message 'the handler failed'). Contact support.";
+
+            // when
+            FailedEventDeliveryException actualException =
+                FailedEventDeliveryException.ForFailedDeliveries(
+                    publishResult,
+                    TagEventOperation.Submitted);
+
+            // then
+            actualException.Message.Should().Be(expectedMessage);
+        }
+
+        /// <summary>
         /// The subject is composed from the OPERATION's type, and the composed EVENT NAME is
         /// what the line names — the same name the broker stores the event under (§10.10).
         ///

@@ -42,7 +42,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         /// re-derive the switch to stay correct, and would be wrong the moment it drifted.</para>
         /// </summary>
         [Fact]
-        public async Task ShouldLogCriticalWhenTheSubmittedFactIsNotDeliveredAsync()
+        public async Task ShouldLogCriticalWhenTheSubmittedFactDeliveryFailsAsync()
         {
             // given: the administrator override out of a terminal state, which re-opens the round
             this.ambientSecurityContext =

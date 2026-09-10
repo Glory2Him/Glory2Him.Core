@@ -46,7 +46,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
         /// exists to prevent (§10.19 rule 2).</para>
         /// </summary>
         [Fact]
-        public async Task ShouldLogCriticalWhenTheSubmittedFactIsNotDeliveredAsync()
+        public async Task ShouldLogCriticalWhenTheSubmittedFactDeliveryFailsAsync()
         {
             // given
             Comment storageComment = CreateSubmittableStorageComment();

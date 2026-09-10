@@ -32,8 +32,9 @@ namespace Glory2Him.Core.Models.Events.Exceptions
     /// inside the handler.</para>
     ///
     /// <para><b>This is never thrown.</b> It exists to carry a message into
-    /// <c>ILoggingBroker.LogCriticalAsync</c>, which is the only logging tier that takes an
-    /// exception. The write the event announces — or, for a command, the decision it carries —
+    /// <c>ILoggingBroker.LogCriticalAsync</c> — Critical rather than Error because this is a
+    /// dependency failure an operator has to act on and the caller is never told about it, which
+    /// is the split this solution already uses between the two exception-taking tiers. The write the event announces — or, for a command, the decision it carries —
     /// is already committed by the time a publisher can see this, so raising it would report a
     /// committed write as failed, the outcome the substrate's containment behaviour exists to
     /// prevent (§10.19 rule 2).</para>
