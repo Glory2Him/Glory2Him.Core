@@ -1690,10 +1690,20 @@ Moved to [`Documentation/Design/Events.md`](Design/Events.md) — unifies this s
 former standalone `EventSubstrate.md`, removing the duplication between them.
 Sections there carry an `EVN` prefix (`§EVN1`, `§EVN2`, ...) rather than
 restarting bare at 1, so a citation stays unambiguous once other
-`Documentation/Design/*.md` files exist with their own prefixes. Every former
-`§10.X` citation in code still resolves by grep — each section keeps a
-`(formerly §10.X)` annotation naming its old position — even though the citable
-number itself is now `§EVNx`, not `§10.X` verbatim.
+`Documentation/Design/*.md` files exist with their own prefixes. Each relocated
+section keeps a `(formerly §10.X)` annotation naming its old position, so a
+`§10.X` citation in code still resolves by grep even though the citable number
+itself is now `§EVNx`, not `§10.X` verbatim. Lettered citations are anchored
+separately: `§10.17(a)` and `§10.17(b)` appear in service and test comments and
+the heading annotation carries no letter, so `§EVN18` lists those forms
+explicitly.
+
+Resolving is not the same as being right. The annotation maps an old number to
+a new one and asserts nothing about whether the section was the correct one to
+cite in the first place. A `§10.2` in a comment about how a value is
+*persisted* lands on event naming and addressing because that is what §10.2
+always was, not because the move sent it there; enum string persistence is
+§3.7.
 
 ## 11. Topic and Feed Design
 
@@ -2236,7 +2246,7 @@ Responsibilities:
 
     **This responsibility does not own the threshold, and the timing here was wrong.** The only threshold comparison in the codebase is `IAccessClient`'s `EvaluateConditions`, reached through `IAccessBroker.MayDecideApprovalAsync` (§8.5, §12.3.1) — and it runs **when an approve is attempted**, not "after each review decision". This orchestration's job is to notice that the inputs changed and ask; the answer is not its to compute. Earlier wording ("evaluate approval threshold after each review decision using `ApprovalSettingsService`") was wrong on the owner *and* on the trigger.
 
-    **Subscribe to every fact on both workflow records, and re-test on each.** All four `ApprovalComment` addresses (`-Added`, `-Modified`, `-Resolved`, `-Removed`) and all four `ApprovalReview` addresses (`-Added`, `-Modified`, `-Removed`, `-Dismissed`) can move a §8.5 predicate, because the evaluation reads comments through `IsDeleted is false && IsResolved is false` and reviews through `IsDeleted is false && Verdict != Dismissed`. **Both comment resolution addresses are required**: `IsResolved` has two writers by design — the owner through the general modify (on a remark; the amend gate refuses a write that would leave an **ask** settled, §7.8), the publisher tier through the resolve transition (§14.7 rule 5) — so watching one would leave the gate movable unnoticed, decided by nothing more than which UI control was clicked. Each fact means "the inputs changed", never "the approval may complete": re-run the whole evaluation, and treat gate-shutting facts (a comment born outstanding, a withdrawn approving review) as seriously as gate-opening ones, since they can re-block an approval that was clear under `AutoApproveIfAllApprovalRequirementsMet`. A fact may also move nothing — a comment born settled (§7.8) is the common case — so never infer a direction from the address. These are foundation-tier subscriptions — neither record is approvable and neither has a layer above its foundation (§12.3.1), so §10.17 rules 1–2 do not apply. See §10.17 inbound items (a)–(d) for the full table.
+    **Subscribe to every fact on both workflow records, and re-test on each.** All four `ApprovalComment` addresses (`-Added`, `-Modified`, `-Resolved`, `-Removed`) and all four `ApprovalReview` addresses (`-Added`, `-Modified`, `-Removed`, `-Dismissed`) can move a §8.5 predicate, because the evaluation reads comments through `IsDeleted is false && IsResolved is false` and reviews through `IsDeleted is false && Verdict != Dismissed`. **Both comment resolution addresses are required**: `IsResolved` has two writers by design — the owner through the general modify (on a remark; the amend gate refuses a write that would leave an **ask** settled, §7.8), the publisher tier through the resolve transition (§14.7 rule 5) — so watching one would leave the gate movable unnoticed, decided by nothing more than which UI control was clicked. Each fact means "the inputs changed", never "the approval may complete": re-run the whole evaluation, and treat gate-shutting facts (a comment born outstanding, a withdrawn approving review) as seriously as gate-opening ones, since they can re-block an approval that was clear under `AutoApproveIfAllApprovalRequirementsMet`. A fact may also move nothing — a comment born settled (§7.8) is the common case — so never infer a direction from the address. These are foundation-tier subscriptions — neither record is approvable and neither has a layer above its foundation (§12.3.1), so §10.17 rules 1–2 do not apply. See §EVN18 inbound items (a)–(h) in [`Documentation/Design/Events.md`](Design/Events.md) for the full table.
 6. Apply `Approved` status when the approval conditions (§8.5) are met and `AutoApproveIfAllApprovalRequirementsMet = true`.
 7. Write the denormalized `ApprovalStatus` onto the owning entity itself, through that entity's state-transition operation rather than a general modify (§10.17 rules 4–5). The two values must never diverge (§9.8).
 8. On `Approved`, set `IsPublished = true` on the newly approved version.

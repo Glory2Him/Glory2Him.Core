@@ -81,9 +81,11 @@ Requests and facts do not pair one to one, and each mismatch is deliberate.
 `ContentItem-RetrievingById` publishes no fact, because a read's reply rides the
 delivery rather than an address (§EVN11). `ContentItem-HardRemovingById`
 publishes onto `ContentItem-Removed` rather than an address of its own (rule 4).
-`ContentItem-Approving` publishes `ContentItem-Approved` or
-`ContentItem-Rejected` according to the decision reached, so a subscriber keying
-on the fact name is never told the opposite of what happened. And
+`ContentItem-Approving` publishes `ContentItem-Approved`,
+`ContentItem-Rejected` or `ContentItem-Submitted` according to the decision
+reached — the third when an administrator's override re-opens a decided row —
+so a subscriber keying on the fact name is never told the opposite of what
+happened, and one that wants every decision binds all three. And
 `ContentItem-Unpublished` has no request address at all: it is the publication
 swap clearing the outgoing row, and taking a live row dark with no replacement
 is not an operation a caller has a reason to invoke, so no address exists that
@@ -154,9 +156,10 @@ finished.
    `Submitting`/`Submitted` or `Approving`/`Approved` owns a narrower field
    scope than a general modify, so it is a separate method and therefore a
    separate verb. A transition's fact need not echo its request: `Approving`
-   publishes `-Approved` or `-Rejected` according to the decision, because a
-   subscriber keying on the fact name must never be told the opposite of what
-   happened.
+   publishes `-Approved`, `-Rejected` or `-Submitted` according to the decision,
+   because a subscriber keying on the fact name must never be told the opposite
+   of what happened. The transition refuses any other target, so those three are
+   the whole set and a subscriber that wants every decision binds all of them.
 8. Approval services subscribe to relevant lifecycle facts.
 9. Event handlers determine whether approval must be created, retained,
    dismissed, reset, or updated.
@@ -269,9 +272,9 @@ or a separate delete-request entity that itself participates in approval.
 
 All events should be wrapped in an `EventEnvelope<T>` that carries the business
 payload alongside security, request, event metadata, and — since §EVN10 —
-integrity. The example below was missing `Integrity` before review; the real
-model has carried it since signing was implemented, and an example omitting it
-would lead a reader to construct an envelope that ships unsigned.
+integrity. All five sections appear below. An envelope that reaches a receiver
+without `Integrity` is refused rather than believed, so a sample omitting it
+would teach a reader to construct one that no handler will accept.
 
 ```csharp
 public sealed class EventEnvelope<T>
@@ -284,17 +287,32 @@ public sealed class EventEnvelope<T>
 
     public EventMetadata Metadata { get; init; } = new EventMetadata();
 
+    // No initialiser: there is nothing to sign with until publish. See below.
     public EnvelopeIntegrity Integrity { get; init; }
 }
 ```
 
 The initialisers are part of the contract rather than noise. The project
-compiles under `<Nullable>enable</Nullable>`, and a declaration without them is
-one a reader can copy into code that then has to treat every section of the
-envelope as possibly absent. `Integrity` is the deliberate exception: the
-envelope factory does not know the destination and therefore cannot sign, so
-the signature is attached at publish, where the event name is known (§EVN10).
-An envelope in hand before that point genuinely has none.
+compiles under `<Nullable>enable</Nullable>`, and a section declared without one
+is a section every reader downstream has to treat as possibly absent.
+
+`Integrity` carries no initialiser because there is nothing to initialise it
+with. The envelope factory does not know the destination and therefore cannot
+sign, so the signature is attached at publish, where the event name is known
+(§EVN10). An envelope in hand before that point genuinely has none:
+`IEventEnvelopeBroker.CreateAsync` returns one whose `Integrity` is null, and
+`EventBroker` fills it in on the way out.
+
+**Open defect — the declaration does not say so.** `Integrity` is declared
+non-nullable while the value is legitimately absent for the whole of an
+envelope's life before publish, so `EventEnvelope.cs` raises `CS8618` and every
+consumer works around the declaration rather than with it:
+`EnvelopeIntegrityBroker.VerifyAsync` reads `envelope?.Integrity` into a local
+and branches on `null`, and `EventEnvelopeBroker` assigns `null` through
+`Integrity` at both ends of the client round trip. `EnvelopeIntegrity?` is the
+declaration that matches the value's actual lifetime, and
+`G2H.EventEnvelope.Client`'s own envelope carries the identical defect.
+Correcting either is a code change; the sample above is the model as it stands.
 
 The word `Envelope` is intentional. The event content is the business payload,
 while the envelope carries the contextual information required to process the
@@ -519,26 +537,33 @@ it is set once when the envelope is created and never incremented, because a
 redelivery is the substrate replaying the stored event rather than a fresh
 envelope carrying a higher count.
 
-Example causation chain:
+Example causation chain, from a single `POST api/ContentItems`:
 
 ```text
-API Request
-CorrelationId: A
+POST api/ContentItems
+  ContentItemProcessingService.AddContentItemAsync mints the root envelope
+  EventId: 1
+  CorrelationId: A
+  CausationId: none — a root envelope has no cause
 
-StudentCreated
-EventId: 1
-CorrelationId: A
-
-AddressCreated
-EventId: 2
-CorrelationId: A
-CausationId: 1
-
-AuditLogged
-EventId: 3
-CorrelationId: A
-CausationId: 2
+ContentItemProcessing-Added
+  published on an envelope built from the one above
+  EventId: 2
+  CorrelationId: A
+  CausationId: 1
 ```
+
+The chain runs exactly as far as an envelope is carried and no further.
+`IEventEnvelopeBroker.CreateNextAsync` copies the source's `RequestContext` —
+correlation id included — and points `CausationId` at the source's `EventId`,
+while `CreateAsync` mints a fresh correlation id and leaves `CausationId` null.
+A service entered by a direct method call rather than by a delivered envelope
+therefore starts a chain of its own: the foundation's `ContentItem-Added` and
+the approval round's `Approval-Added` each carry their own correlation id,
+because `ContentItemService.AddContentItemAsync` and
+`ApprovalService.AddApprovalAsync` each mint a root envelope before doing any
+work. `ParentCorrelationId` is only ever copied forward and never originated, so
+it is null on every envelope this system mints.
 
 ## EVN10. Envelope Integrity — Signing *(new; corrects EventSubstrate.md §5.10)*
 
@@ -603,9 +628,10 @@ schema selector — forgeable alongside an otherwise-genuine signature, which is
 a downgrade attack against the signed payload itself. Signing it in full also
 fixes every other field on it, `RetryCount` included, and that is why the whole
 of `EventMetadata` is `init`-only. Nothing increments `RetryCount` after an
-envelope is created: a retry is EventHighway redelivering the stored `EventV2`
-row, which replays the identical signed bytes rather than re-minting the
-envelope. A mutable counter inside the signed payload would not be a
+envelope is created. A substrate retry is EventHighway redelivering the stored
+`EventV2` row, which replays the identical signed bytes rather than re-minting
+the envelope; an outbox retry (§EVN19 rule 5) republishes the stored envelope
+under a fresh signature and likewise mints nothing. A mutable counter inside the signed payload would not be a
 convenience but a contradiction — bumping it would invalidate the very
 signature that makes the envelope believable. A count that has to change belongs
 on the delivery record, outside the signature.
@@ -634,9 +660,12 @@ public sealed class EnvelopeIntegrity
     // without invalidating envelopes already signed under the previous one:
     // VerifyAsync resolves the key by KeyId rather than assuming there is
     // only ever one, and ignores that key's active window so a historic event
-    // still verifies after its key has retired. Rewriting it to another key's
-    // id simply points verification at a secret that produces a different
-    // HMAC, so it does not need to be signed itself.
+    // still verifies after its key has retired. It is unsigned selection
+    // metadata rather than a signed claim: an id resolving to nothing fails
+    // closed, and an id rewritten to another configured id is caught only
+    // because that id resolves to different secret material. Two ids sharing
+    // one secret are one key under two names, and startup validation does
+    // not refuse that.
     public string KeyId { get; init; } = string.Empty;
 
     public string Signature { get; init; } = string.Empty;
@@ -646,14 +675,40 @@ public sealed class EnvelopeIntegrity
 ```
 
 Neither `Algorithm` nor `KeyId` is inside the signature, and the asymmetry
-between the two is deliberate. `Algorithm` is never read at all: the verifier
-computes with the algorithm it is configured with, which is what makes an
-`alg=none` downgrade impossible here. `KeyId` is read, but only to choose which
-configured secret to recompute against — an attacker who rewrites it selects a
-key that yields a different HMAC, and the envelope fails. The rule underneath
-both is that nothing an attacker can rewrite may decide *how* a signature is
-checked; an unsigned field on the envelope may at most select among things the
-verifier already trusts.
+between the two is deliberate. They are unsigned in different senses, and only
+one of them is tamper-evident at all.
+
+`Algorithm` is never read. `VerifyAsync` computes through `ComputeSignature`,
+which calls `HMACSHA256.HashData` directly, so an envelope rewritten to claim
+`"none"` cannot downgrade the check. Nor is that rewrite *detected*: an envelope
+with a forged `Algorithm` and an otherwise genuine signature verifies as valid,
+because the field is inert —
+`ShouldNotConsultTheAlgorithmFieldWhenVerifyingAsync` asserts exactly that. The
+field records what was used; it is not a claim the verifier honours.
+
+`KeyId` is read, but only to select which configured secret to recompute
+against. An id that resolves to no configured key fails closed. An id rewritten
+to another *configured* id is caught only because that id resolves to different
+secret material, so the recomputed HMAC differs and the comparison fails — and
+that is a property of the configuration rather than of the verifier.
+`ValidateSigningKeys` refuses two entries under one `KeyId`, because
+verification resolves by id and duplicates would make which key checks a
+signature indeterminate; it does not refuse two ids carrying the same `Key`.
+Under that configuration the two ids are one key wearing two names, and
+rewriting `KeyId` from either to the other recomputes the identical signature
+and verifies.
+
+That concedes no forgery power. The payload is still bound, so rewriting `KeyId`
+alone changes nothing an attacker wants changed. What it costs is rotation:
+retiring an id removes it from signing, not the secret it carried, and while a
+second id still carries that secret the rotation has renamed the key rather than
+replaced it. Configure distinct secret material per id and the guarantee holds
+as stated; share material and `KeyId` stops distinguishing anything.
+
+The rule underneath both fields is that nothing an attacker can rewrite may
+decide *how* a signature is checked. An unsigned field on the envelope may at
+most select among things the verifier already trusts — and for that selection to
+carry any weight, the things selected among have to actually differ.
 
 ```csharp
 public enum EnvelopeDirection
@@ -749,7 +804,8 @@ operation (for example `"ContentItemAdding"`, `"ContentItemProcessingAdded"`),
 so the subject must be distinct per service or the stored names would collide.
 Every publish persists the event and dispatches it inline to the in-process
 delegate handlers subscribed to that address; handler failures are recorded per
-listener (with retry support) instead of failing the publisher. Subscriptions
+listener rather than failing the publisher, and nothing in this host retries
+them. Subscriptions
 bind to exactly one operation. Handlers may optionally return a reply envelope
 (`ValueTask<EventEnvelope<T>?>`), which the broker serializes onto the
 delivery's `ListenerEventV2` row — the observable reply channel for
@@ -759,9 +815,20 @@ security-context and metadata discipline as the request.
 Publishing returns an `EventPublishResult<T>`: the persisted event id plus one
 `EventDelivery<T>` per subscription, each with its dispatch-time status and —
 for responders — the reply envelope deserialized back to `EventEnvelope<T>`.
-This is a dispatch-time snapshot: failed deliveries may still succeed later via
-retries, and the durable truth remains the event store. Notification-style
-publishers simply ignore the result.
+This is a dispatch-time snapshot, and in this host it is also the final word. A
+delivery that records `Error` stays failed. EventHighway can retry listener
+deliveries — listener-level budgets with incremental backoff — but only when a
+caller drives `ListenerEventV2Client.RetryFailedListenerEventV2sAsync`. The
+substrate runs no timer and no background worker of its own, and `IEventBroker`
+does not expose that entry point at all.
+`IEventBroker.FireScheduledPendingEventsAsync` is a different mechanism and not
+a substitute: it fires time-deferred events whose `ScheduledDate` has passed,
+nothing in this repository calls it, and no hosted service, timer or scheduler
+exists that could. `EventBroker` never sets a `ScheduledDate` either, so every
+publish is immediate and there would be nothing for it to fire. Recovering a
+failed delivery is therefore an operator action against the event store, where
+the durable truth remains. Notification-style publishers simply ignore the
+result, and in doing so give up the only signal that a subscriber never ran.
 
 Foundation services follow a dual-path shape (see `ContentItemService` as the
 template):
@@ -783,8 +850,9 @@ half ends and the publishing half begins, because nothing binds them and a
 failed publish strands the row it was announcing; every hop chains causation
 through `IEventEnvelopeBroker.CreateNextAsync` (fresh `EventId`, `CausationId`
 = source event, security/request context carried forward). Substrate handlers
-categorize failures into the service's typed exceptions and rethrow —
-deliveries record `Error` and retry; failures are never swallowed. An entity
+categorize failures into the service's typed exceptions and rethrow — the
+delivery records `Error` and stays there; the failure is never swallowed, and
+nothing in this host retries it. An entity
 that declares `HardRemovingById` is hard-removable through the substrate on the
 same shape as any other write: the request arrives on that entity's own request
 address and the service publishes `HardRemoved` onto its `Removed` address
@@ -865,26 +933,70 @@ The controller should:
 
 1. Rely on authentication middleware to authenticate the caller.
 2. Accept the request model and `CancellationToken`.
-3. Call the relevant orchestration service.
+3. Call the entity's **top-layer service**. Which layer that is varies by entity
+   and is not the controller's choice: §EVN18 rule 3 requires the two Versioned
+   types to be exposed above their foundation, so `ContentItemsController` binds
+   `IContentItemProcessingService`, while a Single-Row type has nothing above
+   its foundation and `TagsController` binds `ITagService` directly. Of the
+   twelve controllers, three bind an orchestration, two a processing service and
+   seven a foundation.
 4. Map the result and domain exceptions to HTTP responses.
 
-Example:
+`TagsController.PostTagAsync`, whole — the exception mapping is most of what a
+controller is, so an abridged one would show the least of it:
 
 ```csharp
 [HttpPost]
-public async ValueTask<IActionResult> PostStudentAsync(
-    Student student,
+[Authorize]
+public async ValueTask<ActionResult<Tag>> PostTagAsync(
+    [FromBody] Tag tag,
     CancellationToken cancellationToken)
 {
-    Student createdStudent =
-        await this.studentOrchestrationService
-            .OrchestrateStudentCreationAsync(
-                student,
-                cancellationToken);
+    try
+    {
+        Tag addedTag =
+            await this.tagService.AddTagAsync(tag, cancellationToken);
 
-    return Ok(createdStudent);
+        return Created(addedTag);
+    }
+    catch (TagValidationException tagValidationException)
+        when (tagValidationException.InnerException is UnauthorizedTagException)
+    {
+        return Unauthorized(tagValidationException.InnerException);
+    }
+    catch (TagValidationException tagValidationException)
+    {
+        return BadRequest(tagValidationException.InnerException);
+    }
+    catch (TagDependencyValidationException tagDependencyValidationException)
+        when (tagDependencyValidationException.InnerException is AlreadyExistsTagException)
+    {
+        return Conflict(tagDependencyValidationException.InnerException);
+    }
+    catch (TagDependencyValidationException tagDependencyValidationException)
+    {
+        return BadRequest(tagDependencyValidationException.InnerException);
+    }
+    catch (TagDependencyException tagDependencyException)
+    {
+        return FailedDependency(tagDependencyException.InnerException);
+    }
+    catch (TagServiceException tagServiceException)
+    {
+        return InternalServerError(tagServiceException);
+    }
 }
 ```
+
+`[Authorize]` is a coarse gate and nothing more (§EVN17): it establishes that
+somebody is signed in. The row-level rule this operation actually turns on — may
+this caller contribute at all — is decided inside `AddTagAsync`, by
+`ValidateUserIsAllowedToContribute` reading the envelope's own
+`SecurityContext`, because a layer boundary is not a trust boundary and no
+service assumes an upstream one gated the caller. The base class is
+`RESTFulSense.Controllers.RESTFulController`, which supplies the single-argument
+`Created` as well as `FailedDependency` and `InternalServerError`; a POST answers
+`Created`, not `Ok`.
 
 ## EVN14. Event Handler Pattern *(formerly §10.13)*
 
@@ -936,11 +1048,11 @@ should confirm:
 8. Authenticated operations have valid identity details.
 9. Machine operations have valid client details.
 10. **The signature verifies** — `IEnvelopeIntegrityBroker.VerifyAsync` against
-    the event name this handler serves and the expected direction. This item
-    was missing from the checklist inherited from `G2H Design.md`, even though
-    real receivers already reject on a missing or mismatched signature
-    (§EVN10); added during review rather than left as a gap between the
-    documented contract and the actual behaviour.
+    the event name this handler serves and the expected direction (§EVN10). It
+    sits alongside items 1-9 rather than standing in for them: it settles who
+    signed the envelope, for which event name and in which direction, and that
+    nothing signed has changed since — not that any signed section is present
+    or means anything.
 
 `ApprovalOrchestrationService.Validations.cs` is the real implementation. It is
 written in the shared-address form — see §EVN18 for the accepted-name-set
@@ -991,14 +1103,47 @@ onto a delivery.
 names no row and no operation, so there is nothing for a per-field message to
 be about, and the caller gets one verdict either way.
 
-**The null check is short by design.** `Content` and `Metadata` are checked
-because the handler dereferences them immediately. The rest of the list above
-is settled by item 10 rather than by a guard of its own: a signature that
-verifies proves `SecurityContext`, `RequestContext` and `Metadata` are exactly
-what the publisher signed, down to the correlation and event identifiers inside
-them. Item 8 is asked where the decision is made instead —
-`ValidateUserIsAllowedToContribute` refuses an unauthenticated `SecurityContext`
-before it reads a role from it (§EVN17).
+**The null check is short, and the signature does not lengthen it.** `Content`
+and `Metadata` are guarded here because the handler dereferences them
+immediately. The signature does not cover the remaining items. It authenticates
+the values that were signed and nothing more: `ComputeSignature` copies
+`SecurityContext`, `RequestContext` and `Metadata` into `SignedPayload<T>` with
+no guard of any kind, and `System.Text.Json` writes a null as `null` rather than
+omitting it (§EVN10), so an envelope signed over an absent `SecurityContext`, or
+over a `Guid.Empty` correlation or event id, verifies exactly as one signed over
+real values does. `Guid.Empty` is a value like any other to an HMAC. What
+verification rules out is a *different* context being substituted for the signed
+one — the property the event path actually depends on, and the reason a service
+may act on a role or on `IsSystemIdentity` read off a verified envelope (§EVN17).
+It is not a presence check, and reading it as one would leave items 3-7 unasked
+by anybody.
+
+The remaining items are answered, where they are answered at all, outside this
+method:
+
+- **Items 3 and 8 — security context present, identity valid.** At the
+  authorization gate. Every `ValidateUserIsAllowedToContribute`, and each
+  read-side gate, opens with `securityContext is null ||
+  securityContext.IsAuthenticated is false` and refuses, so a null or default
+  context fails closed wherever a gate runs (§EVN17). A read that answers from
+  the row never reaches one — `DoRetrieveAssociationByIdAsync` returns a
+  publicly visible row before it looks at `SecurityContext` at all — and that is
+  right, because the decision there is made from the row rather than from the
+  caller.
+- **Items 4 and 6 — request context, correlation id.** Not checked. No service
+  reads `RequestContext`; it is carried for tracing and audit and nothing
+  decides on it, so an absent one costs a trace rather than an invariant.
+- **Item 7 — event id.** Not checked for presence. The substrate dedupe passes
+  `Metadata.EventId` to `ProcessedEvents` as it finds it, so an envelope signed
+  with `Guid.Empty` would collide with every other such envelope rather than be
+  refused.
+- **Item 9 — machine client details.** `ClientId` and `ClientApplicationName`
+  are read by no service. `IsSystemIdentity` is the machine-identity fact that
+  is actually decided on, and the transition gates ask it directly.
+
+Items 4, 6, 7 and 9 are therefore contract rather than current behaviour. A
+receiver that starts deciding on any of them owns the check that makes doing so
+safe, because verification will not have made it on that receiver's behalf.
 
 A foundation receiver is the same shape with a single name rather than a set,
 composed from the operation it serves: `ValidateContentItemEventEnvelopeAsync`
@@ -1011,7 +1156,11 @@ Avoid passing `HttpContext` into orchestration services:
 
 ```csharp
 // AVOID
-public ValueTask<Student> OrchestrateAsync(Student student, HttpContext httpContext)
+public ValueTask<ApprovalOutcome> DecideApprovalAsync(
+    EntityType entityType,
+    Guid entityId,
+    ApprovalDecision decision,
+    HttpContext httpContext)
 ```
 
 Avoid using `IHttpContextAccessor` inside orchestration services:
@@ -1274,8 +1423,21 @@ subscriptions — neither is an approvable entity, neither is an `EntityType`, a
 there is no fork to misread.
 Lettered here so the numbered rules above keep their cross-references, and the
 letters are cited in their own right — `(a)` and `(b)` both appear in service
-and test comments — so a letter already in use is not reassigned to a
-different item.
+and test comments — so neither of those two is ever reassigned to a different
+item.
+
+**Legacy letter aliases — `§10.17(a)` is `§EVN18(a)`, and `§10.17(b)` is
+`§EVN18(b)`.** The *(formerly §10.17)* annotation on the heading above carries
+the unlettered number only, so it anchors the section but not a citation that
+names a letter. The lettered forms code actually writes are spelled out here to
+be that anchor: `§10.17(a)`, `§10.17 (a)`, `§10.17 inbound item (a)`, `§10.17
+inbound (a)` and `§10.17(b)`.
+
+The rest of the run carries no alias and must not be read as one. This list is
+lettered continuously where the earlier one interleaved `(b1)`–`(b3)`, so the
+earlier `(c)` and `(d)` are `(g)` and `(h)` here — a bare `§10.17(c)` or
+`§10.17(d)` names neither item reliably. Nothing outside this document cites
+either.
 
 - (a) **Subscribe to every fact address on both records — not a subset.** The
   §8.5 evaluation reads comments through `IsDeleted is false && IsResolved is
@@ -1404,12 +1566,20 @@ different item.
 `-Modifying`.**
 
 4. Every write the approval workflow causes on an entity's approval state goes
-   through `Transition<Entity>ApprovalAsync` on the owning foundation service,
-   published as `<Entity>-Approving` / `-Approved`. §EVN2 rule 7 already
-   establishes this vocabulary — a transition owning a narrower field scope
-   than a general modify is a separate method and therefore a separate verb.
-   Its scope is the whole of `IApproval`, so no separate publish verb is
-   required.
+   through `Transition<Entity>ApprovalAsync` on the owning foundation service.
+   The **request** is `<Entity>-Approving`; the **fact** is `<Entity>-Approved`,
+   `<Entity>-Rejected` or `<Entity>-Submitted`, chosen by the decision the
+   command carried rather than by the verb that was asked for. Those three are
+   the whole set — the transition refuses any other target — so every decision
+   lands on exactly one of them, and a subscriber that needs all of the
+   workflow's decisions binds all three. Each is its own address: `-Approved` on
+   its own hears the approvals and hears nothing of the rejections or the
+   administrator resets, and a rejection broadcast on the `-Approved` address
+   would tell a subscriber the opposite of what happened. §EVN2 rule 7 already
+   establishes this vocabulary — a transition owning a narrower field scope than
+   a general modify is a separate method and therefore a separate verb, and its
+   fact need not echo its request. The transition's scope is the whole of
+   `IApproval`, so no separate publish verb is required.
 5. This operation writes only the `IApproval` members, and **must not** publish
    `<Entity>-Modified` or `<Entity>-Added`. Those two are the addresses rule 1's
    invalidation subscriptions bind to, so an approval-caused write cannot
@@ -1508,12 +1678,45 @@ them. What is ruled here is therefore not how to make the pair atomic, but
 **The ruling: the write is atomic with the _intent_ to publish, and the publish
 itself is at-least-once.**
 
-1. **One Core transaction covers the row, both `ProcessedEvent` records, and an
-   outbox row.** The entity write, the inbound envelope's `ProcessedEvent`, the
-   outbound envelope's `ProcessedEvent`, and a durable outbox row carrying the
-   fact about to be announced all commit together or not at all. They are all
-   in `Glory2Him.Core`, which is what makes one transaction sufficient. Nothing
-   in the transaction touches the event store.
+1. **One Core transaction covers the row, the outbox row, and whatever
+   `ProcessedEvent` records the path writes.** The entity write, a durable
+   outbox row carrying the fact about to be announced, and — where the write is
+   reached through a request address — the inbound envelope's `ProcessedEvent`
+   and the outbound envelope's `ProcessedEvent` all commit together or not at
+   all. They are all in `Glory2Him.Core`, which is what makes one transaction
+   sufficient. Nothing in the transaction touches the event store.
+
+   **The `ProcessedEvent` pair belongs to the substrate path rather than to the
+   write.** Both records are keyed on `(EventId, ReceiverName)` where the
+   receiver is a request handler: the inbound record marks the delivery that
+   asked for this write so a redelivery of it is skipped, and the outbound
+   record pre-claims the published fact's id against that same handler so the
+   fact cannot loop back into it. A transition with no request address of its
+   own has no handler to name and therefore no receiver to key either record on.
+   Three publish a fact and write neither —
+   `ApprovalReviewService.DismissStaleApprovalReviewAsync` onto
+   `ApprovalReview-Dismissed`,
+   `ApprovalReviewRequestService.RetireAnsweredApprovalReviewRequestAsync` onto
+   `ApprovalReviewRequest-Removed`, and
+   `AIReviewerAssignmentService.ReturnStaleAIReviewerAssignmentToPendingAsync`
+   onto `AIReviewerAssignment-Modified`. Each is reached only by a direct
+   in-process call from `ApprovalOrchestrationService`, on an envelope the
+   service mints for itself under the system identity, so there is no inbound
+   delivery to deduplicate and no handler for the outbound fact to re-enter.
+   Under this ruling they take the row and the outbox row and nothing else, and
+   rules 2 and 5-7 hold for them unchanged: what makes a failed publish
+   recoverable is the outbox row, never the dedup pair.
+
+   The two demotion transitions sit the other way round, and are named here so
+   the shape is not read as a rule. `UnpublishContentItemByIdAsync` and
+   `UnpublishLinkByIdAsync` have no request address either (§EVN2), yet they
+   record the pair against `"ContentItem.OnContentItemUnpublished"` and
+   `"Link.OnLinkUnpublished"` — receiver names that no handler and no
+   subscription owns. Those rows have no reader rather than a wrong one, and the
+   transaction covers them as it covers any other row the path writes. Which is
+   why this rule is stated in terms of what the path writes rather than in terms
+   of a fixed pair: the pair follows the handler, and the atomicity being ruled
+   here follows the row and the outbox.
 
 2. **The publish happens after that commit, and can no longer strand the row**
    — the intent to publish committed with it, so a failed publish is a fact
@@ -1540,15 +1743,40 @@ itself is at-least-once.**
    That existing dedup is the precondition this ruling depends on; it is not
    new work.
 
-5. **The outbox stores the envelope minted before the commit, verbatim, and a
-   retry republishes that same envelope.** The relay must never re-mint. A
-   re-minted envelope carries a fresh `EventId` and would defeat rule 4's
-   dedup, turning one fact into many. Re-signing on each attempt is correct and
-   required: the signature is computed at publish time and binds the composed
-   event name, the direction, and the carried sections, so signing the same
-   stored envelope later yields the same envelope with a valid signature. This
-   is also what lets a host that could not sign at write time dispatch the fact
-   once a key is configured, rather than losing it.
+5. **The outbox stores the envelope minted before the commit and the
+   destination it is owed to; a retry republishes exactly that, and only the
+   integrity block is produced fresh.** Held verbatim is everything the
+   signature is computed over — `Metadata` in full, `EventId` included, plus
+   `Content`, `SecurityContext` and `RequestContext` — together with the
+   destination, which has to be stored because nothing on the envelope carries
+   it (§EVN10): `EventBroker` composes the signed event name from the entity
+   name and the operation, and resolves the address from the operation, so the
+   row records those alongside the envelope. The direction needs no column —
+   the outbox holds facts, a fact publishes as a `Request`, and a reply is
+   returned inline on its own delivery record and never reaches an outbox row.
+   The relay must never re-mint any of it: a re-minted envelope carries a
+   fresh `EventId` and would defeat rule 4's dedup, turning one fact into
+   many.
+
+   `Integrity` is the deliberate exception, because an envelope minted before
+   the commit has no signature to store — the factory does not know the
+   destination, so signing happens at publish (§EVN6, §EVN10), and
+   `IEventBroker.Publish*Async` takes an unsigned envelope and signs inside
+   the broker, so a stored signature could not survive the publish seam even
+   if the row held one. Each attempt therefore produces a new `Signature`, a
+   new `SignedDate`, and whichever `KeyId` is active at that moment. Those
+   three are the only fields that may differ between attempts, and none of
+   them is inside the signature, so a retried envelope is identical to the
+   first in everything verification reads: `VerifyAsync` never looks at
+   `SignedDate`, and reads `KeyId` only to choose which configured secret to
+   recompute against. A fact that waits across a rotation therefore goes out
+   under the new key, and the retired key stays configured for the facts
+   already dispatched under it. `SignedDate` records when an attempt was
+   signed rather than when the write committed, which leaves
+   `RequestContext.RequestedDate` the time the fact belongs to. Re-signing is
+   also what lets a host whose signing keys had all lapsed at write time
+   dispatch the fact once an active key covers the moment of the attempt,
+   rather than losing it.
 
 6. **Dispatch is attempted inline immediately after the commit; the outbox is
    the fallback, not the normal path.** On success the outbox row is marked
@@ -1731,14 +1959,16 @@ graph** whose size and membership are unknown until an incoming external signal
 arrives, so the publisher cannot enumerate the calls it would otherwise make.
 That is the case this section answers. Use carefully.
 
-**The scenario this answers:** an orchestration service polls an external API
-and receives a graph of related objects (e.g. `{ Department, [Course],
-[Student], [Enrollment] }`) and needs to create each locally, in the correct
-order. It could call each foundation service directly in sequence — but if the
-graph is large, the object types are variable, or the creation logic needs to be
-owned by each domain service independently, the orchestration can instead
-**publish a scoped import event per object** and let the appropriate foundation
-service receive it internally.
+**The scenario this answers:** an orchestration service takes a graph of related
+objects in from outside — a syndicated contribution arriving as a `ContentItem`
+with its `Tag`, `BibleReference` and `Association` rows, say — and needs to
+create each locally, in the correct order. It could call each foundation service
+directly in sequence, but if the graph is large, the object types are variable,
+or the creation logic needs to be owned by each domain service independently,
+the orchestration can instead **publish one command per object onto that
+object's owning service** and let that service receive it internally. Nothing in
+this system imports a graph this way; the entities are named so the shape can be
+weighed against real ownership boundaries rather than invented ones.
 
 The event in this pattern is still **intent**, not reaction — the orchestration
 is making a deliberate routing decision.
@@ -1750,9 +1980,14 @@ is making a deliberate routing decision.
 | Order matters | Usually not | Often yes |
 | Who owns the receiver | The reacting service | The domain service responsible for that object type |
 
-Naming reflects intent, not a past-tense fact, since the work has not happened
-yet: `StudentImportRequestedEvent` (intent), not `ImportStudentEvent`
-(ambiguous) or `CreateStudentEvent` (command style).
+Naming needs no rule of its own here, and inventing one is the mistake §EVN2
+already prevents. The command goes onto the receiving service's own request
+address in the present participle — `ContentItem-Adding`, `Tag-Adding`,
+`BibleReference-Adding` — one delivery per object. Tense carries the meaning, so
+a past-tense address would be wrong however deliberate the dispatch: `-Added`
+announces a row that exists, and this one does not yet. Nor does the import earn
+an address of its own, because creating a row is CRUD and §EVN2 rule 7 admits a
+new verb only for an operation CRUD cannot express.
 
 Use this pattern when the graph is large with each object type owned by its own
 domain service, each service should own its own creation/idempotency logic, the
