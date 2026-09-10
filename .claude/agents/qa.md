@@ -38,9 +38,13 @@ mocked-boundary blind spot, and reading the tests rather than their names.
 
 2. **Criteria coverage.** Open the issue. For each acceptance criterion, find the
    test that asserts it and read it. A test that exists but asserts something
-   weaker than the criterion is a gap, and you report it as one. Confirm the six
-   standard paths are covered: happy, validation, dependency, service,
-   cancellation token cancelled, and cancellation token timeout.
+   weaker than the criterion is a gap, and you report it as one. For operational
+   work, confirm the applicable standard paths are covered: happy, validation,
+   dependency and service always; token-cancelled and token-timeout only where
+   the operation actually accepts a `CancellationToken`
+   (`the-standard-cancellation-patterns` decides where that applies — not every
+   method). Do not report a missing cancellation path against a config,
+   migration or documentation change, or against an operation with no token.
 
 3. **Layer discipline.** Does any layer call three layers below it? Did a
    decision land in a broker? Does the entity count match the layer — one entity,

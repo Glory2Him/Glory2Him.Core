@@ -12,7 +12,10 @@ system does and `Documentation/G2H Design.md` for how it is designed.
   issue that disagrees with it is stale intent, not an instruction; correct the
   issue.
 - **The CI gates** — `.github/workflows/prLinter.yml` holds the authoritative PR
-  title prefixes and fails any PR whose body has no `Closes #<n>`.
+  title prefixes and fails any PR whose body links no issue or task. `Closes
+  #<n>` is the preferred form; `fixes`/`resolves` (and their past-tense
+  variants) and `AB#<n>` are also accepted — see the workflow for the exact
+  pattern.
 
 ## Development workflow
 
@@ -42,7 +45,12 @@ spelled out in full, such as `Opus 5 - Medium`.
 - Identity travels on the signed event envelope, never an ambient accessor, and an
   identity-filtered read never decides an invariant.
 - Brokers hold no logic and get no unit tests.
-- No layer calls two layers below it.
+- No layer calls two layers below it — **except** an orchestration depending
+  only on foundation services (never a mix of foundation and processing, and
+  never a broker), which `Documentation/EventSubstrate.md` documents as a valid
+  shape and `.claude/agents/architect.md` and `qa.md` enforce as "same kind,
+  never mixed". This deliberately overrides `the-standard-orchestrations`'
+  blanket ban on it — see those two agent files for the reasoning.
 - Schema changes are new migrations. Applied migrations are never edited, and a
   migration script must work as a single batch on the deploy path.
 - Never add AI or assistant attribution to a commit message or PR description — it
@@ -52,12 +60,20 @@ spelled out in full, such as `Opus 5 - Medium`.
 
 ## Commands
 
-Run from the repository root.
+Run from the repository root. `.github/workflows/build.yml` is the authoritative
+list — it discovers every `*Tests.Unit*.csproj`, `*Tests.Acceptance*.csproj` and
+`*Tests.Integration*.csproj` recursively, so a test project outside
+`Glory2Him.Core.Tests.*` (e.g. under `Clients/`, `Websites/`) still runs in CI
+even if not named here explicitly.
 
 - Build: `dotnet build`
-- Unit tests: `dotnet test Glory2Him.Core.Tests.Unit`
-- Acceptance tests: `dotnet test Glory2Him.Core.Tests.Acceptance`
-- Integration tests: `dotnet test Glory2Him.Core.Tests.Integration`
+- All unit tests: `Get-ChildItem -Filter "*Tests.Unit*.csproj" -Recurse | % { dotnet test $_.FullName }`
+  — or target one directly, e.g. `dotnet test Glory2Him.Core.Tests.Unit`
+- All acceptance tests: same pattern with `*Tests.Acceptance*.csproj`
+- All integration tests: same pattern with `*Tests.Integration*.csproj`
+- React: `npm run lint`, `npm run test`, `npm run build` (from the React app's
+  own directory) — CI runs all three and `npm run build` also type-checks both
+  `tsconfig` projects.
 - Republish the branch to local IIS: `D:\Sites\Deploy-Glory2HimWebApp.ps1`
 
 ## Worktrees

@@ -45,13 +45,18 @@ guessing.
 
 ## Branch and pull request
 
-Branch before the first commit: `users/cjdutoit/{category}-{entity}-{action}`, all
-lowercase after the handle. Never commit to main.
+Branch before the first commit: `users/{your-github-handle}/{category}-{entity}-{action}`,
+all lowercase after the handle — `the-standard-team-branching` owns this pattern.
+Use the handle of whoever is actually committing (`git config user.name` or the
+current `gh` session), never a literal example handle. Never commit to main.
 
 Open the PR with `gh pr create`. The title is `CATEGORY: Description In Pascal
 Case` using a prefix from `.github/workflows/prLinter.yml` — that file is the
-authoritative list, and a prefix outside it silently fails to label. The body must
-contain `Closes #<n>`; the `requireIssueOrTask` job fails the PR without it.
+authoritative list, and a prefix outside it silently fails to label. The body
+must link the issue or `requireIssueOrTask` fails the PR — `Closes #<n>` is the
+preferred form, but `.github/workflows/prLinter.yml` also accepts `fixes`,
+`resolves`, their past-tense variants, and `AB#<n>`; any of those satisfies the
+gate.
 
 Never add AI or assistant attribution to a commit message or PR description. It
 trips the unattributed-changes rule and blocks the merge.
@@ -267,7 +272,11 @@ Report a task complete only when all of these hold. If any fails, say so plainly
 rather than working around it:
 
 - Every acceptance criterion has at least one test asserting it.
-- The six standard paths are covered: happy, validation, dependency, service, cancellation token cancelled, and cancellation token timeout.
+- For operational work: the applicable standard paths are covered — happy,
+  validation, dependency, service always; token-cancelled and token-timeout only
+  for an operation that actually accepts a `CancellationToken`. A config,
+  migration or documentation change has no operation and this gate does not
+  apply to it.
 - Every exposer touched has a security test proving its role restrictions are
   enforced, and every multi-actor flow has one proving a bad actor is refused.
 - Every acceptance test cleans up after itself and leaves no data behind.
@@ -275,7 +284,10 @@ rather than working around it:
   security context, not merely described.
 - The full suite passes. Not "passes except for one unrelated failure".
 - Zero skipped tests introduced by this change.
-- Every line you added is covered by a test that would fail without it.
+- Every line of production BEHAVIOUR you added is covered by a test that would
+  fail without it. A non-TDD category (config, migration, documentation) is
+  validated by what that category itself requires, not by this gate — see
+  `the-standard-team-commits` for the TDD/non-TDD split.
 - No TODO, no commented-out code, no dead branches left behind.
 - No file under a `DeleteMe/` path is tracked by git, and `.gitignore` still
   carries the `DeleteMe/` entry.

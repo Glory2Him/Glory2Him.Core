@@ -45,9 +45,15 @@ The criteria contain:
 2. **Acceptance criteria** — a numbered list. Every criterion must be expressible
    as a single test name in the form `the-standard-testing` defines. If you cannot
    imagine the test name, the criterion is not finished.
-3. **Coverage of the six standard paths** — the happy path, validation failures,
-   dependency failures, service failures, cancellation token cancelled and cancellation token timeout.
-   Say what the system does in each, or say explicitly that a path is out of scope and why.
+3. **Coverage of the standard paths, for operational work.** `the-standard-testing`
+   defines four: the happy path, validation failures, dependency failures, service
+   failures. Add the two cancellation paths — token cancelled, token timeout —
+   only for an operation that actually accepts a `CancellationToken`;
+   `the-standard-cancellation-patterns` governs when that applies, and it is not
+   every method. This criterion does not apply to config, migration or
+   documentation issues, which have no operation to cover. Say what the system
+   does on each applicable path, or say explicitly that a path is out of scope
+   and why.
 4. **Non-functional constraints** — only where they genuinely bind.
 5. **Open questions** — anything you could not resolve.
 
