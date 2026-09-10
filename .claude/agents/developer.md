@@ -86,9 +86,9 @@ mock. When you tighten or add a validation, find the callers and check them.
 **Brokers get no unit tests.** They hold no logic, so there is nothing to assert.
 A narrow read is proven by asserting the arguments the broker was called with in
 the caller's unit test, and by the exposer-level acceptance test that exercises
-the path for real — with a throw-away integration test in the unit test project
-if you need to check the SQL itself while developing. Note that Moq's default
-return for `IReadOnlyList` is null, not an empty list — set it up explicitly.
+the path for real. The only broker-side check is the disposable wire-up probe
+described below. Note that Moq's default return for `IReadOnlyList` is null, not
+an empty list — set it up explicitly.
 
 **Fillers.** Random `ContentItem` values all share the default `ContentType`, so a
 test that compares a caller-supplied type against a stored type proves nothing
@@ -122,12 +122,21 @@ system through its API surface, not through an internal service or broker.
 - For anything behind authentication, drive it under a mocked security context
   rather than skipping it. See "Verifying your own work" below.
 
-**Verifying a broker is a throw-away exercise, not a permanent suite.** When you
-need to confirm a broker's SQL actually works, write a throw-away integration
-test in the **unit test project**, run it, and remove it. It is a tool for
-answering a question during development, not something the suite carries
-afterwards. Do not add a permanent broker-level test to stand in for an
-exposer-level acceptance or integration test.
+**Brokers need no tests at all** — they carry no logic, so there is nothing to
+assert.
+
+The one exception is a **wire-up probe**, and it is deliberately disposable. When
+a broker talks to an external resource, put a throw-away test under
+`DeleteMe/Brokers/<TheBroker>` in the unit test project, run it to confirm the
+wire-up is actually correct, and then delete it. The folder is named `DeleteMe`
+because that is the instruction.
+
+Its whole purpose is timing: a wire-up mistake found the moment the broker is
+written costs minutes, whereas the same mistake surfacing days or weeks later —
+when someone finally builds an integration test over it — costs far more and
+arrives with no context. The probe buys early failure, nothing else. It proves
+the connection, never behaviour, and it never becomes part of the committed
+suite.
 
 **Migrations.** A schema change is a new migration, never an edit to an applied
 one. A migration script runs as a single batch, so adding a column and then
@@ -203,6 +212,8 @@ rather than working around it:
 - Never read identity from an ambient accessor. It travels on the signed envelope.
 - Never put a decision in a broker.
 - Never skip a layer.
+- Never give an orchestration a mixed dependency list. Processing services or
+  foundation services, all of one kind — never both, and never a broker.
 - Never disable a lint rule or a test to reach green.
 - Never commit with a failing or skipped test, except the deliberate `-> FAIL`
   commit that step 3 requires.

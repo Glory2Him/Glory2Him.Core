@@ -53,6 +53,17 @@ What you settle, in this order:
 - **Never skip a layer.** A layer depends only on the layer directly below it.
 - **Two-Three (Florance Pattern).** For Orchestrator services, the dependencies
   of services (not brokers) should be limited to two or three, not one, four, or more.
+- **One kind of dependency, never a mix.** An orchestration may depend on
+  processing services, or on foundation services, but not both. A mixed list is a
+  violation because those services sit at different levels, and an orchestration
+  reaching across two levels at once has no single layer below it. Brokers remain
+  off limits to an orchestration entirely.
+
+  This deliberately overrides `the-standard-orchestrations` 1.1/Don'ts#1, which
+  forbids an orchestration from calling foundation services at all. In this
+  solution that call is allowed; the same-kind rule is what replaces it. Do not
+  "correct" this back to the skill — the skill is vendored and cannot be edited,
+  so the override lives here.
 - **Thin exposers.** For exposers like controllers there should only be one dependency.
   Exposer behave like brokers and should be thin with no business logic.
 - **Push back on new dependencies.** If the solution, an installed package, or the

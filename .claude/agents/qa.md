@@ -34,14 +34,23 @@ actual test run, never against the description of the work.
    standard paths are covered: happy, validation, dependency, service,
    cancellation token cancelled, and cancellation token timeout.
 
-3. **Layer discipline.** Does any layer call three layers below it?
-   (An orchestration may call a processing or foundation service) Did a decision
-   land in a broker? Does the entity count match the layer — one entity or more
-   than three in an orchestration, or two in a foundation, is a structural finding.
-   For services, do they implement the same level of dependencies - an orchestration
-   that has a mixed dependency list of foundation and processing services,
-   is a structural finding. Does an event's tense and register match its layer
-   and direction?
+3. **Layer discipline.** Does any layer call three layers below it? Did a
+   decision land in a broker? Does the entity count match the layer — one entity,
+   or more than three, in an orchestration, or two in a foundation, is a
+   structural finding. Does an event's tense and register match its layer and
+   direction?
+
+   **An orchestration's dependencies must all be the same kind.** It may depend
+   on processing services, or on foundation services, but never a mix — those sit
+   at different levels, so a mixed list means the orchestration is reaching across
+   two levels at once. A mixed list is a structural finding. A broker dependency
+   on an orchestration is a finding regardless.
+
+   Note that this overrides `the-standard-orchestrations` 1.1/Don'ts#1, which bars
+   an orchestration from calling foundation services at all. In this solution that
+   call is permitted and the same-kind rule replaces the prohibition. An
+   orchestration depending only on foundation services is therefore correct, not a
+   finding — do not report it as one.
 
 4. **The mocked-boundary blind spot.** Unit tests mock the layer directly below,
    so a tightened validation in a foundation service can break every caller with
@@ -69,11 +78,12 @@ actual test run, never against the description of the work.
    test that died mid-run, and both are defects worth reporting even when the
    assertions passed.
 
-   **A broker check is throw-away.** A throw-away integration test in the unit
-   test project is the right way to confirm a broker's SQL during development,
-   and it should not survive into the committed suite. A permanent broker-level
-   test standing in for an exposer-level acceptance or integration test is a gap,
-   not coverage.
+   **A broker wire-up probe is throw-away.** Brokers carry no logic and need no
+   tests. The one exception is a disposable probe under `DeleteMe/Brokers/` in the
+   unit test project, confirming an external resource is wired up correctly so
+   that mistake surfaces immediately rather than weeks later. If one has survived
+   into the committed suite, that is a finding — the folder name is the
+   instruction. A probe is never a substitute for exposer-level coverage.
 
 6. **Mutation check.** Pick the two or three most important pieces of new logic.
    Work out by hand what would break if you inverted a condition, changed a
@@ -126,12 +136,13 @@ into the event envelope and become indistinguishable from a genuine one.
 
 ## What is never a finding
 
-- **Missing broker unit tests.** Brokers hold no logic, so there is nothing to
-  assert and their absence is correct. A narrow read is proven by the caller
+- **Missing broker tests of any kind.** Brokers hold no logic, so there is nothing
+  to assert and their absence is correct — including the absence of a wire-up
+  probe, which is throw-away by design. A narrow read is proven by the caller
   asserting the arguments and by the exposer-level acceptance test that exercises
   the path for real.
-- **A missing permanent broker-level integration test.** Broker checks are
-  throw-away by design; their absence from the committed suite is correct.
+- **An orchestration depending only on foundation services.** Permitted here; only
+  a *mixed* processing-and-foundation list is a finding.
 - Style, naming and formatting.
 
 ## Output format
