@@ -286,14 +286,45 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             // failure appears only here, and nothing redelivers it.
             //
             // Logged rather than thrown, for the same reason the foundations log: the decision
-            // the caller asked for WAS recorded, and reporting it as failed would be wrong. It is
-            // the last thing this method does, so nothing owed follows it.
+            // the caller asked for WAS recorded, and reporting it as failed would be wrong.
+            //
+            // Being the last statement of THIS METHOD buys nothing here, and an earlier version
+            // of this comment claimed otherwise. This is a shared helper: ResetApprovalAsync
+            // reaches it through PublishEntityApprovalCommandAsync and then still owes §8.6.2's
+            // ResetStaleAIReviewerAssignmentAsync. What makes the report safe is that it is
+            // CONTAINED below, not where it sits.
+            //
             // ApprovalOutcome.IsEntitySyncRequested stays true — §16.7.1 defines it as
             // requested rather than landed, and the command was in fact published.
             if (publishResult.HasFailedDeliveries)
             {
-                await this.loggingBroker.LogCriticalAsync(
-                    FailedEventDeliveryException.ForFailedDeliveries(publishResult, operation));
+                // CONTAINED, because the report is bookkeeping on somebody else's path and does
+                // not get to decide that path's outcome — the same shape, and the same argument,
+                // as ResetStaleAIReviewerAssignmentAsync and Substrate's onVerified hook.
+                // LogCriticalAsync has no try/catch of its own, so a faulting sink (back-
+                // pressure, a disposed provider at shutdown) would otherwise propagate: it would
+                // report a COMMITTED write as a failed one, which is exactly what rule 2 forbids
+                // and what being last in this method does NOT prevent. Being last only stops the
+                // throw skipping work that follows it HERE — and where this report sits in a
+                // shared helper, work still follows it in the CALLER.
+                //
+                // Swallowed rather than logged, and that is the one place this differs from
+                // those two: the sink that would have to carry a second message is the one that
+                // just threw. The delivery failure is already recorded on the event store's own
+                // row, which the event id and subscription id locate.
+                //
+                // Cancellation passes through untouched: a cancelled operation is not a failed
+                // one, and the caller's TryCatch decides whether it reads as a timeout. Written
+                // as an exception FILTER so that case never unwinds at all.
+                try
+                {
+                    await this.loggingBroker.LogCriticalAsync(
+                        FailedEventDeliveryException.ForFailedDeliveries(publishResult, operation));
+                }
+                catch (Exception deliveryReportException)
+                    when (deliveryReportException is not OperationCanceledException)
+                {
+                }
             }
         }
 
