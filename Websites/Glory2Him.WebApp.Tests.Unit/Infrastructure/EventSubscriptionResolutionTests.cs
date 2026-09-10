@@ -12,43 +12,55 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+
 using FluentAssertions;
+using Moq;
+
 using Glory2Him.Core.Brokers.Events;
 using Glory2Him.Core.Registrations;
 using Glory2Him.WebApp.Infrastructure;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Moq;
 
 namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
 {
     /// <summary>
-    /// Resolves every service the event subscriptions bind to out of the REAL production
-    /// container, on the real delivery path.
+    /// Resolves every service the event subscriptions bind to out of the REAL container the host
+    /// builds, on the real delivery path.
     ///
     /// <para>This is additive to <c>CoreRegistrationTests.ShouldResolveEveryCoreServiceItRegisters</c>
-    /// and replaces nothing. That test walks what <c>AddCoreServices</c> registers — including
-    /// the three aliased workflow interfaces no subscription ever binds to. This one walks the
-    /// other direction: what the subscriptions DEPEND on, which is the set that fails
-    /// mid-delivery rather than at startup when a registration goes missing.</para>
+    /// and replaces nothing. That test walks what <c>AddCoreServices</c> registers — including the
+    /// three aliased workflow interfaces no subscription ever binds to. This one walks the other
+    /// direction: what the subscriptions DEPEND on, which is the set that fails mid-delivery
+    /// rather than at startup when a registration goes missing.</para>
     ///
     /// <para>The gap it closes is in
     /// <c>Glory2Him.Core.Tests.Integration/Registrations/EventSubscriptionWiringTests</c>, which
     /// runs the real registration class against a MOCKED <c>IServiceProvider</c>. That proves the
     /// address-to-handler map is internally consistent; it cannot prove the application's own
     /// container can build the services those handlers resolve. The fixture's hand-maintained
-    /// <c>Provide&lt;...&gt;</c> list is free to drift from <c>CoreRegistration</c> without
-    /// failing anything, and the drift surfaces at runtime as a resolution failure on the first
-    /// publish — after the publisher has already committed its write.</para>
+    /// <c>Provide&lt;...&gt;</c> list is free to drift from <c>CoreRegistration</c> without failing
+    /// anything, and the drift surfaces at runtime as a resolution failure on the first publish —
+    /// after the publisher has already committed its write.</para>
+    ///
+    /// <para>SCOPE: this builds the CORE slice of the host's container — <c>AddCoreServices</c>
+    /// over the ambient registrations it assumes. <c>Program.cs</c> also calls
+    /// <c>AddPortalIdentity</c>, <c>AddPortalBrokers</c> and <c>AddPortalViewServices</c> before
+    /// it; those are deliberately not built here, because no Core service takes a portal type and
+    /// standing them up would drag identity storage into a unit test. A subscription that grew a
+    /// portal dependency would therefore be reported here as unresolvable rather than passing
+    /// quietly — the failure direction that is safe to be wrong in.</para>
     ///
     /// <para>Three hand-maintained copies of the bound set exist:
     /// <c>EventSubscriptionRegistrationTests</c>' provider stubs, the integration fixture's
-    /// <c>Provide&lt;...&gt;</c> list, and <c>CoreRegistration</c> itself. This test ties only
-    /// the production one to the bound set — it derives the bound set from the registration
-    /// class rather than restating it, so it cannot drift, but the fixture's list still can for
-    /// the command-address services no <c>IsSuccess</c>-asserting publish reaches.</para>
+    /// <c>Provide&lt;...&gt;</c> list, and <c>CoreRegistration</c> itself. This test ties only the
+    /// production one to the bound set — it derives the bound set from the registration class
+    /// rather than restating it, so it cannot drift, but the fixture's list still can for the
+    /// command-address services no <c>IsSuccess</c>-asserting publish reaches.</para>
     /// </summary>
     public class EventSubscriptionResolutionTests
     {
@@ -61,14 +73,14 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
         [Fact]
         public async Task ShouldResolveEveryServiceTheEventSubscriptionsBindToAsync()
         {
-            // given: the production container, built as Program.cs builds it. The substrate is
-            // registered against app.Services, so this collection is the one every delivery
-            // resolves through.
-            using ServiceProvider provider = BuildProductionServiceProvider();
+            // given: the container the host builds, so this is the graph every delivery really
+            // resolves through
+            using ServiceProvider provider = BuildCoreServiceProvider();
             var resolutions = new List<BoundServiceResolution>();
 
-            var recordingScopeFactory =
-                new RecordingServiceScopeFactory(provider, resolutions);
+            var recordingScopeFactory = new RecordingServiceScopeFactory(
+                rootProvider: provider,
+                resolutions: resolutions);
 
             var eventBrokerMock = new Mock<IEventBroker>();
 
@@ -92,8 +104,8 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
             // GetRequiredService inside aborts the delivery before the handler body runs.
             foreach (Delegate boundHandler in boundHandlers)
             {
-                object delivery = boundHandler.DynamicInvoke(null, CancellationToken.None);
-                ObserveAbortedDelivery(delivery);
+                await ObserveAbortedDeliveryAsync(
+                    delivery: boundHandler.DynamicInvoke(null, CancellationToken.None));
             }
 
             string[] unresolvable = resolutions
@@ -113,22 +125,43 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
                     "actually exercised the container");
 
             unresolvable.Should().BeEquivalentTo(Array.Empty<string>(),
-                because: "a subscription bound to a service the host never registered throws " +
+                because: "a subscription bound to a service the host cannot build throws " +
                     "mid-delivery, after the publisher has committed — nothing else in the " +
                     "suite looks at the composition root from the subscriptions' side");
         }
 
-        private static ServiceProvider BuildProductionServiceProvider()
+        private static ServiceProvider BuildCoreServiceProvider()
         {
-            IServiceCollection services = new ServiceCollection();
+            var services = new ServiceCollection();
 
+            // Explicitly typed rather than var: the registration below must land under
+            // IConfiguration, and the builder chain returns IConfigurationRoot — inferring it
+            // would register the wrong service type and nothing could resolve IConfiguration.
             IConfiguration configuration = new ConfigurationBuilder()
                 .AddInMemoryCollection(new Dictionary<string, string>
                 {
-                    // Never connected to — EF builds the options eagerly but opens nothing, and
-                    // this test only asks whether the graph can be CONSTRUCTED.
+                    // Never connected to — EF and the EventHighway client build their options
+                    // eagerly but open nothing, and this test only asks whether the graph can
+                    // be CONSTRUCTED.
                     ["ConnectionStrings:Glory2HimConnectionString"] =
                         "Server=(localdb)\\MSSQLLocalDB;Database=SubscriptionResolutionProbe;",
+
+                    ["ConnectionStrings:EventHighwayConnectionString"] =
+                        "Server=(localdb)\\MSSQLLocalDB;Database=SubscriptionResolutionProbe;",
+
+                    // NOT optional, and not decoration. EnvelopeIntegrityBroker refuses to
+                    // construct without a usable key (#392), and EVERY service the subscriptions
+                    // bind to takes that broker — so with this section absent the real provider
+                    // throws before it can build a single one of them. The probe would then
+                    // record 119 resolutions that never resolved anything, and pass. A test-only
+                    // secret: it proves nothing about production keying, it only lets the graph
+                    // come up.
+                    ["EventEnvelopeSigning:0:KeyId"] = "webapp-unit-test-key",
+
+                    ["EventEnvelopeSigning:0:Key"] =
+                        "d2ViYXBwLXVuaXQtdGVzdC1vbmx5LWhtYWMtc2hhMjU2LXNpZ25pbmcta2V5",
+
+                    ["EventEnvelopeSigning:0:ActiveFrom"] = "2020-01-01T00:00:00+00:00",
                 })
                 .Build();
 
@@ -145,14 +178,25 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
         }
 
         // The abort lands in the returned ValueTask rather than on the DynamicInvoke call,
-        // because the handler is an async lambda. Reading the exception marks it observed.
-        private static void ObserveAbortedDelivery(object delivery)
+        // because the handler is an async lambda. Awaiting it observes the exception and lets
+        // the scope's async disposal finish before the next handler runs.
+        private static async Task ObserveAbortedDeliveryAsync(object delivery)
         {
-            var asTask = delivery?.GetType().GetMethod("AsTask", Type.EmptyTypes);
+            MethodInfo asTask = delivery?.GetType().GetMethod("AsTask", Type.EmptyTypes);
 
-            if (asTask is not null)
+            if (asTask is null)
             {
-                _ = ((Task)asTask.Invoke(delivery, Array.Empty<object>())).Exception;
+                return;
+            }
+
+            try
+            {
+                await (Task)asTask.Invoke(delivery, Array.Empty<object>());
+            }
+            catch (Exception)
+            {
+                // The deliberate abort. What the resolution DID is already recorded; what the
+                // aborted delivery then threw says nothing.
             }
         }
 
@@ -177,8 +221,8 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
 
             public IServiceScope CreateScope() =>
                 new RecordingServiceScope(
-                    this.rootProvider.CreateScope(),
-                    this.resolutions);
+                    innerScope: this.rootProvider.CreateScope(),
+                    resolutions: this.resolutions);
         }
 
         private sealed class RecordingServiceScope : IServiceScope, IAsyncDisposable
@@ -191,8 +235,9 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
             {
                 this.innerScope = innerScope;
 
-                this.ServiceProvider =
-                    new RecordingServiceProvider(innerScope.ServiceProvider, resolutions);
+                this.ServiceProvider = new RecordingServiceProvider(
+                    scopedProvider: innerScope.ServiceProvider,
+                    resolutions: resolutions);
             }
 
             public IServiceProvider ServiceProvider { get; }
@@ -200,11 +245,20 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
             public void Dispose() =>
                 this.innerScope.Dispose();
 
-            public ValueTask DisposeAsync()
+            // Scoped uses `await using`, so the real delivery path disposes each scope
+            // ASYNCHRONOUSLY. The container's own scope implements IAsyncDisposable; going
+            // through Dispose instead would skip async cleanup on any async-disposable scoped
+            // service, 119 times over.
+            public async ValueTask DisposeAsync()
             {
-                this.innerScope.Dispose();
+                if (this.innerScope is IAsyncDisposable asyncDisposableScope)
+                {
+                    await asyncDisposableScope.DisposeAsync();
 
-                return ValueTask.CompletedTask;
+                    return;
+                }
+
+                this.innerScope.Dispose();
             }
         }
 
@@ -223,43 +277,25 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
                 this.resolutions = resolutions;
             }
 
-            // Only CONTAINER failures count, the same line CoreRegistrationTests draws: a
-            // constructor that then fails to reach SQL is an environment problem in a unit test
-            // and says nothing about the registrations. A missing registration does not throw at
-            // all — GetService hands back null — so the one defect this test exists to find is
-            // caught outside that filter either way.
-            private static readonly string[] containerFailureMarkers =
-            [
-                "Unable to resolve service for type",
-                "A circular dependency was detected",
-                "Cannot consume scoped service",
-            ];
-
             public object GetService(Type serviceType)
             {
+                // EVERY failure counts, with no marker-string filter. A curated list of
+                // container-failure phrases silently forgives anything it does not recognise —
+                // a constructor guard, a bad alias's InvalidCastException, a missing
+                // configuration section — and "the graph did not come up" is the whole question
+                // this test asks. A service that cannot be built is a defect however it says so.
                 string failure = null;
 
                 try
                 {
                     if (this.scopedProvider.GetService(serviceType) is null)
                     {
-                        failure = "no registration in the production service collection";
+                        failure = "no registration in the host's service collection";
                     }
-                }
-                // An aliased registration resolves one interface and CASTS to the
-                // implementation, so a bad alias throws InvalidCastException rather than
-                // anything the markers would match. Caught by type, as CoreRegistrationTests
-                // catches it, or a broken alias slips through.
-                catch (InvalidCastException invalidCastException)
-                {
-                    failure = invalidCastException.Message;
                 }
                 catch (Exception exception)
                 {
-                    failure = containerFailureMarkers.Any(marker =>
-                        exception.Message.Contains(marker, StringComparison.Ordinal))
-                            ? exception.Message
-                            : null;
+                    failure = $"{exception.GetType().Name}: {exception.Message}";
                 }
 
                 this.resolutions.Add(new BoundServiceResolution
