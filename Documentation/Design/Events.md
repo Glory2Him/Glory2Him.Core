@@ -41,9 +41,9 @@ Two corrections made in this merge, stated explicitly rather than silently:
 2. Nothing describing the discarded generic scheme (`IEventReceiver<T>`,
    `StoredEvent`, REST fan-out, replay, the background worker, the Student
    example) is carried forward as current design — presenting it as such would be
-   actively misleading. It is not deleted either: §EVN22 names every discarded piece
-   and why, and the original text remains fully recoverable from git history (see
-   §EVN22 for the exact pointer).
+   actively misleading. It is not deleted either: §EVN22 names the discarded
+   concepts and why, and the original text remains fully recoverable from git
+   history (see §EVN22 for the exact pointer).
 
 ---
 
@@ -156,23 +156,35 @@ finished.
    `Submitting`/`Submitted` or `Approving`/`Approved` owns a narrower field
    scope than a general modify, so it is a separate method and therefore a
    separate verb. A transition's fact need not echo its request: `Approving`
-   publishes `-Approved`, `-Rejected` or `-Submitted` according to the decision,
-   because a subscriber keying on the fact name must never be told the opposite
-   of what happened. The transition refuses any other target, so those three are
-   the whole set and a subscriber that wants every decision binds all of them.
-8. Approval services subscribe to relevant lifecycle facts.
-9. Event handlers determine whether approval must be created, retained,
-   dismissed, reset, or updated.
-10. Event handlers can update the denormalized `ApprovalStatus` field where
-    appropriate, for example setting `ApprovalStatus = ApprovalStatus.Approved`
-    when the threshold is met.
+   publishes `-Approved`, `-Rejected` or `-Submitted` according to the decision
+   reached, and the transition refuses any other target, so those three are the
+   whole set. The request-and-fact mismatches above the list say why.
+8. Approval services subscribe to lifecycle facts, at the tier §EVN18 rule 1
+   fixes for each entity.
+9. A fact handler re-tests the approval round; it does not compute the verdict.
+   It gathers what the evaluation needs and asks the decision function, which
+   answers block, permit or auto-approve (§EVN18(b), §EVN18(f)).
+10. The denormalized `ApprovalStatus` on the entity is written by that entity's
+    own approval transition, reached by the `-Approving` command the workflow
+    publishes on the entity's request address — never by a handler writing the
+    field for itself (§EVN18 rules 4, 5 and 8).
 
 ## EVN3. Recommended Domain Events *(formerly §10.3)*
 
-Recommended domain events. The names below identify each event's **intent**; the
-address actually registered for it follows the `<Subject>-<Verb>` scheme in §EVN2 —
-for example `ContentItemCreatedEvent` is published on the `ContentItem-Added`
-address by `ContentItemService`.
+The names below identify each event's **intent** and are not types. No
+`*CreatedEvent`, `*UpdatedEvent` or `*DeletedEvent` class exists in this
+repository and none is planned: an event is an `EventEnvelope<T>` carrying the
+entity itself, published on the address the `<Subject>-<Verb>` scheme of §EVN2
+gives it — `ContentItemCreatedEvent` here names what `ContentItemService`
+publishes on `ContentItem-Added`. Read the left column as a label for a
+lifecycle moment and the right as the reaction that moment is meant to cause.
+
+The table predates the transition verbs and the approval wiring, so two groups
+of rows record intent that is deliberately not wired. The three `Approval*`
+rows describe a subscriber on `Approval-Added` / `-Modified`; there is none, and
+§EVN18(e) says why. The three `Attachment*` rows describe an entity that has no
+foundation service and does not yet participate in approval (§EVN2 rule 4,
+§EVN18 rule 5). Nothing in this table supersedes §EVN2 or §EVN18.
 
 | Event | Purpose |
 | --- | --- |
@@ -921,6 +933,13 @@ At that point there is no active `HttpContext`, no original request scope, and
 the original token may have expired. The `EventEnvelope<T>` prevents the
 architecture from depending on request-specific state.
 
+The envelope is not sufficient on its own. Nothing on it carries the
+destination (§EVN10), so a queued message has to carry the composed event name
+alongside it — the same column the outbox row of §EVN19 rule 5 stores, and for
+the same reason. `Integrity` does not travel either: the signature is produced
+at each dispatch rather than carried, because signing happens where the
+destination is known.
+
 ## EVN13. Controller Pattern *(formerly §10.12)*
 
 Controllers are thin exposure points. Like brokers, they exist only to let
@@ -933,13 +952,19 @@ The controller should:
 
 1. Rely on authentication middleware to authenticate the caller.
 2. Accept the request model and `CancellationToken`.
-3. Call the entity's **top-layer service**. Which layer that is varies by entity
-   and is not the controller's choice: §EVN18 rule 3 requires the two Versioned
-   types to be exposed above their foundation, so `ContentItemsController` binds
+3. Call the entity's **top-layer service** — the highest business layer that
+   owns that entity's write flows: its orchestration service where it has one,
+   otherwise its processing service, otherwise the foundation itself. That is
+   the binding question and not the subscription question of §EVN18 rule 1,
+   which the publication model decides: `Association` carries an orchestration
+   above its foundation and the approval workflow still binds its foundation
+   facts. Which layer that is varies by entity
+   and is not the controller's choice: §EVN18 rule 3 requires `ContentItem` and
+   `Link` to be exposed above their foundation, so `ContentItemsController` binds
    `IContentItemProcessingService`, while `Tag` has nothing above its foundation
    and `TagsController` binds `ITagService` directly. The publication model does
-   not decide that — `ContentItemSetting` and `Association` are both Single-Row
-   and both carry an orchestration above their foundation (§EVN18). Of the
+   not decide that — `Association` is Single-Row and carries an orchestration
+   above its foundation (§EVN18), and `ContentItemSetting` carries one too. Of the
    twelve controllers, three bind an orchestration, two a processing service and
    seven a foundation.
 4. Map the result and domain exceptions to HTTP responses.
@@ -1116,8 +1141,8 @@ real values does. `Guid.Empty` is a value like any other to an HMAC. What
 verification rules out is a *different* context being substituted for the signed
 one — the property the event path actually depends on, and the reason a service
 may act on a role or on `IsSystemIdentity` read off a verified envelope (§EVN17).
-It is not a presence check, and reading it as one would leave items 3, 4, 6
-and 7 unasked by anybody.
+It is not a presence check. Reading it as one would leave items 4, 6 and 7
+unasked by anybody, and item 3 asked only where an authorization gate runs.
 
 The remaining items are answered, where they are answered at all, outside this
 method:
@@ -1197,9 +1222,10 @@ place a caller is resolved from a principal.
 A generic `ISecurityBroker` — `IsInRoleAsync`, `GetCurrentUserAsync`,
 `GetCurrentSecurityContextAsync` and the rest — does exist, but not here. It
 lives in `G2H.EventEnvelope.Client`, it is `internal` to that assembly, and that
-assembly's `InternalsVisibleTo` names only its own test projects. Core cannot
-call it and must not try: its single job is to resolve the ambient principal
-once, at the moment an envelope is minted (rule 3 below traces that chain).
+assembly's `InternalsVisibleTo` names only its own two test projects and Moq's
+proxy assembly. Core cannot call it and must not try: its single job is to
+resolve the ambient principal once, at the moment an envelope is minted (rule 3
+below traces that chain).
 Asking it again from a service would produce a second identity source that
 disagrees with the envelope's on exactly the path where it matters.
 
@@ -1270,9 +1296,11 @@ private static void ValidateUserIsAllowedToContribute(
 }
 ```
 
-`ContentItemProcessingService.Validations.cs` defines the same two gates over
-again, against the same three role names, differing only in the exception type it
-throws.
+`ContentItemProcessingService.Validations.cs` asks the same three role names
+over again, throwing its own `UnauthorizedContentItemProcessingException`. It
+carries no two-argument overload: each entry point there calls
+`ValidateUserIsAllowedToContribute` and then
+`ValidateUserIsNotBlockedFromContentType`.
 
 **Cross-table approval decisions go through `IAccessBroker` instead**, because
 they depend on rows a single-entity service cannot see for itself — the
@@ -1358,10 +1386,10 @@ different answer, and conflating the two gets `Association` wrong.
 `Association` is Single-Row and has `AssociationOrchestrationService` above its
 foundation, and the workflow still binds to its foundation facts.
 
-1. For the two **Versioned** types the orchestration subscribes to the
-   **processing** service's `-Added` and `-Modified` facts — for `ContentItem`
-   that is `ContentItemProcessing-Added` / `-Modified`, and for `Link`
-   `LinkProcessing-Added` / `-Modified`. It subscribes to no approvable
+1. For the two **Versioned** types that participate today the orchestration
+   subscribes to the **processing** service's `-Added` and `-Modified` facts —
+   for `ContentItem` that is `ContentItemProcessing-Added` / `-Modified`, and
+   for `Link` `LinkProcessing-Added` / `-Modified`. It subscribes to no approvable
    entity's `-Removed` at all; the workflow records' removals are the
    documented exception (§EVN18(a)). Per §EVN2 rule 6 it must not also subscribe to
    the foundation facts for the same reaction.
@@ -1499,11 +1527,13 @@ either.
   a fact may move nothing at all — a comment born settled is the common case —
   which is why the handler re-evaluates instead of inferring a direction from
   the address.
-- (c) **The entity under review is the inbound source that causes dismissal.** When an item subject to approval is added or
+- (c) **The entity under review is the inbound source that causes dismissal.** When an item subject to approval is
   amended, the orchestration receives that fact (rules 1–3 above decide at
-  which tier) and, from the effective `ApprovalSetting`, determines that the
-  existing verdicts no longer describe the current content. It then sets
-  **every active `ApprovalReview` on that approval to `Dismissed`**. The re-file
+  which tier) and, where the effective `ApprovalSetting` requires re-approval on
+  change, determines that the existing verdicts no longer describe the current
+  content. It then sets
+  **every active `ApprovalReview` on that approval to `Dismissed`**. An `-Added`
+  fact opens or reinstates the round and evaluates it; it dismisses nothing. The re-file
   route depends entirely on it, and **that route is now reachable**: the
   service exists, the subscription is wired, and a superseded reviewer's slot is
   cleared automatically by the content change that superseded it.
@@ -1529,7 +1559,7 @@ either.
   suppression. The dismissing flow re-evaluates once at the end, which is the
   correct single evaluation for the whole act.
 
-  This is a third line of defence alongside rules 6-7 below, and it is
+  This is a further line of defence alongside rules 6-7 below, and it is
   narrower than either: it is scoped to one approval, for the duration of one
   loop, on one address. No human route to a `Dismissed` verdict exists, so
   every dismissal this address carries is the workflow's own.
@@ -1643,8 +1673,12 @@ either.
    `CreateNextAsync` with a **fresh** `EventId`, which the receiver has never
    seen. Under the inline dispatch of §EVN11 the repetition would be synchronous
    re-entry inside the original request.
-7. The changed-field gate is the second line of defence. Rules 1 and 4 above
-   are the first.
+7. There is no changed-field gate behind rules 1 and 4. `G2H Design.md` §9.7.4
+   rules that every `-Modified` fact reaching this workflow is a content change
+   by construction: approval state is writable only through the transition verb
+   of rules 4–5, and a general modify carries caller-editable content fields
+   alone, so the operation split does the work a field comparison would
+   otherwise have to.
 
 **Ownership of the entity write.**
 
@@ -1696,8 +1730,8 @@ itself is at-least-once.**
 
 1. **One Core transaction covers the row, the outbox row, and whatever
    `ProcessedEvent` records the path writes.** The entity write, a durable
-   outbox row carrying the fact about to be announced, and — where the write is
-   reached through a request address — the inbound envelope's `ProcessedEvent`
+   outbox row carrying the fact about to be announced, and — where the operation has a request address of its
+   own — the inbound envelope's `ProcessedEvent`
    and the outbound envelope's `ProcessedEvent` all commit together or not at
    all. They are all in `Glory2Him.Core`, which is what makes one transaction
    sufficient. Nothing in the transaction touches the event store.
@@ -1809,10 +1843,13 @@ itself is at-least-once.**
    mark-dispatched write itself fails, the row stays pending and the relay
    republishes; rule 4 makes that a no-op.
 
-7. **Pending rows dispatch in commit order, and a stuck fact delays later
-   facts rather than reordering them.** A sweep dispatches pending rows oldest
-   first and stops at the first one that fails, so a fact never overtakes an
-   earlier fact about the same row. Blocking is bounded rather than permanent:
+7. **Pending rows dispatch in commit order, and a stuck fact delays the facts
+   pending behind it rather than reordering them.** A sweep dispatches pending
+   rows oldest first and stops at the first one that fails, so no pending fact
+   overtakes an earlier pending fact about the same row. Rule 6's inline
+   attempt sits outside that order — a later fact that dispatches inline goes
+   out ahead of an earlier one still pending — so the ordering held here is
+   over the outbox rather than over every fact. Blocking is bounded rather than permanent:
    once a row has failed a set number of attempts it moves to a terminal
    state, and subsequent sweeps step over it so one poison fact cannot hold the
    queue for ever. A terminal row is never deleted and never silently dropped.
@@ -1873,8 +1910,11 @@ The substrate carries both families, and §EVN2 tells them apart by tense: a
 past-tense address is a **fact**, published once a service's own unit of work is
 done, for any number of subscribers — including none — to react to; a
 present-participle address is a **request**, delivered to the one service that
-owns the operation. Almost every rule below depends on which family an address
-belongs to, so that is settled first.
+owns the operation. Every rule in this section turns on which family an address
+belongs to, so that is settled first. The sections above apply the same split
+rather than introducing it — §EVN2 to naming, §EVN11 to dispatch, §EVN18 to the
+approval wiring — so a reader coming to this document cold loses nothing by
+reading this section before them.
 
 A request is not always a command. The family holds two kinds, and only one of
 them changes anything: a **command** asks the owning service to do something
@@ -1892,9 +1932,12 @@ to do next. Nothing replies to a fact either — a handler returning the inbound
 envelope would put its own name on a fact another service published.
 
 **Requests are addressed, and that is deliberate.** A request address belongs to
-the service that owns the operation, is bound to exactly one handler — the
+the service that owns the operation, is bound to at most one handler — the
 `On<Verb><Entity>Async` method on that service (§EVN11, §EVN14) — and carries
-the data to act on. Three in four of the subscriptions in
+the data to act on. Never two, and sometimes none: `Attachment`'s four request
+addresses are registered ahead of the service that will answer them, and
+`AIReviewerAssignment`'s four are registered with handlers written but no
+subscription bound, so neither entity is reachable over the substrate today. Three in four of the subscriptions in
 `EventSubscriptionRegistration` are request handlers, so the request family is
 the larger half of the wiring rather than a corner of it. What is published onto
 it is narrower: the only request this system publishes today is the `-Approving`
@@ -2064,6 +2107,12 @@ domain throughout. Concepts it proposed that were **not** what got built:
 - The entire worked example in the original document's §17–§26 (Student,
   Enrollment, Timetable, Notification services, their DI registration) was
   illustrative scaffolding, never real code in this repository.
+- The original §31 folder structure, §32 five-stage migration ladder (in-memory
+  → durable local → external fan-out → replay → distributed substrate) and
+  §33.1 sixteen architectural rules. Each is framed on the scheme above: the
+  folder tree is the Student example's, the ladder's last three rungs are the
+  fan-out and replay this system does not have, and the receiver rules name
+  `IEventReceiver`. What outlived that framing is §EVN20.
 
 What did survive, corrected and carried forward into this document: the
 signing rationale (§EVN10), the event-spaghetti-avoidance rules (§EVN20), and
