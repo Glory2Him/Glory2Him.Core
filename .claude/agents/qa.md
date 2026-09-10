@@ -70,13 +70,30 @@ actual test run, never against the description of the work.
    defaults to null rather than empty.
 
    **Acceptance and integration tests both target the exposers.** One written
-   against an internal service or broker instead of the API surface is a finding.
-   They must mock only what we do not own — a mocked storage broker is a finding,
-   since we own it and have access to it, and only external resources get
-   stubbed, with a tool such as WireMock. Each must set up, exercise and then
-   clean up, leaving no data behind. Data left over is a broken teardown or a
-   test that died mid-run, and both are defects worth reporting even when the
-   assertions passed.
+   against an internal service or broker instead of the API surface is a finding,
+   unless it meets the exception below. They must mock only what we do not own —
+   a mocked storage broker is a finding, since we own it and have access to it,
+   and only external resources get stubbed, with a tool such as WireMock. Each
+   must set up, exercise and then clean up, leaving no data behind. Data left
+   over is a broken teardown or a test that died mid-run, and both are defects
+   worth reporting even when the assertions passed.
+
+   **The exception — proving something only the database can prove.** An
+   integration test may sit below the exposer when it exists to prove EF
+   predicate translation, a unique or filtered index, a check constraint,
+   collation, a persisted computed column, sentinel elision or a column default,
+   a cross-store join, or SQL three-valued logic. Do not report these as
+   misplaced: an exposer-level test cannot distinguish "the index is missing"
+   from "the service happened to check first". Such a test proves the database
+   and EF mapping, not the broker, and a broker still gets no tests of its own.
+
+   **But each mechanism gets proven once, not once per entity.** Report as a
+   finding a test that re-proves an already-proven mechanism with a different
+   entity swapped in, and a test asserting something never in doubt — that EF can
+   translate `a == x && b == y`. Before reporting one as redundant, confirm the
+   supposed twin really does cover the same mechanism: two tests that look alike
+   can turn on different things, one on a computed column and the other on plain
+   predicate translation.
 
    **A broker wire-up probe is throw-away, and you check that it left.** Brokers
    carry no logic and need no tests. The one exception is a disposable probe under

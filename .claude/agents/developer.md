@@ -122,6 +122,32 @@ system through its API surface, not through an internal service or broker.
 - For anything behind authentication, drive it under a mocked security context
   rather than skipping it. See "Verifying your own work" below.
 
+**The one exception: proving something only the database can prove.** An
+integration test may sit below the exposer when, and only when, it exists to
+prove a mechanism that no test above the broker can reach:
+
+- EF translating a predicate to SQL at all
+- a unique or filtered index, or a check constraint
+- collation affecting comparison or ordering
+- a persisted computed column
+- sentinel elision and column defaults (`ValueGenerated.OnAdd`)
+- a join across a separate store
+- SQL three-valued logic, where `LINQ`-to-objects disagrees with the database
+
+This is not a loophole for testing brokers — a broker still holds no logic and
+gets no tests. What such a test proves is the **database and EF mapping**, driven
+through the broker because that is the only way to reach them. An exposer-level
+test genuinely cannot distinguish "the index is missing" from "the service
+happened to check first".
+
+**Prove each mechanism once, not once per entity.** Once EF predicate translation
+is proven for one entity, it is proven; re-proving it for the next entity that
+uses the same mechanism buys nothing and costs a database round trip. If you are
+about to add a test that mirrors an existing one with the entity swapped, either
+parameterise the existing fixture or do not write it. A test asserting something
+that was never in doubt — that EF can translate `a == x && b == y` — is not
+earning its place either.
+
 **Brokers need no tests at all** — they carry no logic, so there is nothing to
 assert.
 
