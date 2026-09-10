@@ -35,7 +35,7 @@ namespace Glory2Him.WebApp.Data.Migrations
     /// vocabulary in the role grammar contains the word, so the infix cannot collide.</para>
     ///
     /// <para>THE OTHER HALF IS IN CORE. The same member is persisted as a string in five columns
-    /// of the CONTENT database (§10.2), renamed by the <c>StorageBroker</c> migration of this same
+    /// of the CONTENT database (§3.7), renamed by the <c>StorageBroker</c> migration of this same
     /// name. The two run against different connection strings (§12.7.1) and neither implies the
     /// other — deploy one alone and either the reads throw or the narrow tier is held by nobody.</para>
     /// </summary>
