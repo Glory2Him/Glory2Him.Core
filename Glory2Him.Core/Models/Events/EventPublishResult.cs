@@ -73,8 +73,14 @@ namespace Glory2Him.Core.Models.Events
         /// <c>init</c>-settable and the solution's own integration tests already null-coalesce it,
         /// so a null is reachable — and this runs AFTER the row is committed, where throwing
         /// would report a completed write as a failed one (§10.19 rule 2).</para>
+        ///
+        /// <para>Short-circuits rather than reusing <see cref="FailedDeliveries"/>. This is read
+        /// on every publish through every inspected path, and materialising a list to answer a
+        /// boolean would allocate on the overwhelmingly common case where nothing failed. The
+        /// two read the same single flag, side by side, so there is no predicate here to drift
+        /// from the one the message uses.</para>
         /// </summary>
         public bool HasFailedDeliveries =>
-            FailedDeliveries.Count > 0;
+            (Deliveries ?? []).Any(delivery => delivery.IsFailure);
     }
 }
