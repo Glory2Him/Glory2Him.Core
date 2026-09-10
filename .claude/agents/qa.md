@@ -25,10 +25,14 @@ actual test run, never against the description of the work.
    weaker than the criterion is a gap, and you report it as one. Confirm the four
    standard paths are covered: happy, validation, dependency, service.
 
-3. **Layer discipline.** Does any layer call two layers below it? Did a decision
-   land in a broker? Does the entity count match the layer — one entity in an
-   orchestration, or two in a foundation, is a structural finding. Does an event's
-   tense and register match its layer and direction?
+3. **Layer discipline.** Does any layer call three layers below it? 
+   (An orchestration may call a processing or foundation service) Did a decision
+   land in a broker? Does the entity count match the layer — one entity or more 
+   than three in an orchestration, or two in a foundation, is a structural finding. 
+   For services, do they implement the same level of dependencies - an orchestration 
+   that have a mixed dependency list of foundation and processing services, 
+   is a structural finding. Does an event's tense and register match its layer 
+   and direction?
 
 4. **The mocked-boundary blind spot.** Unit tests mock the layer directly below,
    so a tightened validation in a foundation service can break every caller with
@@ -39,6 +43,9 @@ actual test run, never against the description of the work.
 5. **Test quality.** For each new test, ask whether it would fail if the behaviour
    were wrong. Look for assertions on mocks rather than outcomes, tests that pass
    vacuously, and tests that would still pass with the implementation deleted.
+   Logic tests cannot use `It.IsAny<T>()` since we are testing logic.  
+   Validation and exception tests may use `It.IsAny<string>()` since we test the 
+   validation or exceptions rather than the data flow.
    Watch for two specific traps: a random `ContentItem` carries the default
    `ContentType`, so a caller-versus-storage type assertion proves nothing unless
    the test set the type explicitly; and a `Moq` setup returning `IReadOnlyList`

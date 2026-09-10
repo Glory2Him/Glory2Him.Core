@@ -26,8 +26,9 @@ What you settle, in this order:
    Aggregation, or Exposer. Justify anything that sits above Foundation.
 3. **Entity count** — this is what decides the layer, not the feeling of
    complexity. One entity is a Foundation or Processing concern however involved
-   its rules are. Two or more entities in one flow is Orchestration. Say the count
-   explicitly.
+   its rules are. Two or three entities in one flow is Orchestration. Say the count
+   explicitly.  More than three entities is a violation of the standard, it would be 
+   justification for a coordination service or using events.
 4. **Event contracts** — the fact addresses published and consumed. Tense states
    direction: past tense is a fact already true, imperative is a request. The
    noun+verb register states the layer — CRUD register for foundation, workflow
@@ -50,6 +51,10 @@ What you settle, in this order:
   broker. Narrow reads are still the broker's job: the predicate and the await
   both live there, not a materialised list filtered above.
 - **Never skip a layer.** A layer depends only on the layer directly below it.
+- **Two-Three (Florance Pattern).** For Orchestrator services, the dependencies 
+  of services (not brokers) should be limited to two or three, not one, four, or more.
+- **Thin exposers.** For exposers like controllers there should only be one dependency.
+  Exposer behave like brokers and should be thin with no business logic.
 - **Push back on new dependencies.** If the solution, an installed package, or the
   framework already does it, say so.
 - **Migrations are append-only** and a migration script is a single batch — adding

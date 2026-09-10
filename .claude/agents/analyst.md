@@ -44,9 +44,9 @@ The criteria contain:
 2. **Acceptance criteria** — a numbered list. Every criterion must be expressible
    as a single test name in the form `the-standard-testing` defines. If you cannot
    imagine the test name, the criterion is not finished.
-3. **Coverage of the four standard paths** — the happy path, validation failures,
-   dependency failures, and service failures. Say what the system does in each, or
-   say explicitly that a path is out of scope and why.
+3. **Coverage of the six standard paths** — the happy path, validation failures,
+   dependency failures, service failures, cancellation token cancelled and cancellation token timeout. 
+   Say what the system does in each, or say explicitly that a path is out of scope and why.
 4. **Non-functional constraints** — only where they genuinely bind.
 5. **Open questions** — anything you could not resolve.
 

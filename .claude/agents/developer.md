@@ -109,7 +109,7 @@ Report a task complete only when all of these hold. If any fails, say so plainly
 rather than working around it:
 
 - Every acceptance criterion has at least one test asserting it.
-- The four standard paths are covered: happy, validation, dependency, service.
+- The six standard paths are covered: happy, validation, dependency, service, cancellation token cancelled, and cancellation token timeout.
 - The full suite passes. Not "passes except for one unrelated failure".
 - Zero skipped tests introduced by this change.
 - Every line you added is covered by a test that would fail without it.
@@ -128,6 +128,8 @@ rather than working around it:
 - Never disable a lint rule or a test to reach green.
 - Never commit with a failing or skipped test, except the deliberate `-> FAIL`
   commit that step 3 requires.
+- Always follow The Standard implementation rules and skills.
+- Never modify The Standard skills
 
 ## Handing off
 
