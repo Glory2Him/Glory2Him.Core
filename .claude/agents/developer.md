@@ -69,6 +69,33 @@ Before writing production code for a criterion, stop at the first rung that hold
 Read the code the change touches before picking a rung. Lazy about the solution,
 never about reading it.
 
+**Rung 1 needs care: DRY, but never at the cost of entanglement.** The Standard
+is against entanglement, and reuse is the usual way it gets in. The line runs
+between the *rules* and the *composition of rules*:
+
+- **Reuse the leaf primitives freely** — `IsInvalid(...)`, `IsGreaterThan(...)`,
+  the shared `Validate(...)` helper. These are single-purpose and carry no
+  operation's policy.
+- **Never reuse a per-operation composition.** `ValidateXOnAdd` and
+  `ValidateXOnModify` stay separate methods even when they currently look
+  identical. The moment Modify needs a rule Add must not have, a shared method
+  cannot give it one without changing Add — so a later, unrelated requirement
+  silently breaks a path nobody was touching.
+
+`ContentItemProcessingService.Validations.cs` is the worked example already in
+the solution: `ValidateContentItemOnAdd` (`:354`) carries
+`IsNotContributableStatus` and a `SharePermission` bound that
+`ValidateContentItemOnModify` (`:374`) deliberately does not, because only the
+add path can return without reaching the foundation. The comment above it states
+plainly that "the asymmetry is the rule rather than an oversight". Collapsing
+those two into one shared validator to remove the duplication would have made
+that asymmetry unexpressible.
+
+The same reasoning applies beyond validation: two callers doing the same thing
+today for different reasons should not share the method that encodes *why*. Ask
+whether the two uses will always change together. If they will not, the
+duplication is the cheaper of the two costs.
+
 This ladder decides HOW to satisfy a criterion, never WHETHER to. Every approved
 criterion gets implemented. Never drop validation, error handling, authorisation
 or accessibility on laziness grounds — those are requirements.

@@ -52,13 +52,24 @@ actual test run, never against the description of the work.
    orchestration depending only on foundation services is therefore correct, not a
    finding — do not report it as one.
 
-4. **The mocked-boundary blind spot.** Unit tests mock the layer directly below,
+4. **Entanglement through reuse.** Did the change share a *per-operation*
+   composition where it should have shared only the leaf rules? A single
+   `ValidateX` called by both add and modify is a finding even when the two
+   currently need identical rules, because the next rule either path needs cannot
+   be added without changing the other. Reusing `IsInvalid(...)` and the shared
+   `Validate(...)` helper is correct and not a finding — the rules are meant to be
+   shared, the policy that composes them is not. Apply the same test to any
+   newly shared method: if the two callers will not always change together,
+   sharing has entangled them. Removing a deliberate asymmetry in the name of DRY
+   is the specific version of this to watch for.
+
+5. **The mocked-boundary blind spot.** Unit tests mock the layer directly below,
    so a tightened validation in a foundation service can break every caller with
    the suite fully green. If the change tightened or added a validation, find the
    callers yourself and check whether their real behaviour still holds. The green
    suite is not evidence here.
 
-5. **Test quality.** For each new test, ask whether it would fail if the behaviour
+6. **Test quality.** For each new test, ask whether it would fail if the behaviour
    were wrong. Look for assertions on mocks rather than outcomes, tests that pass
    vacuously, and tests that would still pass with the implementation deleted.
    Logic tests cannot use `It.IsAny<T>()` since we are testing logic.
@@ -117,29 +128,29 @@ actual test run, never against the description of the work.
      in its own right, even with nothing currently tracked, because it is what
      stops the next probe being committed by accident.
 
-6. **Mutation check.** Pick the two or three most important pieces of new logic.
+7. **Mutation check.** Pick the two or three most important pieces of new logic.
    Work out by hand what would break if you inverted a condition, changed a
    boundary from `<` to `<=`, or returned a default. If nothing in the suite would
    catch it, that is BLOCKING.
 
-7. **Migrations and seed.** Is every schema change a new migration rather than an
+8. **Migrations and seed.** Is every schema change a new migration rather than an
    edit to an applied one? Does the generated script work as a single batch — a
    column added and then updated needs `EXEC`, and the script path is the deploy
    path, so passing under `dotnet ef` alone is not passing. Did a ContentType or
    role change land without the matching seed change? An unseeded role fails
    silently.
 
-8. **Retired claims.** If the change made a comment, doc line or message untrue,
+9. **Retired claims.** If the change made a comment, doc line or message untrue,
    grep the phrase repo-wide and confirm it reached zero. Fixing only the flagged
    instance and leaving its siblings is a finding.
 
-9. **Gate compliance.** Run the suite yourself. Check for skipped tests, leftover
+10. **Gate compliance.** Run the suite yourself. Check for skipped tests, leftover
    TODOs, commented-out code, and uncovered new lines. Check the PR body carries
    `Closes #<n>` and that no AI attribution reached a commit message — either one
    blocks the merge in CI.
 
-10. **Regression risk.** What existing behaviour could this plausibly have broken,
-    and is there a test that would have caught it?
+11. **Regression risk.** What existing behaviour could this plausibly have broken,
+     and is there a test that would have caught it?
 
 ## Verifying it yourself
 
