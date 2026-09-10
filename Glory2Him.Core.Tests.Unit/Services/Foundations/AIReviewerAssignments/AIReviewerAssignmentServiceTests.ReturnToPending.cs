@@ -383,7 +383,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.AIReviewerAssignments
         [Fact]
         public async Task ShouldThrowValidationExceptionOnReturnToPendingIfTheContextIsNotTheSystemAsync()
         {
-            // given: a caller-shaped context reaches the do-work instead of a system-minted one
+            // given: the mint is a pass-through, so the ADMINISTRATOR's own context — their roles,
+            // their subject, no system flag — reaches the do-work instead of a system-minted one.
+            // An administrator because they are the one caller who passes every other gate on this
+            // path unaided, so this guard is all that stands between them and the write.
             this.systemContextIsGenuine = false;
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Guid someAIReviewerAssignmentId = Guid.NewGuid();

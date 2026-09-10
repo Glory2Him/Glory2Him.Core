@@ -42,6 +42,15 @@ namespace Glory2Him.Core.Migrations
     /// a check constraint as text, so a difference of one space leaves a migration silently pending
     /// forever.</para>
     ///
+    /// <para><b>And the data half repairs whatever the schema half would refuse</b>, not only the
+    /// backfilled pair. <c>AddCheckConstraint</c> emits a plain <c>ALTER TABLE</c>, which SQL Server
+    /// adds <c>WITH CHECK</c> — it validates every EXISTING row — and the window between the two
+    /// migrations was a window in which an out-of-range or inverted pair really could be stored: the
+    /// admin page bounded each field to 0–10 on its own and nothing anywhere ordered the two. One
+    /// such row would fail the <c>ALTER</c>, fail the migration, and, through the startup
+    /// <c>Database.Migrate()</c>, refuse to start the application on every start until somebody
+    /// edited it by hand.</para>
+    ///
     /// <para>Both halves converge a database whether or not it has already recorded the earlier id:
     /// one that has not runs the 0.00 backfill and this repair back to back, and one created empty
     /// finds no row to repair and is seeded on the same pair.</para>
@@ -52,13 +61,18 @@ namespace Glory2Him.Core.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            // NARROWED TO THE BACKFILLED PAIR, and that is the whole of the rule: a row an
-            // administrator has genuinely set is theirs, and the seed's divergence log exists to
-            // report exactly that. Only a row still holding 0.00/0.00 — the pair AddColumn wrote,
-            // and the one ApprovalPolicyDefaults ships as its fail-closed fallback precisely
-            // because it is not a claim about where a deployment should set these — is moved onto
-            // the shipped house policy. The two literals match ApprovalSettingSeedData; Core cannot
-            // reference that class, so the pair is duplicated across the boundary on purpose and
+            // NARROWED TO THE BACKFILLED PAIR, and that is the whole of the rule for this half: a
+            // row an administrator has genuinely set is theirs, and the seed's divergence log exists
+            // to report exactly that. The normalisation below does touch such rows, and it is not
+            // this rule's exception — it repairs a pair the schema is about to refuse, moving each
+            // value as little as the rule it breaks allows rather than replacing the pair with the
+            // shipped band.
+            //
+            // Only a row still holding 0.00/0.00 — the pair AddColumn wrote, and the one
+            // ApprovalPolicyDefaults ships as its fail-closed fallback precisely because it is not
+            // a claim about where a deployment should set these — is moved onto the shipped house
+            // policy. The two literals match ApprovalSettingSeedData; Core cannot reference that
+            // class, so the pair is duplicated across the boundary on purpose and
             // ApprovalSettingSeedTests pins it on the other side.
             //
             // Not narrowed to live rows. A soft-deleted policy can be restored, and would come
@@ -71,13 +85,72 @@ namespace Glory2Him.Core.Migrations
             // adding fails to compile (Msg 207). Both threshold columns were added by the earlier
             // migration and already exist wherever this one runs, so there is nothing to defer.
             //
-            // Before the constraints below, so they validate against the rows this leaves behind.
+            // FIRST of the two repairs, and the order matters — see the normalisation below.
             migrationBuilder.Sql(@"
                 UPDATE [ApprovalSettings]
                 SET [AIApprovalConfidenceRejectionThreshold] = 2.50,
                     [AIApprovalConfidenceApprovalThreshold] = 7.50
                 WHERE [AIApprovalConfidenceRejectionThreshold] = 0.00
                   AND [AIApprovalConfidenceApprovalThreshold] = 0.00;");
+
+            // AND THEN EVERY OTHER ROW THE THREE CONSTRAINTS BELOW WOULD REFUSE. AddCheckConstraint
+            // emits a plain ALTER TABLE, which SQL Server adds WITH CHECK: it validates every
+            // EXISTING row, so one row breaking any of the three rules fails the ALTER, fails the
+            // migration and — the WebApp calls Database.Migrate() at startup, Program.Configurations
+            // — refuses to start the application on every start after that until somebody edits the
+            // row by hand. The earlier migration shipped both columns to g2h-dev one deploy before
+            // this one, and in that window the admin page bounded each field to 0–10 on its own with
+            // NO ordering rule between them, so a stored 8.00/3.00 is not hypothetical.
+            //
+            // NOT NARROWED TO LIVE ROWS, and here for a harder reason than the update above: a check
+            // constraint validates soft-deleted rows too, so skipping them would skip exactly the
+            // rows that fail the ALTER.
+            //
+            // TWO FAULTS, TWO DIFFERENT REPAIRS, because they are not the same kind of mistake.
+            //
+            // An off-scale value is CLAMPED to the end of the scale it overshot. It is one value
+            // that left ConfidenceScore's 0.00–10.00 scale (§8.6.2, §13.5) on its own, and the
+            // nearest legal point keeps the direction of what was chosen: 50.00 in the rejection
+            // box was somebody asking to reject nearly everything, and 10.00 is the strongest form
+            // of that the scale can hold. Nothing about the other column has to be guessed.
+            //
+            // An inverted pair is SORTED — the two values swap columns. Both numbers were chosen by
+            // an administrator, and §8.6.2 says which role each may hold: the rejection threshold is
+            // the lower of the two. Sorting keeps both chosen values and gives them the only roles
+            // the design allows, where putting the row onto the house band would throw both away —
+            // the one thing the update above refuses to do to a row somebody set. It is also the
+            // reading with the LEAST automation: stored inverted, rules 1 and 2 fire on the same
+            // score and the design defines no behaviour for that; sorted, the span between them is
+            // rule 3's band, where a human decides.
+            //
+            // The swap is one statement because SET reads the row as it stood BEFORE the update, so
+            // the two assignments cross rather than chase each other. Clamping first is not an
+            // ordering requirement — clamping is monotone and cannot invert a pair — but it means
+            // the sort chooses between the two values the row is actually keeping.
+            //
+            // AFTER the house-policy update above, and that IS an ordering requirement: -5.00/-2.00
+            // clamps to 0.00/0.00, and in the other order that administrator-set row would then be
+            // handed the shipped band as though it had been the backfill all along.
+            //
+            // Each statement is narrowed to the rows breaking its own rule, so this is a no-op on a
+            // healthy database and safe to run again on any other.
+            migrationBuilder.Sql(@"
+                UPDATE [ApprovalSettings]
+                SET [AIApprovalConfidenceRejectionThreshold] =
+                        CASE WHEN [AIApprovalConfidenceRejectionThreshold] < 0.00
+                             THEN 0.00 ELSE 10.00 END
+                WHERE [AIApprovalConfidenceRejectionThreshold] NOT BETWEEN 0.00 AND 10.00;
+
+                UPDATE [ApprovalSettings]
+                SET [AIApprovalConfidenceApprovalThreshold] =
+                        CASE WHEN [AIApprovalConfidenceApprovalThreshold] < 0.00
+                             THEN 0.00 ELSE 10.00 END
+                WHERE [AIApprovalConfidenceApprovalThreshold] NOT BETWEEN 0.00 AND 10.00;
+
+                UPDATE [ApprovalSettings]
+                SET [AIApprovalConfidenceRejectionThreshold] = [AIApprovalConfidenceApprovalThreshold],
+                    [AIApprovalConfidenceApprovalThreshold] = [AIApprovalConfidenceRejectionThreshold]
+                WHERE [AIApprovalConfidenceRejectionThreshold] > [AIApprovalConfidenceApprovalThreshold];");
 
             // Three constraints rather than one combined check: a check-constraint violation
             // reaches the caller naming no column, so the constraint NAME in the SQL error is the
@@ -112,6 +185,10 @@ namespace Glory2Him.Core.Migrations
         /// allowed (§8.6.2). A rolled-back schema is a schema without the three guards, not a
         /// reason to put a fail-open pair into rows that hold a deliberate one, and the migration
         /// cannot tell those rows apart from the ones it moved.</para>
+        ///
+        /// <para>The normalisation is not reversible either, and for a plainer reason: the value a
+        /// clamp replaced is recorded nowhere, and restoring an inverted pair would put back a state
+        /// §8.6.2 defines no behaviour for.</para>
         /// </summary>
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)

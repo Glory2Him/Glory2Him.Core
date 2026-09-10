@@ -59,7 +59,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.AIReviewerAssignments
 
         // Whether CreateSystemAsync hands back a genuine system context. Always true in the real
         // broker; a test flips it to false to reach the system-identity guard, which the public
-        // seam otherwise makes unreachable by minting the context itself.
+        // seam otherwise makes unreachable by minting the context itself. Flipped false, the stub
+        // becomes a pass-through and the AMBIENT CALLER's context arrives instead — a shape the
+        // broker really can be handed, unlike a system subject wearing a false flag.
         private bool systemContextIsGenuine;
 
         public AIReviewerAssignmentServiceTests()
@@ -104,6 +106,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.AIReviewerAssignments
             // KEEPING THE CALLER'S SubjectId HERE WOULD BE CreateElevatedAsync, a different verb
             // with a different meaning, and a stub shaped that way would pass the inverse
             // assertion against production code that had been switched to it.
+            //
+            // THE FORGED PATH BRANCHES THE WHOLE CONTEXT, not the flag alone. The broker sets
+            // IsSystemIdentity = true on BOTH of its branches, so there is no mint anywhere that
+            // produces the system's own subject under a false flag — a stub that flipped only the
+            // flag would hand the do-work a context production cannot make, and pin the guard test
+            // on a fiction. The false branch is therefore the CALLER's own context, exactly what
+            // CreateAsync above returns and exactly what a future second caller of the private
+            // do-work would supply if it minted its envelope on the direct path.
             this.eventEnvelopeBrokerMock.Setup(broker =>
                 broker.CreateSystemAsync(It.IsAny<AIReviewerAssignment>()))
                     .Returns((AIReviewerAssignment content) =>
@@ -112,16 +122,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.AIReviewerAssignments
                             {
                                 Content = content,
 
-                                SecurityContext = new SecurityContext
-                                {
-                                    IsAuthenticated = true,
-                                    SubjectId = SystemIdentity.UserId,
-                                    Username = SystemIdentity.Username,
-                                    DelegatedBySubjectId = this.ambientSecurityContext?.SubjectId,
-                                    Roles = [],
-                                    IsSystemIdentity = this.systemContextIsGenuine,
-                                    AuthenticationType = AuthenticationType.System
-                                },
+                                SecurityContext = this.systemContextIsGenuine
+                                    ? new SecurityContext
+                                    {
+                                        IsAuthenticated = true,
+                                        SubjectId = SystemIdentity.UserId,
+                                        Username = SystemIdentity.Username,
+                                        DelegatedBySubjectId =
+                                            this.ambientSecurityContext?.SubjectId,
+                                        Roles = [],
+                                        IsSystemIdentity = true,
+                                        AuthenticationType = AuthenticationType.System
+                                    }
+                                    : this.ambientSecurityContext,
 
                                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
                             }));

@@ -76,6 +76,18 @@ type ApprovalSettingFlag = {
     ApprovalSetting[TField] extends boolean ? TField : never
 }[keyof ApprovalSetting];
 
+// The same trick for the number boxes, so a draft is keyed on a field the model really has
+// rather than on a string nothing checks. A nullable member is a union rather than a number and
+// stays out on its own, which is what keeps the scope pickers off this list.
+type ApprovalSettingNumber = {
+    [TField in keyof ApprovalSetting]-?:
+    ApprovalSetting[TField] extends number ? TField : never
+}[keyof ApprovalSetting];
+
+// What is in a number box while it is being typed, per field. A field with no entry here is not
+// being typed in and reads its number off the model.
+type NumberDrafts = Partial<Record<ApprovalSettingNumber, string>>;
+
 type PolicyField = {
     field: ApprovalSettingFlag;
     label: string;
@@ -145,6 +157,15 @@ export const ApprovalSettingDetailPage = ({ isNew = false }: { isNew?: boolean }
     const [editModel, setEditModel] = useState<ApprovalSetting | null>(null);
     const [actionError, setActionError] = useState<string | null>(null);
 
+    // WHAT IS IN A NUMBER BOX WHILE IT IS BEING TYPED, held per field and only for as long as
+    // the typing lasts. AN EMPTY BOX IS THE REASON THIS EXISTS: Number('') is 0 and
+    // Number.isFinite(0) is true, so clamping the raw value on every keystroke stored 0 the
+    // instant a box was cleared to retype it — and with the ordering rule above, that 0 put the
+    // approval threshold under the rejection one, painted both boxes invalid and refused the
+    // save, for a box that had only been emptied. An empty box is "no value yet" instead: the
+    // field keeps the last number it was given and nothing is written until one is typed.
+    const [numberDrafts, setNumberDrafts] = useState<NumberDrafts>({});
+
     // A shallow copy, so an abandoned edit never mutates the row still on screen behind it. On
     // create there is nothing to copy — the model is minted once and then left alone, which is
     // why the id is generated in the initialiser rather than on every render.
@@ -157,6 +178,7 @@ export const ApprovalSettingDetailPage = ({ isNew = false }: { isNew?: boolean }
         }
 
         if (approvalSetting != null) {
+            setNumberDrafts({});
             setEditModel({ ...approvalSetting });
         }
     }, [isCreating, approvalSetting]);
@@ -166,6 +188,43 @@ export const ApprovalSettingDetailPage = ({ isNew = false }: { isNew?: boolean }
         value: ApprovalSetting[TField]) =>
         setEditModel((current) =>
             current == null ? current : { ...current, [field]: value });
+
+    // A box shows its draft while one is being typed and the stored number otherwise, so a
+    // reload, a reset, or simply leaving the box puts the two back in step.
+    const numberValueOf = (
+        editedSetting: ApprovalSetting,
+        field: ApprovalSettingNumber): string | number =>
+        numberDrafts[field] ?? editedSetting[field];
+
+    // The draft is kept whatever was typed; the model is written only from text a number can be
+    // read out of. An empty box, a lone minus sign, a half-typed exponent — none of them is a
+    // value anybody chose, so the field keeps what it had until one is. maximum is optional
+    // because "How many" has a floor and no ceiling: the foundation sets none either.
+    const setNumberField = (
+        field: ApprovalSettingNumber,
+        text: string,
+        minimum: number,
+        maximum?: number) => {
+        setNumberDrafts((current): NumberDrafts => ({ ...current, [field]: text }));
+
+        const parsed = Number(text);
+
+        if (text.trim() === '' || Number.isFinite(parsed) === false) {
+            return;
+        }
+
+        const atLeastMinimum = Math.max(minimum, parsed);
+
+        setField(
+            field,
+            maximum == null ? atLeastMinimum : Math.min(atLeastMinimum, maximum));
+    };
+
+    // Leaving the box ends its draft, so what is on screen is what would be saved: a box left
+    // empty reads back the number still stored rather than sitting blank in front of a save that
+    // would write something else.
+    const endNumberDraft = (field: ApprovalSettingNumber) =>
+        setNumberDrafts((current): NumberDrafts => ({ ...current, [field]: undefined }));
 
     const heading = isCreating
         ? 'New approval setting'
@@ -237,6 +296,19 @@ export const ApprovalSettingDetailPage = ({ isNew = false }: { isNew?: boolean }
     const thresholdOrderAttributes = isThresholdOrderInvalid
         ? { 'aria-invalid': true, 'aria-describedby': thresholdOrderMessageId }
         : {};
+
+    // A reset puts the drafts back with the row: a box mid-edit must not keep showing the text
+    // that was being typed over a number that has just been restored under it.
+    const resetEdit = () => {
+        if (isCreating || approvalSetting == null) {
+            goBack();
+
+            return;
+        }
+
+        setNumberDrafts({});
+        setEditModel({ ...approvalSetting });
+    };
 
     const saveAsync = async () => {
         if (editModel == null) {
@@ -448,16 +520,12 @@ export const ApprovalSettingDetailPage = ({ isNew = false }: { isNew?: boolean }
                                 type="number"
                                 min={minimumRequiredApprovals}
                                 disabled={editModel.requireApprovals === false}
-                                value={editModel.requiredNumberOfApprovals}
-                                onChange={(event) => {
-                                    const parsed = Number(event.target.value);
-
-                                    setField(
-                                        'requiredNumberOfApprovals',
-                                        Number.isFinite(parsed)
-                                            ? Math.max(minimumRequiredApprovals, parsed)
-                                            : minimumRequiredApprovals);
-                                }} />
+                                value={numberValueOf(editModel, 'requiredNumberOfApprovals')}
+                                onBlur={() => endNumberDraft('requiredNumberOfApprovals')}
+                                onChange={(event) => setNumberField(
+                                    'requiredNumberOfApprovals',
+                                    event.target.value,
+                                    minimumRequiredApprovals)} />
                         </div>
                     </Card>
 
@@ -529,18 +597,16 @@ export const ApprovalSettingDetailPage = ({ isNew = false }: { isNew?: boolean }
                                     disabled={editModel.isAIAllowedToVote === false
                                         && isThresholdOrderInvalid === false}
                                     {...thresholdOrderAttributes}
-                                    value={editModel.aiApprovalConfidenceRejectionThreshold}
-                                    onChange={(event) => {
-                                        const parsed = Number(event.target.value);
-
-                                        setField(
-                                            'aiApprovalConfidenceRejectionThreshold',
-                                            Number.isFinite(parsed)
-                                                ? Math.min(Math.max(
-                                                    minimumConfidenceThreshold, parsed),
-                                                    maximumConfidenceThreshold)
-                                                : minimumConfidenceThreshold);
-                                    }} />
+                                    value={numberValueOf(
+                                        editModel,
+                                        'aiApprovalConfidenceRejectionThreshold')}
+                                    onBlur={() => endNumberDraft(
+                                        'aiApprovalConfidenceRejectionThreshold')}
+                                    onChange={(event) => setNumberField(
+                                        'aiApprovalConfidenceRejectionThreshold',
+                                        event.target.value,
+                                        minimumConfidenceThreshold,
+                                        maximumConfidenceThreshold)} />
 
                                 <div className="form-text">
                                     A confidence score below this files a rejected review.
@@ -566,18 +632,16 @@ export const ApprovalSettingDetailPage = ({ isNew = false }: { isNew?: boolean }
                                     disabled={editModel.isAIAllowedToVote === false
                                         && isThresholdOrderInvalid === false}
                                     {...thresholdOrderAttributes}
-                                    value={editModel.aiApprovalConfidenceApprovalThreshold}
-                                    onChange={(event) => {
-                                        const parsed = Number(event.target.value);
-
-                                        setField(
-                                            'aiApprovalConfidenceApprovalThreshold',
-                                            Number.isFinite(parsed)
-                                                ? Math.min(Math.max(
-                                                    minimumConfidenceThreshold, parsed),
-                                                    maximumConfidenceThreshold)
-                                                : minimumConfidenceThreshold);
-                                    }} />
+                                    value={numberValueOf(
+                                        editModel,
+                                        'aiApprovalConfidenceApprovalThreshold')}
+                                    onBlur={() => endNumberDraft(
+                                        'aiApprovalConfidenceApprovalThreshold')}
+                                    onChange={(event) => setNumberField(
+                                        'aiApprovalConfidenceApprovalThreshold',
+                                        event.target.value,
+                                        minimumConfidenceThreshold,
+                                        maximumConfidenceThreshold)} />
 
                                 <div className="form-text">
                                     A confidence score above this files an approved review.
@@ -612,9 +676,7 @@ export const ApprovalSettingDetailPage = ({ isNew = false }: { isNew?: boolean }
                         <Button
                             color="outline-secondary"
                             disabled={isSaving}
-                            onClick={() => isCreating || approvalSetting == null
-                                ? goBack()
-                                : setEditModel({ ...approvalSetting })}>
+                            onClick={resetEdit}>
                             {isCreating ? 'Cancel' : 'Reset'}
                         </Button>
                     </div>

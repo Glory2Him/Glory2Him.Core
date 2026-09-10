@@ -33,6 +33,12 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Storages
     /// <c>has-pending-model-changes</c> detects a model the migrations do not match, not a model
     /// that is missing a rule.</para>
     ///
+    /// <para><b>Why the repair is pinned beside them.</b> A check constraint is added
+    /// <c>WITH CHECK</c>, so the migration's <c>UPDATE</c>s are not a tidy-up standing next to the
+    /// three <c>ALTER TABLE</c>s — they are what lets those succeed on a database already holding a
+    /// pair the constraints refuse, and the WebApp's startup <c>Database.Migrate()</c> is what turns
+    /// a failure there into an application that will not start.</para>
+    ///
     /// <para><b>Why the SQL is pinned as text.</b> The model configuration builds each string by
     /// interpolating <c>nameof</c>, the migration writes the same string as a bare literal, and
     /// EF compares them as text — a rename that updates one side and not the other produces a
@@ -143,10 +149,12 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Storages
             // given
             var migration = new AdoptHousePolicyAndConstrainApprovalSettingAIThresholds();
 
-            // when
+            // when: the FIRST of the two repairs, and the order is load-bearing — a pair of
+            // negative thresholds normalises to 0.00/0.00, so running the normalisation first
+            // would hand an administrator-set row the shipped band as though it were the backfill
             string actualRepairSql = migration.UpOperations
                 .OfType<SqlOperation>()
-                .Single()
+                .First()
                 .Sql;
 
             // then
@@ -164,6 +172,82 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Storages
 
             actualRepairSql.Should().Contain(
                 $"AND [{nameof(ApprovalSetting.AIApprovalConfidenceApprovalThreshold)}] = 0.00");
+        }
+
+        /// <summary>
+        /// The repair the three constraints DEPEND on. <c>AddCheckConstraint</c> emits a plain
+        /// <c>ALTER TABLE</c>, which SQL Server adds <c>WITH CHECK</c> — every existing row is
+        /// validated — so a single row breaking any of the three rules fails the migration, and the
+        /// WebApp's startup <c>Database.Migrate()</c> then refuses to start the application on every
+        /// start until somebody edits that row by hand. The migration that added the two columns
+        /// shipped one deploy earlier, and in that window the admin page bounded each field to 0–10
+        /// on its own with no ordering rule between them, so an inverted pair was storable.
+        ///
+        /// <para><b>Two faults, two repairs, and this pins that they stayed different.</b> An
+        /// off-scale value is clamped to the end of the scale it overshot — one value that left
+        /// §13.5's 0.00–10.00 scale, moved to the nearest legal point. An inverted pair is SORTED,
+        /// the two values swapping columns: both numbers were chosen by an administrator and §8.6.2
+        /// decides which column may hold which, so sorting keeps both where replacing the pair with
+        /// the house band would discard both. Rewriting either repair as the other reds here.</para>
+        /// </summary>
+        [Fact]
+        public void ShouldNormaliseEveryThresholdPairTheConstraintsWouldRefuse()
+        {
+            // given
+            var migration = new AdoptHousePolicyAndConstrainApprovalSettingAIThresholds();
+
+            // when
+            string actualNormalisationSql = migration.UpOperations
+                .OfType<SqlOperation>()
+                .Last()
+                .Sql;
+
+            // then: every row breaking either range rule is clamped, to whichever end it overshot
+            actualNormalisationSql.Should().Contain(
+                $"WHERE [{nameof(ApprovalSetting.AIApprovalConfidenceRejectionThreshold)}] " +
+                    "NOT BETWEEN 0.00 AND 10.00");
+
+            actualNormalisationSql.Should().Contain(
+                $"WHERE [{nameof(ApprovalSetting.AIApprovalConfidenceApprovalThreshold)}] " +
+                    "NOT BETWEEN 0.00 AND 10.00");
+
+            actualNormalisationSql.Should().Contain("THEN 0.00 ELSE 10.00 END");
+
+            // and every inverted pair is sorted rather than clamped or replaced — one statement,
+            // because SET reads the row as it stood before the update, so the assignments cross
+            actualNormalisationSql.Should().Contain(
+                $"SET [{nameof(ApprovalSetting.AIApprovalConfidenceRejectionThreshold)}] = " +
+                    $"[{nameof(ApprovalSetting.AIApprovalConfidenceApprovalThreshold)}],");
+
+            actualNormalisationSql.Should().Contain(
+                $"WHERE [{nameof(ApprovalSetting.AIApprovalConfidenceRejectionThreshold)}] > " +
+                    $"[{nameof(ApprovalSetting.AIApprovalConfidenceApprovalThreshold)}];");
+        }
+
+        /// <summary>
+        /// Order inside <c>Up</c>, which is the whole of the protection: a repair emitted AFTER the
+        /// constraints repairs nothing, because the <c>ALTER TABLE</c> that would have refused the
+        /// row has already failed the migration. Nothing else in the suite would notice the move —
+        /// both operations would still be present, and both preceding tests would still pass.
+        /// </summary>
+        [Fact]
+        public void ShouldRepairEveryRowBeforeTheConstraintsValidateThem()
+        {
+            // given
+            var migration = new AdoptHousePolicyAndConstrainApprovalSettingAIThresholds();
+
+            List<MigrationOperation> upOperations =
+                migration.UpOperations.ToList();
+
+            // when
+            int lastRepairIndex =
+                upOperations.FindLastIndex(operation => operation is SqlOperation);
+
+            int firstConstraintIndex =
+                upOperations.FindIndex(operation => operation is AddCheckConstraintOperation);
+
+            // then
+            lastRepairIndex.Should().BeLessThan(firstConstraintIndex);
         }
     }
 }

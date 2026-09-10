@@ -583,6 +583,138 @@ describe('ApprovalSettingDetailPage', () => {
         });
     });
 
+    // A BOX HAS TO BE EMPTIABLE TO BE RETYPABLE. Number('') is 0 and Number.isFinite(0) is true,
+    // so a clamp that reads the box on every keystroke stores 0 the instant it is cleared —
+    // which, with the ordering rule, turned "select all and retype" into an inverted pair, two
+    // red boxes and a refused save that the administrator had done nothing to deserve. An empty
+    // box means "no value yet": the field keeps the number it had until another is typed.
+    describe('clearing a number box to retype it', () => {
+        it('should not drop a cleared threshold to zero', async () => {
+            // given
+            renderCreatePage();
+            await allowBereanToVote();
+
+            // when
+            await userEvent.clear(screen.getByLabelText('Approve above'));
+
+            // then
+            expect(screen.getByLabelText('Approve above')).toHaveValue(null);
+            expect(screen.getByLabelText('Approve above')).not.toHaveClass('is-invalid');
+            expect(screen.getByLabelText('Reject below')).not.toHaveClass('is-invalid');
+
+            expect(screen.queryByText(
+                'Approve above must not be below Reject below: a score between the two would '
+                    + 'file both a rejection and an approval.')).not.toBeInTheDocument();
+        });
+
+        it('should save the number a box still empty was left holding', async () => {
+            // given
+            renderCreatePage(listRoute);
+            await allowBereanToVote();
+
+            // when
+            await userEvent.clear(screen.getByLabelText('Approve above'));
+            await userEvent.click(screen.getByRole('button', { name: 'Create setting' }));
+
+            // then
+            await waitFor(() =>
+                expect(added).toHaveBeenCalledWith(expect.objectContaining({
+                    aiApprovalConfidenceApprovalThreshold: 7.5
+                })));
+        });
+
+        // WHAT IS ON SCREEN IS WHAT WOULD BE SAVED. Leaving the box ends the draft, so a box
+        // abandoned empty reads its number back rather than sitting blank over a save that would
+        // write something else.
+        it('should read the kept number back once the box is left', async () => {
+            // given
+            renderCreatePage();
+            await allowBereanToVote();
+
+            // when
+            await userEvent.clear(screen.getByLabelText('Approve above'));
+            await userEvent.click(screen.getByLabelText('Reject below'));
+
+            // then
+            expect(screen.getByLabelText('Approve above')).toHaveValue(7.5);
+        });
+
+        it('should take the number typed in after the box is cleared', async () => {
+            // given
+            renderCreatePage(listRoute);
+            await allowBereanToVote();
+
+            // when
+            await userEvent.clear(screen.getByLabelText('Approve above'));
+            await userEvent.type(screen.getByLabelText('Approve above'), '9');
+            await userEvent.click(screen.getByRole('button', { name: 'Create setting' }));
+
+            // then
+            await waitFor(() =>
+                expect(added).toHaveBeenCalledWith(expect.objectContaining({
+                    aiApprovalConfidenceRejectionThreshold: 2.5,
+                    aiApprovalConfidenceApprovalThreshold: 9
+                })));
+        });
+
+        // THE RANGE STILL BINDS A NUMBER THAT WAS TYPED (§13.5's 0.00-10.00 scale) — it is only
+        // the absence of one that no longer counts as a choice.
+        it('should still hold a typed threshold inside the confidence scale', async () => {
+            // given
+            renderCreatePage(listRoute);
+            await allowBereanToVote();
+
+            // when
+            await userEvent.clear(screen.getByLabelText('Approve above'));
+            await userEvent.type(screen.getByLabelText('Approve above'), '15');
+            await userEvent.click(screen.getByRole('button', { name: 'Create setting' }));
+
+            // then
+            await waitFor(() =>
+                expect(added).toHaveBeenCalledWith(expect.objectContaining({
+                    aiApprovalConfidenceApprovalThreshold: 10
+                })));
+        });
+
+        // THE SAME RULE ON THE BOX BESIDE IT: the floor is for a count that was asked for, not
+        // for one rubbed out on the way to another.
+        it('should not drop a cleared required count to its floor', async () => {
+            // given
+            renderCreatePage(listRoute);
+
+            // when
+            await userEvent.clear(screen.getByLabelText('How many'));
+
+            // then
+            expect(screen.getByLabelText('How many')).toHaveValue(null);
+
+            await userEvent.click(screen.getByRole('button', { name: 'Create setting' }));
+
+            await waitFor(() =>
+                expect(added).toHaveBeenCalledWith(expect.objectContaining({
+                    requiredNumberOfApprovals: 2
+                })));
+        });
+
+        // A caller may ask for fewer approvals than one and the foundation refuses it, so a
+        // typed zero is still lifted to the floor rather than round-tripped into a 400.
+        it('should still lift a typed count to its floor', async () => {
+            // given
+            renderCreatePage(listRoute);
+
+            // when
+            await userEvent.clear(screen.getByLabelText('How many'));
+            await userEvent.type(screen.getByLabelText('How many'), '0');
+            await userEvent.click(screen.getByRole('button', { name: 'Create setting' }));
+
+            // then
+            await waitFor(() =>
+                expect(added).toHaveBeenCalledWith(expect.objectContaining({
+                    requiredNumberOfApprovals: 1
+                })));
+        });
+    });
+
     describe('amending a policy that exists', () => {
         // MOVING A ROW TO ANOTHER SCOPE IS WRITING A DIFFERENT POLICY, and the filtered unique
         // indexes would refuse it as a duplicate — so the scope is read back, not offered.
