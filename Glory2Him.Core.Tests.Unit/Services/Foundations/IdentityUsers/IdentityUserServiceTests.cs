@@ -112,6 +112,57 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.IdentityUsers
             capturedRoleNames.Should().BeEquivalentTo(new[] { "TAG-REVIEWERS", "TAG-PUBLISHERS" });
         }
 
+        /// <summary>
+        /// The MULTI-ROLE shape at this layer: every requested name goes down in ONE read.
+        ///
+        /// <para><b>Why that is a real invariant and not a performance note.</b> A tier is a SET
+        /// of names (§18.6), and the de-duplication a caller depends on — one account holding two
+        /// of the requested roles counted once — is done by the single <c>IN</c> clause the
+        /// broker builds. A service that looped and read once per name would get N lists back and
+        /// nothing here merges them: the same reviewer would appear once per role they hold, and
+        /// a threshold measured by counting that answer could be met by one human. That is the
+        /// failure <c>ApprovalReview.ReviewerId</c> was deleted for.</para>
+        ///
+        /// <para>The read itself — the join, the upper-cased match, the disabled exclusion — is
+        /// proved against a real catalogue in <c>IdentityUserRoleMembershipReadTests</c>, because
+        /// it is SQL Server's behaviour rather than this service's. Asserting the union here
+        /// against a mock would only assert that the mock returned what the test told it to.
+        /// What IS this service's to keep is the shape of the request, and that is what this
+        /// pins.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldReadEveryRequestedRoleInASingleBrokerCallAsync()
+        {
+            // given
+            var capturedCalls = new List<IReadOnlyList<string>>();
+
+            this.identityCoreStorageBrokerMock.Setup(broker =>
+                broker.SelectIdentityUsersInRolesAsync(
+                    It.IsAny<IReadOnlyList<string>>(),
+                    It.IsAny<CancellationToken>()))
+                        .Callback<IReadOnlyList<string>, CancellationToken>(
+                            (roleNames, token) => capturedCalls.Add(roleNames))
+                        .ReturnsAsync(new List<IdentityUser>());
+
+            // when
+            await this.identityUserService.RetrieveIdentityUsersInRolesAsync(
+                new[] { "Tag-Reviewers", "Tag-Publishers", "Tag-Administrators" },
+                TestContext.Current.CancellationToken);
+
+            // then: one read, not one per name
+            this.identityCoreStorageBrokerMock.Verify(broker =>
+                broker.SelectIdentityUsersInRolesAsync(
+                    It.IsAny<IReadOnlyList<string>>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            // and: that one read carried the whole tier
+            capturedCalls.Should().ContainSingle();
+
+            capturedCalls[0].Should().BeEquivalentTo(
+                new[] { "TAG-REVIEWERS", "TAG-PUBLISHERS", "TAG-ADMINISTRATORS" });
+        }
+
         [Fact]
         public async Task ShouldReturnWhateverTheBrokerReportsAsync()
         {
