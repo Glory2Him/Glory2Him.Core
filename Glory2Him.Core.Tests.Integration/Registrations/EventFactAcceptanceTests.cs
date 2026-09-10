@@ -150,6 +150,98 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
                     "cannot see makes the receiver refuse a genuine envelope");
         }
 
+        // -Submitted, for all seven. Every one of these fires on the FOUNDATION's bare name even
+        // for ContentItem and Link, whose Added/Modified facts come from the processing tier
+        // above — the submit verb is a foundation transition on every approvable entity, and
+        // nothing above the foundation takes part in it
+        // (ApprovalOrchestrationService.Substrate.cs:205-210 states this explicitly: a
+        // "ContentItemProcessingSubmitted" name would verify nothing, ever). This is the pairing
+        // #487 found proven nowhere: `ApprovalOrchestrationServiceTests.Substrate.cs` already
+        // proves the RECEIVER's literal is self-consistent for all 21 entity-fact handlers, but
+        // nothing published a real -Submitted fact through the real substrate until this theory —
+        // so a publisher/receiver name mismatch specific to Submitted had no way to surface.
+        [Theory]
+        [InlineData(nameof(Tag))]
+        [InlineData(nameof(ContentItem))]
+        [InlineData(nameof(Link))]
+        [InlineData(nameof(Comment))]
+        [InlineData(nameof(Reaction))]
+        [InlineData(nameof(BibleReference))]
+        [InlineData(nameof(Association))]
+        public async Task ShouldAcceptTheSubmittedFactFromItsFoundationAsync(string entityName)
+        {
+            // given: the submit verb reaches the foundation directly regardless of which tier
+            // owns the Added/Modified fact, so every entity signs its own bare name here
+
+            // when
+            IReadOnlyList<bool> outcomes = await PublishFoundationSubmittedFactAsync(entityName);
+
+            // then
+            outcomes.Should().Equal(new[] { true },
+                because: $"the approval workflow must ACCEPT the {entityName} Submitted fact " +
+                    "its own foundation signed — this is the arm the receiver's literal was " +
+                    "never checked against a real publish for");
+        }
+
+        private async Task<IReadOnlyList<bool>> PublishFoundationSubmittedFactAsync(
+            string entityName) =>
+                entityName switch
+                {
+                    nameof(Tag) => DeliveryOutcomes(
+                        await this.broker.EventBroker.PublishTagAsync(
+                            new EventEnvelope<Tag> { Content = new Tag { Id = Guid.NewGuid() } },
+                            TagEventOperation.Submitted)),
+
+                    nameof(ContentItem) => DeliveryOutcomes(
+                        await this.broker.EventBroker.PublishContentItemAsync(
+                            new EventEnvelope<ContentItem>
+                            {
+                                Content = new ContentItem { Id = Guid.NewGuid() }
+                            },
+                            ContentItemEventOperation.Submitted)),
+
+                    nameof(Link) => DeliveryOutcomes(
+                        await this.broker.EventBroker.PublishLinkAsync(
+                            new EventEnvelope<Link> { Content = new Link { Id = Guid.NewGuid() } },
+                            LinkEventOperation.Submitted)),
+
+                    nameof(Comment) => DeliveryOutcomes(
+                        await this.broker.EventBroker.PublishCommentAsync(
+                            new EventEnvelope<Comment>
+                            {
+                                Content = new Comment { Id = Guid.NewGuid() }
+                            },
+                            CommentEventOperation.Submitted)),
+
+                    nameof(Reaction) => DeliveryOutcomes(
+                        await this.broker.EventBroker.PublishReactionAsync(
+                            new EventEnvelope<Reaction>
+                            {
+                                Content = new Reaction { Id = Guid.NewGuid() }
+                            },
+                            ReactionEventOperation.Submitted)),
+
+                    nameof(BibleReference) => DeliveryOutcomes(
+                        await this.broker.EventBroker.PublishBibleReferenceAsync(
+                            new EventEnvelope<BibleReference>
+                            {
+                                Content = new BibleReference { Id = Guid.NewGuid() }
+                            },
+                            BibleReferenceEventOperation.Submitted)),
+
+                    nameof(Association) => DeliveryOutcomes(
+                        await this.broker.EventBroker.PublishAssociationAsync(
+                            new EventEnvelope<Association>
+                            {
+                                Content = new Association { Id = Guid.NewGuid() }
+                            },
+                            AssociationEventOperation.Submitted)),
+
+                    _ => throw new ArgumentOutOfRangeException(
+                        nameof(entityName), entityName,
+                        "No foundation Submitted publish is mapped for this entity.")
+                };
+
         private async Task<IReadOnlyList<bool>> PublishFoundationFactAsync(
             string entityName,
             bool isModifiedFact) =>
