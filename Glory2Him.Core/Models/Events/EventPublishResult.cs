@@ -65,9 +65,11 @@ namespace Glory2Him.Core.Models.Events
                 .ToList();
 
         /// <summary>
-        /// Whether any subscription reported an unsuccessful delivery at dispatch time. False for
-        /// an address nobody subscribes to, which is what lets a publisher inspect without first
-        /// knowing whether its address is subscribed (§10.19 rule 1).
+        /// Whether any subscription reported a FAILED delivery at dispatch time — Error alone,
+        /// never "not successful", because Pending and Replay are also not successful and are
+        /// ordinary transient outcomes. False for an address nobody subscribes to, which is what
+        /// lets a publisher inspect without first knowing whether its address is subscribed
+        /// (§10.19 rule 1).
         ///
         /// <para>Null-tolerant on <see cref="Deliveries"/> deliberately. It is
         /// <c>init</c>-settable and the solution's own integration tests already null-coalesce it,

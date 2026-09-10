@@ -274,11 +274,6 @@ namespace Glory2Him.Core.Services.Foundations.Comments
                     envelope: outboundEnvelope,
                     operation: operation);
 
-            await RecordEventProcessedAsync(
-                envelope: outboundEnvelope,
-                receiverName: receiverName,
-                cancellationToken: cancellationToken);
-
             // §10.19. Delivery is contained, so a subscriber that failed says so HERE and
             // nowhere else, and nothing redelivers it. Comment-Submitted reaches the
             // approval round; dropping it diverges the round from the row permanently,
@@ -288,9 +283,17 @@ namespace Glory2Him.Core.Services.Foundations.Comments
             // service.
             //
             // Logged, never thrown: the row is already committed above, and failing the caller
-            // now would report a completed write as a failed one. LAST for the same reason — a
-            // logging sink that faults must not cost the outbound ProcessedEvent its dedup row,
-            // which is what would let a redelivered request re-apply the transition.
+            // now would report a completed write as a failed one. What guarantees that is the
+            // CONTAINMENT below, not where this sits — an earlier version of this comment
+            // claimed the position did it.
+            //
+            // BEFORE the outbound dedup write, and that ordering is the rule's own requirement.
+            // That write can fail, and a report placed after it would be skipped by the very
+            // failure it has to survive, leaving a dropped required delivery unreported while an
+            // unrelated bookkeeping fault took the blame. The two are independent: a dedup row
+            // that would not save says nothing about whether the fact arrived, and the operator
+            // needs both. It sat after this write until the report was contained, so that a
+            // faulting sink could not cost the event its dedup row; containment answers that now.
             if (publishResult.HasFailedDeliveries)
             {
                 // CONTAINED, because the report is bookkeeping on somebody else's path and does
@@ -321,6 +324,11 @@ namespace Glory2Him.Core.Services.Foundations.Comments
                 {
                 }
             }
+
+            await RecordEventProcessedAsync(
+                envelope: outboundEnvelope,
+                receiverName: receiverName,
+                cancellationToken: cancellationToken);
 
             return updatedComment;
         }
