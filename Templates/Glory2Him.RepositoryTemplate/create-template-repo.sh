@@ -41,7 +41,7 @@ cp "$repositoryRoot/Resources/Images/Glory2Him.ico" "$targetDirectory/Resources/
 cp "$repositoryRoot/Resources/Images/Glory2Him-Square.png" "$targetDirectory/Resources/Images/"
 
 if [[ -n "$repositoryName" ]]; then
-    for file in "$targetDirectory/README.md" "$targetDirectory/LICENSE.txt"; do
+    for file in "$targetDirectory/README.md" "$targetDirectory/LICENSE.txt" "$targetDirectory/CLAUDE.md"; do
         sed -i.bak \
             -e "s/{{REPOSITORY_NAME}}/$repositoryName/g" \
             -e "s/{{YEAR}}/$year/g" \

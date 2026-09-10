@@ -3,13 +3,8 @@
 ---
 
 <!--
-  BEFORE YOU START — delete this block once the three items are done.
-
-  1. Replace {{REPOSITORY_NAME}} in this file and in LICENSE.txt.
-  2. Replace {{YEAR}} in LICENSE.txt with the year this repository was created.
-  3. Run the "Labels" workflow once (Actions -> Labels -> Run workflow) if it did
-     not fire on the first push. It creates the org label set that the PR linter
-     applies from pull request titles.
+  BEFORE YOU START — the setup checklist is in CLAUDE.md, under "Before this
+  repository is real". Delete this block once you have worked through it.
 -->
 
 ## ✝️ Introduction

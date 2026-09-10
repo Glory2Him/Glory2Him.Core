@@ -17,6 +17,7 @@ Nothing here is wired into Glory2Him.Core's build.
 | `.gitignore` | The root `VisualStudio.gitignore` with three Glory2Him.Core rules removed (see below) |
 | `LICENSE.txt` | The root G2HSL v1.0 licence, with the repository name and year turned into placeholders |
 | `README.md` | Written fresh: banner, the org Introduction verbatim, then placeholder sections |
+| `CLAUDE.md` | The root `CLAUDE.md` with the repository-specific half rewritten — see below |
 | `.github/labels.json` | Generated from the 103 title prefixes in `prLinter.yml`, plus 9 model-effort labels |
 | `.github/workflows/labels.yml` | New — creates and updates labels from the manifest |
 | `.github/workflows/prLinter.yml` | Copied verbatim — title prefix labelling, issue link check, author assignment |
@@ -75,10 +76,39 @@ G2H.StorageClient.Clients;` in the `the-standard-brokers` storage broker templat
 Both were left alone: editing vendored content creates a third variant of a file
 whose hash is recorded in `skills-lock.json`.
 
-A `CLAUDE.md` is **not** in the payload. The agents assume one — it is what points at
-the design document and states the non-negotiables — but the Glory2Him.Core copy is
-mostly about migrations, the React app and this solution's layout. Worth writing a
-generic one for the template.
+### CLAUDE.md
+
+Carried over and made generic. The agents assume one exists — it is what points them
+at the design document and states the non-negotiables — so a template with agents and
+no `CLAUDE.md` ships four roles with nothing binding them.
+
+Kept as they are, because they are org rules rather than Glory2Him.Core rules: the
+four-role workflow, the `Model - Effort` line on every issue, test-first with
+`{TestName} -> FAIL` committed before the implementation, brokers holding no logic and
+getting no unit tests, the layer rule and its orchestration exception, migrations never
+being edited once applied, no AI attribution in a commit or PR, no behaviour outside an
+approved criterion, dependencies and events being architect decisions, and the worktree
+stash rule.
+
+Changed:
+
+- `Documentation/G2H Design.md` became `Documentation/Design.md`, matching the agents.
+- The layer-rule exception cited `Documentation/EventSubstrate.md`, which the template
+  does not carry. It now cites `.claude/agents/architect.md` and `qa.md`, which do ship
+  and which hold the same reasoning.
+- The identity rule is now conditional — "where this repository carries events" — since
+  a new repository may have no event substrate at all. The rule itself is unchanged.
+- **Commands** was entirely Glory2Him.Core: `build.yml`'s glob behaviour, this
+  solution's test project names, the React app, the local IIS republish script. It is
+  now the org's usual .NET shape, marked to trim, plus the one thing that generalizes —
+  name test projects so a recursive `*Tests.Unit*.csproj` glob finds them.
+- A **Before this repository is real** section was added: the five things a new
+  repository must do (placeholders, `Documentation/Design.md`, `INTENT.md`, Commands,
+  and checking the labels arrived). It is the single setup checklist — `README.md`
+  points at it rather than keeping a second copy that would drift.
+
+`create-template-repo.sh` substitutes `{{REPOSITORY_NAME}}` in `CLAUDE.md` along with
+`README.md` and `LICENSE.txt`.
 
 ## The three `.gitignore` rules that were removed
 
