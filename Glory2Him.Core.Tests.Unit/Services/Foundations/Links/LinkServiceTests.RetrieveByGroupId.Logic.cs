@@ -28,7 +28,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
         // SelectLinksByGroupIdAsync carries it, with the token — so the stubs below hand back a
         // group's rows without re-implementing "GroupId == groupId". A stub that re-implemented
         // it would pass whether or not the real read still carried it; that the read is keyed on
-        // the group at all is proved against a real catalogue in LinkNarrowReadTests.
+        // the group at all is not proved against a real catalogue anywhere. #486 kept
+        // ContentItemNarrowReadTests as the single canonical proof that a group-keyed read
+        // translates, and accepted that the link twin goes unasserted.
         //
         // What is proved here is the half the SERVICE owns: the group it asks storage for is the
         // one the caller named, and the §14.7 visibility filter runs over what comes back. That

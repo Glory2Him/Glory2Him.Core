@@ -28,8 +28,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
     {
         // WHAT THESE TESTS CAN AND CANNOT SAY. They stub the narrow storage reads, so they sit
         // ABOVE the predicate rather than at it — "does this read filter tombstones" is no longer
-        // answerable here, and the stubs below deliberately do not pretend otherwise. That
-        // question is answered against a real catalogue in LinkNarrowReadTests.
+        // answerable here, and the stubs below deliberately do not pretend otherwise. Nor is it
+        // answered anywhere else: #486 removed the link narrow-read fixture as a per-entity
+        // re-proof of predicate translation, keeping the content-item one as the single canonical
+        // proof of the SHAPE. The link predicate bodies in StorageBroker.Link.cs are knowingly
+        // left unasserted — a divergence between them and their content-item twins would not be
+        // caught by any test in this repository.
         //
         // What is still proved here is the half the SERVICE owns and the broker cannot: that the
         // group is taken off the STORED row rather than from the caller, that the target excludes
@@ -72,9 +76,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
         public async Task ShouldReturnWhateverRowHoldsTheGroupSlotAsync()
         {
             // given: a row the caller-facing reads would never show. WHY the slot read returns
-            // it — a soft delete never clears IsPublished, and the slot index names that column
-            // alone — is proved in LinkNarrowReadTests; what is proved here is that the service
-            // hands back whatever that read names, without filtering it a second time.
+            // it — a soft delete never clears IsPublished, and the read is unfiltered on
+            // IsDeleted — is not proved against a real catalogue anywhere (#486). What is proved
+            // here is that the service hands back whatever that read names, without filtering it
+            // a second time.
             var groupId = Guid.Parse("dddddddd-1111-1111-1111-111111111111");
             var tombstoneId = Guid.Parse("dddddddd-2222-2222-2222-222222222222");
             var targetId = Guid.Parse("dddddddd-3333-3333-3333-333333333333");
@@ -187,7 +192,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
         {
             // given: a decoy for each argument the service chooses - the group, taken off the
             // stored target row, and the target's own id. The IsPublished decoy is left in as
-            // documentation of the storage predicate, which is proved in LinkNarrowReadTests.
+            // documentation of the storage predicate, which no test proves against a real
+            // catalogue (#486).
             this.publishedLinkId = Guid.Parse("ffffffff-4444-4444-4444-444444444444");
             var groupId = Guid.Parse("ffffffff-1111-1111-1111-111111111111");
             var otherGroupId = Guid.Parse("ffffffff-9999-9999-9999-999999999999");
@@ -252,8 +258,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
         //
         // The PREDICATES themselves - the unfiltered slot read that lets a tombstone still hold
         // the slot, and the version read that counts tombstones (#271) - moved into IStorageBroker
-        // with the await that lets the caller's token reach the database, and are proved against a
-        // real catalogue in LinkNarrowReadTests.
+        // with the await that lets the caller's token reach the database. Their BODIES are not
+        // asserted anywhere: #486 kept ContentItemNarrowReadTests as the one canonical proof that
+        // reads of this shape translate, and accepted that the link twins go unproved.
         // Which row the STORAGE read would name as the group's published incumbent. Set by a test
         // that cares; left empty otherwise, in which case the probe finds nothing.
         private Guid publishedLinkId;
