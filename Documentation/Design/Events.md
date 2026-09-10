@@ -8,12 +8,15 @@ not restarted-with-decimals — so a bare `§EVN4` is unambiguous once other
 `Documentation/Design/*.md` files exist with their own prefixes (`ARC`, `DOM`,
 `SEC`, `UI`) and their own local numbering. This repository's C# comments cite
 design sections extensively (61 files cite `§10.X` alone from this section's
-former life in `G2H Design.md`), so every section also carries a
-*(formerly §10.X)* annotation — the literal string `§10.X` still appears on the
-right heading, so an old citation resolves by grep even though the citable
-number itself is now prefixed and did not survive verbatim.
+former life in `G2H Design.md`), so every section relocated from that former
+`§10.X` life also carries a *(formerly §10.X)* annotation — the literal string
+`§10.X` still appears on the right heading, so an old citation resolves by grep
+even though the citable number itself is now prefixed and did not survive
+verbatim. Sections with no former life in `G2H Design.md` (`EVN10`, `EVN20`,
+`EVN21`, `EVN22`) carry no such annotation, since there is no old citation for
+them to remain discoverable under.
 
-## 0. What changed in this unification
+## EVN0. What changed in this unification
 
 `EventSubstrate.md` was an early, **generic pattern sketch** — a fictional
 Student/Enrollment/Timetable domain, `IEventReceiver<TEvent>` DI-resolved
@@ -62,7 +65,7 @@ collisions:
 | Service | Request addresses | Fact addresses |
 | --- | --- | --- |
 | `ContentItemService` (foundation) | `ContentItem-Adding`, `ContentItem-Modifying`, `ContentItem-RemovingById`, `ContentItem-HardRemovingById`, `ContentItem-RetrievingById` | `ContentItem-Added`, `ContentItem-Modified`, `ContentItem-Removed` |
-| `ContentItemProcessingService` | `ContentItemProcessing-Adding`, `ContentItemProcessing-Modifying`, `ContentItemProcessing-RemovingById` | `ContentItemProcessing-Added`, `ContentItemProcessing-Modified`, `ContentItemProcessing-Removed` |
+| `ContentItemProcessingService` | `ContentItemProcessing-Adding`, `ContentItemProcessing-Modifying`, `ContentItemProcessing-RemovingById`, `ContentItemProcessing-RetrievingById` | `ContentItemProcessing-Added`, `ContentItemProcessing-Modified`, `ContentItemProcessing-Removed` |
 | `LinkProcessingService` | `LinkProcessing-Adding`, `LinkProcessing-Modifying`, `LinkProcessing-RemovingById`, `LinkProcessing-RetrievingById` | `LinkProcessing-Added`, `LinkProcessing-Modified`, `LinkProcessing-Removed` |
 
 1. Create operations emit an `-Added` fact.
@@ -70,16 +73,20 @@ collisions:
 3. Soft delete operations emit a `-Removed` fact.
 4. Hard delete operations emit a `-Removed` fact too — `HardRemoved` is
    published to the **same** address as `Removed`, deliberately, for every
-   entity. The two are told apart by the composed event name, which is bound
-   into the envelope's signature, not by a separate address. This corrects an
-   earlier claim in this section (carried forward unchecked from
-   `G2H Design.md` §10.2 rule 4 during the unification, then caught by review):
-   every entity has a `HardRemovingById` request handler registered in
-   `EventSubscriptionRegistration`, and `EventBrokerIdentifiers` maps every
+   entity that has a hard-remove operation at all. The two are told apart by
+   the composed event name, which is bound into the envelope's signature, not
+   by a separate address. This corrects an earlier claim in this section
+   (carried forward unchecked from `G2H Design.md` §10.2 rule 4 during the
+   unification, then caught by review): every entity that publishes
+   `HardRemoved` has a `HardRemovingById` request handler registered in
+   `EventSubscriptionRegistration`, and `EventBrokerIdentifiers` maps that
    entity's `HardRemoved` onto its `Removed` address — hard deletes are
-   implemented and event-invokable, universally, not merely planned. §EVN18(a)
-   already documented this correctly for the workflow records; this rule did
-   not match it.
+   implemented and event-invokable, not merely planned. §EVN18(a) already
+   documented this correctly for the workflow records; this rule did not match
+   it. **Not universal**, though: `Attachment` has no hard-remove operation at
+   all — its event operation enum stops at `Removed`, and
+   `EventBrokerIdentifiers` has no `HardRemoved` mapping for it — so a claim of
+   "every entity" was itself an overcorrection, caught on the next review pass.
 5. A service publishes a fact only about its **own** unit of work. A foundation
    `-Added` means a row was written; an orchestration `-Added` means that
    orchestrated process completed with its gates passed and its invariants
@@ -303,7 +310,13 @@ path. **No rule is ever decided on it.** Authorisation compares `SubjectId`, and
 audit stamps `CreatedBy`/`UpdatedBy` from the subject claim — two accounts can
 share a display name, so a rule matching on a name is a privilege escalation.
 
-### EVN7.1 Authentication Flow Examples *(formerly §10.7.1)*
+### Authentication Flow Examples *(formerly §10.7.1)*
+
+Not given its own `EVN` number — it is a subsection of §EVN7 rather than a
+citable top-level section, so a decimal suffix here (`EVN7.1`) would be the
+one place this document contradicts its own flat, non-decimal numbering rule.
+No production code cites `§10.7.1` directly, so nothing needs a grep-anchor
+number to resolve.
 
 **OpenID Connect user login:**
 
@@ -448,11 +461,13 @@ written and is no longer accurate. What follows is `EventSubstrate.md` §5.10's
 reasoning, carried forward because the implementation that was actually built
 follows it: the "why" survived even though the surrounding scheme did not.
 
-The signature covers:
+The signature covers, serialized together into one `SignedPayload<T>` object and
+HMAC'd whole — there is no separate content-hash step; `Content` is bound by
+being part of that one signed object, the same as every other section below:
 
 1. `SecurityContext`
 2. `RequestContext`
-3. A hash of `Content`
+3. `Content`, in full
 4. `Metadata` — in full
 5. The **composed event name** (`$"{entityName}{operation}"`), supplied by the
    caller
@@ -488,8 +503,8 @@ can sign: the envelope factory does not know the destination, so it cannot be
 the signer. Signing happens at publish, where the name is known.
 
 **`Metadata` is signed in full.** Excluding it would leave `Version` — the
-schema selector — forgeable over hashed content, which is a downgrade attack
-against the hash itself.
+schema selector — forgeable alongside an otherwise-genuine signature, which is
+a downgrade attack against the signed payload itself.
 
 **Replies are envelopes too.** A handler's reply carries the original caller's
 `SecurityContext` verbatim and is minted with a fresh `EventId` that no dedupe
@@ -506,6 +521,12 @@ bytes unchanged. That requires the receiver to check the id against
 public sealed class EnvelopeIntegrity
 {
     public string Algorithm { get; init; } = "HMACSHA256";
+
+    // Which signing key produced this signature — lets the key be rotated
+    // without invalidating envelopes already signed under the previous one:
+    // VerifyAsync looks the key up by KeyId rather than assuming there is
+    // only ever one.
+    public string KeyId { get; init; } = string.Empty;
 
     public string Signature { get; init; } = string.Empty;
 
@@ -525,8 +546,7 @@ public interface IEnvelopeIntegrityBroker
     ValueTask<EnvelopeIntegrity> SignAsync<T>(
         EventEnvelope<T> envelope,
         string eventName,
-        EnvelopeDirection direction,
-        CancellationToken cancellationToken = default);
+        EnvelopeDirection direction);
 
     // Returns false for a bad signature, a missing one, a name mismatch,
     // or a direction mismatch. The caller supplies the name it expects and
@@ -534,8 +554,7 @@ public interface IEnvelopeIntegrityBroker
     ValueTask<bool> VerifyAsync<T>(
         EventEnvelope<T> envelope,
         string expectedEventName,
-        EnvelopeDirection expectedDirection,
-        CancellationToken cancellationToken = default);
+        EnvelopeDirection expectedDirection);
 }
 ```
 
@@ -587,7 +606,7 @@ Foundation services follow a dual-path shape (see `ContentItemService` as the
 template):
 
 - **Non-event path**: receive the object → convert to a request envelope via
-  `IEventEnvelopeFactory.CreateAsync` (captures the caller's `SecurityContext`,
+  `IEventEnvelopeBroker.CreateAsync` (captures the caller's `SecurityContext`,
   stamps event/correlation identifiers) → call the shared private `DoXAsync`
   method.
 - **Event path** (the `.Substrate` partial): one `On<Operation><Entity>Async`
@@ -601,15 +620,18 @@ The `DoXAsync` methods own auditing, validation, storage, and publishing the
 past-tense fact, so the two paths cannot diverge; §EVN19 rules where the storage
 half ends and the publishing half begins, because nothing binds them and a
 failed publish strands the row it was announcing; every hop chains causation
-through `IEventEnvelopeFactory.CreateNextAsync` (fresh `EventId`, `CausationId`
+through `IEventEnvelopeBroker.CreateNextAsync` (fresh `EventId`, `CausationId`
 = source event, security/request context carried forward). Substrate handlers
 categorize failures into the service's typed exceptions and rethrow —
 deliveries record `Error` and retry; failures are never swallowed. Hard removal
-**is** event-invokable, via `HardRemovingById` on every entity's request
-address, publishing `HardRemoved` onto the same address as `Removed` (§EVN2
-rule 4, §EVN18(a)) — this paragraph originally claimed the opposite; corrected
-during review. Reads publish no fact — a retrieve's reply rides the delivery's
-response.
+**is** event-invokable for every entity that has one, via `HardRemovingById` on
+that entity's request address, publishing `HardRemoved` onto the same address
+as `Removed` (§EVN2 rule 4, §EVN18(a)) — this paragraph originally claimed the
+opposite; corrected during review. Not every entity has a hard-remove
+operation at all — `Attachment` is the exception (§EVN2 rule 4) — so "every
+entity's request address" above means every entity that publishes
+`HardRemoved`, not literally all of them. Reads publish no fact — a retrieve's
+reply rides the delivery's response.
 
 The broker keeps per-entity pub/sub methods (`PublishContentItemAsync`,
 `SubscribeToContentItemEventAsync`, and so on), so publishing and subscribing
@@ -629,7 +651,7 @@ Controller (thin pass-through)
     ↓
 Orchestration / Foundation Service
     ↓
-Create EventEnvelope<T> via IEventEnvelopeFactory
+Create EventEnvelope<T> via IEventEnvelopeBroker
     ↓
 Publish using EventBroker (EventHighway)
     ↓
@@ -655,7 +677,7 @@ Controller (thin pass-through)
     ↓
 Orchestration / Foundation Service
     ↓
-Create EventEnvelope<T> via IEventEnvelopeFactory
+Create EventEnvelope<T> via IEventEnvelopeBroker
     ↓
 Serialize envelope
     ↓
@@ -678,7 +700,7 @@ Controllers are thin exposure points. Like brokers, they exist only to let
 requests into the business domain — they carry no business logic and must not
 build `SecurityContext`, `RequestContext`, `EventMetadata`, or `EventEnvelope<T>`.
 Envelopes and events are created only by internal services (coordinations,
-orchestrations, processings, foundations) via `IEventEnvelopeFactory`.
+orchestrations, processings, foundations) via `IEventEnvelopeBroker`.
 
 The controller should:
 
@@ -707,30 +729,35 @@ public async ValueTask<IActionResult> PostStudentAsync(
 
 ## EVN14. Event Handler Pattern *(formerly §10.13)*
 
-Event handlers should accept the envelope and pass it to the relevant
-orchestration service.
+There is no standalone handler class. §EVN11 already states this — subscriptions
+are delegate-based, not `IEventReceiver<T>`-style DI-resolved receiver classes
+(§EVN22 names that discarded shape) — this section previously repeated the
+discarded shape as if it were current; corrected to the real one. The receiving
+service implements an `On<Verb><Entity>Async` method as part of its own
+`.Substrate` partial, and `EventSubscriptionRegistration` binds it as a delegate
+at startup:
 
 ```csharp
-public sealed class StudentCreatedEventHandler
-{
-    private readonly IStudentOrchestrationService studentOrchestrationService;
+// IContentItemService.Substrate.cs
+ValueTask<EventEnvelope<ContentItem>?> OnAddingContentItemAsync(
+    EventEnvelope<ContentItem> envelope);
+```
 
-    public StudentCreatedEventHandler(
-        IStudentOrchestrationService studentOrchestrationService)
+```csharp
+// EventSubscriptionRegistration.cs
+await this.eventBroker.SubscribeToContentItemEventAsync(
+    subscription: new EventSubscription
     {
-        this.studentOrchestrationService = studentOrchestrationService;
-    }
+        Id = EventBrokerIdentifiers.ContentItemOnAddingContentItemSubscriptionId,
+        Name = EventBrokerIdentifiers.ContentItemOnAddingContentItemSubscriptionName,
 
-    public async ValueTask HandleAsync(
-        EventEnvelope<Student> envelope,
-        CancellationToken cancellationToken)
-    {
-        await this.studentOrchestrationService
-            .OrchestrateStudentCreationAsync(
-                envelope,
-                cancellationToken);
-    }
-}
+        Description = "Handles add requests: stores the content item, publishes " +
+            "ContentItem-Added, and replies with the added entity."
+    },
+    operation: ContentItemEventOperation.Adding,
+    contentItemEventHandler: Scoped<IContentItemService, ContentItem>(
+            service => service.OnAddingContentItemAsync),
+    cancellationToken: cancellationToken);
 ```
 
 ## EVN15. Envelope Validation *(formerly §10.14)*
@@ -833,70 +860,79 @@ a specific and justified reason.
 Avoid placing authorization decisions only in controllers when orchestration
 services are responsible for business workflow decisions.
 
-Avoid scattering magic-string role and scope names throughout orchestration
-services. Keep role and claim names in a central constants class and perform
-checks through `ISecurityBroker`.
+Avoid scattering magic-string role and scope names throughout services. Keep
+role and claim names in a central constants class (`Roles`) and perform
+ordinary role checks against the envelope's own `SecurityContext.Roles`.
 
 ## EVN17. Authorization in Orchestration Services *(formerly §10.16)*
 
-Authorization is performed where the business decision is required — inside the
-orchestration service — using `ISecurityBroker` directly. A separate
-permission/authorization service is not used.
+There is no generic `ISecurityBroker` with primitives like `IsInRoleAsync` or
+`GetCurrentUserAsync` — no such interface exists in this codebase, and this
+section previously invented one; corrected to the two real patterns actually
+in use.
 
-`ISecurityBroker` provides the required primitives:
-
-```csharp
-public interface ISecurityBroker
-{
-    ValueTask<User> GetCurrentUserAsync();
-    ValueTask<bool> IsCurrentUserAuthenticatedAsync();
-    ValueTask<bool> IsInRoleAsync(string roleName);
-    ValueTask<bool> UserHasClaimAsync(string claimType, string claimValue);
-    ValueTask<bool> UserHasClaimAsync(string claimType);
-    ValueTask<SecurityContext> GetCurrentSecurityContextAsync();
-}
-```
-
-Example usage in an orchestration service:
+**Ordinary role and veto checks read `SecurityContext.Roles` directly**, in
+whichever service's `.Validations` partial owns the write being gated —
+foundation or orchestration, whichever is closest to the decision. No broker
+call is involved:
 
 ```csharp
-public ValueTask<ContentItem> AddContentItemAsync(
-    ContentItem contentItem,
-    CancellationToken cancellationToken) =>
-TryCatch(async () =>
+private static void ValidateUserIsAllowedToContribute(
+    SecurityContext securityContext,
+    ContentType contentType)
 {
-    bool isAuthenticated =
-        await this.securityBroker.IsCurrentUserAuthenticatedAsync();
+    if (securityContext is null || securityContext.IsAuthenticated is false)
+    {
+        throw new UnauthorizedContentItemException(
+            message: "The current user is not authenticated.");
+    }
 
     // all three tiers of the veto, and the narrow one is composed from the row's own
     // content type — a block at any of them bars the write (§18.6 rule 2)
     bool isBlocked =
-        await this.securityBroker.IsInRoleAsync(Roles.ReadOnly)
-            || await this.securityBroker.IsInRoleAsync(Roles.ContentItemReadOnly)
-            || await this.securityBroker.IsInRoleAsync(
-                Roles.ReadOnlyFor(EntityType.ContentItem, contentItem.ContentType));
+        securityContext.Roles.Contains(Roles.ReadOnly)
+            || securityContext.Roles.Contains(Roles.ContentItemReadOnly)
+            || securityContext.Roles.Contains(
+                Roles.ReadOnlyFor(EntityType.ContentItem, contentType));
 
-    ValidateUserIsAllowedToContribute(isAuthenticated, isBlocked);
+    if (isBlocked)
+    {
+        throw new UnauthorizedContentItemException(
+            message: "The current user is blocked from contributing content items.");
+    }
+}
+```
 
-    ContentItem createdContentItem =
-        await this.contentItemService.AddContentItemAsync(
-            contentItem,
-            cancellationToken);
+**Cross-table approval decisions go through `IAccessBroker` instead**, because
+they depend on rows a single-entity service cannot see for itself — the
+approval, its settings, its reviews and its comments. `IAccessBroker` gathers
+those rows and hands them to the security client, which decides; it returns a
+verdict, never the settings, so the decision logic has exactly one home rather
+than seven (one per approvable entity):
 
-    return createdContentItem;
-});
+```csharp
+AccessVerdict decisionVerdict = await this.accessBroker.MayDecideApprovalByIdAsync(
+    approvalId: approvalMatch.Id,
+    decision: ApprovalDecision.Approve,
+    isBypassRequested: false,
+    bypassReason: null,
+    securityContext: securityContext,
+    cancellationToken: cancellationToken);
+
+ValidateApprovalDecisionIsPermitted(decisionVerdict);
 ```
 
 Rules:
 
-1. Role and claim names must live in a central constants class (e.g. `Roles`) —
-   no magic strings scattered through orchestration services.
+1. Role and claim names must live in a central constants class (`Roles`) — no
+   magic strings scattered through services.
 2. Controllers must not perform business authorization; they rely on
    authentication middleware and standard policy attributes for coarse access
    only.
 3. The `SecurityContext` for event envelopes is obtained via
-   `ISecurityBroker.GetCurrentSecurityContextAsync()` inside the service that
-   creates the envelope (`IEventEnvelopeFactory`).
+   `IEventEnvelopeBroker.CreateAsync`, which captures the ambient caller when
+   the envelope is created — there is no separate
+   `GetCurrentSecurityContextAsync()` call.
 
 ## EVN18. Approval Workflow Wiring *(formerly §10.17)*
 
@@ -1236,8 +1272,12 @@ itself is at-least-once.**
     service that opts out reintroduces the defect for its entity. §EVN2 rule 5 is
     unchanged in substance — a service still publishes exactly one fact about
     its own completed unit of work — but "once the work is done" now means once
-    the work is *committed*, with the fact following. Reads publish no fact and
-    hard removal publishes none, so neither is affected.
+    the work is *committed*, with the fact following. Reads publish no fact, so
+    this rule does not touch them. Hard removal is not exempt the same way —
+    it really does publish `HardRemoved` (§EVN2 rule 4, §EVN11) — so it follows
+    this template exactly as any other write does; an earlier draft of this
+    rule claimed otherwise, missed on an earlier review pass, and is corrected
+    here.
 
 11. **A composing layer gets the weaker half of this, deliberately.** Rules 1–2
     bind a fact to the write it announces, which a foundation owns. A
