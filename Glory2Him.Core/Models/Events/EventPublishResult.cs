@@ -11,13 +11,21 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Glory2Him.Core.Models.Events
 {
     /// <summary>
     /// The result of publishing an event: the persisted event's identifier and the
     /// dispatch-time outcome of every delivery, including any reply envelopes returned by
-    /// responder subscriptions. Notification-style publishers may simply ignore this result.
+    /// responder subscriptions.
+    ///
+    /// <para><b>A publisher does not get to ignore this.</b> Delivery is contained rather than
+    /// propagated, so a subscriber that failed says so HERE and nowhere else, and nothing
+    /// redelivers it today. §10.19 rules who must look: an address carrying a state-writing
+    /// subscriber is a required delivery whose result must be inspected, and only an address
+    /// nobody subscribes to may discard it. Inspecting unconditionally is the cheap answer —
+    /// an unsubscribed address returns no deliveries at all.</para>
     /// </summary>
     /// <typeparam name="T">The type of the domain event content payload.</typeparam>
     public sealed class EventPublishResult<T>
@@ -32,5 +40,13 @@ namespace Glory2Him.Core.Models.Events
         /// time. Empty when the address has no subscriptions.
         /// </summary>
         public IReadOnlyList<EventDelivery<T>> Deliveries { get; init; } = [];
+
+        /// <summary>
+        /// Whether any subscription failed to receive the event at dispatch time. False for an
+        /// address nobody subscribes to, which is what lets a publisher inspect without first
+        /// knowing whether its address is subscribed (§10.19 rule 1).
+        /// </summary>
+        public bool HasFailedDeliveries =>
+            Deliveries.Any(delivery => delivery.IsSuccess is false);
     }
 }
