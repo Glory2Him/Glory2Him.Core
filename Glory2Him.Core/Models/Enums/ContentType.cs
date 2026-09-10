@@ -16,7 +16,7 @@ namespace Glory2Him.Core.Models.Enums
     /// rules in the foundation service, so it cannot be created at runtime without a code
     /// change — hence a fixed enum rather than a database-backed entity (design §3.6).
     ///
-    /// <para>Values are persisted as strings (design §10.2) and are <b>append-only</b>:
+    /// <para>Values are persisted as strings (design §3.7) and are <b>append-only</b>:
     /// never renumbered, never reused. A content item's <c>ContentType</c> is denormalised
     /// onto association rows and composes content-type-scoped role names (design §18.6), so
     /// a rename or renumber silently reassigns authority and identity that already exists.

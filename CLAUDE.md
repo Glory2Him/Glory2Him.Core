@@ -1,16 +1,18 @@
 # Glory2Him.Core
 
 A collaborative content portal built to The Standard. See `INTENT.md` for what the
-system does and `Documentation/G2H Design.md` for how it is designed.
+system does, and `Documentation/G2H Design.md` with
+`Documentation/Design/Events.md` for how it is designed.
 
 ## Where the rules live
 
 - **The Standard** — `.claude/skills/the-standard-*`. These own the layer model,
   naming, testing discipline, and the commit, branch and PR formats. Load the
   skill for the layer you are working in rather than working from memory.
-- **The design** — `Documentation/G2H Design.md` on main is authoritative. An
-  issue that disagrees with it is stale intent, not an instruction; correct the
-  issue.
+- **The design** — `Documentation/G2H Design.md` on main is authoritative, with
+  event design split out into `Documentation/Design/Events.md`; §10 of the main
+  document is a pointer to it. An issue that disagrees with either is stale
+  intent, not an instruction; correct the issue.
 - **The CI gates** — `.github/workflows/prLinter.yml` holds the authoritative PR
   title prefixes and fails any PR whose body links no issue or task. `Closes
   #<n>` is the preferred form; `fixes`/`resolves` (and their past-tense
@@ -23,8 +25,9 @@ Non-trivial work moves through four roles, defined in `.claude/agents/`. Each
 hands over a durable artifact, not a conversation.
 
 1. **architect** — settles layer placement, event contracts and the security
-   boundary, recorded in `Documentation/G2H Design.md`. Skip only for changes
-   touching a single file, no schema, no event and no boundary.
+   boundary, recorded in `Documentation/G2H Design.md`, or in
+   `Documentation/Design/Events.md` where the subject is event design. Skip only
+   for changes touching a single file, no schema, no event and no boundary.
 2. **analyst** — writes numbered acceptance criteria into the GitHub issue.
    Requires approval before the developer starts.
 3. **developer** — test first, `-> FAIL` then `-> PASS`, one criterion at a time.
@@ -47,8 +50,11 @@ spelled out in full, such as `Opus 5 - Medium`.
 - Brokers hold no logic and get no unit tests.
 - No layer calls two layers below it — **except** an orchestration depending
   only on foundation services (never a mix of foundation and processing, and
-  never a broker), which `Documentation/EventSubstrate.md` documents as a valid
-  shape and `.claude/agents/architect.md` and `qa.md` enforce as "same kind,
+  never a broker). `Documentation/G2H Design.md` §12.1 rule 2 and §12.5 record
+  the exception and no more: an orchestration reaches each entity through its
+  processing service where one exists, its foundation service where none does.
+  The narrowing to one kind — processing services or foundation services, never
+  both — is owned by `.claude/agents/architect.md` and `qa.md`, as "same kind,
   never mixed". This deliberately overrides `the-standard-orchestrations`'
   blanket ban on it — see those two agent files for the reasoning.
 - Schema changes are new migrations. Applied migrations are never edited, and a

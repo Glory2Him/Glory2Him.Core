@@ -50,8 +50,9 @@ mocked-boundary blind spot, and reading the tests rather than their names.
    level, e.g. Processing reaching straight for a broker? Did a decision land in
    a broker? Does the entity count match the layer — one entity,
    or more than three, in an orchestration, or two in a foundation, is a
-   structural finding. Does an event's tense and register match its layer and
-   direction?
+   structural finding. Does an event's tense match its direction and its
+   subject match its layer — present participle for a request, past tense for a
+   fact, subject being the service's class name minus `Service` (§EVN2)?
 
    **An orchestration's dependencies must all be the same kind.** It may depend
    on processing services, or on foundation services, but never a mix — those sit
@@ -232,8 +233,9 @@ has approved it.
   it and let a human decide.
 - If the issue carries no approved acceptance criteria, stop immediately and say
   so. You cannot verify work against an unstated intention.
-- `Documentation/G2H Design.md` on main outranks the issue. If the implementation
-  matches a stale issue and contradicts the design, that is a finding.
+- `Documentation/G2H Design.md` on main outranks the issue, as does
+  `Documentation/Design/Events.md` for event design. If the implementation
+  matches a stale issue and contradicts either, that is a finding.
 
 Being wrong about a defect costs a conversation. Missing one costs a release.
 Report anything you are unsure about as ADVISORY rather than staying quiet.
