@@ -95,6 +95,44 @@ unless the test sets the type explicitly. `GetRandomDateTimeOffset()` can draw
 from year 0001, so `AddDays(-n)` on it throws — pin the date when the test
 subtracts from it.
 
+**Security tests are not optional.**
+
+- **Every exposer** — controllers included — gets security tests proving the role
+  restrictions are actually enforced for the acting user context, not merely
+  declared by an attribute.
+- **Every service owns its own security.** Where a flow has more than one actor,
+  security tests MUST prove that only a valid actor can act and that a bad actor
+  is refused. Do not assume the layer above filtered for you.
+- Remember that a read filtered by identity returns nothing both when the row is
+  absent and when the caller may not see it. A test that cannot tell those apart
+  has not proven the restriction.
+
+**Acceptance tests** mock only what we do not own.
+
+- Do **not** mock the storage broker, or anything else in this solution. We own
+  it and we have access to it, so the test uses the real thing.
+- Mock **external** resources only, with a tool such as WireMock —
+  `WireMock.Net` is already referenced by
+  `Glory2Him.Core.Tests.Acceptance.csproj`.
+- Every acceptance test does setup, then the exercise, then cleanup. Cleanup must
+  leave no data behind. Data still present at the end is not cosmetic — it means
+  the test failed to tear down or died mid-run, and both are defects in the test.
+- For anything behind authentication, drive it under a mocked security context
+  rather than skipping it. See "Verifying your own work" below.
+
+**Integration tests** prove the SQL a unit test cannot.
+
+- They run against a real database, not a mock. The fixtures own a disposable
+  LocalDB catalogue named `Glory2Him.Core_Integration_<process id>`, created and
+  dropped per run, with a name-prefix guard in
+  `Glory2Him.Core.Tests.Integration/Brokers/IntegrationDatabase.cs` that refuses
+  to touch a database not matching that prefix. Leave that guard alone.
+- This is where a narrow read, a collation-sensitive predicate, an index or a
+  migration is actually proven. A unit test asserting the arguments a broker
+  received says nothing about whether the SQL is correct.
+- Setup, exercise, cleanup — same rule as acceptance. The per-run catalogue is
+  the outer cleanup boundary, not a licence to leave rows behind inside it.
+
 **Migrations.** A schema change is a new migration, never an edit to an applied
 one. A migration script runs as a single batch, so adding a column and then
 updating it needs `EXEC`. The script path is the deploy path — verify it there,
@@ -103,6 +141,45 @@ not only through `dotnet ef`.
 **ContentType changes force a seed change.** The narrow role tier is seeded by
 walking the enum, and an unseeded role fails silently rather than erroring.
 
+## Verifying your own work
+
+You verify what you build. If you changed UI, the component gets built and
+validated — not described. "I have done the work but could not confirm it because
+I am not allowed to enter credentials" is not an acceptable report: every area is
+protected, so working under a mocked security context is the normal path, exactly
+as the acceptance tests do.
+
+Three routes already exist. Use them before reporting anything as unverified:
+
+1. **React rendering under any role, no server and no credentials.**
+   `AuthContextOverride` in
+   `Websites/Glory2Him.WebApp.React/src/components/securitys/authProvider.tsx`
+   stands up any `{ userId, displayName, roles }` for a subtree. It gates
+   rendering only — the server still re-decides every write against the stored
+   row — so it is safe for checking what a given role sees.
+
+2. **A rendered page without signing in.** Render the real component to HTML in a
+   throwaway test, link the app's stylesheets, serve it off the dev server and
+   drive it in the browser. Prefer asserting computed state over eyeballing a
+   screenshot. Delete the scratch files before committing.
+
+3. **Real HTTP under any role.**
+   `Websites/Glory2Him.WebApp.Tests.Acceptance/TestAuthHandler.cs` accepts
+   `X-Test-Anonymous`, `X-Test-UserId` and `X-Test-Roles`. This is where a
+   server-side role question gets answered.
+
+**Never extend route 3 into the shipped host.** Its safety is that it exists only
+in the test project. A header-forged identity in the running app would be signed
+into the event envelope and become indistinguishable from a genuine one
+downstream. If a whole signed-in journey genuinely must be driven in a real
+browser, that is the one case to hand back to the user.
+
+Running the dev host from a worktree needs
+`Websites/Glory2Him.WebApp/appsettings.Development.json` copied in from the main
+checkout — it is git-ignored and carries the event envelope signing key, without
+which every `/api/...` read answers 500. That is a missing file, not a defect in
+your change.
+
 ## Hard gates
 
 Report a task complete only when all of these hold. If any fails, say so plainly
@@ -110,6 +187,11 @@ rather than working around it:
 
 - Every acceptance criterion has at least one test asserting it.
 - The six standard paths are covered: happy, validation, dependency, service, cancellation token cancelled, and cancellation token timeout.
+- Every exposer touched has a security test proving its role restrictions are
+  enforced, and every multi-actor flow has one proving a bad actor is refused.
+- Every acceptance test cleans up after itself and leaves no data behind.
+- Anything you changed that renders has been built and validated under a mocked
+  security context, not merely described.
 - The full suite passes. Not "passes except for one unrelated failure".
 - Zero skipped tests introduced by this change.
 - Every line you added is covered by a test that would fail without it.
