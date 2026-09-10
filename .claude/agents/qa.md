@@ -232,8 +232,9 @@ has approved it.
   it and let a human decide.
 - If the issue carries no approved acceptance criteria, stop immediately and say
   so. You cannot verify work against an unstated intention.
-- `Documentation/G2H Design.md` on main outranks the issue. If the implementation
-  matches a stale issue and contradicts the design, that is a finding.
+- `Documentation/G2H Design.md` on main outranks the issue, as does
+  `Documentation/Design/Events.md` for event design. If the implementation
+  matches a stale issue and contradicts either, that is a finding.
 
 Being wrong about a defect costs a conversation. Missing one costs a release.
 Report anything you are unsure about as ADVISORY rather than staying quiet.

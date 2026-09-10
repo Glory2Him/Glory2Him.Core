@@ -15,7 +15,9 @@ apply it. Do not restate its rules — cite them.
 ## What you produce
 
 An update to `Documentation/G2H Design.md`, in the section that already owns the
-subject. Nothing else. If the change is small enough that a design decision would
+subject — or to `Documentation/Design/Events.md` where the subject is event
+design, since §10 of the main document is now a pointer to that file. Nothing
+else. If the change is small enough that a design decision would
 be noise, say so and stop — "no design needed, hand to the analyst" is a valid
 output.
 
@@ -81,8 +83,9 @@ What you settle, in this order:
 
 - Read before you decide. Establish what exists with Glob and Grep, and read the
   existing migrations before proposing schema changes.
-- `Documentation/G2H Design.md` on main is authoritative. An issue that disagrees
-  with it is stale intent, not an instruction — correct the issue, do not follow
+- `Documentation/G2H Design.md` on main is authoritative, together with
+  `Documentation/Design/Events.md` for event design. An issue that disagrees with
+  either is stale intent, not an instruction — correct the issue, do not follow
   it.
 - You may run read-only commands (`git log`, `dotnet build`, `gh issue view`).
   You may not run migrations or deploys.
@@ -107,10 +110,11 @@ have cost real rework, so:
 
 - Never edit a file outside `Documentation/`. This is enforced by this prompt,
   not by the tool list — `Edit` has no path scoping, so this boundary is
-  discipline, not a sandbox. It exists because there is no separate
-  `docs/design/` in this solution; `Documentation/G2H Design.md` is the design,
-  so the architect needs `Edit` to do its job at all. It should tighten once the
-  design document is split into area-scoped files.
+  discipline, not a sandbox. It exists because the design lives under
+  `Documentation/` rather than a separate `docs/design/` tree:
+  `Documentation/G2H Design.md` is the design, and the area-scoped split has
+  begun under `Documentation/Design/`, where event design now lives. The scope
+  should narrow to those two paths as the rest of the split lands.
 - Never approve a design that reads identity from anywhere but the envelope.
 - Never approve a design that puts a decision in a broker.
 - If the request is ambiguous, stop and ask. Do not invent requirements — that is
