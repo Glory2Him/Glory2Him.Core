@@ -27,6 +27,21 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Links
     /// high-water mark and the published-slot incumbent, proved against a real catalogue now that
     /// the predicates live in the broker rather than being composed onto a live queryable and
     /// executed synchronously in the service.
+    ///
+    /// <para><b>Why this duplicate is deliberate.</b> #486 ruled that a mechanism should be proved
+    /// once rather than per entity, and this file was deleted on that reading. It came back,
+    /// because the ruling does not transfer here: the Link and ContentItem predicates are
+    /// duplicated SOURCE, not one shared declaration, so proving the shape once proves nothing
+    /// about the other copy. Deleting this left three predicates — the version high-water mark
+    /// (#271), the tip derivation and the published-slot probe — executable nowhere, since the
+    /// unit suite mocks <c>IStorageBroker</c> and production reaches them only through the
+    /// publication swap and the fork, which no acceptance test drives.</para>
+    ///
+    /// <para>A fixture parameterised over both entities was the alternative. It was rejected as
+    /// the more expensive answer: per-entity broker method names force a delegate-adapter table,
+    /// and the complexity costs more than the duplication saves. Design §5.6.4 records the same
+    /// lesson from the published-slot indexes — hand-written twins drift, and the fix was to
+    /// assert every one.</para>
     /// </summary>
     [Collection(NarrowReadIntegrationCollection.Name)]
     public sealed class LinkNarrowReadTests : IDisposable
@@ -101,8 +116,11 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Links
         [Fact]
         public async Task ShouldFindThePublishedTombstoneHoldingTheGroupSlotAsync()
         {
-            // given: a soft delete never clears IsPublished, and the slot index names that column
-            // alone, so the tombstone still holds the slot
+            // given: a soft delete never clears IsPublished and the slot READ carries no IsDeleted
+            // conjunct, so the tombstone still surfaces as the incumbent. The index does not say
+            // so — migration 20260830122844_FilterPublishedSlotIndexesOnLiveRows narrowed
+            // UX_Links_GroupId_IsPublished to [IsPublished] = 1 AND [IsDeleted] = 0 — which is
+            // exactly why the read needs its own proof.
             Guid groupId = Guid.NewGuid();
 
             Link publishedTombstone = CreateLink(groupId: groupId, version: 1);

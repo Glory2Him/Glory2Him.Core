@@ -185,7 +185,8 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
     /// <summary>
     /// Binds <see cref="NarrowReadQueryBroker"/> to a collection so xUnit builds it once, shares
     /// it, and disposes it once at the end — and so the tests inside it are serialised, because
-    /// they share four tables.
+    /// they share one <see cref="StorageBroker"/> instance. The member classes read disjoint
+    /// tables, so it is the single context, not the tables, that makes concurrency unsafe.
     /// </summary>
     [CollectionDefinition(NarrowReadIntegrationCollection.Name)]
     public sealed class NarrowReadIntegrationCollection

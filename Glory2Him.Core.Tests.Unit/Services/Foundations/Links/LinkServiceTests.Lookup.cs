@@ -72,8 +72,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
         public async Task ShouldReturnWhateverRowHoldsTheGroupSlotAsync()
         {
             // given: a row the caller-facing reads would never show. WHY the slot read returns
-            // it — a soft delete never clears IsPublished, and the slot index names that column
-            // alone — is proved in LinkNarrowReadTests; what is proved here is that the service
+            // it — a soft delete never clears IsPublished, and the READ carries no IsDeleted
+            // conjunct — is proved in LinkNarrowReadTests; what is proved here is that the service
             // hands back whatever that read names, without filtering it a second time.
             var groupId = Guid.Parse("dddddddd-1111-1111-1111-111111111111");
             var tombstoneId = Guid.Parse("dddddddd-2222-2222-2222-222222222222");
