@@ -48,12 +48,44 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Approvals
             this.seededApprovals = new List<Approval>();
         }
 
-        // A plain hit on the key and a plain miss on an unoccupied one used to be asserted here
-        // as well. Both were removed by #486: that EF translates `a == x && b == y` was never in
-        // doubt, and a mock returning the seeded row proves exactly as much. The hit is subsumed
-        // by the unfiltered-match test below, which reads a seeded row back off the key, and the
-        // miss by the half-key test at the bottom, which is the one with real bite — it fails if
-        // either conjunct is dropped, where a lone miss on an entirely different key does not.
+        // A plain miss on an unoccupied key used to be asserted here too. #486 removed it as
+        // subsumed by the half-key test at the bottom, which is the one with real bite — that one
+        // fails if either conjunct is dropped, where a lone miss on an entirely different key
+        // does not. That reasoning holds and the miss stays deleted.
+        //
+        // The plain HIT was removed on the same grounds and put back, because the grounds were
+        // wrong. Every other read-back in this file resolves a SOFT-DELETED row: the unfiltered
+        // match seeds isDeleted: true, and the index-refusal test asserts on the tombstone that
+        // won the key. Mutate the probe to `... && approval.IsDeleted` and all three still pass,
+        // while in production every live approval reads as absent and the flow inserts a
+        // duplicate the unique index then refuses. This is the only test that says a live row on
+        // an occupied key comes back at all.
+        [Fact]
+        public async Task ShouldReturnTheRowOccupyingTheKeyAsync()
+        {
+            // given
+            Guid probeEntityId = Guid.NewGuid();
+
+            Approval storageApproval = CreateApproval(
+                entityType: ProbeEntityType,
+                entityId: probeEntityId,
+                approvalStatus: ApprovalStatus.Approved,
+                isDeleted: false,
+                updatedWhen: DateTimeOffset.UtcNow);
+
+            await SeedAsync(storageApproval);
+
+            // when
+            Approval match = await this.broker.StorageBroker.SelectApprovalByEntityAsync(
+                ProbeEntityType,
+                probeEntityId,
+                TestContext.Current.CancellationToken);
+
+            // then
+            match.Should().NotBeNull();
+            match.Id.Should().Be(storageApproval.Id);
+            match.IsDeleted.Should().BeFalse();
+        }
 
         /// <summary>
         /// UX_Approvals_EntityType_EntityId is not filtered on IsDeleted, so a soft-deleted row

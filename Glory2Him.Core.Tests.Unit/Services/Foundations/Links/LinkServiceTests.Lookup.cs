@@ -28,12 +28,18 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
     {
         // WHAT THESE TESTS CAN AND CANNOT SAY. They stub the narrow storage reads, so they sit
         // ABOVE the predicate rather than at it — "does this read filter tombstones" is no longer
-        // answerable here, and the stubs below deliberately do not pretend otherwise. Nor is it
-        // answered anywhere else: #486 removed the link narrow-read fixture as a per-entity
-        // re-proof of predicate translation, keeping the content-item one as the single canonical
-        // proof of the SHAPE. The link predicate bodies in StorageBroker.Link.cs are knowingly
-        // left unasserted — a divergence between them and their content-item twins would not be
-        // caught by any test in this repository.
+        // answerable here, and the stubs below deliberately do not pretend otherwise. #486 removed
+        // the link narrow-read fixture as a per-entity re-proof of predicate translation, keeping
+        // the content-item one as the single canonical proof of the SHAPE.
+        //
+        // Precisely what that left uncovered, because the blanket version of this sentence was
+        // wrong: SelectLinksByGroupIdAsync's GROUP KEYING is still proved end-to-end by the
+        // acceptance test LinkTests.GroupReads, which seeds an other-group decoy. Everything else
+        // in StorageBroker.Link.cs is knowingly unasserted — the tombstone-inclusion of that same
+        // read (the visibility filter above it hides the difference), plus the version read, the
+        // tip derivation and the published-slot probe, which production reaches only through the
+        // publication swap and the fork. A divergence there from the content-item twins would be
+        // caught by nothing.
         //
         // What is still proved here is the half the SERVICE owns and the broker cannot: that the
         // group is taken off the STORED row rather than from the caller, that the target excludes
@@ -258,9 +264,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
         //
         // The PREDICATES themselves - the unfiltered slot read that lets a tombstone still hold
         // the slot, and the version read that counts tombstones (#271) - moved into IStorageBroker
-        // with the await that lets the caller's token reach the database. Their BODIES are not
-        // asserted anywhere: #486 kept ContentItemNarrowReadTests as the one canonical proof that
-        // reads of this shape translate, and accepted that the link twins go unproved.
+        // with the await that lets the caller's token reach the database. Neither BODY is asserted
+        // anywhere - both reads are reached in production only through the publication swap and
+        // the fork, which no acceptance test drives - so #486 kept ContentItemNarrowReadTests as
+        // the one canonical proof that reads of this shape translate, and accepted that these two
+        // link twins go unproved.
         // Which row the STORAGE read would name as the group's published incumbent. Set by a test
         // that cares; left empty otherwise, in which case the probe finds nothing.
         private Guid publishedLinkId;
