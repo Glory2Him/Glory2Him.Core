@@ -28,15 +28,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
         // SelectLinksByGroupIdAsync carries it, with the token — so the stubs below hand back a
         // group's rows without re-implementing "GroupId == groupId". A stub that re-implemented
         // it would pass whether or not the real read still carried it; that the read is keyed on
-        // the group at all is proved against a real catalogue by the acceptance test
-        // LinkTests.GroupReads.ShouldServeExactlyTheGroupsNonDeletedVersionsFromTheGroupReadAsync,
-        // which seeds an other-group row and asserts it never reaches the wire.
-        //
-        // What that acceptance test CANNOT see, and what #486 left unasserted when it removed
-        // the link narrow-read fixture, is that the storage read is unfiltered on IsDeleted:
-        // RetrieveLinksByGroupIdAsync runs the §14.7 visibility filter over whatever comes back,
-        // which drops tombstones either way, so the wire payload is identical whether or not the
-        // predicate carries an IsDeleted conjunct.
+        // the group at all is proved against a real catalogue in LinkNarrowReadTests.
         //
         // What is proved here is the half the SERVICE owns: the group it asks storage for is the
         // one the caller named, and the §14.7 visibility filter runs over what comes back. That

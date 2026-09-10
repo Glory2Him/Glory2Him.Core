@@ -17,6 +17,7 @@ using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
+using Glory2Him.Core.Models.Foundations.Links;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 
@@ -104,6 +105,14 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
             }
         }
 
+        public async ValueTask SeedAsync(params Link[] links)
+        {
+            foreach (Link link in links)
+            {
+                await this.storageBroker.InsertLinkAsync(link, CancellationToken.None);
+            }
+        }
+
         /// <summary>
         /// Removes the rows a test seeded. Every read here is keyed, so cross-test rows cannot
         /// normally be seen — but the tables are shared, and a leftover row on a reused key would
@@ -151,6 +160,20 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
             }
         }
 
+        public async ValueTask ClearAsync(IEnumerable<Link> links)
+        {
+            foreach (Link link in links)
+            {
+                Link stored = await this.storageBroker.SelectLinkByIdAsync(
+                    link.Id, CancellationToken.None);
+
+                if (stored is not null)
+                {
+                    await this.storageBroker.DeleteLinkAsync(stored, CancellationToken.None);
+                }
+            }
+        }
+
         // xUnit disposes a collection fixture once, after the last test in the collection
         public void Dispose()
         {
@@ -162,7 +185,8 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
     /// <summary>
     /// Binds <see cref="NarrowReadQueryBroker"/> to a collection so xUnit builds it once, shares
     /// it, and disposes it once at the end — and so the tests inside it are serialised, because
-    /// they share three tables.
+    /// they share one <see cref="StorageBroker"/> instance. The member classes read disjoint
+    /// tables, so it is the single context, not the tables, that makes concurrency unsafe.
     /// </summary>
     [CollectionDefinition(NarrowReadIntegrationCollection.Name)]
     public sealed class NarrowReadIntegrationCollection

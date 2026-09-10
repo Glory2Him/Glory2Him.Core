@@ -232,6 +232,60 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
                 association.Id == unreachableAssociation.Id);
         }
 
+        /// <summary>
+        /// The coarse tier's A-endpoint clause, which nothing else in this file reaches.
+        ///
+        /// <para>Every other test grants <c>Tag-Reviewers</c>, and "Tag" sorts after every other
+        /// <c>EntityType</c> name under <c>Latin1_General_BIN2</c>, so
+        /// <c>CK_Association_CanonicalOrder</c> makes it impossible for a Tag endpoint to land on
+        /// A. The reviewable type therefore has to be one that sorts EARLY to test that side at
+        /// all — "ContentItem" precedes "Link", so a ContentItem reviewer is the caller that puts
+        /// the match on endpoint A. Without this, dropping
+        /// <c>reviewableEntityTypes.Contains(association.EntityAType)</c> changes no assertion in
+        /// the file.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnRowsMatchingTheCoarseTierOnTheAEndpointAsync()
+        {
+            // given: a caller whose only role is coarse over ContentItem
+            this.broker.ActAs(
+                actorUserId: Guid.NewGuid().ToString(),
+                Roles.ContentItemReviewers);
+
+            // reachable ONLY through EntityAType — the B endpoint is a Link, which this caller
+            // has no role over, and no narrow role is held so the content type cannot let it in
+            Association endpointAReachableAssociation = CreateAssociation(
+                entityAType: EntityType.ContentItem,
+                entityAContentType: ContentType.Story,
+                entityBType: EntityType.Link,
+                isPublished: false,
+                createdBy: Guid.NewGuid().ToString());
+
+            Association unreachableAssociation = CreateAssociation(
+                entityAType: EntityType.Comment,
+                entityAContentType: null,
+                entityBType: EntityType.Link,
+                isPublished: false,
+                createdBy: Guid.NewGuid().ToString());
+
+            await SeedAsync(endpointAReachableAssociation, unreachableAssociation);
+
+            // when
+            IQueryable<Association> query =
+                await this.broker.AssociationService.RetrieveAllAssociationsAsync(
+                    CancellationToken.None);
+
+            List<Association> actualAssociations =
+                await query.ToListAsync(TestContext.Current.CancellationToken);
+
+            // then
+            actualAssociations.Should().Contain(association =>
+                association.Id == endpointAReachableAssociation.Id);
+
+            actualAssociations.Should().NotContain(association =>
+                association.Id == unreachableAssociation.Id);
+        }
+
         [Fact]
         public async Task ShouldReturnRowsMatchingTheNarrowTierAndNotOtherContentTypesAsync()
         {

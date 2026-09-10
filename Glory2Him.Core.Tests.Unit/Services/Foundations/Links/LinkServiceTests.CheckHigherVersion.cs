@@ -26,11 +26,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
     ///
     /// <para>What the SERVICE owns: the contribution gate, the group-id validation, and passing
     /// the caller's group, version and token straight through. WHICH rows count as higher — live
-    /// only, same group, strictly greater — is a storage predicate, and no test asserts the LINK
-    /// predicate's body. #486 kept the content-item twin
-    /// (<c>ContentItemNarrowReadTests</c>) as the single canonical proof that a derivation of this
-    /// shape survives translation, and accepted that a link-side divergence would go
-    /// uncaught.</para>
+    /// only, same group, strictly greater — is a storage predicate, proved against a real
+    /// catalogue in <c>LinkNarrowReadTests</c>.</para>
     ///
     /// <para><b>The read is UNFILTERED, and that is the point.</b> It replaced a derivation taken
     /// from the caller-facing collection read, where a contributor who could not SEE a newer
