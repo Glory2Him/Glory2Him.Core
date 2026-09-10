@@ -85,9 +85,10 @@ mock. When you tighten or add a validation, find the callers and check them.
 
 **Brokers get no unit tests.** They hold no logic, so there is nothing to assert.
 A narrow read is proven by asserting the arguments the broker was called with in
-the caller's unit test, and by an integration test for the SQL itself. Note that
-Moq's default return for `IReadOnlyList` is null, not an empty list — set it up
-explicitly.
+the caller's unit test, and by the exposer-level acceptance test that exercises
+the path for real — with a throw-away integration test in the unit test project
+if you need to check the SQL itself while developing. Note that Moq's default
+return for `IReadOnlyList` is null, not an empty list — set it up explicitly.
 
 **Fillers.** Random `ContentItem` values all share the default `ContentType`, so a
 test that compares a caller-supplied type against a stored type proves nothing
@@ -107,31 +108,26 @@ subtracts from it.
   absent and when the caller may not see it. A test that cannot tell those apart
   has not proven the restriction.
 
-**Acceptance tests** mock only what we do not own.
+**Acceptance and integration tests both target the exposers.** They exercise the
+system through its API surface, not through an internal service or broker.
 
 - Do **not** mock the storage broker, or anything else in this solution. We own
   it and we have access to it, so the test uses the real thing.
 - Mock **external** resources only, with a tool such as WireMock —
   `WireMock.Net` is already referenced by
   `Glory2Him.Core.Tests.Acceptance.csproj`.
-- Every acceptance test does setup, then the exercise, then cleanup. Cleanup must
-  leave no data behind. Data still present at the end is not cosmetic — it means
-  the test failed to tear down or died mid-run, and both are defects in the test.
+- Every test does setup, then the exercise, then cleanup. Cleanup must leave no
+  data behind. Data still present at the end is not cosmetic — it means the test
+  failed to tear down or died mid-run, and both are defects in the test.
 - For anything behind authentication, drive it under a mocked security context
   rather than skipping it. See "Verifying your own work" below.
 
-**Integration tests** prove the SQL a unit test cannot.
-
-- They run against a real database, not a mock. The fixtures own a disposable
-  LocalDB catalogue named `Glory2Him.Core_Integration_<process id>`, created and
-  dropped per run, with a name-prefix guard in
-  `Glory2Him.Core.Tests.Integration/Brokers/IntegrationDatabase.cs` that refuses
-  to touch a database not matching that prefix. Leave that guard alone.
-- This is where a narrow read, a collation-sensitive predicate, an index or a
-  migration is actually proven. A unit test asserting the arguments a broker
-  received says nothing about whether the SQL is correct.
-- Setup, exercise, cleanup — same rule as acceptance. The per-run catalogue is
-  the outer cleanup boundary, not a licence to leave rows behind inside it.
+**Verifying a broker is a throw-away exercise, not a permanent suite.** When you
+need to confirm a broker's SQL actually works, write a throw-away integration
+test in the **unit test project**, run it, and remove it. It is a tool for
+answering a question during development, not something the suite carries
+afterwards. Do not add a permanent broker-level test to stand in for an
+exposer-level acceptance or integration test.
 
 **Migrations.** A schema change is a new migration, never an edit to an applied
 one. A migration script runs as a single batch, so adding a column and then

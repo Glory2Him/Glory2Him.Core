@@ -60,18 +60,20 @@ actual test run, never against the description of the work.
    the test set the type explicitly; and a `Moq` setup returning `IReadOnlyList`
    defaults to null rather than empty.
 
-   **Acceptance tests** must mock only what we do not own. A mocked storage
-   broker in an acceptance test is a finding — we own it and have access to it,
-   so the test should use the real thing; only external resources get stubbed,
-   with a tool such as WireMock. Each acceptance test must also set up, exercise
-   and then clean up, leaving no data behind. Data left over is a broken teardown
-   or a test that died mid-run, and both are defects worth reporting even when
-   the assertions passed.
+   **Acceptance and integration tests both target the exposers.** One written
+   against an internal service or broker instead of the API surface is a finding.
+   They must mock only what we do not own — a mocked storage broker is a finding,
+   since we own it and have access to it, and only external resources get
+   stubbed, with a tool such as WireMock. Each must set up, exercise and then
+   clean up, leaving no data behind. Data left over is a broken teardown or a
+   test that died mid-run, and both are defects worth reporting even when the
+   assertions passed.
 
-   **Integration tests** must hit the real database rather than a mock — that is
-   the only place a narrow read, a collation-sensitive predicate or a migration
-   is actually proven. A unit test asserting the arguments a broker received is
-   not a substitute, and claiming it is counts as a gap.
+   **A broker check is throw-away.** A throw-away integration test in the unit
+   test project is the right way to confirm a broker's SQL during development,
+   and it should not survive into the committed suite. A permanent broker-level
+   test standing in for an exposer-level acceptance or integration test is a gap,
+   not coverage.
 
 6. **Mutation check.** Pick the two or three most important pieces of new logic.
    Work out by hand what would break if you inverted a condition, changed a
@@ -126,7 +128,10 @@ into the event envelope and become indistinguishable from a genuine one.
 
 - **Missing broker unit tests.** Brokers hold no logic, so there is nothing to
   assert and their absence is correct. A narrow read is proven by the caller
-  asserting the arguments and by an integration test for the SQL.
+  asserting the arguments and by the exposer-level acceptance test that exercises
+  the path for real.
+- **A missing permanent broker-level integration test.** Broker checks are
+  throw-away by design; their absence from the committed suite is correct.
 - Style, naming and formatting.
 
 ## Output format
