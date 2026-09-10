@@ -20,6 +20,8 @@ using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Processings;
+using Glory2Him.Core.Models.Foundations.AIReviewerAssignments;
+using Glory2Him.Core.Models.Foundations.AIReviewerAssignments.Exceptions;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.Links;
@@ -1116,6 +1118,373 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     "asking. An identity-filtered read must never decide an invariant — the " +
                     "evaluation that follows reads unfiltered, so a filtered dismissal lets " +
                     "content be approved on reviews of text it no longer matches");
+        }
+
+        /// <summary>
+        /// THE EDIT PATH TAKES BEREAN'S VERDICT BACK TOO. §8.8 rule 1's
+        /// <c>RequireReapprovalOnChange</c> dismisses every human review, and Berean's assignment
+        /// is keyed on the APPROVAL rather than on those reviews — so without this it survives the
+        /// edit untouched and goes on reporting a finished pass, with comments, over text it never
+        /// saw. §8.6.2's re-trigger event is not built, so nothing else would correct it.
+        ///
+        /// <para><b>THE POINT OF THE WHOLE CHANGE, and what this test catches:</b> the editor
+        /// holds NO review role. That is the ordinary case — an author revising their own
+        /// submission, who cannot hold one, because HR-1 forbids reviewing your own content. Route
+        /// either half of this through the caller-facing <c>AIReviewerAssignment</c> foundation
+        /// and it silently does nothing for this caller: the round-keyed read answers null and
+        /// logs a denial, and the modify gate refuses outright. A version of this test that ran as
+        /// an administrator would pass against exactly that broken code, which is why the identity
+        /// below is arranged and not left at the fixture's default publisher.</para>
+        ///
+        /// <para>The unfiltered gather and the system-identity workflow seam are the same pair the
+        /// human dismissal already uses, and the last assertion is what holds them there: the
+        /// caller-facing foundation is not touched at all on this path.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnBereansAssignmentToPendingWhenAnEditDismissesTheReviewsAsync()
+        {
+            // given: a plain author revising their own submitted content, holding no review role
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            var approvalId = Guid.NewGuid();
+            var entityId = Guid.NewGuid();
+            var staleReviewId = Guid.NewGuid();
+            var staleAssignmentId = Guid.NewGuid();
+
+            Approval storageApproval = CreateFlowApproval(
+                approvalId: approvalId,
+                entityId: entityId,
+                entityType: EntityType.Link,
+                approvalStatus: ApprovalStatus.Submitted);
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Submitted, approvalId));
+            SetupFlowApprovalRow(storageApproval);
+            SetupDismissableReviews(approvalId, staleReviewId);
+            SetupResettableAIReviewerAssignment(approvalId, staleAssignmentId);
+            SetupAIReviewerAssignmentReturnToPending();
+
+            SetupFlowConditionsReads(
+                firstConditions: CreateFlowConditions(
+                    shouldResetStaleReviewsOnChange: true),
+
+                secondConditions: CreateFlowConditions(
+                    shouldResetStaleReviewsOnChange: true));
+
+            // when
+            await this.approvalOrchestrationService.ProcessEntityModifiedAsync(
+                EntityType.Link,
+                entityId,
+                TestContext.Current.CancellationToken);
+
+            // then: the human half ran
+            this.approvalReviewServiceMock.Verify(service =>
+                service.DismissStaleApprovalReviewAsync(
+                    staleReviewId,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            // and so did the AI half — the round was asked what it holds, unfiltered
+            this.accessBrokerMock.Verify(broker =>
+                broker.FindResettableAIReviewerAssignmentIdAsync(
+                    approvalId,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            // and the id it named went back through the seam that mints the system identity
+            // itself, which is the only identity that can perform this write
+            this.aiReviewerAssignmentWorkflowServiceMock.Verify(service =>
+                service.ReturnStaleAIReviewerAssignmentToPendingAsync(
+                    staleAssignmentId,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            // AND NOTHING ELSE ON THAT SEAM. The caller-facing foundation — whose read is
+            // identity-filtered and whose write is review-tier gated, so for this caller both
+            // would fail quietly — is no longer reachable from this service at all: it left with
+            // IAIReviewerOrchestrationService, and the constructor no longer takes it. What used
+            // to need an assertion the compiler now refuses outright.
+            this.aiReviewerAssignmentWorkflowServiceMock.VerifyNoOtherCalls();
+        }
+
+        /// <summary>
+        /// Silent when there is nothing to take back — a round Berean was never asked about, which
+        /// is the overwhelmingly common case, and one whose assignment is already pending.
+        ///
+        /// <para>Both arrive here as the same <c>null</c>, because the staleness predicate lives
+        /// in the gather rather than in this flow. Which row is which is pinned where that
+        /// predicate lives (AccessBrokerTests.FindResettableAIReviewerAssignmentId.Logic.cs), and
+        /// the transition's own refusal to rewrite an already-pending row in
+        /// AIReviewerAssignmentServiceTests.ReturnToPending.cs.</para>
+        ///
+        /// <para><b>What it catches.</b> Calling the seam on the <c>Guid?</c> without checking it:
+        /// <c>Guid.Empty</c> would go through the transition and fault the edit flow of every
+        /// entity in the system that has no AI reviewer — which is nearly all of them.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldNotTouchBereansAssignmentOnEditWhenNothingIsStaleAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            var approvalId = Guid.NewGuid();
+            var entityId = Guid.NewGuid();
+            var staleReviewId = Guid.NewGuid();
+
+            Approval storageApproval = CreateFlowApproval(
+                approvalId: approvalId,
+                entityId: entityId,
+                entityType: EntityType.Link,
+                approvalStatus: ApprovalStatus.Submitted);
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Submitted, approvalId));
+            SetupFlowApprovalRow(storageApproval);
+            SetupDismissableReviews(approvalId, staleReviewId);
+            SetupAIReviewerAssignmentReturnToPending();
+
+            // Nothing to take back. Moq's default for ValueTask<Guid?> is already null, but this
+            // states it: the whole point of the case is the absence.
+            SetupResettableAIReviewerAssignment(approvalId, aiReviewerAssignmentId: null);
+
+            SetupFlowConditionsReads(
+                firstConditions: CreateFlowConditions(
+                    shouldResetStaleReviewsOnChange: true),
+
+                secondConditions: CreateFlowConditions(
+                    shouldResetStaleReviewsOnChange: true));
+
+            // when
+            await this.approvalOrchestrationService.ProcessEntityModifiedAsync(
+                EntityType.Link,
+                entityId,
+                TestContext.Current.CancellationToken);
+
+            // then: the human half still ran — the silence is about Berean alone
+            this.approvalReviewServiceMock.Verify(service =>
+                service.DismissStaleApprovalReviewAsync(
+                    staleReviewId,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.aiReviewerAssignmentWorkflowServiceMock.Verify(service =>
+                service.ReturnStaleAIReviewerAssignmentToPendingAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.aiReviewerAssignmentWorkflowServiceMock.VerifyNoOtherCalls();
+        }
+
+        /// <summary>
+        /// THE RESET IS OFF, so nothing is dismissed and there is nothing stale — and the round is
+        /// not asked about Berean either.
+        ///
+        /// <para><b>What it catches.</b> Hoisting the AI half out of the
+        /// <c>RequireReapprovalOnChange</c> branch. The reviews still stand when the setting is
+        /// off (§9.7.4), so returning Berean to pending there would discard a finished pass on an
+        /// edit the round has decided does not invalidate anything — and would do it on every
+        /// edit, silently, since nothing else on this path would notice.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldNotTouchBereansAssignmentOnEditWhenTheStaleReviewResetIsOffAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            var approvalId = Guid.NewGuid();
+            var entityId = Guid.NewGuid();
+
+            Approval storageApproval = CreateFlowApproval(
+                approvalId: approvalId,
+                entityId: entityId,
+                entityType: EntityType.Link,
+                approvalStatus: ApprovalStatus.Submitted);
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Submitted, approvalId));
+            SetupFlowApprovalRow(storageApproval);
+
+            // A stale assignment IS standing, so a flow that reached for it would have something
+            // to write — the absence below is about the branch, not about an empty round.
+            SetupResettableAIReviewerAssignment(approvalId, Guid.NewGuid());
+            SetupAIReviewerAssignmentReturnToPending();
+
+            SetupFlowConditionsReads(
+                firstConditions: CreateFlowConditions(
+                    shouldResetStaleReviewsOnChange: false));
+
+            // when
+            await this.approvalOrchestrationService.ProcessEntityModifiedAsync(
+                EntityType.Link,
+                entityId,
+                TestContext.Current.CancellationToken);
+
+            // then: not even the gather, which is work done to throw away when nothing is being
+            // taken back
+            this.accessBrokerMock.Verify(broker =>
+                broker.FindResettableAIReviewerAssignmentIdAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.aiReviewerAssignmentWorkflowServiceMock.VerifyNoOtherCalls();
+        }
+
+        /// <summary>
+        /// Berean's half runs LAST — after the human dismissal, and after the RE-EVALUATION the
+        /// dismissal makes necessary.
+        ///
+        /// <para>Nothing orders the two by data: the evaluation reads the round's reviews and
+        /// comments and never the assignment row, and §8.6.2's re-trigger event is not built, so
+        /// nothing subscribes in the other direction either. It is last because it is the
+        /// tidy-up, and because the evaluation the dismissal makes necessary must always
+        /// run.</para>
+        ///
+        /// <para><b>What it catches.</b> Moving the reset ahead of the evaluation. The dismissal
+        /// facts are swallowed by the suppression window, so nothing else re-tests the round until
+        /// its next input change — anything that could stop the evaluation running leaves the
+        /// round sitting unevaluated on reviews that no longer count. The AI step can no longer
+        /// throw (see the test below), but it can still return early, and ahead of the evaluation
+        /// its position alone would be doing the ordering.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnBereanToPendingOnlyAfterTheEditsReEvaluationAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            var approvalId = Guid.NewGuid();
+            var entityId = Guid.NewGuid();
+            var staleReviewId = Guid.NewGuid();
+            var order = new List<string>();
+
+            Approval storageApproval = CreateFlowApproval(
+                approvalId: approvalId,
+                entityId: entityId,
+                entityType: EntityType.Link,
+                approvalStatus: ApprovalStatus.Submitted);
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Submitted, approvalId));
+            SetupFlowApprovalRow(storageApproval);
+            SetupDismissableReviews(approvalId, staleReviewId);
+            SetupResettableAIReviewerAssignment(approvalId, Guid.NewGuid());
+
+            this.approvalReviewServiceMock.Setup(service =>
+                service.DismissStaleApprovalReviewAsync(
+                    staleReviewId,
+                    It.IsAny<CancellationToken>()))
+                        .Callback(() => order.Add("dismiss"))
+                        .ReturnsAsync((ApprovalReview)null);
+
+            this.aiReviewerAssignmentWorkflowServiceMock.Setup(service =>
+                service.ReturnStaleAIReviewerAssignmentToPendingAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((Guid aiReviewerAssignmentId, CancellationToken _) =>
+                        {
+                            order.Add("ai-reset");
+
+                            return new AIReviewerAssignment { Id = aiReviewerAssignmentId };
+                        });
+
+            // The evaluation is observed where it BEGINS — it re-reads the conditions, which is
+            // the whole reason it exists on this path.
+            SetupFlowConditionsReads(
+                firstConditions: CreateFlowConditions(
+                    shouldResetStaleReviewsOnChange: true),
+
+                secondConditions: CreateFlowConditions(
+                    shouldResetStaleReviewsOnChange: true),
+
+                onConditionsRead: () => order.Add("conditions-read"));
+
+            // when
+            await this.approvalOrchestrationService.ProcessEntityModifiedAsync(
+                EntityType.Link,
+                entityId,
+                TestContext.Current.CancellationToken);
+
+            // then
+            order.Should().Equal(
+                "conditions-read", "dismiss", "conditions-read", "ai-reset");
+        }
+
+        /// <summary>
+        /// THE AI STEP CANNOT FAULT THE EDIT FLOW, and here that matters more than it does on the
+        /// reset. <c>ProcessEntityModifiedAsync</c> runs on a delivered fact: by the time this
+        /// line is reached the re-evaluation has COMMITTED and may already have auto-approved the
+        /// round and published the entity. A throw would fault the delivery on work that
+        /// succeeded, the substrate would record it as failed and REDELIVER it, and the whole
+        /// flow — dismissal and evaluation — would run again over committed work.
+        ///
+        /// <para>So the failure is logged and swallowed. The two flags stay stale until a
+        /// moderator asks Berean again; nothing is swallowed silently, which is why the log call
+        /// is asserted rather than only the absence of a throw.</para>
+        ///
+        /// <para>The same helper serves this site and the reset's, so the two cannot drift on
+        /// what a failure here costs — but they are pinned separately because only one of them
+        /// runs under a substrate delivery, and that is what makes the swallow load-bearing rather
+        /// than merely tidy.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldStillCompleteTheEditFlowWhenReturningBereanToPendingFailsAsync()
+        {
+            // given: a plain author revising their own submitted content, as on the edit path's
+            // other tests — the identity is not what this one is about, but running it as anyone
+            // else would be testing a caller the flow never has.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            var approvalId = Guid.NewGuid();
+            var entityId = Guid.NewGuid();
+            var staleReviewId = Guid.NewGuid();
+
+            Approval storageApproval = CreateFlowApproval(
+                approvalId: approvalId,
+                entityId: entityId,
+                entityType: EntityType.Link,
+                approvalStatus: ApprovalStatus.Submitted);
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Submitted, approvalId));
+            SetupFlowApprovalRow(storageApproval);
+            SetupDismissableReviews(approvalId, staleReviewId);
+            SetupResettableAIReviewerAssignment(approvalId, Guid.NewGuid());
+
+            // Storage failed under the transition. The seam reads a row and writes it back, so
+            // this is the failure it actually has.
+            var storageFailure = new Exception("storage is unreachable");
+
+            var failedStorageException = new AIReviewerAssignmentDependencyException(
+                message: "AI reviewer assignment dependency error occurred, contact support.",
+                innerException: new FailedStorageAIReviewerAssignmentException(
+                    message: "Failed AI reviewer assignment storage error occurred, "
+                        + "contact support.",
+                    innerException: storageFailure,
+                    data: storageFailure.Data));
+
+            this.aiReviewerAssignmentWorkflowServiceMock.Setup(service =>
+                service.ReturnStaleAIReviewerAssignmentToPendingAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(failedStorageException);
+
+            SetupFlowConditionsReads(
+                firstConditions: CreateFlowConditions(
+                    shouldResetStaleReviewsOnChange: true),
+
+                secondConditions: CreateFlowConditions(
+                    shouldResetStaleReviewsOnChange: true));
+
+            // when: no throw — the delivery completes and is recorded as handled
+            await this.approvalOrchestrationService.ProcessEntityModifiedAsync(
+                EntityType.Link,
+                entityId,
+                TestContext.Current.CancellationToken);
+
+            // then: everything ahead of the AI step still ran
+            this.approvalReviewServiceMock.Verify(service =>
+                service.DismissStaleApprovalReviewAsync(
+                    staleReviewId,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            // and the failure reached the error log, unwrapped — this step has no chain of its
+            // own, so the exception the seam raised is the one recorded
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(failedStorageException),
+                Times.Once);
         }
 
         // The unfiltered view: what storage holds for the round, regardless of who is asking.

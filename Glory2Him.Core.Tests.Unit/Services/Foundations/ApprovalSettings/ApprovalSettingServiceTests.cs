@@ -129,6 +129,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
         private static int GetRandomNegativeNumber() =>
             -1 * new IntRange(min: 2, max: 10).GetValue();
 
+        // both thresholds are decimal(4,2) values on ConfidenceScore's own 0.00–10.00 scale
+        // (§8.6.2, §13.5), so the draw exercises the fractional precision rather than only the
+        // whole numbers — the same draw AssociationServiceTests uses for the score itself
+        private static decimal GetRandomConfidenceThreshold() =>
+            new IntRange(min: 0, max: 1000).GetValue() / 100.0m;
+
         public static TheoryData<int> MinutesBeforeOrAfter()
         {
             int randomTimeInFuture = GetRandomNumber();
@@ -312,6 +318,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
             userId = string.IsNullOrEmpty(userId) ? Guid.NewGuid().ToString() : userId;
             var filler = new Filler<ApprovalSetting>();
 
+            // drawn as a pair and ordered here rather than fixed at two constants: the values
+            // are only required to be legal, and a fixture that varies is what keeps an
+            // assertion from quietly depending on one particular band — see the OnProperty
+            // pinning below for why they are constrained at all
+            decimal firstConfidenceThreshold = GetRandomConfidenceThreshold();
+            decimal secondConfidenceThreshold = GetRandomConfidenceThreshold();
+
             filler.Setup()
                 .OnType<DateTimeOffset>().Use(dateTimeOffset)
                 .OnType<DateTimeOffset?>().Use(dateTimeOffset)
@@ -329,6 +342,20 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
                 // while nothing narrows them. A scope test sets what it means to exercise.
                 .OnProperty(approvalSetting => approvalSetting.ContentType).Use((ContentType?)null)
                 .OnProperty(approvalSetting => approvalSetting.IsPersonal).Use((bool?)null)
+
+                // THE THRESHOLDS ARE PINNED TO A LEGAL, ORDERED PAIR, for the same reason the
+                // scope is. Tynamix draws an unbounded decimal, §8.6.2 admits only 0.00–10.00
+                // with the rejection threshold at or below the approval one, and the service now
+                // refuses anything else — so a drawn pair would fail nearly every add and modify
+                // test on its fixture rather than on its subject, and a drawn pair that happened
+                // to land in range would still invert half the time. A threshold test sets what
+                // it means to exercise.
+                .OnProperty(approvalSetting => approvalSetting.AIApprovalConfidenceRejectionThreshold)
+                    .Use(Math.Min(firstConfidenceThreshold, secondConfidenceThreshold))
+
+                .OnProperty(approvalSetting => approvalSetting.AIApprovalConfidenceApprovalThreshold)
+                    .Use(Math.Max(firstConfidenceThreshold, secondConfidenceThreshold))
+
                 .OnProperty(approvalSetting => approvalSetting.CreatedBy).Use(userId)
                 .OnProperty(approvalSetting => approvalSetting.UpdatedBy).Use(userId);
 

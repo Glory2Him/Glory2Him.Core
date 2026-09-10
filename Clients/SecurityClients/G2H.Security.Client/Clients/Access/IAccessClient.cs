@@ -48,6 +48,13 @@ namespace G2H.Security.Client.Clients.Access
             ApprovalConditionsRequest approvalConditionsRequest);
 
         /// <summary>
+        /// Resolves whether Berean is offered on a round (design §8.6.2) — the tiered policy
+        /// pass, narrowed to the one field the invitation flow needs.
+        /// </summary>
+        ValueTask<AIReviewerPolicyVerdict> ResolveAIReviewerPolicyAsync(
+            ResolveAIReviewerPolicyRequest resolveAIReviewerPolicyRequest);
+
+        /// <summary>
         /// Decides whether an actor may record or amend an approval review — the review tier, the
         /// unconditional bar on reviewing your own content, the open-round window, and the bar on
         /// a second active review by the same reviewer.

@@ -19,6 +19,7 @@ using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Foundations.AIReviewerAssignments;
 using Glory2Him.Core.Models.Foundations.ApprovalComments;
 using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
@@ -439,6 +440,42 @@ namespace Glory2Him.Core.Brokers.Securities
                 .ToList();
         }
 
+        // Unfiltered, deliberately — see IAccessBroker for why the caller-facing read cannot
+        // answer this. The SAME storage read the foundation's round-keyed read uses, so the half
+        // that decides WHAT to return to pending and the half that reports Berean's status to a
+        // moderation panel read one view of one row.
+        //
+        // That read is already narrowed to the ONE live row (IsDeleted == false, backed by
+        // UX_AIReviewerAssignments_ApprovalId), so a withdrawn assignment is never offered up for
+        // a reset nobody could perform.
+        public async ValueTask<Guid?> FindResettableAIReviewerAssignmentIdAsync(
+            Guid approvalId,
+            CancellationToken cancellationToken = default)
+        {
+            AIReviewerAssignment? maybeAIReviewerAssignment =
+                await this.storageBroker.SelectAIReviewerAssignmentByApprovalIdAsync(
+                    approvalId: approvalId,
+                    cancellationToken: cancellationToken);
+
+            if (maybeAIReviewerAssignment is null)
+            {
+                return null;
+            }
+
+            // EITHER flag makes the row stale, not both together. The pairing invariant
+            // (IsAIReviewCommentsPresent cannot stand without IsAIReviewCompleted) means the
+            // comments-only case should be unreachable — but "still reports something Berean
+            // left behind" is the honest reading of what needs taking back, and a row written
+            // before that invariant existed is exactly the one a narrower test would strand.
+            bool isReportingAFinishedPass =
+                maybeAIReviewerAssignment.IsAIReviewCompleted
+                    || maybeAIReviewerAssignment.IsAIReviewCommentsPresent;
+
+            return isReportingAFinishedPass
+                ? maybeAIReviewerAssignment.Id
+                : null;
+        }
+
         private async ValueTask<ApprovalReviewSnapshot> GatherAsync(
             Approval approval,
             CancellationToken cancellationToken)
@@ -517,6 +554,14 @@ namespace Glory2Him.Core.Brokers.Securities
                     RequireReviewCommentResolutionBeforeApprovals =
                         setting.RequireReviewCommentResolutionBeforeApprovals,
                     DoNotAllowBypassingSettings = setting.DoNotAllowBypassingSettings,
+                    IsAIReviewerOffered = setting.IsAIReviewerOffered,
+                    IsAIAllowedToVote = setting.IsAIAllowedToVote,
+
+                    AIApprovalConfidenceRejectionThreshold =
+                        setting.AIApprovalConfidenceRejectionThreshold,
+
+                    AIApprovalConfidenceApprovalThreshold =
+                        setting.AIApprovalConfidenceApprovalThreshold,
                 })
                 .ToList();
         }
@@ -950,6 +995,56 @@ namespace Glory2Him.Core.Brokers.Securities
                     Reviews = snapshot.Reviews,
                     ApprovalComments = snapshot.ApprovalComments,
                     ConfidenceScore = confidenceScore,
+                });
+        }
+
+        // §8.6.2's feature switch, resolved the same way its neighbour above resolves the §8.5
+        // conditions — off the STORED approval's target, never a payload — and narrowed to the
+        // one field a caller deciding whether to offer Berean at all can use.
+        //
+        // ITS OWN MEMBER, and that is the point of it. This resolution used to ride on
+        // RetrieveApprovalReviewerScopeByIdAsync below, which made EVERY caller of that gather —
+        // the candidates read, the §16.7.4 display-name resolver a moderation panel polls, and
+        // every invitation operation — pay a full ApprovalSettings scan to answer a question only
+        // the two AI-reviewer paths ask. Berean is also not in the population that scope exists to
+        // describe: it holds no role and no invitation row, so a feature switch for it was never a
+        // field of a per-person invitation gather.
+        public async ValueTask<AIReviewerPolicyVerdict?> ResolveAIReviewerPolicyByIdAsync(
+            Guid approvalId,
+            CancellationToken cancellationToken = default)
+        {
+            Approval maybeApproval = await this.storageBroker.SelectApprovalByIdAsync(
+                approvalId,
+                cancellationToken);
+
+            if (maybeApproval is null)
+            {
+                return null;
+            }
+
+            (_, IReadOnlyList<RoleSubject> roleSubjects, _, bool? isPersonal, _, _) =
+                await ResolveEntityAsync(
+                    maybeApproval.EntityType,
+                    maybeApproval.EntityId,
+                    cancellationToken);
+
+            IReadOnlyList<ApprovalPolicy> candidatePolicies = await GatherPoliciesAsync(
+                maybeApproval.EntityType,
+                cancellationToken);
+
+            return await this.securityClient.Access.ResolveAIReviewerPolicyAsync(
+                new ResolveAIReviewerPolicyRequest
+                {
+                    CandidatePolicies = candidatePolicies,
+                    EntityType = maybeApproval.EntityType.ToString(),
+
+                    // Only ContentItem scopes its policies by content type; an association's
+                    // policy key is its own type and personality, never an endpoint's (§8.4).
+                    ContentType = maybeApproval.EntityType == EntityType.ContentItem
+                        ? roleSubjects[0].ContentType
+                        : null,
+
+                    IsPersonal = isPersonal,
                 });
         }
 

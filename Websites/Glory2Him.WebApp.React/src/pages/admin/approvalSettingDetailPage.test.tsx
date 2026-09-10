@@ -79,6 +79,10 @@ const createApprovalSetting = (
         requireReapprovalOnChange: true,
         requireReviewCommentResolutionBeforeApprovals: true,
         doNotAllowBypassingSettings: false,
+        isAIReviewerOffered: false,
+        isAIAllowedToVote: false,
+        aiApprovalConfidenceRejectionThreshold: 2.5,
+        aiApprovalConfidenceApprovalThreshold: 7.5,
         createdBy: 'admin',
         createdWhen: '2026-09-01T09:00:00.000+00:00',
         updatedBy: 'admin',
@@ -137,6 +141,23 @@ const switchFor = (label: string): HTMLInputElement => {
     return input as HTMLInputElement;
 };
 
+// The thresholds only open once Berean may vote, so every threshold case starts by walking the
+// two switches the way an administrator would.
+const allowBereanToVote = async () => {
+    await userEvent.click(screen.getByText('Offer Berean as a reviewer'));
+    await userEvent.click(screen.getByText('Allow Berean to additionally cast a vote'));
+};
+
+// Reject below 8, approve above 3 — the pair §8.6.2 forbids, typed rather than assembled, so the
+// assertions are about what the boxes do to a reader who enters it.
+const invertTheThresholds = async () => {
+    await allowBereanToVote();
+    await userEvent.clear(screen.getByLabelText('Reject below'));
+    await userEvent.type(screen.getByLabelText('Reject below'), '8');
+    await userEvent.clear(screen.getByLabelText('Approve above'));
+    await userEvent.type(screen.getByLabelText('Approve above'), '3');
+};
+
 describe('ApprovalSettingDetailPage', () => {
     beforeEach(() => {
         approvalSetting = createApprovalSetting();
@@ -183,6 +204,246 @@ describe('ApprovalSettingDetailPage', () => {
             expect(switchFor('Approving reviews are required')).toBeChecked();
             expect(switchFor('A rejected review blocks approval')).toBeChecked();
             expect(switchFor('A zero confidence score blocks approval')).toBeChecked();
+        });
+
+        // Berean (§8.6.2) ships off on a new row, the same posture ApprovalSettingSeedData
+        // ships everywhere, and the vote switch it gates opens disabled to say so before the
+        // reader ever tries it.
+        it('should open with Berean off and the vote switch disabled', () => {
+            // given
+            renderCreatePage();
+
+            // then
+            expect(switchFor('Offer Berean as a reviewer')).not.toBeChecked();
+            expect(switchFor('Allow Berean to additionally cast a vote')).toBeDisabled();
+        });
+
+        it('should enable the vote switch once Berean is offered', async () => {
+            // given
+            renderCreatePage();
+
+            // when
+            await userEvent.click(screen.getByText('Offer Berean as a reviewer'));
+
+            // then
+            expect(switchFor('Allow Berean to additionally cast a vote')).not.toBeDisabled();
+        });
+
+        // ISAIALLOWEDTOVOTE CANNOT OUTLIVE ISAIREVIEWEROFFERED (storage refuses the pair the
+        // other way round, CK_ApprovalSetting_AIVoteRequiresAIReviewer) — so switching the
+        // reviewer back off clears a vote the reader had already turned on, the same way
+        // choosing a new entity type clears a content type it can no longer carry.
+        it('should clear the vote when Berean is switched back off', async () => {
+            // given
+            renderCreatePage();
+            await userEvent.click(screen.getByText('Offer Berean as a reviewer'));
+            await userEvent.click(screen.getByText('Allow Berean to additionally cast a vote'));
+            expect(switchFor('Allow Berean to additionally cast a vote')).toBeChecked();
+
+            // when
+            await userEvent.click(screen.getByText('Offer Berean as a reviewer'));
+
+            // then
+            expect(switchFor('Allow Berean to additionally cast a vote')).not.toBeChecked();
+            expect(switchFor('Allow Berean to additionally cast a vote')).toBeDisabled();
+        });
+
+        // THE THRESHOLDS ARE READ ONLY WHEN THE VOTE IS CAST (§8.6.2) — disabled until then,
+        // mirroring how "How many" is disabled while approvals are not required.
+        it('should keep the confidence thresholds disabled until Berean may vote', async () => {
+            // given
+            renderCreatePage();
+
+            // then
+            expect(screen.getByLabelText('Reject below')).toBeDisabled();
+            expect(screen.getByLabelText('Approve above')).toBeDisabled();
+
+            // when
+            await userEvent.click(screen.getByText('Offer Berean as a reviewer'));
+            await userEvent.click(screen.getByText('Allow Berean to additionally cast a vote'));
+
+            // then
+            expect(screen.getByLabelText('Reject below')).not.toBeDisabled();
+            expect(screen.getByLabelText('Approve above')).not.toBeDisabled();
+        });
+
+        it('should write the chosen Berean settings', async () => {
+            // given
+            renderCreatePage();
+            await userEvent.click(screen.getByText('Offer Berean as a reviewer'));
+            await userEvent.click(screen.getByText('Allow Berean to additionally cast a vote'));
+
+            // when
+            await userEvent.clear(screen.getByLabelText('Reject below'));
+            await userEvent.type(screen.getByLabelText('Reject below'), '3');
+            await userEvent.clear(screen.getByLabelText('Approve above'));
+            await userEvent.type(screen.getByLabelText('Approve above'), '8');
+            await userEvent.click(screen.getByRole('button', { name: 'Create setting' }));
+
+            // then
+            await waitFor(() =>
+                expect(added).toHaveBeenCalledWith(expect.objectContaining({
+                    isAIReviewerOffered: true,
+                    isAIAllowedToVote: true,
+                    aiApprovalConfidenceRejectionThreshold: 3,
+                    aiApprovalConfidenceApprovalThreshold: 8
+                })));
+        });
+
+        // THE THRESHOLDS HAVE AN ORDER AS WELL AS A RANGE (§8.6.2): inverted, a score between
+        // them satisfies the reject-below rule and the approve-above rule at once. The
+        // foundation refuses the pair and CK_ApprovalSetting_AIThresholdOrder stands behind it,
+        // so the form has to refuse it first — the same job "How many" does for its own floor.
+        it('should refuse the save while approve-above sits below reject-below', async () => {
+            // given
+            renderCreatePage(listRoute);
+            await invertTheThresholds();
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Create setting' }));
+
+            // then
+            expect(await screen.findByRole('alert')).toHaveTextContent(
+                'Approve above must not be below Reject below');
+
+            expect(added).not.toHaveBeenCalled();
+            expect(screen.queryByTestId('list')).not.toBeInTheDocument();
+        });
+
+        // IT REFUSES RATHER THAN CORRECTS. Clamping one box against the other would store a
+        // number nobody chose, and a policy that means something other than what was entered is
+        // worse than a save the administrator is asked to fix.
+        it('should keep both thresholds exactly as they were typed', async () => {
+            // given
+            renderCreatePage();
+
+            // when
+            await invertTheThresholds();
+
+            // then
+            expect(screen.getByLabelText('Reject below')).toHaveValue(8);
+            expect(screen.getByLabelText('Approve above')).toHaveValue(3);
+        });
+
+        // THE RULE IS ABOUT THE PAIR, so both boxes are the fault and both point at the one
+        // message: is-invalid on its own is a colour, and a sentence beside a field is not a
+        // sentence attached to it.
+        it('should attach the reason to both threshold boxes', async () => {
+            // given
+            renderCreatePage();
+
+            // when
+            await invertTheThresholds();
+
+            // then
+            const message = screen.getByText(
+                'Approve above must not be below Reject below: a score between the two would '
+                    + 'file both a rejection and an approval.');
+
+            for (const label of ['Reject below', 'Approve above']) {
+                expect(screen.getByLabelText(label))
+                    .toHaveAttribute('aria-invalid', 'true');
+
+                expect(screen.getByLabelText(label))
+                    .toHaveAttribute('aria-describedby', message.id);
+            }
+        });
+
+        it('should let the save through once the pair is put back in order', async () => {
+            // given
+            renderCreatePage();
+            await invertTheThresholds();
+
+            // when
+            await userEvent.clear(screen.getByLabelText('Approve above'));
+            await userEvent.type(screen.getByLabelText('Approve above'), '9');
+            await userEvent.click(screen.getByRole('button', { name: 'Create setting' }));
+
+            // then
+            await waitFor(() =>
+                expect(added).toHaveBeenCalledWith(expect.objectContaining({
+                    aiApprovalConfidenceRejectionThreshold: 8,
+                    aiApprovalConfidenceApprovalThreshold: 9
+                })));
+        });
+
+        // EQUAL IS PERMITTED, and the foundation permits it too: it closes the middle band
+        // rather than overlapping the two rules, and it is the pair the fail-closed defaults
+        // fall back to.
+        it('should accept a pair that meets in the middle', async () => {
+            // given
+            renderCreatePage();
+            await allowBereanToVote();
+
+            // when
+            await userEvent.clear(screen.getByLabelText('Reject below'));
+            await userEvent.type(screen.getByLabelText('Reject below'), '5');
+            await userEvent.clear(screen.getByLabelText('Approve above'));
+            await userEvent.type(screen.getByLabelText('Approve above'), '5');
+            await userEvent.click(screen.getByRole('button', { name: 'Create setting' }));
+
+            // then
+            await waitFor(() =>
+                expect(added).toHaveBeenCalledWith(expect.objectContaining({
+                    aiApprovalConfidenceRejectionThreshold: 5,
+                    aiApprovalConfidenceApprovalThreshold: 5
+                })));
+        });
+
+        // THE GUARD MUST NOT TRAP THE ROW. The foundation refuses the order however the vote
+        // switch reads, so the form refuses it there too — which means the two boxes stay
+        // reachable while they are the fault, rather than leaving an edit in front of a message
+        // it has no way to answer.
+        it('should still refuse the order with the vote off, and leave it fixable',
+            async () => {
+                // given
+                renderCreatePage(listRoute);
+                await invertTheThresholds();
+
+                // when
+                await userEvent.click(
+                    screen.getByText('Allow Berean to additionally cast a vote'));
+
+                await userEvent.click(screen.getByRole('button', { name: 'Create setting' }));
+
+                // then
+                expect(await screen.findByRole('alert')).toHaveTextContent(
+                    'Approve above must not be below Reject below');
+
+                expect(added).not.toHaveBeenCalled();
+                expect(screen.getByLabelText('Reject below')).not.toBeDisabled();
+                expect(screen.getByLabelText('Approve above')).not.toBeDisabled();
+
+                // and the row goes in once the fault is answered
+                await userEvent.clear(screen.getByLabelText('Approve above'));
+                await userEvent.type(screen.getByLabelText('Approve above'), '9');
+                await userEvent.click(screen.getByRole('button', { name: 'Create setting' }));
+
+                await waitFor(() =>
+                    expect(added).toHaveBeenCalledWith(expect.objectContaining({
+                        isAIAllowedToVote: false,
+                        aiApprovalConfidenceRejectionThreshold: 8,
+                        aiApprovalConfidenceApprovalThreshold: 9
+                    })));
+            });
+
+        // Once the pair is back in order the boxes answer to the vote switch again, so turning
+        // the vote off still shuts them — the fault is what re-opened them, not the visit.
+        it('should shut the thresholds again once the pair is in order', async () => {
+            // given
+            renderCreatePage();
+            await invertTheThresholds();
+
+            // when
+            await userEvent.clear(screen.getByLabelText('Approve above'));
+            await userEvent.type(screen.getByLabelText('Approve above'), '9');
+
+            await userEvent.click(
+                screen.getByText('Allow Berean to additionally cast a vote'));
+
+            // then
+            expect(screen.getByLabelText('Reject below')).toBeDisabled();
+            expect(screen.getByLabelText('Approve above')).toBeDisabled();
         });
 
         it('should let the scope be chosen while the row is still being written', () => {
@@ -318,6 +579,138 @@ describe('ApprovalSettingDetailPage', () => {
                 expect(added).toHaveBeenCalledWith(expect.objectContaining({
                     entityType: EntityType.Comment,
                     isPersonal: null
+                })));
+        });
+    });
+
+    // A BOX HAS TO BE EMPTIABLE TO BE RETYPABLE. Number('') is 0 and Number.isFinite(0) is true,
+    // so a clamp that reads the box on every keystroke stores 0 the instant it is cleared —
+    // which, with the ordering rule, turned "select all and retype" into an inverted pair, two
+    // red boxes and a refused save that the administrator had done nothing to deserve. An empty
+    // box means "no value yet": the field keeps the number it had until another is typed.
+    describe('clearing a number box to retype it', () => {
+        it('should not drop a cleared threshold to zero', async () => {
+            // given
+            renderCreatePage();
+            await allowBereanToVote();
+
+            // when
+            await userEvent.clear(screen.getByLabelText('Approve above'));
+
+            // then
+            expect(screen.getByLabelText('Approve above')).toHaveValue(null);
+            expect(screen.getByLabelText('Approve above')).not.toHaveClass('is-invalid');
+            expect(screen.getByLabelText('Reject below')).not.toHaveClass('is-invalid');
+
+            expect(screen.queryByText(
+                'Approve above must not be below Reject below: a score between the two would '
+                    + 'file both a rejection and an approval.')).not.toBeInTheDocument();
+        });
+
+        it('should save the number a box still empty was left holding', async () => {
+            // given
+            renderCreatePage(listRoute);
+            await allowBereanToVote();
+
+            // when
+            await userEvent.clear(screen.getByLabelText('Approve above'));
+            await userEvent.click(screen.getByRole('button', { name: 'Create setting' }));
+
+            // then
+            await waitFor(() =>
+                expect(added).toHaveBeenCalledWith(expect.objectContaining({
+                    aiApprovalConfidenceApprovalThreshold: 7.5
+                })));
+        });
+
+        // WHAT IS ON SCREEN IS WHAT WOULD BE SAVED. Leaving the box ends the draft, so a box
+        // abandoned empty reads its number back rather than sitting blank over a save that would
+        // write something else.
+        it('should read the kept number back once the box is left', async () => {
+            // given
+            renderCreatePage();
+            await allowBereanToVote();
+
+            // when
+            await userEvent.clear(screen.getByLabelText('Approve above'));
+            await userEvent.click(screen.getByLabelText('Reject below'));
+
+            // then
+            expect(screen.getByLabelText('Approve above')).toHaveValue(7.5);
+        });
+
+        it('should take the number typed in after the box is cleared', async () => {
+            // given
+            renderCreatePage(listRoute);
+            await allowBereanToVote();
+
+            // when
+            await userEvent.clear(screen.getByLabelText('Approve above'));
+            await userEvent.type(screen.getByLabelText('Approve above'), '9');
+            await userEvent.click(screen.getByRole('button', { name: 'Create setting' }));
+
+            // then
+            await waitFor(() =>
+                expect(added).toHaveBeenCalledWith(expect.objectContaining({
+                    aiApprovalConfidenceRejectionThreshold: 2.5,
+                    aiApprovalConfidenceApprovalThreshold: 9
+                })));
+        });
+
+        // THE RANGE STILL BINDS A NUMBER THAT WAS TYPED (§13.5's 0.00-10.00 scale) — it is only
+        // the absence of one that no longer counts as a choice.
+        it('should still hold a typed threshold inside the confidence scale', async () => {
+            // given
+            renderCreatePage(listRoute);
+            await allowBereanToVote();
+
+            // when
+            await userEvent.clear(screen.getByLabelText('Approve above'));
+            await userEvent.type(screen.getByLabelText('Approve above'), '15');
+            await userEvent.click(screen.getByRole('button', { name: 'Create setting' }));
+
+            // then
+            await waitFor(() =>
+                expect(added).toHaveBeenCalledWith(expect.objectContaining({
+                    aiApprovalConfidenceApprovalThreshold: 10
+                })));
+        });
+
+        // THE SAME RULE ON THE BOX BESIDE IT: the floor is for a count that was asked for, not
+        // for one rubbed out on the way to another.
+        it('should not drop a cleared required count to its floor', async () => {
+            // given
+            renderCreatePage(listRoute);
+
+            // when
+            await userEvent.clear(screen.getByLabelText('How many'));
+
+            // then
+            expect(screen.getByLabelText('How many')).toHaveValue(null);
+
+            await userEvent.click(screen.getByRole('button', { name: 'Create setting' }));
+
+            await waitFor(() =>
+                expect(added).toHaveBeenCalledWith(expect.objectContaining({
+                    requiredNumberOfApprovals: 2
+                })));
+        });
+
+        // A caller may ask for fewer approvals than one and the foundation refuses it, so a
+        // typed zero is still lifted to the floor rather than round-tripped into a 400.
+        it('should still lift a typed count to its floor', async () => {
+            // given
+            renderCreatePage(listRoute);
+
+            // when
+            await userEvent.clear(screen.getByLabelText('How many'));
+            await userEvent.type(screen.getByLabelText('How many'), '0');
+            await userEvent.click(screen.getByRole('button', { name: 'Create setting' }));
+
+            // then
+            await waitFor(() =>
+                expect(added).toHaveBeenCalledWith(expect.objectContaining({
+                    requiredNumberOfApprovals: 1
                 })));
         });
     });

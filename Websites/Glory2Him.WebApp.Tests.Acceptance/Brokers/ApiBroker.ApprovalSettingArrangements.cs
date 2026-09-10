@@ -33,12 +33,19 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
     /// see it. With only eight <c>EntityType</c> members to hand round, it also keeps the supply
     /// of free scopes honest.</para>
     ///
-    /// <para>The insert arrangement below exists for the default tier alone, and not to arrange
-    /// ordinary rows: <c>ApprovalSettingSeedData</c> seeds one default per entity type at
-    /// startup, so a test that needs a default slot free has to take the seeded incumbent out
-    /// and put it back exactly as it was. Everything else this suite needs is created through
-    /// the endpoint under test — this exposer has no approval round to open,
+    /// <para>The insert arrangement below is not for this suite's ordinary rows:
+    /// <c>ApprovalSettingSeedData</c> seeds one default per entity type at startup, so a test
+    /// that needs a default slot free has to take the seeded incumbent out and put it back
+    /// exactly as it was. Everything else the <c>ApprovalSetting</c> suite needs is created
+    /// through the endpoint under test — this exposer has no approval round to open,
     /// <c>ApprovalSetting</c> carrying no <c>ApprovalStatus</c> at all.</para>
+    ///
+    /// <para>Its other callers are the suites that need a POLICY rather than a policy row: the
+    /// approval tests arrange a narrow <c>(ContentItem, ContentType)</c> tier beneath HTTP so the
+    /// round they open resolves something other than the seeded default — an auto-approving one
+    /// for the reset guards, an AI-reviewer-offered one for §8.6.2. Those rows hold
+    /// <c>UX_ApprovalSettings_EntityTypeContentType</c> for as long as they live, which is why
+    /// every one of them is inserted inside its test's <c>try</c>.</para>
     /// </summary>
     public partial class ApiBroker
     {

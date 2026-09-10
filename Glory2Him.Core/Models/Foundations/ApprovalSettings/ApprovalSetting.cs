@@ -104,6 +104,48 @@ namespace Glory2Him.Core.Models.Foundations.ApprovalSettings
         public bool DoNotAllowBypassingSettings { get; set; } = false;
 
         /// <summary>
+        /// The AI reviewer ("Berean") feature switch (design §8.6.2). When true, Berean is
+        /// offered in the reviewer-request UI and, once asked, files an <c>ApprovalComment</c>
+        /// under its system identity. Commenting is not gated separately: an AI reviewer that
+        /// may be asked is one that may answer. False (the fail-closed default) offers nothing
+        /// and performs no AI action of any kind.
+        /// </summary>
+        public bool IsAIReviewerOffered { get; set; } = false;
+
+        /// <summary>
+        /// Whether Berean may additionally cast an <c>ApprovalReview</c> — a vote — under its
+        /// system identity, decided from <c>IConfidence.ConfidenceScore</c> against the two
+        /// thresholds below. Requires <see cref="IsAIReviewerOffered"/> to be true; the CHECK
+        /// constraint that enforces this is the reason, not merely a convention (design §8.6.2).
+        /// With this false Berean still runs, still reads the score and still comments — the
+        /// comment says what it believes the verdict should be — and no vote is cast.
+        /// </summary>
+        public bool IsAIAllowedToVote { get; set; } = false;
+
+        /// <summary>
+        /// <c>IConfidence.ConfidenceScore</c> value below which Berean files a <c>Rejected</c>
+        /// <c>ApprovalReview</c>. On the score's own 0.00–10.00 <c>decimal(4,2)</c> scale (design
+        /// §13.5) rather than a normalised one — there is one confidence scale in this system.
+        /// Read only when <see cref="IsAIAllowedToVote"/> is true; otherwise the score is
+        /// reported in the comment and nothing is cast (design §8.6.2). Staying on that scale is
+        /// enforced by <c>CK_ApprovalSetting_AIRejectionThresholdRange</c> and refused by the
+        /// service before a write reaches it — <c>decimal(4,2)</c> alone would admit -99.99.
+        /// </summary>
+        public decimal AIApprovalConfidenceRejectionThreshold { get; set; }
+
+        /// <summary>
+        /// <c>ConfidenceScore</c> value above which Berean files an <c>Approved</c>
+        /// <c>ApprovalReview</c>. Same 0.00–10.00 <c>decimal(4,2)</c> scale as
+        /// <see cref="AIApprovalConfidenceRejectionThreshold"/>, and never BELOW it — between them
+        /// Berean files a comment only, and a human decides (design §8.6.2).
+        /// <c>CK_ApprovalSetting_AIThresholdOrder</c> and the matching service rule are what make
+        /// that true rather than merely intended, and both permit the two being EQUAL: an equal
+        /// pair only closes the middle band and leaves the two verdicts disjoint, and it is the
+        /// pair <c>ApprovalPolicyDefaults</c> ships as its fail-closed fallback.
+        /// </summary>
+        public decimal AIApprovalConfidenceApprovalThreshold { get; set; }
+
+        /// <summary>
         /// User identifier for who created the approval setting.
         /// </summary>
         public string CreatedBy { get; set; } = string.Empty;

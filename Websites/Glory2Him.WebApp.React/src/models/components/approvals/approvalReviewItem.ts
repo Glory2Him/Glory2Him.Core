@@ -70,16 +70,20 @@ export type ReviewerCandidateItem = {
 // candidate offers no AI reviewer, which is the fail-closed posture §8.4 asks for expressed as
 // the absence of a prop rather than as a flag somebody has to remember to set.
 //
-// THE ID IS A PLACEHOLDER AND NOTHING READS IT AS AN ACCOUNT. Berean acts under a system
-// identity (§8.6.2), and that account does not exist yet — so this is deliberately NOT a GUID.
-// Anything that posted it to the review-request endpoints would be refused, which is the right
-// outcome while the backend half of #354 is unbuilt: the panel raises onAIReviewerRequested and
-// the consumer decides what that means. Replace this with the system account's id when the
-// identity lands, and nothing else here has to move.
-export const BereanAIReviewerUserId = 'ai-reviewer-berean';
-
+// THE ID IS A PLACEHOLDER AND NOTHING READS IT AS AN ACCOUNT. Berean is not a role-bearing
+// identity and never will be (§8.6.2), so it is deliberately NOT a GUID — it names a row in
+// the dedicated AIReviewerAssignment resource, never a caller-supplied identity on the ordinary
+// review-request endpoints, which still refuse it exactly as before.
+//
+// THE LITERAL IS INLINE ON PURPOSE, and there is deliberately no id constant beside this object
+// for another surface to import. ReviewPanel recognises "this row is Berean's" — in the picker,
+// in a pending request, in the round's own list — by comparing against the ids its own
+// aiReviewerCandidate and aiReviewerAssignment props carry (see its isAIReviewer), never against
+// a hard-coded one: every list then agrees on who Berean is because they were all told by the
+// same prop. A shared id constant would invite the next surface to compare against IT instead,
+// and a panel handed a different candidate would style the same person two ways.
 export const BereanAIReviewer: ReviewerCandidateItem = {
-    userId: BereanAIReviewerUserId,
+    userId: 'ai-reviewer-berean',
     displayName: 'Berean'
 };
 

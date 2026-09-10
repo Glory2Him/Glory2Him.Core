@@ -22,6 +22,67 @@ namespace Glory2Him.Core.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("Glory2Him.Core.Models.Foundations.AIReviewerAssignments.AIReviewerAssignment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ApprovalId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<DateTimeOffset>("CreatedWhen")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<DateTimeOffset?>("DeletedWhen")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("DeletionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsAIReviewCommentsPresent")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("IsAIReviewCompleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<DateTimeOffset>("UpdatedWhen")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApprovalId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_AIReviewerAssignments_ApprovalId")
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("AIReviewerAssignments", (string)null);
+                });
+
             modelBuilder.Entity("Glory2Him.Core.Models.Foundations.ApprovalComments.ApprovalComment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -222,6 +283,14 @@ namespace Glory2Him.Core.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<decimal>("AIApprovalConfidenceApprovalThreshold")
+                        .HasPrecision(4, 2)
+                        .HasColumnType("decimal(4,2)");
+
+                    b.Property<decimal>("AIApprovalConfidenceRejectionThreshold")
+                        .HasPrecision(4, 2)
+                        .HasColumnType("decimal(4,2)");
+
                     b.Property<bool>("AllowSelfApproval")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
@@ -274,6 +343,16 @@ namespace Glory2Him.Core.Migrations
                     b.Property<string>("EntityType")
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
+
+                    b.Property<bool>("IsAIAllowedToVote")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("IsAIReviewerOffered")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
 
                     b.Property<bool>("IsDeleted")
                         .ValueGeneratedOnAdd()
@@ -331,6 +410,14 @@ namespace Glory2Him.Core.Migrations
 
                     b.ToTable("ApprovalSettings", null, t =>
                         {
+                            t.HasCheckConstraint("CK_ApprovalSetting_AIApprovalThresholdRange", "(AIApprovalConfidenceApprovalThreshold BETWEEN 0 AND 10)");
+
+                            t.HasCheckConstraint("CK_ApprovalSetting_AIRejectionThresholdRange", "(AIApprovalConfidenceRejectionThreshold BETWEEN 0 AND 10)");
+
+                            t.HasCheckConstraint("CK_ApprovalSetting_AIThresholdOrder", "(AIApprovalConfidenceRejectionThreshold <= AIApprovalConfidenceApprovalThreshold)");
+
+                            t.HasCheckConstraint("CK_ApprovalSetting_AIVoteRequiresAIReviewer", "(IsAIAllowedToVote = 0 OR IsAIReviewerOffered = 1)");
+
                             t.HasCheckConstraint("CK_ApprovalSetting_ContentTypeRequiresContentItem", "(ContentType IS NULL OR (EntityType IS NOT NULL AND EntityType = N'ContentItem'))");
 
                             t.HasCheckConstraint("CK_ApprovalSetting_IsPersonalRequiresAssociation", "(IsPersonal IS NULL OR (EntityType IS NOT NULL AND EntityType = N'Association'))");

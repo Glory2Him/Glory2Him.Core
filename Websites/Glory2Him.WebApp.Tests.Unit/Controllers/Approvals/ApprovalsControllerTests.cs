@@ -41,10 +41,15 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
     /// Kept in one file rather than split into the per-operation partials the sibling exposer
     /// suites use. That began as an argument from size — two actions, and the split would have
     /// produced six files of three tests each — which no longer holds now the controller carries
-    /// six actions. What keeps it together is the three security theories at the foot of the
+    /// eight actions. What keeps it together is the three security theories at the foot of the
     /// file: they enumerate every action by name, and a reader checking that a new endpoint was
     /// added to all three should not have to open a second file to see the tests it was added
     /// alongside.
+    ///
+    /// <para>EIGHT, not eleven: Berean's three actions left with the resource. They are asserted
+    /// against their own exposer and their own service in
+    /// <c>Controllers/AIReviewers/AIReviewersControllerTests</c>, which carries security theories
+    /// of the same shape over its own inventory.</para>
     /// </summary>
     public class ApprovalsControllerTests : RESTFulController
     {

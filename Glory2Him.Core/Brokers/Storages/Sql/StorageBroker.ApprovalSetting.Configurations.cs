@@ -49,6 +49,60 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                             $"({nameof(ApprovalSetting.IsPersonal)} IS NULL OR " +
                             $"({nameof(ApprovalSetting.EntityType)} IS NOT NULL AND " +
                             $"{nameof(ApprovalSetting.EntityType)} = N'{nameof(EntityType.Association)}'))");
+
+                    // design §8.6.2: the vote is the CHILD switch, and this is what makes that
+                    // more than a comment. A row offering the vote while the reviewer itself is
+                    // off would describe Berean casting a verdict nobody asked it to attend —
+                    // the same shape the two scope checks above refuse for ContentType/IsPersonal,
+                    // applied to a feature pair instead of a scope pair.
+                    tableBuilder.HasCheckConstraint(
+                        name: "CK_ApprovalSetting_AIVoteRequiresAIReviewer",
+                        sql:
+                            $"({nameof(ApprovalSetting.IsAIAllowedToVote)} = 0 OR " +
+                            $"{nameof(ApprovalSetting.IsAIReviewerOffered)} = 1)");
+
+                    // design §8.6.2: both thresholds are values on ConfidenceScore's own
+                    // 0.00–10.00 scale (§13.5), and HasPrecision does not enforce a scale —
+                    // decimal(4,2) admits -99.99 through 99.99. Until these existed the range
+                    // was enforced only by the admin page's number inputs, so any caller that
+                    // was not that page — a script, a stale client — stored 50.00 or -3.00 and
+                    // kept it. Same SQL as CK_Association_ConfidenceScoreRange because it is
+                    // the same scale; not null-safe like that one only because these two
+                    // columns are non-nullable (a threshold with no value compares against
+                    // nothing).
+                    //
+                    // One constraint per column rather than one combined check: a check-
+                    // constraint violation names no field to the caller, so the constraint
+                    // name in the SQL error is the only diagnostic a raw-SQL writer gets.
+                    tableBuilder.HasCheckConstraint(
+                        name: "CK_ApprovalSetting_AIRejectionThresholdRange",
+                        sql:
+                            $"({nameof(ApprovalSetting.AIApprovalConfidenceRejectionThreshold)} " +
+                            $"BETWEEN 0 AND 10)");
+
+                    tableBuilder.HasCheckConstraint(
+                        name: "CK_ApprovalSetting_AIApprovalThresholdRange",
+                        sql:
+                            $"({nameof(ApprovalSetting.AIApprovalConfidenceApprovalThreshold)} " +
+                            $"BETWEEN 0 AND 10)");
+
+                    // design §8.6.2: the approval threshold is the higher of the two, and until
+                    // this constraint existed nothing made that true. Inverted — rejection 8.00
+                    // with approval 3.00 — a score of 5 satisfies both the reject-below test of
+                    // rule 1 and the approve-above test of rule 2 at once, so both fire and the
+                    // design defines no behaviour for that state.
+                    //
+                    // `<=` rather than `<`, deliberately. Rules 1 and 2 are STRICT comparisons
+                    // on either side of the pair, so an equal pair only closes the middle band
+                    // (rule 3) and leaves the two verdicts disjoint — nothing inverts. It is
+                    // also the pair ApprovalPolicyDefaults.SystemDefaultFor ships as its
+                    // fail-closed fallback (0.00/0.00, "casts no vote to threshold in the first
+                    // place"), which a strict rule would make unstorable.
+                    tableBuilder.HasCheckConstraint(
+                        name: "CK_ApprovalSetting_AIThresholdOrder",
+                        sql:
+                            $"({nameof(ApprovalSetting.AIApprovalConfidenceRejectionThreshold)} <= " +
+                            $"{nameof(ApprovalSetting.AIApprovalConfidenceApprovalThreshold)})");
                 });
 
             model.HasKey(approvalSetting => approvalSetting.Id);
@@ -106,6 +160,30 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             model.Property(approvalSetting => approvalSetting.DoNotAllowBypassingSettings)
                  .IsRequired()
                  .HasDefaultValue(false);
+
+            model.Property(approvalSetting => approvalSetting.IsAIReviewerOffered)
+                 .IsRequired()
+                 .HasDefaultValue(false);
+
+            model.Property(approvalSetting => approvalSetting.IsAIAllowedToVote)
+                 .IsRequired()
+                 .HasDefaultValue(false);
+
+            // decimal(4,2), the same precision as Association.ConfidenceScore (design §13.5) —
+            // both thresholds are values on that scale, not a narrower one. Non-nullable, unlike
+            // ConfidenceScore itself: a threshold with no value would compare against nothing.
+            //
+            // PRECISION IS NOT THE RANGE, and these two lines are not what keeps a threshold on
+            // the scale: decimal(4,2) admits -99.99 through 99.99. The 0.00–10.00 bound and the
+            // rejection ≤ approval ordering are the three check constraints in the ToTable block
+            // above, with the matching service rules in front of them.
+            model.Property(approvalSetting => approvalSetting.AIApprovalConfidenceRejectionThreshold)
+                 .HasPrecision(4, 2)
+                 .IsRequired();
+
+            model.Property(approvalSetting => approvalSetting.AIApprovalConfidenceApprovalThreshold)
+                 .HasPrecision(4, 2)
+                 .IsRequired();
 
             model.Property(approvalSetting => approvalSetting.CreatedBy)
                  .HasMaxLength(255)

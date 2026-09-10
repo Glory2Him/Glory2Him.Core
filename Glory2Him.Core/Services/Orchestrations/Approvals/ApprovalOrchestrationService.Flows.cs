@@ -105,9 +105,44 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 // fetching one: the conditions above were measured against reviews that no longer
                 // count. Evaluating on them would auto-approve using approvals just discarded —
                 // exactly inverting what RequireReapprovalOnChange asked for.
-                return await EvaluateResolvedApprovalAsync(
+                ApprovalOutcome outcome = await EvaluateResolvedApprovalAsync(
                     approval: approval,
                     cancellationToken: cancellationToken);
+
+                // AND THE AI HALF OF THE SAME DISMISSAL. §8.8 rule 1 invalidates every verdict on
+                // the round, and Berean's is one of them — but its assignment is keyed on the
+                // APPROVAL rather than on the round's reviews, so nothing above touches it and it
+                // would go on reporting a finished pass, with comments, over text it never saw.
+                //
+                // It runs through the gathering seam and the workflow seam for exactly the
+                // reasons DismissStaleApprovalReviewsAsync documents below: this flow runs under
+                // the EDITOR's identity, and the ordinary editor is the author revising their own
+                // submission, who holds no review role (HR-1). An identity-filtered read would
+                // answer null and decide an invariant on it; a write under that identity would be
+                // refused, and would name the wrong actor if it were not.
+                //
+                // AFTER THE RE-EVALUATION, DELIBERATELY. Nothing orders the two by data — the
+                // evaluation reads the round's reviews and comments and never the assignment row,
+                // and §8.6.2's re-trigger event is not built, so nothing subscribes in the other
+                // direction either. It is last because it is the tidy-up, and because the
+                // evaluation the dismissal makes necessary must always run.
+                //
+                // IT CANNOT FAULT THIS FLOW. The helper logs its own failure and returns (see
+                // ResetStaleAIReviewerAssignmentAsync), and here that matters more than it does
+                // on the reset: EvaluateResolvedApprovalAsync has already COMMITTED by this line
+                // and may have auto-approved the round and published the entity. A throw would
+                // fault ProcessEntityModifiedAsync on work that succeeded, the substrate would
+                // record the delivery as failed and REDELIVER it, and the whole flow — dismissal
+                // and evaluation — would run again over committed work.
+                //
+                // What a failure costs instead: the two flags stay stale until a moderator asks
+                // Berean again, and the failure is in the error log. The same posture Resets.cs
+                // writes down for its own AI step, because both call the one helper.
+                await ResetStaleAIReviewerAssignmentAsync(
+                    approvalId: approval.Id,
+                    cancellationToken: cancellationToken);
+
+                return outcome;
             });
 
         // §9.2 rules 3 and 6, §9.8: the carve-out moves the ENTITY between Draft and Submitted

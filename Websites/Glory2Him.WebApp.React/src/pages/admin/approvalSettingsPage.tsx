@@ -123,6 +123,8 @@ export const ApprovalSettingsPage = () => {
                     {featurePill('Re-approve on change', approvalSetting
                         .requireReapprovalOnChange)}
                     {featurePill('No bypass', approvalSetting.doNotAllowBypassingSettings)}
+                    {featurePill('AI reviewer (Berean)', approvalSetting.isAIReviewerOffered)}
+                    {featurePill('AI vote', approvalSetting.isAIAllowedToVote)}
                 </>
             )
         }

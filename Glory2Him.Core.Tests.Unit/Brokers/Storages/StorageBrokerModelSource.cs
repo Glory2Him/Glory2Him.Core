@@ -13,6 +13,7 @@ using System;
 using System.Collections.Generic;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.Extensions.Configuration;
 
@@ -29,12 +30,23 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Storages
     /// <para>The connection-string key lives here for the same reason: it is the production
     /// key <see cref="StorageBroker"/> reads, and holding it in one place means a rename
     /// breaks one line rather than every guard at once.</para>
+    ///
+    /// <para><b>Two models, deliberately.</b> <see cref="Model"/> is the RUNTIME model, which EF
+    /// strips of everything query execution does not need — check constraints among them, and
+    /// asking for one throws rather than answering empty. <see cref="DesignTimeModel"/> is the
+    /// unstripped one the migration pipeline reads, so a guard on a constraint has to take that
+    /// one. Indexes survive both, so the index guards stay on the cheaper model.</para>
     /// </summary>
     internal static class StorageBrokerModelSource
     {
         private static readonly Lazy<IModel> LazyModel = new Lazy<IModel>(BuildModel);
 
+        private static readonly Lazy<IModel> LazyDesignTimeModel =
+            new Lazy<IModel>(BuildDesignTimeModel);
+
         public static IModel Model => LazyModel.Value;
+
+        public static IModel DesignTimeModel => LazyDesignTimeModel.Value;
 
         private static IModel BuildModel()
         {
@@ -51,6 +63,21 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Storages
             using var storageBroker = new StorageBroker(configuration);
 
             return storageBroker.Model;
+        }
+
+        private static IModel BuildDesignTimeModel()
+        {
+            IConfiguration configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["ConnectionStrings:Glory2HimConnectionString"] =
+                        "Server=(local);Database=ModelOnly;Integrated Security=true;",
+                })
+                .Build();
+
+            using var storageBroker = new StorageBroker(configuration);
+
+            return storageBroker.GetService<IDesignTimeModel>().Model;
         }
     }
 }

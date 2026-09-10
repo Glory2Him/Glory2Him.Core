@@ -45,6 +45,19 @@ namespace G2H.Security.Client.Services.Foundations.Access
                     Parameter: nameof(ApprovalConditionsRequest.ApprovalComments)));
         }
 
+        virtual internal void ValidateOnResolveAIReviewerPolicy(
+            ResolveAIReviewerPolicyRequest resolveAIReviewerPolicyRequest)
+        {
+            ValidateRequestIsNotNull(resolveAIReviewerPolicyRequest);
+
+            Validate(
+                (Rule: IsInvalid(resolveAIReviewerPolicyRequest.EntityType),
+                    Parameter: nameof(ResolveAIReviewerPolicyRequest.EntityType)),
+
+                (Rule: IsInvalid(resolveAIReviewerPolicyRequest.CandidatePolicies),
+                    Parameter: nameof(ResolveAIReviewerPolicyRequest.CandidatePolicies)));
+        }
+
         virtual internal void ValidateOnRecordReview(RecordReviewRequest recordReviewRequest)
         {
             ValidateRequestIsNotNull(recordReviewRequest);

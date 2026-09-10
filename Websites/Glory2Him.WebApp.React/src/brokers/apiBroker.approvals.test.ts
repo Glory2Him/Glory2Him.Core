@@ -7,6 +7,9 @@ import { ApprovalDecision } from '../models/components/approvals/approvalReviewI
 // The approval round's reads. What matters here is the ADDRESSES: two hosts answer them, one
 // keyed by entity and one by approval, and the reviewer names ride a repeated query parameter
 // rather than a joined string.
+//
+// Berean's three are NOT among them: they are their own resource now, and apiBroker.aiReviewers
+// .test is what pins their addresses.
 vi.mock('axios');
 
 const getAsync = vi.mocked(axios.get);

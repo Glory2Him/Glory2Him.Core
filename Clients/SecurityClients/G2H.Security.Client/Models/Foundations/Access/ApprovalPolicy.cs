@@ -103,5 +103,34 @@ namespace G2H.Security.Client.Models.Foundations.Access
         /// conditions cannot be waived by any route (§8.6 HR-4).
         /// </summary>
         public required bool DoNotAllowBypassingSettings { get; init; }
+
+        /// <summary>
+        /// The AI reviewer ("Berean") feature switch (§8.6.2). True offers Berean in the
+        /// reviewer-request UI and has it comment under its system identity once asked; false
+        /// offers nothing and performs no AI action of any kind.
+        /// </summary>
+        public required bool IsAIReviewerOffered { get; init; }
+
+        /// <summary>
+        /// Whether Berean may additionally cast a vote, decided from
+        /// <c>IConfidence.ConfidenceScore</c> against the two thresholds below. Requires
+        /// <see cref="IsAIReviewerOffered"/> to be true — this client does not re-derive that,
+        /// it travels with whatever the resolved row carries (§8.6.2).
+        /// </summary>
+        public required bool IsAIAllowedToVote { get; init; }
+
+        /// <summary>
+        /// <c>ConfidenceScore</c> value below which Berean would file a <c>Rejected</c> review.
+        /// Same 0.00–10.00 <c>decimal(4,2)</c> scale as the score itself (§13.5). Meaningful only
+        /// where <see cref="IsAIAllowedToVote"/> is true (§8.6.2).
+        /// </summary>
+        public required decimal AIApprovalConfidenceRejectionThreshold { get; init; }
+
+        /// <summary>
+        /// <c>ConfidenceScore</c> value above which Berean would file an <c>Approved</c> review.
+        /// Same scale as <see cref="AIApprovalConfidenceRejectionThreshold"/>, and the higher of
+        /// the two (§8.6.2).
+        /// </summary>
+        public required decimal AIApprovalConfidenceApprovalThreshold { get; init; }
     }
 }

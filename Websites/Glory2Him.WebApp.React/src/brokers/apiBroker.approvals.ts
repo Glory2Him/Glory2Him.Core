@@ -18,6 +18,11 @@ import { ApprovalDecision } from '../models/components/approvals/approvalReviewI
 // the verdict, who may be asked, who has been, and the decision itself — while
 // api/ApprovalReviews is the plain foundation collection, OData-filtered like the other
 // foundation reads in this folder, and written to like them: a vote is a row.
+//
+// BEREAN IS NOT HERE. Its assignment is its own resource with its own controller behind it
+// (api/AIReviewers, design §8.6.2) and its own broker beside this one — see
+// apiBroker.aiReviewers. It used to hang off api/Approvals/{entityType}/{entityId}/AIReviewer,
+// which gave this broker two subjects the way it gave the server's contract two.
 class ApprovalBroker {
     relativeApprovalsUrl = '/api/approvals';
     relativeApprovalReviewsUrl = '/api/approvalreviews';

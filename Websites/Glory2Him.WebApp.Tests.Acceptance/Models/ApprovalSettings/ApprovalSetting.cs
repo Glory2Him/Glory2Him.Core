@@ -46,6 +46,16 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Models.ApprovalSettings
         public bool RequireReviewCommentResolutionBeforeApprovals { get; set; }
         public bool DoNotAllowBypassingSettings { get; set; }
 
+        // The AI reviewer ("Berean") feature switch and its child vote switch (design §8.6.2).
+        // IsAIAllowedToVote requires IsAIReviewerOffered, enforced in storage by
+        // CK_ApprovalSetting_AIVoteRequiresAIReviewer.
+        public bool IsAIReviewerOffered { get; set; }
+        public bool IsAIAllowedToVote { get; set; }
+
+        // ConfidenceScore's own 0.00-10.00 decimal(4,2) scale (§13.5).
+        public decimal AIApprovalConfidenceRejectionThreshold { get; set; }
+        public decimal AIApprovalConfidenceApprovalThreshold { get; set; }
+
         public string CreatedBy { get; set; }
         public DateTimeOffset CreatedWhen { get; set; }
         public string UpdatedBy { get; set; }
