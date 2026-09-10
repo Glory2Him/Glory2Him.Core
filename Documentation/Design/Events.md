@@ -936,8 +936,10 @@ The controller should:
 3. Call the entity's **top-layer service**. Which layer that is varies by entity
    and is not the controller's choice: §EVN18 rule 3 requires the two Versioned
    types to be exposed above their foundation, so `ContentItemsController` binds
-   `IContentItemProcessingService`, while a Single-Row type has nothing above
-   its foundation and `TagsController` binds `ITagService` directly. Of the
+   `IContentItemProcessingService`, while `Tag` has nothing above its foundation
+   and `TagsController` binds `ITagService` directly. The publication model does
+   not decide that — `ContentItemSetting` and `Association` are both Single-Row
+   and both carry an orchestration above their foundation (§EVN18). Of the
    twelve controllers, three bind an orchestration, two a processing service and
    seven a foundation.
 4. Map the result and domain exceptions to HTTP responses.
@@ -1002,8 +1004,7 @@ service assumes an upstream one gated the caller. The base class is
 
 There is no standalone handler class. §EVN11 already states this — subscriptions
 are delegate-based, not `IEventReceiver<T>`-style DI-resolved receiver classes
-(§EVN22 names that discarded shape) — this section previously repeated the
-discarded shape as if it were current; corrected to the real one. The receiving
+(§EVN22 names that discarded shape). The receiving
 service implements the handler as part of its own `.Substrate` partial —
 `On<Verb><Entity>Async` for a request address, `On<Entity><Verb>Async` for a
 fact address (§EVN11) — and `EventSubscriptionRegistration` binds it as a
@@ -1115,8 +1116,8 @@ real values does. `Guid.Empty` is a value like any other to an HMAC. What
 verification rules out is a *different* context being substituted for the signed
 one — the property the event path actually depends on, and the reason a service
 may act on a role or on `IsSystemIdentity` read off a verified envelope (§EVN17).
-It is not a presence check, and reading it as one would leave items 3-7 unasked
-by anybody.
+It is not a presence check, and reading it as one would leave items 3, 4, 6
+and 7 unasked by anybody.
 
 The remaining items are answered, where they are answered at all, outside this
 method:
@@ -1226,7 +1227,7 @@ nothing routes to today gates all the same, because a check that leans on
 current routing stops checking the moment a route is added, and stops silently.
 
 What varies by altitude is which rules are asked, not whether they are asked
-(§14.6 rule 3). A foundation asks the row-level rules: authenticated, not blocked
+(`G2H Design.md` §14.6 rule 3). A foundation asks the row-level rules: authenticated, not blocked
 by a `ReadOnly` role, permitted to write this row, permitted to see it. A
 processing or orchestration service asks those again and adds the rules spanning
 rows or states that a single-table service cannot see to ask. The gate sits at
@@ -1303,8 +1304,8 @@ Rules:
 2. Controllers must not perform business authorization; they rely on
    authentication middleware and standard policy attributes for coarse access
    only.
-3. A `SecurityContext` is minted in exactly one place, and Core reaches it
-   through exactly one call. A service calls `IEventEnvelopeBroker.CreateAsync`;
+3. A caller is resolved from a principal in exactly one place, and Core reaches
+   that resolution through exactly one call. A service calls `IEventEnvelopeBroker.CreateAsync`;
    `EventEnvelopeBroker` delegates to the public `IEventEnvelopeClient.CreateAsync`,
    which delegates to the envelope client's internal `EventEnvelopeService`, and
    that is where `ISecurityBroker.GetCurrentSecurityContextAsync()` is called. The
@@ -1313,6 +1314,16 @@ Rules:
    `ISecurityClient.Users`; the result returns as the client's
    `EventSecurityContext`, and `EventEnvelopeBroker` maps it onto Core's
    `SecurityContext`. Every layer above that call sees a context already made.
+
+   Core mints no context from scratch, and derives two.
+   `IEventEnvelopeBroker.CreateSystemAsync` and `CreateElevatedAsync` are both
+   built on `CreateAsync` and then replace the `SecurityContext` it returned:
+   the system mint records `SystemIdentity.UserId` as the actor, the elevated
+   mint keeps the caller as the actor, and both set `IsSystemIdentity`, keep the
+   triggering person on `DelegatedBySubjectId`, and drop `Roles` — the flag
+   stands in for the publisher tier by itself, and carried roles would leave a
+   context that looks authorised two ways. That is the system identity §EVN18(c)
+   and §EVN18 rule 8 write under.
 
    Two consequences follow from where the principal is captured.
    `IEventEnvelopeBroker` is registered **scoped**, never singleton: the broker
@@ -1337,7 +1348,7 @@ specified here rather than left to the implementation.
 the layers it happens to have.**
 
 Every approvable `EntityType` declares one publication model in
-`EntityTypeVersioning`, mirroring §7.5.1: **Versioned** if an amendment to a
+`EntityTypeVersioning`, mirroring `G2H Design.md` §7.5.1: **Versioned** if an amendment to a
 terminal row forks a new row, **Single-Row** if the row that is edited is the
 published row. That declaration decides which tier the workflow listens on, and
 it is a lookup rather than a probe of the entity's runtime shape.
@@ -1365,9 +1376,13 @@ foundation, and the workflow still binds to its foundation facts.
    the only one an amend produces.
 
    `-Submitted` is on the **foundation** address for all seven, `ContentItem`
-   and `Link` included. Submit is a foundation transition on every approvable
-   entity and nothing above the foundation takes part in a submission, so there
-   is no processing fact to prefer.
+   and `Link` included. Six of them reach it through a foundation submit
+   transition. `Association` has no submit verb at all —
+   `AssociationEventOperation` carries no `Submitting` and `IAssociationService`
+   no submit method — so its `-Submitted` is published by the approve transition
+   alone, when an administrator's override re-opens a decided row. Nothing above
+   the foundation takes part in either route, so there is no processing fact to
+   prefer.
 
    A **Versioned** type must have a processing service before it can
    participate in approval, for the reason in rule 2. `Attachment` is Versioned
@@ -1394,10 +1409,10 @@ foundation, and the workflow still binds to its foundation facts.
    address and no subscriber: unpublishing is a step inside the swap rather than
    something a caller may ask for, and nothing reacts to it.
 
-   The rule stands regardless of the tip demotion having gone. Rule 1's "one
-   fact per completed amend" and rule 3's "a direct foundation write bypasses
-   invalidation" are independent of it, and a `Versioned` entity still needs a
-   processing service for those. On the foundation addresses a fork arrives as
+   The rule stands regardless of the tip demotion having gone. Rule 1's
+   preference for the processing service's fact and rule 3's "a direct
+   foundation write bypasses invalidation" are independent of it, and a
+   `Versioned` entity still needs a processing service for those. On the foundation addresses a fork arrives as
    `-Added`, because the fork's write *is* an add: an amend is there
    indistinguishable from a first contribution, so a workflow bound to the
    foundation would open a fresh round for an edit and never hear the edit as an
@@ -1416,22 +1431,22 @@ foundation, and the workflow still binds to its foundation facts.
 
 **Inbound — the workflow's own records.** `ApprovalReview` and `ApprovalComment`
 are a second inbound channel, and a different one: their facts do not
-*invalidate* an approval, they prompt the workflow to **re-test the §8.5
+*invalidate* an approval, they prompt the workflow to **re-test the `G2H Design.md` §8.5
 conditions** on an approval that may have been blocked. Both are foundation-tier
 subscriptions — neither is an approvable entity, neither is an `EntityType`, and
 `EntityTypeVersioning` has no row for either, so rules 1 and 2 do not apply and
 there is no fork to misread.
 Lettered here so the numbered rules above keep their cross-references, and the
-letters are cited in their own right — `(a)` and `(b)` both appear in service
-and test comments — so neither of those two is ever reassigned to a different
+letters are cited in their own right — `(a)` in service and test comments, `(b)`
+in a service comment — so neither of those two is ever reassigned to a different
 item.
 
 **Legacy letter aliases — `§10.17(a)` is `§EVN18(a)`, and `§10.17(b)` is
 `§EVN18(b)`.** The *(formerly §10.17)* annotation on the heading above carries
 the unlettered number only, so it anchors the section but not a citation that
 names a letter. The lettered forms code actually writes are spelled out here to
-be that anchor: `§10.17(a)`, `§10.17 (a)`, `§10.17 inbound item (a)`, `§10.17
-inbound (a)` and `§10.17(b)`.
+be that anchor: `§10.17(a)`, `§10.17 (a)`, `§10.17(b)`,
+`§10.17 inbound (a)` and `§10.17 inbound item (a)`.
 
 The rest of the run carries no alias and must not be read as one. This list is
 lettered continuously where the earlier one interleaved `(b1)`–`(b3)`, so the
@@ -1440,7 +1455,7 @@ earlier `(c)` and `(d)` are `(g)` and `(h)` here — a bare `§10.17(c)` or
 either.
 
 - (a) **Subscribe to every fact address on both records — not a subset.** The
-  §8.5 evaluation reads comments through `IsDeleted is false && IsResolved is
+  `G2H Design.md` §8.5 evaluation reads comments through `IsDeleted is false && IsResolved is
   false`, and reviews through `IsDeleted is false && Verdict != Dismissed`.
   Every published fact can move one of those predicates, so all of them
   re-test:
@@ -1476,7 +1491,7 @@ either.
   the publisher's composition inverted — rather than a single name, which would
   refuse half its traffic silently.
 - (b) **Re-test, do not assume.** No fact means "the approval may now complete"
-  — it means the inputs changed. The handler re-runs the whole §8.5 evaluation.
+  — it means the inputs changed. The handler re-runs the whole `G2H Design.md` §8.5 evaluation.
   Facts that move the gate *shut* matter as much as those that open it: a
   comment born outstanding, or a withdrawn approving review, can re-block an
   approval that was clear, which is exactly the case
@@ -1484,8 +1499,7 @@ either.
   a fact may move nothing at all — a comment born settled is the common case —
   which is why the handler re-evaluates instead of inferring a direction from
   the address.
-- (c) **The entity under review is a fourth inbound source, and it is the one
-  that causes dismissal.** When an item subject to approval is added or
+- (c) **The entity under review is the inbound source that causes dismissal.** When an item subject to approval is added or
   amended, the orchestration receives that fact (rules 1–3 above decide at
   which tier) and, from the effective `ApprovalSetting`, determines that the
   existing verdicts no longer describe the current content. It then sets
@@ -1537,8 +1551,11 @@ either.
   dismissal; the cost of removing is a weaker rule for every address.
 
   The guard's *scoping* — one approval rather than all — also remains a
-  genuine property, pinned by a test that publishes from outside any window,
-  which is how a second publisher would arrive. A repair pass or an
+  genuine property, pinned by
+  `ApprovalOrchestrationServiceTests.DismissalReEntrancy`, which re-enters the
+  handler from inside the reset loop with an unrelated approval id and asserts
+  that round is still re-tested. Inside the window is the only place a second
+  publisher can arrive from, because the window stands open for the whole loop. A repair pass or an
   administrative tool that dismissed outside the reset loop would need exactly
   this subscription, and would find it already correct.
 
@@ -1588,7 +1605,7 @@ either.
    decision, so publication survives only where the target is `Approved` and the
    date is cleared with the flag; and the bypass pair is taken from the access
    verdict rather than from the caller. Nothing outside `IApproval` is widened
-   into — the `ShortCode` derivation §19.7 places at a group's first publish is
+   into — the `ShortCode` derivation `G2H Design.md` §19.7 places at a group's first publish is
    designed and not built, and no column exists for it.
 
    `<Entity>-Submitted` is the one subscribed address the workflow can also
@@ -1608,7 +1625,7 @@ either.
    promotion (§EVN2). Both addresses exist so that a subscriber *could* be told
    the group-level work is done; neither has one today.
 
-   **An attachment does not yet ride on its host's approval.** §5.6.5 rules that
+   **An attachment does not yet ride on its host's approval.** `G2H Design.md` §5.6.5 rules that
    an attachment's approval derives from the host that displays it — the host's
    purposefully-placed and inline-referenced attachments submitted and then
    approved with it, bypass-audited — and because that flow would use transition
@@ -1640,11 +1657,10 @@ either.
 
    The distinction that matters is request against fact. The command goes to a
    request address the entity already owns; it is not an approval fact published
-   for the entity's own layers to react to. That resolves a contradiction in
-   earlier drafts, which would have required every approvable entity's
-   orchestration to subscribe to approval facts and would have reintroduced the
-   cycle at one remove. The `Approval` row is written first and the entity
-   follows, because §9.8 names the approval the source of truth — so a repair
+   for the entity's own layers to react to. An approval fact in its place would
+   require every approvable entity's orchestration to subscribe to approval
+   facts, which reintroduces the cycle at one remove. The `Approval` row is written first and the entity
+   follows, because `G2H Design.md` §9.8 names the approval the source of truth — so a repair
    pass can only ever mean "drive the entity to match the approval".
 
 ## EVN19. Write and Publish Atomicity — ruled, not built *(formerly §10.18)*
@@ -1702,17 +1718,22 @@ itself is at-least-once.**
    onto `AIReviewerAssignment-Modified`. Each is reached only by a direct
    in-process call from `ApprovalOrchestrationService`, on an envelope the
    service mints for itself under the system identity, so there is no inbound
-   delivery to deduplicate and no handler for the outbound fact to re-enter.
+   delivery to deduplicate and no request handler of its own to key the outbound
+   record against. Two of the three facts carry no subscriber at all;
+   `ApprovalReview-Dismissed` carries the one §EVN18(a) requires, and re-entry
+   there is held off by the reset loop's suppression window rather than by a
+   `ProcessedEvent` row (§EVN18(d)).
    Under this ruling they take the row and the outbox row and nothing else, and
    rules 2 and 5-7 hold for them unchanged: what makes a failed publish
    recoverable is the outbox row, never the dedup pair.
 
-   The two demotion transitions sit the other way round, and are named here so
-   the shape is not read as a rule. `UnpublishContentItemByIdAsync` and
-   `UnpublishLinkByIdAsync` have no request address either (§EVN2), yet they
-   record the pair against `"ContentItem.OnContentItemUnpublished"` and
-   `"Link.OnLinkUnpublished"` — receiver names that no handler and no
-   subscription owns. Those rows have no reader rather than a wrong one, and the
+   Three transitions sit the other way round, and are named here so the shape is
+   not read as a rule. `UnpublishContentItemByIdAsync`,
+   `UnpublishLinkByIdAsync` and `SortAssociationAsync` have no request address
+   either (§EVN2), yet they record the pair against
+   `"ContentItem.OnContentItemUnpublished"`, `"Link.OnLinkUnpublished"` and
+   `"AssociationService.OnSortingAssociation"` — receiver names that no handler
+   and no subscription owns. Those rows have no reader rather than a wrong one, and the
    transaction covers them as it covers any other row the path writes. Which is
    why this rule is stated in terms of what the path writes rather than in terms
    of a fixed pair: the pair follows the handler, and the atomicity being ruled
@@ -1738,10 +1759,12 @@ itself is at-least-once.**
    phantom cannot be undone, whereas a late fact converges.
 
 4. **The guarantee becomes at-least-once, and receivers are already safe for
-   it.** `ProcessedEvents` is unique on `EventId` + `ReceiverName` and a
-   deduplicated delivery replies `null`, so a redelivered envelope is a no-op.
-   That existing dedup is the precondition this ruling depends on; it is not
-   new work.
+   it.** A foundation request handler checks `ProcessedEvents`, unique on
+   `EventId` + `ReceiverName`, and a deduplicated delivery replies `null`, so a
+   redelivered envelope is a no-op there. Above the foundation nothing checks
+   that table: a redelivered fact is handled again, and safety rests on the
+   handler re-evaluating the round rather than applying a delta. Both properties
+   exist already; neither is new work.
 
 5. **The outbox stores the envelope minted before the commit and the
    destination it is owed to; a retry republishes exactly that, and only the
@@ -1872,19 +1895,21 @@ envelope would put its own name on a fact another service published.
 the service that owns the operation, is bound to exactly one handler — the
 `On<Verb><Entity>Async` method on that service (§EVN11, §EVN14) — and carries
 the data to act on. Three in four of the subscriptions in
-`EventSubscriptionRegistration` are request handlers, so this is the substrate's
-majority traffic rather than a corner of it. A handler may return a reply, which
+`EventSubscriptionRegistration` are request handlers, so the request family is
+the larger half of the wiring rather than a corner of it. What is published onto
+it is narrower: the only request this system publishes today is the `-Approving`
+command the approval workflow sends on each decision (§EVN18 rule 8). A handler may return a reply, which
 the broker signs with `EnvelopeDirection.Reply`, stores on the delivery row and
 hands back in `EventPublishResult.Deliveries`.
 
 **A query is a request that asks and does not tell.** `-RetrievingById` is the
 joint-largest request operation on the substrate — fifteen subscriptions, level
-with `-Adding` and `-RemovingById` — so reading over the substrate is ordinary
-traffic, not a curiosity. It publishes no fact, because nothing happened worth announcing; the
+with `-Adding` and `-RemovingById` — so reading is wired on every entity that
+answers requests at all, not on a chosen few. It publishes no fact, because nothing happened worth announcing; the
 answer comes back on the reply channel above, which is the whole reason that
-channel exists. It also skips the `ProcessedEvents` bookkeeping every mutating
-handler performs: a read is naturally idempotent, so a redelivered query costs a
-second read and nothing else. That exemption is the practical test for which
+channel exists. It also skips the `ProcessedEvents` bookkeeping a foundation's
+mutating handlers perform: a read is naturally idempotent, so a redelivered
+query costs a second read and nothing else. That exemption is the practical test for which
 kind of request an address carries — if delivering it twice would be wrong, it
 is a command.
 
@@ -1918,10 +1943,17 @@ Avoiding event spaghetti:
    act, and asking it for data, both belong on its own request address — the
    first under the conditions above, the second freely — and neither belongs on
    a fact.
-4. Mutating handlers are made idempotent explicitly: `ProcessedEvents` is unique
-   on `EventId` + `ReceiverName` and a deduplicated delivery replies `null`, so a
-   redelivered envelope is a no-op (§EVN19 rule 4). Read handlers keep no such
-   record and are exempt by nature, which is the distinction rule 3 turns on.
+4. A foundation's mutating handlers are made idempotent explicitly:
+   `ProcessedEvents` is unique on `EventId` + `ReceiverName` and a deduplicated
+   delivery replies `null`, so a redelivered envelope is a no-op there (§EVN19
+   rule 4). Read handlers keep no such record and are exempt by nature, which is
+   the distinction rule 3 turns on. Above the foundation nothing consults that
+   table: the two processing services' request handlers and every
+   `ApprovalOrchestrationService` fact handler run again on a redelivery. What
+   makes that tolerable for the fact handlers is that they re-evaluate the round
+   rather than apply a delta — idempotence by construction, not deduplication —
+   and a handler added above the foundation that applies a delta owns the check
+   that makes it safe.
 5. Do not rely on the relative order of two subscribers on one address, or on
    the order of two publishes. No address carries two subscriptions today, so
    the first half constrains future wiring; the second bites now.

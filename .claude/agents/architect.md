@@ -34,9 +34,12 @@ What you settle, in this order:
    justification for a coordination service or using events.
 4. **Event contracts** — the request and fact addresses published and consumed,
    in the `<Subject>-<Verb>` form of §EVN2. Tense states direction: the present
-   participle (`ContentItem-Approving`) is a request the owning service
-   receives, the past tense (`ContentItem-Approved`) the fact it publishes once
-   the work is done. The subject is the service, not the entity — its class
+   participle (`ContentItem-Adding`) is a request the owning service receives,
+   the past tense (`ContentItem-Added`) the fact it publishes once the work is
+   done. Request and fact do not pair one to one — a transition reports the
+   outcome reached, so `ContentItem-Approving` publishes `ContentItem-Approved`,
+   `ContentItem-Rejected` or `ContentItem-Submitted`, and the contract names all
+   three. The subject is the service, not the entity — its class
    name minus `Service` — so `ContentItem-Adding` is the foundation's address
    and `ContentItemProcessing-Adding` the processing tier's, and the CRUD verbs
    keep the same meaning at every layer. A verb outside CRUD needs the

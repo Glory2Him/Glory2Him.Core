@@ -1,7 +1,8 @@
 # Glory2Him.Core
 
 A collaborative content portal built to The Standard. See `INTENT.md` for what the
-system does and `Documentation/G2H Design.md` for how it is designed.
+system does, and `Documentation/G2H Design.md` with
+`Documentation/Design/Events.md` for how it is designed.
 
 ## Where the rules live
 
@@ -50,10 +51,11 @@ spelled out in full, such as `Opus 5 - Medium`.
 - No layer calls two layers below it — **except** an orchestration depending
   only on foundation services (never a mix of foundation and processing, and
   never a broker). `Documentation/G2H Design.md` §12.1 rule 2 and §12.5 record
-  the shape — each entity reached through its processing service where one
-  exists, its foundation service where none does — and
-  `.claude/agents/architect.md` and `qa.md` enforce the never-a-mix half as
-  "same kind, never mixed". This deliberately overrides `the-standard-orchestrations`'
+  the exception and no more: an orchestration reaches each entity through its
+  processing service where one exists, its foundation service where none does.
+  The narrowing to one kind — processing services or foundation services, never
+  both — is owned by `.claude/agents/architect.md` and `qa.md`, as "same kind,
+  never mixed". This deliberately overrides `the-standard-orchestrations`'
   blanket ban on it — see those two agent files for the reasoning.
 - Schema changes are new migrations. Applied migrations are never edited, and a
   migration script must work as a single batch on the deploy path.
