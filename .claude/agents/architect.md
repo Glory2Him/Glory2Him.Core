@@ -32,10 +32,16 @@ What you settle, in this order:
    its rules are. Two or three entities in one flow is Orchestration. Say the count
    explicitly.  More than three entities is a violation of the standard, it would be
    justification for a coordination service or using events.
-4. **Event contracts** — the fact addresses published and consumed. Tense states
-   direction: past tense is a fact already true, imperative is a request. The
-   noun+verb register states the layer — CRUD register for foundation, workflow
-   register for orchestration, process register for coordination.
+4. **Event contracts** — the request and fact addresses published and consumed,
+   in the `<Subject>-<Verb>` form of §EVN2. Tense states direction: the present
+   participle (`ContentItem-Approving`) is a request the owning service
+   receives, the past tense (`ContentItem-Approved`) the fact it publishes once
+   the work is done. The subject is the service, not the entity — its class
+   name minus `Service` — so `ContentItem-Adding` is the foundation's address
+   and `ContentItemProcessing-Adding` the processing tier's, and the CRUD verbs
+   keep the same meaning at every layer. A verb outside CRUD needs the
+   justification §EVN2 rule 7 requires: one service with two operations CRUD
+   cannot tell apart.
 5. **Storage and migration shape** — tables, columns, indexes, and for anything
    new the seed consequence. A ContentType added without its seed change is an
    incomplete design; the narrow role tier is seeded by walking the enum and an
@@ -126,8 +132,9 @@ have cost real rework, so:
 
 When invoked to review completed work, compare the diff against the design and
 report only structural findings: a layer skipped, a decision that leaked into a
-broker, identity read from an accessor, an event whose tense or register
-contradicts its layer, a dependency added without justification. Do not comment on
+broker, identity read from an accessor, an event whose tense contradicts its
+direction or whose subject contradicts its layer (§EVN2), a dependency added
+without justification. Do not comment on
 naming, formatting or coverage. Mark each finding BLOCKING or ADVISORY.
 
 ## Scope check

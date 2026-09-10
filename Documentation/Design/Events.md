@@ -91,11 +91,24 @@ would let one ask for it.
 
 `Approving`/`Approved` appears on both tiers for `ContentItem` and `Link`
 without either publisher duplicating the other, which is rule 5 at work. The
-foundation fact says one row was decided; the processing fact says the group was
-left consistent — the incumbent's publication cleared and the decided row
-promoted. Approving a versioned entity has to do both, and only the processing
-tier can order those two writes, which is why the request address exists there
-as well as on the foundation.
+foundation fact says one row was decided. The processing fact says this tier
+finished everything the decision required of the group — which is a promotion
+only when the decision promotes. A command carrying `Approved` together with
+`IsPublished` clears the incumbent's publication before the decided row takes
+the group's published slot; a rejection, an administrator's reset back to
+`Submitted`, and an `Approved` that does not carry `IsPublished` all take
+nothing into that slot, so no incumbent is looked for and none is cleared. The
+fact goes out on all of them, because what it announces is this tier's unit of
+work finished and not a promotion — a subscriber that needs to know a promotion
+happened reads the decided row on the envelope rather than keying on the
+address.
+
+The request address exists here as well as on the foundation because the
+promoting case has two writes in it and only this tier can order them: the
+foundation decides one row per call, and the orchestration holds no entity
+services. Every versioned approval is therefore addressed here, promoting or
+not, and the tier that owns the ordering is the one that reports the operation
+finished.
 
 1. Create operations emit an `-Added` fact.
 2. Update operations emit a `-Modified` fact.
@@ -1418,9 +1431,12 @@ different item.
    Two further facts follow a Versioned approval, and neither closes a loop. The
    publication swap publishes `<Entity>-Unpublished` when it clears the
    incumbent (rule 2), and the processing service publishes
-   `<Entity>Processing-Approved` once both the swap and the decision have
-   landed. Both addresses exist so that a subscriber *could* be told the group
-   was left consistent; neither has one today.
+   `<Entity>Processing-Approved` once the decision has landed — after the swap
+   as well, on the decisions that run one. That second fact goes out for every
+   decision the processing tier handles, rejections and resets included, because
+   it reports that tier's unit of work finished rather than reporting a
+   promotion (§EVN2). Both addresses exist so that a subscriber *could* be told
+   the group-level work is done; neither has one today.
 
    **An attachment does not yet ride on its host's approval.** §5.6.5 rules that
    an attachment's approval derives from the host that displays it — the host's
@@ -1599,34 +1615,98 @@ itself is at-least-once.**
 
 ## EVN20. Design Principles *(new; from EventSubstrate.md §2-3, §30)*
 
-> **Service calls are for intent. Events are for reaction.**
+> **A fact address announces what happened. A request address carries what is
+> being asked for.**
 
-If something is part of the required business transaction, call a service
-directly. If something is a reaction to what happened, publish an event.
+The substrate carries both families, and §EVN2 tells them apart by tense: a
+past-tense address is a **fact**, published once a service's own unit of work is
+done, for any number of subscribers — including none — to react to; a
+present-participle address is a **request**, a command delivered to the one
+service that owns the operation. Almost every rule below depends on which family
+an address belongs to, so that is settled first.
+
+**Facts are announcements.** The publisher describes its own completed unit of
+work (§EVN2 rule 5) and does not know what is bound to the address; the set can
+change without it. A fact therefore never names a receiver and never says what
+to do next. Nothing replies to a fact either — a handler returning the inbound
+envelope would put its own name on a fact another service published.
+
+**Requests are commands, and that is deliberate.** A request address belongs to
+the service that owns the operation, is bound to exactly one handler — the
+`On<Verb><Entity>Async` method on that service (§EVN11, §EVN14) — and carries
+the data to act on. Three in four of the subscriptions in
+`EventSubscriptionRegistration` are request handlers, so this is the substrate's
+majority traffic rather than a corner of it. A handler may return a reply, which
+the broker signs with `EnvelopeDirection.Reply`, stores on the delivery row and
+hands back in `EventPublishResult.Deliveries`; that is the channel a read
+answers on, since `-RetrievingById` publishes no fact.
+
+Sending a command over the substrate is bounded rather than open. It holds only
+when:
+
+- **The address already belongs to the receiving service**, which owns the
+  operation and the rules that govern it. A publisher never invents an address
+  on another service in order to instruct it.
+- **Exactly one handler owns it.** A command delivered twice is two writes.
+- **There is a real reason not to call the service directly.** Today there is
+  one: `ApprovalOrchestrationService` deliberately depends on none of the seven
+  entity services, because taking all seven to write one decision is a shape
+  already on record as breaking, so the decision leaves as an
+  `<Entity>-Approving` command on the entity's own request address and the
+  entity performs its own write (§EVN18 rule 8).
+- **Order that must hold is held by the call stack, not by delivery.** Handler
+  failures are recorded per listener instead of failing the publisher, so a
+  sequence expressed as two publishes can half-happen. The publication swap is
+  two sequential awaits inside one processing method for exactly that reason.
 
 Avoiding event spaghetti:
 
-1. Required business flow belongs in orchestration services.
-2. Reactions belong in event receivers.
-3. Events should describe facts, not commands.
-4. Receivers should be idempotent.
-5. Do not rely on receiver execution order unless explicitly designed.
-6. Do not use events to avoid proper service boundaries.
-7. Persist events before external delivery.
-8. Keep event contracts stable.
-9. Use correlation and causation IDs everywhere.
-10. Treat replay as a first-class design concern.
+1. Required business flow belongs in a call chain owned by one service — an
+   orchestration, or a processing service where the work is on a single entity —
+   not in a chain of services reacting to each other's facts.
+2. A reaction lives in the subscribing service's own `.Substrate` partial. There
+   is no handler class to put one in (§EVN14).
+3. A fact describes what happened, never what to do next. A command belongs on a
+   request address, under the conditions above, and nowhere else.
+4. Handlers are idempotent. `ProcessedEvents` is unique on `EventId` +
+   `ReceiverName` and a deduplicated delivery replies `null`, so a redelivered
+   envelope is a no-op (§EVN19 rule 4).
+5. Do not rely on the relative order of two subscribers on one address, or on
+   the order of two publishes. No address carries two subscriptions today, so
+   the first half constrains future wiring; the second bites now.
+6. Do not use events to avoid a service boundary. An event whose only purpose is
+   to let a service reach past its declared dependencies is the boundary being
+   dodged rather than honoured, which is why a command over the substrate has to
+   name its reason out loud.
+7. The event is persisted before it is dispatched: the substrate writes the
+   stored event row and then delivers inline, so a delivered event is always a
+   stored one. There is no external delivery to persist ahead of — nothing fans
+   events out beyond this process (§EVN22).
+8. Keep event contracts stable. There is no event schema versioning (§EVN22):
+   `Metadata.Version` records a version and nothing negotiates one, so a changed
+   payload shape has no second version to fall back on.
+9. Correlation and causation travel on every hop. `CreateNextAsync` mints a
+   fresh `EventId`, sets `CausationId` to the source event, and carries the
+   request and security contexts forward (§EVN11).
+10. Every handler must be safe against redelivery. The substrate can redeliver a
+    stored event, and it replays the identical signed bytes rather than minting a
+    fresh envelope — which is what makes rule 4's dedup on `EventId` work, and
+    why `RetryCount` never increments (§EVN9). There is no replay operator that
+    re-runs history (§EVN22); replay-safety is a property every handler carries,
+    not a feature something offers.
 
 ## EVN21. Future Pattern: Intentional Dispatch Events *(new; from EventSubstrate.md §34)*
 
 **Not yet used anywhere in this codebase.** Documented as a considered pattern
 for if and when it is needed, not as current design.
 
-The rule "service calls are for intent, events are for reaction" (§EVN20) describes
-the common case. There is a legitimate exception where **intent itself is
-triggered by an incoming external signal** — in that case, an orchestration
-service may publish an event as a deliberate dispatch mechanism, not as a normal
-reaction. Use carefully.
+Publishing a command onto a service's own request address is current design, not
+an exception to it — §EVN20 sets the conditions and
+`ApprovalOrchestrationService` meets them on every decision. What is not built
+is this particular shape of it: a command **fanned out per object across a
+graph** whose size and membership are unknown until an incoming external signal
+arrives, so the publisher cannot enumerate the calls it would otherwise make.
+That is the case this section answers. Use carefully.
 
 **The scenario this answers:** an orchestration service polls an external API
 and receives a graph of related objects (e.g. `{ Department, [Course],
@@ -1696,9 +1776,12 @@ domain throughout. Concepts it proposed that were **not** what got built:
   illustrative scaffolding, never real code in this repository.
 
 What did survive, corrected and carried forward into this document: the
-signing rationale (§EVN10), the intent-vs-reaction principle and the
-event-spaghetti-avoidance rules (§EVN20), and the intentional-dispatch pattern
-(§EVN21) — none of these depended on the discarded scheme.
+signing rationale (§EVN10), the event-spaghetti-avoidance rules (§EVN20), and
+the intentional-dispatch pattern (§EVN21) — none of these depended on the
+discarded scheme. The sketch's intent-versus-reaction maxim is **not** among
+them: it drew the line between a service call and an event, whereas this system
+draws it between a request address and a fact address and carries commands on
+the first (§EVN20, §EVN18 rule 8).
 
 To recover the original document in full: `git log --follow -- Documentation/EventSubstrate.md`
 finds the commits; the file existed at that path up to the commit that unified
