@@ -403,6 +403,11 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     envelope: outboundEnvelope,
                     operation: operation);
 
+            await RecordEventProcessedAsync(
+                envelope: outboundEnvelope,
+                receiverName: receiverName,
+                cancellationToken: cancellationToken);
+
             // §10.19. Delivery is contained, so a subscriber that failed says so HERE and
             // nowhere else, and nothing redelivers it. ContentItem-Submitted reaches the
             // approval round; dropping it diverges the round from the row permanently,
@@ -412,17 +417,14 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             // service.
             //
             // Logged, never thrown: the row is already committed above, and failing the
-            // caller now would report a completed write as a failed one.
+// now would report a completed write as a failed one. LAST for the same reason — a
+            // logging sink that faults must not cost the outbound ProcessedEvent its dedup row,
+            // which is what would let a redelivered request re-apply the transition.
             if (publishResult.HasFailedDeliveries)
             {
                 await this.loggingBroker.LogCriticalAsync(
                     FailedEventDeliveryException.ForFailedDeliveries(publishResult, operation));
             }
-
-            await RecordEventProcessedAsync(
-                envelope: outboundEnvelope,
-                receiverName: receiverName,
-                cancellationToken: cancellationToken);
 
             return updatedContentItem;
         }

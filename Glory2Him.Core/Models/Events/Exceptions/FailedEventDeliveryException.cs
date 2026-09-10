@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Xeptions;
 
@@ -40,8 +41,9 @@ namespace Glory2Him.Core.Models.Events.Exceptions
     /// prevent (§10.19 rule 2).</para>
     ///
     /// <para><b>It carries the substrate's diagnostics and nothing else</b> — the persisted event
-    /// id, the composed event name, and each failed subscription's id, status and response. Never
-    /// an address: <c>HardRemoved</c> shares <c>Removed</c>'s, so only the name discriminates.
+    /// id, the composed event name, and each failed subscription's id, status and response CODE.
+    /// Never the handler's own response MESSAGE — that is its exception text, and the messages in
+    /// this solution carry entity ids and caller identities. Never an address either: <c>HardRemoved</c> shares <c>Removed</c>'s, so only the name discriminates.
     /// And never the
     /// envelope's content or its <c>SecurityContext</c>: the line exists so a divergence can be
     /// found and repaired, and an event's content in a log is a copy of the row with none of
@@ -49,7 +51,7 @@ namespace Glory2Him.Core.Models.Events.Exceptions
     /// </summary>
     public class FailedEventDeliveryException : Xeption
     {
-        public FailedEventDeliveryException(string message)
+        private FailedEventDeliveryException(string message)
             : base(message)
         { }
 
@@ -67,12 +69,23 @@ namespace Glory2Him.Core.Models.Events.Exceptions
             where TOperation : struct, Enum
         {
             string eventName = ComposeEventName(operation);
+            IReadOnlyList<EventDelivery<TContent>> failures = publishResult.FailedDeliveries;
+
+            // Refuses rather than renders. Every caller guards on HasFailedDeliveries first, but
+            // the invariant that makes this message meaningful belongs to the type that owns the
+            // message — not to eight call sites. Without this, a result with nothing wrong
+            // produces "...reported an unsuccessful delivery ... : . Contact support.": an
+            // operator paged over an empty list, naming nobody.
+            if (failures.Count == 0)
+            {
+                throw new InvalidOperationException(
+                    "FailedEventDeliveryException.ForFailedDeliveries was called for a publish " +
+                    "with no failed delivery. Guard on EventPublishResult.HasFailedDeliveries.");
+            }
 
             string failedDeliveries = string.Join(
                 separator: "; ",
-                values: publishResult.Deliveries
-                    .Where(delivery => delivery.IsSuccess is false)
-                    .Select(DescribeDelivery));
+                values: failures.Select(DescribeDelivery));
 
             return new FailedEventDeliveryException(
                 message: $"Failed event delivery of '{eventName}', event id " +
@@ -104,8 +117,19 @@ namespace Glory2Him.Core.Models.Events.Exceptions
             return $"{subject}{operation}";
         }
 
+        // The subscription, the status and the response CODE — never ResponseMessage.
+        //
+        // That field is the failed handler's own exception text, copied verbatim off the
+        // substrate's listener row, and this solution's handler messages routinely carry exactly
+        // what §10.19 rule 3 excludes: entity ids, and caller identities like "User {id} does not
+        // hold a review role". Rendering it here would have put payload and identity into a
+        // Critical line through the one field nobody thought to look at, and would have made the
+        // line unbounded — N failed subscriptions x arbitrary handler text.
+        //
+        // The operator loses nothing they need: the event id and subscription id below locate the
+        // delivery row, which holds the full message under the event store's own access rules.
         private static string DescribeDelivery<TContent>(EventDelivery<TContent> delivery) =>
             $"subscription '{delivery.SubscriptionId}' reported status '{delivery.Status}'" +
-            $" (code '{delivery.ResponseCode}', message '{delivery.ResponseMessage}')";
+            $" (code '{delivery.ResponseCode}')";
     }
 }

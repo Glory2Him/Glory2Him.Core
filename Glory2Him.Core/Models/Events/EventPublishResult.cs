@@ -42,13 +42,35 @@ namespace Glory2Him.Core.Models.Events
         public IReadOnlyList<EventDelivery<T>> Deliveries { get; init; } = [];
 
         /// <summary>
-        /// Whether any subscription reported an unsuccessful delivery at dispatch time — which
-        /// usually means a handler that received the envelope and then threw, rather than one the
-        /// event never reached, because <see cref="EventDelivery{T}.IsSuccess"/> is the listener's
-        /// own status. False for an address nobody subscribes to, which is what lets a publisher
-        /// inspect without first knowing whether its address is subscribed (§10.19 rule 1).
+        /// The deliveries that reported an unsuccessful outcome at dispatch time — usually a
+        /// handler that received the envelope and then threw, rather than one the event never
+        /// reached, because <see cref="EventDelivery{T}.IsSuccess"/> is the listener's own status.
+        ///
+        /// <para>ONE definition of "failed", here, because the guard and the message that explains
+        /// the guard must not be able to disagree. Deriving the predicate twice — once to decide
+        /// whether to report and once to say what to report — lets a widening of either side
+        /// produce a report that names nobody.</para>
+        ///
+        /// <para><b>Empty is not proof of a clean publish.</b> It is also what an address nobody
+        /// subscribes to returns, and what a substrate that failed to RECORD a delivery returns —
+        /// so this answers "was a failure reported", never "did everything arrive".</para>
+        /// </summary>
+        public IReadOnlyList<EventDelivery<T>> FailedDeliveries =>
+            (Deliveries ?? [])
+                .Where(delivery => delivery.IsSuccess is false)
+                .ToList();
+
+        /// <summary>
+        /// Whether any subscription reported an unsuccessful delivery at dispatch time. False for
+        /// an address nobody subscribes to, which is what lets a publisher inspect without first
+        /// knowing whether its address is subscribed (§10.19 rule 1).
+        ///
+        /// <para>Null-tolerant on <see cref="Deliveries"/> deliberately. It is
+        /// <c>init</c>-settable and the solution's own integration tests already null-coalesce it,
+        /// so a null is reachable — and this runs AFTER the row is committed, where throwing
+        /// would report a completed write as a failed one (§10.19 rule 2).</para>
         /// </summary>
         public bool HasFailedDeliveries =>
-            Deliveries.Any(delivery => delivery.IsSuccess is false);
+            FailedDeliveries.Count > 0;
     }
 }

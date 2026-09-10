@@ -286,7 +286,8 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             // failure appears only here, and nothing redelivers it.
             //
             // Logged rather than thrown, for the same reason the foundations log: the decision
-            // the caller asked for WAS recorded, and reporting it as failed would be wrong.
+            // the caller asked for WAS recorded, and reporting it as failed would be wrong. It is
+            // the last thing this method does, so nothing owed follows it.
             // ApprovalOutcome.IsEntitySyncRequested stays true — §16.7.1 defines it as
             // requested rather than landed, and the command was in fact published.
             if (publishResult.HasFailedDeliveries)

@@ -74,7 +74,7 @@ namespace Glory2Him.Core.Tests.Unit.Models.Events
                 $"The publisher completed and its write stands, but these subscriptions " +
                 $"reported an unsuccessful delivery and nothing redelivers it: " +
                 $"subscription '{subscriptionId}' reported status 'Error' " +
-                $"(code '500', message 'the handler failed'). Contact support.";
+                $"(code '500'). Contact support.";
 
             // when
             FailedEventDeliveryException actualException =
@@ -206,11 +206,13 @@ namespace Glory2Him.Core.Tests.Unit.Models.Events
             // and: both failures, each with the substrate's own diagnostics
             actualException.Message.Should().Contain(firstFailedSubscriptionId.ToString());
             actualException.Message.Should().Contain("500");
-            actualException.Message.Should().Contain("the first handler failed");
 
             actualException.Message.Should().Contain(secondFailedSubscriptionId.ToString());
             actualException.Message.Should().Contain("503");
-            actualException.Message.Should().Contain("the second handler failed");
+
+            // and NOT the handlers' own text — see ShouldCarryNeitherThePayloadNorTheCallerIdentity
+            actualException.Message.Should().NotContain("the first handler failed");
+            actualException.Message.Should().NotContain("the second handler failed");
 
             // and: not the delivery that succeeded
             actualException.Message.Should().NotContain(succeededSubscriptionId.ToString());
@@ -225,10 +227,14 @@ namespace Glory2Him.Core.Tests.Unit.Models.Events
         [Fact]
         public void ShouldCarryNeitherThePayloadNorTheCallerIdentity()
         {
-            // given: a payload AND a caller identity, each carrying text unmistakable in a log.
-            // Both sentinels matter: the identity is the one a well-meaning edit is likeliest to
-            // append ("which caller's publish failed?"), and with only a Content sentinel this
-            // test would pass while the SecurityContext leaked.
+            // given: sentinels in every field that could carry them into the line.
+            //
+            // ResponseMessage is the one that MATTERS and the one this test originally missed. It
+            // is the failed handler's own exception text, copied off the substrate's listener row,
+            // and this solution's handlers throw messages like "User {id} does not hold a review
+            // role" and "Approval not found for {entityType} with id: {entityId}". Seeding only
+            // Response — which the formatter never reads — made the assertion structurally
+            // unfailable: it passed while the real leak went straight through ResponseMessage.
             var publishResult = new EventPublishResult<Tag>
             {
                 EventId = Guid.NewGuid(),
@@ -239,6 +245,10 @@ namespace Glory2Him.Core.Tests.Unit.Models.Events
                         SubscriptionId = Guid.NewGuid(),
                         IsSuccess = false,
                         Status = "Error",
+                        ResponseCode = "500",
+                        ResponseMessage =
+                            "User a-secret-caller-id does not hold a review role for "
+                                + "a-secret-tag-name",
                         Response = new EventEnvelope<Tag>
                         {
                             Content = new Tag { Name = "a-secret-tag-name" },
@@ -262,6 +272,63 @@ namespace Glory2Him.Core.Tests.Unit.Models.Events
             actualException.Message.Should().NotContain("a-secret-tag-name");
             actualException.Message.Should().NotContain("a-secret-caller-id");
             actualException.Message.Should().NotContain("a-secret-caller-name");
+        }
+
+        /// <summary>
+        /// A publish with nothing wrong is REFUSED, not rendered.
+        ///
+        /// <para>Every call site guards on <c>HasFailedDeliveries</c> first, but the invariant
+        /// that makes this message meaningful belongs to the type that owns the message, not to
+        /// eight call sites and whatever #497 adds. Without the guard the factory renders
+        /// "…reported an unsuccessful delivery and nothing redelivers it: . Contact support." —
+        /// an operator paged over an empty list, naming nobody.</para>
+        /// </summary>
+        [Fact]
+        public void ShouldRefuseToDescribeAPublishWithNoFailedDelivery()
+        {
+            // given
+            var publishResult = new EventPublishResult<Tag>
+            {
+                EventId = Guid.NewGuid(),
+                Deliveries = new List<EventDelivery<Tag>>
+                {
+                    new EventDelivery<Tag> { IsSuccess = true, Status = "Success" },
+                },
+            };
+
+            // when
+            Action describingACleanPublish = () =>
+                FailedEventDeliveryException.ForFailedDeliveries(
+                    publishResult,
+                    TagEventOperation.Submitted);
+
+            // then
+            describingACleanPublish.Should().Throw<InvalidOperationException>();
+        }
+
+        /// <summary>
+        /// A null <c>Deliveries</c> reports NO failure rather than throwing.
+        ///
+        /// <para>It is <c>init</c>-settable, the solution's own integration tests already
+        /// null-coalesce it, and this predicate is read AFTER the row is committed — so an
+        /// exception here would report a completed write as a failed one, which is the outcome
+        /// §10.19 rule 2 exists to prevent.</para>
+        /// </summary>
+        [Fact]
+        public void ShouldReportNoFailureWhenTheDeliveriesAreNull()
+        {
+            // given
+            var publishResult = new EventPublishResult<Tag>
+            {
+                EventId = Guid.NewGuid(),
+                Deliveries = null,
+            };
+
+            // when
+            bool hasFailedDeliveries = publishResult.HasFailedDeliveries;
+
+            // then
+            hasFailedDeliveries.Should().BeFalse();
         }
 
         /// <summary>
