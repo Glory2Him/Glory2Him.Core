@@ -371,8 +371,11 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         // (SaveDismissTransitionAsync), reached by exactly one caller (the reset loop), and that
         // loop sets the suppression before it publishes. Delivery is synchronous on the
         // publisher's execution context and the guard is an AsyncLocal, so EVERY production
-        // publish of this fact lands inside its own suppression window. Measured: two
-        // overlapping resets produced four deliveries and zero re-tests.
+        // publish of this fact lands inside its own suppression window. That the context really
+        // does flow across a delivery is measured rather than assumed, against the real
+        // substrate, by ExecutionContextFlowTests; that a dismissal fact round-trips the
+        // substrate and is ACCEPTED here — signed name and all — by WorkflowRecordFactTests'
+        // Dismissed row.
         //
         // KEPT, and that is settled rather than pending (#300). §10.17 (a) requires a subscriber
         // on every fact address, and that universal is enforced by a test derived from the
@@ -380,10 +383,11 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         // exception into it — one suppressed delivery per dismissal is a smaller price than a
         // weaker rule for every address.
         //
-        // The guard's SCOPING (one approval, not all) is a real property too, pinned by
-        // ShouldStillReTestADifferentRoundWhileDismissingAsync, which publishes from outside any
-        // window the way a repair pass or an administrative tool one day would — and such a
-        // caller would find this handler already correct.
+        // The guard's SCOPING (one approval, not all) is a real property too, and so is its
+        // ORDER against the signature check. Both are pinned by
+        // ApprovalOrchestrationServiceTests.DismissalReEntrancy.cs, which drives the real
+        // dismissal loop and re-enters this handler from inside it — the only honest way to
+        // observe a window nothing outside that loop can open.
         public ValueTask<EventEnvelope<ApprovalReview>?> OnApprovalReviewDismissedAsync(
             EventEnvelope<ApprovalReview> envelope,
             CancellationToken cancellationToken = default) =>
