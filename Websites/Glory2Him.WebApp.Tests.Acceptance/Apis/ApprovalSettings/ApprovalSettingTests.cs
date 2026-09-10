@@ -192,6 +192,22 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalSettings
                 .OnProperty(approvalSetting => approvalSetting.RequireApprovals).Use(true)
                 .OnProperty(approvalSetting => approvalSetting.RequiredNumberOfApprovals).Use(1)
 
+                // Pinned rather than left to the filler for two reasons: a random bool pair
+                // could set IsAIAllowedToVote without IsAIReviewerOffered, which
+                // CK_ApprovalSetting_AIVoteRequiresAIReviewer refuses on every ordinary post in
+                // this suite; and an unconstrained random decimal would not respect decimal(4,2)
+                // (max 99.99), risking an overflow the suite never meant to exercise. Off/off is
+                // valid regardless of what the thresholds hold, so the thresholds are pinned to
+                // a plausible value on their own scale rather than to anything load-bearing.
+                .OnProperty(approvalSetting => approvalSetting.IsAIReviewerOffered).Use(false)
+                .OnProperty(approvalSetting => approvalSetting.IsAIAllowedToVote).Use(false)
+
+                .OnProperty(approvalSetting => approvalSetting.AIApprovalConfidenceRejectionThreshold)
+                    .Use(2.50m)
+
+                .OnProperty(approvalSetting => approvalSetting.AIApprovalConfidenceApprovalThreshold)
+                    .Use(7.50m)
+
                 .OnProperty(approvalSetting => approvalSetting.IsDeleted).Use(false)
                 .OnProperty(approvalSetting => approvalSetting.DeletionReason).Use((string)null)
                 .OnProperty(approvalSetting => approvalSetting.DeletedBy).Use((string)null)

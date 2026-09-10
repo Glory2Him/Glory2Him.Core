@@ -96,6 +96,12 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             SetupApprovalSettings();
             SetupAccessClientToReturn(CreatePermittedVerdict());
 
+            // §8.6.2, defaulted off like every other fail-closed switch, so a test only states
+            // this the round it actually cares about Berean's offer.
+            this.accessClientMock.Setup(client =>
+                client.ResolveAIReviewerPolicyAsync(It.IsAny<ResolveAIReviewerPolicyRequest>()))
+                    .ReturnsAsync(new AIReviewerPolicyVerdict { IsOffered = false });
+
             // The internal constructor. The public one news up a real SecurityClient, which would
             // make every test here an integration test against the decision function.
             this.accessBroker = new AccessBroker(

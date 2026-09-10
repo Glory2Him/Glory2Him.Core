@@ -87,6 +87,20 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettings
                 (Rule: IsPersonalityOnANonAssociation(approvalSetting),
                     Parameter: nameof(ApprovalSetting.IsPersonal)),
 
+                // §8.6.2's THRESHOLD rules, refused here as well as by the three check
+                // constraints behind them, for the same reason the scope rules are: the
+                // constraints are the defence in depth (§14.6 rule 2) and surface as a
+                // dependency failure naming no field. Before either layer existed the
+                // 0.00–10.00 range was enforced only by the admin page's number inputs.
+                (Rule: IsOutOfRange(approvalSetting.AIApprovalConfidenceRejectionThreshold),
+                    Parameter: nameof(ApprovalSetting.AIApprovalConfidenceRejectionThreshold)),
+
+                (Rule: IsOutOfRange(approvalSetting.AIApprovalConfidenceApprovalThreshold),
+                    Parameter: nameof(ApprovalSetting.AIApprovalConfidenceApprovalThreshold)),
+
+                (Rule: IsApprovalThresholdBelowRejectionThreshold(approvalSetting),
+                    Parameter: nameof(ApprovalSetting.AIApprovalConfidenceApprovalThreshold)),
+
                 (Rule: IsNotSame(
                         firstDate: approvalSetting.UpdatedWhen,
                         secondDate: approvalSetting.CreatedWhen,
@@ -141,6 +155,20 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettings
 
                 (Rule: IsPersonalityOnANonAssociation(approvalSetting),
                     Parameter: nameof(ApprovalSetting.IsPersonal)),
+
+                // §8.6.2's THRESHOLD rules, refused here as well as by the three check
+                // constraints behind them, for the same reason the scope rules are: the
+                // constraints are the defence in depth (§14.6 rule 2) and surface as a
+                // dependency failure naming no field. Repeated on modify rather than left to
+                // add — the PUT is the path a script or a stale client actually takes.
+                (Rule: IsOutOfRange(approvalSetting.AIApprovalConfidenceRejectionThreshold),
+                    Parameter: nameof(ApprovalSetting.AIApprovalConfidenceRejectionThreshold)),
+
+                (Rule: IsOutOfRange(approvalSetting.AIApprovalConfidenceApprovalThreshold),
+                    Parameter: nameof(ApprovalSetting.AIApprovalConfidenceApprovalThreshold)),
+
+                (Rule: IsApprovalThresholdBelowRejectionThreshold(approvalSetting),
+                    Parameter: nameof(ApprovalSetting.AIApprovalConfidenceApprovalThreshold)),
 
                 (Rule: IsNotSame(
                         first: currentUserId,
@@ -284,6 +312,40 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettings
 
             Message = "Personal scope is only valid on an association setting"
         };
+
+        // Both thresholds are values on ConfidenceScore's own 0.00–10.00 scale (§8.6.2, §13.5),
+        // not a normalised one. Non-nullable, unlike Association's own out-of-range rule, because
+        // these two columns are: a threshold with no value would compare against nothing.
+        private static dynamic IsOutOfRange(decimal confidenceThreshold) => new
+        {
+            Condition = confidenceThreshold < 0m || confidenceThreshold > 10m,
+            Message = "Confidence threshold must be between 0 and 10."
+        };
+
+        private static dynamic IsApprovalThresholdBelowRejectionThreshold(
+            ApprovalSetting approvalSetting) => new
+            {
+                // §8.6.2 requires the approval threshold to be the higher of the two. Inverted, a
+                // single score satisfies both the reject-below test of rule 1 and the approve-above
+                // test of rule 2, so both verdicts fire and the design defines no behaviour for
+                // that. EQUAL is permitted: it only closes the middle band and leaves rules 1 and 2
+                // disjoint, and it is the pair ApprovalPolicyDefaults ships as its fail-closed
+                // fallback.
+                //
+                // Silent while either threshold is off the scale, for the reason
+                // IsContentTypeOnANonContentItem gives above: two messages for one mistake sends a
+                // caller to fix the wrong box, and an ordering claim about a value that is not on
+                // the scale is not a claim worth making. The check constraints do not suppress.
+                Condition =
+                    approvalSetting.AIApprovalConfidenceRejectionThreshold >= 0m
+                        && approvalSetting.AIApprovalConfidenceRejectionThreshold <= 10m
+                        && approvalSetting.AIApprovalConfidenceApprovalThreshold >= 0m
+                        && approvalSetting.AIApprovalConfidenceApprovalThreshold <= 10m
+                        && approvalSetting.AIApprovalConfidenceApprovalThreshold
+                            < approvalSetting.AIApprovalConfidenceRejectionThreshold,
+
+                Message = "Approval threshold must not be below the rejection threshold."
+            };
 
         private static dynamic IsInvalid(Guid id) => new
         {

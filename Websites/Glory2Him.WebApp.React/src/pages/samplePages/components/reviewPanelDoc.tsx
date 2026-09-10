@@ -128,6 +128,16 @@ const paul: ReviewerCandidateItem = {
     userName: 'paul.n'
 };
 
+// BEREAN ASSIGNED AND STILL THINKING — the only state a live round can reach today, since
+// nothing yet sets isAIReviewCompleted (§8.6.2's classification process is unbuilt). Shared by
+// the picker demo, where it is what puts Berean in the Requested band, and by the row demos
+// below, where it is the pending dot.
+const pendingBereanAssignment = {
+    candidate: BereanAIReviewer,
+    isAIReviewCompleted: false,
+    isAIReviewCommentsPresent: false
+};
+
 const unblockedVerdict: ApprovalVerdictItem = {
     approvalId: 'approval-1',
     approvalStatus: ApprovalStatus.Submitted,
@@ -261,6 +271,55 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
         description: 'The AI reviewer was picked. Fired INSTEAD OF onReviewRequested, never '
             + 'alongside it: the two are different operations, and an AI assignment posted to '
             + 'the human review-request endpoint is one the server can only refuse.'
+    },
+    {
+        name: 'aiReviewerAssignment',
+        type: '{ candidate, isAIReviewCompleted, isAIReviewCommentsPresent }?',
+        description: 'A LIVE assignment, which is a different question from whether Berean is '
+            + 'offered. Present, it gives Berean a row of its own in the round — a pending '
+            + 'dot, or once it has answered a re-ask and a comments glyph — and moves it '
+            + 'out of Suggestions into the picker’s Requested band, which is the only '
+            + 'route to unassigning anybody. Keyed off the ASSIGNMENT rather than the candidate, '
+            + 'so a Berean assigned before IsAIReviewerOffered was switched off is still '
+            + 'withdrawable. There is at most one of these per round (§8.6.2).'
+    },
+    {
+        name: 'onAIReviewerWithdrawn',
+        type: '(candidate) => void',
+        description: 'Berean was picked out of the Requested band. Fired INSTEAD OF '
+            + 'onReviewRequestWithdrawn, never alongside it: there is no ApprovalReviewRequest '
+            + 'behind Berean and no account id to name one by, so a withdrawal routed to the '
+            + 'human endpoint is one the server can only refuse. DELETE the dedicated '
+            + 'AIReviewer resource instead — nothing standing answers 204, which is a '
+            + 'success like any other.'
+    },
+    {
+        name: 'aiReviewPendingTooltip, aiReviewReRequestTooltip, '
+            + 'aiReviewCommentsPresentTooltip, aiReviewCommentsAbsentTooltip',
+        type: 'string',
+        defaultValue: '‘Berean’s review is pending’, ‘Re-request Berean '
+            + 'review’, ‘Berean left review comments’, ‘Berean left no '
+            + 'comments’',
+        description: 'The four labels the assignment row’s glyphs carry, because a dot and two '
+            + 'icons say nothing to a screen reader on their own. Each is a title, and how the '
+            + 'label reaches the accessible name follows what it is attached to: the pending dot '
+            + 'and the comments glyph are plain spans and carry a visually-hidden line, while '
+            + 'the re-request control is a BUTTON whose only content is an aria-hidden icon and '
+            + 'carries an aria-label. That is the same WCAG 2.5.3 rule the picker rows are '
+            + 'written against, landing the other way: an aria-label REPLACES the accessible '
+            + 'name, which is why a row with a visible name may not take one — and why a button '
+            + 'with no visible text has nothing for it to contradict. The comments pair is the '
+            + 'only thing separating “Berean answered and had remarks” from “Berean answered '
+            + 'and had none”, which is why the wording is a prop rather than a colour.'
+    },
+    {
+        name: 'withdrawAIReviewerTooltip',
+        type: 'string',
+        defaultValue: '‘Withdraw Berean review’',
+        description: 'The hint on Berean’s row in the Requested band, kept apart from '
+            + 'withdrawRequestTooltip because the click removes an AIReviewerAssignment rather '
+            + 'than a review request — and naming a row that does not exist would say the '
+            + 'one thing the hint is there to get right.'
     },
     {
         name: 'aiReviewerTaglineText',
@@ -721,7 +780,13 @@ export function ReviewPanelDoc() {
                     <li>
                         <strong>Requested</strong> &mdash; asked and not yet answered, shown
                         ticked. Clicking <strong>withdraws</strong>. This is the only route to
-                        unassigning somebody (&sect;7.9 rule 5).
+                        unassigning somebody (&sect;7.9 rule 5), <strong>Berean included</strong>:
+                        an assigned AI reviewer joins this band from{' '}
+                        <code>aiReviewerAssignment</code> rather than from the requested
+                        collection, since there is no ApprovalReviewRequest for it to ride in on.
+                        Its click raises <code>onAIReviewerWithdrawn</code>, never the human
+                        one &mdash; and its row in the round above carries a re-ask, never a
+                        withdraw, which is why this band has to offer it.
                     </li>
                     <li>
                         <strong>Everyone else</strong> &mdash; people who have already voted sit
@@ -749,7 +814,13 @@ export function ReviewPanelDoc() {
                 <LiveDemo>
                     {/* All three sections populated at once, which no other demo does: Christo is
                         suggested, Mary is requested, John has voted and Paul is free. Open the cog
-                        to see what each section does to a click. */}
+                        to see what each section does to a click.
+
+                        Berean is ASSIGNED here rather than merely offered, which is what puts it
+                        in the Requested band beside Mary — the one place a click unassigns it,
+                        and the only demo on this page where that route exists. The blocked-round
+                        demo above shows the other half: offered, unassigned, pinned first under
+                        Suggestions. */}
                     <ReviewPanel
                         entityType="ContentItem"
                         contentType="Blog"
@@ -759,8 +830,12 @@ export function ReviewPanelDoc() {
                         reviewerCandidateCollection={[johnCandidate, mary, paul]}
                         suggestedReviewerCollection={[christo]}
                         aiReviewerCandidate={BereanAIReviewer}
+                        aiReviewerAssignment={pendingBereanAssignment}
                         onAIReviewerRequested={(candidate) =>
                             setLastEvent('onAIReviewerRequested('
+                                + candidate.displayName + ')')}
+                        onAIReviewerWithdrawn={(candidate) =>
+                            setLastEvent('onAIReviewerWithdrawn('
                                 + candidate.displayName + ')')}
                         maxReviewerRequests={4}
                         decisionRoles=""
@@ -773,6 +848,88 @@ export function ReviewPanelDoc() {
                                 'onReviewRequestWithdrawn(' + candidate.displayName + ')')}
                         showBorder={true} />
                 </LiveDemo>
+            </DocSection>
+
+            <DocSection
+                title="Berean's row on the round"
+                lead={
+                    <>
+                        A live <code>aiReviewerAssignment</code> gives the AI reviewer a row of
+                        its own beside the people (&sect;8.6.2). It is one line rather than the
+                        stacked shape a human row wears, because nothing on it is a verdict: a
+                        glyph-sized control never needs the width a vote badge does.
+                    </>
+                }>
+                <p className="small text-body-secondary">
+                    <strong>Only the first of these three is reachable on a live round
+                    today.</strong> <code>isAIReviewCompleted</code> and{' '}
+                    <code>isAIReviewCommentsPresent</code> are set by the classification process
+                    of &sect;8.6.2, which is not built yet, so nothing turns them true anywhere in
+                    the product &mdash; which makes this the only place the recycle and comments
+                    controls can be seen at all. The demos pin <code>voteRoles</code> and{' '}
+                    <code>decisionRoles</code> empty so that the row is all there is to look at.
+                </p>
+
+                <LiveDemo title="Pending — assigned, and not yet answered">
+                    {/* The yellow dot, and no badge: "Requested" is the human chip, and Berean
+                        was never invited in the sense that word carries. */}
+                    <ReviewPanel
+                        entityType="ContentItem"
+                        approvalStatus={ApprovalStatus.Submitted}
+                        aiReviewerCandidate={BereanAIReviewer}
+                        aiReviewerAssignment={pendingBereanAssignment}
+                        voteRoles=""
+                        decisionRoles=""
+                        showBorder={true} />
+                </LiveDemo>
+
+                <LiveDemo title="Answered, with comments">
+                    {/* The dot gives way to two controls: recycle asks again — an upsert, so
+                        the same onAIReviewerRequested a fresh pick raises — and the chat glyph
+                        says Berean left remarks on the round. */}
+                    <ReviewPanel
+                        entityType="ContentItem"
+                        approvalStatus={ApprovalStatus.Submitted}
+                        aiReviewerCandidate={BereanAIReviewer}
+                        aiReviewerAssignment={{
+                            candidate: BereanAIReviewer,
+                            isAIReviewCompleted: true,
+                            isAIReviewCommentsPresent: true
+                        }}
+                        onAIReviewerRequested={(candidate) =>
+                            setLastEvent('onAIReviewerRequested('
+                                + candidate.displayName + ')')}
+                        voteRoles=""
+                        decisionRoles=""
+                        showBorder={true} />
+                </LiveDemo>
+
+                <LiveDemo title="Answered, with nothing to say">
+                    {/* The same two controls, the chat glyph muted. The icon never claims
+                        comments that are not there, and its tooltip says so outright. */}
+                    <ReviewPanel
+                        entityType="ContentItem"
+                        approvalStatus={ApprovalStatus.Submitted}
+                        aiReviewerCandidate={BereanAIReviewer}
+                        aiReviewerAssignment={{
+                            candidate: BereanAIReviewer,
+                            isAIReviewCompleted: true,
+                            isAIReviewCommentsPresent: false
+                        }}
+                        onAIReviewerRequested={(candidate) =>
+                            setLastEvent('onAIReviewerRequested('
+                                + candidate.displayName + ')')}
+                        voteRoles=""
+                        decisionRoles=""
+                        showBorder={true} />
+                </LiveDemo>
+
+                <p className="small text-body-secondary">
+                    Neither control withdraws. Re-requesting is an <strong>upsert</strong>{' '}
+                    &mdash; a completed assignment resets to pending, a pending one is a no-op
+                    &mdash; and unassigning happens in the picker&rsquo;s Requested band above,
+                    which is where every withdrawal in this panel happens.
+                </p>
             </DocSection>
 
             <DocSection

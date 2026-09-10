@@ -22,9 +22,11 @@ using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Foundations.AIReviewerAssignments;
 using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Securities;
+using Glory2Him.Core.Services.Foundations.AIReviewerAssignments;
 using Glory2Him.Core.Services.Foundations.ApprovalComments;
 using Glory2Him.Core.Services.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Services.Foundations.ApprovalReviews;
@@ -44,6 +46,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         private readonly Mock<IApprovalCommentService> approvalCommentServiceMock;
         private readonly Mock<IApprovalReviewRequestService> approvalReviewRequestServiceMock;
         private readonly Mock<IApprovalReviewRequestWorkflowService> approvalReviewRequestWorkflowServiceMock;
+
+        // Only the WORKFLOW seam. The caller-facing IAIReviewerAssignmentService left this
+        // service with the three operations that used it — asking Berean, asking again,
+        // withdrawing it — which are IAIReviewerOrchestrationService's contract now and are
+        // covered by its own fixture. What remains here is the workflow's own return-to-pending,
+        // performed under the system identity on nobody's behalf.
+        //
+        // Which is why the "not through the caller-facing foundation" assertions the reset and
+        // edit paths used to carry are gone rather than restated: this service can no longer
+        // reach that seam at all, so the compiler makes the point the assertions were making.
+        private readonly Mock<IAIReviewerAssignmentWorkflowService>
+            aiReviewerAssignmentWorkflowServiceMock;
+
         private readonly Mock<IIdentityUserService> identityUserServiceMock;
         private readonly Mock<IAccessBroker> accessBrokerMock;
         private readonly Mock<IEventEnvelopeBroker> eventEnvelopeBrokerMock;
@@ -74,6 +89,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             this.approvalReviewRequestWorkflowServiceMock =
                 new Mock<IApprovalReviewRequestWorkflowService>();
+
+            this.aiReviewerAssignmentWorkflowServiceMock =
+                new Mock<IAIReviewerAssignmentWorkflowService>();
 
             this.identityUserServiceMock = new Mock<IIdentityUserService>();
 
@@ -138,6 +156,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
                 approvalReviewRequestWorkflowService:
                     this.approvalReviewRequestWorkflowServiceMock.Object,
+
+                aiReviewerAssignmentWorkflowService:
+                    this.aiReviewerAssignmentWorkflowServiceMock.Object,
 
                 identityUserService: this.identityUserServiceMock.Object,
                 accessBroker: this.accessBrokerMock.Object,
@@ -313,6 +334,36 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(approvalMatch);
+
+        // The GATHERING seam — what the reset and edit paths read, and deliberately not the
+        // caller-facing round-keyed read the AI reviewer's own orchestration uses. That one is
+        // identity-filtered and answers null for anyone outside the review tier, which is the
+        // ordinary editor; this one is a property of the approval. It also carries the staleness
+        // predicate itself, so the orchestration receives an id only when there is something to
+        // take back — a round with no assignment and a round whose assignment is already pending
+        // both arrive here as the same null, and which is which is pinned where the predicate
+        // lives (AccessBrokerTests.FindResettableAIReviewerAssignmentId.Logic.cs).
+        //
+        // Keyed on the approval rather than It.IsAny so a test cannot pass by answering a
+        // question about a different round.
+        private void SetupResettableAIReviewerAssignment(
+            Guid approvalId,
+            Guid? aiReviewerAssignmentId) =>
+            this.accessBrokerMock.Setup(broker =>
+                broker.FindResettableAIReviewerAssignmentIdAsync(
+                    approvalId,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(aiReviewerAssignmentId);
+
+        // The workflow seam echoes back a pending row, so a test can assert on the returned row
+        // and on the argument and know they are the same thing.
+        private void SetupAIReviewerAssignmentReturnToPending() =>
+            this.aiReviewerAssignmentWorkflowServiceMock.Setup(service =>
+                service.ReturnStaleAIReviewerAssignmentToPendingAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((Guid aiReviewerAssignmentId, CancellationToken _) =>
+                            new AIReviewerAssignment { Id = aiReviewerAssignmentId });
 
         private void SetupConditions(ApprovalConditionsVerdict conditionsVerdict) =>
             this.accessBrokerMock.Setup(broker =>

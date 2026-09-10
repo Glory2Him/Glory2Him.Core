@@ -239,18 +239,25 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Approvals
                 UpdatedWhen = arrangedWhen,
             };
 
-            await this.apiBroker.InsertCoreApprovalSettingAsync(autoApprovingPolicy);
+            CoreContentItem submittedItem = null;
 
-            CoreContentItem submittedItem = await this.apiBroker.InsertContentItemVersionAsync(
-                groupId: Guid.NewGuid(),
-                version: 1,
-                approvalStatus: ApprovalStatus.Submitted,
-                isPublished: false,
-                authorUserId: authorUserId,
-                contentType: ContentType.VerseImage);
-
+            // INSIDE THE TRY, both of them. The policy row holds
+            // UX_ApprovalSettings_EntityTypeContentType for (ContentItem, VerseImage) from the
+            // moment it is stored, and the item arranged after it can throw — so an insert above
+            // the try is a row holding a scope this collection hands round with nothing left to
+            // release it.
             try
             {
+                await this.apiBroker.InsertCoreApprovalSettingAsync(autoApprovingPolicy);
+
+                submittedItem = await this.apiBroker.InsertContentItemVersionAsync(
+                    groupId: Guid.NewGuid(),
+                    version: 1,
+                    approvalStatus: ApprovalStatus.Submitted,
+                    isPublished: false,
+                    authorUserId: authorUserId,
+                    contentType: ContentType.VerseImage);
+
                 // when: the read repairs the missing round under a policy that would approve it
                 await this.apiBroker.GetApprovalVerdictAsync(
                     EntityType.ContentItem,
@@ -274,15 +281,19 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Approvals
             }
             finally
             {
-                Approval approval = await this.apiBroker.GetCoreApprovalByEntityAsync(
-                    EntityType.ContentItem, submittedItem.Id);
-
-                if (approval is not null)
+                if (submittedItem is not null)
                 {
-                    await this.apiBroker.RemoveApprovalAsync(approval);
+                    Approval approval = await this.apiBroker.GetCoreApprovalByEntityAsync(
+                        EntityType.ContentItem, submittedItem.Id);
+
+                    if (approval is not null)
+                    {
+                        await this.apiBroker.RemoveApprovalAsync(approval);
+                    }
+
+                    await this.apiBroker.RemoveCoreContentItemByIdAsync(submittedItem.Id);
                 }
 
-                await this.apiBroker.RemoveCoreContentItemByIdAsync(submittedItem.Id);
                 await this.apiBroker.RemoveCoreApprovalSettingByIdAsync(autoApprovingPolicy.Id);
             }
         }

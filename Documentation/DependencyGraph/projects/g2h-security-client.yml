@@ -51,6 +51,7 @@ components:
       - EvaluateApprovalConditionsAsync
       - MayRecordApprovalReviewAsync
       - MayDecideApprovalAsync
+      - ResolveAIReviewerPolicyAsync
     calls:
       - from: EvaluateApprovalConditionsAsync
         to: SC.AccessService
@@ -61,6 +62,9 @@ components:
       - from: MayDecideApprovalAsync
         to: SC.AccessService
         method: MayDecideApprovalAsync
+      - from: ResolveAIReviewerPolicyAsync
+        to: SC.AccessService
+        method: ResolveAIReviewerPolicyAsync
   - id: SC.AccessService
     name: AccessService
     layer: foundation
@@ -69,6 +73,7 @@ components:
       - EvaluateApprovalConditionsAsync
       - MayRecordApprovalReviewAsync
       - MayDecideApprovalAsync
+      - ResolveAIReviewerPolicyAsync
   - id: SC.AuditClient
     name: AuditClient (ISecurityClient.Audits)
     layer: exposer

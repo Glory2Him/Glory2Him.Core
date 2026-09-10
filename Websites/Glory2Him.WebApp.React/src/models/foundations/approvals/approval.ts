@@ -102,6 +102,36 @@ export type ApprovalReviewRequest = {
     isDeleted: boolean;
 };
 
+// GET/POST/DELETE api/Approvals/{entityType}/{entityId}/AIReviewer — Berean's status on this
+// round (design §8.6.2). Unlike a human ApprovalReviewRequest, there is at most ONE of these
+// per approval and it carries no account id: Berean is not a role-bearing identity, so its
+// assignment is tracked in its own small resource rather than forced through the review-request
+// shape that assumes one.
+//
+// isOffered answers "should the picker even suggest Berean" (the resolved ApprovalSetting's
+// IsAIReviewerOffered) — visible to the same tier as requesting a review at all, not only to
+// Publishers/Administrators the way the Verdict is. The other three answer "what's Berean's
+// status right now": isRequested is whether a live assignment exists; isAIReviewCompleted and
+// isAIReviewCommentsPresent are set only by the (not-yet-built) system process that actually
+// runs Berean's analysis — both stay false for as long as nothing sets them.
+export type AIReviewerStatus = {
+    isOffered: boolean;
+    isRequested: boolean;
+    isAIReviewCompleted: boolean;
+    isAIReviewCommentsPresent: boolean;
+};
+
+// POST/DELETE api/Approvals/{entityType}/{entityId}/AIReviewer response — the assignment row
+// itself. POST is an upsert: absent → create (pending); completed → reset to pending (the
+// re-request action); still pending → no-op, all returning the live row.
+export type AIReviewerAssignment = {
+    id: string;
+    approvalId: string;
+    isAIReviewCompleted: boolean;
+    isAIReviewCommentsPresent: boolean;
+    isDeleted: boolean;
+};
+
 // GET api/Approvals/{entityType}/{entityId}/ReviewerDisplayNames — the names behind the account
 // ids a review row carries, for everybody the round involved. Asked in one round trip keyed on
 // the round rather than on ids the client gathered.

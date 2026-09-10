@@ -36,6 +36,7 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             services.AddApprovalReviewService();
             services.AddApprovalCommentService();
             services.AddApprovalReviewRequestService();
+            services.AddAIReviewerAssignmentService();
             services.AddIdentityUserService();
 
             // when

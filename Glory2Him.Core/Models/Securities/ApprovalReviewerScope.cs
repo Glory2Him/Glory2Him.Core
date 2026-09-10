@@ -25,6 +25,14 @@ namespace Glory2Him.Core.Models.Securities
     /// and nothing else crosses back - the row bodies stay inside the broker, the same discipline
     /// ApprovalEntityMatch follows.</para>
     ///
+    /// <para>The §8.6.2 AI-reviewer switch deliberately does NOT live here. Berean is not a
+    /// role-bearing identity and holds no ApprovalReviewRequest, so it is not in the population
+    /// this scope describes; it is resolved on its own through
+    /// <c>IAccessBroker.ResolveAIReviewerPolicyByIdAsync</c>. Carrying it here made every caller
+    /// of this gather - the candidates read, the 16.7.4 name resolver a moderation panel polls,
+    /// and every invitation operation - pay an ApprovalSetting scan for a field only the
+    /// AI-reviewer paths read.</para>
+    ///
     /// <para>Gather-only: producing one writes nothing, decides nothing and grants nothing. The
     /// decisions it feeds are made above it.</para>
     /// </summary>

@@ -46,6 +46,10 @@ const createApprovalSetting = (
         requireReapprovalOnChange: true,
         requireReviewCommentResolutionBeforeApprovals: true,
         doNotAllowBypassingSettings: false,
+        isAIReviewerOffered: false,
+        isAIAllowedToVote: false,
+        aiApprovalConfidenceRejectionThreshold: 2.5,
+        aiApprovalConfidenceApprovalThreshold: 7.5,
         createdBy: 'admin',
         createdWhen: '2026-09-01T09:00:00.000+00:00',
         updatedBy: 'admin',
@@ -207,7 +211,9 @@ describe('ApprovalSettingsPage', () => {
                 'Blocks on zero score',
                 'Comments resolved',
                 'Re-approve on change',
-                'No bypass'
+                'No bypass',
+                'AI reviewer (Berean)',
+                'AI vote'
             ].forEach(gate => expect(table.getByText(gate)).toBeInTheDocument());
         });
 
@@ -233,6 +239,39 @@ describe('ApprovalSettingsPage', () => {
 
             // then
             expect(screen.getByText('Blocks on zero score')).toHaveClass('bg-body-secondary');
+        });
+
+        // Berean (§8.6.2): offered and voting are separate pills because the second is only
+        // ever meaningful alongside the first, and a reader should be able to tell "not offered"
+        // apart from "offered but not trusted to vote" at a glance.
+        it('should show Berean as offered and voting when the policy allows both', () => {
+            // given
+            approvalSettings = [createApprovalSetting({
+                isAIReviewerOffered: true,
+                isAIAllowedToVote: true
+            })];
+
+            // when
+            renderPageAt();
+
+            // then
+            expect(screen.getByText('AI reviewer (Berean)')).toHaveClass('bg-primary-subtle');
+            expect(screen.getByText('AI vote')).toHaveClass('bg-primary-subtle');
+        });
+
+        it('should show Berean as offered without a vote when only the reviewer switch is on', () => {
+            // given
+            approvalSettings = [createApprovalSetting({
+                isAIReviewerOffered: true,
+                isAIAllowedToVote: false
+            })];
+
+            // when
+            renderPageAt();
+
+            // then
+            expect(screen.getByText('AI reviewer (Berean)')).toHaveClass('bg-primary-subtle');
+            expect(screen.getByText('AI vote')).toHaveClass('bg-body-secondary');
         });
     });
 

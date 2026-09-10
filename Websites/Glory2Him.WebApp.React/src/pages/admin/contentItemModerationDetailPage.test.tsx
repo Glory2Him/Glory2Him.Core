@@ -13,6 +13,7 @@ import { createAuthState, signInAs } from '../../tests/testAuth';
 import { testContentItemSetting } from '../../tests/testContentItemSettings';
 
 import {
+    AIReviewerStatus,
     ApprovalReview,
     ApprovalReviewRequest,
     ApprovalVerdict,
@@ -121,11 +122,24 @@ let reviewRequests: ApprovalReviewRequest[] = [];
 let reviewerCandidates: ReviewerCandidate[] = [];
 let verdictAskedFor: ReadonlyArray<string> = [];
 
+// BEREAN'S STATUS (design §8.6.2). Offered by default, matching the picker being open to it in
+// every test that does not say otherwise — individual tests narrow this to pin isRequested,
+// isAIReviewCompleted or isAIReviewCommentsPresent.
+let aiReviewerStatus: AIReviewerStatus = {
+    isOffered: true,
+    isRequested: false,
+    isAIReviewCompleted: false,
+    isAIReviewCommentsPresent: false
+};
+
 const refetchVerdictSpy = vi.fn();
 const refetchReviewsSpy = vi.fn();
 const refetchCandidatesSpy = vi.fn();
 const refetchRequestsSpy = vi.fn();
 const refetchDisplayNamesSpy = vi.fn();
+const refetchAIReviewerStatusSpy = vi.fn();
+const assignAIReviewerWith = vi.fn();
+const withdrawAIReviewerWith = vi.fn();
 
 vi.mock('../../services/foundations/approvalService', () => ({
     approvalService: {
@@ -153,6 +167,20 @@ vi.mock('../../services/foundations/approvalService', () => ({
         useResetApproval: () => ({ mutateAsync: resetWith, isPending: false }),
         useRequestReview: () => ({ mutateAsync: requestedWith, isPending: false }),
         useWithdrawReviewRequest: () => ({ mutateAsync: withdrawnWith, isPending: false })
+    }
+}));
+
+// BEREAN, mocked as its OWN slice — a separate module because it is a separate resource
+// (api/AIReviewers, §8.6.2) behind its own controller, not part of the approval round's
+// contract. Its read is assembled into the round by useApprovalRound; its two writes are the
+// page's own, and the page reaches for them here rather than through approvalService.
+vi.mock('../../services/foundations/aiReviewerService', () => ({
+    aiReviewerService: {
+        useGetAIReviewerStatus: () =>
+            ({ data: aiReviewerStatus, refetch: refetchAIReviewerStatusSpy }),
+
+        useAssignAIReviewer: () => ({ mutateAsync: assignAIReviewerWith, isPending: false }),
+        useWithdrawAIReviewer: () => ({ mutateAsync: withdrawAIReviewerWith, isPending: false })
     }
 }));
 
@@ -291,14 +319,33 @@ describe('ContentItemModerationDetailPage', () => {
             write.mockResolvedValue({ approvalId: 'approval-1' });
         }
 
+        for (const write of [assignAIReviewerWith, withdrawAIReviewerWith]) {
+            write.mockReset();
+
+            write.mockResolvedValue({
+                id: 'ai-reviewer-assignment-1',
+                approvalId: 'approval-1',
+                isAIReviewCompleted: false,
+                isAIReviewCommentsPresent: false,
+                isDeleted: false
+            });
+        }
+
         for (const refetch of [
             refetchVerdictSpy, refetchReviewsSpy, refetchCandidatesSpy,
             refetchRequestsSpy, refetchDisplayNamesSpy, refetchContentItemSpy,
-            refetchCommentsSpy
+            refetchCommentsSpy, refetchAIReviewerStatusSpy
         ]) {
             refetch.mockReset();
             refetch.mockResolvedValue(undefined);
         }
+
+        aiReviewerStatus = {
+            isOffered: true,
+            isRequested: false,
+            isAIReviewCompleted: false,
+            isAIReviewCommentsPresent: false
+        };
 
         toastErrorSpy.mockReset();
         toastSuccessSpy.mockReset();
@@ -634,13 +681,13 @@ describe('ContentItemModerationDetailPage', () => {
             approvalVerdict = submittedVerdict;
         };
 
-        /// ── THE AI-REVIEW SEAM (design 8.6.2, issue #354) ──────────────────────────
+        /// ── THE AI-REVIEW SEAM (design §8.6.2, issue #354) ──────────────────────────
         ///
-        /// The page offers Berean and owns what picking it means. Nothing downstream exists yet,
-        /// so what these pin is the ABSENCE of a write: the placeholder id is not an account,
-        /// and posting it to the human review-request endpoint is the one mistake available
-        /// here. Without them, rewiring onAIReviewerRequested to requestReviewAsync passes the
-        /// whole suite.
+        /// The page offers Berean and owns what picking it means. Assigning it is now a real,
+        /// server-held AIReviewerAssignment row (Track A of #354) rather than page-local state,
+        /// so what these pin is that the page posts to the DEDICATED AI-reviewer endpoint —
+        /// never the human review-request one, which the placeholder id would only be refused
+        /// by.
         describe('the AI reviewer', () => {
             const pickBereanAsync = async () => {
                 await userEvent.click(
@@ -675,9 +722,9 @@ describe('ContentItemModerationDetailPage', () => {
                 expect(screen.getByText('Your AI Pair Reviewer')).toBeInTheDocument();
             });
 
-            /// THE ONE THAT MATTERS. 'ai-reviewer-berean' is a placeholder, not a GUID - the
-            /// endpoint can only refuse it, and the page must never send it.
-            it('should not post a review request when Berean is picked', async () => {
+            /// THE ONE THAT MATTERS. Berean has no account for the human endpoint to check, so
+            /// the page must route the click to its own dedicated resource instead.
+            it('should assign Berean through the AI-reviewer endpoint when picked', async () => {
                 // given
                 openRoundByAnotherAuthor();
                 renderPage();
@@ -686,102 +733,156 @@ describe('ContentItemModerationDetailPage', () => {
                 await pickBereanAsync();
 
                 // then
+                expect(assignAIReviewerWith).toHaveBeenCalledWith({
+                    entityType: 'ContentItem',
+                    entityId: 'quote-1'
+                });
+
                 expect(requestedWith).not.toHaveBeenCalled();
             });
 
-            /// ...and it says so rather than swallowing the click, so a moderator is not left
-            /// waiting on a review nobody is performing.
-            it('should tell the moderator that Berean cannot review yet', async () => {
+            it('should show the reason the server gave when Berean cannot be assigned',
+                async () => {
+                    // given
+                    openRoundByAnotherAuthor();
+
+                    assignAIReviewerWith.mockRejectedValue({
+                        isAxiosError: true,
+                        response: { data: { message: 'The AI reviewer is not offered here.' } }
+                    });
+
+                    renderPage();
+
+                    // when
+                    await pickBereanAsync();
+
+                    // then
+                    expect(toastErrorSpy).toHaveBeenCalledWith(
+                        'The AI reviewer is not offered here.');
+                });
+
+            /// Berean's own row, once a live assignment answers isRequested — read off the
+            /// dedicated status endpoint rather than merged in as though it were a plain
+            /// ApprovalReviewRequest, which it is not (§8.6.2: it is not a role-bearing
+            /// identity).
+            it('should render a pending Berean row once it has been assigned', () => {
                 // given
                 openRoundByAnotherAuthor();
-                renderPage();
+
+                aiReviewerStatus = {
+                    isOffered: true,
+                    isRequested: true,
+                    isAIReviewCompleted: false,
+                    isAIReviewCommentsPresent: false
+                };
 
                 // when
-                await pickBereanAsync();
-
-                // then
-                expect(toastSuccessSpy).toHaveBeenCalledWith(
-                    expect.stringContaining('Berean'));
-
-                expect(toastSuccessSpy).toHaveBeenCalledWith(
-                    expect.stringContaining('has not been sent.'));
-            });
-
-            /// THE OTHER HALF OF THE SEAM, and the one a moderator can see. Picking Berean has
-            /// to LOOK like asking somebody: the front end is finished when the only thing left
-            /// to build is the endpoint this handler will call. The chip and the tagline are
-            /// ReviewPanel's to draw — what is asserted here is that the page hands it the
-            /// invitation at all.
-            it('should show Berean under Requested once it has been picked', async () => {
-                // given
-                openRoundByAnotherAuthor();
                 renderPage();
 
-                // then: nothing is standing on the round before the click
-                expect(bereanReviewRow()).toBeNull();
-
-                // when
-                await pickBereanAsync();
-
-                // then: the invitation renders in the round beside the human ones, and it
-                // renders having written nothing anywhere
+                // then: asked, in the ROUND's list — which is the assertion with teeth now that
+                // an assignment also puts Berean under the picker's Requested band. A
+                // document-wide query for the name would pass on either one.
                 const bereanRow = bereanReviewRow();
 
                 expect(bereanRow).not.toBeNull();
                 expect(bereanRow?.textContent).toContain('Berean');
-                expect(bereanRow?.textContent).toContain('Your AI Pair Reviewer');
-                expect(bereanRow?.textContent).toContain('Requested');
-                expect(requestedWith).not.toHaveBeenCalled();
+                expect(screen.getByTitle("Berean's review is pending")).toBeInTheDocument();
             });
 
-            /// An invitation that cannot be taken back is not an invitation. The Requested
-            /// section is the panel's only unassign route and it raises the SAME callback for
-            /// everybody, so the page is what has to tell the two apart.
-            it('should withdraw a picked Berean without calling the API', async () => {
-                // given
-                openRoundByAnotherAuthor();
-                renderPage();
-                await pickBereanAsync();
-
-                // when: the picker is still open, and the row now sits under Requested
-                await userEvent.click(screen.getByRole('button', { name: /Berean/ }));
-
-                // then: the round no longer carries it, and nothing was sent either way.
-                // Berean is BACK under Suggestions in the still-open picker, which is why this
-                // asks the review list rather than the document.
-                expect(bereanReviewRow()).toBeNull();
-                expect(withdrawnWith).not.toHaveBeenCalled();
-            });
-
-            /// ...and a person's withdrawal still goes to the server while Berean's does not,
-            /// so the split above is a decision about WHICH row rather than a page that has
-            /// stopped withdrawing.
-            it('should still withdraw a person\u2019s request through the API', async () => {
-                // given
-                openRoundByAnotherAuthor();
-
-                reviewRequests = [{
-                    id: 'request-1',
-                    approvalId: 'approval-1',
-                    requestedUserId: 'user-mary',
-                    requestedUserDisplayName: 'Mary Adeyemi',
-                    isDeleted: false
-                }];
-
-                renderPage();
-
-                // when
+            /// WITHDRAWING IT. Berean's row in the round carries a re-ask and no withdraw
+            /// control, so the picker's Requested band — the panel's only route to unassigning
+            /// anybody — is where an assignment is taken back. The page owns what that click
+            /// means, and it means the DEDICATED resource again: there is no
+            /// ApprovalReviewRequest to delete and no account id to name one by (§8.6.2).
+            const withdrawBereanAsync = async () => {
                 await userEvent.click(
                     screen.getByRole('button', { name: 'Request a review' }));
 
-                await userEvent.click(screen.getByRole('button', { name: /Mary/ }));
+                await userEvent.click(screen.getByRole('button', { name: /Berean/ }));
+            };
+
+            const assignedBerean = () => {
+                openRoundByAnotherAuthor();
+
+                aiReviewerStatus = {
+                    isOffered: true,
+                    isRequested: true,
+                    isAIReviewCompleted: false,
+                    isAIReviewCommentsPresent: false
+                };
+            };
+
+            it('should withdraw Berean through the AI-reviewer endpoint when it is unpicked',
+                async () => {
+                    // given
+                    assignedBerean();
+                    renderPage();
+
+                    // when
+                    await withdrawBereanAsync();
+
+                    // then
+                    expect(withdrawAIReviewerWith).toHaveBeenCalledWith({
+                        entityType: 'ContentItem',
+                        entityId: 'quote-1'
+                    });
+
+                    // and neither the human withdrawal nor a second assignment
+                    expect(withdrawnWith).not.toHaveBeenCalled();
+                    expect(assignAIReviewerWith).not.toHaveBeenCalled();
+                });
+
+            /// NO SUCCESS TOAST: the row leaving the round's list is the feedback, exactly as
+            /// its arrival is on assign. Nothing standing answers 204 and is a success like any
+            /// other, so there is no error to raise on that path either.
+            it('should say nothing when the withdrawal succeeds', async () => {
+                // given: the 204 the endpoint answers when nothing was assigned
+                assignedBerean();
+                withdrawAIReviewerWith.mockResolvedValue(null);
+                renderPage();
+
+                // when
+                await withdrawBereanAsync();
 
                 // then
-                expect(withdrawnWith).toHaveBeenCalledWith({
-                    entityType: 'ContentItem',
-                    entityId: 'quote-1',
-                    requestedUserId: 'user-mary'
+                expect(toastSuccessSpy).not.toHaveBeenCalled();
+                expect(toastErrorSpy).not.toHaveBeenCalled();
+            });
+
+            it('should show the reason the server gave when Berean cannot be withdrawn',
+                async () => {
+                    // given
+                    assignedBerean();
+
+                    withdrawAIReviewerWith.mockRejectedValue({
+                        isAxiosError: true,
+                        response: { data: { message: 'The round is no longer open.' } }
+                    });
+
+                    renderPage();
+
+                    // when
+                    await withdrawBereanAsync();
+
+                    // then
+                    expect(toastErrorSpy).toHaveBeenCalledWith('The round is no longer open.');
                 });
+
+            /// A failure with no message of its own still has to say WHO could not be withdrawn
+            /// and from what — a bare "something went wrong" leaves the reader looking at a row
+            /// that is still there with no idea why.
+            it('should name Berean when the withdrawal failed for no stated reason', async () => {
+                // given
+                assignedBerean();
+                withdrawAIReviewerWith.mockRejectedValue(new Error('offline'));
+                renderPage();
+
+                // when
+                await withdrawBereanAsync();
+
+                // then
+                expect(toastErrorSpy).toHaveBeenCalledWith(
+                    'Berean could not be withdrawn from reviewing this post.');
             });
 
             /// The human path still works while Berean is on offer - so the routing above is a
@@ -1070,6 +1171,7 @@ describe('ContentItemModerationDetailPage', () => {
                 expect(refetchReviewsSpy).toHaveBeenCalled();
                 expect(refetchRequestsSpy).toHaveBeenCalled();
                 expect(refetchDisplayNamesSpy).toHaveBeenCalled();
+                expect(refetchAIReviewerStatusSpy).toHaveBeenCalled();
             });
 
         // THE ITEM IS PART OF THE ROUND HERE. The panel's open-or-closed gates read the STORED

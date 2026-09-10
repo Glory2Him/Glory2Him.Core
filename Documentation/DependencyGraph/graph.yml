@@ -70,6 +70,7 @@ roots:
   - CIP
   - LP
   - AO
+  - AIRO
   - ESR
   - SecurityBroker
   - AccessBroker
@@ -86,6 +87,7 @@ roots:
   - FS.ApprovalReview
   - FS.ApprovalReviewRequest
   - FS.IdentityUser
+  - FS.AIReviewerAssignment
   - FS.ApprovalSetting
   - FS.ContentItemSetting
   - SC.UserClient
@@ -100,6 +102,27 @@ roots:
   - EXT.SkiaSharp
   - EXT.EFCore
 events:
+  - id: AIReviewerAssignment.Adding
+    publish: PublishAIReviewerAssignmentAsync
+    subscribe: SubscribeToAIReviewerAssignmentEventAsync
+  - id: AIReviewerAssignment.Modifying
+    publish: PublishAIReviewerAssignmentAsync
+    subscribe: SubscribeToAIReviewerAssignmentEventAsync
+  - id: AIReviewerAssignment.RemovingById
+    publish: PublishAIReviewerAssignmentAsync
+    subscribe: SubscribeToAIReviewerAssignmentEventAsync
+  - id: AIReviewerAssignment.RetrievingById
+    publish: PublishAIReviewerAssignmentAsync
+    subscribe: SubscribeToAIReviewerAssignmentEventAsync
+  - id: AIReviewerAssignment.Added
+    publish: PublishAIReviewerAssignmentAsync
+    subscribe: SubscribeToAIReviewerAssignmentEventAsync
+  - id: AIReviewerAssignment.Modified
+    publish: PublishAIReviewerAssignmentAsync
+    subscribe: SubscribeToAIReviewerAssignmentEventAsync
+  - id: AIReviewerAssignment.Removed
+    publish: PublishAIReviewerAssignmentAsync
+    subscribe: SubscribeToAIReviewerAssignmentEventAsync
   - id: ContentItem.Adding
     publish: PublishContentItemAsync
     subscribe: SubscribeToContentItemEventAsync
