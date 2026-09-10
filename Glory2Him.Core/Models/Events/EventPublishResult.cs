@@ -42,9 +42,13 @@ namespace Glory2Him.Core.Models.Events
         public IReadOnlyList<EventDelivery<T>> Deliveries { get; init; } = [];
 
         /// <summary>
-        /// The deliveries that reported an unsuccessful outcome at dispatch time — usually a
-        /// handler that received the envelope and then threw, rather than one the event never
-        /// reached, because <see cref="EventDelivery{T}.IsSuccess"/> is the listener's own status.
+        /// The deliveries that reported a FAILURE at dispatch time — usually a handler that
+        /// received the envelope and then threw, rather than one the event never reached.
+        ///
+        /// <para>Keyed on <see cref="EventDelivery{T}.IsFailure"/>, never on the inverse of
+        /// <see cref="EventDelivery{T}.IsSuccess"/>: Pending and Replay are also "not successful"
+        /// and are ordinary transient outcomes, so inverting success would alarm on deliveries
+        /// that had simply not been attempted yet.</para>
         ///
         /// <para>ONE definition of "failed", here, because the guard and the message that explains
         /// the guard must not be able to disagree. Deriving the predicate twice — once to decide
@@ -57,7 +61,7 @@ namespace Glory2Him.Core.Models.Events
         /// </summary>
         public IReadOnlyList<EventDelivery<T>> FailedDeliveries =>
             (Deliveries ?? [])
-                .Where(delivery => delivery.IsSuccess is false)
+                .Where(delivery => delivery.IsFailure)
                 .ToList();
 
         /// <summary>

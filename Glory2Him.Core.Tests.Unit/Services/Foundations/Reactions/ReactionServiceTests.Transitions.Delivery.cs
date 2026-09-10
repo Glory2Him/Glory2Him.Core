@@ -74,6 +74,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
                     {
                         SubscriptionId = failedSubscriptionId,
                         IsSuccess = false,
+                        IsFailure = true,
                         Status = "Error",
                         ResponseCode = "500",
                         ResponseMessage = "the handler failed",

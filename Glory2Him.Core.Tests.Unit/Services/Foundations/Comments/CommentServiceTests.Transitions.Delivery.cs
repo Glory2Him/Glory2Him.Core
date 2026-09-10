@@ -74,6 +74,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
                     {
                         SubscriptionId = failedSubscriptionId,
                         IsSuccess = false,
+                        IsFailure = true,
                         Status = "Error",
                         ResponseCode = "500",
                         ResponseMessage = "the handler failed",

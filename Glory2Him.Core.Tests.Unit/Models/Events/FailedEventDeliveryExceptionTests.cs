@@ -62,6 +62,7 @@ namespace Glory2Him.Core.Tests.Unit.Models.Events
                     {
                         SubscriptionId = subscriptionId,
                         IsSuccess = false,
+                        IsFailure = true,
                         Status = "Error",
                         ResponseCode = "500",
                         ResponseMessage = "the handler failed",
@@ -173,6 +174,7 @@ namespace Glory2Him.Core.Tests.Unit.Models.Events
                     {
                         SubscriptionId = firstFailedSubscriptionId,
                         IsSuccess = false,
+                        IsFailure = true,
                         Status = "Error",
                         ResponseCode = "500",
                         ResponseMessage = "the first handler failed",
@@ -187,6 +189,7 @@ namespace Glory2Him.Core.Tests.Unit.Models.Events
                     {
                         SubscriptionId = secondFailedSubscriptionId,
                         IsSuccess = false,
+                        IsFailure = true,
                         Status = "Error",
                         ResponseCode = "503",
                         ResponseMessage = "the second handler failed",
@@ -244,6 +247,7 @@ namespace Glory2Him.Core.Tests.Unit.Models.Events
                     {
                         SubscriptionId = Guid.NewGuid(),
                         IsSuccess = false,
+                        IsFailure = true,
                         Status = "Error",
                         ResponseCode = "500",
                         ResponseMessage =
@@ -272,6 +276,48 @@ namespace Glory2Him.Core.Tests.Unit.Models.Events
             actualException.Message.Should().NotContain("a-secret-tag-name");
             actualException.Message.Should().NotContain("a-secret-caller-id");
             actualException.Message.Should().NotContain("a-secret-caller-name");
+        }
+
+        /// <summary>
+        /// PENDING and REPLAY are not failures, and this is the assertion that keeps §10.19's
+        /// alarm worth reacting to.
+        ///
+        /// <para>Four statuses exist and only one is success, so a predicate written as "not
+        /// successful" also catches the two ordinary transient outcomes. A publisher inspecting
+        /// on that inverse would raise a Critical line claiming a permanent, unrepairable
+        /// divergence for a delivery that had simply not been attempted yet — and an alarm that
+        /// fires on healthy traffic is one an operator learns to skip, which costs the real
+        /// dropped `-Submitted` its only signal.</para>
+        /// </summary>
+        [Theory]
+        [InlineData("Pending")]
+        [InlineData("Replay")]
+        public void ShouldNotReportATransientDeliveryStatusAsAFailure(string transientStatus)
+        {
+            // given: the shape the broker produces for a delivery that is neither done nor
+            // failed — IsSuccess false because it is not Success, IsFailure false because the
+            // substrate did not report Error
+            var publishResult = new EventPublishResult<Tag>
+            {
+                EventId = Guid.NewGuid(),
+                Deliveries = new List<EventDelivery<Tag>>
+                {
+                    new EventDelivery<Tag>
+                    {
+                        SubscriptionId = Guid.NewGuid(),
+                        IsSuccess = false,
+                        IsFailure = false,
+                        Status = transientStatus,
+                    },
+                },
+            };
+
+            // when
+            bool hasFailedDeliveries = publishResult.HasFailedDeliveries;
+
+            // then
+            hasFailedDeliveries.Should().BeFalse();
+            publishResult.FailedDeliveries.Should().BeEmpty();
         }
 
         /// <summary>

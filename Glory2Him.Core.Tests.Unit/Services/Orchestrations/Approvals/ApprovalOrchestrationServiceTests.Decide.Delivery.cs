@@ -71,6 +71,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     {
                         SubscriptionId = Guid.NewGuid(),
                         IsSuccess = false,
+                        IsFailure = true,
                         Status = "Error",
                         ResponseCode = "500",
                         ResponseMessage = "the handler failed",

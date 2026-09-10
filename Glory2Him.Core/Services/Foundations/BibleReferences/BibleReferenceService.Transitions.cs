@@ -287,8 +287,8 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
             // the subscription list answers this, and a copy of it does not belong in a
             // service.
             //
-            // Logged, never thrown: the row is already committed above, and failing the
-// now would report a completed write as a failed one. LAST for the same reason — a
+            // Logged, never thrown: the row is already committed above, and failing the caller
+            // now would report a completed write as a failed one. LAST for the same reason — a
             // logging sink that faults must not cost the outbound ProcessedEvent its dedup row,
             // which is what would let a redelivered request re-apply the transition.
             if (publishResult.HasFailedDeliveries)

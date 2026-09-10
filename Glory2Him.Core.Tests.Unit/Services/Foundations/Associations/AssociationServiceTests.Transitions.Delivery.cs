@@ -62,6 +62,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     {
                         SubscriptionId = Guid.NewGuid(),
                         IsSuccess = false,
+                        IsFailure = true,
                         Status = "Error",
                         ResponseCode = "500",
                         ResponseMessage = "the handler failed",

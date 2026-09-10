@@ -25,12 +25,15 @@ namespace Glory2Him.Core.Models.Events.Exceptions
     /// receive a "fact" about a <c>-Approving</c> instruction describes the wrong kind of event
     /// and sends them looking for something nobody published.</para>
     ///
-    /// <para><b>UNSUCCESSFUL rather than undelivered</b>, and that is not a hedge either.
-    /// <c>IsSuccess</c> is set from the listener status, so the commonest case by far is a
-    /// subscription that DID receive the envelope and then threw part-way through its own work —
-    /// which is exactly what <c>HandlerFailureContainmentTests</c> measured. A line saying the
-    /// subscription never received it would point an operator at the substrate when the fault is
-    /// inside the handler.</para>
+    /// <para><b>UNSUCCESSFUL rather than undelivered</b>, and that is not a hedge either. The
+    /// substrate reports Error for a subscription that DID receive the envelope and then threw
+    /// part-way through its own work — exactly what <c>HandlerFailureContainmentTests</c>
+    /// measured, and the commonest case by far. A line saying the subscription never received it
+    /// would point an operator at the substrate when the fault is inside the handler.</para>
+    ///
+    /// <para>Only Error reaches here. <see cref="EventDelivery{T}.IsFailure"/> is set from the
+    /// status enum rather than inverted from success, so the two ordinary transient outcomes —
+    /// Pending and Replay — never raise this alarm.</para>
     ///
     /// <para><b>This is never thrown.</b> It exists to carry a message into
     /// <c>ILoggingBroker.LogCriticalAsync</c> — Critical rather than Error because this is a

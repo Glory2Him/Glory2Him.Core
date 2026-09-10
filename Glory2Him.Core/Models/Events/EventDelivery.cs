@@ -37,6 +37,20 @@ namespace Glory2Him.Core.Models.Events
         public bool IsSuccess { get; init; }
 
         /// <summary>
+        /// Whether the subscription REPORTED A FAILURE at dispatch time — the substrate's own
+        /// Error status, and nothing else.
+        ///
+        /// <para><b>Not simply the inverse of <see cref="IsSuccess"/>.</b> Four statuses are
+        /// possible and only one is success, so "not successful" also covers Pending and Replay,
+        /// which are ordinary transient outcomes rather than failures. A publisher inspecting on
+        /// the inverse would raise §10.19's Critical alarm — which claims a permanent,
+        /// unrepairable divergence — for a delivery that had simply not been attempted yet. The
+        /// broker classifies this from the status enum so no caller has to infer it from a
+        /// string.</para>
+        /// </summary>
+        public bool IsFailure { get; init; }
+
+        /// <summary>
         /// The delivery status at dispatch time: Pending, Success, Error, or Replay.
         /// </summary>
         public string Status { get; init; } = string.Empty;
