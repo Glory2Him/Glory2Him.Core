@@ -48,55 +48,12 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Approvals
             this.seededApprovals = new List<Approval>();
         }
 
-        [Fact]
-        public async Task ShouldReturnTheRowOccupyingTheKeyAsync()
-        {
-            // given
-            Guid probeEntityId = Guid.NewGuid();
-
-            Approval storageApproval = CreateApproval(
-                entityType: ProbeEntityType,
-                entityId: probeEntityId,
-                approvalStatus: ApprovalStatus.Approved,
-                isDeleted: false,
-                updatedWhen: DateTimeOffset.UtcNow);
-
-            await SeedAsync(storageApproval);
-
-            // when
-            Approval match = await this.broker.StorageBroker.SelectApprovalByEntityAsync(
-                ProbeEntityType,
-                probeEntityId,
-                TestContext.Current.CancellationToken);
-
-            // then
-            match.Should().NotBeNull();
-            match.Id.Should().Be(storageApproval.Id);
-            match.ApprovalStatus.Should().Be(ApprovalStatus.Approved);
-        }
-
-        [Fact]
-        public async Task ShouldReturnNullWhenTheKeyIsUnoccupiedAsync()
-        {
-            // given: the store holds only a row on a different key entirely
-            Approval otherKeyApproval = CreateApproval(
-                entityType: OtherEntityType,
-                entityId: Guid.NewGuid(),
-                approvalStatus: ApprovalStatus.Submitted,
-                isDeleted: false,
-                updatedWhen: DateTimeOffset.UtcNow);
-
-            await SeedAsync(otherKeyApproval);
-
-            // when
-            Approval match = await this.broker.StorageBroker.SelectApprovalByEntityAsync(
-                ProbeEntityType,
-                Guid.NewGuid(),
-                TestContext.Current.CancellationToken);
-
-            // then
-            match.Should().BeNull();
-        }
+        // A plain hit on the key and a plain miss on an unoccupied one used to be asserted here
+        // as well. Both were removed by #486: that EF translates `a == x && b == y` was never in
+        // doubt, and a mock returning the seeded row proves exactly as much. The hit is subsumed
+        // by the unfiltered-match test below, which reads a seeded row back off the key, and the
+        // miss by the half-key test at the bottom, which is the one with real bite — it fails if
+        // either conjunct is dropped, where a lone miss on an entirely different key does not.
 
         /// <summary>
         /// UX_Approvals_EntityType_EntityId is not filtered on IsDeleted, so a soft-deleted row
