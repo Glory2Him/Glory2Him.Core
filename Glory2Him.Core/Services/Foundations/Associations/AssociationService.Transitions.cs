@@ -16,6 +16,7 @@ using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Exceptions;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Associations;
 
@@ -452,9 +453,28 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                     sourceEnvelope: inboundEnvelope,
                     content: updatedAssociation);
 
-            await this.eventBroker.PublishAssociationAsync(
-                envelope: outboundEnvelope,
-                operation: operation);
+            EventPublishResult<Association> publishResult =
+                await this.eventBroker.PublishAssociationAsync(
+                    envelope: outboundEnvelope,
+                    operation: operation);
+
+            // §10.19. Delivery is contained, so a subscriber that failed says so HERE and
+            // nowhere else, and nothing redelivers it. Association-Submitted reaches the
+            // approval round; dropping it diverges the round from the row permanently, because
+            // the read-triggered repair only opens a MISSING round (§16.7.2). Unconditional
+            // because an unsubscribed address reports no deliveries at all — the subscription
+            // list answers this, and a copy of it does not belong in a service. That matters
+            // more here than elsewhere: Association reaches Submitted only as the fallback arm
+            // of the decision switch above, so a condition written on the operation would have
+            // to re-derive that arm to stay correct.
+            //
+            // Logged, never thrown: the row is already committed above, and failing the caller
+            // now would report a completed write as a failed one.
+            if (publishResult.HasFailedDeliveries)
+            {
+                await this.loggingBroker.LogCriticalAsync(
+                    FailedEventDeliveryException.ForFailedDeliveries(publishResult, operation));
+            }
 
             await RecordEventProcessedAsync(
                 envelope: outboundEnvelope,

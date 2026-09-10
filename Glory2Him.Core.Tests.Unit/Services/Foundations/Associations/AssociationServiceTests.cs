@@ -27,6 +27,7 @@ using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Brokers.EventEnvelopes;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.Associations.Exceptions;
 using Glory2Him.Core.Models.Securities;
@@ -107,6 +108,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     It.IsAny<string>(),
                     It.IsAny<EnvelopeDirection>()))
                         .ReturnsAsync(true);
+
+
+            // Every transition publishes through one tail that now INSPECTS its result
+            // (§10.19), so a publish left unstubbed would hand the service Moq's null default
+            // rather than an empty result. Defaulted to a fully delivered publish, so the tests
+            // that only assert the fact went out are unaffected; the delivery test overrides it
+            // to report a contained failure.
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishAssociationAsync(
+                    It.IsAny<EventEnvelope<Association>>(),
+                    It.IsAny<AssociationEventOperation>()))
+                        .Returns(new ValueTask<EventPublishResult<Association>>(
+                            new EventPublishResult<Association>()));
 
             this.associationService = new AssociationService(
                 storageBroker: this.storageBrokerMock.Object,
