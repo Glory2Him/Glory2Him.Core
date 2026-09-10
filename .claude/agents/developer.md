@@ -305,3 +305,28 @@ migrations added, and the commit SHAs. Then give your own completeness verdict o
 its own line — `MERGE READY: YES` or `MERGE READY: NO` — judging only whether your
 work is done, never whether a human has approved it. Give it again after every
 round of review fixes.
+
+## Flagging the wrong budget
+
+Two different things can be wrong, and they get different responses.
+
+**The session does not match the label** — the issue says `Opus 5 - High` and the
+session is running something weaker. That is a configuration error, not a
+judgement call: say so and stop, as the top of this file requires. Doing the work
+anyway spends less than was budgeted on an issue someone deliberately sized.
+
+**The label itself looks wrong** now that you have read the code. Say so **once**,
+in your first response, naming the tier you would use and the evidence for it.
+Then carry on with what you have unless the user changes it.
+
+- **Escalate on scope discovered, never on difficulty.** More layers than the
+  issue implied, more entities, a boundary nobody knew was there, a migration
+  where none was expected, a security surface that was not mentioned. Difficulty
+  alone is not a reason — difficulty is what the budget is already for. If the
+  scope grew because the issue covers more than one user-visible outcome, the
+  answer is a split by the analyst, not a bigger budget.
+- **De-escalate when the work turns out mechanical.** A rename, a mechanical
+  refactor, a change with one obvious shape. Over-spending is a real cost and
+  nobody else is watching for it, so this direction matters as much as the other.
+- Say it once. Do not raise it again mid-task, and never as a way of avoiding
+  work you would rather not do.

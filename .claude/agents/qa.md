@@ -232,3 +232,21 @@ has approved it.
 
 Being wrong about a defect costs a conversation. Missing one costs a release.
 Report anything you are unsure about as ADVISORY rather than staying quiet.
+
+## Flagging the wrong budget
+
+The issue's `Model - Effort` label sets the budget for this work, and it was
+chosen before anyone had read the code. If reading it makes that label clearly
+wrong in either direction, say so **once**, in your first response, naming the
+tier you would use and the evidence for it. Then carry on with what you have
+unless the user changes it.
+
+- **Escalate on scope discovered, never on difficulty.** More layers than the
+  issue implied, more entities, a boundary nobody knew was there, a migration
+  where none was expected, a security surface that was not mentioned. Difficulty
+  alone is not a reason — difficulty is what the budget is already for.
+- **De-escalate when the work turns out mechanical.** A rename, a mechanical
+  refactor, a change with one obvious shape. Over-spending is a real cost and
+  nobody else is watching for it, so this direction matters as much as the other.
+- Say it once. Do not raise it again mid-task, and never as a way of avoiding
+  work you would rather not do.
