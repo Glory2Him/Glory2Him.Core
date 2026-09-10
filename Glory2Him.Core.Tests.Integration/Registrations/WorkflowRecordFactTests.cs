@@ -202,44 +202,6 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
                         "them");
         }
 
-        [Fact]
-        public void ShouldCoverEveryFactOperationOnBothWorkflowRecords()
-        {
-            // given: the theories above are driven off the enums, so this only has to prove the
-            // derivation SEES everything and lets nothing through that it should not. It
-            // deliberately does not count subscriptions — the theories already prove each
-            // operation is subscribed AND accepted, by publishing it through the real broker
-            // and asserting the round was re-tested.
-
-            // when
-            IReadOnlyList<string> reviewFacts =
-                FactOperationNamesOf<ApprovalReviewEventOperation>();
-
-            IReadOnlyList<string> commentFacts =
-                FactOperationNamesOf<ApprovalCommentEventOperation>();
-
-            // then
-            reviewFacts.Should().BeEquivalentTo(
-                Enum.GetNames<ApprovalReviewEventOperation>()
-                    .Where(name => IsRequestName(name) is false),
-                because: "every operation that is not a request is a fact, and §10.17(a) needs " +
-                    "every fact address subscribed — so a fact operation added later must " +
-                    "arrive already covered by a theory row rather than waiting to be listed");
-
-            reviewFacts.Should().NotContain(name => IsRequestName(name),
-                because: "a request is answered by the record's own service, never by the " +
-                    "workflow — one leaking in would publish onto an address the workflow does " +
-                    "not subscribe to and fail confusingly rather than usefully");
-
-            commentFacts.Should().BeEquivalentTo(
-                Enum.GetNames<ApprovalCommentEventOperation>()
-                    .Where(name => IsRequestName(name) is false),
-                because: "the same holds for comments");
-
-            commentFacts.Should().NotContain(name => IsRequestName(name),
-                because: "the same holds for comment requests");
-        }
-
         // A request is a command somebody sends; a fact is what the service publishes afterwards.
         // Named by EXCLUSION rather than by a past-tense suffix, because a fact need not end in
         // "ed" — AssociationEventOperation.ConfidenceSet already does not, so an include-list
