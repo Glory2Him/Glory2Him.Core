@@ -282,10 +282,30 @@ components:
       - MayAmendApprovalCommentAsync
       - MayResolveApprovalCommentAsync
       - FindDismissableApprovalReviewIdsAsync
+      - ResolveAIReviewerPolicyByIdAsync
+      - FindResettableAIReviewerAssignmentIdAsync
     calls:
       - from: FindDismissableApprovalReviewIdsAsync
         to: StorageBroker
         method: SelectAllApprovalReviewsAsync
+      - from: ResolveAIReviewerPolicyByIdAsync
+        to: SC.AccessClient
+        method: ResolveAIReviewerPolicyAsync
+      - from: ResolveAIReviewerPolicyByIdAsync
+        to: StorageBroker
+        method: SelectApprovalByIdAsync
+      - from: ResolveAIReviewerPolicyByIdAsync
+        to: StorageBroker
+        method: SelectAllApprovalSettingsAsync
+      - from: ResolveAIReviewerPolicyByIdAsync
+        to: StorageBroker
+        method: SelectContentItemByIdAsync
+      - from: ResolveAIReviewerPolicyByIdAsync
+        to: StorageBroker
+        method: SelectAssociationByIdAsync
+      - from: FindResettableAIReviewerAssignmentIdAsync
+        to: StorageBroker
+        method: SelectAIReviewerAssignmentByApprovalIdAsync
       - from: MayDecideApprovalAsync
         to: SC.AccessClient
         method: MayDecideApprovalAsync
@@ -2773,6 +2793,152 @@ components:
         handler: OnHardRemovingApprovalReviewRequestByIdAsync
       - event: ApprovalReviewRequest.RetrievingById
         handler: OnRetrievingApprovalReviewRequestByIdAsync
+  - id: FS.AIReviewerAssignment
+    name: AIReviewerAssignmentService
+    layer: foundation
+    col: 5
+    description: "Foundation CRUD for AIReviewerAssignment - the one live row per approval that records Berean having been asked (design 8.6.2, issue 354 Track A). Berean is not a role-bearing identity, so it has no ApprovalReviewRequest and none of that tier-membership or duplicate-invitation machinery applies; what this row carries instead is the ask plus two system-set flags, IsAIReviewCompleted and IsAIReviewCommentsPresent, which NOTHING sets today because the classification pass of 13.4 does not exist yet. UX_AIReviewerAssignments_ApprovalId is filtered on IsDeleted = 0, so the approval-keyed read is singular and nullable and a withdrawn row frees the slot. Both reads are gated on the review tier alone - no publish-date visibility, and no party-to-it ownership exception - and the approval-keyed one answers null with a warning rather than throwing, folding a denial into the legitimate no-assignment outcome. ReturnStaleAIReviewerAssignmentToPendingAsync is the workflow seam (IAIReviewerAssignmentWorkflowService): it mints the system identity through CreateSystemAsync and gates on IsSystemIdentity rather than on a role, because the system context carries no roles and so could never pass the manage gate. Like the ApprovalReviewRequest retirement it does NO ProcessedEvents bookkeeping - no event address, no handler, so both rows would have no reader - and it is idempotent on an already-pending row and on a withdrawn one, publishing nothing in either case. The four On*Async substrate handlers exist for structural consistency with every sibling foundation but are WIRED TO NOTHING: EventSubscriptionRegistration has no AIReviewerAssignment entry, so this entity draws no purple edges. The Modifying/Modified pair is the divergence from ApprovalReviewRequest, which has no modify verb at all; there is no HardRemove and no unkeyed RetrieveAll."
+    methods:
+      - AddAIReviewerAssignmentAsync
+      - RetrieveAIReviewerAssignmentByIdAsync
+      - RetrieveAIReviewerAssignmentByApprovalIdAsync
+      - ModifyAIReviewerAssignmentAsync
+      - RemoveAIReviewerAssignmentByIdAsync
+      - ReturnStaleAIReviewerAssignmentToPendingAsync
+      - OnAddingAIReviewerAssignmentAsync
+      - OnModifyingAIReviewerAssignmentAsync
+      - OnRemovingAIReviewerAssignmentByIdAsync
+      - OnRetrievingAIReviewerAssignmentByIdAsync
+    calls:
+      - from: AddAIReviewerAssignmentAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: AddAIReviewerAssignmentAsync
+        to: SecurityAuditBroker
+        method: ApplyAddAuditValuesAsync
+      - from: AddAIReviewerAssignmentAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: AddAIReviewerAssignmentAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: AddAIReviewerAssignmentAsync
+        to: StorageBroker
+        method: InsertAIReviewerAssignmentAsync
+      - from: AddAIReviewerAssignmentAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: AddAIReviewerAssignmentAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: AddAIReviewerAssignmentAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: ModifyAIReviewerAssignmentAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: ModifyAIReviewerAssignmentAsync
+        to: SecurityAuditBroker
+        method: ApplyModifyAuditValuesAsync
+      - from: ModifyAIReviewerAssignmentAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: ModifyAIReviewerAssignmentAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: ModifyAIReviewerAssignmentAsync
+        to: StorageBroker
+        method: SelectAIReviewerAssignmentByIdAsync
+      - from: ModifyAIReviewerAssignmentAsync
+        to: SecurityAuditBroker
+        method: EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync
+      - from: ModifyAIReviewerAssignmentAsync
+        to: StorageBroker
+        method: UpdateAIReviewerAssignmentAsync
+      - from: ModifyAIReviewerAssignmentAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: ModifyAIReviewerAssignmentAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: ModifyAIReviewerAssignmentAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: RemoveAIReviewerAssignmentByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RemoveAIReviewerAssignmentByIdAsync
+        to: StorageBroker
+        method: SelectAIReviewerAssignmentByIdAsync
+      - from: RemoveAIReviewerAssignmentByIdAsync
+        to: SecurityAuditBroker
+        method: ApplyRemoveAuditValuesAsync
+      - from: RemoveAIReviewerAssignmentByIdAsync
+        to: StorageBroker
+        method: UpdateAIReviewerAssignmentAsync
+      - from: RemoveAIReviewerAssignmentByIdAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: RemoveAIReviewerAssignmentByIdAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: RemoveAIReviewerAssignmentByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: RetrieveAIReviewerAssignmentByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveAIReviewerAssignmentByIdAsync
+        to: StorageBroker
+        method: SelectAIReviewerAssignmentByIdAsync
+      - from: RetrieveAIReviewerAssignmentByIdAsync
+        to: LoggingBroker
+        method: LogInformationAsync
+      - from: RetrieveAIReviewerAssignmentByIdAsync
+        to: LoggingBroker
+        method: LogWarningAsync
+      - from: RetrieveAIReviewerAssignmentByApprovalIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveAIReviewerAssignmentByApprovalIdAsync
+        to: StorageBroker
+        method: SelectAIReviewerAssignmentByApprovalIdAsync
+      - from: RetrieveAIReviewerAssignmentByApprovalIdAsync
+        to: LoggingBroker
+        method: LogWarningAsync
+      - from: ReturnStaleAIReviewerAssignmentToPendingAsync
+        to: EventEnvelopeBroker
+        method: CreateSystemAsync
+      - from: ReturnStaleAIReviewerAssignmentToPendingAsync
+        to: StorageBroker
+        method: SelectAIReviewerAssignmentByIdAsync
+      - from: ReturnStaleAIReviewerAssignmentToPendingAsync
+        to: SecurityAuditBroker
+        method: ApplyModifyAuditValuesAsync
+      - from: ReturnStaleAIReviewerAssignmentToPendingAsync
+        to: StorageBroker
+        method: UpdateAIReviewerAssignmentAsync
+      - from: ReturnStaleAIReviewerAssignmentToPendingAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: OnAddingAIReviewerAssignmentAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnModifyingAIReviewerAssignmentAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnRemovingAIReviewerAssignmentByIdAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+    publishes:
+      - method: AddAIReviewerAssignmentAsync
+        event: AIReviewerAssignment.Added
+      - method: ModifyAIReviewerAssignmentAsync
+        event: AIReviewerAssignment.Modified
+      - method: RemoveAIReviewerAssignmentByIdAsync
+        event: AIReviewerAssignment.Removed
+      - method: ReturnStaleAIReviewerAssignmentToPendingAsync
+        event: AIReviewerAssignment.Modified
   - id: FS.ApprovalSetting
     name: ApprovalSettingService
     layer: foundation
@@ -3465,6 +3631,85 @@ components:
         handler: OnApprovingLinkAsync
       - event: LinkProcessing.RetrievingById
         handler: OnRetrievingLinkByIdAsync
+  - id: AIRO
+    name: AIReviewerOrchestrationService
+    layer: orchestration
+    col: 4
+    description: "Berean invitation flow, and its own contract since PR 475 (design 8.6.2, issue 354 Track A): reporting where the AI reviewer stands on a round, asking for it, asking again once a prior pass completed, and withdrawing it. Separate from ApprovalOrchestrationService because Berean is not a role-bearing identity - it has no ApprovalReviewRequest row, so none of the approval orchestration tier-membership, duplicate-invitation or answered-invitation machinery applies, and giving that service a second contract is what the PR review objected to. It does NOT borrow the human reviewer scope gather: a narrow private resolver, ResolveAIReviewerApprovalAsync, mints the envelope for the security context, checks entity visibility, resolves the approval behind the entity through FindApprovalByEntityAsync and self-heals a missing round through AddApprovalAsync (9.7.2 rule 1) - reading two fields where the human gather returns invitations, reviewers and role subjects this flow never looks at. The offer switch is asked fresh on every read and write through ResolveAIReviewerPolicyByIdAsync and is fail-closed (8.4 rule 2). It publishes NO events of its own - all event traffic on this path is the AIReviewerAssignment foundation - and ILoggingBroker is exception-path only, so no logging edge is drawn. The workflow return-to-pending on a reset or an edit is deliberately NOT here: that is the approval workflow own act and stays private to ApprovalOrchestrationService, reaching the same foundation through its system-identity seam."
+    methods:
+      - RetrieveAIReviewerStatusAsync
+      - RequestAIReviewerAsync
+      - WithdrawAIReviewerAsync
+    calls:
+      - from: RetrieveAIReviewerStatusAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveAIReviewerStatusAsync
+        to: AccessBroker
+        method: IsEntityVisibleAsync
+      - from: RetrieveAIReviewerStatusAsync
+        to: FS.Approval
+        method: FindApprovalByEntityAsync
+      - from: RetrieveAIReviewerStatusAsync
+        to: AccessBroker
+        method: RetrieveEntityApprovalStatusAsync
+      - from: RetrieveAIReviewerStatusAsync
+        to: FS.Approval
+        method: AddApprovalAsync
+      - from: RetrieveAIReviewerStatusAsync
+        to: AccessBroker
+        method: ResolveAIReviewerPolicyByIdAsync
+      - from: RetrieveAIReviewerStatusAsync
+        to: FS.AIReviewerAssignment
+        method: RetrieveAIReviewerAssignmentByApprovalIdAsync
+      - from: RequestAIReviewerAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RequestAIReviewerAsync
+        to: AccessBroker
+        method: IsEntityVisibleAsync
+      - from: RequestAIReviewerAsync
+        to: FS.Approval
+        method: FindApprovalByEntityAsync
+      - from: RequestAIReviewerAsync
+        to: AccessBroker
+        method: RetrieveEntityApprovalStatusAsync
+      - from: RequestAIReviewerAsync
+        to: FS.Approval
+        method: AddApprovalAsync
+      - from: RequestAIReviewerAsync
+        to: AccessBroker
+        method: ResolveAIReviewerPolicyByIdAsync
+      - from: RequestAIReviewerAsync
+        to: FS.AIReviewerAssignment
+        method: RetrieveAIReviewerAssignmentByApprovalIdAsync
+      - from: RequestAIReviewerAsync
+        to: FS.AIReviewerAssignment
+        method: AddAIReviewerAssignmentAsync
+      - from: RequestAIReviewerAsync
+        to: FS.AIReviewerAssignment
+        method: ModifyAIReviewerAssignmentAsync
+      - from: WithdrawAIReviewerAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: WithdrawAIReviewerAsync
+        to: AccessBroker
+        method: IsEntityVisibleAsync
+      - from: WithdrawAIReviewerAsync
+        to: FS.Approval
+        method: FindApprovalByEntityAsync
+      - from: WithdrawAIReviewerAsync
+        to: AccessBroker
+        method: RetrieveEntityApprovalStatusAsync
+      - from: WithdrawAIReviewerAsync
+        to: FS.Approval
+        method: AddApprovalAsync
+      - from: WithdrawAIReviewerAsync
+        to: FS.AIReviewerAssignment
+        method: RetrieveAIReviewerAssignmentByApprovalIdAsync
+      - from: WithdrawAIReviewerAsync
+        to: FS.AIReviewerAssignment
+        method: RemoveAIReviewerAssignmentByIdAsync
   - id: AO
     name: ApprovalOrchestrationService
     layer: orchestration
@@ -3475,6 +3720,7 @@ components:
       - DecideApprovalAsync
       - ProcessEntityAddedAsync
       - ProcessEntityModifiedAsync
+      - ResetApprovalAsync
       - ProcessApprovalInputsChangedAsync
       - OnTagAddedAsync
       - OnTagModifiedAsync
@@ -3499,6 +3745,18 @@ components:
       - OnApprovalCommentResolvedAsync
       - OnApprovalCommentRemovedAsync
     calls:
+      - from: ProcessEntityModifiedAsync
+        to: AccessBroker
+        method: FindResettableAIReviewerAssignmentIdAsync
+      - from: ProcessEntityModifiedAsync
+        to: FS.AIReviewerAssignment
+        method: ReturnStaleAIReviewerAssignmentToPendingAsync
+      - from: ResetApprovalAsync
+        to: AccessBroker
+        method: FindResettableAIReviewerAssignmentIdAsync
+      - from: ResetApprovalAsync
+        to: FS.AIReviewerAssignment
+        method: ReturnStaleAIReviewerAssignmentToPendingAsync
       - from: RetrieveReviewerCandidatesAsync
         to: EventEnvelopeBroker
         method: CreateAsync

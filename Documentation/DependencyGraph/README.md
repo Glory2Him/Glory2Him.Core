@@ -81,7 +81,7 @@ view you were on, and switching carries your current selection across.
   toggle reveals the DateTime / Identifier / Logging / Hash broker copies
   that are hidden by default for readability.
 
-## Current truths captured in the data (full re-scan 2026-08-21; targeted updates 2026-08-28 and 2026-09-07)
+## Current truths captured in the data (full re-scan 2026-08-21; targeted updates 2026-08-28, 2026-09-07 and 2026-09-10)
 
 - **The collection reads are no longer the answer to every question**
   (2026-09-07). Where a caller used to take `RetrieveAll<Entity>Async`'s live
@@ -207,7 +207,7 @@ view you were on, and switching carries your current selection across.
   `IHashBroker`, was missing until `7a0d559a` — see below) plus all fifteen
   foundation, processing and orchestration services, the internal
   `IApprovalReviewWorkflowService` seam, and `IEventSubscriptionRegistration`.
-  **Eleven** controller folders now call them directly — `Tags`,
+  **Twelve** controller folders now call them directly — `AIReviewers`, `Tags`,
   `ApprovalComments`, `ApprovalReviews`, `Approvals`, `ApprovalSettings`,
   `BibleReferences`, `Comments`, `ContentItems`, `ContentItemSettings`,
   `Links` and `Reactions`; the count was four at the 2026-08-28 update.
@@ -265,11 +265,37 @@ view you were on, and switching carries your current selection across.
   `FS.ApprovalReviewRequest` follows its siblings rather than fixing this for
   one service alone, which would make the picture less consistent, not more.
   Correcting it is a template-wide edit and belongs to a full re-scan.
-- **The header counts moved on 2026-09-07** and the `/update-dependency-graph`
-  skill's verification numbers are now stale: single copy reads
-  **65 components · 1298 flows** (was 1256 before this update), per consumer
-  **153 nodes · 1626 flows**. Purple edges are 112 in both views, matching
-  `EventSubscriptionRegistration`; 63 lines render red in both.
+- **The header counts moved again on 2026-09-10** and the
+  `/update-dependency-graph` skill's verification numbers are stale by two
+  generations now: single copy reads **67 components · 1368 flows** (was 65 ·
+  1298), per consumer **177 nodes · 1774 flows** (was 153 · 1626). Purple edges
+  are still 112 in both views and 63 lines still render red in both — the AI
+  reviewer added neither, for the reasons in the two bullets below.
+- **The AI reviewer (Berean) is modelled as of 2026-09-10** — issue #354 Track A,
+  PR #475. Two new components: `FS.AIReviewerAssignment` (the foundation, whose
+  `ReturnStaleAIReviewerAssignmentToPendingAsync` row is the
+  `IAIReviewerAssignmentWorkflowService` seam on the same implementation, exactly
+  as `FS.ApprovalReviewRequest` carries its retirement) and `AIRO`
+  (`AIReviewerOrchestrationService`). `AIRO` exists because the PR review
+  rejected hanging Berean off `IApprovalOrchestrationService` — that gave one
+  contract two subjects — so the three invitation operations moved to their own
+  service and their own controller. `AO` keeps only the PRIVATE return-to-pending
+  step, drawn from `ProcessEntityModifiedAsync` and `ResetApprovalAsync`, which
+  is why `ResetApprovalAsync` finally appears in `AO`'s method list.
+  **`AIReviewerAssignment` draws no purple edges**: its four `On*Async` handlers
+  exist for structural consistency with every sibling foundation, but
+  `EventSubscriptionRegistration` has no entry for the entity, so the broker seam
+  is declared and unwired. Its `EnvelopeIntegrityBroker` calls are deliberately
+  NOT declared, following the 14 sibling foundations rather than fixing that
+  inconsistency for one service alone (see the bullet above).
+- **Two gaps are still open and neither is this update's doing.**
+  `EventSubscriptionRegistration` now wires **119** subscriptions while the data
+  declares **112** — a drift of seven that predates the AI reviewer and wants a
+  targeted pass of its own. And the twelve controller folders (the eleven listed
+  above plus `AIReviewers`) remain unmodelled, so `AIRO` renders with zero
+  inbound flows and `WA.*` still has no edge into Core. Adding them is still the
+  next full scan's job; doing it for the one new controller alone would make the
+  picture less consistent, not more.
 
 ## The data files
 
