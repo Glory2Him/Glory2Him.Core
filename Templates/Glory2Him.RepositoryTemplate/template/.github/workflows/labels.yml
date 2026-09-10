@@ -32,51 +32,79 @@ jobs:
             per_page: 100
           });
 
-          const byName = new Map(existing.map(label => [label.name, label]));
+          // Keyed lower case because GitHub treats label names as case insensitive for
+          // uniqueness. Creating DOCUMENTATION while the stock "documentation" label is
+          // still on a new repository is a 422, so that one is a rename, not a create.
+          const byName = new Map(existing.map(label => [label.name.toLowerCase(), label]));
+          const failures = [];
           let created = 0;
+          let renamed = 0;
           let updated = 0;
 
           for (const label of manifest) {
-            const current = byName.get(label.name);
+            const current = byName.get(label.name.toLowerCase());
 
-            if (!current) {
-              await github.rest.issues.createLabel({
+            try {
+              if (!current) {
+                await github.rest.issues.createLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: label.name,
+                  color: label.color,
+                  description: label.description
+                });
+
+                console.log(`Created: ${label.name}`);
+                created++;
+                continue;
+              }
+
+              const nameMatches = current.name === label.name;
+              const colorMatches = current.color.toLowerCase() === label.color.toLowerCase();
+              const descriptionMatches = (current.description || '') === label.description;
+
+              if (nameMatches && colorMatches && descriptionMatches) {
+                continue;
+              }
+
+              // Addressed by the name it currently has, renamed to the name the manifest
+              // asks for. Passing the manifest name as "name" would 404 on a case change.
+              await github.rest.issues.updateLabel({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                name: label.name,
+                name: current.name,
+                new_name: label.name,
                 color: label.color,
                 description: label.description
               });
 
-              console.log(`Created: ${label.name}`);
-              created++;
-              continue;
+              if (nameMatches) {
+                console.log(`Updated: ${label.name}`);
+                updated++;
+              } else {
+                console.log(`Renamed: ${current.name} -> ${label.name}`);
+                renamed++;
+              }
+            } catch (error) {
+              // Collected rather than thrown, so one bad label cannot hide the state of
+              // the other hundred. The job still fails at the end.
+              console.log(`Failed: ${label.name}: ${error.message}`);
+              failures.push(`${label.name}: ${error.message}`);
             }
-
-            const colorMatches = current.color.toLowerCase() === label.color.toLowerCase();
-            const descriptionMatches = (current.description || '') === label.description;
-
-            if (colorMatches && descriptionMatches) {
-              continue;
-            }
-
-            await github.rest.issues.updateLabel({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              name: label.name,
-              color: label.color,
-              description: label.description
-            });
-
-            console.log(`Updated: ${label.name}`);
-            updated++;
           }
 
-          // Labels are never deleted. A label this repository added by hand, and any label
-          // GitHub created with the repository, is left exactly as it is.
-          const summary = `${created} created, ${updated} updated, ${manifest.length} in manifest.`;
+          // Labels are never deleted. A label this repository added by hand, and the stock
+          // labels GitHub created with the repository, are left exactly as they are.
+          const summary =
+            `${created} created, ${renamed} renamed, ${updated} updated, ` +
+            `${failures.length} failed, ${manifest.length} in manifest.`;
+
           console.log(summary);
           await core.summary.addRaw(summary).write();
+
+          if (failures.length) {
+            core.setFailed(`Could not sync ${failures.length} label(s):\n${failures.join('\n')}`);
+          }
     permissions:
       contents: read
       issues: write
