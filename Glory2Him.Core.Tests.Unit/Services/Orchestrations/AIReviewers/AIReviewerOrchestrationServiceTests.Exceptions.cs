@@ -17,25 +17,25 @@ using FluentAssertions;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.AIReviewerAssignments;
 using Glory2Him.Core.Models.Foundations.AIReviewerAssignments.Exceptions;
-using Glory2Him.Core.Models.Orchestrations.Approvals;
-using Glory2Him.Core.Models.Orchestrations.Approvals.Exceptions;
+using Glory2Him.Core.Models.Orchestrations.AIReviewers;
+using Glory2Him.Core.Models.Orchestrations.AIReviewers.Exceptions;
 using Glory2Him.Core.Models.Securities;
 using Moq;
 using Xeptions;
 
-namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
+namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
 {
     /// <summary>
     /// How the AIReviewerAssignment foundation's failures reach a caller, and the one failure this
     /// flow answers rather than reports — the uniqueness collision two simultaneous requests race
     /// into.
     /// </summary>
-    public partial class ApprovalOrchestrationServiceTests
+    public partial class AIReviewerOrchestrationServiceTests
     {
         /// <summary>
         /// The whole family, in one set, each paired with the category it must land in — and the
-        /// SPLIT is the point. The catch chain names this foundation explicitly (alongside
-        /// Approval and ApprovalReviewRequest), so the two validation-shaped families are
+        /// SPLIT is the point. This service's catch chain names the AIReviewerAssignment
+        /// foundation explicitly (alongside Approval), so the two validation-shaped families are
         /// re-surfaced as a DEPENDENCY VALIDATION fault and the two infrastructure-shaped ones as
         /// a DEPENDENCY fault.
         ///
@@ -73,17 +73,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
         /// <summary>
         /// The wrapper a foundation fault of this family must arrive in, by category — built once
-        /// here so the five call-site tests below assert the mapping identically rather than each
+        /// here so the call-site tests below assert the mapping identically rather than each
         /// restating it.
         /// </summary>
         private static Xeption ExpectedAIReviewerWrapperFor(
             Xeption foundationException,
             bool isCallerFixable) =>
             isCallerFixable
-                ? new ApprovalOrchestrationDependencyValidationException(
+                ? new AIReviewerOrchestrationDependencyValidationException(
                     message: ExpectedDependencyValidationMessage,
                     innerException: (foundationException.InnerException as Xeption)!)
-                : new ApprovalOrchestrationDependencyException(
+                : new AIReviewerOrchestrationDependencyException(
                     message: ExpectedDependencyMessage,
                     innerException: (foundationException.InnerException as Xeption)!);
 
@@ -102,7 +102,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             Xeption expectedException =
                 ExpectedAIReviewerWrapperFor(foundationException, isCallerFixable);
 
-            SetupReviewerScope(approvalId: approvalId);
+            SetupResolvedRound(approvalId: approvalId);
             SetupAIReviewerOffer(isOffered: true);
 
             this.aiReviewerAssignmentServiceMock.Setup(service =>
@@ -113,7 +113,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ValueTask<AIReviewerAssignment> requestTask =
-                this.approvalOrchestrationService.RequestAIReviewerAsync(
+                this.aiReviewerOrchestrationService.RequestAIReviewerAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     TestContext.Current.CancellationToken);
@@ -155,7 +155,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             Xeption expectedException =
                 ExpectedAIReviewerWrapperFor(foundationException, isCallerFixable);
 
-            SetupReviewerScope(approvalId: approvalId);
+            SetupResolvedRound(approvalId: approvalId);
             SetupAIReviewerOffer(isOffered: true);
             SetupStoredAIReviewerAssignment(approvalId, storageAssignment: null);
 
@@ -167,7 +167,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ValueTask<AIReviewerAssignment> requestTask =
-                this.approvalOrchestrationService.RequestAIReviewerAsync(
+                this.aiReviewerOrchestrationService.RequestAIReviewerAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     TestContext.Current.CancellationToken);
@@ -220,7 +220,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             Xeption expectedException =
                 ExpectedAIReviewerWrapperFor(foundationException, isCallerFixable);
 
-            SetupReviewerScope(approvalId: approvalId);
+            SetupResolvedRound(approvalId: approvalId);
             SetupAIReviewerOffer(isOffered: true);
 
             SetupStoredAIReviewerAssignment(
@@ -235,7 +235,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ValueTask<AIReviewerAssignment> requestTask =
-                this.approvalOrchestrationService.RequestAIReviewerAsync(
+                this.aiReviewerOrchestrationService.RequestAIReviewerAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     TestContext.Current.CancellationToken);
@@ -280,7 +280,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             Xeption expectedException =
                 ExpectedAIReviewerWrapperFor(foundationException, isCallerFixable);
 
-            SetupReviewerScope(approvalId: approvalId);
+            SetupResolvedRound(approvalId: approvalId);
             SetupStoredAIReviewerAssignment(approvalId, standingAssignment);
 
             this.aiReviewerAssignmentServiceMock.Setup(service =>
@@ -292,7 +292,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ValueTask<AIReviewerAssignment> withdrawTask =
-                this.approvalOrchestrationService.WithdrawAIReviewerAsync(
+                this.aiReviewerOrchestrationService.WithdrawAIReviewerAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     TestContext.Current.CancellationToken);
@@ -330,7 +330,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             Xeption expectedException =
                 ExpectedAIReviewerWrapperFor(foundationException, isCallerFixable);
 
-            SetupReviewerScope(approvalId: approvalId);
+            SetupResolvedRound(approvalId: approvalId);
             SetupAIReviewerOffer(isOffered: true);
 
             this.aiReviewerAssignmentServiceMock.Setup(service =>
@@ -341,7 +341,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ValueTask<AIReviewerStatus> statusTask =
-                this.approvalOrchestrationService.RetrieveAIReviewerStatusAsync(
+                this.aiReviewerOrchestrationService.RetrieveAIReviewerStatusAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     TestContext.Current.CancellationToken);
@@ -364,6 +364,85 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         }
 
         /// <summary>
+        /// The APPROVAL foundation's families reach the caller through the same chain, and they
+        /// have to: this service reads that foundation on every operation and WRITES to it on one
+        /// path — the read-triggered repair opens a missing round. Without these arms the
+        /// collision two concurrent repairs produce would fall to the catch-all and be reported as
+        /// a 424 rather than as the caller's to retry.
+        /// </summary>
+        [Theory]
+        [MemberData(nameof(ApprovalFoundationExceptions))]
+        public async Task ShouldThrowDependencyExceptionOnRetrieveAIReviewerStatusIfTheRoundProbeDoesAndLogItAsync(
+            Xeption foundationException,
+            bool isCallerFixable)
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
+
+            Xeption expectedException =
+                ExpectedAIReviewerWrapperFor(foundationException, isCallerFixable);
+
+            this.approvalServiceMock.Setup(service =>
+                service.FindApprovalByEntityAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(foundationException);
+
+            // when
+            ValueTask<AIReviewerStatus> statusTask =
+                this.aiReviewerOrchestrationService.RetrieveAIReviewerStatusAsync(
+                    EntityType.ContentItem,
+                    Guid.NewGuid(),
+                    TestContext.Current.CancellationToken);
+
+            Xeption actualException =
+                await Assert.ThrowsAnyAsync<Xeption>(
+                    statusTask.AsTask);
+
+            // then
+            actualException.Should().BeOfType(expectedException.GetType());
+            actualException.Should().BeEquivalentTo(expectedException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedException))),
+                Times.Once);
+
+            VerifyNoAIReviewerAssignmentWrite();
+
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        /// <summary>
+        /// The Approval foundation's four families, split by category exactly as the AI reviewer's
+        /// are — same shape, same reason.
+        /// </summary>
+        public static TheoryData<Xeption, bool> ApprovalFoundationExceptions()
+        {
+            string randomMessage = GetRandomString();
+            var innerException = new Xeption(message: randomMessage);
+
+            return new TheoryData<Xeption, bool>
+            {
+                { new Glory2Him.Core.Models.Foundations.Approvals.Exceptions
+                    .ApprovalValidationException(
+                        message: randomMessage, innerException: innerException), true },
+
+                { new Glory2Him.Core.Models.Foundations.Approvals.Exceptions
+                    .ApprovalDependencyValidationException(
+                        message: randomMessage, innerException: innerException), true },
+
+                { new Glory2Him.Core.Models.Foundations.Approvals.Exceptions
+                    .ApprovalDependencyException(
+                        message: randomMessage, innerException: innerException), false },
+
+                { new Glory2Him.Core.Models.Foundations.Approvals.Exceptions
+                    .ApprovalServiceException(
+                        message: randomMessage, innerException: innerException), false },
+            };
+        }
+
+        /// <summary>
         /// Anything unanticipated is this service's own fault until proven otherwise, so it is
         /// categorised as a SERVICE error rather than filed against the collaborator it happened
         /// next to.
@@ -376,19 +455,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             Guid approvalId = Guid.NewGuid();
             var serviceException = new Exception("Service error occurred.");
 
-            var failedApprovalOrchestrationServiceException =
-                new FailedApprovalOrchestrationServiceException(
-                    message: "Failed content item association orchestration service error occurred, " +
+            var failedAIReviewerOrchestrationServiceException =
+                new FailedAIReviewerOrchestrationServiceException(
+                    message: "Failed AI reviewer orchestration service error occurred, " +
                         "please contact support.",
                     innerException: serviceException,
                     data: serviceException.Data);
 
             var expectedServiceException =
-                new ApprovalOrchestrationServiceException(
-                    message: "Content item association orchestration service error occurred, contact support.",
-                    innerException: failedApprovalOrchestrationServiceException);
+                new AIReviewerOrchestrationServiceException(
+                    message: "AI reviewer orchestration service error occurred, contact support.",
+                    innerException: failedAIReviewerOrchestrationServiceException);
 
-            SetupReviewerScope(approvalId: approvalId);
+            SetupResolvedRound(approvalId: approvalId);
             SetupAIReviewerOffer(isOffered: true);
             SetupStoredAIReviewerAssignment(approvalId, storageAssignment: null);
 
@@ -400,13 +479,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ValueTask<AIReviewerAssignment> requestTask =
-                this.approvalOrchestrationService.RequestAIReviewerAsync(
+                this.aiReviewerOrchestrationService.RequestAIReviewerAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     TestContext.Current.CancellationToken);
 
-            ApprovalOrchestrationServiceException actualException =
-                await Assert.ThrowsAsync<ApprovalOrchestrationServiceException>(
+            AIReviewerOrchestrationServiceException actualException =
+                await Assert.ThrowsAsync<AIReviewerOrchestrationServiceException>(
                     requestTask.AsTask);
 
             // then
@@ -448,7 +527,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     innerException: new Exception(),
                     data: new Hashtable()));
 
-            SetupReviewerScope(approvalId: approvalId);
+            SetupResolvedRound(approvalId: approvalId);
             SetupAIReviewerOffer(isOffered: true);
 
             // the FIRST read sees nothing, which is what lets both callers try; the re-read after
@@ -468,7 +547,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             AIReviewerAssignment actualAssignment =
-                await this.approvalOrchestrationService.RequestAIReviewerAsync(
+                await this.aiReviewerOrchestrationService.RequestAIReviewerAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     TestContext.Current.CancellationToken);
@@ -529,7 +608,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     "fix the errors and try again.",
                 innerException: alreadyExistsException);
 
-            SetupReviewerScope(approvalId: approvalId);
+            SetupResolvedRound(approvalId: approvalId);
             SetupAIReviewerOffer(isOffered: true);
             SetupStoredAIReviewerAssignment(approvalId, storageAssignment: null);
 
@@ -541,15 +620,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ValueTask<AIReviewerAssignment> requestTask =
-                this.approvalOrchestrationService.RequestAIReviewerAsync(
+                this.aiReviewerOrchestrationService.RequestAIReviewerAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     TestContext.Current.CancellationToken);
 
             // DEPENDENCY VALIDATION, not dependency: a stale caller is not a broken server. This
             // is the arm that carries the collision to the exposer's 409 rather than a 424.
-            ApprovalOrchestrationDependencyValidationException actualException =
-                await Assert.ThrowsAsync<ApprovalOrchestrationDependencyValidationException>(
+            AIReviewerOrchestrationDependencyValidationException actualException =
+                await Assert.ThrowsAsync<AIReviewerOrchestrationDependencyValidationException>(
                     requestTask.AsTask);
 
             // then: the collision's own inner survives the wrapping, so the reason is still

@@ -137,13 +137,21 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             }
 
             // The AIReviewerAssignment foundation's exceptions (design 8.6.2), for exactly the
-            // reason the ApprovalReviewRequest arm above exists. Berean's assignment has the same
-            // four families and the same kinds of routine refusal — a ReadOnly caller, an
-            // assignment born already completed, a comments-present flag on a review that never
-            // ran, and the uniqueness collision that outlives RequestAIReviewerAsync's re-read —
-            // and every one of them is the caller's to fix. Left to the catch-all below they all
-            // reach the client as a 424, which says the server is broken about a request the
-            // server understood perfectly and declined.
+            // reason the ApprovalReviewRequest arm above exists: Berean's assignment has the same
+            // four families, and left to the catch-all below every one of them reaches the client
+            // as a 424, which says the server is broken about something it understood perfectly.
+            //
+            // ONE SOURCE REMAINS on this service, now that the caller-facing trio lives on
+            // IAIReviewerOrchestrationService with its own catch chain: the workflow's own
+            // return-to-pending, reached through IAIReviewerAssignmentWorkflowService from the
+            // edit and reset flows. Its own helper logs and swallows what it raises, so nothing
+            // routine arrives here today — the arms stay because that seam is a foundation call
+            // like any other, and a family this chain does not name is a raw foundation exception
+            // escaping the layer the moment the swallow is narrowed or another caller appears.
+            //
+            // The routine refusals this used to describe — a ReadOnly caller, an assignment born
+            // already completed, the uniqueness collision that outlives a re-read — belong to
+            // that other service now, and its chain names them.
             catch (AIReviewerAssignmentValidationException aiReviewerAssignmentValidationException)
             {
                 throw await CreateAndLogDependencyValidationExceptionAsync(

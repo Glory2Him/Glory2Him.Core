@@ -9,17 +9,21 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
-namespace Glory2Him.Core.Models.Orchestrations.Approvals
+namespace Glory2Him.Core.Models.Orchestrations.AIReviewers
 {
     /// <summary>
     /// Berean's status on a round (design §8.6.2) — one read answering both "should the picker
     /// even offer it" and "what has it done so far", for
-    /// <c>GET api/Approvals/{entityType}/{entityId}/AIReviewer</c>.
+    /// <c>GET api/AIReviewers/{entityType}/{entityId}</c>.
+    ///
+    /// <para>It lives in the AI reviewer's OWN namespace rather than the approval round's, for
+    /// the same reason the operations that answer it live on their own contract: the response
+    /// model of one contract has no business sitting in another's folder, and leaving it beside
+    /// <c>ApprovalVerdict</c> would re-create that confusion one layer down.</para>
     ///
     /// <para>Visible to the whole requesting tier (§7.9 rule 2) — Reviewers included, not
-    /// narrowed to Publishers/Administrators the way <see cref="ApprovalVerdict"/> is: asking for
-    /// Berean is coordination, exactly like asking a person, and a plain Reviewer may do
-    /// either.</para>
+    /// narrowed to Publishers/Administrators the way the approval verdict is: asking for Berean
+    /// is coordination, exactly like asking a person, and a plain Reviewer may do either.</para>
     /// </summary>
     public class AIReviewerStatus
     {

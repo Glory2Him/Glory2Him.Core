@@ -2,8 +2,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import ApprovalBroker from '../../brokers/apiBroker.approvals';
 
 import {
-    AIReviewerAssignment,
-    AIReviewerStatus,
     ApprovalOutcome,
     ApprovalReview,
     ApprovalReviewRequest,
@@ -116,38 +114,19 @@ export const approvalService = {
         });
     },
 
-    // Berean's status (design §8.6.2) — keyed by entity like the candidates and requests beside
-    // it, so it starts alongside them rather than waiting on the verdict's id.
-    useGetAIReviewerStatus: (
-        entityType: EntityTypeName,
-        entityId: string,
-        enabled = true) => {
-        const approvalBroker = new ApprovalBroker();
-
-        return useQuery<AIReviewerStatus>({
-            queryKey: ['AIReviewerStatus', entityType, entityId],
-            queryFn: async () =>
-                await approvalBroker.GetAIReviewerStatusAsync(entityType, entityId),
-            enabled: enabled && entityId.length > 0,
-            retry: false,
-            meta: { suppressGlobalErrorToast: true },
-            staleTime: approvalStaleTime
-        });
-    },
-
     // ── Writes ────────────────────────────────────────────────────────────────
     //
-    // EVERY WRITE A HUMAN MAKES INVALIDATES THE WHOLE ROUND, not the one read it obviously
-    // moved. A vote changes the verdict's count and its block reasons; a request changes who is
-    // outstanding AND who may still be asked; a decision closes the round and moves the item
-    // itself. The panel reads all of them off one screen, and a screen that refetched only the
-    // obvious one would show a verdict that disagreed with the votes beside it.
+    // EVERY WRITE HERE INVALIDATES THE WHOLE ROUND, not the one read it obviously moved. A vote
+    // changes the verdict's count and its block reasons; a request changes who is outstanding
+    // AND who may still be asked; a decision closes the round and moves the item itself. The
+    // panel reads all of them off one screen, and a screen that refetched only the obvious one
+    // would show a verdict that disagreed with the votes beside it.
     //
-    // BEREAN'S TWO ARE THE EXCEPTION, and the two hooks at the end of this file say why: an
-    // assignment moves no vote, no candidate and no request, so they invalidate the one status
-    // read that can answer differently and nothing else.
+    // BEREAN'S TWO WRITES ARE THE EXCEPTION, and they live in aiReviewerService with the rest of
+    // its slice: an assignment moves no vote, no candidate and no request, so they invalidate
+    // the one status read that can answer differently and nothing else.
     //
-    // suppressGlobalErrorToast on all seven: a refusal here is an ANSWER (§14.5) — the server
+    // suppressGlobalErrorToast on all five: a refusal here is an ANSWER (§14.5) — the server
     // says why a vote is refused or a bypass is not yours to make — and the page shows that
     // reason beside the control rather than letting the generic toast talk over it.
 
@@ -283,65 +262,6 @@ export const approvalService = {
 
             onSuccess: (reviewRequest) => invalidateRound(queryClient, reviewRequest.approvalId)
         });
-    },
-
-    // ASSIGN Berean — or RE-REQUEST it once its review has completed; the endpoint is the same
-    // upsert either way, so one hook covers both actions.
-    //
-    // INVALIDATES ONLY AIReviewerStatus, not the whole round the way every write above does.
-    // Nothing about Berean's own assignment moves a human's votes, candidates or requests — the
-    // one thing this write can change is answered by that one read.
-    //
-    // And only THIS ENTITY'S key, spelled out in full rather than left as the bare
-    // ['AIReviewerStatus'] prefix: that prefix matches every entity's status query, so a write
-    // against one post would refetch Berean's status on every other round the client is holding.
-    // invalidateRound below keeps its prefixes for the opposite reason — a round-wide write knows
-    // only the approval's id and cannot reconstruct the entity-keyed ones.
-    useAssignAIReviewer: () => {
-        const approvalBroker = new ApprovalBroker();
-        const queryClient = useQueryClient();
-
-        return useMutation({
-            meta: { suppressGlobalErrorToast: true },
-
-            mutationFn: async (request: {
-                entityType: EntityTypeName;
-                entityId: string;
-            }): Promise<AIReviewerAssignment> =>
-                await approvalBroker.PostAIReviewerAsync(request.entityType, request.entityId),
-
-            onSuccess: (_, request) =>
-                queryClient.invalidateQueries({
-                    queryKey: ['AIReviewerStatus', request.entityType, request.entityId]
-                })
-        });
-    },
-
-    // WITHDRAW BEREAN: a DELETE of the live assignment, answering 200 with the removed row or
-    // 204 with nothing when none was standing — which is why the broker's result is nullable and
-    // why nothing here reads it. The status read is what says whether Berean is assigned.
-    //
-    // The same narrow, entity-keyed invalidation as the assign above, and it is the whole
-    // repaint: with isRequested false the panel drops Berean's row from the round and offers it
-    // in the picker's Suggestions again.
-    useWithdrawAIReviewer: () => {
-        const approvalBroker = new ApprovalBroker();
-        const queryClient = useQueryClient();
-
-        return useMutation({
-            meta: { suppressGlobalErrorToast: true },
-
-            mutationFn: async (request: {
-                entityType: EntityTypeName;
-                entityId: string;
-            }): Promise<AIReviewerAssignment | null> =>
-                await approvalBroker.DeleteAIReviewerAsync(request.entityType, request.entityId),
-
-            onSuccess: (_, request) =>
-                queryClient.invalidateQueries({
-                    queryKey: ['AIReviewerStatus', request.entityType, request.entityId]
-                })
-        });
     }
 };
 
@@ -352,12 +272,15 @@ export const approvalService = {
 // person the round did not involve before, and the panel must name them the moment their row
 // lands.
 //
-// BEREAN'S STATUS IS IN THE SET, though its own two writes narrow to one entity's key: a HUMAN
-// write can move it too — a reset puts Berean's two flags back (§8.6.2), and without this the
-// panel would go on reporting a completed pass over content that has just gone back for review.
-// Narrowing it here is the thing that cannot be done: a round-wide write knows only the
-// approval's id and cannot reconstruct the entity-keyed ones, which is why every line below is a
-// prefix.
+// BEREAN'S STATUS IS IN THE SET, though the read itself belongs to aiReviewerService and its own
+// two writes narrow to one entity's key: a HUMAN write can move it too — a reset puts Berean's
+// two flags back (§8.6.2), and without this the panel would go on reporting a completed pass over
+// content that has just gone back for review. Narrowing it here is the thing that cannot be done:
+// a round-wide write knows only the approval's id and cannot reconstruct the entity-keyed ones,
+// which is why every line below is a prefix.
+//
+// Reaching across a slice by its key literal, the way approvalSettingService reaches for
+// ApprovalVerdict: what a write moves is not always what the write's own service reads.
 const invalidateRound = (
     queryClient: ReturnType<typeof useQueryClient>,
     approvalId: string) => {

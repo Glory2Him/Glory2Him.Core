@@ -17,7 +17,7 @@ using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.AIReviewerAssignments;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.Approvals;
-using Glory2Him.Core.Models.Orchestrations.Approvals;
+using Glory2Him.Core.Models.Orchestrations.AIReviewers;
 
 namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
 {
@@ -33,6 +33,11 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
     ///
     /// <para>Entity ROWS are arranged per entity, in <c>ApiBroker.&lt;Entity&gt;Arrangements.cs</c>.
     /// What lives here is only what every approvable entity shares.</para>
+    ///
+    /// <para>The AI reviewer calls at the foot of this file address their OWN resource —
+    /// <c>api/AIReviewers</c>, not a sub-resource of the round — and are kept here because they
+    /// share this file's arrangement of a submitted round rather than because they share its
+    /// prefix. Their own constant says so.</para>
     /// </summary>
     public partial class ApiBroker
     {
@@ -100,15 +105,25 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
         public async ValueTask RemoveApprovalAsync(Approval approval) =>
             await this.storageBroker.DeleteApprovalAsync(approval);
 
+        // ITS OWN RESOURCE, and therefore its own prefix. Berean used to hang off the approval
+        // round as api/Approvals/{entityType}/{entityId}/AIReviewer; it has its own exposer now
+        // (AIReviewersController), and "api/[controller]" over that name yields this. Lower-cased
+        // to match every other constant in these brokers — ASP.NET routing is case-insensitive,
+        // so the casing here is a house style rather than a claim about the route.
+        //
+        // The entity key is still the whole address: a moderation panel knows the item it is
+        // showing and has never been handed an assignment's id.
+        private const string aiReviewersRelativeUrl = "api/aiReviewers";
+
         /// <summary>
-        /// Berean's status on a round (§8.6.2), keyed on the entity like every other read on this
-        /// exposer — a moderation panel knows the item it is showing and never the approval's id.
+        /// Berean's status on a round (§8.6.2), keyed on the entity like every other read in this
+        /// family — a moderation panel knows the item it is showing and never the approval's id.
         /// </summary>
         public async ValueTask<AIReviewerStatus> GetAIReviewerStatusAsync(
             EntityType entityType,
             Guid entityId) =>
             await this.apiFactoryClient.GetContentAsync<AIReviewerStatus>(
-                $"{approvalsRelativeUrl}/{entityType}/{entityId}/AIReviewer");
+                $"{aiReviewersRelativeUrl}/{entityType}/{entityId}");
 
         /// <summary>
         /// The UPSERT. No query values and no body — the entity key is the whole request, and what
@@ -119,14 +134,14 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
             EntityType entityType,
             Guid entityId) =>
             await this.apiFactoryClient.PostContentAsync<object, AIReviewerAssignment>(
-                relativeUrl: $"{approvalsRelativeUrl}/{entityType}/{entityId}/AIReviewer",
+                relativeUrl: $"{aiReviewersRelativeUrl}/{entityType}/{entityId}",
                 content: new { });
 
         public async ValueTask<AIReviewerAssignment> DeleteAIReviewerAsync(
             EntityType entityType,
             Guid entityId) =>
             await this.apiFactoryClient.DeleteContentAsync<AIReviewerAssignment>(
-                $"{approvalsRelativeUrl}/{entityType}/{entityId}/AIReviewer");
+                $"{aiReviewersRelativeUrl}/{entityType}/{entityId}");
 
         /// <summary>
         /// The same route, answered with its STATUS CODE rather than a deserialised row. The
@@ -139,7 +154,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
             Guid entityId)
         {
             HttpResponseMessage response = await this.httpClient.DeleteAsync(
-                $"{approvalsRelativeUrl}/{entityType}/{entityId}/AIReviewer");
+                $"{aiReviewersRelativeUrl}/{entityType}/{entityId}");
 
             return response.StatusCode;
         }

@@ -508,17 +508,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         /// completed pass, with comments, over content the override has just put back for review.
         ///
         /// <para>The ROW STAYS. That is the human posture applied to a row that is both halves at
-        /// once: the reviews are dismissed and KEPT, and nothing here withdraws an invitation. The
-        /// removal assertion is what states the choice — swapping the return-to-pending for a
-        /// remove would pass a test that only checked the flags, and would leave a re-opened round
-        /// without the reviewer it had.</para>
+        /// once: the reviews are dismissed and KEPT, and nothing here withdraws an invitation.
+        /// Returning it to pending rather than removing it is the choice, and it is the only
+        /// write this path may make on that row.</para>
         ///
-        /// <para><b>What it catches.</b> Routing this back onto the caller-facing foundation.
-        /// Under an administrator that route would still work here — which is exactly why the
-        /// assertion is on the WORKFLOW seam and why the sibling on the edit path
-        /// (ApprovalOrchestrationServiceTests.Flows.cs) runs as a plain author: a test that only
-        /// ever ran as an administrator would pass against a version of this that records the
-        /// wrong actor and refuses every ordinary editor.</para>
+        /// <para><b>What it catches.</b> Recording the wrong actor. This is a SYSTEM-identity
+        /// write and the assertion is on the WORKFLOW seam, which is the only seam that mints
+        /// that identity; the sibling on the edit path
+        /// (ApprovalOrchestrationServiceTests.Flows.cs) runs as a plain author for the same
+        /// reason. Routing it back onto the caller-facing foundation is no longer expressible
+        /// here at all — that seam left with <c>IAIReviewerOrchestrationService</c>, so this
+        /// service cannot reach it and the compiler holds what an assertion used to.</para>
         /// </summary>
         [Fact]
         public async Task ShouldReturnACompletedAIReviewerAssignmentToPendingOnResetAsync()
@@ -548,17 +548,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     It.IsAny<CancellationToken>()),
                 Times.Once);
 
-            // and Berean is still ON the round — nothing withdrew the assignment
-            this.aiReviewerAssignmentServiceMock.Verify(service =>
-                service.RemoveAIReviewerAssignmentByIdAsync(
-                    It.IsAny<Guid>(),
-                    It.IsAny<string>(),
-                    It.IsAny<CancellationToken>()),
-                Times.Never);
-
-            // and the caller-facing foundation was not touched at all: neither its identity-
-            // filtered read nor its review-tier-gated write is on this path
-            this.aiReviewerAssignmentServiceMock.VerifyNoOtherCalls();
+            // and that is the ONLY thing this path did to Berean's row. The seam carries no
+            // removal verb at all, so "still ON the round" is now asserted as the absence of any
+            // other call on it rather than as a Times.Never against a withdraw this service can
+            // no longer reach.
+            this.aiReviewerAssignmentWorkflowServiceMock.VerifyNoOtherCalls();
         }
 
         /// <summary>
@@ -609,18 +603,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 Times.Never);
 
             this.aiReviewerAssignmentWorkflowServiceMock.VerifyNoOtherCalls();
-            this.aiReviewerAssignmentServiceMock.VerifyNoOtherCalls();
         }
 
         /// <summary>
         /// Berean's half runs LAST — after the human dismissal, and after the entity sync that
         /// unpublishes the content.
         ///
-        /// <para>Its position against the SYNC is the load-bearing half. The reset is a fallible
-        /// write, so anything that follows it is something a failure can cost: standing between
-        /// the dismissal and the command, a throw left the approval back at <c>Submitted</c> with
-        /// its reviews dismissed while the entity stayed <c>Approved</c> and publicly published —
-        /// the state the operation exists to prevent.</para>
+        /// <para>Its position against the SYNC is legibility rather than damage control: the step
+        /// logs its own failure and returns (see the test below), so it can no longer cost the
+        /// entity its sync however it is placed. Last is where the tidy-up belongs, and where it
+        /// reads as one.</para>
         ///
         /// <para>Its position against the DISMISSAL is intent rather than necessity today,
         /// because nothing subscribes to <c>AIReviewerAssignment-Modified</c> — §8.6.2's trigger
@@ -696,20 +688,22 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         }
 
         /// <summary>
-        /// And the reason that order is the one to hold: the reset's AI step is a FALLIBLE write,
-        /// and a failure in it must not cost the entity its sync.
+        /// THE AI STEP CANNOT FAULT THE RESET. It is a fallible write reached LAST, by which time
+        /// the reset has already succeeded and committed — the status is <c>Submitted</c>, the
+        /// reviews are dismissed, the entity is unpublished — and none of it can be taken back.
         ///
-        /// <para>The round-one placement — between the dismissal and the command — made exactly
-        /// that trade. Storage failing under the write left an approval at <c>Submitted</c> with
-        /// no reviews standing behind it while the entity remained <c>Approved</c> and on the
-        /// public site, with nothing to reconcile the two (§9.8).</para>
+        /// <para>So a failure here is logged and swallowed rather than propagated. Letting it
+        /// through reported a SUCCESSFUL reset to the moderator as a 424 telling them to try
+        /// again, and the retry that advice invites is then refused by
+        /// <c>ValidateStorageApprovalIsDecided</c> — the round is Submitted rather than decided —
+        /// producing a second, unrelated error on a round that was never broken.</para>
         ///
-        /// <para>The operation still FAILS — the caller is told, and the two flags are still
-        /// stale — because a refusal nobody hears is worse than one they can answer by asking
-        /// Berean again. What it no longer does is fail with the content still published.</para>
+        /// <para>What the failure costs instead: the two flags stay stale until a moderator asks
+        /// Berean again, and the failure is in the error log. Nothing is swallowed silently, which
+        /// is why the log call is asserted and not merely the absence of a throw.</para>
         /// </summary>
         [Fact]
-        public async Task ShouldStillSyncTheEntityWhenReturningBereanToPendingFailsAsync()
+        public async Task ShouldStillCompleteTheResetWhenReturningBereanToPendingFailsAsync()
         {
             // given
             this.ambientSecurityContext =
@@ -738,17 +732,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     It.IsAny<CancellationToken>()))
                         .ThrowsAsync(failedStorageException);
 
-            // when
-            ValueTask<ApprovalOutcome> resetTask =
-                this.approvalOrchestrationService.ResetApprovalAsync(
+            // when: no throw — the operation answers its caller normally
+            ApprovalOutcome actualOutcome =
+                await this.approvalOrchestrationService.ResetApprovalAsync(
                     entityType: decidedApproval.EntityType,
                     entityId: decidedApproval.EntityId,
                     cancellationToken: TestContext.Current.CancellationToken);
 
-            await Assert.ThrowsAsync<ApprovalOrchestrationDependencyException>(
-                resetTask.AsTask);
+            // then
+            actualOutcome.Should().NotBeNull();
 
-            // then: the entity was taken off the public site anyway
+            // the entity was taken off the public site
             this.eventEnvelopeBrokerMock.Verify(broker =>
                 broker.CreateSystemAsync(It.IsAny<ContentItem>()),
                 Times.Once);
@@ -760,6 +754,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                         approval.ApprovalStatus == ApprovalStatus.Submitted),
                     WorkflowAttribution.DecidingCaller,
                     It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            // AND THE FAILURE WAS RECORDED. Swallowing it without a log entry would leave a stale
+            // panel with nothing anywhere to explain it — the exception the seam raised is what
+            // reaches the error log, unwrapped, because this step has no chain of its own.
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(failedStorageException),
                 Times.Once);
         }
         /// <summary>

@@ -26,6 +26,7 @@ using Glory2Him.Core.Brokers.Storages.Identity;
 using Glory2Him.Core.Services.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Services.Foundations.IdentityUsers;
 using Glory2Him.Core.Services.Foundations.ApprovalReviews;
+using Glory2Him.Core.Services.Orchestrations.AIReviewers;
 using Glory2Him.Core.Services.Orchestrations.Approvals;
 using Glory2Him.Core.Services.Processings.Links;
 using Glory2Him.Core.Services.Processings.ContentItems;
@@ -166,6 +167,16 @@ namespace Glory2Him.WebApp.Infrastructure
             // Scoped for the same reason the foundations are: it reaches them, and through
             // them the DbContext.
             services.AddScoped<IApprovalOrchestrationService, ApprovalOrchestrationService>();
+
+            // §8.6.2's own orchestration, beside the approval round's rather than inside it: the
+            // AI reviewer is a separate contract over a separate resource, and AIReviewersController
+            // binds to it alone. Scoped for the same reason its neighbour is — it reaches the
+            // foundations, and through them the DbContext.
+            //
+            // WITHOUT THIS LINE the failure is not a startup error. The container simply has no
+            // descriptor for IAIReviewerOrchestrationService, so MVC fails to activate the
+            // controller on the FIRST REQUEST to api/AIReviewers and nothing complains until then.
+            services.AddScoped<IAIReviewerOrchestrationService, AIReviewerOrchestrationService>();
 
             // The remaining eleven. Not exposed by any endpoint this host serves — they are here
             // because this host now BINDS every subscription, and a subscription resolves its

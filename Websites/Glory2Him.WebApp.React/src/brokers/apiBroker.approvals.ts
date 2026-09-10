@@ -1,8 +1,6 @@
 import ApiBroker from './apiBroker';
 
 import {
-    AIReviewerAssignment,
-    AIReviewerStatus,
     ApprovalOutcome,
     ApprovalReview,
     ApprovalReviewAddRequest,
@@ -20,6 +18,11 @@ import { ApprovalDecision } from '../models/components/approvals/approvalReviewI
 // the verdict, who may be asked, who has been, and the decision itself — while
 // api/ApprovalReviews is the plain foundation collection, OData-filtered like the other
 // foundation reads in this folder, and written to like them: a vote is a row.
+//
+// BEREAN IS NOT HERE. Its assignment is its own resource with its own controller behind it
+// (api/AIReviewers, design §8.6.2) and its own broker beside this one — see
+// apiBroker.aiReviewers. It used to hang off api/Approvals/{entityType}/{entityId}/AIReviewer,
+// which gave this broker two subjects the way it gave the server's contract two.
 class ApprovalBroker {
     relativeApprovalsUrl = '/api/approvals';
     relativeApprovalReviewsUrl = '/api/approvalreviews';
@@ -175,48 +178,6 @@ class ApprovalBroker {
         const result = await this.apiBroker.DeleteAsync(url);
 
         return result.data as ApprovalReviewRequest;
-    }
-
-    // BEREAN'S STATUS (design §8.6.2) — one small read answering both "should the picker offer
-    // it" and "what's it doing right now", keyed by the entity like the candidates and requests
-    // beside it.
-    async GetAIReviewerStatusAsync(
-        entityType: EntityTypeName,
-        entityId: string): Promise<AIReviewerStatus> {
-        const url = `${this.relativeApprovalsUrl}/${entityType}/${entityId}/AIReviewer`;
-        const result = await this.apiBroker.GetAsync(url);
-
-        return result.data as AIReviewerStatus;
-    }
-
-    // ASSIGN — or RE-REQUEST. The endpoint is an upsert: no live row creates one, a completed
-    // one resets to pending, a still-pending one is a no-op that just returns the standing row.
-    async PostAIReviewerAsync(
-        entityType: EntityTypeName,
-        entityId: string): Promise<AIReviewerAssignment> {
-        const url = `${this.relativeApprovalsUrl}/${entityType}/${entityId}/AIReviewer`;
-        const result = await this.apiBroker.PostAsync(url, {});
-
-        return result.data as AIReviewerAssignment;
-    }
-
-    // WITHDRAW. Unconditional — re-request now covers "ask again after completion", so there is
-    // no answered-invitation refusal to keep out of reach here the way there is for a person's.
-    // Nothing standing is 204 (no body) rather than 200, so the result is nullable — unused by
-    // the hook either way, since Berean's own status read is what the UI repaints from.
-    //
-    // AN EMPTY BODY IS NOTHING STANDING, and it is checked for as an empty STRING rather than as
-    // undefined: axios materialises a 204 by handing the default transform an empty response
-    // body, which it cannot parse as JSON and gives back verbatim — so `?? null` alone would
-    // return '' and quietly contradict the nullable this promises.
-    async DeleteAIReviewerAsync(
-        entityType: EntityTypeName,
-        entityId: string): Promise<AIReviewerAssignment | null> {
-        const url = `${this.relativeApprovalsUrl}/${entityType}/${entityId}/AIReviewer`;
-        const result = await this.apiBroker.DeleteAsync(url);
-        const assignment = result.data as AIReviewerAssignment | '' | null | undefined;
-
-        return assignment == null || assignment === '' ? null : assignment;
     }
 }
 

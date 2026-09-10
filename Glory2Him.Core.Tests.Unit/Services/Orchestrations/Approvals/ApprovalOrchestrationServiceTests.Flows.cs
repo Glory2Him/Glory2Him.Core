@@ -21,6 +21,7 @@ using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Processings;
 using Glory2Him.Core.Models.Foundations.AIReviewerAssignments;
+using Glory2Him.Core.Models.Foundations.AIReviewerAssignments.Exceptions;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.Links;
@@ -1196,11 +1197,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     It.IsAny<CancellationToken>()),
                 Times.Once);
 
-            // AND NOT THROUGH THE CALLER-FACING FOUNDATION. Its read is identity-filtered and its
-            // write is review-tier gated, so for this caller both would fail quietly — the read
-            // answering null and the write refusing — and the flags would stay stale with only a
-            // denial in the log to show for it.
-            this.aiReviewerAssignmentServiceMock.VerifyNoOtherCalls();
+            // AND NOTHING ELSE ON THAT SEAM. The caller-facing foundation — whose read is
+            // identity-filtered and whose write is review-tier gated, so for this caller both
+            // would fail quietly — is no longer reachable from this service at all: it left with
+            // IAIReviewerOrchestrationService, and the constructor no longer takes it. What used
+            // to need an assertion the compiler now refuses outright.
+            this.aiReviewerAssignmentWorkflowServiceMock.VerifyNoOtherCalls();
         }
 
         /// <summary>
@@ -1268,7 +1270,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 Times.Never);
 
             this.aiReviewerAssignmentWorkflowServiceMock.VerifyNoOtherCalls();
-            this.aiReviewerAssignmentServiceMock.VerifyNoOtherCalls();
         }
 
         /// <summary>
@@ -1322,7 +1323,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 Times.Never);
 
             this.aiReviewerAssignmentWorkflowServiceMock.VerifyNoOtherCalls();
-            this.aiReviewerAssignmentServiceMock.VerifyNoOtherCalls();
         }
 
         /// <summary>
@@ -1331,15 +1331,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         ///
         /// <para>Nothing orders the two by data: the evaluation reads the round's reviews and
         /// comments and never the assignment row, and §8.6.2's re-trigger event is not built, so
-        /// nothing subscribes in the other direction either. What decides the position is what a
-        /// throw costs.</para>
+        /// nothing subscribes in the other direction either. It is last because it is the
+        /// tidy-up, and because the evaluation the dismissal makes necessary must always
+        /// run.</para>
         ///
-        /// <para><b>What it catches.</b> Moving the reset ahead of the evaluation. It is the
-        /// fallible write on this path, and a storage failure there would fault the flow with the
-        /// reviews ALREADY dismissed — and those dismissal facts are swallowed by the suppression
-        /// window, so nothing would re-test the round until its next input change and it would sit
-        /// unevaluated on reviews that no longer count. Last, the worst a throw costs is the two
-        /// flags, which a moderator puts right by asking Berean again.</para>
+        /// <para><b>What it catches.</b> Moving the reset ahead of the evaluation. The dismissal
+        /// facts are swallowed by the suppression window, so nothing else re-tests the round until
+        /// its next input change — anything that could stop the evaluation running leaves the
+        /// round sitting unevaluated on reviews that no longer count. The AI step can no longer
+        /// throw (see the test below), but it can still return early, and ahead of the evaluation
+        /// its position alone would be doing the ordering.</para>
         /// </summary>
         [Fact]
         public async Task ShouldReturnBereanToPendingOnlyAfterTheEditsReEvaluationAsync()
@@ -1400,6 +1401,90 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             // then
             order.Should().Equal(
                 "conditions-read", "dismiss", "conditions-read", "ai-reset");
+        }
+
+        /// <summary>
+        /// THE AI STEP CANNOT FAULT THE EDIT FLOW, and here that matters more than it does on the
+        /// reset. <c>ProcessEntityModifiedAsync</c> runs on a delivered fact: by the time this
+        /// line is reached the re-evaluation has COMMITTED and may already have auto-approved the
+        /// round and published the entity. A throw would fault the delivery on work that
+        /// succeeded, the substrate would record it as failed and REDELIVER it, and the whole
+        /// flow — dismissal and evaluation — would run again over committed work.
+        ///
+        /// <para>So the failure is logged and swallowed. The two flags stay stale until a
+        /// moderator asks Berean again; nothing is swallowed silently, which is why the log call
+        /// is asserted rather than only the absence of a throw.</para>
+        ///
+        /// <para>The same helper serves this site and the reset's, so the two cannot drift on
+        /// what a failure here costs — but they are pinned separately because only one of them
+        /// runs under a substrate delivery, and that is what makes the swallow load-bearing rather
+        /// than merely tidy.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldStillCompleteTheEditFlowWhenReturningBereanToPendingFailsAsync()
+        {
+            // given: a plain author revising their own submitted content, as on the edit path's
+            // other tests — the identity is not what this one is about, but running it as anyone
+            // else would be testing a caller the flow never has.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            var approvalId = Guid.NewGuid();
+            var entityId = Guid.NewGuid();
+            var staleReviewId = Guid.NewGuid();
+
+            Approval storageApproval = CreateFlowApproval(
+                approvalId: approvalId,
+                entityId: entityId,
+                entityType: EntityType.Link,
+                approvalStatus: ApprovalStatus.Submitted);
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Submitted, approvalId));
+            SetupFlowApprovalRow(storageApproval);
+            SetupDismissableReviews(approvalId, staleReviewId);
+            SetupResettableAIReviewerAssignment(approvalId, Guid.NewGuid());
+
+            // Storage failed under the transition. The seam reads a row and writes it back, so
+            // this is the failure it actually has.
+            var storageFailure = new Exception("storage is unreachable");
+
+            var failedStorageException = new AIReviewerAssignmentDependencyException(
+                message: "AI reviewer assignment dependency error occurred, contact support.",
+                innerException: new FailedStorageAIReviewerAssignmentException(
+                    message: "Failed AI reviewer assignment storage error occurred, "
+                        + "contact support.",
+                    innerException: storageFailure,
+                    data: storageFailure.Data));
+
+            this.aiReviewerAssignmentWorkflowServiceMock.Setup(service =>
+                service.ReturnStaleAIReviewerAssignmentToPendingAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(failedStorageException);
+
+            SetupFlowConditionsReads(
+                firstConditions: CreateFlowConditions(
+                    shouldResetStaleReviewsOnChange: true),
+
+                secondConditions: CreateFlowConditions(
+                    shouldResetStaleReviewsOnChange: true));
+
+            // when: no throw — the delivery completes and is recorded as handled
+            await this.approvalOrchestrationService.ProcessEntityModifiedAsync(
+                EntityType.Link,
+                entityId,
+                TestContext.Current.CancellationToken);
+
+            // then: everything ahead of the AI step still ran
+            this.approvalReviewServiceMock.Verify(service =>
+                service.DismissStaleApprovalReviewAsync(
+                    staleReviewId,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            // and the failure reached the error log, unwrapped — this step has no chain of its
+            // own, so the exception the seam raised is the one recorded
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(failedStorageException),
+                Times.Once);
         }
 
         // The unfiltered view: what storage holds for the round, regardless of who is asking.

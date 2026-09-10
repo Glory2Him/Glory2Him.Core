@@ -162,14 +162,23 @@ vi.mock('../../services/foundations/approvalService', () => ({
             refetch: refetchDisplayNamesSpy
         }),
 
-        useGetAIReviewerStatus: () =>
-            ({ data: aiReviewerStatus, refetch: refetchAIReviewerStatusSpy }),
-
         useCastApprovalReview: () => ({ mutateAsync: castWith, isPending: false }),
         useDecideApproval: () => ({ mutateAsync: decidedWith, isPending: false }),
         useResetApproval: () => ({ mutateAsync: resetWith, isPending: false }),
         useRequestReview: () => ({ mutateAsync: requestedWith, isPending: false }),
-        useWithdrawReviewRequest: () => ({ mutateAsync: withdrawnWith, isPending: false }),
+        useWithdrawReviewRequest: () => ({ mutateAsync: withdrawnWith, isPending: false })
+    }
+}));
+
+// BEREAN, mocked as its OWN slice — a separate module because it is a separate resource
+// (api/AIReviewers, §8.6.2) behind its own controller, not part of the approval round's
+// contract. Its read is assembled into the round by useApprovalRound; its two writes are the
+// page's own, and the page reaches for them here rather than through approvalService.
+vi.mock('../../services/foundations/aiReviewerService', () => ({
+    aiReviewerService: {
+        useGetAIReviewerStatus: () =>
+            ({ data: aiReviewerStatus, refetch: refetchAIReviewerStatusSpy }),
+
         useAssignAIReviewer: () => ({ mutateAsync: assignAIReviewerWith, isPending: false }),
         useWithdrawAIReviewer: () => ({ mutateAsync: withdrawAIReviewerWith, isPending: false })
     }

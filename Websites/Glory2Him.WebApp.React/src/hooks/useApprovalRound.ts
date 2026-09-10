@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import { approvalService } from '../services/foundations/approvalService';
 import { approvalCommentService } from '../services/foundations/approvalCommentService';
+import { aiReviewerService } from '../services/foundations/aiReviewerService';
 import { EntityTypeName } from '../models/foundations/approvals/approval';
 
 import {
@@ -66,9 +67,11 @@ export const useApprovalRound = (
         approvalService.useGetReviewRequests(entityType, entityId, enabled);
 
     // Berean's status (design §8.6.2) — keyed by entity like the candidates and requests above,
-    // for the same reason: nothing about it depends on the approval's id.
+    // for the same reason: nothing about it depends on the approval's id. It comes off its OWN
+    // service, because it comes off its own resource: api/AIReviewers is not part of the
+    // approval contract, and the round assembled here is the one place both meet.
     const { data: aiReviewerStatus, refetch: refetchAIReviewerStatus } =
-        approvalService.useGetAIReviewerStatus(entityType, entityId, enabled);
+        aiReviewerService.useGetAIReviewerStatus(entityType, entityId, enabled);
 
     // The names of everybody the round involved — its reviewers, its invitees AND its comment
     // authors — resolved server-side off the round itself, so nothing here gathers ids off the

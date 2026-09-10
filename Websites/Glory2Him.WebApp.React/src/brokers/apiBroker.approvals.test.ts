@@ -7,6 +7,9 @@ import { ApprovalDecision } from '../models/components/approvals/approvalReviewI
 // The approval round's reads. What matters here is the ADDRESSES: two hosts answer them, one
 // keyed by entity and one by approval, and the reviewer names ride a repeated query parameter
 // rather than a joined string.
+//
+// Berean's three are NOT among them: they are their own resource now, and apiBroker.aiReviewers
+// .test is what pins their addresses.
 vi.mock('axios');
 
 const getAsync = vi.mocked(axios.get);
@@ -164,82 +167,5 @@ describe('ApprovalBroker', () => {
 
         expect(deleteAsync.mock.calls[0][0]).toBe(
             '/api/approvals/ContentItem/item-1/ReviewRequests?requestedUserId=user%20mary');
-    });
-
-    // ── Berean (design §8.6.2) ────────────────────────────────────────────────
-
-    /// ONE RESOURCE, THREE VERBS, and no reviewer id anywhere in the address. A person's review
-    /// request is named by the account it was addressed to; Berean is not a role-bearing
-    /// identity and has no account to name, so the ENTITY is the whole key and the verb is what
-    /// says whether to read, assign or withdraw.
-    it('should read, assign and withdraw the AI reviewer at one entity-keyed address',
-        async () => {
-            // when
-            const broker = new ApprovalBroker();
-            await broker.GetAIReviewerStatusAsync(EntityTypeName.ContentItem, 'item-1');
-            await broker.PostAIReviewerAsync(EntityTypeName.ContentItem, 'item-1');
-            await broker.DeleteAIReviewerAsync(EntityTypeName.ContentItem, 'item-1');
-
-            // then
-            const aiReviewerUrl = '/api/approvals/ContentItem/item-1/AIReviewer';
-
-            expect(requestedUrl()).toBe(aiReviewerUrl);
-            expect(postAsync.mock.calls[0][0]).toBe(aiReviewerUrl);
-            expect(deleteAsync.mock.calls[0][0]).toBe(aiReviewerUrl);
-        });
-
-    /// THE UPSERT CARRIES NOTHING. Absent creates a pending row, a completed one resets to
-    /// pending, a still-pending one is a no-op — the entity key is the whole request, and there
-    /// is no parameter that could vary it. So the body is the empty object the host binds
-    /// nothing from, exactly as the reset and the decision send.
-    it('should assign the AI reviewer with an empty body', async () => {
-        // when
-        await new ApprovalBroker().PostAIReviewerAsync(EntityTypeName.ContentItem, 'item-1');
-
-        // then
-        expect(postAsync.mock.calls[0][1]).toEqual({});
-    });
-
-    /// NOTHING STANDING ANSWERS 204, and axios materialises that by handing the default
-    /// transform an empty body — which it cannot parse as JSON and gives back VERBATIM. So the
-    /// broker's guard has to recognise the empty string as well as the absent ones: `?? null`
-    /// alone resolved '', quietly contradicting the nullable this method promises and leaving a
-    /// falsy value a consumer would have to know to test for.
-    it.each([
-        '',
-        undefined,
-        null
-    ])('should answer nothing when the withdrawal removed nothing (%j)', async (emptyBody) => {
-        // given
-        deleteAsync.mockResolvedValue({ data: emptyBody } as never);
-
-        // when
-        const assignment = await new ApprovalBroker()
-            .DeleteAIReviewerAsync(EntityTypeName.ContentItem, 'item-1');
-
-        // then
-        expect(assignment).toBeNull();
-    });
-
-    /// ...and the row itself when one WAS removed, so the guard above narrows the empty answers
-    /// without swallowing the real one.
-    it('should answer with the assignment the withdrawal removed', async () => {
-        // given
-        const removedAssignment = {
-            id: '22222222-2222-2222-2222-222222222222',
-            approvalId: 'approval-1',
-            isAIReviewCompleted: false,
-            isAIReviewCommentsPresent: false,
-            isDeleted: true
-        };
-
-        deleteAsync.mockResolvedValue({ data: removedAssignment } as never);
-
-        // when
-        const assignment = await new ApprovalBroker()
-            .DeleteAIReviewerAsync(EntityTypeName.ContentItem, 'item-1');
-
-        // then
-        expect(assignment).toEqual(removedAssignment);
     });
 });

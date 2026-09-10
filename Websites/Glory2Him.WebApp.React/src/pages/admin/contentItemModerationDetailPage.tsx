@@ -62,6 +62,7 @@ import {
 import { toastError } from '../../brokers/toastBroker.error';
 import { useAuth } from '../../components/securitys/authProvider';
 import { approvalService } from '../../services/foundations/approvalService';
+import { aiReviewerService } from '../../services/foundations/aiReviewerService';
 import { extractApiErrorMessage } from './apiErrorMessage';
 
 import {
@@ -328,8 +329,11 @@ export const ContentItemModerationDetailPage = () => {
     const resetApproval = approvalService.useResetApproval();
     const requestReview = approvalService.useRequestReview();
     const withdrawReviewRequest = approvalService.useWithdrawReviewRequest();
-    const assignAIReviewer = approvalService.useAssignAIReviewer();
-    const withdrawAIReviewer = approvalService.useWithdrawAIReviewer();
+
+    // Berean's two come off their own service, because they come off their own resource
+    // (api/AIReviewers, §8.6.2) — the round's contract does not carry them.
+    const assignAIReviewer = aiReviewerService.useAssignAIReviewer();
+    const withdrawAIReviewer = aiReviewerService.useWithdrawAIReviewer();
 
     // The viewer's standing review, if any: a changed vote amends THAT row (§7.7 rule 1), and
     // the projection the panel renders does not carry what an amend has to send back.

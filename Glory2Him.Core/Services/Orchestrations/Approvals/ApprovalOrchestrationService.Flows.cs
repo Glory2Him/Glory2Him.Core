@@ -124,14 +124,20 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 // AFTER THE RE-EVALUATION, DELIBERATELY. Nothing orders the two by data — the
                 // evaluation reads the round's reviews and comments and never the assignment row,
                 // and §8.6.2's re-trigger event is not built, so nothing subscribes in the other
-                // direction either. What decides the position is what a throw costs. This is the
-                // fallible write; placed ahead of the evaluation, a storage failure faults the
-                // flow AFTER the reviews are already dismissed — and those dismissal facts were
-                // swallowed by the suppression window above, so nothing re-tests the round until
-                // its next input change and it sits unevaluated. Placed last, the evaluation the
-                // dismissal makes necessary always runs, and the worst a throw costs is the two
-                // flags, which a moderator puts right by asking Berean again. The same trade
-                // Resets.cs writes down for placing its AI step after the entity sync.
+                // direction either. It is last because it is the tidy-up, and because the
+                // evaluation the dismissal makes necessary must always run.
+                //
+                // IT CANNOT FAULT THIS FLOW. The helper logs its own failure and returns (see
+                // ResetStaleAIReviewerAssignmentAsync), and here that matters more than it does
+                // on the reset: EvaluateResolvedApprovalAsync has already COMMITTED by this line
+                // and may have auto-approved the round and published the entity. A throw would
+                // fault ProcessEntityModifiedAsync on work that succeeded, the substrate would
+                // record the delivery as failed and REDELIVER it, and the whole flow — dismissal
+                // and evaluation — would run again over committed work.
+                //
+                // What a failure costs instead: the two flags stay stale until a moderator asks
+                // Berean again, and the failure is in the error log. The same posture Resets.cs
+                // writes down for its own AI step, because both call the one helper.
                 await ResetStaleAIReviewerAssignmentAsync(
                     approvalId: approval.Id,
                     cancellationToken: cancellationToken);

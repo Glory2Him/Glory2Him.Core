@@ -141,8 +141,9 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
                 approvalReviewRequestWorkflowService:
                     new Mock<IApprovalReviewRequestWorkflowService>().Object,
 
-                aiReviewerAssignmentService: new Mock<IAIReviewerAssignmentService>().Object,
-
+                // Only the WORKFLOW seam: the caller-facing IAIReviewerAssignmentService left
+                // this orchestration with the three operations that used it, which are
+                // IAIReviewerOrchestrationService's contract now.
                 aiReviewerAssignmentWorkflowService:
                     new Mock<IAIReviewerAssignmentWorkflowService>().Object,
 

@@ -330,8 +330,6 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
                 approvalReviewRequestWorkflowService:
                     new Mock<IApprovalReviewRequestWorkflowService>().Object,
 
-                aiReviewerAssignmentService: new Mock<IAIReviewerAssignmentService>().Object,
-
                 // The fixture drives ProcessEntityModifiedAsync with the reset setting ON, so the
                 // §8.8 branch now also asks the access broker for a resettable assignment. Moq's
                 // default for ValueTask<Guid?> is null, which this probe wants: no assignment is

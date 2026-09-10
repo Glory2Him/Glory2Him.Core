@@ -16,7 +16,7 @@ using FluentAssertions;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.AIReviewerAssignments;
 using Glory2Him.Core.Models.Foundations.Approvals;
-using Glory2Him.Core.Models.Orchestrations.Approvals;
+using Glory2Him.Core.Models.Orchestrations.AIReviewers;
 using RESTFulSense.Exceptions;
 using CoreApprovalSetting = Glory2Him.Core.Models.Foundations.ApprovalSettings.ApprovalSetting;
 using CoreContentItem = Glory2Him.Core.Models.Foundations.ContentItems.ContentItem;
@@ -26,6 +26,13 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Approvals
     /// <summary>
     /// The AI-reviewer endpoint family (§8.6.2) over real HTTP: whether Berean is offered, asking
     /// for it, asking again, and taking it off the round.
+    ///
+    /// <para><b>Its own resource now</b> — <c>api/AIReviewers/{entityType}/{entityId}</c>, served
+    /// by <c>AIReviewersController</c> over <c>IAIReviewerOrchestrationService</c>, rather than
+    /// the <c>api/Approvals/{entityType}/{entityId}/AIReviewer</c> sub-resource these tests were
+    /// first written against. The route lives in <c>ApiBroker.Approvals.cs</c>; these tests stay
+    /// beside the approval suite because every one of them has to arrange a submitted ROUND
+    /// first, which is that file's arrangement and this class's fixture.</para>
     ///
     /// <para>The FEATURE SWITCH is what makes these worth running over the host rather than only
     /// under mocks. It is a resolved <c>ApprovalSetting</c>, tiered by §8.4's most-specific-wins,

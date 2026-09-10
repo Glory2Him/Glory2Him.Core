@@ -168,25 +168,31 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 // the administrator. The human dismissal two calls up already runs that way from
                 // this same operation; recording the person who pressed Reset as having amended
                 // Berean's assignment would make UpdatedBy name somebody who did not perform that
-                // act. Asking Berean again IS a person's act and stays on the public verb —
-                // these two are different acts and the audit trail has to tell them apart.
+                // act. Asking Berean again IS a person's act, and it lives on the AI reviewer's own
+                // contract under the caller's own identity — these two are different acts and the
+                // audit trail has to tell them apart.
                 //
                 // The §8.8 edit path now reaches the same helper, so this site and that one
                 // cannot drift on what returning to pending means.
                 //
-                // LAST, AFTER THE SYNC, and that is the ordering this operation actually turns
-                // on. This is a fallible write — storage can fail, and it reads a row and writes
-                // it back — and by the time it runs the approval
-                // has already moved to Submitted and its reviews are already dismissed. Placed
-                // ahead of the command, a throw here left the ENTITY Approved and publicly
-                // published against a round that no longer holds a verdict: the exact state the
-                // paragraph above says the reset exists to prevent. Placed last, the worst it
-                // costs is the two flags, and a moderator can put those right by asking Berean
-                // again.
+                // LAST, AFTER THE SYNC. Nothing orders the two by data — the entity's transition
+                // verb never reads the assignment row, and §8.6.2's re-trigger event is
+                // deliberately not built, so no subscriber reads the round when
+                // AIReviewerAssignment-Modified lands. This is the tidy-up, and it reads as one.
                 //
-                // Nothing orders itself against this write in the other direction: §8.6.2's
-                // re-trigger event is deliberately not built, so no subscriber reads the round
-                // when AIReviewerAssignment-Modified lands.
+                // IT CANNOT FAULT THIS OPERATION. The helper logs its own failure and returns
+                // (see ResetStaleAIReviewerAssignmentAsync), which is what makes the position
+                // above a matter of legibility rather than of damage control. By the time this
+                // line runs the reset has SUCCEEDED — the status is Submitted, the reviews are
+                // dismissed, the entity is unpublished — and none of it can be taken back, so
+                // reporting a failure here would tell the moderator "The approval could not be
+                // reset. Please try again." about a reset that fully worked, and the retry that
+                // advice invites is then refused by ValidateStorageApprovalIsDecided, because the
+                // round is Submitted rather than decided. A second, unrelated error on a round
+                // that was never broken.
+                //
+                // What a failure costs instead: the two flags stay stale until a moderator asks
+                // Berean again, and the failure is in the error log.
                 await ResetStaleAIReviewerAssignmentAsync(
                     approvalId: resetApproval.Id,
                     cancellationToken: cancellationToken);
