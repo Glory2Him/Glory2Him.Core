@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Exceptions;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Tags;
 
@@ -268,9 +269,25 @@ namespace Glory2Him.Core.Services.Foundations.Tags
                     sourceEnvelope: inboundEnvelope,
                     content: updatedTag);
 
-            await this.eventBroker.PublishTagAsync(
-                envelope: outboundEnvelope,
-                operation: operation);
+            EventPublishResult<Tag> publishResult =
+                await this.eventBroker.PublishTagAsync(
+                    envelope: outboundEnvelope,
+                    operation: operation);
+
+            // §10.19. Delivery is contained, so a subscriber that failed says so HERE and
+            // nowhere else, and nothing redelivers it. Tag-Submitted reaches the approval
+            // round; dropping it diverges the round from the row permanently, because the
+            // read-triggered repair only opens a MISSING round (§16.7.2). Unconditional
+            // because an unsubscribed address reports no deliveries at all — the subscription
+            // list answers this, and a copy of it does not belong in a service.
+            //
+            // Logged, never thrown: the row is already committed above, and failing the caller
+            // now would report a completed write as a failed one.
+            if (publishResult.HasFailedDeliveries)
+            {
+                await this.loggingBroker.LogCriticalAsync(
+                    FailedEventDeliveryException.ForFailedDeliveries(publishResult, operation));
+            }
 
             await RecordEventProcessedAsync(
                 envelope: outboundEnvelope,
