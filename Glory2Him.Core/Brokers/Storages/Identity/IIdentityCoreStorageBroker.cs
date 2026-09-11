@@ -57,6 +57,20 @@ namespace Glory2Him.Core.Brokers.Storages.Identity
         ///
         /// <para>Disabled accounts are excluded: an invitation nobody can sign in to answer would
         /// sit in the panel forever.</para>
+        ///
+        /// <para><b>An empty name set must never reach here, and the decision is the caller's,
+        /// not this read's.</b> <c>IdentityUserService.RetrieveIdentityUsersInRolesAsync</c> fails
+        /// closed on an empty tier and returns without calling this at all, because an empty tier
+        /// means the caller composed the names wrongly and answering it would be a directory
+        /// dump. Deciding it there rather than here is deliberate: the rule is about what an
+        /// empty tier MEANS, which is service reasoning, and a broker holds no logic.</para>
+        ///
+        /// <para>Passing an empty list anyway is a caller bug rather than a fault this reports.
+        /// It yields no rows — EF folds a <c>Contains</c> over an empty collection to a constant
+        /// false rather than emitting an empty <c>IN ()</c> — so it fails closed by accident, in
+        /// the same direction the service fails closed on purpose. Nothing may lean on that:
+        /// it is a translation detail of the provider, and the guarantee lives in the service.
+        /// </para>
         /// </summary>
         ValueTask<List<IdentityUser>> SelectIdentityUsersInRolesAsync(
             IReadOnlyList<string> normalizedRoleNames,
