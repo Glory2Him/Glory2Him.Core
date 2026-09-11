@@ -462,10 +462,18 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 // NOT cancelled — the exact shape of a sink-originated one — and turned a
                 // committed write into a timeout reported to the caller. It also skipped the
                 // outbound dedup write below, letting a redelivery re-apply the transition.
+                // Composed OUTSIDE the try, so only the SINK is contained. ForFailedDeliveries
+                // carries its own precondition and refuses to render a report naming nobody; a
+                // guard that can only ever be swallowed is not a guard, and a fault composing
+                // the message is a defect in this code rather than a sink that is down. Inside
+                // the block it would vanish with no log and no trace — a second silent
+                // containment in the mechanism built to end the first one.
+                FailedEventDeliveryException deliveryReport =
+                    FailedEventDeliveryException.ForFailedDeliveries(publishResult, operation);
+
                 try
                 {
-                    await this.loggingBroker.LogCriticalAsync(
-                        FailedEventDeliveryException.ForFailedDeliveries(publishResult, operation));
+                    await this.loggingBroker.LogCriticalAsync(deliveryReport);
                 }
                 catch (Exception)
                 {
