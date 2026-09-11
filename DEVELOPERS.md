@@ -31,7 +31,7 @@ qa                adversarial verification against the criteria → BLOCKING / A
 YOU               merge, or send the findings back to whoever owns them
 ```
 
-Three of those arrows are yours. The agents do not hand work to each other —
+Every transition is yours. The agents do not hand work to each other —
 none of them can invoke another, because none has a Task tool. **You are the
 only thing that moves work between roles**, and the artifact each role leaves
 behind is what the next one reads.
@@ -342,8 +342,12 @@ Two mechanisms, deliberately different, answering two different questions.
 
 ### Heading tags — "what issue defines this section?"
 
-Every numbered heading in `Documentation/Design/*.md` carries exactly one of two
-tags, never bare:
+**Proposed, not yet applied.** This is #498's criterion 1 and no heading carries
+a tag today — all 23 headings in `Events.md` are still bare. Adopt it as you
+touch sections; do not read it as an invariant you can rely on.
+
+Every numbered heading in `Documentation/Design/*.md` should carry exactly one of
+two tags, never bare:
 
 ```markdown
 ## UI7. Saved searches panel (#512)
@@ -372,28 +376,42 @@ gh issue list --label "design: events" --state all
 
 ### Sweep mode — generating issues from the gaps
 
-The analyst has a second way in. Instead of "turn this feature description into
-criteria", point it at the design documents:
+**Proposed, not yet available.** This is #498's criterion 3. The checked-in
+`analyst.md` has no sweep mode, and it could not complete the last step of one
+even if asked: it holds no `Edit` or `Write` tool and is told "never edit a file
+in the working tree", so it cannot rewrite a heading tag. Until the agent
+contract is updated, treat the flow below as the intended design and do the tag
+rewrite yourself.
+
+The idea is a second way in. Instead of "turn this feature description into
+criteria", you point the analyst at the design documents:
 
 ```
 Act as the analyst in sweep mode. Find design sections with no issue behind them
 and propose issues for them.
 ```
 
-It runs:
+The sweep itself is a grep you can run today:
 
 ```bash
 grep -rn "(needs issue)" Documentation/Design/*.md
 ```
 
-and for each hit does exactly what it does for a human-described feature — the
-size check, splitting if too big, criteria into a new issue, the `Model - Effort`
-label, the area label — then flips the heading tag from `(needs issue)` to
-`(#<new-issue-number>)`. Same skill, different starting point.
+For each hit the analyst does exactly what it does for a human-described feature
+— the size check, splitting if too big, criteria into a new issue, the
+`Model - Effort` label, the area label. Same skill, different starting point.
+Flipping the heading tag from `(needs issue)` to `(#<new-issue-number>)` is then
+an edit to the design document, which belongs to you or to the architect.
 
 ---
 
 ## 7. Approval is a label
+
+**Proposed, not yet in force.** This is #498's criterion 4. The `status:` labels
+do not exist yet, and neither `developer.md` nor `qa.md` mentions them — grep
+both and you get nothing. Until the labels are created and those two agent files
+updated, the lifecycle below is the intended process and the gate is your own
+judgement, not something an agent will refuse to proceed without.
 
 There is no PR-gated approval for a spec, and no approval file. Approval is a
 label on the issue, applied by you:
@@ -406,9 +424,12 @@ The analyst leaves an issue at `status: needs-scoping`. You read the criteria an
 when satisfied, apply `status: ready-for-dev` by hand. That is the same judgement
 a PR approval would have expressed, as a label toggle instead of a merge.
 
-**The developer's hard rule: never start without `status: ready-for-dev`.** QA's
-verdict says which label should come next — `status: done`, or back to
-`status: in-progress` on a BLOCKING finding.
+**The developer's rule, once the labels land: never start without
+`status: ready-for-dev`.** QA's verdict then says which label should come next —
+`status: done`, or back to `status: in-progress` on a BLOCKING finding. Both are
+changes #498 makes to `developer.md` and `qa.md`; today neither agent checks a
+status label, so applying it is a discipline you keep rather than one they
+enforce.
 
 **The honest trade-off:** a label has a thinner audit trail than a PR review. To
 see who changed a status and when, read the issue's timeline:
@@ -558,9 +579,13 @@ differently-spelled list. Common ones: `FOUNDATIONS:`, `PROCESSINGS:`,
 `CONFIG:`, `CODE RUB:`, `MINOR FIX:`, `MEDIUM FIX:`, `MAJOR FIX:`. There is no
 bare `FIX:`.
 
-Be aware of what is actually enforced: the labelling job **never fails** — an
-unrecognised prefix is silently left unlabelled. The convention is real, but
-tooling will not catch you breaking it.
+Be aware of what is actually enforced: **an unrecognised prefix does not fail the
+build, it is silently left unlabelled.** The job matches the first prefix it
+recognises and stops; a title matching none simply gets no label and no
+complaint. (The job can still fail for its own reasons — the `addLabels` call is
+not wrapped in a try/catch, so an API or permissions error would red it — but
+never because of your title.) The convention is real; tooling will not catch you
+breaking it.
 
 **PR body.** Must link an issue or the PR linter fails:
 
@@ -597,7 +622,7 @@ quietly.
 
 ## 11. Commands
 
-```bash
+```powershell
 dotnet build
 
 # one suite
@@ -607,11 +632,15 @@ dotnet test Glory2Him.Core.Tests.Unit
 Get-ChildItem -Filter "*Tests.Unit*.csproj" -Recurse | % { dotnet test $_.FullName }
 
 # React, from the app's own directory
-npm run lint && npm run test && npm run build
+npm run lint; npm run test; npm run build
 
 # republish the branch to local IIS
 D:\Sites\Deploy-Glory2HimWebApp.ps1
 ```
+
+These are PowerShell — `Get-ChildItem` and the `.ps1` path assume it, and `&&`
+is not a valid statement separator in Windows PowerShell 5.1, so the React line
+uses `;`.
 
 `.github/workflows/build.yml` is authoritative for what CI runs. It discovers
 every `*Tests.Unit*`, `*Tests.Acceptance*` and `*Tests.Integration*` project
