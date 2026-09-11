@@ -218,12 +218,26 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                     TagEventOperation.Submitted))
                         .Returns(new ValueTask<EventPublishResult<Tag>>(failedPublishResult));
 
-            // and: the dedup bookkeeping that follows the publish fails
+            // and: the dedup bookkeeping that FOLLOWS the publish fails.
+            //
+            // The second write, not any write. SaveTransitionAsync records the INBOUND envelope
+            // before it publishes and the OUTBOUND one after, so a stub that throws on both
+            // faults the transition before PublishTagAsync is ever reached — the report would
+            // never run, and this test would be asserting against a path it never took.
+            int processedEventWrites = 0;
+
             this.storageBrokerMock.Setup(broker =>
                 broker.InsertProcessedEventAsync(
                     It.IsAny<ProcessedEvent>(),
                     It.IsAny<CancellationToken>()))
-                        .ThrowsAsync(new Exception("the dedup row could not be written"));
+                        .Returns((ProcessedEvent processedEvent, CancellationToken _) =>
+                        {
+                            processedEventWrites++;
+
+                            return processedEventWrites == 1
+                                ? new ValueTask<ProcessedEvent>(processedEvent)
+                                : throw new Exception("the dedup row could not be written");
+                        });
 
             // when: the transition therefore faults, as it should — the dedup failure is real
             await Assert.ThrowsAnyAsync<Exception>(async () =>
@@ -231,7 +245,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                     storageTag.Id,
                     TestContext.Current.CancellationToken));
 
-            // then: the CONTAINED DELIVERY FAILURE was still reported. Without it, the only
+            // then: the publish WAS reached and the outbound write is the one that failed —
+            // asserted rather than assumed, because getting this wrong is what would make the
+            // verification below vacuous.
+            processedEventWrites.Should().Be(2);
+
+            // and: the CONTAINED DELIVERY FAILURE was still reported. Without it, the only
             // record that a required fact was dropped would have been lost to an unrelated
             // bookkeeping fault.
             this.loggingBrokerMock.Verify(broker =>
