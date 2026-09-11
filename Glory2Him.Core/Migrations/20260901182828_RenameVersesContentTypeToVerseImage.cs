@@ -17,7 +17,7 @@ namespace Glory2Him.Core.Migrations
 {
     /// <summary>
     /// <c>ContentType.Verses</c> became <c>ContentType.VerseImage</c>, and the enum is
-    /// persisted as a STRING (§10.2, <c>HasConversion&lt;string&gt;()</c>) — so the member
+    /// persisted as a STRING (§3.7, <c>HasConversion&lt;string&gt;()</c>) — so the member
     /// name is not only code, it is the value in five columns across four tables. EF materialises
     /// a stored string back into a member by NAME, so the rename and this update are one change:
     /// deploy the code without it and every row of that type throws on read.
