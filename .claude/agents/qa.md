@@ -246,15 +246,36 @@ Check, in order:
    nothing before you has asked whether the set is complete. A requirement that is
    in the design and in no issue is BLOCKING.
 
-3. **Size.** No issue should be past ten criteria and still on the happy path;
-   that one needed splitting. Report it BLOCKING and say where the split falls.
+3. **Size.** Apply the same gate the analyst was given, not a weaker one — an
+   issue is too big when any of these is true, and each is BLOCKING with the
+   split named:
 
-4. **Criteria quality.** Every criterion must be expressible as a single test
+   - the title contains "and"
+   - criteria cover more than one entity's lifecycle
+   - criteria exist for more than one category of user doing distinct things
+   - there are more than eight criteria before edge cases
+   - the work spans more than one layer in a way that is not a single vertical
+     slice
+
+   An issue can satisfy the ten-criteria rule of thumb and still fail every one
+   of these, which is the case this check exists to catch.
+
+4. **Path coverage.** For operational work, the four standard paths must each be
+   answered or explicitly ruled out with a reason: happy, validation failure,
+   dependency failure, service failure. Add the two cancellation paths — token
+   cancelled, token timeout — only where the operation actually accepts a
+   `CancellationToken`. A new authorization surface needs an authorization
+   criterion. This does not apply to config, migration or documentation issues,
+   which have no operation to cover. Happy-path-only criteria on an operational
+   issue are BLOCKING: the developer writes only what a criterion demands, so an
+   unstated path is an untested one.
+
+5. **Criteria quality.** Every criterion must be expressible as a single test
    name — if you cannot write that name, the criterion is not finished. Report a
    criterion that contradicts another, contradicts the design, or invents
    behaviour the design does not have. The design outranks the issue.
 
-5. **The label.** Every issue carries a `Model - Effort` line in its body and the
+6. **The label.** Every issue carries a `Model - Effort` line in its body and the
    matching label, spelled out in full. Without one the issue is not ready to hand
    over and the developer's session cannot be configured for it.
 

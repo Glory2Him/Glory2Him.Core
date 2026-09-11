@@ -26,7 +26,11 @@ qa                checks the issues cover the design — coverage, completeness,
    ↓
 YOU               read the criteria, apply `status: ready-for-dev`
    ↓
+YOU               set the session model, apply `status: in-progress`, invoke
+   ↓
 developer         test first, one criterion at a time → commits, branch, PR
+   ↓
+architect         (structural changes only) did the structure hold?
    ↓
 qa                adversarial verification against the criteria → BLOCKING / ADVISORY findings
    ↓
@@ -77,8 +81,11 @@ written into the design document is lost the moment that session ends.
 
 ### How to brief a fresh session
 
-Give the agent three things: **the role, the issue number, and where to read.**
-Everything else it can find for itself.
+Give the agent three things: **the role, the work it is on, and where to read.**
+The middle one is usually an issue number, but it is a PR number when you are
+asking QA or the architect to review something already built, and it is the
+design document itself when you are running a sweep and no issue exists yet.
+Everything else the agent can find for itself.
 
 ```
 Act as the architect. Read issue #512 and settle the design for it.
@@ -144,7 +151,10 @@ explicit out-of-scope list.
 
 **Use it** before any non-trivial implementation, and again afterwards to review
 whether the structure held — that second mode reports only structural findings,
-marked BLOCKING or ADVISORY.
+marked BLOCKING or ADVISORY. The review pass is worth its cost whenever the
+change moved a layer boundary, added an event or a dependency, or changed the
+entity count; skip it for a change that did none of those, since it would have
+nothing structural to find.
 
 **Skip it** for a change touching a single file with no schema, no event and no
 boundary crossed.
@@ -332,9 +342,17 @@ Documentation/Mockups/saved-searches/ and images embedded in the issue body.
 Settle the UI design for it and write it into the design document.
 ```
 
-The architect writes the section, gives it a prefixed number, and tags the
-heading (§6). From that moment the design section is authoritative and the mockup
-is history — go back and add the "Superseded by" line to the mockup's README.
+The architect writes the section. From that moment the design section is
+authoritative and the mockup is history — go back and add the "Superseded by"
+line to the mockup's README.
+
+**Where it writes, today.** Only event design has a split file. Everything else
+still goes into `Documentation/G2H Design.md`, in the section that already owns
+the subject, because that is what `architect.md` instructs and no other
+`Design/*.md` file exists yet. A prefixed number and a heading tag apply once the
+area has its own split file (#481); until then the architect follows the main
+document's existing numbering. The `Design/Ui.md` paths used in §8 below are
+illustrative of the end state, not a destination you can write to now.
 
 ### 5.4 Then the analyst writes criteria in words
 
@@ -460,22 +478,29 @@ field on that command. Use the REST endpoint above.
 
 Issue #512, "add a saved-searches panel". UI work, so it starts with a picture.
 
-**1 — Mockup.** Export from Claude Design, save to
-`Documentation/Mockups/saved-searches/panel.html` plus `panel.webp`, write the
-folder README, commit:
+The `Design/Ui.md` paths below are illustrative — see §5.3 for where the
+architect actually writes today.
 
-```
-DOCUMENTATION: Add The Saved Searches Panel Mockup
-```
-
-**2 — Issue.** Open it, embed `panel.webp` by pinned-SHA raw URL, describe the
-behaviour in prose. First line of the body:
+**1 — Issue first.** Open it and describe the behaviour in prose. First line of
+the body:
 
 ```markdown
 **Model - Effort:** Opus 5 - Medium
 ```
 
-Apply the matching `Opus 5 - Medium` label.
+Apply the matching `Opus 5 - Medium` label. The issue comes first because the
+mockup's README has to name it, and a raw-URL embed has to name a commit that
+already exists.
+
+**2 — Mockup.** Export from Claude Design, save to
+`Documentation/Mockups/saved-searches/panel.html` plus `panel.webp`, write the
+folder README naming issue #512, commit:
+
+```
+DOCUMENTATION: Add The Saved Searches Panel Mockup
+```
+
+Then embed `panel.webp` in the issue by raw URL pinned to that commit's SHA.
 
 **3 — Architect.** Fresh session: *"Act as the architect. Issue #512 has a mockup
 at Documentation/Mockups/saved-searches/. Settle the design."* It writes
@@ -507,7 +532,10 @@ feature.
 right, apply `status: ready-for-dev`. If a criterion cannot become a test name,
 send it back.
 
-**7 — Developer.** Set the session to **Opus 5 · Medium** first, to match the
+**7 — Developer.** Move the issue to `status: in-progress` before you invoke it,
+not after the PR appears — a developer session can run a long while, and a label
+that only flips at the end never represents the work actually being done. Set the
+session to **Opus 5 · Medium** first, to match the
 label. Fresh session: *"Act as the developer. Implement issue #512."* It branches
 `users/cjdutoit/components-savedsearches-add`, then per criterion commits
 `ShouldRenderSavedSearchesPanelAsync -> FAIL` followed by
@@ -517,7 +545,7 @@ label. Fresh session: *"Act as the developer. Implement issue #512."* It branche
 COMPONENTS: Add A Saved Searches Panel
 ```
 
-with `Closes #512` in the body. You move the issue to `status: in-progress`.
+with `Closes #512` in the body.
 
 **8 — QA, on the work.** A *different* fresh session from step 5: *"Act as QA.
 Verify PR #520 against the acceptance criteria on issue #512."* Move the issue to
@@ -528,7 +556,7 @@ Verify PR #520 against the acceptance criteria on issue #512."* Move the issue t
 ### The same example, starting from a sweep
 
 If §UI8 "Search result density" had been written by the architect and left
-`(needs issue)`, step 2 inverts: you run the sweep, the analyst opens issue #513
+`(needs issue)`, the start inverts: you run the sweep, the analyst opens issue #513
 with criteria already written and applies `design: ui`, `Opus 5 - Medium` and
 `status: needs-scoping`. You or the architect then rewrite the heading to
 `## UI8. Search result density (#513)` — the analyst cannot, for the reason in
@@ -629,7 +657,9 @@ not wrapped in a try/catch, so an API or permissions error would red it — but
 never because of your title.) The convention is real; tooling will not catch you
 breaking it.
 
-**PR body.** Must link an issue or the PR linter fails:
+**PR body.** Must link an issue or the PR linter fails — on any PR you open. The
+check is skipped only for `dependabot[bot]`, so a dependency PR with no issue
+link is exempt by design rather than broken:
 
 ```markdown
 Closes #512
@@ -670,10 +700,12 @@ dotnet build
 # one suite
 dotnet test Glory2Him.Core.Tests.Unit
 
-# all of a kind — guarded, so an earlier failure is not masked by a later pass
-foreach ($project in Get-ChildItem -Filter "*Tests.Unit*.csproj" -Recurse) {
-  dotnet test $project.FullName
-  if ($LASTEXITCODE -ne 0) { break }
+# every suite CI runs, guarded so an earlier failure is not masked by a later pass
+foreach ($kind in "*Tests.Unit*.csproj", "*Tests.Acceptance*.csproj", "*Tests.Integration*.csproj") {
+  foreach ($project in Get-ChildItem -Filter $kind -Recurse) {
+    dotnet test $project.FullName
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+  }
 }
 
 # React, from the app's own directory
