@@ -100,9 +100,11 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
 
                 // and: the substrate classifies it as a FAILURE, not merely as not-successful.
                 //
-                // This is the assertion §EVN23 rests on and the only one that measures it. Every
-                // publisher now reports on EventDelivery.IsFailure, which the broker sets from
-                // the substrate's status enum — but every unit test sets that flag by hand, so
+                // This is the assertion §EVN23 rests on and the only one that measures it. The
+                // publishers §EVN23 rule 7 covers report on EventDelivery.IsFailure — not every
+                // publisher in the solution, since the remaining subscribed sites are still
+                // owed as #497 — and the broker sets that flag from the substrate's status
+                // enum, while every unit test sets it by hand, so
                 // nothing else would notice the mapping breaking. If a real Error delivery
                 // stopped being classified as a failure, every required delivery in the solution
                 // would look clean and the swallowed-failure behaviour would come back silently.

@@ -318,16 +318,27 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
                 // just threw. The delivery failure is already recorded on the event store's own
                 // row, which the event id and subscription id locate.
                 //
-                // Cancellation passes through untouched: a cancelled operation is not a failed
-                // one, and the caller's TryCatch decides whether it reads as a timeout. Written
-                // as an exception FILTER so that case never unwinds at all.
+                // EVERY exception, cancellation included, and that is deliberate.
+                // ILoggingBroker.LogCriticalAsync(Exception) takes no CancellationToken, so the
+                // caller's token cannot reach it: an OperationCanceledException raised in there
+                // is never the caller cancelling, it is the SINK failing — a disposed provider
+                // at shutdown, or a batching provider's own flush deadline — which is the case
+                // this block exists for. An earlier version carved it out by exception filter,
+                // copied from ResetStaleAIReviewerAssignmentAsync and Substrate's onVerified
+                // hook; both of those guard calls that DO take a token, so the carve-out means
+                // something there and nothing here.
+                //
+                // What the carve-out actually did: the escape landed in this service's TryCatch,
+                // whose cancellation arm matches an OperationCanceledException whose token is
+                // NOT cancelled — the exact shape of a sink-originated one — and turned a
+                // committed write into a timeout reported to the caller. It also skipped the
+                // outbound dedup write below, letting a redelivery re-apply the transition.
                 try
                 {
                     await this.loggingBroker.LogCriticalAsync(
                         FailedEventDeliveryException.ForFailedDeliveries(publishResult, operation));
                 }
-                catch (Exception deliveryReportException)
-                    when (deliveryReportException is not OperationCanceledException)
+                catch (Exception)
                 {
                 }
             }
