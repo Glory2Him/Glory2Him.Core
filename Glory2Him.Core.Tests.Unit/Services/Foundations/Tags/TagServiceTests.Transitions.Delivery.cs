@@ -263,6 +263,107 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
         }
 
         /// <summary>
+        /// §EVN23 rule 2, on the one exception type the containment used to let through.
+        ///
+        /// <para><c>ILoggingBroker.LogCriticalAsync(Exception)</c> takes NO
+        /// <c>CancellationToken</c>. The caller's token cannot reach it, so an
+        /// <c>OperationCanceledException</c> raised there is never the caller's cancellation —
+        /// it is the SINK's, which is precisely the faulting-sink case the containment exists
+        /// for (a disposed provider at shutdown, a batching provider's own flush deadline).</para>
+        ///
+        /// <para>The filter that excluded it was copied from
+        /// <c>ResetStaleAIReviewerAssignmentAsync</c> and Substrate's <c>onVerified</c> hook,
+        /// where the guarded call DOES take a token and the carve-out is meaningful. Here the
+        /// precondition does not hold, and the carve-out did two things rule 2 forbids: it
+        /// reported a COMMITTED write as a failed one, and — since the report now runs ahead of
+        /// the dedup write — it skipped the outbound <c>ProcessedEvent</c> row, letting a
+        /// redelivery re-apply the transition.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldContainASinkFailureThatArrivesAsCancellationAsync()
+        {
+            // given
+            Tag storageTag = CreateSubmittableStorageTag();
+
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+
+            Tag submittedTag = storageTag.DeepClone();
+            submittedTag.ApprovalStatus = ApprovalStatus.Submitted;
+
+            Tag auditAppliedTag = submittedTag.DeepClone();
+            Tag updatedTag = auditAppliedTag.DeepClone();
+            Tag expectedTag = updatedTag.DeepClone();
+
+            var failedPublishResult = new EventPublishResult<Tag>
+            {
+                EventId = Guid.NewGuid(),
+                Deliveries = new List<EventDelivery<Tag>>
+                {
+                    new EventDelivery<Tag>
+                    {
+                        SubscriptionId = Guid.NewGuid(),
+                        IsSuccess = false,
+                        IsFailure = true,
+                        Status = "Error",
+                        ResponseCode = "500",
+                        ResponseMessage = "the handler failed",
+                    },
+                },
+            };
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(storageTag.CreatedBy);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(GetRandomDateTimeOffset());
+
+            SetupTagStorageRead(storageTag);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(
+                    It.IsAny<Tag>(),
+                    It.IsAny<SecurityContext>()))
+                        .ReturnsAsync(auditAppliedTag);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateTagAsync(
+                    auditAppliedTag,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(updatedTag);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishTagAsync(
+                    It.IsAny<EventEnvelope<Tag>>(),
+                    TagEventOperation.Submitted))
+                        .Returns(new ValueTask<EventPublishResult<Tag>>(failedPublishResult));
+
+            // and: the sink fails in the shape the old filter let through
+            this.loggingBrokerMock.Setup(broker =>
+                broker.LogCriticalAsync(It.IsAny<Exception>()))
+                    .Throws(new OperationCanceledException("the sink was disposed at shutdown"));
+
+            // when
+            Tag actualTag =
+                await this.tagService.SubmitTagByIdAsync(
+                    storageTag.Id,
+                    TestContext.Current.CancellationToken);
+
+            // then: the committed write is reported as the success it was, not as a timeout
+            actualTag.Should().BeEquivalentTo(expectedTag);
+
+            // and: the outbound dedup row was still written. Without it a redelivered event
+            // re-applies the transition, which is the cost the report's placement traded away
+            // on the strength of this containment.
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertProcessedEventAsync(
+                    It.IsAny<ProcessedEvent>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Exactly(2));
+        }
+
+        /// <summary>
         /// The other half of the same rule, and the reason the inspection is UNCONDITIONAL: an
         /// address nobody subscribes to returns no deliveries at all, so inspecting it costs
         /// nothing and reports nothing. A publisher therefore never needs a copy of the
