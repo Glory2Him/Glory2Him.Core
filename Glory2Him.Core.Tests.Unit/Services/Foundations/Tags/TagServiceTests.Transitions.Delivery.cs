@@ -364,6 +364,91 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
         }
 
         /// <summary>
+        /// §EVN23 rule 2's containment covers the SINK, not the composition of the message.
+        ///
+        /// <para><c>ForFailedDeliveries</c> carries its own precondition — it refuses to render a
+        /// report naming nobody — and that guard is only worth having if it can be observed.
+        /// Evaluated inside the contained block, it could only ever be swallowed: the alarm would
+        /// vanish with no log and no trace, which is a second silent containment in the mechanism
+        /// built to end the first one.</para>
+        ///
+        /// <para>So the exception is composed BEFORE the try. A fault in composing it is a defect
+        /// in this code rather than a sink that is down, and it surfaces.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldNotSwallowAFailureToComposeTheDeliveryReportAsync()
+        {
+            // given
+            Tag storageTag = CreateSubmittableStorageTag();
+
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+
+            Tag submittedTag = storageTag.DeepClone();
+            submittedTag.ApprovalStatus = ApprovalStatus.Submitted;
+
+            Tag auditAppliedTag = submittedTag.DeepClone();
+            Tag updatedTag = auditAppliedTag.DeepClone();
+
+            // a delivery that reports a failure but carries a null entry alongside it, so
+            // composing the message faults while the guard still sees work to do
+            var malformedPublishResult = new EventPublishResult<Tag>
+            {
+                EventId = Guid.NewGuid(),
+                Deliveries = new List<EventDelivery<Tag>>
+                {
+                    new EventDelivery<Tag>
+                    {
+                        SubscriptionId = Guid.NewGuid(),
+                        IsSuccess = false,
+                        IsFailure = true,
+                        Status = "Error",
+                        ResponseCode = "500",
+                    },
+                    null,
+                },
+            };
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(storageTag.CreatedBy);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(GetRandomDateTimeOffset());
+
+            SetupTagStorageRead(storageTag);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(
+                    It.IsAny<Tag>(),
+                    It.IsAny<SecurityContext>()))
+                        .ReturnsAsync(auditAppliedTag);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateTagAsync(
+                    auditAppliedTag,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(updatedTag);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishTagAsync(
+                    It.IsAny<EventEnvelope<Tag>>(),
+                    TagEventOperation.Submitted))
+                        .Returns(new ValueTask<EventPublishResult<Tag>>(malformedPublishResult));
+
+            // when / then: the composition fault surfaces rather than being swallowed
+            await Assert.ThrowsAnyAsync<Exception>(async () =>
+                await this.tagService.SubmitTagByIdAsync(
+                    storageTag.Id,
+                    TestContext.Current.CancellationToken));
+
+            // and: nothing was reported, because there was no report to make
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogCriticalAsync(It.IsAny<FailedEventDeliveryException>()),
+                Times.Never);
+        }
+
+        /// <summary>
         /// The other half of the same rule, and the reason the inspection is UNCONDITIONAL: an
         /// address nobody subscribes to returns no deliveries at all, so inspecting it costs
         /// nothing and reports nothing. A publisher therefore never needs a copy of the
