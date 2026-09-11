@@ -2,7 +2,9 @@
 
 A collaborative content portal built to The Standard. See `INTENT.md` for what the
 system does, and `Documentation/G2H Design.md` with
-`Documentation/Design/Events.md` for how it is designed.
+`Documentation/Design/Events.md` for how it is designed. `DEVELOPERS.md` walks a
+person through the same workflow end to end — the four roles, the documentation
+layout, and how a mockup becomes a design section, an issue, and merged code.
 
 ## Where the rules live
 
