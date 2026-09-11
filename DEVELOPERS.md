@@ -666,12 +666,15 @@ Closes #512
 ```
 
 `fixes` and `resolves` (and their past-tense forms) and `AB#<n>` also match. This
-is the one PR-linter job that can fail. `Build` is the only status check the
-branch ruleset requires green.
+is the only PR-linter job that fails on the pull request's own content. The
+labelling job can still red for its own reasons, as above. `Build` is the only
+status check the branch ruleset requires green.
 
 **Issue labels.** Every issue carries a `Model - Effort` line as the first line of
-the body and the matching label. The label set is not a tidy matrix — these
-eleven exist, and nothing else:
+the body and the matching label. The `Model - Effort` set is not a tidy matrix —
+these eleven exist and no other pairing of the two does. It is not the whole label
+inventory: the category labels the PR linter applies are separate, and so is
+`DESIGN` below.
 
 | Model | Efforts available |
 | --- | --- |
@@ -708,16 +711,22 @@ foreach ($kind in "*Tests.Unit*.csproj", "*Tests.Acceptance*.csproj", "*Tests.In
   }
 }
 
-# React, from the app's own directory
-npm run lint; npm run test; npm run build
+# React, from the app's own directory — `;` sequences, it does not stop on failure
+npm run lint
+if ($LASTEXITCODE -ne 0) { throw "lint failed" }
+npm run test
+if ($LASTEXITCODE -ne 0) { throw "tests failed" }
+npm run build
 
 # republish the branch to local IIS
 D:\Sites\Deploy-Glory2HimWebApp.ps1
 ```
 
-These are PowerShell — `Get-ChildItem` and the `.ps1` path assume it, and `&&`
-is not a valid statement separator in Windows PowerShell 5.1, so the React line
-uses `;`.
+These are PowerShell — `Get-ChildItem` and the `.ps1` path assume it. `&&` is not
+a valid statement separator in Windows PowerShell 5.1, and `;` sequences without
+stopping on a non-zero native exit code, which is why the guards are there rather
+than a bare `;` chain: without them a failed lint followed by a passing build
+reports success.
 
 `.github/workflows/build.yml` is authoritative for what CI runs. It discovers
 every `*Tests.Unit*`, `*Tests.Acceptance*` and `*Tests.Integration*` project
@@ -743,5 +752,6 @@ Stated plainly so nobody goes looking:
   precedents are `Documentation/Images/ContentItemSearchPanel/` and issue #398.
 - **Nothing validates design citations**, and nothing reads the `Model - Effort`
   label to configure a session.
-- **`Documentation/Prompt-CreateFoundationService.md`** predates the agents and is
-  referenced by nothing. Treat the four-agent workflow as current.
+- **`Documentation/Prompt-CreateFoundationService.md`** predates the agents. It is
+  listed in `Glory2Him.Core.slnx`, but no agent reads it. Treat the four-agent
+  workflow as current.
