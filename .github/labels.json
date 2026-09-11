@@ -568,5 +568,55 @@
     "name": "Fable 5 - High",
     "color": "fbca04",
     "description": "Suggested model and effort for this issue"
+  },
+  {
+    "name": "status: needs-scoping",
+    "color": "e4e669",
+    "description": "Criteria written, waiting on a human to approve them"
+  },
+  {
+    "name": "status: ready-for-dev",
+    "color": "0e8a16",
+    "description": "Approved. The developer will not start without this"
+  },
+  {
+    "name": "status: in-progress",
+    "color": "1d76db",
+    "description": "A developer is implementing it"
+  },
+  {
+    "name": "status: in-qa",
+    "color": "5319e7",
+    "description": "Implemented, under adversarial verification"
+  },
+  {
+    "name": "status: done",
+    "color": "6a737d",
+    "description": "Merged and verified"
+  },
+  {
+    "name": "design: architecture",
+    "color": "f9d0c4",
+    "description": "Touches the architecture design"
+  },
+  {
+    "name": "design: domain",
+    "color": "f9d0c4",
+    "description": "Touches the domain design"
+  },
+  {
+    "name": "design: events",
+    "color": "f9d0c4",
+    "description": "Touches the events design"
+  },
+  {
+    "name": "design: security",
+    "color": "f9d0c4",
+    "description": "Touches the security design"
+  },
+  {
+    "name": "design: ui",
+    "color": "f9d0c4",
+    "description": "Touches the ui design"
   }
 ]

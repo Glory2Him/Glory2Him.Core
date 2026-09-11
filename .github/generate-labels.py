@@ -77,6 +77,22 @@ MODEL_EFFORTS = {
     "Fable 5": ["Low", "Medium", "High"],
 }
 EFFORT_COLOUR = "fbca04"
+
+# The issue lifecycle. Approval is a label rather than a review, so these carry it.
+# DEVELOPERS.md section 7 is the written record.
+STATUS_LABELS = [
+    ("status: needs-scoping", "e4e669", "Criteria written, waiting on a human to approve them"),
+    ("status: ready-for-dev", "0e8a16", "Approved. The developer will not start without this"),
+    ("status: in-progress", "1d76db", "A developer is implementing it"),
+    ("status: in-qa", "5319e7", "Implemented, under adversarial verification"),
+    ("status: done", "6a737d", "Merged and verified"),
+]
+
+# One per design area, applied by the analyst so an area has a live query that never
+# goes stale. Note the trap: the all-caps DESIGN label is a PR category label the
+# linter auto-applies from a title prefix, and is a different thing entirely.
+DESIGN_AREA_COLOUR = "f9d0c4"
+DESIGN_AREAS = ["architecture", "domain", "events", "security", "ui"]
 EFFORT_DESCRIPTION = "Suggested model and effort for this issue"
 
 with open(PR_LINTER, encoding="utf-8") as file:
@@ -116,6 +132,16 @@ for model, efforts in MODEL_EFFORTS.items():
             "description": EFFORT_DESCRIPTION,
         })
 
+for name, colour, description in STATUS_LABELS:
+    labels.append({"name": name, "color": colour, "description": description})
+
+for area in DESIGN_AREAS:
+    labels.append({
+        "name": f"design: {area}",
+        "color": DESIGN_AREA_COLOUR,
+        "description": f"Touches the {area} design",
+    })
+
 if unknown:
     raise SystemExit(f"No colour mapping for: {', '.join(unknown)}")
 
@@ -129,4 +155,4 @@ with open(OUT, "w", encoding="utf-8", newline="\n") as file:
     json.dump(labels, file, indent=2, ensure_ascii=False)
     file.write("\n")
 
-print(f"{len(labels)} labels written to {OUT} ({len(prefixes)} prefixes + {sum(len(e) for e in MODEL_EFFORTS.values())} model-effort)")
+print(f"{len(labels)} labels written to {OUT} ({len(prefixes)} prefixes + {sum(len(e) for e in MODEL_EFFORTS.values())} model-effort + {len(STATUS_LABELS)} status + {len(DESIGN_AREAS)} design area)")
