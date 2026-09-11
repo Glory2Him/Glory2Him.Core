@@ -45,7 +45,7 @@ Skip stages deliberately, not by accident:
 | mockup | there is no UI surface |
 | architect | one file, no schema, no event, no layer boundary crossed |
 | analyst | never — the developer refuses an issue with no approved criteria |
-| qa on the issues | the feature is one issue and every criterion is obviously a test name — **never** when a feature spans more than one issue |
+| qa on the issues | the feature is one issue, every criterion is obviously a test name, **and** you have read the design section yourself and seen nothing in it the issue leaves out — **never** when a feature spans more than one issue |
 | developer | never |
 | qa on the work | never for anything that ships |
 
@@ -220,7 +220,7 @@ architect.
 Documentation/
   G2H Design.md            the main design document (~3,700 lines, numbered sections)
   Design/                  area-scoped design documents, each with its own section prefix
-    Events.md              §EVN0 … §EVN22  (event design)
+    Events.md              §EVN0 … §EVN23  (event design)
   Mockups/                 Claude Design exports awaiting or feeding a design section
   Images/                  static visual assets referenced from issues and design docs
   DependencyGraph/         generated architecture graph and its viewer
@@ -355,7 +355,7 @@ Two mechanisms, deliberately different, answering two different questions.
 ### Heading tags — "what issue defines this section?"
 
 **Proposed, not yet applied.** This is #498's criterion 1 and no heading carries
-a tag today — all 23 headings in `Events.md` are still bare. Adopt it as you
+a tag today — every heading in `Events.md` is still bare. Adopt it as you
 touch sections; do not read it as an invariant you can rely on.
 
 Every numbered heading in `Documentation/Design/*.md` should carry exactly one of
@@ -528,10 +528,11 @@ Verify PR #520 against the acceptance criteria on issue #512."* Move the issue t
 ### The same example, starting from a sweep
 
 If §UI8 "Search result density" had been written by the architect and left
-`(needs issue)`, step 2 inverts: you run the analyst in sweep mode, it finds the
-tag, opens issue #513 with criteria already written, applies `design: ui`,
-`Opus 5 - Medium` and `status: needs-scoping`, and rewrites the heading to
-`## UI8. Search result density (#513)`. You pick up at step 5.
+`(needs issue)`, step 2 inverts: you run the sweep, the analyst opens issue #513
+with criteria already written and applies `design: ui`, `Opus 5 - Medium` and
+`status: needs-scoping`. You or the architect then rewrite the heading to
+`## UI8. Search result density (#513)` — the analyst cannot, for the reason in
+§6. You pick up at step 5.
 
 That inversion is where the coverage check in step 5 earns its place: a design
 section the sweep missed has no issue at all, and a gap like that is invisible
@@ -669,8 +670,11 @@ dotnet build
 # one suite
 dotnet test Glory2Him.Core.Tests.Unit
 
-# all of a kind
-Get-ChildItem -Filter "*Tests.Unit*.csproj" -Recurse | % { dotnet test $_.FullName }
+# all of a kind — guarded, so an earlier failure is not masked by a later pass
+foreach ($project in Get-ChildItem -Filter "*Tests.Unit*.csproj" -Recurse) {
+  dotnet test $project.FullName
+  if ($LASTEXITCODE -ne 0) { break }
+}
 
 # React, from the app's own directory
 npm run lint; npm run test; npm run build
