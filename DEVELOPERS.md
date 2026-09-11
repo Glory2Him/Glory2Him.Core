@@ -22,6 +22,8 @@ architect         settles layer, entities, events, storage → writes the design
    ↓
 analyst           turns the design into numbered acceptance criteria → writes them into a GitHub issue
    ↓
+qa                checks the issues cover the design — coverage, completeness, size
+   ↓
 YOU               read the criteria, apply `status: ready-for-dev`
    ↓
 developer         test first, one criterion at a time → commits, branch, PR
@@ -43,8 +45,9 @@ Skip stages deliberately, not by accident:
 | mockup | there is no UI surface |
 | architect | one file, no schema, no event, no layer boundary crossed |
 | analyst | never — the developer refuses an issue with no approved criteria |
+| qa on the issues | the feature is one issue and every criterion is obviously a test name — **never** when a feature spans more than one issue |
 | developer | never |
-| qa | never for anything that ships |
+| qa on the work | never for anything that ships |
 
 ---
 
@@ -70,7 +73,7 @@ written into the design document is lost the moment that session ends.
 | architect | a design section | `Documentation/Design/*.md` or `Documentation/G2H Design.md` |
 | analyst | numbered acceptance criteria | the GitHub issue body, under `## Acceptance criteria` |
 | developer | commits, a branch, a PR, a handoff report | the PR and its diff |
-| qa | BLOCKING / ADVISORY findings | its final report, which you paste or summarise into the PR |
+| qa | BLOCKING / ADVISORY findings | its final report — on the issue when it reviews issues, on the PR when it reviews code |
 
 ### How to brief a fresh session
 
@@ -195,6 +198,15 @@ more.
 
 It assumes the developer's summary is optimistic and verifies against the code.
 Always run it in a fresh session — that is the whole point of it.
+
+It has a **second mode**, defined in its agent file: reviewing **the issues before
+any code exists**. Does the design have an issue behind every section, do those
+issues together capture the whole feature, is any of them too big, can every
+criterion become a test name. Where a feature needed more than one issue that
+review is mandatory — each issue was sized on its own, and nothing else in the
+pipeline ever asks whether the set is complete. Say which mode you want when you
+brief it; verifying a diff is the default and it will otherwise go looking for a
+diff that does not exist.
 
 **Route failures by owner**: implementation defects to the developer, missing or
 contradictory criteria to the analyst, a crossed boundary or wrong layer to the
@@ -475,10 +487,27 @@ Documentation/Design/Ui.md §UI7. Write acceptance criteria into the issue."* It
 writes six numbered criteria and applies `design: ui` and
 `status: needs-scoping`.
 
-**5 — You.** Read the criteria. If they are right, apply `status: ready-for-dev`.
-If a criterion cannot become a test name, send it back.
+**5 — QA, on the issues.** Before a line of code exists:
 
-**6 — Developer.** Set the session to **Opus 5 · Medium** first, to match the
+```
+Act as QA, reviewing the issues rather than a change. Issue #512's design is at
+Documentation/Design/Ui.md §UI7. There is no code yet — do not look for any.
+```
+
+It checks that every section of the design for this feature has an issue behind
+it, that the issues together capture the whole of it, that none is too big, and
+that every criterion can become a test name. A criterion that cannot costs
+minutes here and a wasted implementation later. Findings route to the analyst.
+
+**Where a feature needed more than one issue this step is not optional.** Each
+issue was sized on its own; nothing before this asks whether the set covers the
+feature.
+
+**6 — You.** Read the criteria yourself — QA advises, you decide. If they are
+right, apply `status: ready-for-dev`. If a criterion cannot become a test name,
+send it back.
+
+**7 — Developer.** Set the session to **Opus 5 · Medium** first, to match the
 label. Fresh session: *"Act as the developer. Implement issue #512."* It branches
 `users/cjdutoit/components-savedsearches-add`, then per criterion commits
 `ShouldRenderSavedSearchesPanelAsync -> FAIL` followed by
@@ -490,11 +519,11 @@ COMPONENTS: Add A Saved Searches Panel
 
 with `Closes #512` in the body. You move the issue to `status: in-progress`.
 
-**7 — QA.** Fresh session: *"Act as QA. Verify PR #520 against the acceptance
-criteria on issue #512."* Move the issue to `status: in-qa`. QA reports two
-ADVISORY findings and no BLOCKING ones.
+**8 — QA, on the work.** A *different* fresh session from step 5: *"Act as QA.
+Verify PR #520 against the acceptance criteria on issue #512."* Move the issue to
+`status: in-qa`. QA reports two ADVISORY findings and no BLOCKING ones.
 
-**8 — Merge**, and set `status: done`.
+**9 — Merge**, and set `status: done`.
 
 ### The same example, starting from a sweep
 
@@ -503,6 +532,10 @@ If §UI8 "Search result density" had been written by the architect and left
 tag, opens issue #513 with criteria already written, applies `design: ui`,
 `Opus 5 - Medium` and `status: needs-scoping`, and rewrites the heading to
 `## UI8. Search result density (#513)`. You pick up at step 5.
+
+That inversion is where the coverage check in step 5 earns its place: a design
+section the sweep missed has no issue at all, and a gap like that is invisible
+from the issue list.
 
 ---
 
@@ -558,6 +591,14 @@ Act as QA. Verify PR #520 against the acceptance criteria on issue #512.
 ```
 Act as QA. PR #520 has had a round of fixes since your last pass. Re-verify.
 ```
+
+```
+Act as QA, reviewing the issues rather than a change. Issue #512's design is at
+Documentation/Design/Ui.md §UI7. There is no code yet — do not look for any.
+```
+
+That last one is QA's second mode. Name it explicitly — verifying a diff is the
+default. The checklist is in `.claude/agents/qa.md`; §8 step 5 has the reasoning.
 
 ---
 
