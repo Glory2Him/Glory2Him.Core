@@ -68,8 +68,14 @@ TIERS = {
     "MAJOR": "a major change",
 }
 
-MODELS = ["Opus 5", "Sonnet 5", "Haiku 4.5"]
-EFFORTS = ["Low", "Medium", "High"]
+# Not a tidy matrix: Opus 5 carries five efforts and the other two carry three.
+# Verified against the live labels — there is no Opus 5 - Low, no Sonnet 5 - Max and
+# no Fable 5 - Extra. DEVELOPERS.md section 10 is the written record of this.
+MODEL_EFFORTS = {
+    "Opus 5": ["Small", "Medium", "High", "Extra", "Max"],
+    "Sonnet 5": ["Low", "Medium", "High"],
+    "Fable 5": ["Low", "Medium", "High"],
+}
 EFFORT_COLOUR = "fbca04"
 EFFORT_DESCRIPTION = "Suggested model and effort for this issue"
 
@@ -102,8 +108,8 @@ for prefix in prefixes:
 
     labels.append({"name": name, "color": colour.lower(), "description": description})
 
-for model in MODELS:
-    for effort in EFFORTS:
+for model, efforts in MODEL_EFFORTS.items():
+    for effort in efforts:
         labels.append({
             "name": f"{model} - {effort}",
             "color": EFFORT_COLOUR,
@@ -123,4 +129,4 @@ with open(OUT, "w", encoding="utf-8", newline="\n") as file:
     json.dump(labels, file, indent=2, ensure_ascii=False)
     file.write("\n")
 
-print(f"{len(labels)} labels written to {OUT} ({len(prefixes)} prefixes + {len(MODELS) * len(EFFORTS)} model-effort)")
+print(f"{len(labels)} labels written to {OUT} ({len(prefixes)} prefixes + {sum(len(e) for e in MODEL_EFFORTS.values())} model-effort)")

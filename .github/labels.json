@@ -515,7 +515,7 @@
     "description": "Status reporting, no code change"
   },
   {
-    "name": "Opus 5 - Low",
+    "name": "Opus 5 - Small",
     "color": "fbca04",
     "description": "Suggested model and effort for this issue"
   },
@@ -526,6 +526,16 @@
   },
   {
     "name": "Opus 5 - High",
+    "color": "fbca04",
+    "description": "Suggested model and effort for this issue"
+  },
+  {
+    "name": "Opus 5 - Extra",
+    "color": "fbca04",
+    "description": "Suggested model and effort for this issue"
+  },
+  {
+    "name": "Opus 5 - Max",
     "color": "fbca04",
     "description": "Suggested model and effort for this issue"
   },
@@ -545,17 +555,17 @@
     "description": "Suggested model and effort for this issue"
   },
   {
-    "name": "Haiku 4.5 - Low",
+    "name": "Fable 5 - Low",
     "color": "fbca04",
     "description": "Suggested model and effort for this issue"
   },
   {
-    "name": "Haiku 4.5 - Medium",
+    "name": "Fable 5 - Medium",
     "color": "fbca04",
     "description": "Suggested model and effort for this issue"
   },
   {
-    "name": "Haiku 4.5 - High",
+    "name": "Fable 5 - High",
     "color": "fbca04",
     "description": "Suggested model and effort for this issue"
   }
