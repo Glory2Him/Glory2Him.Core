@@ -22,7 +22,7 @@ using Glory2Him.Core.Models.Foundations.Tags;
 namespace Glory2Him.Core.Tests.Unit.Models.Events
 {
     /// <summary>
-    /// The message §10.19's log line is made of, asserted against LITERALS.
+    /// The message §EVN23's log line is made of, asserted against LITERALS.
     ///
     /// <para><b>Why this file has to exist separately from the publisher tests.</b> Each
     /// publisher's delivery test builds its expected exception by calling the very factory the
@@ -222,7 +222,7 @@ namespace Glory2Him.Core.Tests.Unit.Models.Events
         }
 
         /// <summary>
-        /// §10.19 rule 3. The line exists so a divergence can be found and repaired; an event's
+        /// §EVN23 rule 3. The line exists so a divergence can be found and repaired; an event's
         /// CONTENT in a log is a copy of the row with none of §14.1's visibility rules attached,
         /// and the caller's identity is worse still. Neither may appear, however convenient it
         /// would be for diagnosis.
@@ -279,7 +279,7 @@ namespace Glory2Him.Core.Tests.Unit.Models.Events
         }
 
         /// <summary>
-        /// PENDING and REPLAY are not failures, and this is the assertion that keeps §10.19's
+        /// PENDING and REPLAY are not failures, and this is the assertion that keeps §EVN23's
         /// alarm worth reacting to.
         ///
         /// <para>Four statuses exist and only one is success, so a predicate written as "not
@@ -358,7 +358,7 @@ namespace Glory2Him.Core.Tests.Unit.Models.Events
         /// <para>It is <c>init</c>-settable, the solution's own integration tests already
         /// null-coalesce it, and this predicate is read AFTER the row is committed — so an
         /// exception here would report a completed write as a failed one, which is the outcome
-        /// §10.19 rule 2 exists to prevent.</para>
+        /// §EVN23 rule 2 exists to prevent.</para>
         /// </summary>
         [Fact]
         public void ShouldReportNoFailureWhenTheDeliveriesAreNull()

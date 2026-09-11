@@ -111,7 +111,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
 
             // Every transition publishes through one tail that now INSPECTS its result
-            // (§10.19), so a publish left unstubbed would hand the service Moq's null default
+            // (§EVN23), so a publish left unstubbed would hand the service Moq's null default
             // rather than an empty result. Defaulted to a fully delivered publish, so the tests
             // that only assert the fact went out are unaffected; the delivery test overrides it
             // to report a contained failure.

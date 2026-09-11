@@ -30,7 +30,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
     public partial class ApprovalOrchestrationServiceTests
     {
         /// <summary>
-        /// §10.19, on the one publish in the solution that is not merely announcing something.
+        /// §EVN23, on the one publish in the solution that is not merely announcing something.
         /// The approving command is an INSTRUCTION: the Approval row has already been written to
         /// Approved, and the entity only follows because this command reaches it.
         ///

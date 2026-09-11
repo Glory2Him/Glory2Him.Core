@@ -29,7 +29,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
     public partial class TagServiceTests
     {
         /// <summary>
-        /// §10.19. <c>Tag-Submitted</c> is a REQUIRED delivery: it reaches
+        /// §EVN23. <c>Tag-Submitted</c> is a REQUIRED delivery: it reaches
         /// <c>ApprovalOrchestrationService.OnTagSubmittedAsync</c>, which moves the tag's
         /// approval to Submitted and re-evaluates the round. The substrate CONTAINS a handler
         /// that throws (HandlerFailureContainmentTests, #298), so that failure never reaches the
@@ -44,7 +44,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
         /// <para>The submit itself still SUCCEEDS. The row is committed before the publish, the
         /// caller asked for the write rather than for its fact's onward delivery, and throwing
         /// here would report a committed write as failed — which is the outcome containment
-        /// exists to prevent (§10.19 rule 2).</para>
+        /// exists to prevent (§EVN23 rule 2).</para>
         /// </summary>
         [Fact]
         public async Task ShouldLogCriticalWhenTheSubmittedFactDeliveryFailsAsync()
@@ -144,7 +144,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
         }
 
         /// <summary>
-        /// §10.19 rule 2 again, at the seam where placement decides whether the rule holds at
+        /// §EVN23 rule 2 again, at the seam where placement decides whether the rule holds at
         /// all: the outbound dedup write sits between the publish and the report, and that write
         /// CAN fail.
         ///
@@ -248,7 +248,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
         /// address nobody subscribes to returns no deliveries at all, so inspecting it costs
         /// nothing and reports nothing. A publisher therefore never needs a copy of the
         /// subscription list to know whether its fact was required — the result answers it
-        /// (§10.19 rule 1).
+        /// (§EVN23 rule 1).
         /// </summary>
         [Fact]
         public async Task ShouldNotLogWhenEverySubmittedDeliverySucceedsAsync()

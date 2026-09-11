@@ -164,11 +164,18 @@ namespace Glory2Him.Core.Services.Foundations.Links
             // permitted the waiver.
             ValidateOnTransitionLinkApproval(link);
 
-            // The system identity is a claim about PROVENANCE, and provenance is not carried by
-            // the payload. It is honoured only where this service minted the context itself; an
-            // envelope that arrived over a public event address carries a deserialized,
-            // unverified context (§14.6 rule 4), and a caller able to assert the flag there
-            // would walk past every rule below by declaring themselves the workflow.
+            // The system identity is a claim about PROVENANCE, and the SIGNATURE carries it.
+            // The flag sits inside the signed payload and only this system holds the key, so it
+            // cannot be added to a genuine envelope without breaking the HMAC, nor asserted on
+            // a forged one — a verified envelope is one this system minted, whichever path it
+            // arrived by (§16.7.1). That is what lets the approval workflow sync its decision
+            // onto the entity over an event at all — a call-site rule could not.
+            //
+            // Provenance is still an ARGUMENT each entry point supplies rather than a property
+            // read off the data, so an entry point carrying no workflow command has a place to
+            // refuse the claim (§9.7.1 rule 3). Every entry point verifies its envelope and
+            // then passes true, so this conjunction narrows nothing today: it is the seam, not
+            // the guard. The guard is the signature check the receiver already ran.
             bool isSystemIdentity =
                 isSystemIdentityAdmissible
                     && inboundEnvelope.SecurityContext.IsSystemIdentity;
@@ -391,7 +398,7 @@ namespace Glory2Him.Core.Services.Foundations.Links
                     envelope: outboundEnvelope,
                     operation: operation);
 
-            // §10.19. Delivery is contained, so a subscriber that failed says so HERE and
+            // §EVN23. Delivery is contained, so a subscriber that failed says so HERE and
             // nowhere else, and nothing redelivers it. Link-Submitted reaches the approval
             // round; dropping it diverges the round from the row permanently, because the
             // read-triggered repair only opens a MISSING round (§16.7.2). Unconditional

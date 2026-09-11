@@ -1177,7 +1177,7 @@ Setting `DoNotAllowBypassingSettings = true` closes route 3 entirely. Nobody, pu
 
 **The foundation service is the last line of defence, not the first.** Every rule above must hold even when the orchestration is bypassed — and it can be, because foundation services are reachable through public event addresses (§10.2). A rule enforced only at orchestration is not enforced.
 
-> **The rules below are enforced against the context the envelope carries, which is not the same claim as "against the caller's identity."** On the event path that context is deserialized from stored event content and believed as-is — nothing signs or verifies it (§14.6 rule 4). Nothing external can reach those addresses today and that is checked rather than assumed, so this is design debt to pay before a host is wired, not a live hole. Read every enforcement claim in this section with that qualifier attached.
+> **The rules below are enforced against the context the envelope carries, which is not the same claim as "against the caller's identity."** On the event path that context is deserialized from stored event content, and what makes it usable is that the envelope carrying it verifies: `EventBroker` signs every published envelope and each receiver checks the HMAC — over the event name, the direction and the carried sections — before any rule below reads it (§14.6 rule 4). Only this system holds the signing key, so a verifying envelope is one this system minted. Read every enforcement claim in this section with that qualifier attached: these rules are exactly as good as the key.
 
 That creates a problem the architecture has to solve rather than wish away: HR-2 and HR-4 depend on `ApprovalSetting`, `ApprovalReview` and `ApprovalComment`, none of which a foundation service may read — a foundation service serves one entity and touches one table.
 
@@ -1193,7 +1193,7 @@ The answer is a **policy broker**, not a cross-entity read — and it extends th
 4. **The broker returns a verdict, not settings.** If it handed back an `ApprovalSetting`, the decision logic would be re-implemented in every foundation service and would drift. One question, one answer, one place.
 5. **The actor is passed in from the envelope's `SecurityContext`.** The client must not resolve identity itself through `IHttpContextAccessor`: there is no `HttpContext` on the event path, so an approval arriving through an event address would carry an empty principal, and two identity sources that disagree would disagree precisely on the unauthenticated path. `SecurityAuditBroker` already takes the actor as an explicit `SecurityContext` argument wherever an actor applies, for exactly this reason — the lesson is taken rather than repeated.
 
-   Note what this does *not* settle: it makes the envelope the single identity source, not an authenticated one. On the direct path that context is built from the real principal; on the event path it is deserialized and unverified (§14.6 rule 4). One source is still the right answer — two would disagree in the permissive direction — but the source is only as trustworthy as the path it arrived on.
+   Note what this does *not* settle: it makes the envelope the single identity source, and the strength of that source is the strength of the signature over it. On the direct path the context is built from the real principal; on the event path it is deserialized and admitted only once the envelope verifies (§14.6 rule 4). One source is still the right answer — two would disagree in the permissive direction — but the source is only as trustworthy as the key that signed it.
 
    **One invariant holds this together and is easy to break by accident.** HR-1 and HR-2 are both `actor == CreatedBy` comparisons, and each side reaches the security client through a `ClaimsPrincipal` rebuilt from the envelope's actor. `AccessBroker` resolves the actor; `SecurityAuditBroker` stamps `CreatedBy`. They must build that principal **the same way**, so both go through a single `SecurityContextPrincipalFactory` rather than each carrying its own conversion. A second copy would not fail loudly — it would quietly answer "not the author" for the author, which is the permissive direction, and no existing test would notice.
 
@@ -1419,7 +1419,7 @@ This is the end-to-end flow. §7 defines the entities, §8 the policy, §9.1–�
 
 #### 9.7.1 Entity operations (foundation services)
 
-**The write surface, and what each part of it may carry.** These four rules bound every write to an approvable entity at the foundation. They are the last line of defence (§8.6.1) and hold on the event path as well as the direct one — enforced there against the context the envelope carries, which is not authenticated today (§14.6 rule 4).
+**The write surface, and what each part of it may carry.** These four rules bound every write to an approvable entity at the foundation. They are the last line of defence (§8.6.1) and hold on the event path as well as the direct one — enforced there against the context the envelope carries, which is admitted only once the envelope's signature verifies (§14.6 rule 4).
 
 | Operation | May carry | Gated on |
 | --- | --- | --- |
@@ -1686,685 +1686,24 @@ Because the approval is per-row, a fork's previous and new versions each mirror 
 
 ## 10. Event Design
 
-### 10.1 Purpose
-
-The component design uses events to decouple entity creation and update operations from approval record creation, approval reset behaviour, and denormalized read state updates.
-
-### 10.2 Event System Behaviour
-
-Every service publishes consistent lifecycle events on its own event addresses. An address is named `<Subject>-<Verb>`, where the **subject is the service** — its class name minus the `Service` suffix — and the **verb** is the operation. Tense encodes direction: the present participle (`-ing`) is a **request** the owning service receives, and the past tense (`-ed`) is a **fact** it publishes once the work is done. Because the subject identifies the service, the verbs stay the standard CRUD set at every layer and never have to be reinvented to avoid collisions:
-
-| Service | Request addresses | Fact addresses |
-| --- | --- | --- |
-| `ContentItemService` (foundation) | `ContentItem-Adding`, `ContentItem-Modifying`, `ContentItem-RemovingById`, `ContentItem-HardRemovingById`, `ContentItem-RetrievingById` | `ContentItem-Added`, `ContentItem-Modified`, `ContentItem-Removed` |
-| `ContentItemProcessingService` | `ContentItemProcessing-Adding`, `ContentItemProcessing-Modifying`, `ContentItemProcessing-RemovingById` | `ContentItemProcessing-Added`, `ContentItemProcessing-Modified`, `ContentItemProcessing-Removed` |
-| `LinkProcessingService` | `LinkProcessing-Adding`, `LinkProcessing-Modifying`, `LinkProcessing-RemovingById`, `LinkProcessing-RetrievingById` | `LinkProcessing-Added`, `LinkProcessing-Modified`, `LinkProcessing-Removed` |
-
-1. Create operations emit an `-Added` fact.
-2. Update operations emit a `-Modified` fact.
-3. Soft delete operations emit a `-Removed` fact.
-4. No hard delete facts are required because hard deletes are not planned.
-5. A service publishes a fact only about its **own** unit of work. A foundation `-Added` means a row was written; an orchestration `-Added` means that orchestrated process completed with its gates passed and its invariants restored. They are different facts about different units of work, never two publishers of the same fact, so an orchestration must not republish the foundation's fact.
-6. Subscribers choose accordingly. A foundation fact fires for **every** write to that entity regardless of the path that produced it, which suits projections and indexes that only need current row state. A layer fact fires only when that process completed, which is what a subscriber needs when its reaction depends on the guarantees that layer added, or when the process makes several foundation writes and the intermediate states must not be observed. Never subscribe to both for one reaction — it would double-fire.
-7. A verb outside the CRUD set is introduced only when one service has two operations that CRUD cannot tell apart — a state transition such as `Approving`/`Approved` or `Publishing`/`Published` owns a narrower field scope than a general modify, so it is a separate method and therefore a separate verb.
-8. Approval services subscribe to relevant lifecycle facts.
-9. Event handlers determine whether approval must be created, retained, dismissed, reset, or updated.
-10. Event handlers can update the denormalized `ApprovalStatus` field where appropriate, for example setting `ApprovalStatus = ApprovalStatus.Approved` when the threshold is met.
-
-### 10.3 Recommended Events
-
-Recommended domain events. The names below identify each event's **intent**; the address actually registered for it follows the `<Subject>-<Verb>` scheme in §10.2 and §10.10 — for example `ContentItemCreatedEvent` is published on the `ContentItem-Added` address by `ContentItemService`.
-
-| Event | Purpose |
-| --- | --- |
-| `ContentItemCreatedEvent` | Create approval record for new content. |
-| `ContentItemUpdatedEvent` | Dismiss or retain approval based on approval settings and entity-scoped rules. |
-| `ContentItemDeletedEvent` | Record soft delete and remove from visibility. |
-| `AssociationCreatedEvent` | Create approval record for association. |
-| `AssociationUpdatedEvent` | Dismiss or retain association approval. |
-| `AssociationDeletedEvent` | Record soft delete and remove association from visibility. |
-| `TagCreatedEvent` | Create approval record for tag. |
-| `TagUpdatedEvent` | Dismiss or retain tag approval. |
-| `TagDeletedEvent` | Record soft delete and remove tag from visibility. |
-| `ReactionCreatedEvent` | Create approval record for reaction. |
-| `ReactionUpdatedEvent` | Dismiss or retain reaction approval. |
-| `ReactionDeletedEvent` | Record soft delete and remove reaction from visibility. |
-| `CommentCreatedEvent` | Create approval record for comment. |
-| `CommentUpdatedEvent` | Dismiss or retain comment approval. |
-| `CommentDeletedEvent` | Record soft delete and remove comment from visibility. |
-| `BibleReferenceCreatedEvent` | Create approval record for Bible reference. |
-| `BibleReferenceUpdatedEvent` | Dismiss or retain Bible reference approval. |
-| `BibleReferenceDeletedEvent` | Record soft delete and remove Bible reference from visibility. |
-| `LinkCreatedEvent` | Create approval record for link. |
-| `LinkUpdatedEvent` | Dismiss or retain link approval. |
-| `LinkDeletedEvent` | Record soft delete and remove link from visibility. |
-| `AttachmentCreatedEvent` | Create approval record for attachment. |
-| `AttachmentUpdatedEvent` | Dismiss or retain attachment approval. |
-| `AttachmentDeletedEvent` | Record soft delete and remove attachment from visibility. |
-| `ApprovalCreatedEvent` | Notify subscribers that a new approval record has been created. |
-| `ApprovalUpdatedEvent` | Propagate approval status changes to denormalized fields such as `ApprovalStatus`. |
-| `ApprovalDeletedEvent` | Record soft delete and remove approval record from active workflow evaluation. |
-| `ApprovalReviewCreatedEvent` | Trigger threshold evaluation after a reviewer submits a decision. |
-| `ApprovalReviewUpdatedEvent` | Dismiss or retain review based on entity-scoped change rules. |
-| `ApprovalReviewDeletedEvent` | Record soft delete and exclude review from threshold calculations. |
-| `ApprovalCommentCreatedEvent` | Notify relevant parties that a comment has been added to an approval record. |
-| `ApprovalCommentUpdatedEvent` | Propagate comment update to audit history. |
-| `ApprovalCommentDeletedEvent` | Record soft delete and remove comment from public visibility. |
-
-### 10.4 Soft Delete Behaviour
-
-Hard deletes are not planned.
-
-Soft delete should be implemented through:
-
-```csharp
-public string? DeletedBy { get; set; }
-public DateTimeOffset? DeletedWhen { get; set; }
-public string? DeletionReason { get; set; }
-```
-
-An entity is considered deleted when `DeletedWhen` is not null.
-
-Soft-deleted entities:
-
-1. Must not be visible in public UI.
-2. Must not appear in feed projections.
-3. Must not appear in topic child lists.
-4. Must remain available for audit.
-5. Must remain available for administrative review.
-
-### 10.5 Delete Approval Direction
-
-Deletion is not part of `ApprovalStatus`.
-
-`ApprovalStatus` must remain focused on moderation workflow.
-
-If delete approval is needed in future, introduce a separate pending-deletion workflow, for example:
-
-```csharp
-public bool PendingDeletion { get; set; }
-```
-
-or a separate delete-request entity that itself participates in approval.
-
-### 10.6 Event Envelope
-
-All events should be wrapped in an `EventEnvelope<T>` that carries the business payload alongside security, request, and event metadata.
-
-```csharp
-public sealed class EventEnvelope<T>
-{
-    public T Content { get; init; }
-
-    public SecurityContext SecurityContext { get; init; }
-
-    public RequestContext RequestContext { get; init; }
-
-    public EventMetadata Metadata { get; init; }
-}
-```
-
-The word `Envelope` is intentional. The event content is the business payload, while the envelope carries the contextual information required to process the event safely and consistently.
-
-This design ensures that orchestration services and event handlers do not depend directly on `HttpContext`, `IHttpContextAccessor`, `ClaimsPrincipal`, or raw JWT tokens.
-
-### 10.7 Security Context
-
-`SecurityContext` is a normalized representation of the authenticated caller extracted at the application entry point.
-
-```csharp
-public sealed class SecurityContext
-{
-    // Identity
-    public string? SubjectId { get; init; }
-
-    public string? Username { get; init; }
-
-    public string? TenantId { get; init; }
-
-    // Authorization
-    public IReadOnlyList<string> Roles { get; init; }
-
-    public IReadOnlyList<string> Scopes { get; init; }
-
-    public IReadOnlyList<string> Permissions { get; init; }
-
-    // Authentication state
-    public bool IsAuthenticated { get; init; }
-
-    public AuthenticationType AuthenticationType { get; init; }
-
-    // Client / application identity
-    public string? ClientId { get; init; }
-
-    public string? ClientApplicationName { get; init; }
-
-    // Delegated/system access
-    public bool IsSystemIdentity { get; init; }
-
-    public string? DelegatedBySubjectId { get; init; }
-}
-```
-
-Recommended enum:
-
-```csharp
-public enum AuthenticationType
-{
-    Unknown = 0,
-    User = 1,
-    Machine = 2,
-    Delegated = 3,
-    System = 4
-}
-```
-
-`SubjectId` is used instead of `UserId` because OAuth 2.0 and OpenID Connect use the `sub` claim to represent the authenticated subject. For machine-to-machine flows there may be no human user, and using `SubjectId` avoids forcing every authenticated caller into a user-only model.
-
-`SecurityContext` should be built from the `ClaimsPrincipal` provided by ASP.NET Core Identity and OpenIddict (see section 16). A `securityContextFactory` at the entry point is responsible for this normalization. The rest of the application must not depend on `ClaimsPrincipal` directly.
-
-**`Username` is the account's login name, never its email address.** It is read from the username claim — `ClaimTypes.Name`, where ASP.NET Core Identity puts `UserName` — and nothing that names the caller falls back to `Email` to fill it. The reason is that this field does not stay in memory: the envelope carrying it is signed (§14.6 rule 4) and then serialised whole into the stored event, so whatever `Username` holds is written into every event that caller ever causes. **That makes the rule forward-only.** The signature binds the payload, so an email already written into a stored event cannot be scrubbed without destroying the integrity proof the event path depends on; correcting the field corrects new events, and existing ones are a retention question rather than an edit. The same reasoning bars any other personal data from the security context — it is an authorisation record, not a profile.
-
-`Username` is carried for diagnostics and for a human-readable actor on the event path. **No rule is ever decided on it.** Authorisation compares `SubjectId`, and audit stamps `CreatedBy`/`UpdatedBy` from the subject claim (§14.6.1) — two accounts can share a display name, so a rule matching on a name is a privilege escalation.
-
-#### 10.7.1 Authentication Flow Examples
-
-**OpenID Connect user login:**
-
-```csharp
-new SecurityContext
-{
-    SubjectId = subjectId,
-    Username = username,
-    TenantId = tenantId,
-    Roles = roles,
-    Scopes = scopes,
-    Permissions = permissions,
-    IsAuthenticated = true,
-    AuthenticationType = AuthenticationType.User,
-    ClientId = clientId,
-    ClientApplicationName = clientApplicationName,
-    IsSystemIdentity = false
-};
-```
-
-**Client credentials / machine-to-machine:**
-
-`SubjectId` is **never blank on a context that will write**. `CreatedBy`, `UpdatedBy` and `DeletedBy` are all resolved from it, and the audit client refuses a null or whitespace user id outright — so a context minted with `SubjectId = null` throws on the first audited write rather than recording a machine act. A machine that only reads may leave it null; one that writes carries `SystemIdentity.UserId`.
-
-```csharp
-new SecurityContext
-{
-    SubjectId = SystemIdentity.UserId,
-    Username = SystemIdentity.Username,
-    Roles = [],
-    Scopes = scopes,
-    Permissions = permissions,
-    IsAuthenticated = true,
-    AuthenticationType = AuthenticationType.Machine,
-    ClientId = clientId,
-    ClientApplicationName = clientApplicationName,
-    IsSystemIdentity = true
-};
-```
-
-**Delegated access:**
-
-```csharp
-new SecurityContext
-{
-    SubjectId = actingSubjectId,
-    DelegatedBySubjectId = delegatingSubjectId,
-    Username = username,
-    Roles = roles,
-    Scopes = scopes,
-    Permissions = permissions,
-    IsAuthenticated = true,
-    AuthenticationType = AuthenticationType.Delegated,
-    ClientId = clientId,
-    IsSystemIdentity = false
-};
-```
-
-### 10.8 Request Context
-
-`RequestContext` contains operational information about the original request or process that triggered the event.
-
-```csharp
-public sealed class RequestContext
-{
-    public Guid CorrelationId { get; init; }
-
-    public DateTimeOffset RequestedDate { get; init; }
-
-    public string? RequestId { get; init; }
-
-    public string? SourceSystem { get; init; }
-
-    public string? ClientApplicationId { get; init; }
-}
-```
-
-`CorrelationId` represents the wider business operation or request chain and is useful for audit trails, diagnostics, tracing, distributed workflow correlation, support investigations, and replay analysis.
-
-### 10.9 Event Metadata
-
-`EventMetadata` contains information about the event instance itself.
-
-```csharp
-public sealed class EventMetadata
-{
-    public Guid EventId { get; init; }
-
-    public string EventType { get; init; }
-
-    public int Version { get; init; }
-
-    public int RetryCount { get; init; }
-
-    public string? CausationId { get; init; }
-
-    public Guid? ParentCorrelationId { get; init; }
-}
-```
-
-This metadata becomes more important when moving from in-process event handling to asynchronous or distributed event processing. It supports retries, replays, event versioning, diagnostics, idempotency, causation tracking, and parent/child event relationships.
-
-Example causation chain:
-
-```text
-API Request
-CorrelationId: A
-
-StudentCreated
-EventId: 1
-CorrelationId: A
-
-AddressCreated
-EventId: 2
-CorrelationId: A
-CausationId: 1
-
-AuditLogged
-EventId: 3
-CorrelationId: A
-CausationId: 2
-```
-
-### 10.10 Current Implementation (EventHighway)
-
-Events are published through the `EventBroker`, which wraps [EventHighway](https://github.com/The-Standard-Organization/EventHighway) — a durable, SQL-backed pub/sub substrate. Each service owns a set of event addresses named `<Subject>-<Verb>` (§10.2), split into two families: **requests** in the present tense (`ContentItem-Adding`, `-Modifying`, `-RemovingById`, `-RetrievingById`), answered by responder handlers on the owning service, and **facts** in the past tense (`ContentItem-Added`, `-Modified`, `-Removed`), published by the service after its work is done for observers to react to. The subject is the service rather than the entity, so a higher-level service announcing completion of its own unit of work sits on its own addresses — `ContentItemProcessing-Adding` is handled by `ContentItemProcessingService`, which publishes `ContentItemProcessing-Added` once the processed add has completed. Receiver handler methods are always named `On<Verb><Entity>Async` (`OnAddingContentItemAsync`); the `On` prefix marks the receiver and never appears in the address itself. The address is selected by a strongly typed per-service operation enum passed on publish (for example `ContentItemEventOperation.Adding`, `ContentItemProcessingEventOperation.Added`) — no magic strings, and operations can be added per service without affecting the others. The broker composes the stored event name from the subject and operation (for example `"ContentItemAdding"`, `"ContentItemProcessingAdded"`), so the subject must be distinct per service or the stored names would collide. Every publish persists the event and dispatches it inline to the in-process delegate handlers subscribed to that address; handler failures are recorded per listener instead of failing the publisher — the substrate offers a pending-event sweep to redeliver them, but nothing in Core invokes it, so a failed delivery is final today (§10.19 rule 6). Subscriptions bind to exactly one operation. Handlers may optionally return a reply envelope (`ValueTask<EventEnvelope<T>?>`), which the broker serializes onto the delivery's `ListenerEventV2` row — the observable reply channel for request-style events such as `RetrievedById`, carrying the same security-context and metadata discipline as the request.
-
-Publishing returns an `EventPublishResult<T>`: the persisted event id plus one `EventDelivery<T>` per subscription, each with its dispatch-time status and — for responders — the reply envelope deserialized back to `EventEnvelope<T>`. This is a dispatch-time snapshot and the durable truth remains the event store. §10.19 rules who has to look at it: a publisher whose address carries a state-writing subscriber must inspect the result, and only an address nobody subscribes to may discard it.
-
-Foundation services follow a dual-path shape (see `ContentItemService` as the template):
-
-- **Non-event path**: receive the object → convert to a request envelope via `IEventEnvelopeFactory.CreateAsync` (captures the caller's `SecurityContext`, stamps event/correlation identifiers) → call the shared private `DoXAsync` method.
-- **Event path** (the `.Substrate` partial): one `On<Operation><Entity>Async` handler per request address (`OnAdding…`, `OnModifying…`, `OnRemoving…ById`, `OnRetrieving…ById`) → validate the envelope → dedup mutating handlers via the `ProcessedEvents` table (unique on EventId + ReceiverName; a deduplicated delivery replies `null`) → converge on the same `DoXAsync` methods → reply with the outcome envelope on the delivery.
-
-The `DoXAsync` methods own auditing, validation, storage, and publishing the past-tense fact, so the two paths cannot diverge; §10.18 rules where the storage half ends and the publishing half begins, because today nothing binds them and a failed publish strands the row it was announcing; every hop chains causation through `IEventEnvelopeFactory.CreateNextAsync` (fresh `EventId`, `CausationId` = source event, security/request context carried forward). Substrate handlers categorize failures into the service's typed exceptions and rethrow — deliveries record `Error`; failures are never swallowed, and because no sweep runs that record is the final outcome rather than a first attempt (§10.19 rule 6). Hard removal is deliberately not event-invokable, and reads publish no fact — a retrieve's reply rides the delivery's response.
-
-The broker keeps per-entity pub/sub methods (`PublishContentItemAsync`, `SubscribeToContentItemEventAsync`, and so on), so publishing and subscribing always go through the broker — never directly against foundation services. All subscriptions are configured in one central place, `EventSubscriptionRegistration`, which also registers the participant and event addresses at startup.
-
-The event handler must receive an `EventEnvelope<T>` rather than depending directly on `HttpContext`.
-
-Current flow:
-
-```text
-HTTP Request
-    ↓
-Controller (thin pass-through)
-    ↓
-Orchestration / Foundation Service
-    ↓
-Create EventEnvelope<T> via IEventEnvelopeFactory
-    ↓
-Publish using EventBroker (EventHighway)
-    ↓
-Event persisted + dispatched inline
-    ↓
-Subscribed handler (registered in EventSubscriptionRegistration)
-    ↓
-Orchestration Service
-```
-
-### 10.11 Future Disconnected Processing
-
-If the application later moves to background workers, queues, Azure Service Bus, RabbitMQ, Kafka, or another distributed event mechanism, the same envelope can be serialized and processed outside the original HTTP request.
-
-Future flow:
-
-```text
-HTTP Request
-    ↓
-Controller (thin pass-through)
-    ↓
-Orchestration / Foundation Service
-    ↓
-Create EventEnvelope<T> via IEventEnvelopeFactory
-    ↓
-Serialize envelope
-    ↓
-Queue/message broker
-    ↓
-Background worker
-    ↓
-Deserialize envelope
-    ↓
-Orchestration Service
-```
-
-At that point there is no active `HttpContext`, no original request scope, and the original token may have expired. The `EventEnvelope<T>` prevents the architecture from depending on request-specific state.
-
-### 10.12 Recommended Controller Pattern
-
-Controllers are thin exposure points. Like brokers, they exist only to let requests into the business domain — they carry no business logic and must not build `SecurityContext`, `RequestContext`, `EventMetadata`, or `EventEnvelope<T>`. Envelopes and events are created only by internal services (coordinations, orchestrations, processings, foundations) via `IEventEnvelopeFactory`.
-
-The controller should:
-
-1. Rely on authentication middleware to authenticate the caller.
-2. Accept the request model and `CancellationToken`.
-3. Call the relevant orchestration service.
-4. Map the result and domain exceptions to HTTP responses.
-
-Example:
-
-```csharp
-[HttpPost]
-public async ValueTask<IActionResult> PostStudentAsync(
-    Student student,
-    CancellationToken cancellationToken)
-{
-    Student createdStudent =
-        await this.studentOrchestrationService
-            .OrchestrateStudentCreationAsync(
-                student,
-                cancellationToken);
-
-    return Ok(createdStudent);
-}
-```
-
-### 10.13 Recommended Event Handler Pattern
-
-Event handlers should accept the envelope and pass it to the relevant orchestration service.
-
-```csharp
-public sealed class StudentCreatedEventHandler
-{
-    private readonly IStudentOrchestrationService studentOrchestrationService;
-
-    public StudentCreatedEventHandler(
-        IStudentOrchestrationService studentOrchestrationService)
-    {
-        this.studentOrchestrationService = studentOrchestrationService;
-    }
-
-    public async ValueTask HandleAsync(
-        EventEnvelope<Student> envelope,
-        CancellationToken cancellationToken)
-    {
-        await this.studentOrchestrationService
-            .OrchestrateStudentCreationAsync(
-                envelope,
-                cancellationToken);
-    }
-}
-```
-
-### 10.14 Recommended Envelope Validation
-
-The envelope should be validated before orchestration proceeds. Validation should confirm:
-
-1. Envelope is not null.
-2. Content is not null.
-3. Security context is present.
-4. Request context is present.
-5. Metadata is present.
-6. Correlation id is present.
-7. Event id is present.
-8. Authenticated operations have valid identity details.
-9. Machine operations have valid client details.
-
-Example validation:
-
-```csharp
-private static void ValidateEnvelope<T>(EventEnvelope<T> envelope)
-{
-    if (envelope is null)
-    {
-        throw new InvalidEventEnvelopeException("Event envelope is required.");
-    }
-
-    if (envelope.Content is null)
-    {
-        throw new InvalidEventEnvelopeException("Event content is required.");
-    }
-
-    if (envelope.SecurityContext is null)
-    {
-        throw new InvalidEventEnvelopeException("Security context is required.");
-    }
-
-    if (envelope.RequestContext is null)
-    {
-        throw new InvalidEventEnvelopeException("Request context is required.");
-    }
-
-    if (envelope.Metadata is null)
-    {
-        throw new InvalidEventEnvelopeException("Event metadata is required.");
-    }
-}
-```
-
-### 10.15 Recommended Anti-Patterns
-
-Avoid passing `HttpContext` into orchestration services:
-
-```csharp
-// AVOID
-public ValueTask<Student> OrchestrateAsync(Student student, HttpContext httpContext)
-```
-
-Avoid using `IHttpContextAccessor` inside orchestration services:
-
-```csharp
-// AVOID
-this.httpContextAccessor.HttpContext.User
-```
-
-Avoid serializing raw `ClaimsPrincipal` into events.
-
-Avoid passing raw JWT tokens through the domain or event pipeline unless there is a specific and justified reason.
-
-Avoid placing authorization decisions only in controllers when orchestration services are responsible for business workflow decisions.
-
-Avoid scattering magic-string role and scope names throughout orchestration services. Keep role and claim names in a central constants class and perform checks through `ISecurityBroker`.
-
-### 10.16 Authorization in Orchestration Services
-
-Authorization is performed where the business decision is required — inside the orchestration service — using `ISecurityBroker` directly. A separate permission/authorization service is not used.
-
-`ISecurityBroker` provides the required primitives:
-
-```csharp
-public interface ISecurityBroker
-{
-    ValueTask<User> GetCurrentUserAsync();
-    ValueTask<bool> IsCurrentUserAuthenticatedAsync();
-    ValueTask<bool> IsInRoleAsync(string roleName);
-    ValueTask<bool> UserHasClaimAsync(string claimType, string claimValue);
-    ValueTask<bool> UserHasClaimAsync(string claimType);
-    ValueTask<SecurityContext> GetCurrentSecurityContextAsync();
-}
-```
-
-Example usage in an orchestration service:
-
-```csharp
-public ValueTask<ContentItem> AddContentItemAsync(
-    ContentItem contentItem,
-    CancellationToken cancellationToken) =>
-TryCatch(async () =>
-{
-    bool isAuthenticated =
-        await this.securityBroker.IsCurrentUserAuthenticatedAsync();
-
-    // all three tiers of the veto, and the narrow one is composed from the row's own
-    // content type — a block at any of them bars the write (§18.6 rule 2)
-    bool isBlocked =
-        await this.securityBroker.IsInRoleAsync(Roles.ReadOnly)
-            || await this.securityBroker.IsInRoleAsync(Roles.ContentItemReadOnly)
-            || await this.securityBroker.IsInRoleAsync(
-                Roles.ReadOnlyFor(EntityType.ContentItem, contentItem.ContentType));
-
-    ValidateUserIsAllowedToContribute(isAuthenticated, isBlocked);
-
-    ContentItem createdContentItem =
-        await this.contentItemService.AddContentItemAsync(
-            contentItem,
-            cancellationToken);
-
-    return createdContentItem;
-});
-```
-
-Rules:
-
-1. Role and claim names must live in a central constants class (e.g. `Roles`) — no magic strings scattered through orchestration services.
-2. Controllers must not perform business authorization; they rely on authentication middleware and standard policy attributes for coarse access only.
-3. The `SecurityContext` for event envelopes is obtained via `ISecurityBroker.GetCurrentSecurityContextAsync()` inside the service that creates the envelope (`IEventEnvelopeFactory`).
-
-### 10.17 Approval Workflow Wiring
-
-The approval workflow both **consumes** entity lifecycle facts and **causes** entity writes (§9.7.7 rule 6). Wired naively that cycle does not terminate, so the wiring is specified here rather than left to the implementation.
-
-**Inbound — subscribe to the entity's top-layer fact, never the foundation fact.**
-
-An entity's **top-layer service** is the highest business layer that owns its write flows — its orchestration service if it has one, otherwise its processing service, otherwise the foundation itself (§12.1). The tier matters; which of the two upper layers it happens to be does not.
-
-1. The approval orchestration subscribes to the top-layer `-Added` and `-Modified` facts **where a layer above the foundation exists** — for `ContentItem` that is `ContentItemProcessing-Added` / `-Modified` (§12.4.1), and for `Link` that is `LinkProcessing-Added` / `-Modified` (§12.4.2). It does not subscribe to those entities' `-Removed` at all (§9.7.6); the workflow records' removals are the documented exception (§10.17(a)). Per §10.2 rule 6 it must not also subscribe to the foundation facts for the same reaction.
-
-   Where an approvable entity has nothing above its foundation — today that is every one except `ContentItem` and `Link` — it subscribes to the **foundation** facts instead. That is safe for a Single-Row entity (§7.5.1): the loop is broken by rule 4 below rather than by the subscription tier, and with no version fork there is no multi-row bookkeeping write to misread. A **Versioned** entity must have a service above its foundation before it can participate in approval, for the reason in rule 2.
-2. The reason is §10.2 rule 5. A version fork used to write two foundation rows and therefore emit two foundation facts. Reacting to the second — the demotion of the previous latest — would have reset the still-published previous version's approval and dismissed its review history, for a write that changed only a bookkeeping flag.
-
-   **There is no demotion fact, because there is no demotion.** The tip is derived rather than stored (§3.4.1, §9.7.1 rule 3a), so a fork writes one row and emits one `-Added`. The misreading this rule guards against is therefore impossible rather than merely unsubscribed — stricter than the interim shape, which gave the demotion its own `<Entity>-Demoted` address so it could not be mistaken for a content amendment. The rule stands anyway: rule 1's "one fact per completed amend" and rule 3's "a direct foundation write bypasses invalidation" are independent of it, and a `Versioned` entity still needs a layer above its foundation for those. The top-layer service emits exactly one fact per completed amend, which is the unit of work the approval workflow actually cares about — and it is the fork that makes this a *layer* question rather than an *orchestration* question, since the fork is single-entity processing work.
-3. The consequence to accept deliberately: a write made directly against a foundation service bypasses approval invalidation. Approvable entities are therefore written through their top-layer service, and an exposer must bind to that service rather than the foundation for any approvable entity.
-
-**Inbound — the workflow's own records.** `ApprovalReview` and `ApprovalComment` are a second inbound channel, and a different one: their facts do not *invalidate* an approval, they prompt the workflow to **re-test the §8.5 conditions** on an approval that may have been blocked. Both are foundation-tier subscriptions — neither is an approvable entity and neither has a layer above its foundation (§12.3.1), so rules 1 and 2 do not apply and there is no fork to misread. Lettered here so the numbered rules above keep their cross-references.
-
-- (a) **Subscribe to every fact address on both records — not a subset.** The §8.5 evaluation reads comments through `IsDeleted is false && IsResolved is false`, and reviews through `IsDeleted is false && Verdict != Dismissed`. Every published fact can move one of those predicates, so all of them re-test:
-
-  | Fact | How it moves the gate |
-  | --- | --- |
-  | `ApprovalComment-Added` | a comment born **outstanding** blocks an approval that was clear; one born settled (§7.8) moves nothing, which the re-test establishes rather than assumes |
-  | `ApprovalComment-Modified` | the owner flipped `IsResolved` through the general modify |
-  | `ApprovalComment-Resolved` | the owner **or** an administrator flipped it through the resolve transition |
-  | `ApprovalComment-Removed` | soft-deleting an outstanding comment **unblocks**; `-HardRemoved` shares this address |
-  | `ApprovalReview-Added` / `-Modified` | moves the approval count or raises a blocking rejection |
-  | `ApprovalReview-Removed` | withdrawing an approving review drops the count; withdrawing a rejection unblocks |
-  | `ApprovalReview-Dismissed` | a dismissed verdict leaves the active set (§9.5) |
-
-  **Both comment resolution addresses are required.** `IsResolved` has two writers by design: the owner through modify, the owner or an administrator through the transition (§14.7 rule 5). Which one carried a given change depends on nothing more than which UI control was clicked, so watching one address would leave the gate movable unnoticed.
-
-  **All eight are wired (#276).** `ApprovalReview-Added` landed with the orchestration itself (#200); the remaining seven followed as the closing audit #196 assigned here. What this table fixes is the *contract* — which addresses must be subscribed and why — so a later reviewer checks the wiring against a list rather than rediscovering it. That contract is enforced by publishing rather than by a list: the integration suite derives its cases from the two operation enums — by excluding requests, never by matching a past-tense suffix, since a fact need not end in "ed" — and publishes every one through the real broker, asserting each is accepted and re-tests its round. A fact operation added later arrives with a case already attached, and that case fails until it is both subscribed and given an accepted name.
-
-  Two of the eight addresses carry **two** event names apiece: `HardRemoved` is published to the `Removed` address on purpose, and the event name is bound into the envelope's signature. A handler on a shared address therefore verifies against the **set** of names that address can legitimately carry — the publisher's composition inverted — rather than a single name, which would refuse half its traffic silently.
-- (b) **Re-test, do not assume.** No fact means "the approval may now complete" — it means the inputs changed. The handler re-runs the whole §8.5 evaluation. Facts that move the gate *shut* matter as much as those that open it: a comment born outstanding, or a withdrawn approving review, can re-block an approval that was clear, which is exactly the case `AutoApproveIfAllApprovalRequirementsMet` would otherwise get wrong. Equally, a fact may move nothing at all — a comment born settled is the common case — which is why the handler re-evaluates instead of inferring a direction from the address.
-- (b1) **The entity under review is a fourth inbound source, and it is the one that causes dismissal.** When an item subject to approval is added or amended, the orchestration receives that fact (rules 1–3 above decide at which tier) and, from the effective `ApprovalSetting`, determines that the existing verdicts no longer describe the current content. It then sets **every active `ApprovalReview` on that approval to `Dismissed`** (§8.8, §9.5). §7.7 rule 7's re-file route depends entirely on it, and **that route is now reachable**: the service exists, the subscription is wired, and a superseded reviewer's slot is cleared automatically by the content change that superseded it.
-
-  The dismissal runs under the **system identity**, not the editor's. No role carries authority to dismiss (#295), so the workflow mints its own context in process rather than borrowing an authority that exists for nobody.
-
-  This is now the ONLY thing that dismisses a review (#295). No user action does, and none can: the public verb and the request address a person could once have used are both gone, and the gate refuses any caller that is not the workflow.
-- (b3) **The one fact this service causes itself is suppressed while it causes it.** The §9.7.4 stale-review reset dismisses in a loop, and each dismissal publishes `ApprovalReview-Dismissed` — an address (a) requires a subscriber for. Substrate delivery is synchronous, so an unguarded handler would re-test the round *inside* that loop, once per review, each time against a population still being torn down; with `AutoApproveIfAllApprovalRequirementsMet` on it can approve off a review set that never existed in storage as a settled state. The loop therefore announces the approval it is dismissing and the handler stands down **for that approval only** — suppressing the re-test, never the signature check, and restoring in a `finally` so a throw inside the loop cannot leak the suppression. The dismissing flow re-evaluates once at the end, which is the correct single evaluation for the whole act.
-
-  This is a third line of defence alongside rules 6-7 below, and it is narrower than either: it is scoped to one approval, for the duration of one loop, on one address. That justification has changed with #295. The subscription used to earn its place because a dismissal could also arrive from a **human** — a publisher driving a verdict to `Dismissed` by hand — and nothing else re-evaluated that. No human route exists now, so every dismissal this address carries is the workflow's own.
-
-  **The subscription is currently unreachable, and is retained deliberately.** A concurrent *different* round does not reach it either — that was the first replacement argument and it is wrong. `ApprovalReview-Dismissed` has exactly one publisher, reached by exactly one caller, and that caller sets the suppression before it publishes; delivery is synchronous on the publisher's execution context and the guard is an `AsyncLocal`, so every production publish lands inside its own window. Measured on the real substrate: two overlapping resets, four deliveries, zero re-tests.
-
-  **Settled: it is kept.** Rule (a) above requires a subscriber on **every** fact address, and that universal is enforced by a test derived from the operation enum precisely so it cannot be hand-carved. Removing this one subscription would carve the first exception into that invariant — and the invariant is the thing worth protecting, because it is what stops a fact going unheard by accident. The cost of keeping is one suppressed delivery per dismissal; the cost of removing is a weaker rule for every address.
-
-  The guard's *scoping* — one approval rather than all — also remains a genuine property, pinned by a test that publishes from outside any window, which is how a second publisher would arrive. A repair pass or an administrative tool that dismissed outside the reset loop would need exactly this subscription, and would find it already correct.
-
-  Recorded here rather than left implicit so that a later reader finding an unreachable handler does not mistake it for an oversight.
-
-- (b2) **`Approval` itself is a fifth.** Its own `-Added` / `-Modified` facts re-enter the same evaluation, because a status or setting change can move the outcome without any review or comment changing.
-- (b3) **The decision is not the orchestration's to compute.** It receives a fact, gathers what the evaluation needs, and asks; the answer — block, permit, or auto-approve — comes back from the decision function (§8.5, §12.3.1). The orchestration owns the *reaction*, never the *rule*.
-- (c) **`-Dismissed` is a distinct address precisely so this reaction can tell a withdrawn verdict from an amended one** (§9.7.1), and `-Resolved` serves the same purpose for a comment.
-- (d) **The cycle rule still binds.** Re-testing may cause an approval decision, and that decision must go out through the transition verb of rules 4–5, never as a `-Modified` on the workflow record that triggered it.
-
-**Outbound — approval-caused writes use a transition verb, never `-Modifying`.**
-
-4. Every write the approval workflow causes on an entity's approval state goes through `Transition<Entity>ApprovalAsync` on the owning foundation service, published as `<Entity>-Approving` / `-Approved`. §10.2 rule 7 already establishes this vocabulary — a transition owning a narrower field scope than a general modify is a separate method and therefore a separate verb. Its scope is the whole of `IApproval`, so no separate publish verb is required.
-5. This operation validates only the `IApproval` members — plus the first-publish `ShortCode` derivation of §9.7.1 rule 3 on `ContentItem` — and **must not** publish `<Entity>-Modified`. This is what breaks the cycle: the workflow subscribes to `-Modified` and causes only `-Approved`, `-Rejected` or `-Submitted`.
-
-   One approval-caused write originates from another entity's approval: when a host completes approval and publication, its purposefully-placed and inline-referenced attachments are approved through the attachment submit-then-approve transitions, bypass-audited (§5.6.5, §12.5.3 responsibility 12). The derived write uses transition verbs, so rules 4–5 and the cycle-breaker hold unchanged; until the orchestration exists, §5.6.5's interim rule performs the same derivation synchronously.
-
-**Why `ProcessedEvents` is not sufficient on its own.**
-
-6. `ProcessedEvents` is unique on `(EventId, ReceiverName)` and stops *redeliveries of one event*. It does not stop *new events caused by a handler's own write*: a write-back publishes on an envelope minted by `CreateNextAsync` with a **fresh** `EventId`, which the receiver has never seen. Under the inline dispatch of §10.10 the repetition would be synchronous re-entry inside the original request.
-7. The changed-field gate of §9.7.4 is the second line of defence. Rules 1 and 4 above are the first.
-
-**Ownership of the entity write.**
-
-8. `ApprovalOrchestrationService` performs the entity write itself (§16.7 responsibilities 5 and 6, §10.2 rule 10). It does not publish an approval fact for the owning entity's orchestration to react to. This resolves a contradiction in earlier drafts: §12.5.3 responsibilities 7–9 previously assigned the same write to the owning entity's orchestration, which would have required every approvable entity's orchestration to subscribe to approval facts and would have reintroduced the cycle at one remove.
-
-### 10.18 Write and Publish Atomicity — ruled, not built
-
-Every write in the §10.10 foundation shape commits its row and **then** publishes the fact announcing it, with nothing binding the two. If the publish throws — an unreachable event store, or every configured signing key's validity window having lapsed or left a gap over *now* (§14.6) — the row stays and the fact never goes out. A *wholly unconfigured* host no longer reaches this: `EnvelopeIntegrityBroker` refuses at construction, so every Core endpoint fails before it can write. That closed the case that was actually observed (#392); it did not close the shape, because a lapsed window still throws at signing time, which is after the write. The caller receives a dependency error and cannot tell an add that failed outright from one that half-succeeded; neither can the next request.
-
-For `ContentItem` that is not merely untidy. The duplicate-content probe of §3.4.2 is global and unfiltered **by design** (§14.6), so a row stranded this way is indistinguishable from a genuine earlier contribution: every retry of the same content is permanently barred, and the contributor can neither resubmit nor see the row that is blocking them. Since #412 the retry is not even refused out loud — §3.4.2 rule 6 thanks them and writes nothing — so the failure mode is now silent from the contributor's side, which makes the stranding worth catching on the write path rather than on a complaint. Entities without a content-uniqueness rule degrade more quietly — a row, no fact, and a subscriber whose state never advanced.
-
-The two databases make a truly atomic pair impossible: the row lives in `Glory2Him.Core` and the event in `Glory2Him.Events`, and no transaction spans them. What is ruled here is therefore not how to make the pair atomic, but **which half is allowed to be late**.
-
-**The ruling: the write is atomic with the _intent_ to publish, and the publish itself is at-least-once.**
-
-1. **One Core transaction covers the row, both `ProcessedEvent` records, and an outbox row.** The entity write, the inbound envelope's `ProcessedEvent`, the outbound envelope's `ProcessedEvent`, and a durable outbox row carrying the fact about to be announced all commit together or not at all. They are all in `Glory2Him.Core`, which is what makes one transaction sufficient. Nothing in the transaction touches the event store.
-
-2. **The publish happens after that commit, and can no longer strand the row** — the intent to publish committed with it, so a failed publish is a fact that has not gone out *yet*, not a fact that is lost. A row with a pending outbox entry is a completed write, and is treated as one everywhere.
-
-3. **Rolling the row back on a failed publish is refused on mechanism, not preference.** It is the obvious alternative and it does not work here. Per §10.10 every publish persists the event and then dispatches it **inline** to the in-process handlers subscribed to that address, and `EventSubscriptionRegistration` opens a fresh DI scope **per delivery** — so each handler gets its own `StorageBroker`, its own `DbContext`, and therefore its own connection, deliberately and for the thread-safety reason recorded there. A transaction held open across the publish would hide the uncommitted row from the very handlers that must read it, and they cannot enlist in it. The window also cannot be closed from the other side: a publish that succeeds and a commit that then fails would announce a row that does not exist, which is worse than a row whose fact is late — subscribers acting on a phantom cannot be undone, whereas a late fact converges.
-
-4. **The guarantee becomes at-least-once, and receivers are already safe for it.** `ProcessedEvents` is unique on `EventId` + `ReceiverName` and a deduplicated delivery replies `null` (§10.10), so a redelivered envelope is a no-op. That existing dedup is the precondition this ruling depends on; it is not new work.
-
-5. **The outbox stores the envelope minted before the commit, verbatim, and a retry republishes that same envelope.** The relay must never re-mint. A re-minted envelope carries a fresh `EventId` and would defeat rule 4's dedup, turning one fact into many. Re-signing on each attempt is correct and required: the §14.6 signature is computed at publish time and binds the composed event name, the direction, and the carried sections, so signing the same stored envelope later yields the same envelope with a valid signature. This is also what lets a host that could not sign at write time dispatch the fact once a key is configured, rather than losing it.
-
-6. **Dispatch is attempted inline immediately after the commit; the outbox is the fallback, not the normal path.** On success the outbox row is marked dispatched. On failure it stays pending and **the caller still sees success** — the write completed, which is what the caller asked for, and this is the behaviour change the ruling deliberately makes. If the mark-dispatched write itself fails, the row stays pending and the relay republishes; rule 4 makes that a no-op.
-
-7. **Pending rows dispatch in commit order, and a stuck fact delays later facts rather than reordering them.** A sweep dispatches pending rows oldest first and stops at the first one that fails, so a fact never overtakes an earlier fact about the same row. Blocking is bounded rather than permanent: once a row has failed a set number of attempts it moves to a terminal state, and subsequent sweeps step over it so one poison fact cannot hold the queue for ever. A terminal row is never deleted and never silently dropped. Terminal rows are an operational signal and must surface as one. Retention of *dispatched* rows is a housekeeping decision, not a correctness one.
-
-8. **The seam belongs to the broker; the outbox belongs to Core.** Transaction scope is a broker concern (§12.2), and `IStorageBroker` today exposes transactions only through the storage client's bulk operations — single-entity writes have no such seam, so one is designed for them rather than borrowed from the bulk path. The outbox table is a Core table, because Core is the only database the row and the transaction share. It is not part of the event store: `Glory2Him.Events` remains the durable truth of *published* events (§10.10), and the outbox is the durable truth of *owed* ones. The relay is a Core-side sweep; until background-job infrastructure exists it runs on the inline path of rule 6 plus a manually invoked operation — the same constraint, and the same interim answer, as the §5.6.7 attachment sweeps.
-
-9. **The duplicate probe does not change, and that is a decision rather than an omission.** `CheckContentItemContentExistsAsync` stays global and unfiltered (§3.4.2, §14.6) and does **not** discount rows whose fact is still pending. A row whose fact has not gone out is still a row; making a content rule conditional on event state would put it at the mercy of the event store, and would hand a caller a way to manufacture a row that does not count. Under this ruling the question is moot in practice — the fact is owed, not lost — but the rule is stated so that it stays true if the guarantee is ever revisited.
-
-10. **This is the service template, not one service.** Every `Do<Verb><Entity>Async` that writes and then publishes takes this shape; a service that opts out reintroduces the defect for its entity. §10.2 rule 5 is unchanged in substance — a service still publishes exactly one fact about its own completed unit of work — but "once the work is done" now means once the work is *committed*, with the fact following. Reads publish no fact and hard removal publishes none (§10.2 rule 4), so neither is affected.
-
-11. **A composing layer gets the weaker half of this, deliberately.** Rules 1–2 bind a fact to the write it announces, which a foundation owns. A processing or orchestration service composes lower-layer writes that have each already committed — and each already announced its own foundation fact — so there is no single row for its own fact to be atomic with, and The Standard gives it no unit of work spanning the services it called. Its outbox row is therefore written in its own transaction as the last step of the process: the layer fact becomes durable and retryable (rules 4–7), but not atomic with the process it reports. That residual gap is named here rather than papered over — a process that fails after its last foundation write and before its outbox row still owes a layer fact that will never be sent, and closing it would need a unit of work across services that does not exist today.
-
-### 10.19 A Failed Delivery Is the Publisher's to Report
-
-§10.10 dispatches inline and **contains** a handler that throws: the publish completes, and the failure surfaces in exactly one place — `EventDelivery<T>.IsFailure` on the returned `EventPublishResult<T>`. **`IsFailure`, not the inverse of `IsSuccess`:** four statuses exist and only one is success, so Pending and Replay are also "not successful" while neither is a failure, and a publisher written against the inverse would raise this section's Critical alarm on healthy traffic. That was measured rather than reasoned about (`HandlerFailureContainmentTests`, #298), because the shape of the code says nothing about which way it goes. Containment is the right half of the answer: the write that caused the fact is already committed by the time the fact goes out, so failing the publisher would report a committed write as failed — a reviewer's vote written, then a 500 because a bookkeeping row would not save. The other half is the obligation containment creates, and before this section nothing in the solution met it: **every publisher discarded its result**, so a contained failure was an unreported one. This section closes that for the two cases named in rule 7; rule 7 also names what is still owed.
-
-**A published fact with a state-writing subscriber is a required delivery, and a required delivery's result must be inspected.** The tense of the address does not decide this and must not be read as deciding it. `EventSubscriptionRegistration` subscribes roughly twenty-nine **past-tense fact** addresses to handlers that perform required writes in another aggregate — `Tag-Submitted` reaches `OnTagSubmittedAsync`, which moves the tag's approval to `Submitted` and re-evaluates the round (§10.17). A dropped delivery there is not a lost notification; it is the §9.8 divergence, and for `-Submitted` there is no repair path at all: §16.7.2's read-triggered repair only opens a **missing** round and never reconciles an existing `Draft` round against an entity that has since moved on.
-
-1. **The subscription list decides, never the verb.** An address with no subscription returns an empty `Deliveries` collection, so inspecting it is a no-op and costs nothing; an address with a state-writing subscriber is a required delivery. The publisher therefore inspects unconditionally and lets the subscription list answer, rather than encoding a copy of that list — which belongs to `EventSubscriptionRegistration` — as a condition in a service.
-
-2. **Inspect, log, and do not throw.** A failed delivery is logged through `ILoggingBroker.LogCriticalAsync`, at the tier this solution already reserves for a dependency failure an operator has to act on. Throwing is refused on the same ground the containment behaviour exists for: the row, or the approval decision, is already committed, and the caller asked for that write rather than for its fact's onward delivery. The caller's answer is unchanged — the write succeeded, and it did. This is §10.18 rule 6's posture applied one step further down the same path.
-
-   **And the report itself must not throw either — being last is not containment.** `LoggingBroker.LogCriticalAsync` has no try/catch of its own, so a faulting sink propagates and does precisely what this rule forbids: it reports a committed write as a failed one. Placing the report last only stops a throw skipping work that follows it *in the same method*, and where the report sits in a shared helper — `PublishCommandAsync`, reached by both the decision and the reset paths — work still follows it in the CALLER: `ResetApprovalAsync` still owes §8.6.2's stale-assignment reset, which a throw would skip after everything else had committed. So the report is wrapped, with an exception filter that lets `OperationCanceledException` through untouched — the same shape as `ResetStaleAIReviewerAssignmentAsync` and Substrate's `onVerified` hook, on the same argument: bookkeeping on somebody else's path does not get to decide that path's outcome. It differs from those two in swallowing rather than logging the secondary failure, because the sink that would carry that second message is the one that just threw; the delivery failure remains on the event store's own row, which the event id and subscription id locate.
-
-   **And it runs BEFORE any bookkeeping that can fail.** In the transition tails the outbound `RecordEventProcessedAsync` dedup write sits on the same path; a report placed after it is skipped whenever that write throws, so a dropped required delivery goes unreported while an unrelated bookkeeping fault takes the blame. The two failures are independent — a dedup row that would not save says nothing about whether the fact arrived — and the operator needs both, so the report is ordered ahead of it. Ordering it that way is only safe because the report is contained: before that, it sat last precisely so a faulting sink could not cost the event its dedup row.
-
-3. **The log line carries the substrate's diagnostics, not the payload.** The persisted event id, the composed event NAME, the subscription id, the status, and the response CODE — and explicitly **not** the response MESSAGE or the reply envelope. That message is the failed handler's own exception text, and the handlers on these addresses throw things like "User {id} does not hold a review role" and "Approval not found for {entityType} with id: {entityId}": rendering it would put caller identities and entity ids into a Critical line through the one field nobody thinks to check, and would make the line unbounded. The operator loses nothing they need — the event id and subscription id locate the delivery row, which holds the full message under the event store's own access rules. The name rather than the address, because they are not interchangeable: `HardRemoved` is published to `Removed`'s address and is distinguished purely by its composed name, so a line naming an address would announce one that was never registered. The name is also what the event store holds the row under (§10.10). A delivery counts as failed only when the substrate reported ERROR, never merely "not Success": Pending and Replay are ordinary transient outcomes, and alarming on them would fire this Critical line on healthy traffic until an operator learned to skip it. And the line says a subscription reported an UNSUCCESSFUL delivery rather than that it never received the event — `IsSuccess` is the listener's own status, so the usual case is a handler that received the envelope and then threw, and blaming the substrate would send the operator to the wrong place. Never the envelope's content or its `SecurityContext`: the line exists so a divergence can be found and repaired, and an event's content in a log is a copy of the row with none of the visibility rules of §14.1 attached.
-
-4. **The inspection belongs to the publishing service's own layer** — the foundation for a foundation fact, the orchestration for a command it issues. It is not the broker's. `EventBroker` abstracts the substrate (§12.2) and, like a controller, carries no business logic (§10.12); deciding that a delivery matters and what its failure means is business logic, and a broker that swallowed the decision would also hide it from the layer whose invariant it is.
-
-5. **What is shared across publishers is a model, because a model is the only thing they may all depend on.** The predicate over the result and the exception type that carries the message live in `Models/Events`; the reaction — reading the flag and calling the logging broker — lives at each service's existing single publish point. Sharing the reaction itself would require a foundation to depend on something that is neither a broker nor a model, and §12.1 gives a foundation nothing else below it. The residual repetition is one call site per service, at the publish funnel that service already has.
-
-6. **There is no retry behind this today, which is why the log line is the whole of the report.** The substrate exposes a pending-event sweep and nothing in Core invokes it, so the dispatch-time snapshot is the final outcome rather than a first attempt. Earlier text in §10.10 claiming a failed delivery may succeed later on retry described a mechanism that is configured but never run, and has been corrected. §10.18 rules the other half of this pair — a fact that never went out at all — and neither ruling introduces a redelivery mechanism; both make the gap **visible** rather than silent.
-
-7. **The two cases ruled first are the two that already funnel through a single call site, which is a cost argument and not a severity one.** `ApprovalOrchestrationService`'s entity-approval command, and the `-Submitted` fact published by the shared transition tail of the seven approvable foundations. **They are not the only cases without a reconcile path, and this section must not be read as saying so.** `-Modified` on the seven approvable foundations reaches `ProcessEntityModifiedAsync`, which dismisses stale reviews and re-evaluates; `ApprovalReview-Dismissed` and `ApprovalComment-Resolved` reach handlers that write the round's verdict. None of those has a reconcile path either, and `-Modified` is the one that fails OPEN — a dropped delivery leaves approving reviews standing on content that has since changed, so the next evaluation can auto-approve off reviews for text nobody read, and the item stays approved and published. `-Submitted` by contrast fails CLOSED, stranding an entity at Submitted. The remaining subscribed-but-uninspected publish sites are owed and are tracked as #497, `-Modified` first; until they are done, a discarded result elsewhere in the solution is an unclosed gap and must not be read as sanctioned by this section. §16.7.1 already describes the sync as published *and observed*: inspecting the delivery outcome is the first half of that observation, and the reply envelope the command's handler returns is still discarded — named here as a residual rather than ruled on.
+Moved to [`Documentation/Design/Events.md`](Design/Events.md) — unifies this section with the
+former standalone `EventSubstrate.md`, removing the duplication between them.
+Sections there carry an `EVN` prefix (`§EVN1`, `§EVN2`, ...) rather than
+restarting bare at 1, so a citation stays unambiguous once other
+`Documentation/Design/*.md` files exist with their own prefixes. Each relocated
+section keeps a `(formerly §10.X)` annotation naming its old position, so a
+`§10.X` citation in code still resolves by grep even though the citable number
+itself is now `§EVNx`, not `§10.X` verbatim. Lettered citations are anchored
+separately: `§10.17(a)` and `§10.17(b)` appear in service and test comments and
+the heading annotation carries no letter, so `§EVN18` lists those forms
+explicitly.
+
+Resolving is not the same as being right. The annotation maps an old number to
+a new one and asserts nothing about whether the section was the correct one to
+cite in the first place. A `§10.2` in a comment about how a value is
+*persisted* lands on event naming and addressing because that is what §10.2
+always was, not because the move sent it there; enum string persistence is
+§3.7.
 
 ## 11. Topic and Feed Design
 
@@ -2751,7 +2090,7 @@ Business Rules:
 7. On every update, this service must load the current entity from the database and map only the permitted caller-supplied fields — `Title`, `Author`, `Content` and, when the §19.2 column lands, `MetaDescription` — onto that entity before saving. `ContentType` and `PublishDate` were previously in this list and are removed: the first is create-only (business rule 7a), the second is an `IApproval` member written by the approve operation (§9.7.1 rule 3).
 7a. **`ContentType` is set at creation and may never change.** Reclassifying a content item is not permitted — different content types carry different validation rules, so a `Story` cannot become a `Testimony` by relabelling it; the existing content was never validated against the target type's rules. An item filed under the wrong type is removed and re-created.
 
-   Enforcement belongs in the foundation, not only here: `ValidateAgainstStorageContentItemOnModify` pins `ContentType` against the stored row and rejects a difference, in the same way it pins `CreatedBy` and `CreatedWhen`. §14.6 requires the foundation to be safe when called alone, and `ContentItem-Modifying` is a public address whose caller is, today, unauthenticated (§14.6 rule 4). This service dropping it from the permitted map is defence in depth. Note that pinning against storage is identity-independent, so this particular rule holds even against a forged context — which is exactly why the pins matter more than the gates on that path.
+   Enforcement belongs in the foundation, not only here: `ValidateAgainstStorageContentItemOnModify` pins `ContentType` against the stored row and rejects a difference, in the same way it pins `CreatedBy` and `CreatedWhen`. §14.6 requires the foundation to be safe when called alone, and `ContentItem-Modifying` is a request address whose caller is established by the envelope's signature and nothing else (§14.6 rule 4). This service dropping it from the permitted map is defence in depth. Note that pinning against storage is identity-independent, so this particular rule holds whatever the context claims — which is why the pins keep their value on that path even where the identity gates would lose theirs.
 
    A version fork carries the value forward unchanged; it is preserved, never re-chosen. The fork builds the new row from the stored tip, not from the caller's entity, and the foundation pins the fork as well: a version fork is an **add**, not a modify, so `ValidateAgainstStorageContentItemOnModify` never sees it and there is no stored row of its own to compare against. `ValidateAgainstGroupContentItemOnAdd` closes that by pinning `ContentType` against the row's version **group** — when the incoming `GroupId` already has rows, the type must equal theirs; when it does not, this is the group's first version, which is the one add that chooses a type. Without it the fork was the single path that could relabel an item, which also moved the row's `%ContentItem%-%ContentType%-Reviewers` / `-Publishers` tier (§18.6 rule 5) and its duplicate-check bucket (§3.4.2) — so the duplicate probe is keyed on the type the row will actually land with, the stored type on a fork and the caller's in place.
 8. Review dismissal is not the responsibility of this service. Publishing `ContentItemUpdatedEvent` is sufficient — `ApprovalOrchestrationService` must handle dismissal when it receives that event.
@@ -2907,7 +2246,7 @@ Responsibilities:
 
     **This responsibility does not own the threshold, and the timing here was wrong.** The only threshold comparison in the codebase is `IAccessClient`'s `EvaluateConditions`, reached through `IAccessBroker.MayDecideApprovalAsync` (§8.5, §12.3.1) — and it runs **when an approve is attempted**, not "after each review decision". This orchestration's job is to notice that the inputs changed and ask; the answer is not its to compute. Earlier wording ("evaluate approval threshold after each review decision using `ApprovalSettingsService`") was wrong on the owner *and* on the trigger.
 
-    **Subscribe to every fact on both workflow records, and re-test on each.** All four `ApprovalComment` addresses (`-Added`, `-Modified`, `-Resolved`, `-Removed`) and all four `ApprovalReview` addresses (`-Added`, `-Modified`, `-Removed`, `-Dismissed`) can move a §8.5 predicate, because the evaluation reads comments through `IsDeleted is false && IsResolved is false` and reviews through `IsDeleted is false && Verdict != Dismissed`. **Both comment resolution addresses are required**: `IsResolved` has two writers by design — the owner through the general modify (on a remark; the amend gate refuses a write that would leave an **ask** settled, §7.8), the publisher tier through the resolve transition (§14.7 rule 5) — so watching one would leave the gate movable unnoticed, decided by nothing more than which UI control was clicked. Each fact means "the inputs changed", never "the approval may complete": re-run the whole evaluation, and treat gate-shutting facts (a comment born outstanding, a withdrawn approving review) as seriously as gate-opening ones, since they can re-block an approval that was clear under `AutoApproveIfAllApprovalRequirementsMet`. A fact may also move nothing — a comment born settled (§7.8) is the common case — so never infer a direction from the address. These are foundation-tier subscriptions — neither record is approvable and neither has a layer above its foundation (§12.3.1), so §10.17 rules 1–2 do not apply. See §10.17 inbound items (a)–(d) for the full table.
+    **Subscribe to every fact on both workflow records, and re-test on each.** All four `ApprovalComment` addresses (`-Added`, `-Modified`, `-Resolved`, `-Removed`) and all four `ApprovalReview` addresses (`-Added`, `-Modified`, `-Removed`, `-Dismissed`) can move a §8.5 predicate, because the evaluation reads comments through `IsDeleted is false && IsResolved is false` and reviews through `IsDeleted is false && Verdict != Dismissed`. **Both comment resolution addresses are required**: `IsResolved` has two writers by design — the owner through the general modify (on a remark; the amend gate refuses a write that would leave an **ask** settled, §7.8), the publisher tier through the resolve transition (§14.7 rule 5) — so watching one would leave the gate movable unnoticed, decided by nothing more than which UI control was clicked. Each fact means "the inputs changed", never "the approval may complete": re-run the whole evaluation, and treat gate-shutting facts (a comment born outstanding, a withdrawn approving review) as seriously as gate-opening ones, since they can re-block an approval that was clear under `AutoApproveIfAllApprovalRequirementsMet`. A fact may also move nothing — a comment born settled (§7.8) is the common case — so never infer a direction from the address. These are foundation-tier subscriptions — neither record is approvable and neither has a layer above its foundation (§12.3.1), so §EVN18 rules 1–2 do not apply. See its inbound items (a)–(h) in [`Documentation/Design/Events.md`](Design/Events.md) for the full table.
 6. Apply `Approved` status when the approval conditions (§8.5) are met and `AutoApproveIfAllApprovalRequirementsMet = true`.
 7. Write the denormalized `ApprovalStatus` onto the owning entity itself, through that entity's state-transition operation rather than a general modify (§10.17 rules 4–5). The two values must never diverge (§9.8).
 8. On `Approved`, set `IsPublished = true` on the newly approved version.
@@ -3189,11 +2528,19 @@ An exposer (controller, page, or any other host) may bind to a foundation servic
 1. **Every service enforces security itself.** Each service — foundation, processing, and orchestration — applies authentication, role, ownership, and visibility rules against the ambient `SecurityContext` (captured on its own inbound envelope) for every operation it exposes. No service ever assumes an upstream layer already gated the caller.
 2. **Duplicate enforcement across layers is intended** (defense in depth). An orchestration re-checking a rule its foundation also checks is correct, not redundant: either service must be safe when called alone.
 3. **Each layer enforces the rules appropriate to its altitude.** Foundations enforce row-level rules — the contribution gate (authenticated, not blocked by a `ReadOnly` role), row write permission (owner or moderation role; removal by owner or `Administrators`; hard removal by `Administrators` only), and read visibility (§14.1, §14.5). Orchestrations additionally enforce process rules that span rows or states — for example that an `Approved` content item is amended only by its owner and only by forking a new version.
-4. **The same rules apply on both entry paths — but the event path's `SecurityContext` is not authenticated yet.** The direct method path and the event (substrate) path converge on the same do-work methods, so every rule above is enforced on both. What differs is the provenance of the context they are enforced against. **Replay is handled:** `ProcessedEvents` deduplicates on `Metadata.EventId` per receiver, so a re-delivered envelope is a no-op. **Forgery is not.** `EventBroker.DeserializeEnvelope` is a bare `JsonSerializer.Deserialize<EventEnvelope<T>>(content)!`; `EnvelopeIntegrity` is present on the envelope model but has no writer and no verifier anywhere in the repository; the participant registers `IsSecretRequired = false`; and the `Validate*EventEnvelope` methods require `Content` and `Metadata` to be present but never inspect `SecurityContext`. Whoever can put a message on a request address therefore states their own identity and roles, and is believed.
+4. **The same rules apply on both entry paths, and on the event path a verifying signature is what makes the carried `SecurityContext` admissible.** The direct method path and the event (substrate) path converge on the same do-work methods, so every rule above is enforced on both. What differs is the provenance of the context they are enforced against. `EnvelopeIntegrityBroker` computes an HMAC-SHA256 over the event name, the direction, and `Content`, `SecurityContext`, `RequestContext` and `Metadata`, excluding `Integrity` itself because it holds the result. `EventBroker.PublishEventAsync` signs every request under the `Request` direction before submitting it and every handler reply under `Reply`, and `VerifiedReplyOrNullAsync` drops a reply that does not verify rather than returning it as authentic. Each receiving service verifies in its own `Validate*EventEnvelope` method — against the event name that handler serves and the request direction — before it does anything else. **Verification sits in the receiver, not in the transport**, because a handler is reachable without going through the broker; that is also why `EventBroker.DeserializeEnvelope` is still a bare `JsonSerializer.Deserialize<EventEnvelope<T>>(content)!`. Deserializing is not the trust decision, and a check placed there is one a direct handler call walks past.
 
-   **It compounds once, through a mechanism that is otherwise correct.** A single `SecurityContextPrincipalFactory` feeds both the actor `AccessBroker` sends to `IAccessClient` and the `CreatedBy` that `SecurityAuditBroker` stamps — deliberately, because HR-1 and HR-2 are `actor == CreatedBy` comparisons and two conversions would disagree in the permissive direction (§8.6.1). The consequence on an unauthenticated context is that a forged actor authors the row and then satisfies the self-review and self-approval comparisons *against itself*. The rules are not weakened; they are evaluated against a subject the caller chose.
+   **Be precise about what a valid signature establishes.** It proves provenance and integrity of what was signed: this system minted this envelope, for this event name, in this direction, and no signed field has changed since. It establishes nothing about whether a signed section is present or sensible — a verifying envelope may still carry a null or empty `SecurityContext`. So the receivers null-check it and then run the ordinary contribution, role, ownership and visibility gates against it exactly as the direct path does. The `Validate*EventEnvelope` methods themselves require only that `Content` and `Metadata` are present and that the signature verifies; they decide no identity question at all.
 
-   **Nothing external can reach this today, and that is checked rather than assumed.** Note that the first two of these checks no longer hold: `Glory2Him.WebApp` now references `Glory2Him.Core` to expose `TagsController` and `ApprovalCommentsController`, registers an `EventBroker`, and configures an `EventHighwayConnectionString`. What still holds — and is what actually closes the hole — is that **no code publishes to any `-ing` request address** (published facts are all past-tense `-ed` notifications) and **no substrate subscription is wired in that host**, so no envelope enters the process from outside. The exposer reaches the foundation by the direct method path, whose `SecurityContext` comes from the authenticated `HttpContext` rather than from a caller-supplied envelope. This remains design debt to pay before the substrate is wired, not a live hole — but the guard is now the absence of subscriptions, not the absence of a host, and a future host that wires one must not assume otherwise. **The remediation is built.** `IEnvelopeIntegrityBroker` signs on publish and verifies on receive, and each receiving handler verifies before it does anything else — in the receiver rather than the transport, because a handler is reachable without going through the broker. The signature binds the event name, the direction, and the three carried sections plus content, so an envelope cannot be lifted onto another address, replayed as a reply, or edited in any part the rules read.
+   The participant is still registered with `IsSecretRequired = false`, so the substrate does not authenticate whoever submits an event to the store. That is not what the system rests on. The trust decision is made by the receiver, on the envelope inside the event content, and a submitter without the signing key cannot produce an envelope that verifies.
+
+   **Replay is answered in two places, and the cover is uneven.** `Metadata` is inside the signed payload, so a replay cannot be handed a fresh `EventId` without breaking the signature. Behind that, the write-effecting foundation substrate handlers deduplicate on `Metadata.EventId` and receiver name through `ProcessedEvents`, so a re-delivered envelope is a no-op for them. Not every receiver keeps that record. Read-only handlers deliberately keep none, a read being naturally idempotent, and `ContentItemSettingOrchestrationService` probes for a duplicate itself before handing the same envelope down to the foundation handler that keeps the record. The processing services and `ApprovalOrchestrationService` keep none at all: the approval handlers re-derive the round from stored state, so a redelivery re-reaches the same conclusion, and a replayed processing add is absorbed by the §3.4.2 duplicate-content probe. The remaining processing commands rest on that re-derivation argument rather than on a record of their own, which is the weaker half of this and the first place to look if a redelivery is ever seen to double an effect.
+
+   **`ApprovalOrchestrationService`'s fact receivers are guarded by the signature alone.** Its handlers route through two shared methods that verify and then hand the row's identity to the flow; `ProcessEntityAddedAsync` validates the shape of its arguments and nothing else, and `ProcessApprovalInputsChangedAsync` only reacts. No role check, no ownership check and no `ProcessedEvents` record stands behind either. The two things that look like guards there are not caller checks: the entity type is supplied by the handler rather than read off the payload, so a `Tag` fact cannot drive a `ContentItem`'s approval, and a fact carrying the system identity is dropped so the workflow does not react to its own writes. Verification is the load-bearing guard on that path, not one of several.
+
+   **What a lost key would cost, through a mechanism that is otherwise correct.** A single `SecurityContextPrincipalFactory` feeds both the actor `AccessBroker` sends to `IAccessClient` and the `CreatedBy` that `SecurityAuditBroker` stamps — deliberately, because HR-1 and HR-2 are `actor == CreatedBy` comparisons and two conversions would disagree in the permissive direction (§8.6.1). One subject therefore both authors the row and answers the self-review and self-approval comparisons *against itself*. That is right while the subject is the real caller, and it is why the envelope's context has to be established before any rule reads it: anyone able to mint a verifying envelope would not be weakening the rules, they would be having them evaluated against a subject of their own choosing, with the audit trail agreeing. This is the concrete cost of the signing key leaking, and the reason the key is the asset to protect rather than any single gate.
+
+   **The signature is the whole of the guard now, because the circumstantial ones are gone.** Two of them used to stand behind it and neither survives. `Glory2Him.WebApp` wires the substrate at startup: `Program.RegisterCoreEventSubstrateAsync` resolves `IEventSubscriptionRegistration` and registers the participant, every event address and every subscription, so the handlers that were dormant are live in the only deployment there is. And published traffic is no longer past-tense notifications only: `ApprovalOrchestrationService.PublishEntityApprovalCommandAsync` publishes `-Approving` **commands** to request addresses, which is how the workflow's decision reaches the entity at all. Request addresses are live and carry commands, and a receiver's only evidence that a command came from this system is that its envelope verifies. Read every enforcement claim on the event path as resting on that, and treat anything that would let a second party sign — a shared key, a federated publisher — as a change to the security boundary rather than to configuration. **The remediation is built.** `IEnvelopeIntegrityBroker` signs on publish and verifies on receive, and each receiving handler verifies before it does anything else — in the receiver rather than the transport, because a handler is reachable without going through the broker. The signature binds the event name, the direction, and the three carried sections plus content, so an envelope cannot be lifted onto another address, replayed as a reply, or edited in any part the rules read.
 
    Because only this system holds a signing key, a verified envelope is one this system produced, which is what lets the event path be trusted with the same claims as the direct path. Signing happens internally, after an API has authorised the caller; verification is there to detect tampering. That equivalence is a property of there being exactly one key holder, and it is the assumption to revisit first if that ever stops being true.
 5. **Denials follow §14.5**: reads answer not-found with the true reason logged server-side; writes answer unauthorized (revealing a write denial leaks nothing the caller did not already assert).
@@ -3509,7 +2856,7 @@ Responsible for:
 
 **The sync is a command event, not a method call.** The orchestration publishes an instruction to the owning entity's request address and observes the reply, rather than calling the foundation service directly. Two consequences follow, and both are the point: the orchestration needs no entity services, and each side is testable on its own — the orchestration proves it published the command, the foundation proves it honours one. A single method call would be invisible to both.
 
-Because the sync is asynchronous in principle, the orchestration carries an explicit *requested but unconfirmed* state. §9.8's "must never diverge" is a steady-state invariant, not a claim that the two rows are written in one instant. **No reconcile path exists to settle a sync whose reply never arrived** — an earlier version of this sentence claimed one does, and it was wrong: §16.7.2's read-triggered repair only opens a MISSING round and never reconciles an existing one, and no sweep runs. §10.19 rules what a publisher must do about that in the meantime, which is report it.
+Because the sync is asynchronous in principle, the orchestration carries an explicit *requested but unconfirmed* state. §9.8's "must never diverge" is a steady-state invariant, not a claim that the two rows are written in one instant. **No reconcile path exists to settle a sync whose reply never arrived** — an earlier version of this sentence claimed one does, and it was wrong: §16.7.2's read-triggered repair only opens a MISSING round and never reconciles an existing one, and no sweep runs. [`§EVN23`](Design/Events.md) rules what a publisher must do about that in the meantime, which is report it.
 
 **Provenance is carried by a signature, not by a call site.** §9.7.1 rule 3 admitted the workflow's system identity only on a context minted in process, on the reasoning that provenance is not carried by the payload. That reasoning is superseded: every inbound envelope is signature-verified at the receiver, and **only this system holds the signing key**, so a verified envelope is one this system minted — whichever path it arrived by. The claim itself sits inside the signed payload, so it cannot be added to a genuine envelope without breaking the HMAC, and a fresh envelope carrying it cannot be produced without the key.
 

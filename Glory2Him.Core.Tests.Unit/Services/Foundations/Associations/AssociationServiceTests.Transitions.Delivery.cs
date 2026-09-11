@@ -29,7 +29,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
     public partial class AssociationServiceTests
     {
         /// <summary>
-        /// §10.19, reached the only way an association can reach it. Association has no submit
+        /// §EVN23, reached the only way an association can reach it. Association has no submit
         /// verb, so <c>Association-Submitted</c> is published solely as the fallback arm of the
         /// decision switch — an administrator re-opening a terminal row (§8.6 HR-4). It is still
         /// a REQUIRED delivery: it reaches
@@ -108,7 +108,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // then: the re-open COMMITTED. The six sibling entities assert this through the
             // returned row; Association's transition is reached through the decision switch, so
             // it is asserted on what reached storage. Without it a regression that logged the
-            // contained failure but skipped or altered the write would still pass, and §10.19's
+            // contained failure but skipped or altered the write would still pass, and §EVN23's
             // whole premise is that the write stands and only its fact went astray.
             savedAssociation.Should().NotBeNull();
             savedAssociation.ApprovalStatus.Should().Be(ApprovalStatus.Submitted);

@@ -28,7 +28,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
     public partial class ApprovalOrchestrationServiceTests
     {
         /// <summary>
-        /// §10.19 rule 2, on the seam where the rule is hardest to satisfy: the delivery report
+        /// §EVN23 rule 2, on the seam where the rule is hardest to satisfy: the delivery report
         /// is a shared helper, so being the last statement of <c>PublishCommandAsync</c> is NOT
         /// the same as being the last thing the OPERATION does.
         ///
@@ -62,7 +62,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             Approval decidedApproval = SetupDecidedRound(ApprovalStatus.Approved);
             SetupEntityVisibility(isEntityVisible: true);
 
-            // and: the entity sync reports a contained delivery failure, so the §10.19 report runs
+            // and: the entity sync reports a contained delivery failure, so the §EVN23 report runs
             var failedPublishResult = new EventPublishResult<ContentItem>
             {
                 EventId = Guid.NewGuid(),

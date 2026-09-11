@@ -278,7 +278,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             EventPublishResult<TEntity> publishResult =
                 await publish(commandEnvelope, operation);
 
-            // §10.19. This is the one publish in the solution that is not merely announcing a
+            // §EVN23. This is the one publish in the solution that is not merely announcing a
             // fact — it is the INSTRUCTION that carries a recorded decision to the entity that
             // owns it. The approval row is already committed by the time this runs, so a
             // delivery that failed leaves the approval saying Approved and the entity still

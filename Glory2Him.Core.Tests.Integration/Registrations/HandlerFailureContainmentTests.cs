@@ -100,7 +100,7 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
 
                 // and: the substrate classifies it as a FAILURE, not merely as not-successful.
                 //
-                // This is the assertion §10.19 rests on and the only one that measures it. Every
+                // This is the assertion §EVN23 rests on and the only one that measures it. Every
                 // publisher now reports on EventDelivery.IsFailure, which the broker sets from
                 // the substrate's status enum — but every unit test sets that flag by hand, so
                 // nothing else would notice the mapping breaking. If a real Error delivery
@@ -112,7 +112,7 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
                         "the inverse of IsSuccess");
 
                 // and: nothing else is dressed up as a failure. Pending and Replay are ordinary
-                // transient outcomes, and reporting either as failed would fire §10.19's Critical
+                // transient outcomes, and reporting either as failed would fire §EVN23's Critical
                 // line — which claims a permanent, unrepairable divergence — on healthy traffic.
                 deliveries.Should().OnlyContain(
                     delivery => delivery.IsFailure == (delivery.Status == "Error"),

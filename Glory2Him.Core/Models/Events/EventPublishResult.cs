@@ -22,7 +22,7 @@ namespace Glory2Him.Core.Models.Events
     ///
     /// <para><b>A publisher does not get to ignore this.</b> Delivery is contained rather than
     /// propagated, so a subscriber that failed says so HERE and nowhere else, and nothing
-    /// redelivers it today. §10.19 rules who must look: an address carrying a state-writing
+    /// redelivers it today. §EVN23 rules who must look: an address carrying a state-writing
     /// subscriber is a required delivery whose result must be inspected, and only an address
     /// nobody subscribes to may discard it. Inspecting unconditionally is the cheap answer —
     /// an unsubscribed address returns no deliveries at all.</para>
@@ -69,12 +69,12 @@ namespace Glory2Him.Core.Models.Events
         /// never "not successful", because Pending and Replay are also not successful and are
         /// ordinary transient outcomes. False for an address nobody subscribes to, which is what
         /// lets a publisher inspect without first knowing whether its address is subscribed
-        /// (§10.19 rule 1).
+        /// (§EVN23 rule 1).
         ///
         /// <para>Null-tolerant on <see cref="Deliveries"/> deliberately. It is
         /// <c>init</c>-settable and the solution's own integration tests already null-coalesce it,
         /// so a null is reachable — and this runs AFTER the row is committed, where throwing
-        /// would report a completed write as a failed one (§10.19 rule 2).</para>
+        /// would report a completed write as a failed one (§EVN23 rule 2).</para>
         ///
         /// <para>Short-circuits rather than reusing <see cref="FailedDeliveries"/>. This is read
         /// on every publish through every inspected path, and materialising a list to answer a

@@ -28,7 +28,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
     public partial class ContentItemServiceTests
     {
         /// <summary>
-        /// §10.19. <c>ContentItem-Submitted</c> is a REQUIRED delivery: it reaches
+        /// §EVN23. <c>ContentItem-Submitted</c> is a REQUIRED delivery: it reaches
         /// <c>ApprovalOrchestrationService.OnContentItemSubmittedAsync</c>, which moves the
         /// content item's approval to Submitted and re-evaluates the round. The substrate
         /// CONTAINS a handler that throws (HandlerFailureContainmentTests, #298), so that
@@ -43,7 +43,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         /// <para>The submit itself still SUCCEEDS. The row is committed before the publish, the
         /// caller asked for the write rather than for its fact's onward delivery, and throwing
         /// here would report a committed write as failed — which is the outcome containment
-        /// exists to prevent (§10.19 rule 2).</para>
+        /// exists to prevent (§EVN23 rule 2).</para>
         /// </summary>
         [Fact]
         public async Task ShouldLogCriticalWhenTheSubmittedFactDeliveryFailsAsync()
@@ -148,7 +148,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         /// address nobody subscribes to returns no deliveries at all, so inspecting it costs
         /// nothing and reports nothing. A publisher therefore never needs a copy of the
         /// subscription list to know whether its fact was required — the result answers it
-        /// (§10.19 rule 1).
+        /// (§EVN23 rule 1).
         /// </summary>
         [Fact]
         public async Task ShouldNotLogWhenEverySubmittedDeliverySucceedsAsync()

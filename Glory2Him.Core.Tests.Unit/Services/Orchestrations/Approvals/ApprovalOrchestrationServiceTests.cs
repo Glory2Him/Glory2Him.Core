@@ -106,7 +106,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             this.loggingBrokerMock = new Mock<ILoggingBroker>();
 
             // EVERY ENTITY COMMAND IS DELIVERED unless a test says otherwise. PublishCommandAsync
-            // now inspects what it publishes (§10.19), and Moq's default for
+            // now inspects what it publishes (§EVN23), and Moq's default for
             // ValueTask<EventPublishResult<T>> is NULL rather than an empty result - the same
             // return-type trap the comments read above records. The decide tests only ever
             // VERIFIED the publish, so without this every one of them would fault on the

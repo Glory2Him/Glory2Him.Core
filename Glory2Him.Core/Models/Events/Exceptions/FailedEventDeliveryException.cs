@@ -18,7 +18,7 @@ namespace Glory2Him.Core.Models.Events.Exceptions
 {
     /// <summary>
     /// An event was published and at least one subscription reported an unsuccessful delivery
-    /// (§10.19).
+    /// (§EVN23).
     ///
     /// <para>An EVENT rather than a fact, and the distinction is not pedantry: the approving
     /// command travels through this same helper, and telling an operator a subscription failed to
@@ -41,7 +41,7 @@ namespace Glory2Him.Core.Models.Events.Exceptions
     /// is the split this solution already uses between the two exception-taking tiers. The write the event announces — or, for a command, the decision it carries —
     /// is already committed by the time a publisher can see this, so raising it would report a
     /// committed write as failed, the outcome the substrate's containment behaviour exists to
-    /// prevent (§10.19 rule 2).</para>
+    /// prevent (§EVN23 rule 2).</para>
     ///
     /// <para><b>It carries the substrate's diagnostics and nothing else</b> — the persisted event
     /// id, the composed event name, and each failed subscription's id, status and response CODE.
@@ -50,7 +50,7 @@ namespace Glory2Him.Core.Models.Events.Exceptions
     /// And never the
     /// envelope's content or its <c>SecurityContext</c>: the line exists so a divergence can be
     /// found and repaired, and an event's content in a log is a copy of the row with none of
-    /// §14.1's visibility rules attached (§10.19 rule 3).</para>
+    /// §14.1's visibility rules attached (§EVN23 rule 3).</para>
     /// </summary>
     public class FailedEventDeliveryException : Xeption
     {
@@ -124,7 +124,7 @@ namespace Glory2Him.Core.Models.Events.Exceptions
         //
         // That field is the failed handler's own exception text, copied verbatim off the
         // substrate's listener row, and this solution's handler messages routinely carry exactly
-        // what §10.19 rule 3 excludes: entity ids, and caller identities like "User {id} does not
+        // what §EVN23 rule 3 excludes: entity ids, and caller identities like "User {id} does not
         // hold a review role". Rendering it here would have put payload and identity into a
         // Critical line through the one field nobody thought to look at, and would have made the
         // line unbounded — N failed subscriptions x arbitrary handler text.
