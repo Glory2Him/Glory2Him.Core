@@ -15,8 +15,13 @@ namespace Glory2Him.Core.Models.Events
 {
     /// <summary>
     /// The outcome of delivering a published event to one subscription, observed at dispatch
-    /// time. A failed delivery may still succeed later through retries; the durable record of
-    /// every delivery lives in the event store.
+    /// time. The durable record of every delivery lives in the event store.
+    ///
+    /// <para><b>Nothing redelivers a failed one today.</b> This type used to say a failure may
+    /// still succeed later through retries; the substrate does expose a pending-event sweep, but
+    /// no caller in Core invokes it, so the dispatch-time outcome is the final one rather than a
+    /// first attempt. That is why §EVN23 makes inspecting the result an obligation instead of a
+    /// courtesy — see <see cref="EventPublishResult{T}.HasFailedDeliveries"/>.</para>
     /// </summary>
     /// <typeparam name="T">The type of the domain event content payload.</typeparam>
     public sealed class EventDelivery<T>
@@ -30,6 +35,20 @@ namespace Glory2Him.Core.Models.Events
         /// Whether the subscription's handler completed successfully during inline dispatch.
         /// </summary>
         public bool IsSuccess { get; init; }
+
+        /// <summary>
+        /// Whether the subscription REPORTED A FAILURE at dispatch time — the substrate's own
+        /// Error status, and nothing else.
+        ///
+        /// <para><b>Not simply the inverse of <see cref="IsSuccess"/>.</b> Four statuses are
+        /// possible and only one is success, so "not successful" also covers Pending and Replay,
+        /// which are ordinary transient outcomes rather than failures. A publisher inspecting on
+        /// the inverse would raise §EVN23's Critical alarm — which claims a permanent,
+        /// unrepairable divergence — for a delivery that had simply not been attempted yet. The
+        /// broker classifies this from the status enum so no caller has to infer it from a
+        /// string.</para>
+        /// </summary>
+        public bool IsFailure { get; init; }
 
         /// <summary>
         /// The delivery status at dispatch time: Pending, Success, Error, or Replay.

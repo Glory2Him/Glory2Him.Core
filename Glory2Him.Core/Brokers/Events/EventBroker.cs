@@ -156,6 +156,11 @@ namespace Glory2Him.Core.Brokers.Events
                 {
                     SubscriptionId = listenerEventV2.EventListenerV2Id,
                     IsSuccess = listenerEventV2.Status == ListenerEventStatusV2.Success,
+
+                    // Error alone. Pending and Replay are neither success nor failure, and a
+                    // publisher that treated them as failures would raise §EVN23's Critical
+                    // alarm for a delivery that had simply not been attempted yet.
+                    IsFailure = listenerEventV2.Status == ListenerEventStatusV2.Error,
                     Status = listenerEventV2.Status.ToString(),
                     ResponseCode = listenerEventV2.ResponseCode,
                     ResponseMessage = listenerEventV2.ResponseMessage,

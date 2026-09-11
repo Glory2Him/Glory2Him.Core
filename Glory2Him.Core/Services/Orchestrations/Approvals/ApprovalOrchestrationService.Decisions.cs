@@ -16,6 +16,7 @@ using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Bases;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Exceptions;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
@@ -269,11 +270,81 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             TEntity command,
             TOperation operation,
             Func<EventEnvelope<TEntity>, TOperation, ValueTask<EventPublishResult<TEntity>>> publish)
+            where TOperation : struct, Enum
         {
             EventEnvelope<TEntity> commandEnvelope =
                 await this.eventEnvelopeBroker.CreateSystemAsync(content: command);
 
-            await publish(commandEnvelope, operation);
+            EventPublishResult<TEntity> publishResult =
+                await publish(commandEnvelope, operation);
+
+            // §EVN23. This is the one publish in the solution that is not merely announcing a
+            // fact — it is the INSTRUCTION that carries a recorded decision to the entity that
+            // owns it. The approval row is already committed by the time this runs, so a
+            // delivery that failed leaves the approval saying Approved and the entity still
+            // sitting at Submitted, with nothing to notice it: delivery is contained, so the
+            // failure appears only here, and nothing redelivers it.
+            //
+            // Logged rather than thrown, for the same reason the foundations log: the decision
+            // the caller asked for WAS recorded, and reporting it as failed would be wrong.
+            //
+            // Being the last statement of THIS METHOD buys nothing here, and an earlier version
+            // of this comment claimed otherwise. This is a shared helper: ResetApprovalAsync
+            // reaches it through PublishEntityApprovalCommandAsync and then still owes §8.6.2's
+            // ResetStaleAIReviewerAssignmentAsync. What makes the report safe is that it is
+            // CONTAINED below, not where it sits.
+            //
+            // ApprovalOutcome.IsEntitySyncRequested stays true — §16.7.1 defines it as
+            // requested rather than landed, and the command was in fact published.
+            if (publishResult.HasFailedDeliveries)
+            {
+                // CONTAINED, because the report is bookkeeping on somebody else's path and does
+                // not get to decide that path's outcome — the same shape, and the same argument,
+                // as ResetStaleAIReviewerAssignmentAsync and Substrate's onVerified hook.
+                // LogCriticalAsync has no try/catch of its own, so a faulting sink (back-
+                // pressure, a disposed provider at shutdown) would otherwise propagate: it would
+                // report a COMMITTED write as a failed one, which is exactly what rule 2 forbids
+                // and what being last in this method does NOT prevent. Being last only stops the
+                // throw skipping work that follows it HERE — and where this report sits in a
+                // shared helper, work still follows it in the CALLER.
+                //
+                // Swallowed rather than logged, and that is the one place this differs from
+                // those two: the sink that would have to carry a second message is the one that
+                // just threw. The delivery failure is already recorded on the event store's own
+                // row, which the event id and subscription id locate.
+                //
+                // EVERY exception, cancellation included, and that is deliberate.
+                // ILoggingBroker.LogCriticalAsync(Exception) takes no CancellationToken, so the
+                // caller's token cannot reach it: an OperationCanceledException raised in there
+                // is never the caller cancelling, it is the SINK failing — a disposed provider
+                // at shutdown, or a batching provider's own flush deadline — which is the case
+                // this block exists for. An earlier version carved it out by exception filter,
+                // copied from ResetStaleAIReviewerAssignmentAsync and Substrate's onVerified
+                // hook; both of those guard calls that DO take a token, so the carve-out means
+                // something there and nothing here.
+                //
+                // What the carve-out actually did: the escape landed in this service's TryCatch,
+                // whose cancellation arm matches an OperationCanceledException whose token is
+                // NOT cancelled — the exact shape of a sink-originated one — and turned a
+                // committed write into a timeout reported to the caller. It also skipped the
+                // outbound dedup write below, letting a redelivery re-apply the transition.
+                // Composed OUTSIDE the try, so only the SINK is contained. ForFailedDeliveries
+                // carries its own precondition and refuses to render a report naming nobody; a
+                // guard that can only ever be swallowed is not a guard, and a fault composing
+                // the message is a defect in this code rather than a sink that is down. Inside
+                // the block it would vanish with no log and no trace — a second silent
+                // containment in the mechanism built to end the first one.
+                FailedEventDeliveryException deliveryReport =
+                    FailedEventDeliveryException.ForFailedDeliveries(publishResult, operation);
+
+                try
+                {
+                    await this.loggingBroker.LogCriticalAsync(deliveryReport);
+                }
+                catch (Exception)
+                {
+                }
+            }
         }
 
         // The decided state, and nothing else. Publication is asked for only alongside an
