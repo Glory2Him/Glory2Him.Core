@@ -1628,10 +1628,14 @@ either.
      `IAccessBroker.FindRetirableApprovalReviewRequestIdsAsync`, which reads
      `ApprovalId` and `IsDeleted` and never the status; an earlier draft of this
      item said otherwise and was wrong. The gate is load-bearing because only
-     three of `ModifyApprovalAsync`'s six call sites close a round — the other
+     three of the workflow seam's six call sites close a round — the other
      three publish `-Modified` on an OPEN one, including §8.6 HR-4's reset to
      `Submitted`, where an ungated sweep would retire the invitations a
-     moderator had just re-issued. Given the gate, a `-Modified` that closed
+     moderator had just re-issued. The public modify door and the live
+     `Approval-Modifying` command address publish the same fact through the
+     same `DoModifyApprovalAsync`, so the six are not the whole inventory —
+     which is the argument for gating on the envelope rather than enumerating
+     publishers at all. Given the gate, a `-Modified` that closed
      nothing costs one comparison and no gather at all, and a redelivered one on
      a closed round finds no live rows.
 
@@ -1670,9 +1674,13 @@ answerer's row. Two subscriptions have no such order, and the losing order is th
 common case — the last vote closes the round, the re-test's write publishes
 `-Modified` synchronously, and rule 8 sweeps the answerer's own invitation with
 the reason "the approval round closed before this review was cast". So the rule 8
-gather **excludes any `RequestedUserId` with a recorded review on the round**
-(`G2H Design.md` §12.5.4 business rule 4(ii)), which makes the order irrelevant
-rather than merely unlikely to bite.
+gather **excludes any `RequestedUserId` holding a review that still STANDS** —
+`IsDeleted == false && Verdict != Dismissed`, the `ActiveReviewerUserIds`
+predicate (`G2H Design.md` §12.5.4 business rule 4(ii)) — which makes the order
+irrelevant rather than merely unlikely to bite. It is deliberately NOT the
+unfiltered recorded set: a dismissal makes a person invitable again, so keying
+on "ever reviewed" would skip their *second* invitation at every future close of
+the round and strand exactly the row rule 8 exists to remove.
 
 Three things about this pair, and each is a question a reviewer will ask:
 
