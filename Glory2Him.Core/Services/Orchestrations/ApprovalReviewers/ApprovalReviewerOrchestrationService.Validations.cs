@@ -107,9 +107,15 @@ namespace Glory2Him.Core.Services.Orchestrations.ApprovalReviewers
                 (Rule: IsInvalid(requestedUserId),
                     Parameter: nameof(ApprovalReviewRequest.RequestedUserId)));
 
-        // The scope is gathered off an approval the caller-facing lookup just proved exists, so
-        // a null here means the row vanished between the two reads. Reported as not-found rather
-        // than as a service fault: the caller's next move is the same either way.
+        // The ONE not-found this service has. The entity-keyed gather answers null when no
+        // approval carries the key, and it answers null again after a repair that could not run —
+        // a taken-down entity, or one already decided (§9.8). Reported as not-found rather than
+        // as a service fault: the caller's next move is the same either way.
+        //
+        // The sentence is CHARACTER-FOR-CHARACTER the one ValidateStorageEntityIsVisible throws,
+        // and that is load-bearing rather than tidy: §14.5 rule 2 surfaces exception messages to
+        // callers, so a missing round and a hidden entity a caller could tell apart would be one
+        // refusal and one takedown oracle. If either is reworded, reword both.
         private static void ValidateStorageReviewerScopeResolved(
             ApprovalReviewerScope maybeScope,
             EntityType entityType,
@@ -200,21 +206,6 @@ namespace Glory2Him.Core.Services.Orchestrations.ApprovalReviewers
                 throw new InvalidApprovalReviewerOrchestrationException(
                     message: $"User {requestedUserId} is restricted to read-only for this "
                         + "entity and cannot review it.");
-            }
-        }
-
-        // Reported as not-found rather than as an empty answer: a caller that cannot tell "no
-        // approval exists" from "an approval exists and nobody has been asked" would offer the
-        // invite control for a row with no round behind it.
-        private static void ValidateStorageApprovalExists(
-            ApprovalEntityMatch maybeMatch,
-            EntityType entityType,
-            Guid entityId)
-        {
-            if (maybeMatch is null)
-            {
-                throw new NotFoundApprovalReviewerOrchestrationException(
-                    message: $"Approval not found for {entityType} with id: {entityId}.");
             }
         }
 

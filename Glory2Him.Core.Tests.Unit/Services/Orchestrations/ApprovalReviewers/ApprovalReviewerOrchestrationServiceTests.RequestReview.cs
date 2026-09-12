@@ -615,23 +615,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ApprovalReviewers
                     ActiveRequests = activeRequests,
                 };
 
-            this.approvalServiceMock.Setup(service =>
-                service.FindApprovalByEntityAsync(
-                    It.IsAny<EntityType>(),
-                    It.IsAny<Guid>(),
-                    It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(new ApprovalEntityMatch
-                        {
-                            Id = approvalId,
-                            ApprovalStatus = ApprovalStatus.Submitted,
-                            IsDeleted = false,
-                        });
-
             // the FIRST read sees nothing, which is what lets both callers try; the re-read after
             // the collision sees the winner's row
             this.accessBrokerMock.SetupSequence(broker =>
-                broker.RetrieveApprovalReviewerScopeByIdAsync(
-                    approvalId,
+                broker.RetrieveApprovalReviewerScopeByEntityAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(ScopeWith(Array.Empty<ActiveReviewRequest>()))
                         .ReturnsAsync(ScopeWith(new[]

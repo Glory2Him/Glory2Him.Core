@@ -85,8 +85,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ApprovalReviewers
             SetupReviewerScope(approvalId: approvalId, contentType: null);
 
             this.accessBrokerMock.Setup(broker =>
-                broker.RetrieveApprovalReviewerScopeByIdAsync(
-                    approvalId,
+                broker.RetrieveApprovalReviewerScopeByEntityAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(new ApprovalReviewerScope
                         {
@@ -118,8 +119,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ApprovalReviewers
             SetupReviewerScope(approvalId: approvalId, contentType: null);
 
             this.accessBrokerMock.Setup(broker =>
-                broker.RetrieveApprovalReviewerScopeByIdAsync(
-                    approvalId,
+                broker.RetrieveApprovalReviewerScopeByEntityAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(new ApprovalReviewerScope
                         {
@@ -143,6 +145,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ApprovalReviewers
                         });
         }
 
+        // ONE stub, on the ENTITY-keyed overload, because that is the one read the resolver makes
+        // (§12.5.4 business rule 2). It used to take two — a FindApprovalByEntityAsync answering
+        // the id, then the by-id gather — and the approvalId parameter survives because every
+        // caller-facing read below is keyed on the round the scope names.
         private void SetupReviewerScope(
             Guid approvalId,
             ApprovalStatus approvalStatus = ApprovalStatus.Submitted,
@@ -152,21 +158,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ApprovalReviewers
             IReadOnlyList<string> recordedReviewerUserIds = null,
             string contentType = null)
         {
-            this.approvalServiceMock.Setup(service =>
-                service.FindApprovalByEntityAsync(
+            this.accessBrokerMock.Setup(broker =>
+                broker.RetrieveApprovalReviewerScopeByEntityAsync(
                     It.IsAny<EntityType>(),
                     It.IsAny<Guid>(),
-                    It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(new ApprovalEntityMatch
-                        {
-                            Id = approvalId,
-                            ApprovalStatus = approvalStatus,
-                            IsDeleted = false,
-                        });
-
-            this.accessBrokerMock.Setup(broker =>
-                broker.RetrieveApprovalReviewerScopeByIdAsync(
-                    approvalId,
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(new ApprovalReviewerScope
                         {

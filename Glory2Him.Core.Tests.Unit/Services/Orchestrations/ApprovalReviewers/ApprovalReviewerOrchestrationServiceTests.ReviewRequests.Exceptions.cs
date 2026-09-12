@@ -135,12 +135,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ApprovalReviewers
             // given
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
 
-            this.approvalServiceMock.Setup(service =>
-                service.FindApprovalByEntityAsync(
+            // No round on the key, stated on the ENTITY-KEYED gather because that is the read the
+            // resolver makes. The repair that follows cannot open one either: the entity's own
+            // status is unreadable here, so §9.8's in-play gate refuses and the retry answers
+            // null again.
+            this.accessBrokerMock.Setup(broker =>
+                broker.RetrieveApprovalReviewerScopeByEntityAsync(
                     It.IsAny<EntityType>(),
                     It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()))
-                        .ReturnsAsync((ApprovalEntityMatch)null);
+                        .ReturnsAsync((ApprovalReviewerScope)null);
 
             // when
             ValueTask<ApprovalReviewRequest> withdrawTask =

@@ -125,11 +125,15 @@ namespace Glory2Him.Core.Services.Orchestrations.ApprovalReviewers
 
             ValidateStorageEntityIsVisible(isEntityVisible, entityType, entityId);
 
-            // Unfiltered, for the same reason the verdict's lookup is: a soft-deleted approval
-            // still occupies the key, and a filtered read would report "no approval" for one
-            // that exists (9.7.2 rule 3).
-            ApprovalEntityMatch maybeMatch =
-                await this.approvalService.FindApprovalByEntityAsync(
+            // ONE read, keyed on the ENTITY (§12.5.4 business rule 2). The by-id form would need
+            // the approval resolved first, through IApprovalWorkflowService.FindApprovalByEntity
+            // Async, and the gather would then read the same row a second time. An economy rather
+            // than a new capability: the overload is this broker's own entity-keyed approval
+            // lookup, unfiltered on IsDeleted for the reason that lookup already is — a
+            // soft-deleted approval still occupies the key, and a filtered read would report "no
+            // approval" for one that exists (§9.7.2 rule 3) — followed by the identical gather.
+            ApprovalReviewerScope maybeScope =
+                await this.accessBroker.RetrieveApprovalReviewerScopeByEntityAsync(
                     entityType: entityType,
                     entityId: entityId,
                     cancellationToken: cancellationToken);
@@ -139,22 +143,21 @@ namespace Glory2Him.Core.Services.Orchestrations.ApprovalReviewers
             // never opened answers NotFound to a moderator who can do nothing about it. Asked
             // only when there is nothing there — a repair is the exception, and running its
             // entity probe on every healthy read would buy a storage round trip per call.
-            if (maybeMatch is null)
+            //
+            // Null means NO ROW AT ALL, which is what makes the narrow repair below sound: the
+            // overload is unfiltered, so a soft-deleted approval would have answered its scope.
+            //
+            // RE-READ afterwards rather than trusted, so a repair that could not run still ends
+            // in the honest NotFound.
+            if (maybeScope is null)
             {
                 await RepairMissingApprovalAsync(entityType, entityId, cancellationToken);
 
-                maybeMatch = await this.approvalService.FindApprovalByEntityAsync(
+                maybeScope = await this.accessBroker.RetrieveApprovalReviewerScopeByEntityAsync(
                     entityType: entityType,
                     entityId: entityId,
                     cancellationToken: cancellationToken);
             }
-
-            ValidateStorageApprovalExists(maybeMatch, entityType, entityId);
-
-            ApprovalReviewerScope maybeScope =
-                await this.accessBroker.RetrieveApprovalReviewerScopeByIdAsync(
-                    maybeMatch.Id,
-                    cancellationToken);
 
             ValidateStorageReviewerScopeResolved(maybeScope, entityType, entityId);
 
