@@ -81,7 +81,7 @@ view you were on, and switching carries your current selection across.
   toggle reveals the DateTime / Identifier / Logging / Hash broker copies
   that are hidden by default for readability.
 
-## Current truths captured in the data (full re-scan 2026-08-21; targeted updates 2026-08-28, 2026-09-07 and 2026-09-10)
+## Current truths captured in the data (full re-scan 2026-08-21; targeted updates 2026-08-28, 2026-09-07, 2026-09-10 and 2026-09-12)
 
 - **The collection reads are no longer the answer to every question**
   (2026-09-07). Where a caller used to take `RetrieveAll<Entity>Async`'s live
@@ -140,12 +140,26 @@ view you were on, and switching carries your current selection across.
   current caller. The broker is read-only by interface (Select members only, no design-time
   factory, no migrations), and `FS.IdentityUser` is the one foundation with **no**
   `EventEnvelopeBroker` and **no** `SecurityAuditBroker` edge — it writes nothing, publishes
-  nothing, and who may enumerate users is decided by `AO` before the call is made.
-- **`AO` gained the invitation flow** — `RetrieveReviewerCandidatesAsync`,
-  `RequestApprovalReviewAsync` and `WithdrawApprovalReviewRequestAsync`, plus the rule 6
-  retirement hanging off `OnApprovalReviewAddedAsync`. These are the operations needing BOTH
-  stores, which is why they sit in an orchestration rather than a foundation. It took the
-  service to eleven dependencies; the refactor is tracked separately.
+  nothing, and who may enumerate users is decided by `ARO` before the call is made.
+- **`ARO` owns the invitation flow, and `AO` no longer does** (PR #535, design §12.5.4).
+  `RetrieveReviewerCandidatesAsync`, `RetrieveReviewerDisplayNamesAsync`,
+  `RequestApprovalReviewAsync`, `RetrieveApprovalReviewRequestsAsync` and
+  `WithdrawApprovalReviewRequestAsync` are `ApprovalReviewerOrchestrationService`'s. These are
+  the operations needing BOTH stores, which is why they sit in an orchestration rather than a
+  foundation, and `FS.IdentityUser` now has exactly one consumer. That refactor is what closed
+  the eleven-dependency problem this section used to record as tracked separately: `AO` is back
+  to three arm-bearing seams and twelve catch blocks.
+- **`ARO` resolves the round in ONE read, keyed on the entity** —
+  `AccessBroker.RetrieveApprovalReviewerScopeByEntityAsync`. The two-read shape the invitation
+  flow used to draw (`FS.Approval.FindApprovalByEntityAsync` then
+  `AccessBroker.RetrieveApprovalReviewerScopeByIdAsync`) is made by no method on any service
+  now. On a null it runs the §9.7.2 rule 1 repair — hence its `RetrieveEntityApprovalStatusAsync`,
+  `FindApprovalByEntityAsync` and `AddApprovalAsync` edges — and asks the gather again.
+- **`ARO` binds no subscriptions yet**, which is why the purple count did not move. The rule 6
+  retirement still hangs off `AO.OnApprovalReviewAddedAsync` and the rule 8 sweep off `AO`'s
+  closing paths; issue #522 brings both here as subscriptions and takes
+  `IApprovalReviewRequestWorkflowService` off `AO` with them. Issue #523 splits
+  `ApprovalsController`, which binds `ARO` for its five reviewer routes meanwhile.
 - **`RetireAnsweredApprovalReviewRequestAsync` is the second workflow seam in
   the graph**, after `ApprovalReviewService.DismissStaleApprovalReviewAsync`,
   and it is drawn the same way: a `CreateSystemAsync` edge instead of
@@ -257,12 +271,12 @@ view you were on, and switching carries your current selection across.
   added 2026-08-12) is not modelled. It has no events, so it does not affect
   the subscription count.
 - **The eleven WebApp controllers** above are not modelled.
-- **`AO`'s `IAccessBroker.IsEntityVisibleAsync` edge is not drawn.**
-  `ResolveReviewerScopeAsync` calls it on the way into all three invitation
-  reads, so `RetrieveReviewerCandidatesAsync`, `RequestApprovalReviewAsync`
-  and `RetrieveApprovalReviewRequestsAsync` each miss one broker edge. The
-  2026-09-07 update added `RetrieveApprovalReviewRequestsAsync` at its
-  siblings' level of detail rather than fixing one of the three.
+- **`ARO`'s `IAccessBroker.IsEntityVisibleAsync` edge IS drawn now**, on all five
+  operations, which closes the gap this section used to record against `AO`. The
+  edge was missing because `ResolveReviewerScopeAsync` calls it on the way into
+  every invitation read and the 2026-09-07 update modelled the operations without
+  it; the 2026-09-12 move drew the resolver's whole call set per method, the way
+  `AIRO`'s narrow resolver already was.
 - **7 of 184 event addresses are absent from the manifest** — the whole
   `Attachment` family. They are declared on `IEventBroker` but no service
   publishes or subscribes them, so nothing would be drawn. The manifest
@@ -278,12 +292,20 @@ view you were on, and switching carries your current selection across.
   `FS.ApprovalReviewRequest` follows its siblings rather than fixing this for
   one service alone, which would make the picture less consistent, not more.
   Correcting it is a template-wide edit and belongs to a full re-scan.
-- **The header counts moved again on 2026-09-10** and the
-  `/update-dependency-graph` skill's verification numbers are stale by two
-  generations now: single copy reads **67 components · 1368 flows** (was 65 ·
-  1298), per consumer **177 nodes · 1774 flows** (was 153 · 1626). Purple edges
-  are still 112 in both views and 63 lines still render red in both — the AI
-  reviewer added neither, for the reasons in the two bullets below.
+- **The header counts moved again on 2026-09-12.** Single copy reads
+  **68 components · 1406 flows**, per consumer **193 nodes · 1883 flows**.
+  Purple edges are still **112** in both views and **63** lines still render red
+  in both — neither the AI reviewer nor the reviewer orchestration added any, for
+  the reasons in the bullets below: `ARO` binds no subscriptions and publishes
+  nothing. The `/update-dependency-graph` skill's own verification numbers are
+  stale by three generations now and should be read from here instead.
+
+  *Measured by running the page's own `buildSingleCopyInstances` and
+  `buildDuplicatedInstances` over the data rather than read off a screenshot, so
+  the two view numbers are directly comparable. Doing that also showed the
+  2026-09-10 figures recorded here were themselves slightly low — the flows on
+  that scan were 1384 single and 1798 per consumer, not 1368 and 1774. The
+  component and node counts were right.*
 - **The AI reviewer (Berean) is modelled as of 2026-09-10** — issue #354 Track A,
   PR #475. Two new components: `FS.AIReviewerAssignment` (the foundation, whose
   `ReturnStaleAIReviewerAssignmentToPendingAsync` row is the
@@ -301,6 +323,23 @@ view you were on, and switching carries your current selection across.
   is declared and unwired. Its `EnvelopeIntegrityBroker` calls are deliberately
   NOT declared, following the 14 sibling foundations rather than fixing that
   inconsistency for one service alone (see the bullet above).
+- **The reviewer orchestration is modelled as of 2026-09-12** — issue #521,
+  PR #535. One new component, `ARO` (`ApprovalReviewerOrchestrationService`),
+  and it is the same shape of split as `AIRO` for the same reason: one contract
+  had two subjects. The five reviewer-coordination operations moved off `AO`
+  with `IApprovalReviewRequestService`, `IApprovalCommentService` and
+  `IIdentityUserService`, so `AO` lost sixteen call edges and `FS.IdentityUser`
+  changed consumer. `ARO` holds a fourth service dependency,
+  `IApprovalWorkflowService`, drawn as its `FindApprovalByEntityAsync` and
+  `AddApprovalAsync` edges — that is the §9.7.2 rule 1 repair, and it is the
+  approved Florance deviation §12.5's register records.
+  **`ARO` draws no purple edges and no red ones**: it binds no subscriptions and
+  publishes nothing today. Issue #522 brings the §7.9 rule 6 and rule 8
+  retirements here as subscriptions — which is when its first purple edges
+  appear and when `AO`'s `RetireAnsweredApprovalReviewRequestAsync` and
+  `RetrieveApprovalReviewerScopeByIdAsync` edges leave — and issue #523 splits
+  `ApprovalsController`. Like `AIRO`, it renders with zero inbound flows because
+  the controller folders are still unmodelled (see the bullet below).
 - **Two gaps are still open and neither is this update's doing.**
   `EventSubscriptionRegistration` now wires **119** subscriptions while the data
   declares **112** — a drift of seven that predates the AI reviewer and wants a
