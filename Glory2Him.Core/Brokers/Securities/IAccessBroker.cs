@@ -386,5 +386,26 @@ namespace Glory2Him.Core.Brokers.Securities
         ValueTask<ApprovalReviewerScope?> RetrieveApprovalReviewerScopeByIdAsync(
             Guid approvalId,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// <see cref="RetrieveApprovalReviewerScopeByIdAsync"/>, resolved from the round's
+        /// ENTITY key rather than its own id (§12.5.4 business rule 2).
+        ///
+        /// <para>An economy, not a new capability. Every reviewer orchestration operation is keyed
+        /// on an entity and needs the round behind that key; resolving it through
+        /// <c>IApprovalWorkflowService.FindApprovalByEntityAsync</c> and then this broker's by-id
+        /// form would read the same row twice. This does it in one — it is
+        /// <see cref="FindApprovalAsync"/>, deliberately unfiltered on <c>IsDeleted</c> for the
+        /// same reason that method already is, followed by the identical gather the by-id form
+        /// performs.</para>
+        ///
+        /// <para>Returns <c>null</c> when no approval carries the entity key, exactly as the by-id
+        /// form answers <c>null</c> for an approval that is not there — distinguishable from an
+        /// empty scope, which is not the same fact.</para>
+        /// </summary>
+        ValueTask<ApprovalReviewerScope?> RetrieveApprovalReviewerScopeByEntityAsync(
+            EntityType entityType,
+            Guid entityId,
+            CancellationToken cancellationToken = default);
     }
 }

@@ -1087,13 +1087,43 @@ namespace Glory2Him.Core.Brokers.Securities
                 return null;
             }
 
+            return await BuildApprovalReviewerScopeAsync(maybeApproval, cancellationToken);
+        }
+
+        // The by-entity twin of RetrieveApprovalReviewerScopeByIdAsync (§12.5.4 business rule 2).
+        // It adds no capability — FindApprovalAsync is deliberately unfiltered on IsDeleted, so it
+        // resolves the same round the by-id form would once the id is known, and hands it to the
+        // SAME gather. The two entry points differ only in how the round is named.
+        public async ValueTask<ApprovalReviewerScope?> RetrieveApprovalReviewerScopeByEntityAsync(
+            EntityType entityType,
+            Guid entityId,
+            CancellationToken cancellationToken = default)
+        {
+            Approval? maybeApproval = await FindApprovalAsync(entityType, entityId, cancellationToken);
+
+            if (maybeApproval is null)
+            {
+                return null;
+            }
+
+            return await BuildApprovalReviewerScopeAsync(maybeApproval, cancellationToken);
+        }
+
+        // The gather both entry points above share. Splitting it out is not the per-operation
+        // composition CLAUDE.md warns against reusing — there is exactly one way to describe an
+        // approval's reviewer scope, and the two callers differ only in how they resolve the row,
+        // never in what they do with it once resolved.
+        private async ValueTask<ApprovalReviewerScope> BuildApprovalReviewerScopeAsync(
+            Approval approval,
+            CancellationToken cancellationToken)
+        {
             (string entityCreatedBy, IReadOnlyList<RoleSubject> roleSubjects, _, _, _, _) =
                 await ResolveEntityAsync(
-                    maybeApproval.EntityType,
-                    maybeApproval.EntityId,
+                    approval.EntityType,
+                    approval.EntityId,
                     cancellationToken);
 
-            ApprovalReviewSnapshot snapshot = await GatherAsync(maybeApproval, cancellationToken);
+            ApprovalReviewSnapshot snapshot = await GatherAsync(approval, cancellationToken);
 
             // Only the reviews that still stand. A withdrawn review frees the person to be asked
             // again, and a dismissed one means their verdict no longer describes the current
@@ -1127,7 +1157,7 @@ namespace Glory2Him.Core.Brokers.Securities
 
             List<ActiveReviewRequest> activeRequests = allRequests
                 .Where(request =>
-                    request.ApprovalId == maybeApproval.Id
+                    request.ApprovalId == approval.Id
                         && request.IsDeleted == false)
                 .Select(request => new ActiveReviewRequest
                 {
@@ -1138,8 +1168,8 @@ namespace Glory2Him.Core.Brokers.Securities
 
             return new ApprovalReviewerScope
             {
-                ApprovalId = maybeApproval.Id,
-                ApprovalStatus = maybeApproval.ApprovalStatus,
+                ApprovalId = approval.Id,
+                ApprovalStatus = approval.ApprovalStatus,
                 EntityCreatedBy = entityCreatedBy,
                 RoleSubjects = roleSubjects,
                 ActiveReviewerUserIds = activeReviewerUserIds,
