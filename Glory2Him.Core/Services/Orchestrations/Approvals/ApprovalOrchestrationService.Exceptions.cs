@@ -12,8 +12,11 @@
 using System;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.AIReviewerAssignments.Exceptions;
+using Glory2Him.Core.Models.Foundations.ApprovalComments.Exceptions;
 using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests.Exceptions;
+using Glory2Him.Core.Models.Foundations.ApprovalReviews.Exceptions;
 using Glory2Him.Core.Models.Foundations.Approvals.Exceptions;
+using Glory2Him.Core.Models.Foundations.IdentityUsers.Exceptions;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
 using Glory2Him.Core.Models.Orchestrations.Approvals.Exceptions;
 using Xeptions;
@@ -174,6 +177,86 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 throw await CreateAndLogDependencyExceptionAsync(
                     exception: aiReviewerAssignmentServiceException);
             }
+            // The ApprovalReview foundation's exceptions (design §16.7.1, issue #518) — the full
+            // four-block arm, named explicitly rather than left for the two failure-shaped
+            // members to reach the catch-all by coincidence: a family not named here is a raw
+            // foundation exception escaping the layer the moment a caller upstream changes shape,
+            // even where today's wrapping happens to match. Without the validation-shaped pair a
+            // review that cannot be dismissed twice, for instance, reached the caller as a 424
+            // instead of the 400 every sibling foundation's routine refusal gets.
+            catch (ApprovalReviewValidationException approvalReviewValidationException)
+            {
+                throw await CreateAndLogDependencyValidationExceptionAsync(
+                    exception: approvalReviewValidationException);
+            }
+            catch (ApprovalReviewDependencyValidationException
+                approvalReviewDependencyValidationException)
+            {
+                throw await CreateAndLogDependencyValidationExceptionAsync(
+                    exception: approvalReviewDependencyValidationException);
+            }
+            catch (ApprovalReviewDependencyException approvalReviewDependencyException)
+            {
+                throw await CreateAndLogDependencyExceptionAsync(
+                    exception: approvalReviewDependencyException);
+            }
+            catch (ApprovalReviewServiceException approvalReviewServiceException)
+            {
+                throw await CreateAndLogDependencyExceptionAsync(
+                    exception: approvalReviewServiceException);
+            }
+
+            // The ApprovalComment foundation's exceptions (design §16.7.1, issue #518) — the full
+            // four-block arm, reached through the reviewer display-name resolver's round-keyed
+            // comment read. Without the validation-shaped pair a refusal there also reported as a
+            // 424; the two failure-shaped blocks are named explicitly for the same reason the
+            // ApprovalReview arm's are, rather than left to the catch-all below.
+            catch (ApprovalCommentValidationException approvalCommentValidationException)
+            {
+                throw await CreateAndLogDependencyValidationExceptionAsync(
+                    exception: approvalCommentValidationException);
+            }
+            catch (ApprovalCommentDependencyValidationException
+                approvalCommentDependencyValidationException)
+            {
+                throw await CreateAndLogDependencyValidationExceptionAsync(
+                    exception: approvalCommentDependencyValidationException);
+            }
+            catch (ApprovalCommentDependencyException approvalCommentDependencyException)
+            {
+                throw await CreateAndLogDependencyExceptionAsync(
+                    exception: approvalCommentDependencyException);
+            }
+            catch (ApprovalCommentServiceException approvalCommentServiceException)
+            {
+                throw await CreateAndLogDependencyExceptionAsync(
+                    exception: approvalCommentServiceException);
+            }
+
+            // The IdentityUser foundation's exceptions (design §16.7.1, issue #518) — a THREE-block
+            // arm rather than four. IIdentityUserService exposes two read-only operations, and a
+            // read-only contract has no uniqueness collision, no foreign-key violation and no
+            // constraint conflict, so there is no IdentityUserDependencyValidationException
+            // anywhere in the solution and none should be added (issue #518 finding 1). Reached
+            // through the tier-membership read the candidates listing and the invitation flow both
+            // compose. The two failure-shaped blocks are named explicitly rather than left to the
+            // catch-all, for the same reason the other two arms' are.
+            catch (IdentityUserValidationException identityUserValidationException)
+            {
+                throw await CreateAndLogDependencyValidationExceptionAsync(
+                    exception: identityUserValidationException);
+            }
+            catch (IdentityUserDependencyException identityUserDependencyException)
+            {
+                throw await CreateAndLogDependencyExceptionAsync(
+                    exception: identityUserDependencyException);
+            }
+            catch (IdentityUserServiceException identityUserServiceException)
+            {
+                throw await CreateAndLogDependencyExceptionAsync(
+                    exception: identityUserServiceException);
+            }
+
             // Any OTHER downstream foundation exception — an endpoint service's dependency or
             // service failure (its validation failures are already turned into a not-found at the
             // resolution site). Categorized as a dependency issue, and NEVER re-surfaced as its

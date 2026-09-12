@@ -17,12 +17,14 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.ApprovalComments;
+using Glory2Him.Core.Models.Foundations.ApprovalComments.Exceptions;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.IdentityUsers;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
 using Glory2Him.Core.Models.Orchestrations.Approvals.Exceptions;
 using Glory2Him.Core.Models.Securities;
 using Moq;
+using Xeptions;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 {
@@ -714,6 +716,135 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             // then
             actualException.InnerException.Should()
                 .BeOfType<NotFoundApprovalOrchestrationException>();
+
+            this.identityUserServiceMock.VerifyNoOtherCalls();
+        }
+
+        // The two validation-shaped ApprovalComment families (issue #518 criterion 3), kept apart
+        // from the failure-shaped ones below the same way the ApprovalReview split is.
+        public static TheoryData<Xeption> ReviewerDisplayNamesApprovalCommentValidationExceptions()
+        {
+            string randomMessage = GetRandomString();
+            var innerException = new Xeption(message: randomMessage);
+
+            return new TheoryData<Xeption>
+            {
+                new ApprovalCommentValidationException(
+                    message: randomMessage, innerException: innerException),
+
+                new ApprovalCommentDependencyValidationException(
+                    message: randomMessage, innerException: innerException),
+            };
+        }
+
+        // The two failure-shaped ApprovalComment families (issue #518 criterion 4).
+        public static TheoryData<Xeption> ReviewerDisplayNamesApprovalCommentFailureExceptions()
+        {
+            string randomMessage = GetRandomString();
+            var innerException = new Xeption(message: randomMessage);
+
+            return new TheoryData<Xeption>
+            {
+                new ApprovalCommentDependencyException(
+                    message: randomMessage, innerException: innerException),
+
+                new ApprovalCommentServiceException(
+                    message: randomMessage, innerException: innerException),
+            };
+        }
+
+        [Theory]
+        [MemberData(nameof(ReviewerDisplayNamesApprovalCommentValidationExceptions))]
+        public async Task ShouldThrowDependencyValidationExceptionOnResolveIfTheCommentReadDoesAndLogItAsync(
+            Xeption commentFoundationException)
+        {
+            // given: a validation-shaped refusal from the ApprovalComment foundation, raised by
+            // the round-keyed comment read this resolver composes (issue #518 criterion 3) — a
+            // fault in what THIS orchestration asked for, so it becomes a DEPENDENCY VALIDATION
+            // exception rather than the 424 the missing arm used to produce.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
+            Guid approvalId = Guid.NewGuid();
+            SetupReviewerScope(approvalId: approvalId);
+
+            var expectedDependencyValidationException =
+                new ApprovalOrchestrationDependencyValidationException(
+                    message: ExpectedDependencyValidationMessage,
+                    innerException: (commentFoundationException.InnerException as Xeption)!);
+
+            this.approvalCommentServiceMock.Setup(service =>
+                service.RetrieveApprovalCommentsByApprovalIdAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(commentFoundationException);
+
+            // when
+            ValueTask<IReadOnlyList<ReviewerDisplayName>> resolveTask =
+                this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
+                    EntityType.ContentItem,
+                    Guid.NewGuid(),
+                    TestContext.Current.CancellationToken);
+
+            ApprovalOrchestrationDependencyValidationException actualException =
+                await Assert.ThrowsAsync<ApprovalOrchestrationDependencyValidationException>(
+                    resolveTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedDependencyValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedDependencyValidationException))),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogCriticalAsync(It.IsAny<Exception>()),
+                Times.Never);
+
+            this.identityUserServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(ReviewerDisplayNamesApprovalCommentFailureExceptions))]
+        public async Task ShouldThrowDependencyExceptionOnResolveIfTheCommentReadDoesAndLogItAsync(
+            Xeption commentFoundationException)
+        {
+            // given: the same comment read, failing for an external reason instead (issue #518
+            // criterion 4) — unchanged behaviour, pinned so criterion 3 cannot over-reach.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
+            Guid approvalId = Guid.NewGuid();
+            SetupReviewerScope(approvalId: approvalId);
+
+            var expectedDependencyException =
+                new ApprovalOrchestrationDependencyException(
+                    message: ExpectedDependencyMessage,
+                    innerException: (commentFoundationException.InnerException as Xeption)!);
+
+            this.approvalCommentServiceMock.Setup(service =>
+                service.RetrieveApprovalCommentsByApprovalIdAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(commentFoundationException);
+
+            // when
+            ValueTask<IReadOnlyList<ReviewerDisplayName>> resolveTask =
+                this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
+                    EntityType.ContentItem,
+                    Guid.NewGuid(),
+                    TestContext.Current.CancellationToken);
+
+            ApprovalOrchestrationDependencyException actualException =
+                await Assert.ThrowsAsync<ApprovalOrchestrationDependencyException>(
+                    resolveTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedDependencyException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedDependencyException))),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogCriticalAsync(It.IsAny<Exception>()),
+                Times.Never);
 
             this.identityUserServiceMock.VerifyNoOtherCalls();
         }
