@@ -499,6 +499,15 @@ namespace Glory2Him.Core.Brokers.Securities
         // required but not barred from being empty or whitespace-only, and a blank author carries
         // no identity to exclude anybody by — including a request whose own RequestedUserId is
         // itself blank.
+        //
+        // The blank check itself cannot be composed into the SQL predicate below and still mean
+        // the same thing ActiveReviewerUserIds means by it. string.IsNullOrWhiteSpace translates
+        // through the same LTRIM/RTRIM SQL Server gives .Trim() — both strip only the space
+        // character — so a tab- or newline-only CreatedBy reads as blank in C# (both here and in
+        // ActiveReviewerUserIds, which runs over an already-materialized list) but NOT blank once
+        // either expression is translated to SQL. The round-scoped reviews are pulled into memory
+        // first so the blank check runs as the same C# ActiveReviewerUserIds runs, and only the
+        // resulting identity set — not the whitespace rule — crosses back into a translated query.
         public async ValueTask<List<Guid>> FindRetirableApprovalReviewRequestIdsAsync(
             Guid approvalId,
             CancellationToken cancellationToken = default)
@@ -509,18 +518,24 @@ namespace Glory2Him.Core.Brokers.Securities
             IQueryable<ApprovalReview> allApprovalReviews =
                 await this.storageBroker.SelectAllApprovalReviewsAsync(cancellationToken);
 
+            List<string> standingReviewerUserIds = allApprovalReviews
+                .Where(approvalReview =>
+                    approvalReview.ApprovalId == approvalId
+                        && approvalReview.IsDeleted == false
+                        && (approvalReview.StatusId == ApprovalStatus.Approved
+                            || approvalReview.StatusId == ApprovalStatus.Rejected))
+                .Select(approvalReview => approvalReview.CreatedBy)
+                .ToList()
+                .Where(createdBy => string.IsNullOrWhiteSpace(createdBy) is false)
+                .Distinct()
+                .ToList();
+
             return allApprovalReviewRequests
                 .Where(approvalReviewRequest =>
                     approvalReviewRequest.ApprovalId == approvalId
                         && approvalReviewRequest.IsDeleted == false
-                        && allApprovalReviews.Any(approvalReview =>
-                            approvalReview.ApprovalId == approvalId
-                                && approvalReview.IsDeleted == false
-                                && (approvalReview.StatusId == ApprovalStatus.Approved
-                                    || approvalReview.StatusId == ApprovalStatus.Rejected)
-                                && approvalReview.CreatedBy.Trim() != string.Empty
-                                && approvalReview.CreatedBy == approvalReviewRequest.RequestedUserId)
-                            == false)
+                        && standingReviewerUserIds.Contains(
+                            approvalReviewRequest.RequestedUserId) == false)
                 .Select(approvalReviewRequest => approvalReviewRequest.Id)
                 .ToList();
         }
