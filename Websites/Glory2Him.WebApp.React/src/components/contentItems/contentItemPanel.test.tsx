@@ -792,6 +792,38 @@ describe('ContentItemPanel', () => {
             expect(screen.getByText(devotionalItem.content)).toBeInTheDocument();
             expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
         });
+
+        // The reason is worded from the action's OWN label, so the moderated surface — where
+        // the action reads "Edit" — says editing rather than moderation. On hover through
+        // title, and to assistive technology through a visually-hidden twin: a title alone is
+        // not announced, and an aria-label would REPLACE the visible name rather than add to it.
+        it("should word the lock from the action's own label", () => {
+            const approvedItem = atStatus(devotionalItem, ApprovalStatus.Approved);
+            signInAs(authState, ['Administrators']);
+
+            const rendered = renderCard(
+                <ContentItemPanel
+                    contentItem={approvedItem}
+                    onModerateClick={vi.fn()} />);
+
+            const moderateAction = screen.getByRole('button', { name: /Moderate/ });
+
+            expect(moderateAction).toHaveAttribute('title', 'Locked for moderation');
+            expect(moderateAction).toHaveAccessibleName(/Locked for moderation/);
+
+            rendered.rerender(
+                <AuthProvider>
+                    <ContentItemPanel
+                        contentItem={approvedItem}
+                        showModerationSection
+                        onModerateClick={vi.fn()} />
+                </AuthProvider>);
+
+            const editAction = screen.getByRole('button', { name: /Edit/ });
+
+            expect(editAction).toHaveAttribute('title', 'Locked for editing');
+            expect(editAction).toHaveAccessibleName(/Locked for editing/);
+        });
     });
 
     describe('assigned reactions', () => {
