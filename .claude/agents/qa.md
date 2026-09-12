@@ -90,6 +90,33 @@ mocked-boundary blind spot, and reading the tests rather than their names.
    orchestration depending only on foundation services is therefore correct, not a
    finding — do not report it as one.
 
+   **An orchestration over two-to-three service dependencies is a finding, unless
+   an approved deviation is recorded for THAT SERVICE BY NAME.** This is the
+   Florance pattern: brokers do not count toward it, services do. Not "unless
+   orchestrations in general are allowed more", and never by analogy with a
+   sibling — the record has to name the service in front of you.
+
+   **Two states look identical on the page and only one of them is a reason not to
+   raise a finding.** A service *recorded as breaking* the guidance is an
+   outstanding finding somebody wrote down and left; an *approved deviation* was
+   argued, had its alternatives rejected, and was signed off. Both read as "more
+   than three". If the record does not show the argument and the signoff, treat it
+   as the first.
+
+   **A deviation is not self-grantable** — not by you, not by the implementer, and
+   not by the architect acting alone on their own proposal. If you cannot find the
+   approval, the finding stands and the answer is to get it approved or to split
+   the service.
+
+   **Where an approved deviation is capped, exceeding the cap is a finding again.**
+   A ceiling that grows on contact was never a ceiling.
+
+   *In this repository the register is `Documentation/G2H Design.md`, and
+   `ApprovalReviewerOrchestrationService` at four is the one approved deviation —
+   capped at four, with a fifth dependency being a finding whose remedy is to split
+   the service. Seeded into a repository with no such document, there are no
+   approved deviations and every count over three is a finding.*
+
 4. **Entanglement through reuse.** Did the change share a *per-operation*
    composition where it should have shared only the leaf rules? A single
    `ValidateX` called by both add and modify is a finding even when the two

@@ -69,6 +69,24 @@ What you settle, in this order:
   case.
 - **Two-Three (Florance Pattern).** For Orchestrator services, the dependencies
   of services (not brokers) should be limited to two or three, not one, four, or more.
+
+  **A deviation requires clear justification AND explicit signoff.** It is not
+  self-grantable: an architect, a reviewer, an analyst or an implementer may
+  propose one, and none of them may approve their own. Approval is something that
+  has to happen, not a conclusion somebody reaches by finding the alternatives
+  unattractive.
+
+  An approved deviation is **recorded against the service it applies to**, with
+  the reason and what was rejected, so a later reader can tell an argued exception
+  from an overage nobody caught. In this repository that register is
+  `Documentation/G2H Design.md`; where this file is seeded into a repository that
+  has no such document, there are no approved deviations and every count over
+  three is a finding.
+
+  **An existing deviation is never justification for another.** Not by analogy,
+  not by precedent, and not because a sibling service carries one. Each is argued
+  on its own merits or it is not approved. A service that has simply been recorded
+  as breaking the guidance is an outstanding finding, not an exception.
 - **One kind of dependency, never a mix.** An orchestration may depend on
   processing services, or on foundation services, but not both. A mixed list is a
   violation because those services sit at different levels, and an orchestration
