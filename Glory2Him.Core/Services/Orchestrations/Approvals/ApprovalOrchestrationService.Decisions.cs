@@ -108,6 +108,19 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                     approval: decidedApproval,
                     cancellationToken: cancellationToken);
 
+                // §7.9 rule 8. The round has just closed, so the people still shown as owing a
+                // review no longer owe one and could not give one — the decision function refuses
+                // a review on any round that is not Submitted. Their invitations are retired
+                // under the system identity rather than under this caller: they pressed Approve
+                // or Reject, which is not withdrawing anybody's invitation.
+                //
+                // LAST, and it cannot fault this operation — the helper logs its own failure and
+                // returns. By this line the decision has committed and the entity command has
+                // gone; the alternative is reporting a decision that worked as a failure.
+                await RetireUnansweredApprovalReviewRequestsAsync(
+                    closedApproval: decidedApproval,
+                    cancellationToken: cancellationToken);
+
                 return new ApprovalOutcome
                 {
                     ApprovalId = decidedApproval.Id,

@@ -298,6 +298,13 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 approval: rejectedApproval,
                 cancellationToken: cancellationToken);
 
+            // §7.9 rule 8, the rejection route. Nobody clicked, so there is no caller to
+            // attribute the retirement to even in principle — the round was closed by a standing
+            // rejection under BlockOnReject, and the invitations it never answered go with it.
+            await RetireUnansweredApprovalReviewRequestsAsync(
+                closedApproval: rejectedApproval,
+                cancellationToken: cancellationToken);
+
             return DescribeOutcome(rejectedApproval, isEntitySyncRequested: true);
         }
 
