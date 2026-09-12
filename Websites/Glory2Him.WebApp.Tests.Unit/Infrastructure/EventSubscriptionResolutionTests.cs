@@ -140,9 +140,22 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
             IConfiguration configuration = new ConfigurationBuilder()
                 .AddInMemoryCollection(new Dictionary<string, string>
                 {
-                    // Never connected to — EF and the EventHighway client build their options
-                    // eagerly but open nothing, and this test only asks whether the graph can
-                    // be CONSTRUCTED.
+                    // Never connected to, and since §EVN24 that is actually true: EF builds its
+                    // options in OnConfiguring and opens nothing, and EventBroker creates its
+                    // EventHighway client on FIRST USE rather than in its constructor. This test
+                    // only asks whether the graph can be CONSTRUCTED, so nothing here connects.
+                    //
+                    // It used to. The client's constructor calls Database.Migrate(), so before
+                    // §EVN24 this probe CREATED and migrated a SubscriptionResolutionProbe
+                    // catalogue on whatever server it named — a unit test issuing DDL, and the
+                    // only reason it passed anywhere (§12.10 rule 11).
+                    //
+                    // Hence a LocalDB instance name nothing hosts, deliberately not MSSQLLocalDB,
+                    // which LocalDB auto-creates. Not a TCP host either: localhost,1433 is a live
+                    // SQL Server service container in the ubuntu build job, and an .invalid host
+                    // can resolve under a wildcarding DNS resolver — a named instance nothing
+                    // hosts is the shape that fails immediately on both operating systems without
+                    // opening a socket, which matters at 17 resolutions.
                     ["ConnectionStrings:Glory2HimConnectionString"] =
                         "Server=(localdb)\\G2HNoSuchInstance;Database=SubscriptionResolutionProbe;",
 
