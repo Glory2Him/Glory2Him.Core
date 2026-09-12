@@ -11,6 +11,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -109,6 +110,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             // added for §9.7.6 rule 3 would read the mock's default false and refuse, and a
             // suite about thresholds and tiers would be answering "the entity was taken down".
             SetupEntityVisibility(isEntityVisible: true);
+
+            // A ROUND NOBODY IS STILL WAITING ON, unless a test says otherwise. Every route to an
+            // outcome now asks §7.9 rule 8's question, and Moq's default for
+            // ValueTask<List<Guid>> is not an empty list — so without this the retirement would
+            // fault on a null enumeration in every decide and auto-approve test, be swallowed by
+            // the helper's own log-and-continue, and turn a suite about thresholds into one
+            // silently reporting a broken read.
+            this.accessBrokerMock.Setup(broker =>
+                broker.FindRetirableApprovalReviewRequestIdsAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(new List<Guid>());
 
             // The publisher tier by default, because that is who reaches the verdict at all.
             // Tests about the gate override it explicitly.
@@ -364,6 +376,22 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync((Guid aiReviewerAssignmentId, CancellationToken _) =>
                             new AIReviewerAssignment { Id = aiReviewerAssignmentId });
+
+        // §7.9 rule 8's gathering seam — the invitations a closing round has to retire. UNFILTERED
+        // for the reason the dismissal read beside it is: two of the three closing routes run
+        // under the identity of whoever's edit or review tipped the round, which is ordinarily
+        // the author, and the caller-facing read would answer them with nothing.
+        //
+        // Keyed on the approval rather than It.IsAny so a test cannot pass by answering a
+        // question about a different round.
+        private void SetupRetirableApprovalReviewRequests(
+            Guid approvalId,
+            params Guid[] approvalReviewRequestIds) =>
+            this.accessBrokerMock.Setup(broker =>
+                broker.FindRetirableApprovalReviewRequestIdsAsync(
+                    approvalId,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(approvalReviewRequestIds.ToList());
 
         private void SetupConditions(ApprovalConditionsVerdict conditionsVerdict) =>
             this.accessBrokerMock.Setup(broker =>
