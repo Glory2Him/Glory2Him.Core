@@ -78,6 +78,24 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             };
         }
 
+        // The two validation-shaped ApprovalReview families, kept apart from the failure-shaped
+        // ones above (issue #518 criterion 1) — the chain now tells them apart, so a set that did
+        // not would read as though it still did not.
+        public static TheoryData<Xeption> FlowsGuardsApprovalReviewValidationExceptions()
+        {
+            string randomMessage = GetRandomString();
+            var innerException = new Xeption(message: randomMessage);
+
+            return new TheoryData<Xeption>
+            {
+                new ApprovalReviewValidationException(
+                    message: randomMessage, innerException: innerException),
+
+                new ApprovalReviewDependencyValidationException(
+                    message: randomMessage, innerException: innerException),
+            };
+        }
+
         // ── validations: the modified flow ──────────────────────────────────────────────────
 
         [Fact]
@@ -902,6 +920,98 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(SameExceptionAs(expectedDependencyException))),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogCriticalAsync(It.IsAny<Exception>()),
+                Times.Never);
+
+            // and there is no SECOND conditions read: the re-read is what an evaluation would run
+            // on, and no evaluation may follow a half-finished reset.
+            this.accessBrokerMock.Verify(broker =>
+                broker.EvaluateApprovalConditionsByIdAsync(
+                    approvalId,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.accessBrokerMock.Verify(broker =>
+                broker.FindDismissableApprovalReviewIdsAsync(
+                    approvalId,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            VerifyNoFlowsGuardsApprovalWrite();
+            // The entity's status is read so the round can follow a §9.2 carve-out.
+            this.accessBrokerMock.Verify(broker =>
+                broker.RetrieveEntityApprovalStatusAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(FlowsGuardsApprovalReviewValidationExceptions))]
+        public async Task ShouldThrowDependencyValidationExceptionOnModifiedIfTheReviewDismissalDoesAndLogItAsync(
+            Xeption reviewFoundationException)
+        {
+            // given: the same dismissal call site as its failure-shaped sibling above, but a
+            // validation-shaped refusal from the ApprovalReview foundation (issue #518 criterion
+            // 1) — a review that cannot be dismissed twice, for instance — is a fault in what THIS
+            // orchestration asked for, so it now becomes a DEPENDENCY VALIDATION exception rather
+            // than falling to the broad catch the way it used to.
+            EntityType entityType = EntityType.Comment;
+            Guid entityId = Guid.NewGuid();
+            var approvalId = Guid.NewGuid();
+            var staleReviewId = Guid.NewGuid();
+
+            SetupFlowsGuardsResolvedRow(approvalId, entityType, entityId);
+            SetupConditions(CreateFlowsGuardsConditions(shouldResetStaleReviewsOnChange: true));
+
+            SetupFlowsGuardsReviewListing(new List<ApprovalReview>
+            {
+                CreateFlowsGuardsReview(
+                    approvalReviewId: staleReviewId,
+                    approvalId: approvalId,
+                    statusId: ApprovalStatus.Approved),
+            });
+
+            var expectedDependencyValidationException =
+                new ApprovalOrchestrationDependencyValidationException(
+                    message: ExpectedDependencyValidationMessage,
+                    innerException: (reviewFoundationException.InnerException as Xeption)!);
+
+            this.approvalReviewServiceMock.Setup(service =>
+                service.DismissStaleApprovalReviewAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(reviewFoundationException);
+
+            // when
+            ValueTask<ApprovalOutcome> modifiedTask =
+                this.approvalOrchestrationService.ProcessEntityModifiedAsync(
+                    entityType,
+                    entityId,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalOrchestrationDependencyValidationException actualException =
+                await Assert.ThrowsAsync<ApprovalOrchestrationDependencyValidationException>(
+                    modifiedTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedDependencyValidationException);
+
+            this.approvalReviewServiceMock.Verify(service =>
+                service.DismissStaleApprovalReviewAsync(
+                    staleReviewId,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedDependencyValidationException))),
                 Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
