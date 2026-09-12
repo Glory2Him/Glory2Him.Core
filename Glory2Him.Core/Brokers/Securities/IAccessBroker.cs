@@ -400,9 +400,9 @@ namespace Glory2Him.Core.Brokers.Securities
         /// <para>An economy, not a new capability. Every reviewer orchestration operation is keyed
         /// on an entity and needs the round behind that key; resolving it through
         /// <c>IApprovalWorkflowService.FindApprovalByEntityAsync</c> and then this broker's by-id
-        /// form would read the same row twice. This does it in one — it is
-        /// <see cref="FindApprovalAsync"/>, deliberately unfiltered on <c>IsDeleted</c> for the
-        /// same reason that method already is, followed by the identical gather the by-id form
+        /// form would read the same row twice. This does it in one — it is this broker's own
+        /// entity-keyed approval lookup, deliberately unfiltered on <c>IsDeleted</c> for the
+        /// same reason that lookup already is, followed by the identical gather the by-id form
         /// performs.</para>
         ///
         /// <para>Returns <c>null</c> when no approval carries the entity key, exactly as the by-id

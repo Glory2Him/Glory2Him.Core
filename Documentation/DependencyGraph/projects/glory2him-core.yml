@@ -292,6 +292,9 @@ components:
       - from: FindRetirableApprovalReviewRequestIdsAsync
         to: StorageBroker
         method: SelectAllApprovalReviewRequestsAsync
+      - from: FindRetirableApprovalReviewRequestIdsAsync
+        to: StorageBroker
+        method: SelectAllApprovalReviewsAsync
       - from: ResolveAIReviewerPolicyByIdAsync
         to: SC.AccessClient
         method: ResolveAIReviewerPolicyAsync
