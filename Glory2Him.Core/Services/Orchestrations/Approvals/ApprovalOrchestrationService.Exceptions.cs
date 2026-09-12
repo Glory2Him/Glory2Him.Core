@@ -13,6 +13,7 @@ using System;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.AIReviewerAssignments.Exceptions;
 using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests.Exceptions;
+using Glory2Him.Core.Models.Foundations.ApprovalReviews.Exceptions;
 using Glory2Him.Core.Models.Foundations.Approvals.Exceptions;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
 using Glory2Him.Core.Models.Orchestrations.Approvals.Exceptions;
@@ -174,6 +175,22 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 throw await CreateAndLogDependencyExceptionAsync(
                     exception: aiReviewerAssignmentServiceException);
             }
+            // The ApprovalReview foundation's exceptions (design §16.7.1, issue #518). Without
+            // the validation-shaped pair a review that cannot be dismissed twice, for instance,
+            // reached the caller as a 424 instead of the 400 every sibling foundation's routine
+            // refusal gets.
+            catch (ApprovalReviewValidationException approvalReviewValidationException)
+            {
+                throw await CreateAndLogDependencyValidationExceptionAsync(
+                    exception: approvalReviewValidationException);
+            }
+            catch (ApprovalReviewDependencyValidationException
+                approvalReviewDependencyValidationException)
+            {
+                throw await CreateAndLogDependencyValidationExceptionAsync(
+                    exception: approvalReviewDependencyValidationException);
+            }
+
             // Any OTHER downstream foundation exception — an endpoint service's dependency or
             // service failure (its validation failures are already turned into a not-found at the
             // resolution site). Categorized as a dependency issue, and NEVER re-surfaced as its
