@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
 using Moq;
 using Xunit;
@@ -88,6 +89,54 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             this.storageBrokerMock.Verify(broker =>
                 broker.SelectAllApprovalReviewRequestsAsync(It.IsAny<CancellationToken>()),
                 Times.Once);
+        }
+
+        /// <summary>
+        /// The person who cast the deciding vote must not have their own invitation retired
+        /// under the close reason (§12.5.4 business rule 4(ii)). Excluding whoever holds a review
+        /// that still STANDS is what lets the two retirements (rules 6 and 8) stop depending on
+        /// which order they run in.
+        /// </summary>
+        [Fact]
+        public async Task ShouldExcludeAnInviteeWithAStandingReviewFromTheRetirableSetAsync()
+        {
+            // given: two pending invitations, one belonging to somebody who has already answered
+            // with a review that still stands
+            Guid approvalId = Guid.NewGuid();
+
+            var answeredInviteeRequest = new ApprovalReviewRequest
+            {
+                Id = Guid.NewGuid(),
+                ApprovalId = approvalId,
+                RequestedUserId = "answered-invitee",
+            };
+
+            var unansweredInviteeRequest = new ApprovalReviewRequest
+            {
+                Id = Guid.NewGuid(),
+                ApprovalId = approvalId,
+                RequestedUserId = "unanswered-invitee",
+            };
+
+            SetupApprovalReviewRequests(answeredInviteeRequest, unansweredInviteeRequest);
+
+            SetupApprovalReviews(
+                CreateApprovalReview(
+                    approvalId: approvalId,
+                    createdBy: "answered-invitee",
+                    statusId: ApprovalStatus.Approved));
+
+            // when
+            List<Guid> actualRetirableRequestIds =
+                await this.accessBroker.FindRetirableApprovalReviewRequestIdsAsync(
+                    approvalId: approvalId,
+                    cancellationToken: default);
+
+            // then
+            actualRetirableRequestIds.Should().Equal(
+                new[] { unansweredInviteeRequest.Id },
+                because: "the person who cast the deciding vote must not have their own "
+                    + "invitation retired under the close reason");
         }
 
         [Fact]
