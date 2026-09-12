@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -17,6 +18,8 @@ using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests.Exceptions;
 using Glory2Him.Core.Models.Foundations.Approvals;
+using Glory2Him.Core.Models.Foundations.IdentityUsers.Exceptions;
+using Glory2Him.Core.Models.Orchestrations.Approvals;
 using Glory2Him.Core.Models.Orchestrations.Approvals.Exceptions;
 using Glory2Him.Core.Models.Securities;
 using Moq;
@@ -211,6 +214,132 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             // then: a dependency-validation failure, which the exposer maps to 400 - not 404
             await Assert.ThrowsAsync<ApprovalOrchestrationDependencyValidationException>(
                 withdrawTask.AsTask);
+        }
+
+        // The IdentityUser foundation is a THREE-type family, and that is correct rather than an
+        // omission (issue #518 finding 1): IIdentityUserService exposes two read-only operations,
+        // and a read-only contract has no uniqueness collision, no foreign-key violation and no
+        // constraint conflict — nothing that produces a dependency-validation failure. There is no
+        // IdentityUserDependencyValidationException anywhere in the solution, and there should not
+        // be one; nobody is to mint a fourth type for symmetry with the four-block arms beside it.
+        public static TheoryData<Xeption> ReviewerCandidatesIdentityUserValidationExceptions()
+        {
+            string randomMessage = GetRandomString();
+            var innerException = new Xeption(message: randomMessage);
+
+            return new TheoryData<Xeption>
+            {
+                new IdentityUserValidationException(
+                    message: randomMessage, innerException: innerException),
+            };
+        }
+
+        // The two failure-shaped IdentityUser families (issue #518 criterion 6).
+        public static TheoryData<Xeption> ReviewerCandidatesIdentityUserFailureExceptions()
+        {
+            string randomMessage = GetRandomString();
+            var innerException = new Xeption(message: randomMessage);
+
+            return new TheoryData<Xeption>
+            {
+                new IdentityUserDependencyException(
+                    message: randomMessage, innerException: innerException),
+
+                new IdentityUserServiceException(
+                    message: randomMessage, innerException: innerException),
+            };
+        }
+
+        [Theory]
+        [MemberData(nameof(ReviewerCandidatesIdentityUserValidationExceptions))]
+        public async Task ShouldThrowDependencyValidationExceptionOnCandidatesIfTheTierReadDoesAndLogItAsync(
+            Xeption identityFoundationException)
+        {
+            // given: a validation-shaped refusal from the IdentityUser foundation, raised by the
+            // tier-membership read the candidates listing composes (issue #518 criterion 5) — a
+            // fault in what THIS orchestration asked for, so it becomes a DEPENDENCY VALIDATION
+            // exception rather than the 424 the missing arm used to produce.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
+            Guid approvalId = Guid.NewGuid();
+            SetupReviewerScope(approvalId: approvalId);
+
+            var expectedDependencyValidationException =
+                new ApprovalOrchestrationDependencyValidationException(
+                    message: ExpectedDependencyValidationMessage,
+                    innerException: (identityFoundationException.InnerException as Xeption)!);
+
+            this.identityUserServiceMock.Setup(service =>
+                service.RetrieveIdentityUsersInRolesAsync(
+                    It.IsAny<IEnumerable<string>>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(identityFoundationException);
+
+            // when
+            ValueTask<IReadOnlyList<ReviewerCandidate>> candidatesTask =
+                this.approvalOrchestrationService.RetrieveReviewerCandidatesAsync(
+                    EntityType.ContentItem,
+                    Guid.NewGuid(),
+                    TestContext.Current.CancellationToken);
+
+            ApprovalOrchestrationDependencyValidationException actualException =
+                await Assert.ThrowsAsync<ApprovalOrchestrationDependencyValidationException>(
+                    candidatesTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedDependencyValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedDependencyValidationException))),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogCriticalAsync(It.IsAny<Exception>()),
+                Times.Never);
+        }
+
+        [Theory]
+        [MemberData(nameof(ReviewerCandidatesIdentityUserFailureExceptions))]
+        public async Task ShouldThrowDependencyExceptionOnCandidatesIfTheTierReadDoesAndLogItAsync(
+            Xeption identityFoundationException)
+        {
+            // given: the same tier read, failing for an external reason instead (issue #518
+            // criterion 6) — unchanged behaviour, pinned so criterion 5 cannot over-reach.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
+            Guid approvalId = Guid.NewGuid();
+            SetupReviewerScope(approvalId: approvalId);
+
+            var expectedDependencyException =
+                new ApprovalOrchestrationDependencyException(
+                    message: ExpectedDependencyMessage,
+                    innerException: (identityFoundationException.InnerException as Xeption)!);
+
+            this.identityUserServiceMock.Setup(service =>
+                service.RetrieveIdentityUsersInRolesAsync(
+                    It.IsAny<IEnumerable<string>>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(identityFoundationException);
+
+            // when
+            ValueTask<IReadOnlyList<ReviewerCandidate>> candidatesTask =
+                this.approvalOrchestrationService.RetrieveReviewerCandidatesAsync(
+                    EntityType.ContentItem,
+                    Guid.NewGuid(),
+                    TestContext.Current.CancellationToken);
+
+            ApprovalOrchestrationDependencyException actualException =
+                await Assert.ThrowsAsync<ApprovalOrchestrationDependencyException>(
+                    candidatesTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedDependencyException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedDependencyException))),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogCriticalAsync(It.IsAny<Exception>()),
+                Times.Never);
         }
     }
 }
