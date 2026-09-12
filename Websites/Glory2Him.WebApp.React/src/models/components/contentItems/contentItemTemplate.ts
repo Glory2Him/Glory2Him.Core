@@ -132,6 +132,12 @@ export interface ContentItemTemplateProps
     // where Moderate stands alone wearing Edit's clothes.
     showsEditButton: boolean;
     showsModerateButton: boolean;
+
+    // Whether the moderation action is rendered but REFUSED: the item is terminal to this
+    // viewer, so the control stands greyed out rather than live (#508). Locked is not hidden —
+    // a ReadOnly sanction takes showsModerateButton itself to false, and the two outcomes are
+    // deliberately different.
+    isModerateButtonLocked: boolean;
     moderateButtonIconCss: string;
     moderateButtonLabel: string;
 

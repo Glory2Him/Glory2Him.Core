@@ -66,6 +66,7 @@ export function ContentItemDefaultPanel({
     onSaveClick,
     showsEditButton,
     showsModerateButton,
+    isModerateButtonLocked,
     moderateButtonIconCss,
     moderateButtonLabel,
     contentSlot,
@@ -495,6 +496,7 @@ export function ContentItemDefaultPanel({
                             <button
                                 type="button"
                                 className="btn btn-link text-reset p-0 mb-0"
+                                disabled={isModerateButtonLocked}
                                 onClick={() => onModerateClick?.(contentItem)}>
                                 <i className={`${moderateButtonIconCss} me-1`} aria-hidden="true"></i>
                                 {moderateButtonLabel}

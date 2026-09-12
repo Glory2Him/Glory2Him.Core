@@ -369,6 +369,17 @@ export function ContentItemPanel({
 
     const showsModerateButton = viewerModerates && onModerateClick != null;
 
+    // THE TERMINAL LOCK (#508). The affordance and the editor behind it used to ask different
+    // questions — the button asked only about the tier, the editor also about the status — so a
+    // decided row offered a moderator an action the editor then refused, with the card already
+    // gone. The card now asks the SAME question the editor asks, and renders the action greyed
+    // out where the answer is no. The contributor is exempt at every status: their amendment of
+    // an approved row forks a new version (§3.4 rule 8), which is a supported route.
+    const isModerateButtonLocked =
+        showsModerateButton
+        && viewerOwnsItem === false
+        && contentItem.approvalStatus === ApprovalStatus.Approved;
+
     const Template =
         templateOverrides[contentItem.contentType] ?? ContentItemDefaultPanel;
 
@@ -380,6 +391,7 @@ export function ContentItemPanel({
             offeredReactions={offeredReactions}
             showsEditButton={showsEditButton}
             showsModerateButton={showsModerateButton}
+            isModerateButtonLocked={isModerateButtonLocked}
             moderateButtonIconCss={showModerationSection ? 'bi bi-pencil' : 'bi bi-shield'}
             moderateButtonLabel={showModerationSection ? 'Edit' : 'Moderate'}
             allowTitleClick={allowTitleClick}
