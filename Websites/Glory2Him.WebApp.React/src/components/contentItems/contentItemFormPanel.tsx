@@ -1182,9 +1182,25 @@ export function ContentItemFormPanel({
 
     // The editor refuses rather than downgrades: with no read face here, a reader the gates
     // turn away is told so — the same posture the add face takes for a blocked account.
+    //
+    // THE REFUSAL IS NEVER THIS PANEL'S ONLY CONTENT (#508). The editor replaces the card that
+    // stood here, so a refusal rendered alone leaves the reader on a surface with nothing to
+    // press and no way back short of leaving the page. Cancel is the route back every other
+    // path off this editor already offers, and a refused one owes it too.
     const renderEdit = (): ReactNode => {
         if (mayEdit === false) {
-            return <div className="alert alert-warning" role="alert">{blockedText}</div>;
+            return (
+                <>
+                    <div className="alert alert-warning" role="alert">{blockedText}</div>
+
+                    <button
+                        type="button"
+                        className="btn btn-link text-body p-0 mb-0"
+                        onClick={cancelEdit}>
+                        {cancelButtonText}
+                    </button>
+                </>
+            );
         }
 
         return (
