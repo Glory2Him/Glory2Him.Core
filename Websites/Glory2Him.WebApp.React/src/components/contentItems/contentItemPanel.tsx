@@ -99,6 +99,13 @@ export interface ContentItemPanelProps
     // reaches approval reset, the review thread and the takedown from a card. Locking it would
     // cut those off. So the surface declares what its own action DOES; which statuses are
     // terminal, who is exempt and how the lock is worded all stay decided in here.
+    //
+    // THE DEFAULT FAILS OPEN, in the direction of the original defect: a NEW editing surface
+    // that forgets this word reproduces #508 rather than breaking anything loudly. What holds
+    // that down is a test on the surface itself - contentItemModerationDetailPage.test.tsx
+    // drives a decided row nobody signed in contributed and asserts the lock, so losing the
+    // word here reds that page rather than passing quietly. An editing surface that arrives
+    // later owes itself the same test.
     moderationOpensEditor?: boolean;
 
     // Whether the title is a way into the detail surface. OFF BY DEFAULT: a panel standing

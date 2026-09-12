@@ -701,9 +701,15 @@ describe('ContentItemPanel', () => {
             const submittedItem = atStatus(devotionalItem, ApprovalStatus.Submitted);
             signInAs(authState, ['Administrators']);
 
+            // ON AN EDITING SURFACE, deliberately. Without moderationOpensEditor the lock
+            // short-circuits before the status is ever consulted, and this test would prove
+            // the routing exemption instead - a duplicate of the criterion 9 test below,
+            // leaving the STATUS question unasserted for the surface it governs. Editing a
+            // Submitted row on /Admin/Posts/{id} is the moderation queue's whole purpose.
             renderCard(
                 <ContentItemPanel
                     contentItem={submittedItem}
+                    moderationOpensEditor
                     onModerateClick={onModerateClick} />);
 
             const action = screen.getByRole('button', { name: /Moderate/ });

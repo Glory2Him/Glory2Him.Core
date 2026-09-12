@@ -653,6 +653,63 @@ describe('ContentItemModerationDetailPage', () => {
         expect(screen.queryByRole('button', { name: 'Vote...' })).not.toBeInTheDocument();
     });
 
+    /// THE SURFACE WHERE THE ACTION IS THE EDITOR (#508). Every other card in the app routes
+    /// HERE when its shield is pressed; this page opens the editor on the spot, which is why
+    /// it is the one caller that declares moderationOpensEditor. The terminal lock lives in
+    /// ContentItemPanel, but WHETHER IT APPLIES is this page's own statement - so losing that
+    /// one word would put the defect back with the component still perfectly correct, and
+    /// nothing below the page could notice. These two are what notice.
+    ///
+    /// Both drive a row the viewer did not contribute: signInAs mints 'user-1', and an owner
+    /// is exempt from the lock at every status because their amendment forks a new version
+    /// (§3.4 rule 8). A fixture left on the default owner would pass either way.
+    it('should lock the editor on a decided row the moderator did not contribute', async () => {
+        // given: approved, and somebody else's - the editor behind this action would refuse
+        contentItem = {
+            ...draftQuote,
+            createdBy: 'another-user',
+            approvalStatus: ApprovalStatus.Approved
+        };
+
+        // when
+        renderPage();
+
+        // then: the action is offered and refused in the same breath, rather than opening an
+        // editor that says no with the card already gone
+        const action = screen.getByRole('button', { name: /Edit/ });
+
+        expect(action).toBeDisabled();
+        expect(action).toHaveAttribute('title', 'Locked for editing');
+
+        await userEvent.click(action);
+
+        expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+    });
+
+    /// The other half, and the reason the lock cannot simply follow the status: ruling on a
+    /// SUBMITTED row is what this queue exists for, so the editor stays open there.
+    it('should open the editor on a submitted row the moderator did not contribute',
+        async () => {
+            // given
+            contentItem = {
+                ...draftQuote,
+                createdBy: 'another-user',
+                approvalStatus: ApprovalStatus.Submitted
+            };
+
+            // when
+            renderPage();
+
+            const action = screen.getByRole('button', { name: /Edit/ });
+
+            expect(action).toBeEnabled();
+
+            await userEvent.click(action);
+
+            // then: the editor, in place of the card
+            expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
+        });
+
     it('should tell the reader honestly when the item cannot be read', () => {
         // given
         contentItem = undefined;
