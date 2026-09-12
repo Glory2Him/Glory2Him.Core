@@ -140,13 +140,14 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
         }
 
         /// <summary>
-        /// A review that no longer STANDS does not protect its author's invitation — three cases
-        /// in one test, because all three fail the same clause of the same predicate.
+        /// A review that no longer STANDS does not protect its author's invitation — four cases
+        /// in one test, because all four fail the same clause of the same predicate.
         ///
         /// <para>Case (c) — stored at <c>Draft</c> or <c>Submitted</c> — is a decision, not a
-        /// coincidence. A review at that status is not an answer: nobody has voted, so its author
-        /// has not answered the round, and retiring their invitation under the close reason is
-        /// ACCURATE rather than merely consistent with <c>ActiveReviewerUserIds</c>.</para>
+        /// coincidence. A review at either status is not an answer: nobody has voted, so its
+        /// author has not answered the round, and retiring their invitation under the close
+        /// reason is ACCURATE rather than merely consistent with
+        /// <c>ActiveReviewerUserIds</c>.</para>
         /// </summary>
         [Fact]
         public async Task ShouldRetireAnInviteeWhoseOnlyReviewNoLongerStandsAsync()
@@ -171,8 +172,9 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                 RequestedUserId = "withdrawn-reviewer",
             };
 
-            // (c) Stored at Draft — corrupt per ToReviewVerdict's own comment, and not an answer:
-            // nobody has voted, so retiring this invitation is accurate rather than incidental.
+            // (c-i) Stored at Draft — corrupt per ToReviewVerdict's own comment, and not an
+            // answer: nobody has voted, so retiring this invitation is accurate rather than
+            // incidental.
             var corruptStatusReviewerRequest = new ApprovalReviewRequest
             {
                 Id = Guid.NewGuid(),
@@ -180,10 +182,20 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                 RequestedUserId = "corrupt-status-reviewer",
             };
 
+            // (c-ii) Stored at Submitted — awaiting a decision, not itself one. Same reasoning as
+            // Draft: nobody has voted yet, so retiring this invitation is accurate.
+            var submittedStatusReviewerRequest = new ApprovalReviewRequest
+            {
+                Id = Guid.NewGuid(),
+                ApprovalId = approvalId,
+                RequestedUserId = "submitted-status-reviewer",
+            };
+
             SetupApprovalReviewRequests(
                 dismissedReviewerRequest,
                 withdrawnReviewerRequest,
-                corruptStatusReviewerRequest);
+                corruptStatusReviewerRequest,
+                submittedStatusReviewerRequest);
 
             SetupApprovalReviews(
                 CreateApprovalReview(
@@ -200,7 +212,12 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                 CreateApprovalReview(
                     approvalId: approvalId,
                     createdBy: "corrupt-status-reviewer",
-                    statusId: ApprovalStatus.Draft));
+                    statusId: ApprovalStatus.Draft),
+
+                CreateApprovalReview(
+                    approvalId: approvalId,
+                    createdBy: "submitted-status-reviewer",
+                    statusId: ApprovalStatus.Submitted));
 
             // when
             List<Guid> actualRetirableRequestIds =
@@ -215,10 +232,11 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                     dismissedReviewerRequest.Id,
                     withdrawnReviewerRequest.Id,
                     corruptStatusReviewerRequest.Id,
+                    submittedStatusReviewerRequest.Id,
                 },
                 because: "a review that no longer stands - dismissed, withdrawn, or stored at a "
-                    + "status nobody could have voted from - does not protect its author's "
-                    + "invitation");
+                    + "status nobody could have voted from, whether Draft or Submitted - does "
+                    + "not protect its author's invitation");
         }
 
         /// <summary>
