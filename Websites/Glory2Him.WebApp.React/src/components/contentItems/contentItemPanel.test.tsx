@@ -824,6 +824,34 @@ describe('ContentItemPanel', () => {
             expect(editAction).toHaveAttribute('title', 'Locked for editing');
             expect(editAction).toHaveAccessibleName(/Locked for editing/);
         });
+
+        // WHAT THE ACTION LEADS TO IS THE SURFACE'S TO SAY, and it is not the same answer
+        // everywhere: /Admin/Posts/{id} opens the editor on the spot, while the home feed, the
+        // public list, My Posts and the moderation QUEUE all route to that page instead. A
+        // route is an action the system will perform on a terminal row — the moderation detail
+        // is where approval reset, the review thread and the takedown live — so locking it
+        // would cut off the only way a moderator reaches them from a card. The rule stays here;
+        // only the destination is the page's to declare.
+        it('should leave the moderation action live where the surface routes rather than edits',
+            async () => {
+                const onModerateClick = vi.fn();
+                const approvedItem = atStatus(devotionalItem, ApprovalStatus.Approved);
+                signInAs(authState, ['Administrators']);
+
+                renderCard(
+                    <ContentItemPanel
+                        contentItem={approvedItem}
+                        onModerateClick={onModerateClick} />);
+
+                const action = screen.getByRole('button', { name: /Moderate/ });
+
+                expect(action).toBeEnabled();
+                expect(action).not.toHaveAttribute('title');
+
+                await userEvent.click(action);
+
+                expect(onModerateClick).toHaveBeenCalledWith(approvedItem);
+            });
     });
 
     describe('assigned reactions', () => {
