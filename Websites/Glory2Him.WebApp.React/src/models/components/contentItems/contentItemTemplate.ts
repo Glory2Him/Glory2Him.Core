@@ -133,11 +133,11 @@ export interface ContentItemTemplateProps
     showsEditButton: boolean;
     showsModerateButton: boolean;
 
-    // Whether the moderation action is rendered but REFUSED: the item is terminal to this
-    // viewer, so the control stands greyed out rather than live (#508). Locked is not hidden —
-    // a ReadOnly sanction takes showsModerateButton itself to false, and the two outcomes are
-    // deliberately different.
-    isModerateButtonLocked: boolean;
+    // WHY the moderation action is rendered but REFUSED, or undefined where it is live: the
+    // item is terminal to this viewer, so the control stands greyed out wearing this reason
+    // (#508). Locked is not hidden — a ReadOnly sanction takes showsModerateButton itself to
+    // false, and the two outcomes are deliberately different.
+    moderateButtonLockReason?: string;
     moderateButtonIconCss: string;
     moderateButtonLabel: string;
 
@@ -172,6 +172,18 @@ export interface ContentItemTemplateProps
     isReactionPickerOpen: boolean;
     onReactionClick: () => void;
 }
+
+// HOW A LOCKED ACTION EXPLAINS ITSELF, worded from the action's OWN label so the moderated
+// surface — where the moderation action reads "Edit" — says editing rather than moderation.
+// One table, one sentence shape: the whole of #508 was two places stating the same rule and
+// drifting, so the reason is composed here and nowhere else.
+const actionLockNouns: Readonly<Record<string, string>> = {
+    Edit: 'editing',
+    Moderate: 'moderation'
+};
+
+export const lockReasonForActionLabel = (actionLabel: string): string =>
+    `Locked for ${actionLockNouns[actionLabel] ?? actionLabel.toLowerCase()}`;
 
 // THE TYPE CHIP CARRIES NO COLOUR TABLE HERE. The colour of a content type lives in
 // contentItems.css and nowhere else — the chip renders the enum member name into

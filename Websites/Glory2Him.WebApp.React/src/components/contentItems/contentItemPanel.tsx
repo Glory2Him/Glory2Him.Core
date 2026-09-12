@@ -16,7 +16,8 @@ import {
     ContentItemEvents,
     ContentItemSectionToggles,
     ContentItemTemplateProps,
-    ContentItemText
+    ContentItemText,
+    lockReasonForActionLabel
 } from '../../models/components/contentItems/contentItemTemplate';
 
 import {
@@ -376,6 +377,8 @@ export function ContentItemPanel({
     // gone. The card now asks the SAME question the editor asks, and renders the action greyed
     // out where the answer is no. The contributor is exempt at every status: their amendment of
     // an approved row forks a new version (§3.4 rule 8), which is a supported route.
+    const moderateButtonLabel = showModerationSection ? 'Edit' : 'Moderate';
+
     const isModerateButtonLocked =
         showsModerateButton
         && viewerOwnsItem === false
@@ -392,9 +395,11 @@ export function ContentItemPanel({
             offeredReactions={offeredReactions}
             showsEditButton={showsEditButton}
             showsModerateButton={showsModerateButton}
-            isModerateButtonLocked={isModerateButtonLocked}
+            moderateButtonLockReason={isModerateButtonLocked
+                ? lockReasonForActionLabel(moderateButtonLabel)
+                : undefined}
             moderateButtonIconCss={showModerationSection ? 'bi bi-pencil' : 'bi bi-shield'}
-            moderateButtonLabel={showModerationSection ? 'Edit' : 'Moderate'}
+            moderateButtonLabel={moderateButtonLabel}
             allowTitleClick={allowTitleClick}
             showApprovalStatusRibbon={showApprovalStatusRibbon}
             showApprovalStatus={showApprovalStatus}
