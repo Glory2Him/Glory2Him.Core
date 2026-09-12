@@ -1596,12 +1596,53 @@ either.
   Recorded here rather than left implicit so that a later reader finding an
   unreachable handler does not mistake it for an oversight.
 
-- (e) **`Approval`'s own facts are not a further inbound source.**
-  `Approval-Added` and `Approval-Modified` are published by the foundation, but
-  no workflow handler is bound to either. A change made directly to an approval
-  record therefore does not itself re-test the round; the re-test is driven by
-  the entity's facts and the workflow records' facts above, and by the flows
-  that write the approval and evaluate within the same call.
+- (e) **`Approval`'s own facts are not a further inbound source *for the
+  re-test*.** `Approval-Added` and `Approval-Modified` are published by the
+  foundation, and **no re-testing handler is bound to either**. A change made
+  directly to an approval record therefore does not itself re-test the round;
+  the re-test is driven by the entity's facts and the workflow records' facts
+  above, and by the flows that write the approval and evaluate within the same
+  call. That is the rule, and it is unchanged.
+
+  **Amended — what this item did not distinguish is a subscriber that is not
+  re-testing.** `ApprovalReviewerOrchestrationService` binds
+  `Approval-Modified` to retire the invitations a closed round never answered
+  (`G2H Design.md` §7.9 rule 8, §12.5.4 business rule 4). It is admissible
+  under this item rather than an exception to it, and the boundary is stated
+  so the next subscriber can be tested against it:
+
+  1. **It reads no §8.5 predicate and moves none.** §7.9's opening sentence
+     rules that request rows "appear in **no** §8.5 condition — the verdict,
+     the counts and the blocks never read it", so retiring one cannot change
+     what any evaluation would answer.
+  2. **It causes no approval write**, so item (h)'s cycle rule is not engaged:
+     there is no decision to route through a transition verb, and nothing goes
+     back out as a `-Modified` on the record that triggered it.
+  3. **Its own writes terminate immediately.** A retirement publishes
+     `ApprovalReviewRequest-Modified` / `-Removed`, and nothing in this system
+     subscribes to either address, so the reaction has no second hop.
+  4. **It gates on the round being CLOSED, and it is idempotent under
+     redelivery.** The gate is the handler's own and reads
+     `envelope.Content.ApprovalStatus` — signed system data inside the HMAC —
+     before any gather. It is NOT supplied by
+     `IAccessBroker.FindRetirableApprovalReviewRequestIdsAsync`, which reads
+     `ApprovalId` and `IsDeleted` and never the status; an earlier draft of this
+     item said otherwise and was wrong. The gate is load-bearing because only
+     three of the workflow seam's six call sites close a round — the other
+     three publish `-Modified` on an OPEN one, including §8.6 HR-4's reset to
+     `Submitted`, where an ungated sweep would retire the invitations a
+     moderator had just re-issued. The public modify door and the live
+     `Approval-Modifying` command address publish the same fact through the
+     same `DoModifyApprovalAsync`, so the six are not the whole inventory —
+     which is the argument for gating on the envelope rather than enumerating
+     publishers at all. Given the gate, a `-Modified` that closed
+     nothing costs one comparison and no gather at all, and a redelivered one on
+     a closed round finds no live rows.
+
+  **RULE — a handler may bind an `Approval` fact only if all four hold.**
+  Anything that would re-test, decide, or write the approval binds the entity
+  and workflow-record facts of items (a)–(d) instead, for the reason the
+  original wording gives.
 - (f) **The decision is not the orchestration's to compute.** It receives a
   fact, gathers what the evaluation needs, and asks; the answer — block,
   permit, or auto-approve — comes back from the decision function. The
@@ -1612,6 +1653,63 @@ either.
 - (h) **The cycle rule still binds.** Re-testing may cause an approval
   decision, and that decision must go out through the transition verb of rules
   4–5, never as a `-Modified` on the workflow record that triggered it.
+
+**Inbound — `ApprovalReviewerOrchestrationService`, two subscriptions.**
+
+Items (a)–(h) above are `ApprovalOrchestrationService`'s. The reviewer
+orchestration (`G2H Design.md` §12.5.4) binds two addresses of its own, both
+for §7.9's retirements and neither for a re-test:
+
+| Address | Rule | Reaction |
+| --- | --- | --- |
+| `ApprovalReview-Added` | §7.9 rule 6 | The invited person answered; their invitation is retired under the system identity. |
+| `Approval-Modified` | §7.9 rule 8 | The round may have closed; where the envelope's status says it did, every invitation still pending **and unanswered** is retired under the system identity. |
+
+**The two are independent and must stay independent — no delivery order is
+specified, and none may be relied on.** Rule 6 runs today as an
+`onVerifiedAsync` hook ordered ahead of the round's re-test, and that ordering is
+load-bearing under the current gather: the broker's `IsDeleted == false` filter
+means "still waiting on" only because rule 6 has already soft-deleted the
+answerer's row. Two subscriptions have no such order, and the losing order is the
+common case — the last vote closes the round, the re-test's write publishes
+`-Modified` synchronously, and rule 8 sweeps the answerer's own invitation with
+the reason "the approval round closed before this review was cast". So the rule 8
+gather **excludes any `RequestedUserId` holding a review that still STANDS** —
+`IsDeleted == false && Verdict != Dismissed`, the `ActiveReviewerUserIds`
+predicate (`G2H Design.md` §12.5.4 business rule 4(ii)) — which makes the order
+irrelevant rather than merely unlikely to bite. It is deliberately NOT the
+unfiltered recorded set: a dismissal makes a person invitable again, so keying
+on "ever reviewed" would skip their *second* invitation at every future close of
+the round and strand exactly the row rule 8 exists to remove.
+
+Three things about this pair, and each is a question a reviewer will ask:
+
+1. **`ApprovalReview-Added` now has two subscribers** — the round's re-test and
+   this retirement — and that is not the double-fire §EVN2 rule 6 forbids. That
+   rule bars *one* reaction from binding both the foundation and the layer tier
+   of the same fact; here there are two reactions on one address, in two
+   services, with `Deliveries` recorded per subscription (§EVN11). The
+   retirement previously ran as an `onVerifiedAsync` hook inside the round's
+   handler, which coupled a reviewer-coordination write to the round's own
+   delivery for no reason other than that both services did not yet exist.
+2. **`Approval-Modified` is admissible under item (e)'s amended boundary** —
+   see the four conditions there. It is deliberately the *only* trigger for
+   rule 8: a round closes three ways (§9.7.5, §9.7.7) and all three write the
+   outcome through `ModifyApprovalAsync`, so one subscription hears all three
+   and no enumeration of the sites has to be kept in step.
+3. **Neither needs the fact to say why the round moved**, which is what keeps
+   this off a new discriminated address — `Approval-Modified` carries the new
+   `ApprovalStatus` in its signed content, so the handler can tell a close from
+   an open-round write without a second address and without a second read (item
+   (e) condition 4). Contrast the round's own dismissal, which cannot be
+   driven this way: dismissing stale reviews is conditional on
+   `RequireReapprovalOnChange` on the edit path and unconditional on the §8.6
+   HR-4 reset (`G2H Design.md` §12.5.3 rule 12, §16.7.5), and a bare
+   `Approval-Modified` cannot tell those apart — which is why the dismissal and
+   Berean's return-to-pending stay direct calls on the round's own service
+   (§12.5.3 rule 19). Introducing a discriminated `Approval-Reset` fact to move
+   them too was considered and **deferred**: it adds event surface to remove a
+   dependency that is already inside the Florance count.
 
 **Outbound — approval-caused writes use a transition verb, never
 `-Modifying`.**
@@ -1753,14 +1851,28 @@ itself is at-least-once.**
    `ApprovalReviewRequestService.RetireAnsweredApprovalReviewRequestAsync` onto
    `ApprovalReviewRequest-Removed`, and
    `AIReviewerAssignmentService.ReturnStaleAIReviewerAssignmentToPendingAsync`
-   onto `AIReviewerAssignment-Modified`. Each is reached only by a direct
-   in-process call from `ApprovalOrchestrationService`, on an envelope the
-   service mints for itself under the system identity, so there is no inbound
-   delivery to deduplicate and no request handler of its own to key the outbound
-   record against. Two of the three facts carry no subscriber at all;
+   onto `AIReviewerAssignment-Modified`. Each is reached by a direct in-process
+   call from an orchestration, on an envelope the service mints for itself
+   under the system identity, so **the seam itself** has no inbound delivery to
+   deduplicate and no request handler of its own to key the outbound record
+   against. Two of the three facts carry no subscriber at all;
    `ApprovalReview-Dismissed` carries the one §EVN18(a) requires, and re-entry
    there is held off by the reset loop's suppression window rather than by a
    `ProcessedEvent` row (§EVN18(d)).
+
+   **The CALLER may still be a delivery, and that is a separate record.** The
+   dismissal and the AI return-to-pending are called from
+   `ApprovalOrchestrationService`'s own flows. The two request retirements are
+   called from `ApprovalReviewerOrchestrationService`'s subscriptions on
+   `ApprovalReview-Added` and `Approval-Modified` (§EVN18's reviewer table,
+   `G2H Design.md` §12.5.4 business rule 4), so **that handler** records the
+   ordinary inbound `ProcessedEvent` against its own receiver name, exactly as
+   every other substrate handler does. Nothing above changes for the seam: the
+   handler's record is the delivery's, the seam's envelope is still
+   self-minted, and `ApprovalReviewRequest-Removed` still carries no subscriber.
+   The two records answer different questions — "has this delivery already been
+   handled" and "does this write need a dedup pair" — and conflating them is
+   what would make a redelivered `-Modified` look like a second write.
    Under this ruling they take the row and the outbox row and nothing else, and
    rules 2 and 5-7 hold for them unchanged: what makes a failed publish
    recoverable is the outbox row, never the dedup pair.
