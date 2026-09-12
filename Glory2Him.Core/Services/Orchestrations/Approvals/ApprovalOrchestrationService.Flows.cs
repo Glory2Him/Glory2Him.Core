@@ -294,15 +294,11 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 attribution: WorkflowAttribution.System,
                 cancellationToken: cancellationToken);
 
+            // §7.9 rule 8's retirement is heard off the write above rather than called here —
+            // the rejection route needs no site of its own, because all three routes to an
+            // outcome publish Approval-Modified (§12.5.4 business rule 4).
             await PublishEntityApprovalCommandAsync(
                 approval: rejectedApproval,
-                cancellationToken: cancellationToken);
-
-            // §7.9 rule 8, the rejection route. Nobody clicked, so there is no caller to
-            // attribute the retirement to even in principle — the round was closed by a standing
-            // rejection under BlockOnReject, and the invitations it never answered go with it.
-            await RetireUnansweredApprovalReviewRequestsAsync(
-                closedApproval: rejectedApproval,
                 cancellationToken: cancellationToken);
 
             return DescribeOutcome(rejectedApproval, isEntitySyncRequested: true);

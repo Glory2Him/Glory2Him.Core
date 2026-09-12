@@ -105,21 +105,18 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 // testable alone — here that the command was published, there that it is
                 // honoured (§16.7.1). Asynchronous in principle, so the outcome says the sync was
                 // requested rather than claiming it has landed.
+                // §7.9 rule 8's retirement USED TO BE CALLED HERE, and its absence is the
+                // change rather than an omission. The outcome write above publishes
+                // Approval-Modified, and ApprovalReviewerOrchestrationService's subscription on
+                // that address does the retirement (§12.5.4 business rule 4) — so it runs BEFORE
+                // this line rather than after it, because delivery is synchronous inside
+                // ModifyApprovalAsync.
+                //
+                // Nothing replaces it and nothing may: a second call here would retire twice and
+                // put this service back in touch with the request record, which is the last of
+                // the coupling the §12.5.3/§12.5.4 split exists to remove.
                 await PublishEntityApprovalCommandAsync(
                     approval: decidedApproval,
-                    cancellationToken: cancellationToken);
-
-                // §7.9 rule 8. The round has just closed, so the people still shown as owing a
-                // review no longer owe one and could not give one — the decision function refuses
-                // a review on any round that is not Submitted. Their invitations are retired
-                // under the system identity rather than under this caller: they pressed Approve
-                // or Reject, which is not withdrawing anybody's invitation.
-                //
-                // LAST, and it cannot fault this operation — the helper logs its own failure and
-                // returns. By this line the decision has committed and the entity command has
-                // gone; the alternative is reporting a decision that worked as a failure.
-                await RetireUnansweredApprovalReviewRequestsAsync(
-                    closedApproval: decidedApproval,
                     cancellationToken: cancellationToken);
 
                 return new ApprovalOutcome

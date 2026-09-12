@@ -137,12 +137,6 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
                 approvalService: BuildApprovalWorkflowServiceMock().Object,
                 approvalReviewWorkflowService: new Mock<IApprovalReviewWorkflowService>().Object,
 
-                // Only the WORKFLOW seam here too: the caller-facing IApprovalReviewRequestService
-                // left with §12.5.4's reviewer coordination, and IApprovalCommentService and
-                // IIdentityUserService went with it.
-                approvalReviewRequestWorkflowService:
-                    new Mock<IApprovalReviewRequestWorkflowService>().Object,
-
                 // Only the WORKFLOW seam: the caller-facing IAIReviewerAssignmentService left
                 // this orchestration with the three operations that used it, which are
                 // IAIReviewerOrchestrationService's contract now.

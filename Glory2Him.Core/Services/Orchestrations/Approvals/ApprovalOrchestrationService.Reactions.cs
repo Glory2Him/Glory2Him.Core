@@ -299,16 +299,13 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 attribution: WorkflowAttribution.System,
                 cancellationToken: cancellationToken);
 
+            // §7.9 rule 8's retirement is heard off the write above rather than called here.
+            // The argument that made its read the GATHERING seam — this route runs under whoever's
+            // edit or review tipped the round, ordinarily the author, who sees none of the
+            // invitations through a caller-facing read — now belongs to the handler holding that
+            // read (§12.5.4 business rule 4).
             await PublishEntityApprovalCommandAsync(
                 approval: approvedApproval,
-                cancellationToken: cancellationToken);
-
-            // §7.9 rule 8, the automatic route — and the one that makes the gathering seam a
-            // requirement rather than a preference. This runs under the identity of whoever's
-            // edit or review tipped the round, ordinarily the author revising their own
-            // submission, who sees none of the round's invitations through a caller-facing read.
-            await RetireUnansweredApprovalReviewRequestsAsync(
-                closedApproval: approvedApproval,
                 cancellationToken: cancellationToken);
 
             return DescribeOutcome(approvedApproval, isEntitySyncRequested: true);

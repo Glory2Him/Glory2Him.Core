@@ -24,7 +24,6 @@ using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
 using Glory2Him.Core.Services.Foundations.AIReviewerAssignments;
-using Glory2Him.Core.Services.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Services.Foundations.ApprovalReviews;
 using Glory2Him.Core.Services.Foundations.Approvals;
 
@@ -34,7 +33,6 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
     {
         private readonly IApprovalWorkflowService approvalService;
         private readonly IApprovalReviewWorkflowService approvalReviewWorkflowService;
-        private readonly IApprovalReviewRequestWorkflowService approvalReviewRequestWorkflowService;
         private readonly IAIReviewerAssignmentWorkflowService aiReviewerAssignmentWorkflowService;
         private readonly IAccessBroker accessBroker;
         private readonly IEventEnvelopeBroker eventEnvelopeBroker;
@@ -64,16 +62,14 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         // operations (§12.5.4). The comment foundation is not merely unused here — the only thing
         // this service reads a comment for is the §8.5 count, and that arrives as a verdict.
         //
-        // IApprovalReviewRequestWorkflowService STAYS, and knowingly temporarily: the two rule 6
-        // and rule 8 retirements still run from here until #522 turns them into subscriptions on
-        // the reviewer orchestration's own substrate. It costs no fifth arm —
-        // ApprovalReviewRequestService.Transitions.cs wraps both retirement verbs in the same
-        // TryCatch the caller-facing operations use, so both doors throw the same family — and
-        // both helpers absorb or never reach this service's catch chain.
+        // IApprovalReviewRequestWorkflowService IS GONE TOO, which is the last of that coupling.
+        // It was held knowingly temporarily for §7.9 rules 6 and 8; both are subscriptions on
+        // ApprovalReviewerOrchestrationService's own substrate now (§12.5.4 business rule 4), and
+        // this service now holds no reference to the request record in any form — which is the
+        // whole point of the §12.5.3/§12.5.4 split.
         public ApprovalOrchestrationService(
             IApprovalWorkflowService approvalService,
             IApprovalReviewWorkflowService approvalReviewWorkflowService,
-            IApprovalReviewRequestWorkflowService approvalReviewRequestWorkflowService,
             IAIReviewerAssignmentWorkflowService aiReviewerAssignmentWorkflowService,
             IAccessBroker accessBroker,
             IEventEnvelopeBroker eventEnvelopeBroker,
@@ -83,7 +79,6 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         {
             this.approvalService = approvalService;
             this.approvalReviewWorkflowService = approvalReviewWorkflowService;
-            this.approvalReviewRequestWorkflowService = approvalReviewRequestWorkflowService;
             this.aiReviewerAssignmentWorkflowService = aiReviewerAssignmentWorkflowService;
             this.accessBroker = accessBroker;
             this.eventEnvelopeBroker = eventEnvelopeBroker;

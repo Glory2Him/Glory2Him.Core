@@ -19,7 +19,6 @@ using Glory2Him.Core.Models.Foundations.ApprovalComments;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.BibleReferences;
-using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests.Exceptions;
 using Glory2Him.Core.Models.Foundations.Comments;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.Links;
@@ -307,11 +306,18 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         // modify, the owner or an administrator through the resolve transition — and which one carried a
         // change depends on nothing more than which control was clicked.
 
-        // The one workflow-record fact that also RETIRES something. A review being recorded is
-        // how an invitation gets answered (§7.9 rule 6), so the request the reviewer was asked
-        // through stops being outstanding here. Passed as an after-verification hook rather than
-        // run inline, because retiring on the strength of an envelope whose signature has not
-        // been checked would let anyone reaching the address clear the panel.
+        // A recorded review either moves the §8.5 count or raises a blocking rejection, so the
+        // round is re-tested. NOTHING ELSE HAPPENS HERE ANY MORE: §7.9 rule 6's retirement used
+        // to ride this delivery as an after-verification hook, and it is a subscription of its
+        // own on ApprovalReviewerOrchestrationService now (§12.5.4 business rule 4).
+        //
+        // THE HOOK'S POSITION WAS LOAD-BEARING and a reviewer will check what replaced it. It sat
+        // after verification and before the suppression test, because suppression decides whether
+        // to RE-TEST the round and retiring an answered invitation is not a re-test - it had to
+        // happen either way, or a review recorded during a dismissal cascade would leave its
+        // invitation standing forever. As a separate subscription it always runs, on a service
+        // that has no suppression window at all, so that guarantee is held by CONSTRUCTION and
+        // there is no position left to get wrong.
         public ValueTask<EventEnvelope<ApprovalReview>?> OnApprovalReviewAddedAsync(
             EventEnvelope<ApprovalReview> envelope,
             CancellationToken cancellationToken = default) =>
@@ -319,11 +325,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 envelope: envelope,
                 acceptedEventNames: new[] { "ApprovalReviewAdded" },
                 approvalId: envelope?.Content?.ApprovalId ?? Guid.Empty,
-                cancellationToken: cancellationToken,
-                onVerifiedAsync: () => RetireAnsweredReviewRequestAsync(
-                    approvalId: envelope?.Content?.ApprovalId ?? Guid.Empty,
-                    reviewerUserId: envelope?.Content?.CreatedBy,
-                    cancellationToken: cancellationToken));
+                cancellationToken: cancellationToken);
 
         public ValueTask<EventEnvelope<ApprovalReview>?> OnApprovalReviewModifiedAsync(
             EventEnvelope<ApprovalReview> envelope,
@@ -441,8 +443,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             EventEnvelope<TRecord> envelope,
             string[] acceptedEventNames,
             Guid approvalId,
-            CancellationToken cancellationToken,
-            Func<ValueTask> onVerifiedAsync = null)
+            CancellationToken cancellationToken)
         {
             // FIRST, and deliberately ahead of the signature check — unlike the suppression
             // test below, which sits after it on purpose. Cancellation abandons the delivery
@@ -456,47 +457,15 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
 
             await ValidateEntityFactEnvelopeAsync(envelope, acceptedEventNames);
 
-            // After verification, before the suppression test. Suppression decides whether to
-            // RE-TEST the round; retiring an answered invitation is not a re-test and must
-            // happen either way, or a review recorded during a dismissal cascade would leave its
-            // invitation standing forever.
+            // THE ISOLATING CATCH THAT SAT HERE IS GONE WITH THE HOOK IT PROTECTED, and its
+            // reason is worth keeping because it is now met a different way. It existed so a
+            // failure to retire an invitation could never cancel the re-test below: bookkeeping
+            // aborting the workflow would trade a stale row for a round that never re-evaluates,
+            // with the vote that would have carried it counted by nothing and no later event to
+            // re-drive it. The retirement is its own delivery on its own service now, so nothing
+            // it does can reach this call stack at all - the isolation is structural rather than
+            // written, and a failure is reported on that delivery instead (§EVN23).
             //
-            // ISOLATED from the re-test that follows, and this is the whole point of the catch.
-            // The hook is bookkeeping - it deletes a row that records who was asked. The re-test
-            // decides whether the round is now approved. Letting the first abort the second
-            // trades a stale invitation for a round that never re-evaluates: the vote that would
-            // have carried it over the line is counted by nothing, and no later event re-drives
-            // it, so the item sits blocked with its conditions provably met and nothing on any
-            // screen saying why. The stale invitation is the far smaller harm, and a person in
-            // the review tier can clear it by hand.
-            //
-            // BROAD on purpose, and the breadth is the point. An earlier version named the four
-            // ApprovalReviewRequest exception types, which read as disciplined and guarded the
-            // wrong half: the hook's FIRST statement is an access-broker read, and that broker
-            // catches nothing, so a storage outage arrives as a raw SqlException and walked
-            // straight past the filter - taking the re-test with it in exactly the case the
-            // isolation exists for.
-            //
-            // The argument for absorbing does not rest on which exception was raised. It rests
-            // on what the act IS: bookkeeping, on somebody else's path, whose failure is never a
-            // reason to leave a round un-evaluated. A defect in here is still a defect and still
-            // logged; what it must not do is decide the workflow's outcome.
-            //
-            // Cancellation is the one thing that passes through. A cancelled request means the
-            // caller has gone, and the re-test below has nothing left to serve.
-            if (onVerifiedAsync is not null)
-            {
-                try
-                {
-                    await onVerifiedAsync();
-                }
-                catch (Exception onVerifiedException)
-                    when (onVerifiedException is not OperationCanceledException)
-                {
-                    await this.loggingBroker.LogErrorAsync(onVerifiedException);
-                }
-            }
-
             // Deliberately AFTER the signature check. An unverifiable envelope is refused
             // whether or not we would have acted on it — suppression must never become a way
             // to skip verification.

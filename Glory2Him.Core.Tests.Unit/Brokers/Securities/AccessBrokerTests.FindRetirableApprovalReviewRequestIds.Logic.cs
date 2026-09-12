@@ -101,7 +101,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
         /// no-longer-standing cases sit together in
         /// <see cref="ShouldRetireAnInviteeWhoseOnlyReviewNoLongerStandsAsync"/>: a round closes
         /// on either an Approved or a Rejected decision
-        /// (<c>ApprovalOrchestrationService.ReviewRequestRetirements.cs</c>), and the invitee whose vote
+        /// (<c>ApprovalReviewerOrchestrationService.Substrate.cs</c>), and the invitee whose vote
         /// tipped it must be protected identically whichever way it went — a predicate that only
         /// protects Approved would retire the very reviewer who just rejected the round.</para>
         /// </summary>
