@@ -712,6 +712,43 @@ describe('ContentItemPanel', () => {
 
             expect(onModerateClick).toHaveBeenCalledWith(submittedItem);
         });
+
+        // A REGRESSION GUARD, and the reason the lock cannot simply follow the status: the
+        // contributor's amendment of an approved row FORKS a new version (§3.4 rule 8), which
+        // ContentItemProcessingService.ModifyContentItemAsync already does. Both faces of the
+        // contributor's action are guarded — the pencil on an ordinary surface, and the
+        // moderated surface's Edit, which is Moderate wearing Edit's clothes.
+        it("should leave the contributor's own edit live on a terminal item", async () => {
+            const onEditClick = vi.fn();
+            const onModerateClick = vi.fn();
+            const ownApprovedItem = atStatus(
+                { ...devotionalItem, submittedById: 'user-1' },
+                ApprovalStatus.Approved);
+
+            signInAs(authState, ['Administrators']);
+
+            const rendered = renderCard(
+                <ContentItemPanel
+                    contentItem={ownApprovedItem}
+                    onEditClick={onEditClick}
+                    onModerateClick={onModerateClick} />);
+
+            expect(screen.getByRole('button', { name: /Edit/ })).toBeEnabled();
+            expect(screen.getByRole('button', { name: /Moderate/ })).toBeEnabled();
+
+            rendered.rerender(
+                <AuthProvider>
+                    <ContentItemPanel
+                        contentItem={ownApprovedItem}
+                        showModerationSection
+                        onEditClick={onEditClick}
+                        onModerateClick={onModerateClick} />
+                </AuthProvider>);
+
+            await userEvent.click(screen.getByRole('button', { name: /Edit/ }));
+
+            expect(onModerateClick).toHaveBeenCalledWith(ownApprovedItem);
+        });
     });
 
     describe('assigned reactions', () => {
