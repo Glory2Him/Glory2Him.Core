@@ -495,7 +495,10 @@ export function ContentItemDefaultPanel({
                         {showsModerateButton && (
                             <button
                                 type="button"
-                                className="btn btn-link text-reset p-0 mb-0"
+                                className={moderateButtonLockReason != null
+                                    ? 'btn btn-link text-reset p-0 mb-0 '
+                                    + 'g2h-content-item-action-locked'
+                                    : 'btn btn-link text-reset p-0 mb-0'}
                                 disabled={moderateButtonLockReason != null}
                                 title={moderateButtonLockReason}
                                 onClick={() => onModerateClick?.(contentItem)}>

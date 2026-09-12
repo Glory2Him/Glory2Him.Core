@@ -402,3 +402,15 @@ section.g2h-content-item-list-panel {
 .g2h-approval-ribbon[data-approval-status="Rejected"] {
     background-color: #c62828;
 }
+
+
+/* THE TERMINAL LOCK'S TOOLTIP (#508). Bootstrap gives a disabled .btn pointer-events: none,
+   and that also stops the browser ever reading the button's title — so the lock's reason would
+   reach a screen reader through its visually-hidden twin and reach a sighted reader not at all.
+   Restoring pointer events on the locked action ALONE puts the tooltip back and shows the
+   not-allowed cursor while it is hovered. The button stays disabled, so no click reaches the
+   handler; this changes what the reader is told, never what the press does. */
+.g2h-content-item-action-locked:disabled {
+    pointer-events: auto;
+    cursor: not-allowed;
+}
