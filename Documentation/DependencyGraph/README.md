@@ -316,15 +316,28 @@ view you were on, and switching carries your current selection across.
   `FS.ApprovalReviewRequest` follows its siblings rather than fixing this for
   one service alone, which would make the picture less consistent, not more.
   Correcting it is a template-wide edit and belongs to a full re-scan.
-- **The header counts moved again on 2026-09-12.** Single copy reads
+- **The header counts moved again on 2026-09-12.** After #521 single copy read
   **68 components · 1406 flows**, per consumer **193 nodes · 1883 flows**.
   Purple edges were **112** in both views and **63** lines still render red in
   both — the AI reviewer and the #521 reviewer split added neither, for the
-  reasons in the bullets below. **Issue #522 takes purple to 114**: `ARO` binds
-  the two §7.9 retirements as subscriptions. Red is unmoved, because `ARO`
-  publishes nothing and so can close no loop. The header component and flow
-  counts were not re-measured for #522, which moves no component and adds four
-  call edges while removing six. The `/update-dependency-graph` skill's own verification numbers are
+  reasons in the bullets below.
+
+  **Issue #522 leaves single copy at 68 components · 1404 flows**, measured the
+  same way rather than inferred. It moves no component. Its edge delta is **six
+  direct edges added and ten removed** — the four `ARO` retirement edges plus a
+  `VerifyAsync` edge for each of its two handlers, against the rule 6 hook's two
+  and the rule 8 sweep's two at each of *four* `AO` call sites — and **two
+  subscribe edges added**, taking purple from 112 to 114. Net two fewer flows.
+  Red is unmoved, because `ARO` publishes nothing and so can close no loop.
+
+  Counting the `AO` call sites as three is the mistake to avoid here, and an
+  earlier version of this bullet made it: `ProcessApprovalInputsChangedAsync`
+  drew the pair as well as the three closing routes.
+
+  **The per-consumer view was NOT re-measured for #522** and its numbers above
+  are #521's. That view expands a tree per consumer rather than counting
+  declarations, so its total cannot be derived from the delta and is left
+  stated as of the scan that produced it. The `/update-dependency-graph` skill's own verification numbers are
   stale by three generations now and should be read from here instead.
 
   *Measured by running the page's own `buildSingleCopyInstances` and
@@ -379,7 +392,7 @@ view you were on, and switching carries your current selection across.
   `FindRetirableApprovalReviewRequestIdsAsync` edges left with them. Issue #523
   splits `ApprovalsController`. Like `AIRO`, it renders with zero inbound flows
   because the controller folders are still unmodelled (see the bullet below).
-- **Two gaps are still open and neither is this update's doing.**
+- **Three gaps are still open and none is this update's doing.**
   `EventSubscriptionRegistration` now wires **121** subscriptions while the data
   declares **114** — a drift of seven that predates the AI reviewer and wants a
   targeted pass of its own. And the twelve controller folders (the eleven listed
@@ -387,6 +400,19 @@ view you were on, and switching carries your current selection across.
   inbound flows and `WA.*` still has no edge into Core. Adding them is still the
   next full scan's job; doing it for the one new controller alone would make the
   picture less consistent, not more.
+
+  The third was found by checking the graph in the direction nobody had: **not
+  "does every drawn edge still exist in the code", but "is every code call
+  drawn".** Only the second direction can see an omission, and it turns up
+  **three `AO` calls that have never been drawn** —
+  `AccessBroker.IsEntityVisibleAsync`, `AccessBroker.MayAmendApprovalAsync` and
+  `AccessBroker.RetrieveEntityApprovalStatusAsync`. All three are in `AO`'s
+  source on `main` and absent from its `calls` on `main`, so they predate this
+  change and are left for the re-scan rather than patched here. `ARO` and `AIRO`
+  come back clean in both directions. The check is worth repeating on any
+  component a change touches: the forward direction passed on `ARO` while two of
+  its `VerifyAsync` edges were missing, which is exactly the shape it cannot
+  see.
 
 ## The data files
 

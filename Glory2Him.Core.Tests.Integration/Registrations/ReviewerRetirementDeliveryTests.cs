@@ -43,9 +43,16 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
     /// call. This file is where the second half is observable: a delivery that had not run by the
     /// time <c>PublishApprovalAsync</c> returned would leave the recording empty.</para>
     ///
-    /// <para>The rule 8 half is also proven end to end over HTTP by the acceptance suite's
-    /// <c>ShouldRetirePendingReviewRequestsWhenTheRoundIsDecidedAsync</c>. Rule 6 has no such
-    /// counterpart, which is exactly why its delivery is asserted here.</para>
+    /// <para><b>Rule 8 is also proven end to end over HTTP by the acceptance suite's
+    /// <c>ShouldRetirePendingReviewRequestsWhenTheRoundIsDecidedAsync</c>; rule 6 deliberately
+    /// has no such counterpart.</b> That asymmetry is a choice rather than a gap. #522's
+    /// regression bar makes the acceptance file the one thing in the repository that observes the
+    /// retirement being DELIVERED rather than a handler being called, and requires it to stay
+    /// green and UNEDITED — an edit to it is read as evidence the behaviour changed. Adding a
+    /// rule 6 case there would have to edit it. So rule 6's exposer-level proof is bought here
+    /// instead, one layer down but through the same real broker, the same real signing key and
+    /// the same real receiver: what the acceptance test adds over this is HTTP and a real
+    /// database, and neither is what rule 6's delivery was ever in doubt over.</para>
     /// </summary>
     [Collection(EventSubstrateCollection.Name)]
     public sealed class ReviewerRetirementDeliveryTests

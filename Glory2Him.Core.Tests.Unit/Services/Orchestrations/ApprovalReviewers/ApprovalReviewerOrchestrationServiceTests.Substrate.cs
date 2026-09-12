@@ -241,11 +241,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ApprovalReviewers
         /// refused nothing and deleting it would turn no test red. A bare subscription is what
         /// finally gives it something to refuse — so what this asserts is the ENVELOPE GATE, and
         /// it goes red if that gate is removed.</para>
-        /// </summary>
+        ///
         /// <para><b>Every non-closing status, not a sample of them.</b> The gate admits
         /// <c>Approved</c> and <c>Rejected</c>, so what it must refuse is the other three —
         /// <c>Dismissed</c> included, which is reachable and would otherwise be the one value of
         /// the enum nothing here exercises.</para>
+        /// </summary>
         [Theory]
         [InlineData(ApprovalStatus.Draft)]
         [InlineData(ApprovalStatus.Submitted)]

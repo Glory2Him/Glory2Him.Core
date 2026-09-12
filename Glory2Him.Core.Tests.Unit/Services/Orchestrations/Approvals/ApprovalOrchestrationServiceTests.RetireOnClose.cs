@@ -194,7 +194,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         /// no unit test of this service can see because the write is a mock here.</para>
         ///
         /// <para><b>(B) is pinned for this exact subscription by
-        /// <c>EventSubscriptionWiringTests.ShouldRetireTheUnansweredInvitationsWhenTheClosedRoundFactIsDeliveredAsync</c></b>,
+        /// <c>ReviewerRetirementDeliveryTests.ShouldRetireTheUnansweredInvitationsWhenTheClosedRoundFactIsDeliveredAsync</c></b>,
         /// which publishes <c>Approval-Modified</c> through the real substrate and finds the
         /// retirement already done by the time the publish returns.</para>
         ///

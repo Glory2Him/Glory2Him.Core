@@ -3750,11 +3750,17 @@ components:
       - OnApprovalModifiedAsync
     calls:
       - from: OnApprovalReviewAddedAsync
+        to: EnvelopeIntegrityBroker
+        method: VerifyAsync
+      - from: OnApprovalReviewAddedAsync
         to: AccessBroker
         method: RetrieveApprovalReviewerScopeByIdAsync
       - from: OnApprovalReviewAddedAsync
         to: FS.ApprovalReviewRequest
         method: RetireAnsweredApprovalReviewRequestAsync
+      - from: OnApprovalModifiedAsync
+        to: EnvelopeIntegrityBroker
+        method: VerifyAsync
       - from: OnApprovalModifiedAsync
         to: AccessBroker
         method: FindRetirableApprovalReviewRequestIdsAsync

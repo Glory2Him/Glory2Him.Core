@@ -250,8 +250,9 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
             // BEING REAL IS NOT ENOUGH ON ITS OWN, and saying so is the point of this note. The
             // wiring assertions read SubscriptionId off the delivery and never IsSuccess, so a
             // receiver that refused every envelope would still appear wired. What closes that is
-            // ReviewerRetirements below, which the two reviewer tests in EventSubscriptionWiring
-            // Tests assert on — a refused signature records nothing there.
+            // ReviewerRetirements below, which all THREE tests in ReviewerRetirementDeliveryTests
+            // — four cases, counting the closed-round theory's two — assert on. A refused
+            // signature records nothing there.
             Provide<IApprovalReviewerOrchestrationService>(ApprovalReviewerOrchestrationService);
 
             var serviceScopeMock = new Mock<IServiceScope>();
