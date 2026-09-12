@@ -767,6 +767,31 @@ describe('ContentItemPanel', () => {
 
             expect(screen.queryByRole('button', { name: /Edit/ })).not.toBeInTheDocument();
         });
+
+        // The point of the lock: the press that used to strand the reader now does nothing at
+        // all. Driven on the moderation surface, where the action wears Edit's label and the
+        // page is listening for the in-place editor — the card stays the card.
+        it('should raise nothing when a locked action is activated', async () => {
+            const onModerateClick = vi.fn();
+            const onModified = vi.fn();
+            signInAs(authState, ['Administrators']);
+
+            renderCard(
+                <ContentItemPanel
+                    contentItem={atStatus(devotionalItem, ApprovalStatus.Approved)}
+                    showModerationSection
+                    showEditSection
+                    onModerateClick={onModerateClick}
+                    onModified={onModified} />);
+
+            await userEvent.click(screen.getByRole('button', { name: /Edit/ }));
+
+            expect(onModerateClick).not.toHaveBeenCalled();
+
+            // no editor: the card's own content is still what is on screen
+            expect(screen.getByText(devotionalItem.content)).toBeInTheDocument();
+            expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+        });
     });
 
     describe('assigned reactions', () => {
