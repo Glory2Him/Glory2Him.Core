@@ -3129,6 +3129,8 @@ Recommended endpoints:
 ### 17.5 Approval Endpoints
 
 > **The last five rows move to `ApprovalReviewersController` and keep their URLs** (§12.5.4 business rule 6, §12.6 entry 3a). They are listed here rather than in a table of their own because a reader looking up an approval URL should find it in one place; which controller class answers it is §12.6's business, not a caller's.
+>
+> **Berean's endpoints are NOT in this table, and that is the same rule read the other way.** The AI reviewer is its own resource at `api/AIReviewers/{entityType}/{entityId}` (§8.6.2, §12.6 row 13) rather than a sub-resource of the round, so it does not share the `api/Approvals` space these rows do — and a row with a foreign base path in a table titled *Approval Endpoints* would undercut the reason the five rows above stay. Named here so a reader looking for an approval-adjacent URL finds the pointer instead of concluding there is none.
 
 Recommended endpoints:
 
