@@ -249,10 +249,18 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
             //
             // BEING REAL IS NOT ENOUGH ON ITS OWN, and saying so is the point of this note. The
             // wiring assertions read SubscriptionId off the delivery and never IsSuccess, so a
-            // receiver that refused every envelope would still appear wired. What closes that is
-            // ReviewerRetirements below, which all THREE tests in ReviewerRetirementDeliveryTests
-            // — four cases, counting the closed-round theory's two — assert on. A refused
-            // signature records nothing there.
+            // receiver that refused every envelope would still appear wired.
+            //
+            // All THREE tests in ReviewerRetirementDeliveryTests — four cases, counting the
+            // closed-round theory's two — read ReviewerRetirements below, but they do not all
+            // close the refusal blind spot the same way, and the difference matters. The two that
+            // expect a retirement close it THROUGH the recording: a refused signature records
+            // nothing, so they go red. The open-round test expects an EMPTY recording, which a
+            // refused signature would satisfy — so it closes the gap through its own
+            // DeliveryOutcomeFor(...).Should().BeTrue() instead. Take that assertion out and it
+            // passes for the wrong reason.
+            //
+            // Measured: verifying as Reply rather than Request reds all four.
             Provide<IApprovalReviewerOrchestrationService>(ApprovalReviewerOrchestrationService);
 
             var serviceScopeMock = new Mock<IServiceScope>();

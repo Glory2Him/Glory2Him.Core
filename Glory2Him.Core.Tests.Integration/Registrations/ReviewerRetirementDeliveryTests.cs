@@ -45,14 +45,17 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
     ///
     /// <para><b>Rule 8 is also proven end to end over HTTP by the acceptance suite's
     /// <c>ShouldRetirePendingReviewRequestsWhenTheRoundIsDecidedAsync</c>; rule 6 deliberately
-    /// has no such counterpart.</b> That asymmetry is a choice rather than a gap. #522's
-    /// regression bar makes the acceptance file the one thing in the repository that observes the
-    /// retirement being DELIVERED rather than a handler being called, and requires it to stay
-    /// green and UNEDITED — an edit to it is read as evidence the behaviour changed. Adding a
-    /// rule 6 case there would have to edit it. So rule 6's exposer-level proof is bought here
-    /// instead, one layer down but through the same real broker, the same real signing key and
-    /// the same real receiver: what the acceptance test adds over this is HTTP and a real
-    /// database, and neither is what rule 6's delivery was ever in doubt over.</para>
+    /// has no such counterpart.</b> That asymmetry is a choice rather than a gap, and the reason
+    /// is what the acceptance layer would ADD: HTTP and a real database. Rule 6's delivery was
+    /// never in doubt over either. What it was in doubt over — that the fact routes to this
+    /// subscription, that the receiver accepts the name and direction the publisher signed, and
+    /// that the seam is then actually reached — is bought here against the same real broker, the
+    /// same real signing key and the same real receiver.</para>
+    ///
+    /// <para><b>Not for want of somewhere to put it.</b> <c>ApprovalApiTests</c> is a partial
+    /// class over seven files, so a rule 6 case could sit in a new partial and leave the file
+    /// #522's regression bar pins byte-identical. The choice is about what the extra layer would
+    /// prove, not about whether the pinned file permits it.</para>
     /// </summary>
     [Collection(EventSubstrateCollection.Name)]
     public sealed class ReviewerRetirementDeliveryTests

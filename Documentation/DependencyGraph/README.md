@@ -226,9 +226,11 @@ view you were on, and switching carries your current selection across.
   entirely — nothing subscribes to them.
 - **`EnvelopeIntegrityBroker` is new to the data.** Symmetric HMAC signing and
   verification of every envelope. It takes only `IConfiguration`, so it is a
-  leaf with no outbound edges — but 16 components call it: `EventBroker` signs
+  leaf with no outbound edges — but 17 components call it: `EventBroker` signs
   on publish and verifies on reply, and all 12 foundations, both processing
-  services and the orchestration verify inside their substrate handlers.
+  services and BOTH orchestrations with substrate handlers verify inside them.
+  The second orchestration is `ApprovalReviewerOrchestrationService`, which
+  gained its two handlers in #522; the count was 16 before that.
 - **`Demote<Entity>VersionAsync` is gone, and the data finally agrees**
   (removed from the YAML 2026-09-07; reversed in source 2026-08-19 by
   `4d674b7d`, #265, which derives the version tip instead of storing it).
@@ -311,8 +313,10 @@ view you were on, and switching carries your current selection across.
   caller today, and it is drawn.
 - **No foundation draws its `IEnvelopeIntegrityBroker` edge.** The body text
   above is right that every substrate handler verifies the envelope signature
-  there, but only `ApprovalOrchestrationService` declares those calls in the
-  data — the 14 foundations and both processing services do not.
+  there, but only the two ORCHESTRATIONS declare those calls in the data —
+  `ApprovalOrchestrationService`'s 22 and, since #522,
+  `ApprovalReviewerOrchestrationService`'s 2. No foundation and neither
+  processing service does.
   `FS.ApprovalReviewRequest` follows its siblings rather than fixing this for
   one service alone, which would make the picture less consistent, not more.
   Correcting it is a template-wide edit and belongs to a full re-scan.
@@ -334,10 +338,18 @@ view you were on, and switching carries your current selection across.
   earlier version of this bullet made it: `ProcessApprovalInputsChangedAsync`
   drew the pair as well as the three closing routes.
 
-  **The per-consumer view was NOT re-measured for #522** and its numbers above
-  are #521's. That view expands a tree per consumer rather than counting
-  declarations, so its total cannot be derived from the delta and is left
-  stated as of the scan that produced it. The `/update-dependency-graph` skill's own verification numbers are
+  **Per consumer, #522 reads 191 nodes · 1884 flows** — measured the same way,
+  by running `buildDuplicatedInstances` rather than deriving it. It cannot be
+  derived: that view duplicates a dependency per consumer, so removing `AO`'s
+  retirement edges removed two whole per-consumer COPIES while `ARO`'s handlers
+  added edges mostly onto instances that already existed. Nodes therefore fall
+  by two while flows rise by one, which is the opposite direction from the
+  single-copy total and the reason this number has to be run rather than
+  reasoned about. An earlier version of this bullet gave the underivability as
+  grounds for leaving it unmeasured; it is grounds for measuring it, and the
+  function sits in the same file as the one already being run.
+
+  The `/update-dependency-graph` skill's own verification numbers are
   stale by three generations now and should be read from here instead.
 
   *Measured by running the page's own `buildSingleCopyInstances` and
@@ -401,18 +413,21 @@ view you were on, and switching carries your current selection across.
   next full scan's job; doing it for the one new controller alone would make the
   picture less consistent, not more.
 
-  The third was found by checking the graph in the direction nobody had: **not
-  "does every drawn edge still exist in the code", but "is every code call
-  drawn".** Only the second direction can see an omission, and it turns up
-  **three `AO` calls that have never been drawn** —
-  `AccessBroker.IsEntityVisibleAsync`, `AccessBroker.MayAmendApprovalAsync` and
-  `AccessBroker.RetrieveEntityApprovalStatusAsync`. All three are in `AO`'s
-  source on `main` and absent from its `calls` on `main`, so they predate this
-  change and are left for the re-scan rather than patched here. `ARO` and `AIRO`
-  come back clean in both directions. The check is worth repeating on any
-  component a change touches: the forward direction passed on `ARO` while two of
-  its `VerifyAsync` edges were missing, which is exactly the shape it cannot
-  see.
+  The third is **two more undrawn `AO` calls beside the `IsEntityVisibleAsync`
+  ones already recorded above** — `AccessBroker.MayAmendApprovalAsync` and
+  `AccessBroker.RetrieveEntityApprovalStatusAsync`. Both are in `AO`'s source on
+  `main` and absent from its `calls` on `main`, so they predate this change and
+  are left for the pass that owns `AO`, exactly as its sibling bullet leaves the
+  six visibility reads.
+
+  **How they were found is the transferable part.** The graph had only ever been
+  checked in one direction — *does every drawn edge still exist in the code* —
+  and that direction is structurally blind to an omission. Running it the other
+  way, *is every code call drawn*, is what turned these up, and it is also what
+  caught `ARO`'s two missing `VerifyAsync` edges in #522: the forward check
+  passed on `ARO` while its own description asserted a verification the data did
+  not draw. `ARO` and `AIRO` are clean in both directions now. Worth repeating on
+  any component a change touches.
 
 ## The data files
 
