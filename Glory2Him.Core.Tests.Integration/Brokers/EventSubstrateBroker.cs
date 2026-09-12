@@ -40,6 +40,7 @@ using Glory2Him.Core.Services.Foundations.ContentItemSettings;
 using Glory2Him.Core.Services.Foundations.Links;
 using Glory2Him.Core.Services.Foundations.Reactions;
 using Glory2Him.Core.Services.Foundations.Tags;
+using Glory2Him.Core.Services.Orchestrations.ApprovalReviewers;
 using Glory2Him.Core.Services.Orchestrations.Approvals;
 using Glory2Him.Core.Services.Orchestrations.ContentItemSettings;
 using Glory2Him.Core.Services.Processings.ContentItems;
@@ -154,8 +155,27 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
                 envelopeIntegrityBroker: envelopeIntegrityBroker,
                 loggingBroker: new Mock<ILoggingBroker>().Object);
 
+            // Both retirements moved here in #522, so this receiver is real too — see the
+            // Provide call below for why. Its dependencies are mocked, and the access broker
+            // answers an EMPTY retirable set rather than Moq's null default for List<Guid>, so an
+            // Approval-Modified delivery ends on an empty loop instead of a NullReferenceException
+            // recorded as a failed delivery.
+            ApprovalReviewerOrchestrationService = new ApprovalReviewerOrchestrationService(
+                approvalReviewRequestService: new Mock<IApprovalReviewRequestService>().Object,
+
+                approvalReviewRequestWorkflowService:
+                    new Mock<IApprovalReviewRequestWorkflowService>().Object,
+
+                approvalCommentService: new Mock<IApprovalCommentService>().Object,
+                identityUserService: new Mock<IIdentityUserService>().Object,
+                approvalService: BuildApprovalWorkflowServiceMock().Object,
+                accessBroker: BuildAccessBrokerMock().Object,
+                eventEnvelopeBroker: new Mock<IEventEnvelopeBroker>().Object,
+                envelopeIntegrityBroker: envelopeIntegrityBroker,
+                loggingBroker: new Mock<ILoggingBroker>().Object);
+
             // The registration opens a scope per delivery now, so the fixture supplies a
-            // provider that hands back these instances. The orchestration is the real one; the
+            // provider that hands back these instances. The two orchestrations are real; the
             // other fifteen are mocks, which is what keeps this suite about the WIRING.
             //
             // Every service the subscriptions bind must appear below: Scoped<TService,TEntity>
@@ -191,6 +211,14 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
             Provide<IContentItemProcessingService>(new Mock<IContentItemProcessingService>().Object);
             Provide<ILinkProcessingService>(new Mock<ILinkProcessingService>().Object);
             Provide<IApprovalOrchestrationService>(ApprovalOrchestrationService);
+
+            // REAL for the same reason the round's is, and it is a reason rather than symmetry:
+            // §7.9 rule 6's retirement now binds ApprovalReview-Added as a SECOND subscriber, and
+            // a receiver verifies the envelope against the event name and direction it expects. A
+            // mocked receiver never runs that check, so the publisher-signs-X /
+            // receiver-verifies-Y defect class would be invisible on the very address this suite
+            // exists to prove.
+            Provide<IApprovalReviewerOrchestrationService>(ApprovalReviewerOrchestrationService);
 
             var serviceScopeMock = new Mock<IServiceScope>();
             serviceScopeMock.Setup(scope => scope.ServiceProvider)
@@ -243,6 +271,9 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
         internal IEnvelopeIntegrityBroker EnvelopeIntegrityBroker { get; }
 
         internal IApprovalOrchestrationService ApprovalOrchestrationService { get; }
+
+        internal IApprovalReviewerOrchestrationService
+            ApprovalReviewerOrchestrationService { get; }
 
         internal IEventSubscriptionRegistration Registration { get; }
 

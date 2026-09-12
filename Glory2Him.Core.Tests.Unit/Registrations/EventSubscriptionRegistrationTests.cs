@@ -1669,7 +1669,8 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 this.contentItemSettingServiceMock,
                 this.contentItemSettingOrchestrationServiceMock,
                 this.contentItemProcessingServiceMock,
-                this.linkProcessingServiceMock, this.approvalOrchestrationServiceMock
+                this.linkProcessingServiceMock, this.approvalOrchestrationServiceMock,
+                this.approvalReviewerOrchestrationServiceMock
             };
     }
 }
