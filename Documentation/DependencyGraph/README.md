@@ -226,11 +226,31 @@ view you were on, and switching carries your current selection across.
   entirely — nothing subscribes to them.
 - **`EnvelopeIntegrityBroker` is new to the data.** Symmetric HMAC signing and
   verification of every envelope. It takes only `IConfiguration`, so it is a
-  leaf with no outbound edges — but 17 components call it: `EventBroker` signs
-  on publish and verifies on reply, and all 12 foundations, both processing
-  services and BOTH orchestrations with substrate handlers verify inside them.
-  The second orchestration is `ApprovalReviewerOrchestrationService`, which
-  gained its two handlers in #522; the count was 16 before that.
+  leaf with no outbound edges — but **20 classes call it** (19 before #522):
+  `EventBroker` signs on publish and verifies on reply, and **14 foundations**,
+  **both processing services** and **three orchestrations** verify inside their
+  substrate handlers. 14 + 2 + 3 + 1 = 20.
+
+  The three orchestrations are `ApprovalOrchestrationService`,
+  `ContentItemSettingOrchestrationService` — whose `-Adding` handler verifies in
+  `ContentItemSettingOrchestrationService.Validations.cs`, and which predates
+  this — and `ApprovalReviewerOrchestrationService`, which #522 adds and which
+  is the whole of the 19 → 20 move.
+
+  **14 rather than 15 foundations, and the exception is the point:**
+  `IdentityUserService` is the one foundation service that does not call it,
+  which follows from its being read-only — it writes nothing and publishes
+  nothing, so it has no substrate handler to verify in. 14 is therefore the same
+  14 as "the 14 sibling foundations" and "the 14 templated foundation services"
+  elsewhere in this file.
+
+  *Derived, not counted by eye:*
+  `grep -rl "this\.envelopeIntegrityBroker" --include="*.cs" Glory2Him.Core/`
+  piped through `sed -E 's#.*/##; s#^([^.]+).*\.cs$#\1#' | sort -u` to collapse
+  partials to distinct classes, then the same per layer folder. An earlier
+  version of this sentence said 16 → 17 with 12 foundations and two
+  orchestrations; every one of those four numbers was wrong, because the total
+  was inferred from a delta and the breakdown was carried over unexamined.
 - **`Demote<Entity>VersionAsync` is gone, and the data finally agrees**
   (removed from the YAML 2026-09-07; reversed in source 2026-08-19 by
   `4d674b7d`, #265, which derives the version tip instead of storing it).
@@ -313,10 +333,11 @@ view you were on, and switching carries your current selection across.
   caller today, and it is drawn.
 - **No foundation draws its `IEnvelopeIntegrityBroker` edge.** The body text
   above is right that every substrate handler verifies the envelope signature
-  there, but only the two ORCHESTRATIONS declare those calls in the data —
-  `ApprovalOrchestrationService`'s 22 and, since #522,
-  `ApprovalReviewerOrchestrationService`'s 2. No foundation and neither
-  processing service does.
+  there, but only two of the 20 callers declare those calls in the data —
+  `ApprovalOrchestrationService`'s 22 edges and, since #522,
+  `ApprovalReviewerOrchestrationService`'s 2. **The 14 foundations, both
+  processing services and `ContentItemSettingOrchestrationService` do not**, so
+  the data draws 24 of the edges the code makes.
   `FS.ApprovalReviewRequest` follows its siblings rather than fixing this for
   one service alone, which would make the picture less consistent, not more.
   Correcting it is a template-wide edit and belongs to a full re-scan.
@@ -419,6 +440,15 @@ view you were on, and switching carries your current selection across.
   `main` and absent from its `calls` on `main`, so they predate this change and
   are left for the pass that owns `AO`, exactly as its sibling bullet leaves the
   six visibility reads.
+
+  **A further six counts in this file are unverified and at least suspect**, all
+  byte-identical on `origin/main` and none this PR's to fix: `FS.ApprovalReviewRequest`'s
+  method/edge tallies, the `IAccessBroker` consumer list, `StorageBroker`'s drawn-row
+  figure, the 177-of-184 event-address arithmetic, "108 listeners" against the
+  121 recorded below, and "Twelve" versus "eleven" controllers. Recorded here so
+  the re-scan has the list; deliberately not re-derived, because chasing them
+  from a reviewer-orchestration PR is how a documentation pass becomes a
+  template-wide edit.
 
   **How they were found is the transferable part.** The graph had only ever been
   checked in one direction — *does every drawn edge still exist in the code* —

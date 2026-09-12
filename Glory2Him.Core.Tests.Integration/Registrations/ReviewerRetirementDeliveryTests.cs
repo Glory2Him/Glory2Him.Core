@@ -46,11 +46,16 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
     /// <para><b>Rule 8 is also proven end to end over HTTP by the acceptance suite's
     /// <c>ShouldRetirePendingReviewRequestsWhenTheRoundIsDecidedAsync</c>; rule 6 deliberately
     /// has no such counterpart.</b> That asymmetry is a choice rather than a gap, and the reason
-    /// is what the acceptance layer would ADD: HTTP and a real database. Rule 6's delivery was
-    /// never in doubt over either. What it was in doubt over — that the fact routes to this
-    /// subscription, that the receiver accepts the name and direction the publisher signed, and
-    /// that the seam is then actually reached — is bought here against the same real broker, the
-    /// same real signing key and the same real receiver.</para>
+    /// is what the acceptance layer would ADD: HTTP, a real database, and resolution out of the
+    /// HOST's container. The third is a real failure mode rather than a theoretical one — an
+    /// unregistered <c>IHashBroker</c> once failed mid-delivery rather than at boot — but it is
+    /// covered twice over here: this fixture constructs the real
+    /// <c>EventSubscriptionRegistration</c>, and rule 8's acceptance test resolves
+    /// <c>IApprovalReviewerOrchestrationService</c> from the host container through the very
+    /// same registration rule 6's delivery uses. What rule 6 was in doubt over — that the fact
+    /// routes to this subscription, that the receiver accepts the name and direction the
+    /// publisher signed, and that the seam is then actually reached — is bought here against the
+    /// same real broker, the same real signing key and the same real receiver.</para>
     ///
     /// <para><b>Not for want of somewhere to put it.</b> <c>ApprovalApiTests</c> is a partial
     /// class over seven files, so a rule 6 case could sit in a new partial and leave the file
