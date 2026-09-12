@@ -16,6 +16,7 @@ using Glory2Him.Core.Models.Foundations.ApprovalComments.Exceptions;
 using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests.Exceptions;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews.Exceptions;
 using Glory2Him.Core.Models.Foundations.Approvals.Exceptions;
+using Glory2Him.Core.Models.Foundations.IdentityUsers.Exceptions;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
 using Glory2Him.Core.Models.Orchestrations.Approvals.Exceptions;
 using Xeptions;
@@ -205,6 +206,18 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             {
                 throw await CreateAndLogDependencyValidationExceptionAsync(
                     exception: approvalCommentDependencyValidationException);
+            }
+
+            // The IdentityUser foundation's exception (design §16.7.1, issue #518). ONE type only
+            // — IIdentityUserService exposes two read-only operations, and a read-only contract
+            // has no uniqueness collision, no foreign-key violation and no constraint conflict, so
+            // there is no IdentityUserDependencyValidationException anywhere in the solution and
+            // none should be added (issue #518 finding 1). Reached through the tier-membership
+            // read the candidates listing and the invitation flow both compose.
+            catch (IdentityUserValidationException identityUserValidationException)
+            {
+                throw await CreateAndLogDependencyValidationExceptionAsync(
+                    exception: identityUserValidationException);
             }
 
             // Any OTHER downstream foundation exception — an endpoint service's dependency or
