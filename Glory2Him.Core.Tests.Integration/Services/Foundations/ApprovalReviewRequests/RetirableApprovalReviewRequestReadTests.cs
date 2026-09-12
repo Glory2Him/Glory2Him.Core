@@ -16,6 +16,7 @@ using FluentAssertions;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
+using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Tests.Integration.Brokers;
 using Xunit;
@@ -44,6 +45,7 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ApprovalReviewRe
         private readonly IAccessBroker accessBroker;
         private readonly List<Approval> seededApprovals;
         private readonly List<ApprovalReviewRequest> seededApprovalReviewRequests;
+        private readonly List<ApprovalReview> seededApprovalReviews;
 
         public RetirableApprovalReviewRequestReadTests(NarrowReadQueryBroker broker)
         {
@@ -51,6 +53,7 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ApprovalReviewRe
             this.accessBroker = new AccessBroker(broker.StorageBroker);
             this.seededApprovals = new List<Approval>();
             this.seededApprovalReviewRequests = new List<ApprovalReviewRequest>();
+            this.seededApprovalReviews = new List<ApprovalReview>();
         }
 
         [Fact]
@@ -87,6 +90,41 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ApprovalReviewRe
         // depends on a real catalogue — no index, no collation, no three-valued logic — so
         // repeating it here would buy a second assertion of the same fact at the price of a
         // database round trip.
+
+        /// <summary>
+        /// Proves the §12.5.4 business rule 4(ii) exclusion against a real catalogue. The unit
+        /// suite settles it over an in-memory queryable; what only SQL Server can say is that the
+        /// composed predicate TRANSLATES at all. This is exactly the failure
+        /// <c>ToReviewVerdict</c> would cause if the exclusion were written to call it inside a
+        /// <c>Where</c> clause rather than being expressed directly on <c>StatusId</c>.
+        /// </summary>
+        [Fact]
+        public async Task ShouldExcludeAnAnsweredReviewersRequestFromTheRetirableSetAsync()
+        {
+            // given
+            Approval closingApproval = await SeedApprovalAsync(ApprovalStatus.Approved);
+
+            ApprovalReviewRequest answeredInviteeRequest =
+                await SeedApprovalReviewRequestAsync(closingApproval.Id, isDeleted: false);
+
+            ApprovalReviewRequest unansweredInviteeRequest =
+                await SeedApprovalReviewRequestAsync(closingApproval.Id, isDeleted: false);
+
+            await SeedApprovalReviewAsync(
+                closingApproval.Id,
+                createdBy: answeredInviteeRequest.RequestedUserId,
+                statusId: ApprovalStatus.Approved);
+
+            // when
+            List<Guid> actualRetirableRequestIds =
+                await this.accessBroker.FindRetirableApprovalReviewRequestIdsAsync(
+                    approvalId: closingApproval.Id,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            actualRetirableRequestIds.Should().Equal(new[] { unansweredInviteeRequest.Id });
+            actualRetirableRequestIds.Should().NotContain(answeredInviteeRequest.Id);
+        }
 
         private async Task<Approval> SeedApprovalAsync(ApprovalStatus approvalStatus)
         {
@@ -143,10 +181,38 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ApprovalReviewRe
             return approvalReviewRequest;
         }
 
-        // Requests first: they carry the FK, and the approvals cannot go while they point at one.
+        private async Task<ApprovalReview> SeedApprovalReviewAsync(
+            Guid approvalId,
+            string createdBy,
+            ApprovalStatus statusId)
+        {
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+
+            var approvalReview = new ApprovalReview
+            {
+                Id = Guid.NewGuid(),
+                ApprovalId = approvalId,
+                StatusId = statusId,
+                CreatedBy = createdBy,
+                CreatedWhen = now,
+                UpdatedBy = createdBy,
+                UpdatedWhen = now,
+            };
+
+            await this.broker.SeedAsync(approvalReview);
+            this.seededApprovalReviews.Add(approvalReview);
+
+            return approvalReview;
+        }
+
+        // Requests and reviews first: they carry the FK, and the approvals cannot go while they
+        // point at one.
         public void Dispose()
         {
             this.broker.ClearAsync(this.seededApprovalReviewRequests)
+                .AsTask().GetAwaiter().GetResult();
+
+            this.broker.ClearAsync(this.seededApprovalReviews)
                 .AsTask().GetAwaiter().GetResult();
 
             this.broker.ClearAsync(this.seededApprovals).AsTask().GetAwaiter().GetResult();
