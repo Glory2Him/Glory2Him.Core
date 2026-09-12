@@ -1181,7 +1181,9 @@ export function ContentItemFormPanel({
     };
 
     // The editor refuses rather than downgrades: with no read face here, a reader the gates
-    // turn away is told so — the same posture the add face takes for a blocked account.
+    // turn away is told so. The add face refuses a blocked account the same way, but no
+    // longer identically - its refusal still stands alone, because it is a surface of its
+    // own with its own chrome rather than a card it replaced.
     //
     // THE REFUSAL IS NEVER THIS PANEL'S ONLY CONTENT (#508). The editor replaces the card that
     // stood here, so a refusal rendered alone leaves the reader on a surface with nothing to

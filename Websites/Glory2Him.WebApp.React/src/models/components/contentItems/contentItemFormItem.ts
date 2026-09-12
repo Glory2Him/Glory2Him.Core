@@ -155,6 +155,12 @@ export const isContributorApprovalStatus = (status: ApprovalStatus): boolean =>
 // a live button in front of an editor that refused.
 //
 // An ABSENT status is amendable: an item that names none has not been decided.
+//
+// The predicate is stated as the AMENDABLE pair rather than the terminal one, so it also
+// refuses Dismissed - which the server's two gates do not, both defining terminal as
+// Approved or Rejected alone. Nothing can reach the difference: the design states that
+// entities never hold a Dismissed status, and contentItemSearchApprovalStatusMembers
+// excludes it from every search surface, so no card ever carries one.
 export const isAmendableApprovalStatus = (
     status: ApprovalStatus | null | undefined): boolean =>
     (status ?? ApprovalStatus.Draft) === ApprovalStatus.Draft

@@ -380,6 +380,33 @@ describe('The content item feed pages', () => {
             expect(landedOn()).toBe('/Admin/Posts/devotional-1');
         });
 
+        // THE ROUTE MUST SURVIVE A ROW THE MODERATOR DOES NOT OWN, which is the ordinary case
+        // on a public feed and the one the two tests around this one cannot see: their fixture
+        // is created by 'user-1', the very id signInAs mints, so the card reads as the
+        // viewer's own and every ownership gate opens for the wrong reason. The feed carries
+        // approved rows by construction (§14.1), and the terminal lock (#508) greys out a
+        // moderation action that opens an editor on such a row — here the action is a ROUTE to
+        // /Admin/Posts/{id}, where approval reset, the review thread and the takedown live, so
+        // it stays live. Lock it and the moderation tier loses its only way in from a card.
+        it('should send a moderator to the admin address on a row they did not contribute',
+            async () => {
+                // given
+                pages = [{
+                    items: [contentItemFor({ createdBy: 'account-miriam' })],
+                    pageIndex: 0,
+                    pageSize: 8,
+                    hasNextPage: false
+                }];
+
+                renderPage(<Home />);
+
+                // when
+                await userEvent.click(screen.getByRole('button', { name: 'Moderate' }));
+
+                // then
+                expect(landedOn()).toBe('/Admin/Posts/devotional-1');
+            });
+
         it('should send a moderator from my posts to the admin address', async () => {
             // given
             renderPage(<MyPosts />, '/myposts');

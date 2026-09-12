@@ -675,6 +675,7 @@ describe('ContentItemPanel', () => {
                 renderCard(
                     <ContentItemPanel
                         contentItem={atStatus(devotionalItem, ApprovalStatus.Approved)}
+                        moderationOpensEditor
                         onModerateClick={vi.fn()} />);
 
                 expect(screen.getByRole('button', { name: /Moderate/ })).toBeDisabled();
@@ -686,6 +687,7 @@ describe('ContentItemPanel', () => {
             renderCard(
                 <ContentItemPanel
                     contentItem={atStatus(devotionalItem, ApprovalStatus.Rejected)}
+                    moderationOpensEditor
                     onModerateClick={vi.fn()} />);
 
             expect(screen.getByRole('button', { name: /Moderate/ })).toBeDisabled();
@@ -730,6 +732,7 @@ describe('ContentItemPanel', () => {
             const rendered = renderCard(
                 <ContentItemPanel
                     contentItem={ownApprovedItem}
+                    moderationOpensEditor
                     onEditClick={onEditClick}
                     onModerateClick={onModerateClick} />);
 
@@ -741,6 +744,7 @@ describe('ContentItemPanel', () => {
                     <ContentItemPanel
                         contentItem={ownApprovedItem}
                         showModerationSection
+                        moderationOpensEditor
                         onEditClick={onEditClick}
                         onModerateClick={onModerateClick} />
                 </AuthProvider>);
@@ -759,6 +763,7 @@ describe('ContentItemPanel', () => {
             renderCard(
                 <ContentItemPanel
                     contentItem={atStatus(devotionalItem, ApprovalStatus.Approved)}
+                    moderationOpensEditor
                     onEditClick={vi.fn()}
                     onModerateClick={vi.fn()} />);
 
@@ -780,6 +785,7 @@ describe('ContentItemPanel', () => {
                 <ContentItemPanel
                     contentItem={atStatus(devotionalItem, ApprovalStatus.Approved)}
                     showModerationSection
+                    moderationOpensEditor
                     showEditSection
                     onModerateClick={onModerateClick}
                     onModified={onModified} />);
@@ -804,6 +810,7 @@ describe('ContentItemPanel', () => {
             const rendered = renderCard(
                 <ContentItemPanel
                     contentItem={approvedItem}
+                    moderationOpensEditor
                     onModerateClick={vi.fn()} />);
 
             const moderateAction = screen.getByRole('button', { name: /Moderate/ });
@@ -811,16 +818,26 @@ describe('ContentItemPanel', () => {
             expect(moderateAction).toHaveAttribute('title', 'Locked for moderation');
             expect(moderateAction).toHaveAccessibleName(/Locked for moderation/);
 
+            // The hover half needs the class: Bootstrap gives a disabled .btn
+            // pointer-events: none, which suppresses the title, and
+            // .g2h-content-item-action-locked:disabled in contentItems.css is what puts it
+            // back. Vitest stubs CSS, so the cascade itself cannot be measured here - but
+            // without this assertion the class could be dropped and every test would still
+            // pass while the tooltip silently stopped appearing in a browser.
+            expect(moderateAction).toHaveClass('g2h-content-item-action-locked');
+
             rendered.rerender(
                 <AuthProvider>
                     <ContentItemPanel
                         contentItem={approvedItem}
                         showModerationSection
+                        moderationOpensEditor
                         onModerateClick={vi.fn()} />
                 </AuthProvider>);
 
             const editAction = screen.getByRole('button', { name: /Edit/ });
 
+            expect(editAction).toHaveClass('g2h-content-item-action-locked');
             expect(editAction).toHaveAttribute('title', 'Locked for editing');
             expect(editAction).toHaveAccessibleName(/Locked for editing/);
         });
@@ -847,6 +864,7 @@ describe('ContentItemPanel', () => {
 
                 expect(action).toBeEnabled();
                 expect(action).not.toHaveAttribute('title');
+                expect(action).not.toHaveClass('g2h-content-item-action-locked');
 
                 await userEvent.click(action);
 

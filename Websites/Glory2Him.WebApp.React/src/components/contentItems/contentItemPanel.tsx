@@ -88,6 +88,19 @@ export interface ContentItemPanelProps
     // that IS moderation, the moderation action is simply what editing means.
     showModerationSection?: boolean;
 
+    // WHETHER THIS SURFACE'S MODERATION ACTION OPENS THE EDITOR HERE, or routes somewhere
+    // else. OFF BY DEFAULT, because routing is what most surfaces do: the home feed, the
+    // public list, My Posts and the moderation QUEUE all send the reader to /Admin/Posts/{id},
+    // and only that page opens the editor on the spot.
+    //
+    // THE TERMINAL LOCK READS THIS, and nothing else does. The lock exists because an editor
+    // that will refuse should not be offered (#508) - but a ROUTE to the moderation detail is
+    // an action the system performs on a terminal row, and it is the only way a moderator
+    // reaches approval reset, the review thread and the takedown from a card. Locking it would
+    // cut those off. So the surface declares what its own action DOES; which statuses are
+    // terminal, who is exempt and how the lock is worded all stay decided in here.
+    moderationOpensEditor?: boolean;
+
     // Whether the title is a way into the detail surface. OFF BY DEFAULT: a panel standing
     // on its own IS the detail surface, so its title is plain heading text with no click and
     // no underline even when onTitleClick is wired. ContentItemListPanel turns it on for
@@ -188,6 +201,7 @@ export function ContentItemPanel({
     mode,
     reactionOptions = [],
     showModerationSection = false,
+    moderationOpensEditor = false,
     allowTitleClick = false,
     showApprovalStatusRibbon = false,
     showApprovalStatus = false,
@@ -372,15 +386,24 @@ export function ContentItemPanel({
     const showsModerateButton = viewerModerates && onModerateClick != null;
 
     // THE TERMINAL LOCK (#508). The affordance and the editor behind it used to ask different
-    // questions — the button asked only about the tier, the editor also about the status — so a
-    // decided row offered a moderator an action the editor then refused, with the card already
-    // gone. The card now asks the SAME question the editor asks, and renders the action greyed
-    // out where the answer is no. The contributor is exempt at every status: their amendment of
-    // an approved row forks a new version (§3.4 rule 8), which is a supported route.
+    // questions about the STATUS — the button asked only about the tier, the editor also about
+    // the status — so a decided row offered a moderator an action the editor then refused, with
+    // the card already gone. Where the action OPENS that editor, the card now asks the status
+    // question too and renders the action greyed out where the answer is no.
+    //
+    // Two exemptions, and both are routes the system really performs. The CONTRIBUTOR amends at
+    // any status: their amendment of an approved row forks a new version (§3.4 rule 8). And a
+    // surface whose action ROUTES rather than edits is never locked — see moderationOpensEditor.
+    //
+    // The ROLE half is still asked in two places and they do NOT agree: viewerModerates above
+    // admits the Reviewers tier, which neither the editor's defaultEditRoles nor the server's
+    // HasPublisherRole does. Not reachable today — /Admin/Posts/{id} is gated to Administrators
+    // alone — and out of scope here, but it is not aligned.
     const moderateButtonLabel = showModerationSection ? 'Edit' : 'Moderate';
 
     const isModerateButtonLocked =
         showsModerateButton
+        && moderationOpensEditor
         && viewerOwnsItem === false
         && isAmendableApprovalStatus(contentItem.approvalStatus) === false;
 
