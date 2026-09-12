@@ -48,6 +48,7 @@ using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 using Glory2Him.Core.Services.Foundations.ContentItemSettings;
 using Glory2Him.Core.Services.Orchestrations.ContentItemSettings;
 using Glory2Him.Core.Models.Events.Processings;
+using Glory2Him.Core.Services.Orchestrations.ApprovalReviewers;
 using Glory2Him.Core.Services.Orchestrations.Approvals;
 using Glory2Him.Core.Services.Processings.ContentItems;
 using Glory2Him.Core.Services.Processings.Links;
@@ -77,6 +78,9 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
         private readonly Mock<IContentItemProcessingService> contentItemProcessingServiceMock;
         private readonly Mock<ILinkProcessingService> linkProcessingServiceMock;
         private readonly Mock<IApprovalOrchestrationService> approvalOrchestrationServiceMock;
+
+        private readonly Mock<IApprovalReviewerOrchestrationService>
+            approvalReviewerOrchestrationServiceMock;
         private readonly IEventSubscriptionRegistration eventSubscriptionRegistration;
 
         public EventSubscriptionRegistrationTests()
@@ -101,6 +105,9 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             this.contentItemProcessingServiceMock = new Mock<IContentItemProcessingService>();
             this.linkProcessingServiceMock = new Mock<ILinkProcessingService>();
             this.approvalOrchestrationServiceMock = new Mock<IApprovalOrchestrationService>();
+
+            this.approvalReviewerOrchestrationServiceMock =
+                new Mock<IApprovalReviewerOrchestrationService>();
 
             // The registration no longer holds services; it opens a scope per delivery and
             // resolves from it. The provider hands back the same mocks, so every assertion
@@ -144,6 +151,10 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 .Returns(this.linkProcessingServiceMock.Object);
             serviceProviderMock.Setup(p => p.GetService(typeof(IApprovalOrchestrationService)))
                 .Returns(this.approvalOrchestrationServiceMock.Object);
+
+            serviceProviderMock.Setup(p =>
+                p.GetService(typeof(IApprovalReviewerOrchestrationService)))
+                    .Returns(this.approvalReviewerOrchestrationServiceMock.Object);
 
             var serviceScopeMock = new Mock<IServiceScope>();
             serviceScopeMock.Setup(scope => scope.ServiceProvider)
@@ -941,6 +952,35 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 expectedOperation: ApprovalReviewEventOperation.Added,
                 expectedHandler: this.approvalOrchestrationServiceMock.Object
                     .OnApprovalReviewAddedAsync);
+
+            // §7.9 rule 6's retirement, the SECOND subscriber on this one address (§EVN18's
+            // reviewer table). Two reactions on one address in two services is not the double-fire
+            // §EVN2 rule 6 forbids — that rule bars ONE reaction from binding both the foundation
+            // and the layer tier of the same fact, and Deliveries are recorded per subscription.
+            //
+            // Its id is MINTED FOR IT and shares nothing with the round's subscription above. Two
+            // subscriptions carrying one id collapse to a single registration and silently drop a
+            // handler, which is the failure this assertion is really guarding.
+            VerifyApprovalReviewSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers
+                    .ApprovalReviewerOrchestrationOnApprovalReviewAddedSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers
+                    .ApprovalReviewerOrchestrationOnApprovalReviewAddedSubscriptionName,
+                expectedOperation: ApprovalReviewEventOperation.Added,
+                expectedHandler: this.approvalReviewerOrchestrationServiceMock.Object
+                    .OnApprovalReviewAddedAsync);
+
+            // §7.9 rule 8's retirement, and the FIRST subscription in the solution on any of the
+            // Approval entity's own fact addresses — the five SubscribeToApprovalEventAsync
+            // registrations above all bind COMMAND addresses.
+            VerifyApprovalSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers
+                    .ApprovalReviewerOrchestrationOnApprovalModifiedSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers
+                    .ApprovalReviewerOrchestrationOnApprovalModifiedSubscriptionName,
+                expectedOperation: ApprovalEventOperation.Modified,
+                expectedHandler: this.approvalReviewerOrchestrationServiceMock.Object
+                    .OnApprovalModifiedAsync);
 
             // The other seven workflow-record fact addresses (§10.17(a)). Each can move a §8.5
             // predicate, so each has an ear.
