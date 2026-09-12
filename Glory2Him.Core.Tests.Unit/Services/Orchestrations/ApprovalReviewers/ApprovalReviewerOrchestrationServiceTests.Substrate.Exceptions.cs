@@ -171,6 +171,44 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ApprovalReviewers
         }
 
         /// <summary>
+        /// The same guard on rule 6's handler, asserted separately because it is a separate
+        /// handler with its own copy of the check — a regression that dropped it from one would
+        /// be invisible to a test driving the other.
+        /// </summary>
+        [Fact]
+        public async Task ShouldAbandonTheReviewAddedDeliveryWhenTheTokenIsAlreadyCancelledAsync()
+        {
+            // given
+            Guid approvalId = Guid.NewGuid();
+            string invitedUserId = Guid.NewGuid().ToString();
+            using var cancellationTokenSource = new CancellationTokenSource();
+            cancellationTokenSource.Cancel();
+
+            SetupReviewerScopeById(
+                approvalId: approvalId,
+                requestId: Guid.NewGuid(),
+                requestedUserId: invitedUserId);
+
+            // when
+            ValueTask deliveryTask =
+                new ValueTask(this.approvalReviewerOrchestrationService
+                    .OnApprovalReviewAddedAsync(
+                        CreateReviewAddedEnvelope(approvalId, invitedUserId),
+                        cancellationTokenSource.Token).AsTask());
+
+            // then
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(deliveryTask.AsTask);
+
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
+
+            this.approvalReviewRequestWorkflowServiceMock.Verify(service =>
+                service.RetireAnsweredApprovalReviewRequestAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        /// <summary>
         /// A token already cancelled abandons the delivery outright, and does so BEFORE the
         /// signature check — there is nothing left to verify for a caller who has gone, and
         /// without this the refused branch would check the token nowhere.
