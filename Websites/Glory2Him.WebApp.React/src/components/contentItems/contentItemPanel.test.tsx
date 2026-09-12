@@ -658,6 +658,29 @@ describe('ContentItemPanel', () => {
         });
     });
 
+    // THE TERMINAL LOCK (#508). Approved and Rejected are terminal — the row's content is
+    // immutable in place to a moderator who did not contribute it (§3.4 rules 7 and 16), and
+    // the editor behind the action already refuses. The card must say so BEFORE the press
+    // rather than stranding the reader on a refusal, so the action renders greyed out.
+    describe('the terminal lock', () => {
+        const atStatus = (
+            item: ContentItemSearchItem,
+            approvalStatus: ApprovalStatus): ContentItemSearchItem =>
+            ({ ...item, approvalStatus });
+
+        it('should lock the moderation action on an approved item for a moderator '
+            + 'who is not its contributor', () => {
+                signInAs(authState, ['Administrators']);
+
+                renderCard(
+                    <ContentItemPanel
+                        contentItem={atStatus(devotionalItem, ApprovalStatus.Approved)}
+                        onModerateClick={vi.fn()} />);
+
+                expect(screen.getByRole('button', { name: /Moderate/ })).toBeDisabled();
+            });
+    });
+
     describe('assigned reactions', () => {
         it('should show the compact cluster with the summed total', () => {
             renderCard(<ContentItemPanel contentItem={quoteItem} />);
