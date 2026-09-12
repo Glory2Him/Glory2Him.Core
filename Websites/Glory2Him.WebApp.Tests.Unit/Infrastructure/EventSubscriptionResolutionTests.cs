@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -144,10 +144,10 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
                     // eagerly but open nothing, and this test only asks whether the graph can
                     // be CONSTRUCTED.
                     ["ConnectionStrings:Glory2HimConnectionString"] =
-                        "Server=(localdb)\\MSSQLLocalDB;Database=SubscriptionResolutionProbe;",
+                        "Server=(localdb)\\G2HNoSuchInstance;Database=SubscriptionResolutionProbe;",
 
                     ["ConnectionStrings:EventHighwayConnectionString"] =
-                        "Server=(localdb)\\MSSQLLocalDB;Database=SubscriptionResolutionProbe;",
+                        "Server=(localdb)\\G2HNoSuchInstance;Database=SubscriptionResolutionProbe;",
 
                     // NOT optional, and not decoration. EnvelopeIntegrityBroker refuses to
                     // construct without a usable key (#392), and EVERY service the subscriptions
