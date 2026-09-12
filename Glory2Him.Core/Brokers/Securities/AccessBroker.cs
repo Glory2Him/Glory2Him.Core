@@ -476,14 +476,29 @@ namespace Glory2Him.Core.Brokers.Securities
                 : null;
         }
 
-        // Unfiltered, deliberately — see IAccessBroker for why the caller-facing read cannot
-        // answer this. The SAME storage read RetrieveApprovalReviewerScopeByIdAsync narrows for
-        // its ActiveRequests, so the half that decides WHAT to retire and the half that decides
-        // who may still be invited read one view of one table.
+        // Unfiltered on IsDeleted, deliberately — see IAccessBroker for why the caller-facing read
+        // cannot answer this. The SAME ApprovalReviewRequests read RetrieveApprovalReviewerScopeByIdAsync
+        // narrows for its ActiveRequests, so the half that decides WHAT to retire and the half
+        // that decides who may still be invited read one view of one table.
         //
-        // Pending is exactly IsDeleted == false, and there is no second definition of it here:
-        // rule 5 soft-deletes a withdrawal and rule 6 soft-deletes an answer, so what is left
-        // live is what the round is still waiting on.
+        // §12.5.4 business rule 4(ii): pending is NOT simply IsDeleted == false. It used to be,
+        // because rule 6 soft-deletes an answerer's own row before this gather ever ran — an
+        // ordering the two retirements no longer share once they become independent
+        // subscriptions. The exclusion below removes the dependency on that order: a
+        // RequestedUserId holding a review that still STANDS (the same set
+        // ApprovalReviewerScope.ActiveReviewerUserIds reports) is never handed back, whichever
+        // retirement runs first.
+        //
+        // Expressed directly on StatusId rather than through ToReviewVerdict, which is a static
+        // switch EF Core cannot translate inside a Where clause — it survives elsewhere only
+        // because it sits in a client-evaluated Select. Approved and Rejected are the two verdicts
+        // ToReviewVerdict does NOT collapse to Dismissed, so this is that predicate's SQL-safe
+        // restatement, not a different rule.
+        //
+        // Blank authors are filtered exactly as ActiveReviewerUserIds filters them: CreatedBy is
+        // required but not barred from being empty or whitespace-only, and a blank author carries
+        // no identity to exclude anybody by — including a request whose own RequestedUserId is
+        // itself blank.
         public async ValueTask<List<Guid>> FindRetirableApprovalReviewRequestIdsAsync(
             Guid approvalId,
             CancellationToken cancellationToken = default)
@@ -491,10 +506,21 @@ namespace Glory2Him.Core.Brokers.Securities
             IQueryable<ApprovalReviewRequest> allApprovalReviewRequests =
                 await this.storageBroker.SelectAllApprovalReviewRequestsAsync(cancellationToken);
 
+            IQueryable<ApprovalReview> allApprovalReviews =
+                await this.storageBroker.SelectAllApprovalReviewsAsync(cancellationToken);
+
             return allApprovalReviewRequests
                 .Where(approvalReviewRequest =>
                     approvalReviewRequest.ApprovalId == approvalId
-                        && approvalReviewRequest.IsDeleted == false)
+                        && approvalReviewRequest.IsDeleted == false
+                        && allApprovalReviews.Any(approvalReview =>
+                            approvalReview.ApprovalId == approvalId
+                                && approvalReview.IsDeleted == false
+                                && (approvalReview.StatusId == ApprovalStatus.Approved
+                                    || approvalReview.StatusId == ApprovalStatus.Rejected)
+                                && approvalReview.CreatedBy.Trim() != string.Empty
+                                && approvalReview.CreatedBy == approvalReviewRequest.RequestedUserId)
+                            == false)
                 .Select(approvalReviewRequest => approvalReviewRequest.Id)
                 .ToList();
         }
