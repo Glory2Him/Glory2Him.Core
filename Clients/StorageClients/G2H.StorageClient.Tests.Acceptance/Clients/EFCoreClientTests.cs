@@ -26,16 +26,14 @@ namespace G2H.StorageClient.Tests.Acceptance.Clients
 
         public OperationServiceTests()
         {
-            List<KeyValuePair<string, string>> config = new List<KeyValuePair<string, string>>
-            {
-                new KeyValuePair<string, string>(
-                    key: "ConnectionStrings:DefaultConnection",
-                    value: "Server=(localdb)\\MSSQLLocalDB;Database=EFCoreClientAcceptance;" +
-                        "Trusted_Connection=True;MultipleActiveResultSets=true"),
-            };
-
+            // The same shape as the sibling suite in G2H.StorageClient.Tests.Integrations: the
+            // JSON holds the LocalDB fallback a developer runs against, and the environment
+            // layers over it so a build that has no LocalDB — the Linux CI job — can point the
+            // suite at the server it started for itself (design 12.10 rules 2 and 4). An
+            // in-memory literal could be reached by neither.
             var configurationBuilder = new ConfigurationBuilder()
-                .AddInMemoryCollection(initialData: config);
+                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+                .AddEnvironmentVariables();
 
             IConfiguration configuration = configurationBuilder.Build();
             TestDbContext dbContext = new TestDbContext(configuration);
