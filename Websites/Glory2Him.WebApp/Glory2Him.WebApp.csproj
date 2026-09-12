@@ -21,7 +21,9 @@
          Azure host does, on all three databases, before any DDL runs. It belongs on the HOST
          rather than on Glory2Him.Core: Core ships as a NuGet package, and this would force
          Azure.Identity and MSAL onto every consumer, including ones using SQL auth. Nothing
-         local catches this — dev and CI both connect with Trusted_Connection. -->
+         local catches this — the dev loop connects with Trusted_Connection and CI connects
+         with SQL authentication against a SQL Server container, so neither exercises an
+         Entra ID provider and neither would notice this package going missing. -->
     <PackageReference Include="Microsoft.Data.SqlClient.Extensions.Azure" Version="7.0.2" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.10">
       <PrivateAssets>all</PrivateAssets>
