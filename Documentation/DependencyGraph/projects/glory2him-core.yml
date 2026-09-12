@@ -3739,14 +3739,28 @@ components:
     name: ApprovalReviewerOrchestrationService
     layer: orchestration
     col: 4
-    description: "Who takes part in an approval round, and its own contract since PR 535 (design 12.5.4, 16.7.4): who is in scope to review an entity, who has been asked, withdrawing the ask, and what everybody the round names is CALLED. Separate from ApprovalOrchestrationService because coordinating REVIEWERS is a different subject from the round itself - 16.7.4 had already ruled the coupling absent, saying the feature composes BESIDE the verdict and the decision rather than into them - and carrying both gave that interface two contracts. These are the operations that need BOTH stores: the round, the entity owner and the existing reviews come from Core through IAccessBroker, and role membership from the identity store through IIdentityUserService, which no other service reads. The 18.6 tier NAMES and the ReadOnly veto names are composed here from the approval role subjects, so the convention keeps one home, and the identity service is handed finished names and only reports membership. ONE gather resolves the round, keyed on the ENTITY - RetrieveApprovalReviewerScopeByEntityAsync - where the old shape took a FindApprovalByEntityAsync lookup plus the by-id gather and read the same row twice; on a null it runs the 9.7.2 rule 1 read-triggered repair (visible gate, in-play gate, pre-insert re-probe, AddApprovalAsync) and asks the gather AGAIN, reporting not-found only if the retry is null too. That repair is a NARROWER copy of the round's, which delegates to a retrieve-or-create that also reinstates a soft-deleted row; this one cannot reach that branch, because the gather is unfiltered on IsDeleted so a null means no row at all. The outstanding-request read answers through IApprovalReviewRequestService and NOT off the gathered scope, and the name resolver reads the round's comments through IApprovalCommentService and NOT off IAccessBroker - both so 14.7 posture D decides what a given caller sees (14.6 rule 2). FOUR service dependencies and four exception arms, over the Florance two-to-three: a deliberate, argued and signed-off deviation recorded in 12.5's register, whose cost is IApprovalWorkflowService and which is that service's CEILING rather than a new baseline. It publishes NO events of its own and binds no subscriptions yet - issue 522 brings the 7.9 rule 6 and rule 8 retirements here as subscriptions, and issue 523 splits ApprovalsController, which binds this service for its five reviewer routes meanwhile. ILoggingBroker is exception-path only, so no logging edge is drawn."
+    description: "Who takes part in an approval round, and its own contract since PR 535 (design 12.5.4, 16.7.4): who is in scope to review an entity, who has been asked, withdrawing the ask, and what everybody the round names is CALLED. Separate from ApprovalOrchestrationService because coordinating REVIEWERS is a different subject from the round itself - 16.7.4 had already ruled the coupling absent, saying the feature composes BESIDE the verdict and the decision rather than into them - and carrying both gave that interface two contracts. These are the operations that need BOTH stores: the round, the entity owner and the existing reviews come from Core through IAccessBroker, and role membership from the identity store through IIdentityUserService, which no other service reads. The 18.6 tier NAMES and the ReadOnly veto names are composed here from the approval role subjects, so the convention keeps one home, and the identity service is handed finished names and only reports membership. ONE gather resolves the round, keyed on the ENTITY - RetrieveApprovalReviewerScopeByEntityAsync - where the old shape took a FindApprovalByEntityAsync lookup plus the by-id gather and read the same row twice; on a null it runs the 9.7.2 rule 1 read-triggered repair (visible gate, in-play gate, pre-insert re-probe, AddApprovalAsync) and asks the gather AGAIN, reporting not-found only if the retry is null too. That repair is a NARROWER copy of the round's, which delegates to a retrieve-or-create that also reinstates a soft-deleted row; this one cannot reach that branch, because the gather is unfiltered on IsDeleted so a null means no row at all. The outstanding-request read answers through IApprovalReviewRequestService and NOT off the gathered scope, and the name resolver reads the round's comments through IApprovalCommentService and NOT off IAccessBroker - both so 14.7 posture D decides what a given caller sees (14.6 rule 2). FOUR service dependencies and four exception arms, over the Florance two-to-three: a deliberate, argued and signed-off deviation recorded in 12.5's register, whose cost is IApprovalWorkflowService and which is that service's CEILING rather than a new baseline. It publishes NO events of its own - which is why it holds IEnvelopeIntegrityBroker but NOT IEventBroker - and binds TWO subscriptions since issue 522: ApprovalReview.Added for the 7.9 rule 6 retirement, and Approval.Modified for rule 8's, the first subscription in the solution on any of the Approval entity's own fact addresses. Both verify the inbound envelope and then cause their write through IApprovalReviewRequestWorkflowService, a second door onto ApprovalReviewRequestService that shares its TryCatch and so costs no fifth arm (16.7.1 rule 2). Rule 8 gates on the signed ApprovalStatus inside the envelope BEFORE any gather, so a -Modified on an open round - the entity-status sync, a reinstatement, or 8.6 HR-4's reset - costs one comparison and no broker call. Neither handler records an inbound ProcessedEvent: the dedupe pair is a foundation request-handler device, both halves are storage-broker calls an orchestration may not hold, and this service writes no row of its own to commit one with. Issue 523 splits ApprovalsController, which binds this service for its five reviewer routes meanwhile. ILoggingBroker is exception-path only, so no logging edge is drawn."
     methods:
       - RetrieveReviewerCandidatesAsync
       - RetrieveReviewerDisplayNamesAsync
       - RequestApprovalReviewAsync
       - RetrieveApprovalReviewRequestsAsync
       - WithdrawApprovalReviewRequestAsync
+      - OnApprovalReviewAddedAsync
+      - OnApprovalModifiedAsync
     calls:
+      - from: OnApprovalReviewAddedAsync
+        to: AccessBroker
+        method: RetrieveApprovalReviewerScopeByIdAsync
+      - from: OnApprovalReviewAddedAsync
+        to: FS.ApprovalReviewRequest
+        method: RetireAnsweredApprovalReviewRequestAsync
+      - from: OnApprovalModifiedAsync
+        to: AccessBroker
+        method: FindRetirableApprovalReviewRequestIdsAsync
+      - from: OnApprovalModifiedAsync
+        to: FS.ApprovalReviewRequest
+        method: RetireClosedRoundApprovalReviewRequestAsync
       - from: RetrieveReviewerCandidatesAsync
         to: EventEnvelopeBroker
         method: CreateAsync
@@ -3861,11 +3875,16 @@ components:
       - from: WithdrawApprovalReviewRequestAsync
         to: FS.ApprovalReviewRequest
         method: RemoveApprovalReviewRequestByIdAsync
+    subscribes:
+      - event: ApprovalReview.Added
+        handler: OnApprovalReviewAddedAsync
+      - event: Approval.Modified
+        handler: OnApprovalModifiedAsync
   - id: AO
     name: ApprovalOrchestrationService
     layer: orchestration
     col: 4
-    description: "The approval workflow (design 12.5.3, 16.7, 9.7, 10.17). Records human approve/reject decisions on the Approval row - the source of truth - and re-evaluates a round whenever its inputs change. Holds NONE of the seven entity services on purpose: the decided state reaches its entity as an <Entity>.Approving command event published under the system identity (CreateSystemAsync), addressed to the PROCESSING tier for the versioned types (ContentItem, Link) and to the foundation for the other five. Holds no IApprovalSettingService either - every policy question is asked as a verdict from IAccessBroker. The 22 On*Async handlers verify the envelope signature through IEnvelopeIntegrityBroker and then delegate to the same ProcessEntityAdded / ProcessEntityModified / ProcessApprovalInputsChanged path as the public methods. Has NO IStorageBroker, so no ProcessedEvents dedupe - the integrity verify is its substrate guard instead. The -Removed handlers serve both soft and hard removal; no entity -Removed is subscribed by design (a takedown is not a moderation step). Its subject is the ROUND and nothing else since PR 535 (design 12.5.4): the 7.9 INVITATION flow and the 16.7.4 name resolver left for ApprovalReviewerOrchestrationService, and IApprovalReviewRequestService, IApprovalCommentService and IIdentityUserService went with them - so this service no longer reads the identity store at all, and the only thing it reads a comment for is the 8.5 count, which arrives as a verdict from IAccessBroker. What is left is three arm-bearing seams - IApprovalWorkflowService, IApprovalReviewWorkflowService, IAIReviewerAssignmentWorkflowService - giving three exception arms and twelve downstream catch blocks, at the Florance ceiling and not over it, which is what issue 348 asked for. A fourth seam, IApprovalReviewRequestWorkflowService, is held knowingly temporarily and costs no arm: OnApprovalReviewAddedAsync still retires the answered invitation through it (rule 6), after the signature check and before the suppression test, and RetireUnansweredApprovalReviewRequestsAsync still sweeps a closed round (rule 8) - issue 522 turns both into subscriptions on the reviewer orchestration's own substrate and takes the seam away. ILoggingBroker is exception-path only, so no logging edge is drawn."
+    description: "The approval workflow (design 12.5.3, 16.7, 9.7, 10.17). Records human approve/reject decisions on the Approval row - the source of truth - and re-evaluates a round whenever its inputs change. Holds NONE of the seven entity services on purpose: the decided state reaches its entity as an <Entity>.Approving command event published under the system identity (CreateSystemAsync), addressed to the PROCESSING tier for the versioned types (ContentItem, Link) and to the foundation for the other five. Holds no IApprovalSettingService either - every policy question is asked as a verdict from IAccessBroker. The 22 On*Async handlers verify the envelope signature through IEnvelopeIntegrityBroker and then delegate to the same ProcessEntityAdded / ProcessEntityModified / ProcessApprovalInputsChanged path as the public methods. Has NO IStorageBroker, so no ProcessedEvents dedupe - the integrity verify is its substrate guard instead. The -Removed handlers serve both soft and hard removal; no entity -Removed is subscribed by design (a takedown is not a moderation step). Its subject is the ROUND and nothing else since PR 535 (design 12.5.4): the 7.9 INVITATION flow and the 16.7.4 name resolver left for ApprovalReviewerOrchestrationService, and IApprovalReviewRequestService, IApprovalCommentService and IIdentityUserService went with them - so this service no longer reads the identity store at all, and the only thing it reads a comment for is the 8.5 count, which arrives as a verdict from IAccessBroker. What is left is three arm-bearing seams - IApprovalWorkflowService, IApprovalReviewWorkflowService, IAIReviewerAssignmentWorkflowService - giving three exception arms and twelve downstream catch blocks, at the Florance ceiling and not over it, which is what issue 348 asked for. The fourth seam it used to hold, IApprovalReviewRequestWorkflowService, left with issue 522: the 7.9 rule 6 and rule 8 retirements are subscriptions on ApprovalReviewerOrchestrationService's own substrate now (12.5.4 business rule 4), so this service holds no reference to the request record in any form. OnApprovalReviewAddedAsync re-tests the round and nothing else - the retirement that rode that delivery as an after-verification hook is a second subscription on the same address, in another service, with Deliveries recorded per subscription. ILoggingBroker is exception-path only, so no logging edge is drawn."
     methods:
       - RetrieveApprovalVerdictAsync
       - DecideApprovalAsync
@@ -3908,12 +3927,6 @@ components:
       - from: ResetApprovalAsync
         to: FS.AIReviewerAssignment
         method: ReturnStaleAIReviewerAssignmentToPendingAsync
-      - from: OnApprovalReviewAddedAsync
-        to: AccessBroker
-        method: RetrieveApprovalReviewerScopeByIdAsync
-      - from: OnApprovalReviewAddedAsync
-        to: FS.ApprovalReviewRequest
-        method: RetireAnsweredApprovalReviewRequestAsync
       - from: RetrieveApprovalVerdictAsync
         to: EventEnvelopeBroker
         method: CreateAsync
@@ -3944,12 +3957,6 @@ components:
       - from: DecideApprovalAsync
         to: EventEnvelopeBroker
         method: CreateSystemAsync
-      - from: DecideApprovalAsync
-        to: AccessBroker
-        method: FindRetirableApprovalReviewRequestIdsAsync
-      - from: DecideApprovalAsync
-        to: FS.ApprovalReviewRequest
-        method: RetireClosedRoundApprovalReviewRequestAsync
       - from: ProcessEntityAddedAsync
         to: FS.Approval
         method: FindApprovalByEntityAsync
@@ -3968,12 +3975,6 @@ components:
       - from: ProcessEntityAddedAsync
         to: EventEnvelopeBroker
         method: CreateSystemAsync
-      - from: ProcessEntityAddedAsync
-        to: AccessBroker
-        method: FindRetirableApprovalReviewRequestIdsAsync
-      - from: ProcessEntityAddedAsync
-        to: FS.ApprovalReviewRequest
-        method: RetireClosedRoundApprovalReviewRequestAsync
       - from: ProcessEntityModifiedAsync
         to: FS.Approval
         method: FindApprovalByEntityAsync
@@ -3995,12 +3996,6 @@ components:
       - from: ProcessEntityModifiedAsync
         to: FS.ApprovalReview
         method: DismissStaleApprovalReviewAsync
-      - from: ProcessEntityModifiedAsync
-        to: AccessBroker
-        method: FindRetirableApprovalReviewRequestIdsAsync
-      - from: ProcessEntityModifiedAsync
-        to: FS.ApprovalReviewRequest
-        method: RetireClosedRoundApprovalReviewRequestAsync
       - from: ProcessApprovalInputsChangedAsync
         to: FS.Approval
         method: RetrieveApprovalByIdAsync

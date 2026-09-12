@@ -155,11 +155,16 @@ view you were on, and switching carries your current selection across.
   `AccessBroker.RetrieveApprovalReviewerScopeByIdAsync`) is made by no method on any service
   now. On a null it runs the §9.7.2 rule 1 repair — hence its `RetrieveEntityApprovalStatusAsync`,
   `FindApprovalByEntityAsync` and `AddApprovalAsync` edges — and asks the gather again.
-- **`ARO` binds no subscriptions yet**, which is why the purple count did not move. The rule 6
-  retirement still hangs off `AO.OnApprovalReviewAddedAsync` and the rule 8 sweep off `AO`'s
-  closing paths; issue #522 brings both here as subscriptions and takes
-  `IApprovalReviewRequestWorkflowService` off `AO` with them. Issue #523 splits
-  `ApprovalsController`, which binds `ARO` for its five reviewer routes meanwhile.
+- **`ARO` binds TWO subscriptions and publishes nothing** (issue #522, design §12.5.4 business
+  rule 4). `ApprovalReview.Added` carries §7.9 rule 6's retirement and `Approval.Modified`
+  carries rule 8's — the first subscription in the solution on any of the `Approval` entity's
+  own FACT addresses, the five existing ones all binding command addresses. `ApprovalReview.Added`
+  therefore has two subscribers, `AO`'s re-test and this retirement: two reactions on one
+  address in two services, with `Deliveries` recorded per subscription, which is not the
+  double-fire §EVN2 rule 6 forbids. `AO` lost its `RetrieveApprovalReviewerScopeByIdAsync` and
+  both `Retire*ApprovalReviewRequestAsync` edges with them, and with those the
+  `IApprovalReviewRequestWorkflowService` seam entirely. Issue #523 splits `ApprovalsController`,
+  which binds `ARO` for its five reviewer routes meanwhile.
 - **`RetireAnsweredApprovalReviewRequestAsync` is the second workflow seam in
   the graph**, after `ApprovalReviewService.DismissStaleApprovalReviewAsync`,
   and it is drawn the same way: a `CreateSystemAsync` edge instead of
@@ -348,16 +353,19 @@ view you were on, and switching carries your current selection across.
   `IApprovalWorkflowService`, drawn as its `FindApprovalByEntityAsync` and
   `AddApprovalAsync` edges — that is the §9.7.2 rule 1 repair, and it is the
   approved Florance deviation §12.5's register records.
-  **`ARO` draws no purple edges and no red ones**: it binds no subscriptions and
-  publishes nothing today. Issue #522 brings the §7.9 rule 6 and rule 8
-  retirements here as subscriptions — which is when its first purple edges
-  appear and when `AO`'s `RetireAnsweredApprovalReviewRequestAsync` and
-  `RetrieveApprovalReviewerScopeByIdAsync` edges leave — and issue #523 splits
-  `ApprovalsController`. Like `AIRO`, it renders with zero inbound flows because
-  the controller folders are still unmodelled (see the bullet below).
+  **`ARO` draws two purple edges and no red ones** since issue #522: it binds
+  the §7.9 rule 6 and rule 8 retirements as subscriptions and still publishes
+  nothing of its own, because both cause their write through the foundation's
+  workflow seam, which publishes for itself — which is why it holds
+  `IEnvelopeIntegrityBroker` but not `IEventBroker`. `AO`'s
+  `RetireAnsweredApprovalReviewRequestAsync`, `RetireClosedRoundApprovalReviewRequestAsync`,
+  `RetrieveApprovalReviewerScopeByIdAsync` and
+  `FindRetirableApprovalReviewRequestIdsAsync` edges left with them. Issue #523
+  splits `ApprovalsController`. Like `AIRO`, it renders with zero inbound flows
+  because the controller folders are still unmodelled (see the bullet below).
 - **Two gaps are still open and neither is this update's doing.**
-  `EventSubscriptionRegistration` now wires **119** subscriptions while the data
-  declares **112** — a drift of seven that predates the AI reviewer and wants a
+  `EventSubscriptionRegistration` now wires **121** subscriptions while the data
+  declares **114** — a drift of seven that predates the AI reviewer and wants a
   targeted pass of its own. And the twelve controller folders (the eleven listed
   above plus `AIReviewers`) remain unmodelled, so `AIRO` renders with zero
   inbound flows and `WA.*` still has no edge into Core. Adding them is still the
