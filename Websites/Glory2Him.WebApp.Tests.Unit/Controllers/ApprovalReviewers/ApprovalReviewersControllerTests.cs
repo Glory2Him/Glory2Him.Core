@@ -224,6 +224,67 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalReviewers
         }
 
         /// <summary>
+        /// The one refusal the re-read cannot explain away (§7.9 rule 4): the winning row was
+        /// withdrawn between the unique-index collision and the second look, so nothing is left
+        /// to hand back as the 204. Carried across the split unchanged — issue #523 criterion 6
+        /// pins this clause explicitly because the exception family it catches changed underneath
+        /// it (#521) while the mapping did not.
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnConflictOnPostReviewRequestIfAlreadyExistsErrorOccurredAsync()
+        {
+            // given
+            var someInnerException = new Exception();
+            string someMessage = GetRandomString();
+
+            var alreadyExistsApprovalReviewRequestException =
+                new AlreadyExistsApprovalReviewRequestException(
+                    message: someMessage,
+                    innerException: someInnerException,
+                    data: someInnerException.Data);
+
+            var approvalReviewerOrchestrationDependencyValidationException =
+                new ApprovalReviewerOrchestrationDependencyValidationException(
+                    message: someMessage,
+                    innerException: alreadyExistsApprovalReviewRequestException);
+
+            ConflictObjectResult expectedConflictObjectResult =
+                Conflict(alreadyExistsApprovalReviewRequestException);
+
+            var expectedActionResult =
+                new ActionResult<ApprovalReviewRequest>(expectedConflictObjectResult);
+
+            this.approvalReviewerOrchestrationServiceMock.Setup(service =>
+                service.RequestApprovalReviewAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(approvalReviewerOrchestrationDependencyValidationException);
+
+            // when
+            ActionResult<ApprovalReviewRequest> actualActionResult =
+                await this.approvalReviewersController.PostReviewRequestAsync(
+                    GetRandomEntityType(),
+                    Guid.NewGuid(),
+                    Guid.NewGuid().ToString(),
+                    default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.approvalReviewerOrchestrationServiceMock.Verify(service =>
+                service.RequestApprovalReviewAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalReviewerOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        /// <summary>
         /// The read §7.9 was written around. Until this route the request rows could be created
         /// and withdrawn but never seen, so the panel's Requested section was permanently empty —
         /// not because nobody had been asked, but because it could not be known.
