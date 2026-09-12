@@ -1621,10 +1621,19 @@ either.
   3. **Its own writes terminate immediately.** A retirement publishes
      `ApprovalReviewRequest-Modified` / `-Removed`, and nothing in this system
      subscribes to either address, so the reaction has no second hop.
-  4. **It is idempotent under redelivery.** The condition is answered wholly by
-     `IAccessBroker.FindRetirableApprovalReviewRequestIdsAsync`, which returns
-     an empty list on an open round and on one already retired — so a
-     `-Modified` that closed nothing costs one gather and writes nothing.
+  4. **It gates on the round being CLOSED, and it is idempotent under
+     redelivery.** The gate is the handler's own and reads
+     `envelope.Content.ApprovalStatus` — signed system data inside the HMAC —
+     before any gather. It is NOT supplied by
+     `IAccessBroker.FindRetirableApprovalReviewRequestIdsAsync`, which reads
+     `ApprovalId` and `IsDeleted` and never the status; an earlier draft of this
+     item said otherwise and was wrong. The gate is load-bearing because only
+     three of `ModifyApprovalAsync`'s six call sites close a round — the other
+     three publish `-Modified` on an OPEN one, including §8.6 HR-4's reset to
+     `Submitted`, where an ungated sweep would retire the invitations a
+     moderator had just re-issued. Given the gate, a `-Modified` that closed
+     nothing costs one comparison and no gather at all, and a redelivered one on
+     a closed round finds no live rows.
 
   **RULE — a handler may bind an `Approval` fact only if all four hold.**
   Anything that would re-test, decide, or write the approval binds the entity
@@ -1650,7 +1659,20 @@ for §7.9's retirements and neither for a re-test:
 | Address | Rule | Reaction |
 | --- | --- | --- |
 | `ApprovalReview-Added` | §7.9 rule 6 | The invited person answered; their invitation is retired under the system identity. |
-| `Approval-Modified` | §7.9 rule 8 | The round may have closed; every invitation still pending on a closed round is retired under the system identity. |
+| `Approval-Modified` | §7.9 rule 8 | The round may have closed; where the envelope's status says it did, every invitation still pending **and unanswered** is retired under the system identity. |
+
+**The two are independent and must stay independent — no delivery order is
+specified, and none may be relied on.** Rule 6 runs today as an
+`onVerifiedAsync` hook ordered ahead of the round's re-test, and that ordering is
+load-bearing under the current gather: the broker's `IsDeleted == false` filter
+means "still waiting on" only because rule 6 has already soft-deleted the
+answerer's row. Two subscriptions have no such order, and the losing order is the
+common case — the last vote closes the round, the re-test's write publishes
+`-Modified` synchronously, and rule 8 sweeps the answerer's own invitation with
+the reason "the approval round closed before this review was cast". So the rule 8
+gather **excludes any `RequestedUserId` with a recorded review on the round**
+(`G2H Design.md` §12.5.4 business rule 4(ii)), which makes the order irrelevant
+rather than merely unlikely to bite.
 
 Three things about this pair, and each is a question a reviewer will ask:
 
@@ -1668,9 +1690,10 @@ Three things about this pair, and each is a question a reviewer will ask:
    outcome through `ModifyApprovalAsync`, so one subscription hears all three
    and no enumeration of the sites has to be kept in step.
 3. **Neither needs the fact to say why the round moved**, which is what keeps
-   this off a new discriminated address.
-   `IAccessBroker.FindRetirableApprovalReviewRequestIdsAsync` answers the whole
-   condition from storage. Contrast the round's own dismissal, which cannot be
+   this off a new discriminated address — `Approval-Modified` carries the new
+   `ApprovalStatus` in its signed content, so the handler can tell a close from
+   an open-round write without a second address and without a second read (item
+   (e) condition 4). Contrast the round's own dismissal, which cannot be
    driven this way: dismissing stale reviews is conditional on
    `RequireReapprovalOnChange` on the edit path and unconditional on the §8.6
    HR-4 reset (`G2H Design.md` §12.5.3 rule 12, §16.7.5), and a bare

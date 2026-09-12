@@ -72,8 +72,20 @@ What you settle, in this order:
 - **One kind of dependency, never a mix.** An orchestration may depend on
   processing services, or on foundation services, but not both. A mixed list is a
   violation because those services sit at different levels, and an orchestration
-  reaching across two levels at once has no single layer below it. Brokers remain
-  off limits to an orchestration entirely.
+  reaching across two levels at once has no single layer below it. **STORAGE**
+  brokers remain off limits to an orchestration entirely — reaching storage
+  directly skips every layer beneath it at once, and that is the boundary this
+  clause protects.
+
+  This clause used to read "Brokers remain off limits to an orchestration
+  entirely", and that was wrong about this solution rather than an unmet goal.
+  Read literally it forbids `ILoggingBroker`, which would leave an orchestration
+  unable to log, and it forbids `IAccessBroker`, which would put §8.4's
+  most-specific-wins back inside every service that asks a policy question — the
+  duplication §8.6.1 rule 4 exists to prevent. Every built orchestration holds
+  brokers and none holds a storage broker; `Documentation/G2H Design.md` §12.5
+  records the rule and §16.7.1 why the Florance count excludes them (they oblige
+  no exception arm).
 
   This deliberately overrides `the-standard-orchestrations` 1.1/Don'ts#1, which
   forbids an orchestration from calling foundation services at all. In this
