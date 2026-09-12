@@ -1668,12 +1668,13 @@ for §7.9's retirements and neither for a re-test:
 | `Approval-Modified` | §7.9 rule 8 | The round may have closed; where the envelope's status says it did, every invitation still pending **and unanswered** is retired under the system identity. |
 
 **The two are independent and must stay independent — no delivery order is
-specified, and none may be relied on.** Rule 6 runs today as an
-`onVerifiedAsync` hook ordered ahead of the round's re-test, and that ordering is
-load-bearing under the current gather: the broker's `IsDeleted == false` filter
-means "still waiting on" only because rule 6 has already soft-deleted the
-answerer's row. Two subscriptions have no such order, and the losing order is the
-common case — the last vote closes the round, the re-test's write publishes
+specified, and none may be relied on.** Rule 6 used to run as an
+`onVerifiedAsync` hook ordered ahead of the round's re-test, and that ordering
+was load-bearing under the gather as it then stood: the broker's
+`IsDeleted == false` filter meant "still waiting on" only because rule 6 had
+already soft-deleted the answerer's row. Two subscriptions have no such order,
+and the losing order is the common case — the last vote closes the round, the
+re-test's write publishes
 `-Modified` synchronously, and rule 8 sweeps the answerer's own invitation with
 the reason "the approval round closed before this review was cast". So the rule 8
 gather **excludes any `RequestedUserId` holding a review that still STANDS** —
@@ -1694,6 +1695,18 @@ Three things about this pair, and each is a question a reviewer will ask:
    retirement previously ran as an `onVerifiedAsync` hook inside the round's
    handler, which coupled a reviewer-coordination write to the round's own
    delivery for no reason other than that both services did not yet exist.
+
+   **What the hook's POSITION used to guarantee now holds by construction.**
+   That hook sat after the signature check and *before* item (d)'s suppression
+   test, deliberately: suppression decides whether to re-test the round, and
+   retiring an answered invitation is not a re-test, so it had to happen either
+   way — otherwise a review recorded during a dismissal cascade would leave its
+   invitation standing forever. As a subscription on a service that has **no
+   suppression window at all**, rule 6 always runs, and there is no position
+   left to get wrong. The isolation the hook's surrounding `try`/`catch`
+   provided is structural for the same reason: two subscriptions, two
+   deliveries, two services, so a failing retirement cannot stop the round
+   re-testing.
 2. **`Approval-Modified` is admissible under item (e)'s amended boundary** —
    see the four conditions there. It is deliberately the *only* trigger for
    rule 8: a round closes three ways (§9.7.5, §9.7.7) and all three write the
