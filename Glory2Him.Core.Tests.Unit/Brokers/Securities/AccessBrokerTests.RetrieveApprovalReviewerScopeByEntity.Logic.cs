@@ -94,5 +94,48 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                 because: "an entity key that no approval carries answers null rather than an "
                     + "empty scope");
         }
+
+        /// <summary>
+        /// The entity-key lookup is unfiltered on <c>IsDeleted</c>, because a soft-deleted row
+        /// still occupies <c>UX_Approvals_EntityType_EntityId</c> and reporting "no round" for a
+        /// key that has one is the §9.7.2 rule 3 fault. This is behaviour <c>FindApprovalAsync</c>
+        /// already has; this test pins it through the new entry point so a later tidy-up cannot
+        /// quietly filter it.
+        /// </summary>
+        [Fact]
+        public async Task ShouldRetrieveApprovalReviewerScopeByEntityForASoftDeletedApprovalAsync()
+        {
+            // given
+            Guid approvalId = Guid.NewGuid();
+            Guid entityId = Guid.NewGuid();
+            EntityType entityType = EntityType.ContentItem;
+
+            Approval softDeletedApproval = CreateApproval(
+                approvalId: approvalId,
+                entityType: entityType,
+                entityId: entityId,
+                approvalStatus: ApprovalStatus.Rejected,
+                isDeleted: true);
+
+            SetupApprovals(softDeletedApproval);
+            SetupEntityAuthor(entityType, entityId, createdBy: "the-entity-owner");
+            SetupApprovalReviews();
+            SetupApprovalComments();
+            SetupApprovalReviewRequests();
+
+            // when
+            ApprovalReviewerScope? actualScope =
+                await this.accessBroker.RetrieveApprovalReviewerScopeByEntityAsync(
+                    entityType: entityType,
+                    entityId: entityId,
+                    cancellationToken: default);
+
+            // then
+            actualScope.Should().NotBeNull(
+                because: "a soft-deleted approval still occupies the entity key, and reporting "
+                    + "no round for a key that has one is the fault this test pins");
+
+            actualScope!.ApprovalId.Should().Be(approvalId);
+        }
     }
 }
