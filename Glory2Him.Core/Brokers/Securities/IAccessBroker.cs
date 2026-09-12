@@ -325,6 +325,40 @@ namespace Glory2Him.Core.Brokers.Securities
             CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// The ids of the review invitations still outstanding on an approval — what a round
+        /// closing on an outcome has to retire (§7.9 rule 8) — read from storage without regard
+        /// to who is asking.
+        /// </summary>
+        /// <remarks>
+        /// <para>Actor-independent, for the same reason
+        /// <see cref="FindDismissableApprovalReviewIdsAsync"/> above is: who a round is still
+        /// waiting on is a property of the approval, not of the caller.</para>
+        ///
+        /// <para>It exists because the caller-facing read is not.
+        /// <c>IApprovalReviewRequestService</c> applies §14.7 posture D, and only ONE of the
+        /// three routes to an outcome runs under a moderator's identity. The automatic approval
+        /// runs under whoever's edit or review tipped the round — ordinarily the AUTHOR revising
+        /// their own submission, who holds no review role at all — and the rejection branch under
+        /// whoever recorded the rejecting review. Retiring from that view retires nothing and
+        /// throws nothing, and the panel goes on showing an ask nobody can answer.</para>
+        ///
+        /// <para>Narrow rather than a second use of
+        /// <see cref="RetrieveApprovalReviewerScopeByIdAsync"/>, which carries the same rows on
+        /// its <c>ActiveRequests</c>: that gather resolves the approval's entity and builds the
+        /// whole review snapshot to produce them, and a path that needs a list of ids should not
+        /// pay for the population behind them.</para>
+        ///
+        /// <para>The pending predicate lives HERE, exactly as its neighbours filter out the
+        /// reviews already dismissed and the assignment already pending: "what is still
+        /// outstanding" then has one home, and no caller receives a row it is meant to skip.
+        /// It is an optimisation and not the correctness boundary — the transition that performs
+        /// the write re-reads the row and returns an already-deleted one unchanged.</para>
+        /// </remarks>
+        ValueTask<List<Guid>> FindRetirableApprovalReviewRequestIdsAsync(
+            Guid approvalId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Gathers everything the invitation flow needs about an approval's subject (§7.9,
         /// §16.7.4) — the round's status, the entity's owner, the role subjects the review tier
         /// composes from, and who already holds an active review.

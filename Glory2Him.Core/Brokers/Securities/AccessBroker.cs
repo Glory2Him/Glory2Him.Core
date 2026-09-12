@@ -476,6 +476,29 @@ namespace Glory2Him.Core.Brokers.Securities
                 : null;
         }
 
+        // Unfiltered, deliberately — see IAccessBroker for why the caller-facing read cannot
+        // answer this. The SAME storage read RetrieveApprovalReviewerScopeByIdAsync narrows for
+        // its ActiveRequests, so the half that decides WHAT to retire and the half that decides
+        // who may still be invited read one view of one table.
+        //
+        // Pending is exactly IsDeleted == false, and there is no second definition of it here:
+        // rule 5 soft-deletes a withdrawal and rule 6 soft-deletes an answer, so what is left
+        // live is what the round is still waiting on.
+        public async ValueTask<List<Guid>> FindRetirableApprovalReviewRequestIdsAsync(
+            Guid approvalId,
+            CancellationToken cancellationToken = default)
+        {
+            IQueryable<ApprovalReviewRequest> allApprovalReviewRequests =
+                await this.storageBroker.SelectAllApprovalReviewRequestsAsync(cancellationToken);
+
+            return allApprovalReviewRequests
+                .Where(approvalReviewRequest =>
+                    approvalReviewRequest.ApprovalId == approvalId
+                        && approvalReviewRequest.IsDeleted == false)
+                .Select(approvalReviewRequest => approvalReviewRequest.Id)
+                .ToList();
+        }
+
         private async ValueTask<ApprovalReviewSnapshot> GatherAsync(
             Approval approval,
             CancellationToken cancellationToken)
