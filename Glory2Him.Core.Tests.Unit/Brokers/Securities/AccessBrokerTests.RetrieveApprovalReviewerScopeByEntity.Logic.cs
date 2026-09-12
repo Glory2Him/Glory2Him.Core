@@ -13,6 +13,7 @@ using System;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Securities;
 using Xunit;
@@ -51,7 +52,17 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                     statusId: ApprovalStatus.Approved));
 
             SetupApprovalComments();
-            SetupApprovalReviewRequests();
+
+            // Seeded rather than empty, so the ActiveRequests field the equivalence assertion
+            // below covers is genuinely compared between the two entry points' results instead
+            // of one empty list matching another.
+            SetupApprovalReviewRequests(
+                new ApprovalReviewRequest
+                {
+                    Id = Guid.NewGuid(),
+                    ApprovalId = approvalId,
+                    RequestedUserId = "invited-reviewer",
+                });
 
             // when
             ApprovalReviewerScope actualScopeById =
