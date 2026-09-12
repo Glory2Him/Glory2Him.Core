@@ -44,32 +44,34 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         //      VALIDATION.
         //   4. the APPROVAL foundation's four families → dependency-validation for the two
         //      validation-shaped ones, dependency for the other two.
-        //   5. any OTHER Xeption → the broad downstream catch, which is a DEPENDENCY exception.
+        //   5. the APPROVALREVIEW, APPROVALCOMMENT and IDENTITYUSER foundations' own arms →
+        //      dependency-validation for the validation-shaped members, dependency for the rest
+        //      (issue #518).
+        //   6. any OTHER Xeption → the broad downstream catch, which is a DEPENDENCY exception.
         //
-        // Step 5 is the one worth stating out loud, because the ApprovalReview foundation is
-        // named nowhere in the chain: an ApprovalReviewValidationException raised by the stale
-        // review reset does NOT land in the dependency-validation family the way the Approval
-        // foundation's twin does — it falls through to the broad catch and arrives as a
-        // dependency exception. That is deliberate (§1.1.3 — no foundation exception crosses the
-        // layer under its own name), and it is pinned here so a later hand-written catch for the
-        // review foundation is an argued change rather than a silent recategorisation.
+        // Step 5 used to be step 4's opposite: the ApprovalReview foundation was named nowhere in
+        // the chain, so an ApprovalReviewValidationException raised by the stale review reset fell
+        // through to the broad catch and arrived as a dependency exception rather than a
+        // dependency-validation one. §1.1.3 — no foundation exception crosses the layer under its
+        // own name — was never the reason that was safe to leave, and citing it was the old
+        // comment's mistake: the rule is satisfied EITHER WAY, because an arm does not propagate
+        // ApprovalReviewValidationException, it catches it and re-wraps it as
+        // ApprovalOrchestrationDependencyValidationException, exactly as the ApprovalReviewRequest
+        // arm a few blocks above already does. What was actually wrong was the CATEGORY — a
+        // routine, caller-fixable refusal arriving as a 424 dependency fault instead of a 400
+        // dependency-validation one — and §16.7.1 is what calls that the defect. The arm added by
+        // issue #518 is the argued change that comment invited.
 
-        // Every family the ApprovalReview foundation raises, in ONE set, because the broad catch
-        // makes no distinction between them. Split into two sets it would read as though the
-        // chain told them apart.
-        public static TheoryData<Xeption> FlowsGuardsApprovalReviewExceptions()
+        // The two failure-shaped ApprovalReview families, kept apart from the validation-shaped
+        // ones below (issue #518 criterion 7) — the chain now tells them apart, so a set that did
+        // not would read as though it still did not.
+        public static TheoryData<Xeption> FlowsGuardsApprovalReviewFailureExceptions()
         {
             string randomMessage = GetRandomString();
             var innerException = new Xeption(message: randomMessage);
 
             return new TheoryData<Xeption>
             {
-                new ApprovalReviewValidationException(
-                    message: randomMessage, innerException: innerException),
-
-                new ApprovalReviewDependencyValidationException(
-                    message: randomMessage, innerException: innerException),
-
                 new ApprovalReviewDependencyException(
                     message: randomMessage, innerException: innerException),
 
@@ -771,7 +773,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         }
 
         [Theory]
-        [MemberData(nameof(FlowsGuardsApprovalReviewExceptions))]
+        [MemberData(nameof(FlowsGuardsApprovalReviewFailureExceptions))]
         public async Task ShouldThrowDependencyExceptionOnModifiedIfTheReviewListingDoesAndLogItAsync(
             Xeption reviewFoundationException)
         {
@@ -780,10 +782,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             // WHICH reviews are stale — and a re-read of the conditions on top of a dismissal that
             // never happened would evaluate against reviews the setting says no longer count.
             //
-            // All four ApprovalReview families arrive as ONE category, because the chain names the
-            // review foundation nowhere and the broad Xeption catch takes them (see the note at
-            // the top of this file). The validation-shaped ones do NOT become dependency
-            // validations the way the Approval foundation's do.
+            // Only the FAILURE-shaped ApprovalReview families reach the broad Xeption catch here
+            // (issue #518) — the validation-shaped pair now has its own arm, and is pinned
+            // separately at the dismissal call site below.
             EntityType entityType = EntityType.Link;
             Guid entityId = Guid.NewGuid();
             var approvalId = Guid.NewGuid();
@@ -860,7 +861,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         }
 
         [Theory]
-        [MemberData(nameof(FlowsGuardsApprovalReviewExceptions))]
+        [MemberData(nameof(FlowsGuardsApprovalReviewFailureExceptions))]
         public async Task ShouldThrowDependencyExceptionOnModifiedIfTheReviewDismissalDoesAndLogItAsync(
             Xeption reviewFoundationException)
         {
