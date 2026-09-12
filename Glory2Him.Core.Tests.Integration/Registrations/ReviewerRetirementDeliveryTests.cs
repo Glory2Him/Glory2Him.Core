@@ -47,9 +47,9 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
     /// <c>ShouldRetirePendingReviewRequestsWhenTheRoundIsDecidedAsync</c>; rule 6 deliberately
     /// has no such counterpart.</b> That asymmetry is a choice rather than a gap, and the reason
     /// is what the acceptance layer would ADD: HTTP, a real database, and resolution out of the
-    /// HOST's container. The third is a real failure mode rather than a theoretical one — an
-    /// unregistered <c>IHashBroker</c> once failed mid-delivery rather than at boot — but it is
-    /// covered twice over here: this fixture constructs the real
+    /// HOST's container. The third is the one worth answering, because a subscription resolves
+    /// its service at DELIVERY time and a missing registration therefore surfaces mid-delivery
+    /// rather than at boot. It is covered twice over here: this fixture constructs the real
     /// <c>EventSubscriptionRegistration</c>, and rule 8's acceptance test resolves
     /// <c>IApprovalReviewerOrchestrationService</c> from the host container through the very
     /// same registration rule 6's delivery uses. What rule 6 was in doubt over — that the fact
