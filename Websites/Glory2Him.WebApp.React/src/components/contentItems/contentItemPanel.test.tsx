@@ -679,6 +679,17 @@ describe('ContentItemPanel', () => {
 
                 expect(screen.getByRole('button', { name: /Moderate/ })).toBeDisabled();
             });
+
+        it('should lock the moderation action on a rejected item on the same terms', () => {
+            signInAs(authState, ['Administrators']);
+
+            renderCard(
+                <ContentItemPanel
+                    contentItem={atStatus(devotionalItem, ApprovalStatus.Rejected)}
+                    onModerateClick={vi.fn()} />);
+
+            expect(screen.getByRole('button', { name: /Moderate/ })).toBeDisabled();
+        });
     });
 
     describe('assigned reactions', () => {
