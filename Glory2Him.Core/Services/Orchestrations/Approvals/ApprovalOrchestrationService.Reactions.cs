@@ -303,6 +303,14 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 approval: approvedApproval,
                 cancellationToken: cancellationToken);
 
+            // §7.9 rule 8, the automatic route — and the one that makes the gathering seam a
+            // requirement rather than a preference. This runs under the identity of whoever's
+            // edit or review tipped the round, ordinarily the author revising their own
+            // submission, who sees none of the round's invitations through a caller-facing read.
+            await RetireUnansweredApprovalReviewRequestsAsync(
+                closedApproval: approvedApproval,
+                cancellationToken: cancellationToken);
+
             return DescribeOutcome(approvedApproval, isEntitySyncRequested: true);
         }
 

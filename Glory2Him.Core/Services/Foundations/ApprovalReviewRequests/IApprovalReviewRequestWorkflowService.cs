@@ -38,6 +38,11 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviewRequests
     /// act, in what <c>DeletionReason</c> records, and in what a reader should conclude from the
     /// row afterwards.</para>
     ///
+    /// <para><b>§7.9 rule 8 joined rule 6 here</b> for exactly the same reasons: a round closing
+    /// on an outcome retires every invitation it never answered, that close is nobody's act
+    /// either, and the sentence it leaves on the row is a third one again. Two verbs below, one
+    /// body behind them.</para>
+    ///
     /// <para><c>internal</c> states the intent rather than enforcing it against every assembly —
     /// Core names <c>Glory2Him.WebApp</c> in <c>InternalsVisibleTo</c>. What it does enforce is
     /// the idiomatic route: a public controller cannot take an internal type through its
@@ -56,6 +61,29 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviewRequests
         /// retried retirement cannot emit a second removal fact.</para>
         /// </summary>
         ValueTask<ApprovalReviewRequest> RetireAnsweredApprovalReviewRequestAsync(
+            Guid approvalReviewRequestId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Retires an invitation the round has closed on top of (§7.9 rule 8) by soft-deleting it
+        /// under the system identity. The invited person never answered, and once the approval
+        /// reaches <c>Approved</c> or <c>Rejected</c> they no longer can — a review is refused on
+        /// any round that is not <c>Submitted</c> — so the row would go on rendering an ask with
+        /// no possible answer.
+        ///
+        /// <para><b>Its own verb rather than a reason on the one above</b>, for the reason rule 6
+        /// makes retirement its own verb in the first place: what a reader concludes from the row
+        /// differs, and a caller that could choose the sentence would be writing the audit trail.
+        /// Three things can have happened to a deleted request — withdrawn as a mistake (and only
+        /// that one names a person), answered, or overtaken by the close — and
+        /// <c>DeletionReason</c> is where they are told apart. Everything else about the two
+        /// retirements is identical and is implemented once.</para>
+        ///
+        /// <para>A request that is already gone is returned unchanged and publishes nothing, so
+        /// the common case — the round closing on the very review that retired its own invitation
+        /// — costs nothing and emits no second removal fact.</para>
+        /// </summary>
+        ValueTask<ApprovalReviewRequest> RetireClosedRoundApprovalReviewRequestAsync(
             Guid approvalReviewRequestId,
             CancellationToken cancellationToken = default);
     }

@@ -24,22 +24,22 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviewRequests
                 (Rule: IsInvalid(approvalReviewRequestId),
                     Parameter: nameof(ApprovalReviewRequest.Id)));
 
-        // Retirement belongs to the approval workflow alone (§7.9 rule 6). A person who wants an
-        // invitation gone withdraws it through the public verb, which records THEM as the
-        // remover; this one records the system, and it means something different — that the
-        // invited person answered.
+        // Retirement belongs to the approval workflow alone (§7.9 rules 6 and 8). A person who
+        // wants an invitation gone withdraws it through the public verb, which records THEM as
+        // the remover; these record the system, and they mean something different — that the
+        // invited person answered, or that the round closed without them.
         //
-        // Unreachable in practice, and deliberately kept — but narrower than it looks. The one
-        // public seam, RetireAnsweredApprovalReviewRequestAsync, calls CreateSystemAsync itself
-        // before delegating, so anything entering THERE mints a passing context by construction
-        // and can never fail this. What it actually guards is a future second caller of the
-        // private DoRetireAnsweredApprovalReviewRequestAsync that supplies its own envelope.
+        // Unreachable in practice, and deliberately kept — but narrower than it looks. Both
+        // public seams go through RetireApprovalReviewRequestAsync, which calls CreateSystemAsync
+        // itself before delegating, so anything entering THERE mints a passing context by
+        // construction and can never fail this. What it actually guards is a future caller of the
+        // private DoRetireApprovalReviewRequestAsync that supplies its own envelope.
         private static void ValidateRetirementIsTheWorkflowsOwnAct(SecurityContext securityContext)
         {
             if (securityContext.IsSystemIdentity is false)
             {
                 throw new UnauthorizedApprovalReviewRequestException(
-                    message: "Retiring an answered approval review request is the approval "
+                    message: "Retiring an approval review request is the approval "
                         + "workflow's own act; no user may perform it.");
             }
         }

@@ -29,7 +29,7 @@ namespace Glory2Him.Core.Models.Configurations
         public static readonly Guid ApprovalReviewRequestRetrievingByIdEventAddressId =
             new Guid("1c77f1e3-c91e-4b5e-8acf-9535ce0b81e7");
 
-        // The address §7.9 rule 8 names as the hook a future notification feature subscribes to,
+        // The address §7.9 rule 9 names as the hook a future notification feature subscribes to,
         // so the invited user learns they have been asked. Nothing consumes it today.
         public static readonly Guid ApprovalReviewRequestAddedEventAddressId =
             new Guid("f0c47734-5524-472b-a373-b03ac746f088");
