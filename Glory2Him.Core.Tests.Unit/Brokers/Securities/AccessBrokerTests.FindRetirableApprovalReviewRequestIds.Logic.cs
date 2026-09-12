@@ -286,6 +286,54 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
         }
 
         /// <summary>
+        /// The same as <see cref="ShouldNotExcludeAnyoneWhenTheStandingReviewersAuthorIsBlankAsync"/>
+        /// but with a WHITESPACE-only author rather than an empty string, because "blank" here
+        /// means what <c>string.IsNullOrWhiteSpace</c> means — the same rule
+        /// <c>ActiveReviewerUserIds</c> filters by — not merely <c>== string.Empty</c>.
+        /// </summary>
+        [Fact]
+        public async Task ShouldNotExcludeAnyoneWhenTheStandingReviewersAuthorIsWhitespaceOnlyAsync()
+        {
+            // given
+            Guid approvalId = Guid.NewGuid();
+            const string whitespaceOnlyAuthor = "\t";
+
+            var whitespaceRequestedUserRequest = new ApprovalReviewRequest
+            {
+                Id = Guid.NewGuid(),
+                ApprovalId = approvalId,
+                RequestedUserId = whitespaceOnlyAuthor,
+            };
+
+            var namedInviteeRequest = new ApprovalReviewRequest
+            {
+                Id = Guid.NewGuid(),
+                ApprovalId = approvalId,
+                RequestedUserId = "named-invitee",
+            };
+
+            SetupApprovalReviewRequests(whitespaceRequestedUserRequest, namedInviteeRequest);
+
+            SetupApprovalReviews(
+                CreateApprovalReview(
+                    approvalId: approvalId,
+                    createdBy: whitespaceOnlyAuthor,
+                    statusId: ApprovalStatus.Approved));
+
+            // when
+            List<Guid> actualRetirableRequestIds =
+                await this.accessBroker.FindRetirableApprovalReviewRequestIdsAsync(
+                    approvalId: approvalId,
+                    cancellationToken: default);
+
+            // then
+            actualRetirableRequestIds.Should().BeEquivalentTo(
+                new[] { whitespaceRequestedUserRequest.Id, namedInviteeRequest.Id },
+                because: "a standing review with a whitespace-only author carries no identity to "
+                    + "exclude anybody by, the same as one with an empty-string author");
+        }
+
+        /// <summary>
         /// The round-scoping conjunct on the exclusion's own subquery
         /// (<c>approvalReview.ApprovalId == approvalId</c>), pinned separately from
         /// <see cref="ShouldExcludeAnInviteeWithAStandingReviewFromTheRetirableSetAsync"/> because
