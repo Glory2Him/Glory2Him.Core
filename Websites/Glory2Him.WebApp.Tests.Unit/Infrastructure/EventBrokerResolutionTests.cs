@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -71,6 +71,29 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
                     "may not open a connection or issue DDL — every service the subscriptions " +
                     "bind to takes IEventBroker, so a broker that needs a database to be built " +
                     "makes the whole Core graph unbuildable without one (§EVN24)");
+
+            eventBroker.Should().NotBeNull();
+        }
+
+        [Fact]
+        public void ShouldResolveTheEventBrokerWhenTheEventStoreConnectionStringIsMissing()
+        {
+            // given: a host configured with no event store at all — the key is absent, so the
+            // broker reads the empty string the null-coalesce leaves behind
+            using ServiceProvider provider = BuildCoreServiceProvider(
+                eventHighwayConnectionString: null);
+
+            IEventBroker eventBroker = null;
+
+            // when
+            Exception resolutionException = Record.Exception(() =>
+                eventBroker = provider.GetRequiredService<IEventBroker>());
+
+            // then
+            resolutionException.Should().BeNull(
+                because: "an unconfigured event store is the operation's failure, not the " +
+                    "container's — the graph still builds, and the portal still serves " +
+                    "everything that does not touch the substrate");
 
             eventBroker.Should().NotBeNull();
         }
