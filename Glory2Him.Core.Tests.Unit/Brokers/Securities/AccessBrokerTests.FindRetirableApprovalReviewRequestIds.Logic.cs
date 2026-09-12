@@ -221,6 +221,52 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                     + "invitation");
         }
 
+        /// <summary>
+        /// A standing review with a BLANK author carries no identity to exclude anybody by
+        /// (finding 3) — the exclusion carries the same blank filter
+        /// <c>ActiveReviewerUserIds</c> does, so the two cannot drift.
+        /// </summary>
+        [Fact]
+        public async Task ShouldNotExcludeAnyoneWhenTheStandingReviewersAuthorIsBlankAsync()
+        {
+            // given
+            Guid approvalId = Guid.NewGuid();
+
+            var blankRequestedUserRequest = new ApprovalReviewRequest
+            {
+                Id = Guid.NewGuid(),
+                ApprovalId = approvalId,
+                RequestedUserId = string.Empty,
+            };
+
+            var namedInviteeRequest = new ApprovalReviewRequest
+            {
+                Id = Guid.NewGuid(),
+                ApprovalId = approvalId,
+                RequestedUserId = "named-invitee",
+            };
+
+            SetupApprovalReviewRequests(blankRequestedUserRequest, namedInviteeRequest);
+
+            SetupApprovalReviews(
+                CreateApprovalReview(
+                    approvalId: approvalId,
+                    createdBy: string.Empty,
+                    statusId: ApprovalStatus.Approved));
+
+            // when
+            List<Guid> actualRetirableRequestIds =
+                await this.accessBroker.FindRetirableApprovalReviewRequestIdsAsync(
+                    approvalId: approvalId,
+                    cancellationToken: default);
+
+            // then
+            actualRetirableRequestIds.Should().BeEquivalentTo(
+                new[] { blankRequestedUserRequest.Id, namedInviteeRequest.Id },
+                because: "a standing review with a blank author carries no identity to exclude "
+                    + "anybody by, including a request whose own RequestedUserId is itself blank");
+        }
+
         [Fact]
         public async Task ShouldFindNoRetirableRequestsWhenNobodyWasAskedAsync()
         {
