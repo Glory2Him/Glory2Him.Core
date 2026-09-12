@@ -13,6 +13,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
+using Glory2Him.Core.Models.Foundations.Approvals;
 
 namespace Glory2Him.Core.Services.Orchestrations.ApprovalReviewers
 {
@@ -38,6 +39,20 @@ namespace Glory2Him.Core.Services.Orchestrations.ApprovalReviewers
         /// </summary>
         ValueTask<EventEnvelope<ApprovalReview>?> OnApprovalReviewAddedAsync(
             EventEnvelope<ApprovalReview> envelope,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// §7.9 rule 8 — the round's own outcome write has landed. Where the envelope's signed
+        /// status says it CLOSED, every invitation still pending and unanswered is retired under
+        /// the system identity; where it says the round is still open, the delivery ends having
+        /// made no broker call and no write.
+        ///
+        /// <para>The only trigger rule 8 has. A round closes three ways and all three write
+        /// through <c>ModifyApprovalAsync</c>, so one subscription hears all three and no
+        /// enumeration of the sites has to be kept in step with anything.</para>
+        /// </summary>
+        ValueTask<EventEnvelope<Approval>?> OnApprovalModifiedAsync(
+            EventEnvelope<Approval> envelope,
             CancellationToken cancellationToken = default);
     }
 }
