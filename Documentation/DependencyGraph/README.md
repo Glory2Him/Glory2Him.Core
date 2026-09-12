@@ -113,8 +113,11 @@ view you were on, and switching carries your current selection across.
   `EventEnvelopeBroker`, `SecurityAuditBroker` and `DateTimeBroker` edges are
   gone from `CIP` and `LP` while the latest/published reads keep theirs — those
   two still apply the single-row posture themselves.
-- **All 112 subscriptions are drawn.** `EventSubscriptionRegistration` wires
-  112 and the data files carry 112. They first matched at 108 in the 2026-08-21
+- **All 114 subscriptions the data declares are drawn**, and two of them are
+  `ARO`'s, added by issue #522. `EventSubscriptionRegistration` wires 121, so
+  this bullet no longer reports a match — the seven-subscription drift is the
+  one the closing bullet records, and it predates both orchestration splits.
+  The data files first matched the registration at 108 in the 2026-08-21
   scan (the 2026-08-11 scan drew 71 against 85); the four added since are
   `ApprovalReviewRequest`'s, below. The original gap closed in two halves: the
   six approvable entities gained their `Submitting` / `Approving`
@@ -154,7 +157,10 @@ view you were on, and switching carries your current selection across.
   flow used to draw (`FS.Approval.FindApprovalByEntityAsync` then
   `AccessBroker.RetrieveApprovalReviewerScopeByIdAsync`) is made by no method on any service
   now. On a null it runs the §9.7.2 rule 1 repair — hence its `RetrieveEntityApprovalStatusAsync`,
-  `FindApprovalByEntityAsync` and `AddApprovalAsync` edges — and asks the gather again.
+  `FindApprovalByEntityAsync` and `AddApprovalAsync` edges — and asks the gather again. The BY-ID
+  gather is still drawn, and by this same component: §7.9 rule 6's subscription resolves its round
+  by approval id off the envelope, so it needs no entity lookup ahead of it. It is the PAIR that
+  is gone, not the read.
 - **`ARO` binds TWO subscriptions and publishes nothing** (issue #522, design §12.5.4 business
   rule 4). `ApprovalReview.Added` carries §7.9 rule 6's retirement and `Approval.Modified`
   carries rule 8's — the first subscription in the solution on any of the `Approval` entity's
@@ -180,10 +186,13 @@ view you were on, and switching carries your current selection across.
   answered, because a review can no longer be recorded against a decided round
   and the row would go on rendering an ask nobody can answer. It is drawn
   identically — same `CreateSystemAsync`, same `Removed` fact, same absent
-  `InsertProcessedEventAsync` pair — and the graph shows FOUR `AO` methods
-  reaching it, which is the point of the pair of edges rather than one:
-  `DecideApprovalAsync` is the only route a person is on, and the other three
-  close rounds with nobody clicking. Its read is `AccessBroker`'s
+  `InsertProcessedEventAsync` pair. **Exactly ONE method reaches it, and it is
+  `ARO.OnApprovalModifiedAsync`** (issue #522). The graph used to show FOUR `AO`
+  methods reaching it — one per route a round can close by — and that
+  enumeration is what the subscription replaced: all three closing routes write
+  the outcome through `ModifyApprovalAsync`, so one subscriber on the fact that
+  write publishes hears all of them and no list of call sites has to be kept in
+  step. Its read is `AccessBroker`'s
   `FindRetirableApprovalReviewRequestIdsAsync` rather than the foundation's own
   round-keyed read, for the reason the dismissal's gather already carries: two
   of those routes run under the editor's or reviewer's identity, and the
@@ -201,14 +210,18 @@ view you were on, and switching carries your current selection across.
   §12.5.4's reviewer coordination in PR #535, and the only thing this service
   reads a comment for is the §8.5 count, which arrives as a verdict.
 - **Circular event flows now exist, and the red edges are correct.** 14 of the
-  112 subscriptions are on fact addresses, all handled by `AO`. `AO` publishes
+  114 subscriptions are on ENTITY fact addresses, all handled by `AO` — the two
+  `ARO` gained in issue #522 are on WORKFLOW-RECORD and `Approval` fact
+  addresses and are not among them, so they take no part in the cycle. `AO` publishes
   `<Entity>-Approving`, each entity publishes `<Entity>-Added` / `-Modified`
   back, and Tarjan finds one cyclic component: `AO`, `CIP`, `LP`,
   `FS.Tag`, `FS.Comment`, `FS.Reaction`, `FS.BibleReference`,
   `FS.Association`. 63 lines render red. `FS.ContentItem`
   and `FS.Link` stay out of it because `AO` addresses their processing tier.
   The `ApprovalReview` and `ApprovalComment` fact subscriptions stay purple:
-  nothing `AO` publishes reaches those two services. The two
+  nothing `AO` publishes reaches those two services. `ARO`'s two stay purple for
+  a second reason as well — it publishes nothing at all, so it can close no
+  loop. The two
   `<Entity>Processing-Approved` facts added on 2026-09-07 stay purple-free
   entirely — nothing subscribes to them.
 - **`EnvelopeIntegrityBroker` is new to the data.** Symmetric HMAC signing and
@@ -305,10 +318,13 @@ view you were on, and switching carries your current selection across.
   Correcting it is a template-wide edit and belongs to a full re-scan.
 - **The header counts moved again on 2026-09-12.** Single copy reads
   **68 components · 1406 flows**, per consumer **193 nodes · 1883 flows**.
-  Purple edges are still **112** in both views and **63** lines still render red
-  in both — neither the AI reviewer nor the reviewer orchestration added any, for
-  the reasons in the bullets below: `ARO` binds no subscriptions and publishes
-  nothing. The `/update-dependency-graph` skill's own verification numbers are
+  Purple edges were **112** in both views and **63** lines still render red in
+  both — the AI reviewer and the #521 reviewer split added neither, for the
+  reasons in the bullets below. **Issue #522 takes purple to 114**: `ARO` binds
+  the two §7.9 retirements as subscriptions. Red is unmoved, because `ARO`
+  publishes nothing and so can close no loop. The header component and flow
+  counts were not re-measured for #522, which moves no component and adds four
+  call edges while removing six. The `/update-dependency-graph` skill's own verification numbers are
   stale by three generations now and should be read from here instead.
 
   *Measured by running the page's own `buildSingleCopyInstances` and

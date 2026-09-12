@@ -4008,12 +4008,6 @@ components:
       - from: ProcessApprovalInputsChangedAsync
         to: EventEnvelopeBroker
         method: CreateSystemAsync
-      - from: ProcessApprovalInputsChangedAsync
-        to: AccessBroker
-        method: FindRetirableApprovalReviewRequestIdsAsync
-      - from: ProcessApprovalInputsChangedAsync
-        to: FS.ApprovalReviewRequest
-        method: RetireClosedRoundApprovalReviewRequestAsync
       - from: OnTagAddedAsync
         to: EnvelopeIntegrityBroker
         method: VerifyAsync
