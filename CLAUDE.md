@@ -52,9 +52,10 @@ spelled out in full, such as `Opus 5 - Medium`.
 - Brokers hold no logic and get no unit tests.
 - No layer calls two layers below it — **except** an orchestration depending
   only on foundation services (never a mix of foundation and processing, and
-  never a broker). `Documentation/G2H Design.md` §12.1 rule 2 and §12.5 record
-  the exception and no more: an orchestration reaches each entity through its
-  processing service where one exists, its foundation service where none does.
+  never a *storage* broker). `Documentation/G2H Design.md` §12.1 rule 2 and
+  §12.5 record the exception and no more: an orchestration reaches each entity
+  through its processing service where one exists, its foundation service where
+  none does.
   The narrowing to one kind — processing services or foundation services, never
   both — is owned by `.claude/agents/architect.md` and `qa.md`, as "same kind,
   never mixed". This deliberately overrides `the-standard-orchestrations`'

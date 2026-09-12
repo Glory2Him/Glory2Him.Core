@@ -74,8 +74,15 @@ mocked-boundary blind spot, and reading the tests rather than their names.
    **An orchestration's dependencies must all be the same kind.** It may depend
    on processing services, or on foundation services, but never a mix — those sit
    at different levels, so a mixed list means the orchestration is reaching across
-   two levels at once. A mixed list is a structural finding. A broker dependency
-   on an orchestration is a finding regardless.
+   two levels at once. A mixed list is a structural finding. A **STORAGE** broker
+   dependency on an orchestration is a finding regardless — it skips every layer
+   beneath it at once. Other brokers are not: every built orchestration holds
+   `ILoggingBroker`, the event-substrate ones hold the envelope, event and
+   integrity brokers, and the approval ones hold `IAccessBroker` because a policy
+   question asked anywhere else would resolve §8.4 a second time (§8.6.1 rule 4).
+   This clause read "A broker dependency on an orchestration is a finding
+   regardless" until `Documentation/G2H Design.md` §12.5 ruled otherwise; do not
+   flag `IAccessBroker` on an orchestration.
 
    Note that this overrides `the-standard-orchestrations` 1.1/Don'ts#1, which bars
    an orchestration from calling foundation services at all. In this solution that
