@@ -183,26 +183,34 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         }
 
         /// <summary>
-        /// The INVERSION of the ordering this file used to pin, and §7.9 rule 8 calls it "a
-        /// deliberate inversion of what this rule used to say". The retirement used to run LAST,
-        /// after the entity command had gone; as a reaction to the outcome write it runs BEFORE
-        /// it, because delivery is synchronous inside <c>ModifyApprovalAsync</c>.
+        /// ONE HALF of §7.9 rule 8's new ordering, and the half that lives here. The rule says
+        /// the retirement runs BEFORE the entity sync — "a deliberate inversion of what this rule
+        /// used to say" — and that is a conjunction of two facts, neither of which is this test on
+        /// its own:
         ///
-        /// <para><b>What is observed here stands in for the retirement, and deliberately.</b>
-        /// This service no longer performs it, so a unit test of this service cannot watch it
-        /// happen; what it can watch is the write the retirement hangs off. The outcome write
-        /// publishes <c>Approval-Modified</c> and the subscription is delivered on that
-        /// publisher's own thread, so "the outcome write happened first" IS "the retirement
-        /// happened first". Move the write below the entity command and the inversion is
-        /// undone — which is what this goes red for.</para>
+        /// <para><b>(A) this service writes the outcome before it publishes the entity
+        /// command</b>, which is what this test asserts; and <b>(B) the subscription on the fact
+        /// that write publishes is delivered synchronously, on the publisher's own call</b>, which
+        /// no unit test of this service can see because the write is a mock here.</para>
         ///
-        /// <para>Nothing renders between the two, so no surface shows a different thing. The old
-        /// ordering existed to justify swallowing a failure on a decision that had already
-        /// committed; that justification moved to §EVN23's delivery report with the retirement
-        /// itself.</para>
+        /// <para><b>(B) is pinned for this exact subscription by
+        /// <c>EventSubscriptionWiringTests.ShouldRetireTheUnansweredInvitationsWhenTheClosedRoundFactIsDeliveredAsync</c></b>,
+        /// which publishes <c>Approval-Modified</c> through the real substrate and finds the
+        /// retirement already done by the time the publish returns.</para>
+        ///
+        /// <para><b>The name says (A) rather than the conjunction, and that is deliberate.</b> An
+        /// earlier version of this test was named for the retirement while observing only these
+        /// two probes — and on the pre-change code those same two probes already fired in this
+        /// same order, because the retirement was a THIRD step after both. So it would have passed
+        /// with the entire subscription deleted, which is the one thing a test carrying that name
+        /// must not do.</para>
+        ///
+        /// <para>What it does earn: move the outcome write below the entity command and (A) fails,
+        /// which breaks the inversion however sound (B) is. Nothing renders between the two, so
+        /// no surface shows a different thing either way.</para>
         /// </summary>
         [Fact]
-        public async Task ShouldRetireTheInvitationsBeforeTheEntityCommandHasGoneAsync()
+        public async Task ShouldWriteTheOutcomeBeforeTheEntityCommandHasGoneAsync()
         {
             // given
             var approvalId = Guid.NewGuid();
@@ -245,8 +253,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             entityCommandPublishedAt.Should().Be(2);
 
             outcomeWrittenAt.Should().BeLessThan(entityCommandPublishedAt,
-                because: "the retirement is a synchronous delivery on the outcome write, so it "
-                    + "lands ahead of the entity command rather than after it");
+                because: "the retirement is delivered on the outcome write, so this order is "
+                    + "what puts it ahead of the entity command rather than after it");
         }
 
         /// <summary>

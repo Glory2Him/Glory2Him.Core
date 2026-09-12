@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -23,7 +24,9 @@ using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Models.Foundations.Approvals;
+using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Registrations;
 using Glory2Him.Core.Services.Foundations.AIReviewerAssignments;
 using Glory2Him.Core.Services.Foundations.ApprovalComments;
@@ -96,6 +99,28 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
         private readonly string databaseName;
         private readonly string masterConnectionString;
 
+        private readonly ConcurrentQueue<string> reviewerRetirements =
+            new ConcurrentQueue<string>();
+
+        /// <summary>The prefix the fixture records §7.9 rule 6's retirement under.</summary>
+        internal const string AnsweredRetirement = "Answered";
+
+        /// <summary>The prefix the fixture records §7.9 rule 8's retirement under.</summary>
+        internal const string ClosedRoundRetirement = "ClosedRound";
+
+        // FIXED rather than random, so the gather can be stubbed once at construction and a test
+        // that published the wrong id records nothing instead of passing on a coincidence.
+        internal static readonly Guid ReviewerProbeApprovalId =
+            new Guid("01a09701-0000-7000-8000-0000000000a1");
+
+        internal static readonly Guid ReviewerProbeAnsweredRequestId =
+            new Guid("01a09701-0000-7000-8000-0000000000a2");
+
+        internal static readonly Guid ReviewerProbeUnansweredRequestId =
+            new Guid("01a09701-0000-7000-8000-0000000000a3");
+
+        internal const string ReviewerProbeReviewerUserId = "integration-fixture-reviewer";
+
         public EventSubstrateBroker()
         {
             this.databaseName = TestDatabasePrefix + Environment.ProcessId;
@@ -150,20 +175,30 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
                 loggingBroker: new Mock<ILoggingBroker>().Object);
 
             // Both retirements moved here in #522, so this receiver is real too — see the
-            // Provide call below for why. Its dependencies are mocked, and the access broker
-            // answers an EMPTY retirable set rather than Moq's null default for List<Guid>, so an
-            // Approval-Modified delivery ends on an empty loop instead of a NullReferenceException
-            // recorded as a failed delivery.
+            // Provide call below for why.
+            //
+            // Its WORKFLOW SEAM RECORDS rather than merely absorbing, which is what lets a test
+            // assert that a published fact actually reached the retirement instead of only that a
+            // subscription id appeared on the delivery list. Without it the two new subscriptions
+            // would be invisible above the unit suite: the wiring assertions read SubscriptionId
+            // and never IsSuccess, so a handler that threw on every delivery would still look
+            // wired.
+            //
+            // Its gather answers the fixture's PROBE round — one answered invitation and one
+            // unanswered — so both retirements have something to find. Every other approval id
+            // gets an empty list rather than Moq's null default for List<Guid>, which is the trap
+            // this repository has already been bitten by: unstubbed, an Approval-Modified delivery
+            // would dereference null and be recorded as a failed delivery that nothing reads.
             ApprovalReviewerOrchestrationService = new ApprovalReviewerOrchestrationService(
                 approvalReviewRequestService: new Mock<IApprovalReviewRequestService>().Object,
 
                 approvalReviewRequestWorkflowService:
-                    new Mock<IApprovalReviewRequestWorkflowService>().Object,
+                    BuildRecordingRetirementSeamMock(this.reviewerRetirements).Object,
 
                 approvalCommentService: new Mock<IApprovalCommentService>().Object,
                 identityUserService: new Mock<IIdentityUserService>().Object,
                 approvalService: BuildApprovalWorkflowServiceMock().Object,
-                accessBroker: BuildAccessBrokerMock().Object,
+                accessBroker: BuildReviewerAccessBrokerMock().Object,
                 eventEnvelopeBroker: new Mock<IEventEnvelopeBroker>().Object,
                 envelopeIntegrityBroker: envelopeIntegrityBroker,
                 loggingBroker: new Mock<ILoggingBroker>().Object);
@@ -210,8 +245,13 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
             // §7.9 rule 6's retirement now binds ApprovalReview-Added as a SECOND subscriber, and
             // a receiver verifies the envelope against the event name and direction it expects. A
             // mocked receiver never runs that check, so the publisher-signs-X /
-            // receiver-verifies-Y defect class would be invisible on the very address this suite
-            // exists to prove.
+            // receiver-verifies-Y defect class would be invisible.
+            //
+            // BEING REAL IS NOT ENOUGH ON ITS OWN, and saying so is the point of this note. The
+            // wiring assertions read SubscriptionId off the delivery and never IsSuccess, so a
+            // receiver that refused every envelope would still appear wired. What closes that is
+            // ReviewerRetirements below, which the two reviewer tests in EventSubscriptionWiring
+            // Tests assert on — a refused signature records nothing there.
             Provide<IApprovalReviewerOrchestrationService>(ApprovalReviewerOrchestrationService);
 
             var serviceScopeMock = new Mock<IServiceScope>();
@@ -415,7 +455,89 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
                     Explanation = "Integration fixture: nothing to decide."
                 });
 
+            // NO RETIRABLE INVITATIONS, stated rather than left to the default. Moq answers
+            // ValueTask<List<Guid>> with NULL, so an unstubbed gather is a NullReferenceException
+            // the moment anything reaches it — recorded as a failed delivery that the wiring
+            // assertions never read, because they inspect SubscriptionId and not IsSuccess.
+            //
+            // Nothing in this suite reaches it through THIS broker today: the round stopped
+            // gathering when #522 moved both retirements. It is stubbed anyway, because "nothing
+            // reaches it today" is exactly the condition that changes without anybody noticing.
+            accessBrokerMock
+                .Setup(broker => broker.FindRetirableApprovalReviewRequestIdsAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new List<Guid>());
+
             return accessBrokerMock;
+        }
+
+        // The reviewer orchestration's own gather. Answers the PROBE round with one answered
+        // invitation (rule 6's) and one unanswered (rule 8's), and every other round with nothing
+        // — so a test that published the wrong approval id would see an empty recording rather
+        // than a false pass.
+        private static Mock<IAccessBroker> BuildReviewerAccessBrokerMock()
+        {
+            Mock<IAccessBroker> accessBrokerMock = BuildAccessBrokerMock();
+
+            accessBrokerMock
+                .Setup(broker => broker.RetrieveApprovalReviewerScopeByIdAsync(
+                    ReviewerProbeApprovalId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new ApprovalReviewerScope
+                {
+                    ApprovalId = ReviewerProbeApprovalId,
+                    ApprovalStatus = ApprovalStatus.Submitted,
+                    EntityCreatedBy = "integration-fixture-author",
+                    RoleSubjects = new List<RoleSubject>(),
+                    ActiveReviewerUserIds = new List<string>(),
+                    RecordedReviewerUserIds = new List<string>(),
+
+                    ActiveRequests = new List<ActiveReviewRequest>
+                    {
+                        new ActiveReviewRequest
+                        {
+                            Id = ReviewerProbeAnsweredRequestId,
+                            RequestedUserId = ReviewerProbeReviewerUserId,
+                        }
+                    },
+                });
+
+            accessBrokerMock
+                .Setup(broker => broker.FindRetirableApprovalReviewRequestIdsAsync(
+                    ReviewerProbeApprovalId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new List<Guid> { ReviewerProbeUnansweredRequestId });
+
+            return accessBrokerMock;
+        }
+
+        // Echoes the row back the way the real seam does, and records WHICH verb was reached. The
+        // two carry different DeletionReason sentences, so which one ran is the thing worth
+        // proving — a round closing on somebody is not the same as them answering.
+        private static Mock<IApprovalReviewRequestWorkflowService>
+            BuildRecordingRetirementSeamMock(ConcurrentQueue<string> retirements)
+        {
+            var seamMock = new Mock<IApprovalReviewRequestWorkflowService>();
+
+            seamMock
+                .Setup(service => service.RetireAnsweredApprovalReviewRequestAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((Guid requestId, CancellationToken _) =>
+                {
+                    retirements.Enqueue($"{AnsweredRetirement}:{requestId}");
+
+                    return new ApprovalReviewRequest { Id = requestId, IsDeleted = true };
+                });
+
+            seamMock
+                .Setup(service => service.RetireClosedRoundApprovalReviewRequestAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((Guid requestId, CancellationToken _) =>
+                {
+                    retirements.Enqueue($"{ClosedRoundRetirement}:{requestId}");
+
+                    return new ApprovalReviewRequest { Id = requestId, IsDeleted = true };
+                });
+
+            return seamMock;
         }
 
         /// <summary>
@@ -500,6 +622,52 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
                 subscriptionsReached
                     .Where(reached => WorkflowSubscriptionIds.Contains(reached))
                     .ToList();
+
+        /// <summary>
+        /// The two subscriptions the REVIEWER orchestration owns (§12.5.4 business rule 4).
+        /// </summary>
+        /// <remarks>
+        /// Deliberately a SECOND set rather than an addition to
+        /// <see cref="WorkflowSubscriptionIds"/>. That set's tests assert that a fact reaches the
+        /// round's workflow "exactly once, and through no other workflow subscription"; folding
+        /// these two in would change what those assertions mean, when what actually happened is
+        /// that ApprovalReview-Added acquired a second subscriber in a DIFFERENT service — which
+        /// is not the double-fire §EVN2 rule 6 forbids.
+        /// </remarks>
+        private static readonly HashSet<Guid> ReviewerSubscriptionIds =
+            new HashSet<Guid>
+            {
+                EventBrokerIdentifiers
+                    .ApprovalReviewerOrchestrationOnApprovalReviewAddedSubscriptionId,
+
+                EventBrokerIdentifiers
+                    .ApprovalReviewerOrchestrationOnApprovalModifiedSubscriptionId,
+            };
+
+        /// <summary>
+        /// Every delivery this publish made to a subscription the reviewer orchestration owns.
+        /// </summary>
+        internal static IReadOnlyList<Guid> ReviewerSubscriptionsReached(
+            IReadOnlyList<Guid> subscriptionsReached) =>
+                subscriptionsReached
+                    .Where(reached => ReviewerSubscriptionIds.Contains(reached))
+                    .ToList();
+
+        /// <summary>
+        /// What the reviewer orchestration's workflow seam was asked to retire, in delivery
+        /// order. Read AFTER a publish returns: an entry present there is a handler that ran
+        /// inside the publish, which is the synchronous-delivery half of §7.9 rule 8's ordering.
+        /// </summary>
+        internal IReadOnlyList<string> ReviewerRetirements =>
+            this.reviewerRetirements.ToList();
+
+        /// <summary>Empties the recording so one test cannot read another's deliveries.</summary>
+        internal void ClearReviewerRetirements()
+        {
+            while (this.reviewerRetirements.TryDequeue(out _))
+            {
+            }
+        }
 
         private static string ReadConnectionStringTemplate()
         {
