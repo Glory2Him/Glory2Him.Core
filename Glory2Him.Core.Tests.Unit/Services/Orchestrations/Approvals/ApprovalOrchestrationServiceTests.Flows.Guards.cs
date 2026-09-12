@@ -782,9 +782,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             // WHICH reviews are stale — and a re-read of the conditions on top of a dismissal that
             // never happened would evaluate against reviews the setting says no longer count.
             //
-            // Only the FAILURE-shaped ApprovalReview families reach the broad Xeption catch here
-            // (issue #518) — the validation-shaped pair now has its own arm, and is pinned
-            // separately at the dismissal call site below.
+            // The FAILURE-shaped ApprovalReview families, which now have their own explicit arm
+            // (issue #518) rather than reaching the broad Xeption catch by falling through it —
+            // the validation-shaped pair has its own arm too, and is pinned separately at the
+            // dismissal call site below.
             EntityType entityType = EntityType.Link;
             Guid entityId = Guid.NewGuid();
             var approvalId = Guid.NewGuid();
