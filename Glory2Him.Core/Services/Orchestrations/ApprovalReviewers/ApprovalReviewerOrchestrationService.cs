@@ -184,13 +184,15 @@ namespace Glory2Him.Core.Services.Orchestrations.ApprovalReviewers
         // that should auto-approve does so when its next real fact lands, which is the event this
         // repair is standing in for.
         //
-        // GATED ON THE ENTITY BEING VISIBLE, and that gate is not optional even though the
-        // resolver above just asked the same question: this helper mints an Approval row for an
-        // entity id that came straight off a route, so it defends itself rather than trusting its
-        // caller. VISIBLE rather than merely present — the arms behind the probe are raw by-id
-        // reads and this repository has no EF global query filters, so a taken-down entity, which
-        // keeps its ApprovalStatus because removal deliberately leaves the approval alone
-        // (§9.7.6), would otherwise have a round minted for a tombstone.
+        // GATED ON THE ENTITY BEING VISIBLE. The resolver above asks the same question first and
+        // refuses there, so this copy is UNREACHABLE from the only caller there is today and
+        // deleting it would turn no test red. It is kept for the caller that does not exist yet:
+        // this helper mints an Approval row for an entity id that came straight off a route, so
+        // it defends itself rather than trusting whatever calls it next. §14.6 rule 2 makes that
+        // kind of duplicate deliberate. VISIBLE rather than merely present — the probe's arms are
+        // raw by-id reads and this repository has no EF global query filters, so a taken-down
+        // entity — which keeps its ApprovalStatus because removal deliberately leaves the
+        // approval alone (§9.7.6) — would otherwise have a round minted for a tombstone.
         private async ValueTask RepairMissingApprovalAsync(
             EntityType entityType,
             Guid entityId,
