@@ -181,12 +181,13 @@ namespace Glory2Him.WebApp.Infrastructure
 
             // §12.5.4's reviewer coordination, beside the approval round's for the same reason the
             // AI reviewer's is: coordinating REVIEWERS is a separate contract over a separate
-            // population, and ApprovalsController binds to it for the five reviewer routes until
-            // #523 splits that controller. Scoped for the same reason its neighbours are.
+            // population, and ApprovalReviewersController binds to it alone for its five routes
+            // (#523). Scoped for the same reason its neighbours are.
             //
             // WITHOUT THIS LINE the failure is not a startup error, exactly as above: the
-            // container simply has no descriptor, so MVC fails to activate ApprovalsController on
-            // the first request to any of its routes and nothing complains until then.
+            // container simply has no descriptor, so MVC fails to activate
+            // ApprovalReviewersController on the first request to any of its routes and nothing
+            // complains until then.
             services.AddScoped<
                 IApprovalReviewerOrchestrationService,
                 ApprovalReviewerOrchestrationService>();

@@ -169,8 +169,9 @@ view you were on, and switching carries your current selection across.
   address in two services, with `Deliveries` recorded per subscription, which is not the
   double-fire §EVN2 rule 6 forbids. `AO` lost its `RetrieveApprovalReviewerScopeByIdAsync` and
   both `Retire*ApprovalReviewRequestAsync` edges with them, and with those the
-  `IApprovalReviewRequestWorkflowService` seam entirely. Issue #523 splits `ApprovalsController`,
-  which binds `ARO` for its five reviewer routes meanwhile.
+  `IApprovalReviewRequestWorkflowService` seam entirely. Issue #523 has split
+  `ApprovalsController`, moving those five reviewer routes onto `ApprovalReviewersController`,
+  which binds `ARO` alone.
 - **`RetireAnsweredApprovalReviewRequestAsync` is the second workflow seam in
   the graph**, after `ApprovalReviewService.DismissStaleApprovalReviewAsync`,
   and it is drawn the same way: a `CreateSystemAsync` edge instead of
@@ -420,8 +421,9 @@ view you were on, and switching carries your current selection across.
   `RetireAnsweredApprovalReviewRequestAsync`, `RetireClosedRoundApprovalReviewRequestAsync`,
   `RetrieveApprovalReviewerScopeByIdAsync` and
   `FindRetirableApprovalReviewRequestIdsAsync` edges left with them. Issue #523
-  splits `ApprovalsController`. Like `AIRO`, it renders with zero inbound flows
-  because the controller folders are still unmodelled (see the bullet below).
+  has split `ApprovalsController` into it and `ApprovalReviewersController`.
+  Like `AIRO`, it renders with zero inbound flows because the controller
+  folders are still unmodelled (see the bullet below).
 - **Three gaps are still open and none is this update's doing.**
   `EventSubscriptionRegistration` now wires **121** subscriptions while the data
   declares **114** — a drift of seven that predates the AI reviewer and wants a
