@@ -23,6 +23,7 @@ import {
     contributorApprovalStatusMembers,
     defaultContributorApprovalStatus,
     defaultShareabilityBasis,
+    isAmendableApprovalStatus,
     isContributorApprovalStatus,
     isOwnedShareabilityBasis,
     isPermissionShareabilityBasis,
@@ -507,10 +508,7 @@ export function ContentItemFormPanel({
     const resolvedEditRoleList = resolveRoles(editRoleList, selectedContentType);
     const resolvedDeleteRoleList = resolveRoles(deleteRoleList, selectedContentType);
 
-    const status = contentItem?.approvalStatus ?? ApprovalStatus.Draft;
-
-    const isAmendableStatus =
-        status === ApprovalStatus.Draft || status === ApprovalStatus.Submitted;
+    const isAmendableStatus = isAmendableApprovalStatus(contentItem?.approvalStatus);
 
     // The owner amends at any status — the consumer decides whether that PUTs or forks (§3.4 rule
     // 16). The rest of the tier is confined to a live item: a decided one is terminal to them.
@@ -1183,10 +1181,28 @@ export function ContentItemFormPanel({
     };
 
     // The editor refuses rather than downgrades: with no read face here, a reader the gates
-    // turn away is told so — the same posture the add face takes for a blocked account.
+    // turn away is told so. The add face refuses a blocked account the same way, but no
+    // longer identically - its refusal still stands alone, because it is a surface of its
+    // own with its own chrome rather than a card it replaced.
+    //
+    // THE REFUSAL IS NEVER THIS PANEL'S ONLY CONTENT (#508). The editor replaces the card that
+    // stood here, so a refusal rendered alone leaves the reader on a surface with nothing to
+    // press and no way back short of leaving the page. Cancel is the route back every other
+    // path off this editor already offers, and a refused one owes it too.
     const renderEdit = (): ReactNode => {
         if (mayEdit === false) {
-            return <div className="alert alert-warning" role="alert">{blockedText}</div>;
+            return (
+                <>
+                    <div className="alert alert-warning" role="alert">{blockedText}</div>
+
+                    <button
+                        type="button"
+                        className="btn btn-link text-body p-0 mb-0"
+                        onClick={cancelEdit}>
+                        {cancelButtonText}
+                    </button>
+                </>
+            );
         }
 
         return (

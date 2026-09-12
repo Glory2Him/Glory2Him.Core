@@ -62,6 +62,7 @@ export function ContentItemPanelPlayground({
     const [allowInPlaceExpansion, setAllowInPlaceExpansion] = useState(true);
     const [showEditSection, setShowEditSection] = useState(true);
     const [showModerationSection, setShowModerationSection] = useState(false);
+    const [moderationOpensEditor, setModerationOpensEditor] = useState(false);
     const [allowTitleClick, setAllowTitleClick] = useState(false);
     const [showTagSection, setShowTagSection] = useState(true);
     const [showBibleReferenceSection, setShowBibleReferenceSection] = useState(true);
@@ -155,6 +156,13 @@ export function ContentItemPanelPlayground({
                     onChange: setShowModerationSection
                 },
                 {
+                    name: 'panel-moderation-opens-editor',
+                    label: 'moderationOpensEditor (the action IS the editor here)',
+                    defaultValue: false,
+                    value: moderationOpensEditor,
+                    onChange: setModerationOpensEditor
+                },
+                {
                     name: 'panel-title-click',
                     label: 'allowTitleClick (the title is a way in)',
                     defaultValue: false,
@@ -221,6 +229,7 @@ export function ContentItemPanelPlayground({
                         allowInPlaceExpansion={allowInPlaceExpansion}
                         showEditSection={showEditSection}
                         showModerationSection={showModerationSection}
+                        moderationOpensEditor={moderationOpensEditor}
                         allowTitleClick={allowTitleClick}
                         onTitleClick={(item) => setLastEvent(`onTitleClick(${item.id})`)}
                         showTagSection={showTagSection}

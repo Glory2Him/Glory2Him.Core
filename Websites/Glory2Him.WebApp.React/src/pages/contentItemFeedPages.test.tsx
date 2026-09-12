@@ -5,6 +5,7 @@ import { MemoryRouter, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Home } from './home';
 import { MyPosts } from './myPosts';
+import { Posts } from './posts';
 import { ContentItemModerationPage } from './admin/contentItemModerationPage';
 import { AuthProvider } from '../components/securitys/authProvider';
 import { ContentItem } from '../models/foundations/contentItems/contentItem';
@@ -315,7 +316,22 @@ describe('The content item feed pages', () => {
         /// through, so every way into an item from here keeps the admin address.
         it('should keep Edit inside the admin area rather than the public post route',
             async () => {
-                // given
+                // given: a DECIDED row the moderator did not contribute, which is what this
+                // queue is mostly made of - it ticks Approved and Rejected by default. The
+                // terminal lock greys out a moderation action that opens an editor (#508),
+                // and here the action is a ROUTE to the detail page, so it stays live. On the
+                // shared fixture this would prove nothing either way: its createdBy is the id
+                // signInAs mints, so ownership would exempt the row whatever the lock did.
+                pages = [{
+                    items: [contentItemFor({
+                        createdBy: 'account-miriam',
+                        approvalStatus: ApprovalStatus.Approved
+                    })],
+                    pageIndex: 0,
+                    pageSize: 8,
+                    hasNextPage: false
+                }];
+
                 signInAs(authState, ['Administrators']);
                 renderPage(<ContentItemModerationPage />, '/Admin/Posts');
 
@@ -372,6 +388,51 @@ describe('The content item feed pages', () => {
         it('should send a moderator from the home feed to the admin address', async () => {
             // given
             renderPage(<Home />);
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Moderate' }));
+
+            // then
+            expect(landedOn()).toBe('/Admin/Posts/devotional-1');
+        });
+
+        // THE ROUTE MUST SURVIVE A ROW THE MODERATOR DOES NOT OWN, which is the ordinary case
+        // on a public feed and the one the two tests around this one cannot see: their fixture
+        // is created by 'user-1', the very id signInAs mints, so the card reads as the
+        // viewer's own and every ownership gate opens for the wrong reason. The feed carries
+        // approved rows by construction (§14.1), and the terminal lock (#508) greys out a
+        // moderation action that opens an editor on such a row — here the action is a ROUTE to
+        // /Admin/Posts/{id}, where approval reset, the review thread and the takedown live, so
+        // it stays live. Lock it and the moderation tier loses its only way in from a card.
+        it('should send a moderator to the admin address on a row they did not contribute',
+            async () => {
+                // given
+                pages = [{
+                    items: [contentItemFor({ createdBy: 'account-miriam' })],
+                    pageIndex: 0,
+                    pageSize: 8,
+                    hasNextPage: false
+                }];
+
+                renderPage(<Home />);
+
+                // when
+                await userEvent.click(screen.getByRole('button', { name: 'Moderate' }));
+
+                // then
+                expect(landedOn()).toBe('/Admin/Posts/devotional-1');
+            });
+
+        it('should send a moderator from the public list to the admin address', async () => {
+            // given: approved and somebody else's, which is every row a public list carries
+            pages = [{
+                items: [contentItemFor({ createdBy: 'account-miriam' })],
+                pageIndex: 0,
+                pageSize: 8,
+                hasNextPage: false
+            }];
+
+            renderPage(<Posts />, '/posts');
 
             // when
             await userEvent.click(screen.getByRole('button', { name: 'Moderate' }));

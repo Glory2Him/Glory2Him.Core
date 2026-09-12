@@ -175,6 +175,18 @@ const panelProps: ReadonlyArray<ComponentPropRow> = [
             + 'alone, wearing Edit’s pencil and label.'
     },
     {
+        name: 'moderationOpensEditor',
+        type: 'boolean',
+        defaultValue: 'false',
+        description: 'Whether THIS surface’s moderation action opens the editor here, or '
+            + 'routes somewhere else. The terminal lock reads it and nothing else does: on a '
+            + 'decided row (Approved, Rejected) the action greys out rather than opening an '
+            + 'editor that would refuse — but only where it IS the editor. A surface that '
+            + 'routes to /Admin/Posts/{id} stays live, because that route is an action the '
+            + 'system performs. The item’s own contributor is never locked either: their '
+            + 'amendment forks a new version.'
+    },
+    {
         name: 'allowTitleClick',
         type: 'boolean',
         defaultValue: 'false',

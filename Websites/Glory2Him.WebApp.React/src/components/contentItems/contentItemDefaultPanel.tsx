@@ -66,6 +66,7 @@ export function ContentItemDefaultPanel({
     onSaveClick,
     showsEditButton,
     showsModerateButton,
+    moderateButtonLockReason,
     moderateButtonIconCss,
     moderateButtonLabel,
     contentSlot,
@@ -494,10 +495,26 @@ export function ContentItemDefaultPanel({
                         {showsModerateButton && (
                             <button
                                 type="button"
-                                className="btn btn-link text-reset p-0 mb-0"
+                                className={moderateButtonLockReason != null
+                                    ? 'btn btn-link text-reset p-0 mb-0 '
+                                    + 'g2h-content-item-action-locked'
+                                    : 'btn btn-link text-reset p-0 mb-0'}
+                                disabled={moderateButtonLockReason != null}
+                                title={moderateButtonLockReason}
                                 onClick={() => onModerateClick?.(contentItem)}>
                                 <i className={`${moderateButtonIconCss} me-1`} aria-hidden="true"></i>
                                 {moderateButtonLabel}
+
+                                {/* A visually-hidden twin rather than an aria-label: the
+                                    label REPLACES the accessible name, so the button would
+                                    announce as the reason and lose the word the reader can
+                                    see. Appending keeps both — and a title alone is not
+                                    announced at all. */}
+                                {moderateButtonLockReason != null && (
+                                    <span className="visually-hidden">
+                                        {' '}{moderateButtonLockReason}
+                                    </span>
+                                )}
                             </button>
                         )}
                     </span>
