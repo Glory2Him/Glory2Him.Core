@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
 using Moq;
 using Xunit;
@@ -88,6 +89,320 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             this.storageBrokerMock.Verify(broker =>
                 broker.SelectAllApprovalReviewRequestsAsync(It.IsAny<CancellationToken>()),
                 Times.Once);
+        }
+
+        /// <summary>
+        /// The person who cast the deciding vote must not have their own invitation retired
+        /// under the close reason (§12.5.4 business rule 4(ii)). Excluding whoever holds a review
+        /// that still STANDS is what lets the two retirements (rules 6 and 8) stop depending on
+        /// which order they run in.
+        ///
+        /// <para>Both standing verdicts are covered in one test, the same way the four
+        /// no-longer-standing cases sit together in
+        /// <see cref="ShouldRetireAnInviteeWhoseOnlyReviewNoLongerStandsAsync"/>: a round closes
+        /// on either an Approved or a Rejected decision
+        /// (<c>ApprovalOrchestrationService.ReviewRequests.cs</c>), and the invitee whose vote
+        /// tipped it must be protected identically whichever way it went — a predicate that only
+        /// protects Approved would retire the very reviewer who just rejected the round.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldExcludeAnInviteeWithAStandingReviewFromTheRetirableSetAsync()
+        {
+            // given: three pending invitations — one belonging to somebody who has already
+            // answered with an Approved review, one to somebody who answered with a Rejected
+            // review, and one still unanswered
+            Guid approvalId = Guid.NewGuid();
+
+            var approvedInviteeRequest = new ApprovalReviewRequest
+            {
+                Id = Guid.NewGuid(),
+                ApprovalId = approvalId,
+                RequestedUserId = "approved-invitee",
+            };
+
+            var rejectedInviteeRequest = new ApprovalReviewRequest
+            {
+                Id = Guid.NewGuid(),
+                ApprovalId = approvalId,
+                RequestedUserId = "rejected-invitee",
+            };
+
+            var unansweredInviteeRequest = new ApprovalReviewRequest
+            {
+                Id = Guid.NewGuid(),
+                ApprovalId = approvalId,
+                RequestedUserId = "unanswered-invitee",
+            };
+
+            SetupApprovalReviewRequests(
+                approvedInviteeRequest,
+                rejectedInviteeRequest,
+                unansweredInviteeRequest);
+
+            SetupApprovalReviews(
+                CreateApprovalReview(
+                    approvalId: approvalId,
+                    createdBy: "approved-invitee",
+                    statusId: ApprovalStatus.Approved),
+
+                CreateApprovalReview(
+                    approvalId: approvalId,
+                    createdBy: "rejected-invitee",
+                    statusId: ApprovalStatus.Rejected));
+
+            // when
+            List<Guid> actualRetirableRequestIds =
+                await this.accessBroker.FindRetirableApprovalReviewRequestIdsAsync(
+                    approvalId: approvalId,
+                    cancellationToken: default);
+
+            // then
+            actualRetirableRequestIds.Should().Equal(
+                new[] { unansweredInviteeRequest.Id },
+                because: "the person who cast the deciding vote must not have their own "
+                    + "invitation retired under the close reason, whether that vote was an "
+                    + "Approval or a Rejection");
+        }
+
+        /// <summary>
+        /// A review that no longer STANDS does not protect its author's invitation — four cases
+        /// in one test, because all four fail the same clause of the same predicate.
+        ///
+        /// <para>Case (c) — stored at <c>Draft</c> or <c>Submitted</c> — is a decision, not a
+        /// coincidence. A review at either status is not an answer: nobody has voted, so its
+        /// author has not answered the round, and retiring their invitation under the close
+        /// reason is ACCURATE rather than merely consistent with
+        /// <c>ActiveReviewerUserIds</c>.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldRetireAnInviteeWhoseOnlyReviewNoLongerStandsAsync()
+        {
+            // given
+            Guid approvalId = Guid.NewGuid();
+
+            // (a) Dismissed by a later edit (§9.5) — the re-invitation path that makes
+            // RecordedReviewerUserIds the wrong set to exclude by.
+            var dismissedReviewerRequest = new ApprovalReviewRequest
+            {
+                Id = Guid.NewGuid(),
+                ApprovalId = approvalId,
+                RequestedUserId = "dismissed-reviewer",
+            };
+
+            // (b) Withdrawn — soft-deleted.
+            var withdrawnReviewerRequest = new ApprovalReviewRequest
+            {
+                Id = Guid.NewGuid(),
+                ApprovalId = approvalId,
+                RequestedUserId = "withdrawn-reviewer",
+            };
+
+            // (c-i) Stored at Draft — corrupt per ToReviewVerdict's own comment, and not an
+            // answer: nobody has voted, so retiring this invitation is accurate rather than
+            // incidental.
+            var corruptStatusReviewerRequest = new ApprovalReviewRequest
+            {
+                Id = Guid.NewGuid(),
+                ApprovalId = approvalId,
+                RequestedUserId = "corrupt-status-reviewer",
+            };
+
+            // (c-ii) Stored at Submitted — awaiting a decision, not itself one. Same reasoning as
+            // Draft: nobody has voted yet, so retiring this invitation is accurate.
+            var submittedStatusReviewerRequest = new ApprovalReviewRequest
+            {
+                Id = Guid.NewGuid(),
+                ApprovalId = approvalId,
+                RequestedUserId = "submitted-status-reviewer",
+            };
+
+            SetupApprovalReviewRequests(
+                dismissedReviewerRequest,
+                withdrawnReviewerRequest,
+                corruptStatusReviewerRequest,
+                submittedStatusReviewerRequest);
+
+            SetupApprovalReviews(
+                CreateApprovalReview(
+                    approvalId: approvalId,
+                    createdBy: "dismissed-reviewer",
+                    statusId: ApprovalStatus.Dismissed),
+
+                CreateApprovalReview(
+                    approvalId: approvalId,
+                    createdBy: "withdrawn-reviewer",
+                    statusId: ApprovalStatus.Approved,
+                    isDeleted: true),
+
+                CreateApprovalReview(
+                    approvalId: approvalId,
+                    createdBy: "corrupt-status-reviewer",
+                    statusId: ApprovalStatus.Draft),
+
+                CreateApprovalReview(
+                    approvalId: approvalId,
+                    createdBy: "submitted-status-reviewer",
+                    statusId: ApprovalStatus.Submitted));
+
+            // when
+            List<Guid> actualRetirableRequestIds =
+                await this.accessBroker.FindRetirableApprovalReviewRequestIdsAsync(
+                    approvalId: approvalId,
+                    cancellationToken: default);
+
+            // then
+            actualRetirableRequestIds.Should().BeEquivalentTo(
+                new[]
+                {
+                    dismissedReviewerRequest.Id,
+                    withdrawnReviewerRequest.Id,
+                    corruptStatusReviewerRequest.Id,
+                    submittedStatusReviewerRequest.Id,
+                },
+                because: "a review that no longer stands - dismissed, withdrawn, or stored at a "
+                    + "status nobody could have voted from, whether Draft or Submitted - does "
+                    + "not protect its author's invitation");
+        }
+
+        /// <summary>
+        /// A standing review with a BLANK author carries no identity to exclude anybody by
+        /// (finding 3) — the exclusion carries the same blank filter
+        /// <c>ActiveReviewerUserIds</c> does, so the two cannot drift.
+        /// </summary>
+        [Fact]
+        public async Task ShouldNotExcludeAnyoneWhenTheStandingReviewersAuthorIsBlankAsync()
+        {
+            // given
+            Guid approvalId = Guid.NewGuid();
+
+            var blankRequestedUserRequest = new ApprovalReviewRequest
+            {
+                Id = Guid.NewGuid(),
+                ApprovalId = approvalId,
+                RequestedUserId = string.Empty,
+            };
+
+            var namedInviteeRequest = new ApprovalReviewRequest
+            {
+                Id = Guid.NewGuid(),
+                ApprovalId = approvalId,
+                RequestedUserId = "named-invitee",
+            };
+
+            SetupApprovalReviewRequests(blankRequestedUserRequest, namedInviteeRequest);
+
+            SetupApprovalReviews(
+                CreateApprovalReview(
+                    approvalId: approvalId,
+                    createdBy: string.Empty,
+                    statusId: ApprovalStatus.Approved));
+
+            // when
+            List<Guid> actualRetirableRequestIds =
+                await this.accessBroker.FindRetirableApprovalReviewRequestIdsAsync(
+                    approvalId: approvalId,
+                    cancellationToken: default);
+
+            // then
+            actualRetirableRequestIds.Should().BeEquivalentTo(
+                new[] { blankRequestedUserRequest.Id, namedInviteeRequest.Id },
+                because: "a standing review with a blank author carries no identity to exclude "
+                    + "anybody by, including a request whose own RequestedUserId is itself blank");
+        }
+
+        /// <summary>
+        /// The same as <see cref="ShouldNotExcludeAnyoneWhenTheStandingReviewersAuthorIsBlankAsync"/>
+        /// but with a WHITESPACE-only author rather than an empty string, because "blank" here
+        /// means what <c>string.IsNullOrWhiteSpace</c> means — the same rule
+        /// <c>ActiveReviewerUserIds</c> filters by — not merely <c>== string.Empty</c>.
+        /// </summary>
+        [Fact]
+        public async Task ShouldNotExcludeAnyoneWhenTheStandingReviewersAuthorIsWhitespaceOnlyAsync()
+        {
+            // given
+            Guid approvalId = Guid.NewGuid();
+            const string whitespaceOnlyAuthor = "\t";
+
+            var whitespaceRequestedUserRequest = new ApprovalReviewRequest
+            {
+                Id = Guid.NewGuid(),
+                ApprovalId = approvalId,
+                RequestedUserId = whitespaceOnlyAuthor,
+            };
+
+            var namedInviteeRequest = new ApprovalReviewRequest
+            {
+                Id = Guid.NewGuid(),
+                ApprovalId = approvalId,
+                RequestedUserId = "named-invitee",
+            };
+
+            SetupApprovalReviewRequests(whitespaceRequestedUserRequest, namedInviteeRequest);
+
+            SetupApprovalReviews(
+                CreateApprovalReview(
+                    approvalId: approvalId,
+                    createdBy: whitespaceOnlyAuthor,
+                    statusId: ApprovalStatus.Approved));
+
+            // when
+            List<Guid> actualRetirableRequestIds =
+                await this.accessBroker.FindRetirableApprovalReviewRequestIdsAsync(
+                    approvalId: approvalId,
+                    cancellationToken: default);
+
+            // then
+            actualRetirableRequestIds.Should().BeEquivalentTo(
+                new[] { whitespaceRequestedUserRequest.Id, namedInviteeRequest.Id },
+                because: "a standing review with a whitespace-only author carries no identity to "
+                    + "exclude anybody by, the same as one with an empty-string author");
+        }
+
+        /// <summary>
+        /// The round-scoping conjunct on the exclusion's own subquery
+        /// (<c>approvalReview.ApprovalId == approvalId</c>), pinned separately from
+        /// <see cref="ShouldExcludeAnInviteeWithAStandingReviewFromTheRetirableSetAsync"/> because
+        /// that test's single approval round cannot distinguish "the review was matched by
+        /// author" from "the review was matched by author AND round" — both readings return the
+        /// same answer when there is only one round in play. A reviewer's STANDING review
+        /// belongs to a round other than the one being closed, and must not reach across rounds to
+        /// protect an invitation on this one; only an answer to THIS round counts as having
+        /// answered it.
+        /// </summary>
+        [Fact]
+        public async Task ShouldNotExcludeAnInviteeWhoseStandingReviewIsOnADifferentApprovalAsync()
+        {
+            // given: the same person is invited on the round under test, and separately holds a
+            // standing Approved review recorded against a DIFFERENT round entirely
+            Guid approvalId = Guid.NewGuid();
+            Guid otherApprovalId = Guid.NewGuid();
+
+            var crossRoundReviewerRequest = new ApprovalReviewRequest
+            {
+                Id = Guid.NewGuid(),
+                ApprovalId = approvalId,
+                RequestedUserId = "cross-round-reviewer",
+            };
+
+            SetupApprovalReviewRequests(crossRoundReviewerRequest);
+
+            SetupApprovalReviews(
+                CreateApprovalReview(
+                    approvalId: otherApprovalId,
+                    createdBy: "cross-round-reviewer",
+                    statusId: ApprovalStatus.Approved));
+
+            // when
+            List<Guid> actualRetirableRequestIds =
+                await this.accessBroker.FindRetirableApprovalReviewRequestIdsAsync(
+                    approvalId: approvalId,
+                    cancellationToken: default);
+
+            // then
+            actualRetirableRequestIds.Should().Equal(
+                new[] { crossRoundReviewerRequest.Id },
+                because: "a standing review recorded against a DIFFERENT round never answers " +
+                    "THIS round, so it must not protect this round's invitation from retirement");
         }
 
         [Fact]

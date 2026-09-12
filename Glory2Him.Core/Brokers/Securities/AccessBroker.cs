@@ -476,14 +476,38 @@ namespace Glory2Him.Core.Brokers.Securities
                 : null;
         }
 
-        // Unfiltered, deliberately — see IAccessBroker for why the caller-facing read cannot
-        // answer this. The SAME storage read RetrieveApprovalReviewerScopeByIdAsync narrows for
-        // its ActiveRequests, so the half that decides WHAT to retire and the half that decides
-        // who may still be invited read one view of one table.
+        // Unfiltered on IsDeleted, deliberately — see IAccessBroker for why the caller-facing read
+        // cannot answer this. The SAME ApprovalReviewRequests read RetrieveApprovalReviewerScopeByIdAsync
+        // narrows for its ActiveRequests, so the half that decides WHAT to retire and the half
+        // that decides who may still be invited read one view of one table.
         //
-        // Pending is exactly IsDeleted == false, and there is no second definition of it here:
-        // rule 5 soft-deletes a withdrawal and rule 6 soft-deletes an answer, so what is left
-        // live is what the round is still waiting on.
+        // §12.5.4 business rule 4(ii): pending is NOT simply IsDeleted == false. It used to be,
+        // because rule 6 soft-deletes an answerer's own row before this gather ever ran — an
+        // ordering the two retirements no longer share once they become independent
+        // subscriptions. The exclusion below removes the dependency on that order: a
+        // RequestedUserId holding a review that still STANDS (the same set
+        // ApprovalReviewerScope.ActiveReviewerUserIds reports) is never handed back, whichever
+        // retirement runs first.
+        //
+        // Expressed directly on StatusId rather than through ToReviewVerdict, which is a static
+        // switch EF Core cannot translate inside a Where clause — it survives elsewhere only
+        // because it sits in a client-evaluated Select. Approved and Rejected are the two verdicts
+        // ToReviewVerdict does NOT collapse to Dismissed, so this is that predicate's SQL-safe
+        // restatement, not a different rule.
+        //
+        // Blank authors are filtered exactly as ActiveReviewerUserIds filters them: CreatedBy is
+        // required but not barred from being empty or whitespace-only, and a blank author carries
+        // no identity to exclude anybody by — including a request whose own RequestedUserId is
+        // itself blank.
+        //
+        // The blank check itself cannot be composed into the SQL predicate below and still mean
+        // the same thing ActiveReviewerUserIds means by it. string.IsNullOrWhiteSpace translates
+        // through the same LTRIM/RTRIM SQL Server gives .Trim() — both strip only the space
+        // character — so a tab- or newline-only CreatedBy reads as blank in C# (both here and in
+        // ActiveReviewerUserIds, which runs over an already-materialized list) but NOT blank once
+        // either expression is translated to SQL. The round-scoped reviews are pulled into memory
+        // first so the blank check runs as the same C# ActiveReviewerUserIds runs, and only the
+        // resulting identity set — not the whitespace rule — crosses back into a translated query.
         public async ValueTask<List<Guid>> FindRetirableApprovalReviewRequestIdsAsync(
             Guid approvalId,
             CancellationToken cancellationToken = default)
@@ -491,10 +515,27 @@ namespace Glory2Him.Core.Brokers.Securities
             IQueryable<ApprovalReviewRequest> allApprovalReviewRequests =
                 await this.storageBroker.SelectAllApprovalReviewRequestsAsync(cancellationToken);
 
+            IQueryable<ApprovalReview> allApprovalReviews =
+                await this.storageBroker.SelectAllApprovalReviewsAsync(cancellationToken);
+
+            List<string> standingReviewerUserIds = allApprovalReviews
+                .Where(approvalReview =>
+                    approvalReview.ApprovalId == approvalId
+                        && approvalReview.IsDeleted == false
+                        && (approvalReview.StatusId == ApprovalStatus.Approved
+                            || approvalReview.StatusId == ApprovalStatus.Rejected))
+                .Select(approvalReview => approvalReview.CreatedBy)
+                .ToList()
+                .Where(createdBy => string.IsNullOrWhiteSpace(createdBy) is false)
+                .Distinct()
+                .ToList();
+
             return allApprovalReviewRequests
                 .Where(approvalReviewRequest =>
                     approvalReviewRequest.ApprovalId == approvalId
-                        && approvalReviewRequest.IsDeleted == false)
+                        && approvalReviewRequest.IsDeleted == false
+                        && standingReviewerUserIds.Contains(
+                            approvalReviewRequest.RequestedUserId) == false)
                 .Select(approvalReviewRequest => approvalReviewRequest.Id)
                 .ToList();
         }
@@ -1087,13 +1128,43 @@ namespace Glory2Him.Core.Brokers.Securities
                 return null;
             }
 
+            return await BuildApprovalReviewerScopeAsync(maybeApproval, cancellationToken);
+        }
+
+        // The by-entity twin of RetrieveApprovalReviewerScopeByIdAsync (§12.5.4 business rule 2).
+        // It adds no capability — FindApprovalAsync is deliberately unfiltered on IsDeleted, so it
+        // resolves the same round the by-id form would once the id is known, and hands it to the
+        // SAME gather. The two entry points differ only in how the round is named.
+        public async ValueTask<ApprovalReviewerScope?> RetrieveApprovalReviewerScopeByEntityAsync(
+            EntityType entityType,
+            Guid entityId,
+            CancellationToken cancellationToken = default)
+        {
+            Approval? maybeApproval = await FindApprovalAsync(entityType, entityId, cancellationToken);
+
+            if (maybeApproval is null)
+            {
+                return null;
+            }
+
+            return await BuildApprovalReviewerScopeAsync(maybeApproval, cancellationToken);
+        }
+
+        // The gather both entry points above share. Splitting it out is not the per-operation
+        // composition CLAUDE.md warns against reusing — there is exactly one way to describe an
+        // approval's reviewer scope, and the two callers differ only in how they resolve the row,
+        // never in what they do with it once resolved.
+        private async ValueTask<ApprovalReviewerScope> BuildApprovalReviewerScopeAsync(
+            Approval approval,
+            CancellationToken cancellationToken)
+        {
             (string entityCreatedBy, IReadOnlyList<RoleSubject> roleSubjects, _, _, _, _) =
                 await ResolveEntityAsync(
-                    maybeApproval.EntityType,
-                    maybeApproval.EntityId,
+                    approval.EntityType,
+                    approval.EntityId,
                     cancellationToken);
 
-            ApprovalReviewSnapshot snapshot = await GatherAsync(maybeApproval, cancellationToken);
+            ApprovalReviewSnapshot snapshot = await GatherAsync(approval, cancellationToken);
 
             // Only the reviews that still stand. A withdrawn review frees the person to be asked
             // again, and a dismissed one means their verdict no longer describes the current
@@ -1127,7 +1198,7 @@ namespace Glory2Him.Core.Brokers.Securities
 
             List<ActiveReviewRequest> activeRequests = allRequests
                 .Where(request =>
-                    request.ApprovalId == maybeApproval.Id
+                    request.ApprovalId == approval.Id
                         && request.IsDeleted == false)
                 .Select(request => new ActiveReviewRequest
                 {
@@ -1138,8 +1209,8 @@ namespace Glory2Him.Core.Brokers.Securities
 
             return new ApprovalReviewerScope
             {
-                ApprovalId = maybeApproval.Id,
-                ApprovalStatus = maybeApproval.ApprovalStatus,
+                ApprovalId = approval.Id,
+                ApprovalStatus = approval.ApprovalStatus,
                 EntityCreatedBy = entityCreatedBy,
                 RoleSubjects = roleSubjects,
                 ActiveReviewerUserIds = activeReviewerUserIds,

@@ -325,9 +325,9 @@ namespace Glory2Him.Core.Brokers.Securities
             CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// The ids of the review invitations still outstanding on an approval — what a round
-        /// closing on an outcome has to retire (§7.9 rule 8) — read from storage without regard
-        /// to who is asking.
+        /// The ids of the review invitations to retire on an approval — what a round closing on
+        /// an outcome has to retire (§7.9 rule 8) — read from storage without regard to who is
+        /// asking.
         /// </summary>
         /// <remarks>
         /// <para>Actor-independent, for the same reason
@@ -347,6 +347,12 @@ namespace Glory2Him.Core.Brokers.Securities
         /// its <c>ActiveRequests</c>: that gather resolves the approval's entity and builds the
         /// whole review snapshot to produce them, and a path that needs a list of ids should not
         /// pay for the population behind them.</para>
+        ///
+        /// <para>Not simply every non-deleted invitation on the round (§12.5.4 rule 4(ii)): an
+        /// invitation whose target already holds a standing review on the SAME round — not
+        /// deleted, not blank-authored, and Approved or Rejected rather than Dismissed — is
+        /// excluded, matching the set <c>ApprovalReviewerScope.ActiveReviewerUserIds</c> reports.
+        /// That person answered; retiring their invitation as "unanswered" would be false.</para>
         ///
         /// <para>The pending predicate lives HERE, exactly as its neighbours filter out the
         /// reviews already dismissed and the assignment already pending: "what is still
@@ -385,6 +391,27 @@ namespace Glory2Him.Core.Brokers.Securities
         /// </summary>
         ValueTask<ApprovalReviewerScope?> RetrieveApprovalReviewerScopeByIdAsync(
             Guid approvalId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// <see cref="RetrieveApprovalReviewerScopeByIdAsync"/>, resolved from the round's
+        /// ENTITY key rather than its own id (§12.5.4 business rule 2).
+        ///
+        /// <para>An economy, not a new capability. Every reviewer orchestration operation is keyed
+        /// on an entity and needs the round behind that key; resolving it through
+        /// <c>IApprovalWorkflowService.FindApprovalByEntityAsync</c> and then this broker's by-id
+        /// form would read the same row twice. This does it in one — it is this broker's own
+        /// entity-keyed approval lookup, deliberately unfiltered on <c>IsDeleted</c> for the
+        /// same reason that lookup already is, followed by the identical gather the by-id form
+        /// performs.</para>
+        ///
+        /// <para>Returns <c>null</c> when no approval carries the entity key, exactly as the by-id
+        /// form answers <c>null</c> for an approval that is not there — distinguishable from an
+        /// empty scope, which is not the same fact.</para>
+        /// </summary>
+        ValueTask<ApprovalReviewerScope?> RetrieveApprovalReviewerScopeByEntityAsync(
+            EntityType entityType,
+            Guid entityId,
             CancellationToken cancellationToken = default);
     }
 }

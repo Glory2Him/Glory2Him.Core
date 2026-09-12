@@ -15,6 +15,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
+using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
@@ -99,6 +100,15 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
             }
         }
 
+        public async ValueTask SeedAsync(params ApprovalReview[] approvalReviews)
+        {
+            foreach (ApprovalReview approvalReview in approvalReviews)
+            {
+                await this.storageBroker.InsertApprovalReviewAsync(
+                    approvalReview, CancellationToken.None);
+            }
+        }
+
         public async ValueTask SeedAsync(params Association[] associations)
         {
             foreach (Association association in associations)
@@ -154,6 +164,23 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
                 if (stored is not null)
                 {
                     await this.storageBroker.DeleteApprovalReviewRequestAsync(
+                        stored, CancellationToken.None);
+                }
+            }
+        }
+
+        // Cleared BEFORE the approvals they hang off, since the FK refuses the other order —
+        // matching ApprovalReviewRequest's own teardown beside it.
+        public async ValueTask ClearAsync(IEnumerable<ApprovalReview> approvalReviews)
+        {
+            foreach (ApprovalReview approvalReview in approvalReviews)
+            {
+                ApprovalReview stored = await this.storageBroker.SelectApprovalReviewByIdAsync(
+                    approvalReview.Id, CancellationToken.None);
+
+                if (stored is not null)
+                {
+                    await this.storageBroker.DeleteApprovalReviewAsync(
                         stored, CancellationToken.None);
                 }
             }
