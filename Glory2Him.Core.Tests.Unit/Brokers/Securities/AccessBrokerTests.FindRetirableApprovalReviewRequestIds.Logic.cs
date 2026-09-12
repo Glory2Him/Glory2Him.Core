@@ -96,19 +96,35 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
         /// under the close reason (§12.5.4 business rule 4(ii)). Excluding whoever holds a review
         /// that still STANDS is what lets the two retirements (rules 6 and 8) stop depending on
         /// which order they run in.
+        ///
+        /// <para>Both standing verdicts are covered in one test, the same way the four
+        /// no-longer-standing cases sit together in
+        /// <see cref="ShouldRetireAnInviteeWhoseOnlyReviewNoLongerStandsAsync"/>: a round closes
+        /// on either an Approved or a Rejected decision
+        /// (<c>ApprovalOrchestrationService.ReviewRequests.cs</c>), and the invitee whose vote
+        /// tipped it must be protected identically whichever way it went — a predicate that only
+        /// protects Approved would retire the very reviewer who just rejected the round.</para>
         /// </summary>
         [Fact]
         public async Task ShouldExcludeAnInviteeWithAStandingReviewFromTheRetirableSetAsync()
         {
-            // given: two pending invitations, one belonging to somebody who has already answered
-            // with a review that still stands
+            // given: three pending invitations — one belonging to somebody who has already
+            // answered with an Approved review, one to somebody who answered with a Rejected
+            // review, and one still unanswered
             Guid approvalId = Guid.NewGuid();
 
-            var answeredInviteeRequest = new ApprovalReviewRequest
+            var approvedInviteeRequest = new ApprovalReviewRequest
             {
                 Id = Guid.NewGuid(),
                 ApprovalId = approvalId,
-                RequestedUserId = "answered-invitee",
+                RequestedUserId = "approved-invitee",
+            };
+
+            var rejectedInviteeRequest = new ApprovalReviewRequest
+            {
+                Id = Guid.NewGuid(),
+                ApprovalId = approvalId,
+                RequestedUserId = "rejected-invitee",
             };
 
             var unansweredInviteeRequest = new ApprovalReviewRequest
@@ -118,13 +134,21 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                 RequestedUserId = "unanswered-invitee",
             };
 
-            SetupApprovalReviewRequests(answeredInviteeRequest, unansweredInviteeRequest);
+            SetupApprovalReviewRequests(
+                approvedInviteeRequest,
+                rejectedInviteeRequest,
+                unansweredInviteeRequest);
 
             SetupApprovalReviews(
                 CreateApprovalReview(
                     approvalId: approvalId,
-                    createdBy: "answered-invitee",
-                    statusId: ApprovalStatus.Approved));
+                    createdBy: "approved-invitee",
+                    statusId: ApprovalStatus.Approved),
+
+                CreateApprovalReview(
+                    approvalId: approvalId,
+                    createdBy: "rejected-invitee",
+                    statusId: ApprovalStatus.Rejected));
 
             // when
             List<Guid> actualRetirableRequestIds =
@@ -136,7 +160,8 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             actualRetirableRequestIds.Should().Equal(
                 new[] { unansweredInviteeRequest.Id },
                 because: "the person who cast the deciding vote must not have their own "
-                    + "invitation retired under the close reason");
+                    + "invitation retired under the close reason, whether that vote was an "
+                    + "Approval or a Rejection");
         }
 
         /// <summary>
