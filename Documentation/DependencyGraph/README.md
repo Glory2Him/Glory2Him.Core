@@ -192,7 +192,9 @@ view you were on, and switching carries your current selection across.
   addressed to the PROCESSING tier for the two versioned types and to the
   foundation for the other five. It has no `IStorageBroker`, so no
   ProcessedEvents dedupe — its substrate guard is `IEnvelopeIntegrityBroker`
-  instead. `IApprovalCommentService` is injected but currently unused.
+  instead. It no longer holds `IApprovalCommentService` at all — that left with
+  §12.5.4's reviewer coordination in PR #535, and the only thing this service
+  reads a comment for is the §8.5 count, which arrives as a verdict.
 - **Circular event flows now exist, and the red edges are correct.** 14 of the
   112 subscriptions are on fact addresses, all handled by `AO`. `AO` publishes
   `<Entity>-Approving`, each entity publishes `<Entity>-Added` / `-Modified`
@@ -271,12 +273,16 @@ view you were on, and switching carries your current selection across.
   added 2026-08-12) is not modelled. It has no events, so it does not affect
   the subscription count.
 - **The eleven WebApp controllers** above are not modelled.
-- **`ARO`'s `IAccessBroker.IsEntityVisibleAsync` edge IS drawn now**, on all five
-  operations, which closes the gap this section used to record against `AO`. The
-  edge was missing because `ResolveReviewerScopeAsync` calls it on the way into
-  every invitation read and the 2026-09-07 update modelled the operations without
-  it; the 2026-09-12 move drew the resolver's whole call set per method, the way
-  `AIRO`'s narrow resolver already was.
+- **`AO`'s `IAccessBroker.IsEntityVisibleAsync` edges are still not drawn** — six
+  live call sites (`.Decisions.cs`, `.Flows.cs`, `.Reactions.cs` twice, `.Resets.cs`
+  and the verdict read in `ApprovalOrchestrationService.cs`) and zero edges in the
+  data. This entry used to be scoped to the invitation reads, and PR #535 closed
+  only that part of it by moving those operations to `ARO` and drawing the
+  resolver's whole call set per method, the way `AIRO`'s narrow resolver already
+  was. **The gap itself did not leave with them.** Drawing the six is a change to
+  `AO`'s own modelling with no connection to the split that exposed it, and it
+  would move the header counts above, so it is left for a pass that owns `AO`
+  rather than ridden in on a reviewer-orchestration PR.
 - **7 of 184 event addresses are absent from the manifest** — the whole
   `Attachment` family. They are declared on `IEventBroker` but no service
   publishes or subscribes them, so nothing would be drawn. The manifest
@@ -302,10 +308,19 @@ view you were on, and switching carries your current selection across.
 
   *Measured by running the page's own `buildSingleCopyInstances` and
   `buildDuplicatedInstances` over the data rather than read off a screenshot, so
-  the two view numbers are directly comparable. Doing that also showed the
-  2026-09-10 figures recorded here were themselves slightly low — the flows on
-  that scan were 1384 single and 1798 per consumer, not 1368 and 1774. The
-  component and node counts were right.*
+  the two view numbers are directly comparable.*
+
+  **The figures in this bullet go stale between full re-scans, and the mechanism
+  is worth naming because it has now happened twice in two days.** A targeted
+  update adds edges to `projects/*.yml` and does not touch this bullet, so the
+  count drifts silently until the next update measures it. Measured against each
+  revision's own renderer, single copy read 1368 flows at `29c1eb09`
+  (2026-09-10), 1383 at `a94fecbf` and 1384 at `b8710b57` — both 2026-09-12,
+  neither of which refreshed the header. Per consumer: 1774, 1796, 1798.
+  **Every one of those records was exact when written**, including the
+  2026-09-10 pair, which an earlier draft of this bullet wrongly called low by
+  measuring the 2026-09-12 data against the 2026-09-10 entry. If you are checking
+  these numbers, measure the revision that wrote them.
 - **The AI reviewer (Berean) is modelled as of 2026-09-10** — issue #354 Track A,
   PR #475. Two new components: `FS.AIReviewerAssignment` (the foundation, whose
   `ReturnStaleAIReviewerAssignmentToPendingAsync` row is the
