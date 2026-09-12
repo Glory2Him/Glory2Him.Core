@@ -126,6 +126,46 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ApprovalReviewRe
             actualRetirableRequestIds.Should().NotContain(answeredInviteeRequest.Id);
         }
 
+        /// <summary>
+        /// The exclusion's blank-author filter must read a whitespace-only author as blank the
+        /// same way <c>ActiveReviewerUserIds</c> does, and only a real database can say whether it
+        /// does: SQL Server's <c>LTRIM</c>/<c>RTRIM</c> strip only the space character, so a
+        /// tab-only author survives <c>.Trim() != string.Empty</c> once that expression is
+        /// translated to SQL even though C#'s own <c>.Trim()</c> (and
+        /// <c>string.IsNullOrWhiteSpace</c>) would call it blank. The in-memory unit suite cannot
+        /// see this divergence because LINQ-to-Objects evaluates the same <c>.Trim()</c> C# would
+        /// run anywhere else.
+        /// </summary>
+        [Fact]
+        public async Task ShouldNotExcludeAnInviteeWhoseStandingReviewsAuthorIsWhitespaceOnlyAsync()
+        {
+            // given
+            const string whitespaceOnlyAuthor = "\t";
+            Approval closingApproval = await SeedApprovalAsync(ApprovalStatus.Approved);
+
+            ApprovalReviewRequest whitespaceAuthoredRequest = await SeedApprovalReviewRequestAsync(
+                closingApproval.Id,
+                isDeleted: false,
+                requestedUserId: whitespaceOnlyAuthor);
+
+            await SeedApprovalReviewAsync(
+                closingApproval.Id,
+                createdBy: whitespaceOnlyAuthor,
+                statusId: ApprovalStatus.Approved);
+
+            // when
+            List<Guid> actualRetirableRequestIds =
+                await this.accessBroker.FindRetirableApprovalReviewRequestIdsAsync(
+                    approvalId: closingApproval.Id,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            actualRetirableRequestIds.Should().Equal(
+                new[] { whitespaceAuthoredRequest.Id },
+                because: "a standing review with a whitespace-only author carries no identity to "
+                    + "exclude anybody by, the same as one with an empty-string author");
+        }
+
         private async Task<Approval> SeedApprovalAsync(ApprovalStatus approvalStatus)
         {
             string actorUserId = Guid.NewGuid().ToString();
@@ -154,7 +194,8 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ApprovalReviewRe
 
         private async Task<ApprovalReviewRequest> SeedApprovalReviewRequestAsync(
             Guid approvalId,
-            bool isDeleted)
+            bool isDeleted,
+            string requestedUserId = null)
         {
             string actorUserId = Guid.NewGuid().ToString();
             DateTimeOffset now = DateTimeOffset.UtcNow;
@@ -163,7 +204,7 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ApprovalReviewRe
             {
                 Id = Guid.NewGuid(),
                 ApprovalId = approvalId,
-                RequestedUserId = Guid.NewGuid().ToString(),
+                RequestedUserId = requestedUserId ?? Guid.NewGuid().ToString(),
                 RequestedUserDisplayName = "Seeded Invitee",
                 CreatedBy = actorUserId,
                 CreatedWhen = now,
