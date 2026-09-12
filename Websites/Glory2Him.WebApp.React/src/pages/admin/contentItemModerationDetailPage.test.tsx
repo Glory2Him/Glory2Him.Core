@@ -683,7 +683,17 @@ describe('ContentItemModerationDetailPage', () => {
 
         await userEvent.click(action);
 
+        // THE CARD IS STILL THE CARD. Asserting no Save button would not have been enough: a
+        // refused editor renders no Save either, so that alone cannot tell "nothing opened"
+        // from "the editor opened and refused" - which is the very swap this issue exists to
+        // stop. The absent refusal alert is what separates them.
         expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+
+        expect(screen.queryByText('Contributions are not open to this account.'))
+            .not.toBeInTheDocument();
+
+        expect(screen.getByText(/Character is what you are in the dark\./))
+            .toBeInTheDocument();
     });
 
     /// The other half, and the reason the lock cannot simply follow the status: ruling on a
