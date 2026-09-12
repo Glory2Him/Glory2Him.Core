@@ -749,6 +749,24 @@ describe('ContentItemPanel', () => {
 
             expect(onModerateClick).toHaveBeenCalledWith(ownApprovedItem);
         });
+
+        // A REGRESSION GUARD over the distinction this issue must not blur: a SANCTION hides
+        // the affordance, a terminal row LOCKS it. #366 / §18.6 — a ReadOnly holder "sees no
+        // Edit and no Delete", which is not the same outcome as seeing a greyed-out one.
+        it('should show no action to a ReadOnly holder rather than a locked one', () => {
+            signInAs(authState, ['Administrators', 'ContentItem-Devotional-ReadOnly']);
+
+            renderCard(
+                <ContentItemPanel
+                    contentItem={atStatus(devotionalItem, ApprovalStatus.Approved)}
+                    onEditClick={vi.fn()}
+                    onModerateClick={vi.fn()} />);
+
+            expect(screen.queryByRole('button', { name: /Moderate/ }))
+                .not.toBeInTheDocument();
+
+            expect(screen.queryByRole('button', { name: /Edit/ })).not.toBeInTheDocument();
+        });
     });
 
     describe('assigned reactions', () => {
