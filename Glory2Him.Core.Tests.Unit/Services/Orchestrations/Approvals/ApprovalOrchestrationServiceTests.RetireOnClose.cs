@@ -17,45 +17,52 @@ using FluentAssertions;
 using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
-using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
-using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests.Exceptions;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.Links;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
-using Glory2Him.Core.Models.Orchestrations.Approvals.Exceptions;
-using Glory2Him.Core.Models.Securities;
 using Moq;
-using Xeptions;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 {
     /// <summary>
-    /// §7.9 rule 8 — a round that has closed on an outcome retires the invitations it never
-    /// answered. They gate nothing, which is why the rule was once "nothing needs to clean it
-    /// up"; what they DO is render, and an outstanding ask beside a settled outcome says the
-    /// round is waiting for a vote that can no longer be cast at all.
+    /// §7.9 rule 8 from THIS side of the move — the round closes, and retires nothing itself.
     ///
-    /// <para>The three tests that matter most here are the three ROUTES. A rule applied on the
-    /// button and forgotten on the two automatic closes would leave the commonest rounds — the
-    /// ones nobody clicks — exactly as cluttered as before.</para>
+    /// <para>The retirement is a subscription on <c>ApprovalReviewerOrchestrationService</c> now
+    /// (§12.5.4 business rule 4), heard off the <c>Approval-Modified</c> that closing the round
+    /// publishes. What these tests pin is the half that lives here: each of the three routes to
+    /// an outcome writes it through <c>ModifyApprovalAsync</c>, which is what lets ONE
+    /// subscription hear all three and is why no enumeration of the sites has to be kept in step
+    /// with anything.</para>
+    ///
+    /// <para>The three ROUTES are still the point. A rule applied on the button and forgotten on
+    /// the two automatic closes would leave the commonest rounds — the ones nobody clicks —
+    /// exactly as cluttered as before; and a fourth route added later still reaches the
+    /// subscription for free, provided it goes through the same write.</para>
+    ///
+    /// <para>Each also asserts that this service reaches for NO retirement: the gathering read is
+    /// never made, which is the assertion that goes red if a direct call is ever put back. The
+    /// workflow-seam assertions those calls carried moved to
+    /// <c>ApprovalReviewerOrchestrationServiceTests.Substrate.cs</c>, where the write now
+    /// happens — this service no longer holds <c>IApprovalReviewRequestWorkflowService</c> at
+    /// all, so the compiler makes half the point the assertions were making.</para>
     /// </summary>
     public partial class ApprovalOrchestrationServiceTests
     {
         /// <summary>
-        /// Route one: a person pressed Approve or Reject. Both outcomes retire, because both
-        /// close the round — a rejection is as final for an unanswered invitation as an approval.
+        /// Route one: a person pressed Approve or Reject. Both outcomes close the round — a
+        /// rejection is as final for an unanswered invitation as an approval — so both publish
+        /// the fact the retirement hears.
         /// </summary>
         [Theory]
-        [InlineData(ApprovalDecision.Approve)]
-        [InlineData(ApprovalDecision.Reject)]
-        public async Task ShouldRetireTheOutstandingInvitationsWhenAPersonDecidesTheRoundAsync(
-            ApprovalDecision decision)
+        [InlineData(ApprovalDecision.Approve, ApprovalStatus.Approved)]
+        [InlineData(ApprovalDecision.Reject, ApprovalStatus.Rejected)]
+        public async Task ShouldCloseTheRoundWithoutRetiringAnythingWhenAPersonDecidesTheRoundAsync(
+            ApprovalDecision decision,
+            ApprovalStatus expectedStatus)
         {
-            // given: two people were asked and neither answered before the round was decided
+            // given
             var approvalId = Guid.NewGuid();
             var entityId = Guid.NewGuid();
-            var firstRequestId = Guid.NewGuid();
-            var secondRequestId = Guid.NewGuid();
 
             Approval storageApproval = CreateDecisionApproval(
                 approvalId: approvalId,
@@ -70,9 +77,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             SetupDecisionSystemEnvelopes();
             SetupDecisionLinkCommandPublish();
-            SetupDecisionApprovalRow(storageApproval);
-            SetupRetirableApprovalReviewRequests(approvalId, firstRequestId, secondRequestId);
-            SetupClosedRoundRetirement();
+            List<Approval> savedApprovals = SetupDecisionApprovalRow(storageApproval);
 
             // when
             await this.approvalOrchestrationService.DecideApprovalAsync(
@@ -83,57 +88,26 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 null,
                 TestContext.Current.CancellationToken);
 
-            // then: EVERY outstanding row, not just the first one found
-            this.approvalReviewRequestWorkflowServiceMock.Verify(service =>
-                service.RetireClosedRoundApprovalReviewRequestAsync(
-                    firstRequestId,
-                    It.IsAny<CancellationToken>()),
-                Times.Once);
+            // then: the outcome is written through the modify, which is what publishes
+            // Approval-Modified and so what the retirement's subscription hears
+            savedApprovals.Should().ContainSingle();
+            savedApprovals[0].ApprovalStatus.Should().Be(expectedStatus);
 
-            this.approvalReviewRequestWorkflowServiceMock.Verify(service =>
-                service.RetireClosedRoundApprovalReviewRequestAsync(
-                    secondRequestId,
-                    It.IsAny<CancellationToken>()),
-                Times.Once);
-
-            // Through the WORKFLOW seam, which mints the system identity itself. The caller
-            // pressed Approve or Reject; they did not withdraw anybody's invitation, and
-            // DeletedBy must not say they did.
-            //
-            // The "and NOT through the caller-facing RemoveApprovalReviewRequestByIdAsync"
-            // assertion that used to sit here is gone rather than restated: this service no
-            // longer holds IApprovalReviewRequestService at all — it left with §12.5.4's reviewer
-            // coordination — so the compiler makes the point the assertion was making.
-
-            // And the ANSWERED retirement is not the verb reached: the two carry different
-            // sentences, and a round closing on somebody is not the same as them answering.
-            this.approvalReviewRequestWorkflowServiceMock.Verify(service =>
-                service.RetireAnsweredApprovalReviewRequestAsync(
-                    It.IsAny<Guid>(),
-                    It.IsAny<CancellationToken>()),
-                Times.Never);
-
-            // The UNFILTERED read, keyed on this round. The caller-facing read applies §14.7
-            // posture D, and the other two routes have no moderator on them at all.
-            this.accessBrokerMock.Verify(broker =>
-                broker.FindRetirableApprovalReviewRequestIdsAsync(
-                    approvalId,
-                    It.IsAny<CancellationToken>()),
-                Times.Once);
+            VerifyNoRetirementWasReachedForHere();
         }
 
         /// <summary>
-        /// Route two: nobody pressed anything — a standing rejection under
-        /// <c>BlockOnReject</c> ended the round. There is no caller to attribute the retirement
-        /// to even in principle, which is the clearest case for the system identity.
+        /// Route two: nobody pressed anything — a standing rejection under <c>BlockOnReject</c>
+        /// ended the round. There is no caller to attribute a retirement to even in principle,
+        /// which is why it runs under the system identity the workflow seam mints on the other
+        /// delivery.
         /// </summary>
         [Fact]
-        public async Task ShouldRetireTheOutstandingInvitationsWhenAStandingRejectionClosesTheRoundAsync()
+        public async Task ShouldCloseTheRoundWithoutRetiringAnythingWhenAStandingRejectionClosesTheRoundAsync()
         {
             // given
             var approvalId = Guid.NewGuid();
             var entityId = Guid.NewGuid();
-            var requestId = Guid.NewGuid();
 
             Approval storageApproval = CreateFlowApproval(
                 approvalId: approvalId,
@@ -154,39 +128,32 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                         AccessDenialReason.BlockedByRejection,
                     }));
 
-            SetupRetirableApprovalReviewRequests(approvalId, requestId);
-            SetupClosedRoundRetirement();
-
             // when
             await this.approvalOrchestrationService.ProcessApprovalInputsChangedAsync(
                 approvalId,
                 TestContext.Current.CancellationToken);
 
-            // then: the round really did close on Rejected, so the retirement is a consequence of
-            // an outcome rather than of the flow merely having run
+            // then
             savedApprovals.Should().ContainSingle();
             savedApprovals[0].ApprovalStatus.Should().Be(ApprovalStatus.Rejected);
 
-            this.approvalReviewRequestWorkflowServiceMock.Verify(service =>
-                service.RetireClosedRoundApprovalReviewRequestAsync(
-                    requestId,
-                    It.IsAny<CancellationToken>()),
-                Times.Once);
+            VerifyNoRetirementWasReachedForHere();
         }
 
         /// <summary>
-        /// Route three, and the one the gathering seam exists for. An automatic approval runs
-        /// under the identity of whoever's review or edit tipped the round — frequently somebody
-        /// with no review role at all — so a caller-facing read would answer them with nothing
-        /// and the panel would keep its stale rows with no error anywhere to notice.
+        /// Route three, and the one that made the gathering seam a requirement rather than a
+        /// preference. An automatic approval runs under the identity of whoever's review or edit
+        /// tipped the round — frequently somebody with no review role at all — so a caller-facing
+        /// read would answer them with nothing. That argument now belongs to the handler holding
+        /// the read; what belongs here is that this route closes the round the same way the other
+        /// two do.
         /// </summary>
         [Fact]
-        public async Task ShouldRetireTheOutstandingInvitationsWhenTheRoundAutoApprovesAsync()
+        public async Task ShouldCloseTheRoundWithoutRetiringAnythingWhenTheRoundAutoApprovesAsync()
         {
             // given
             var approvalId = Guid.NewGuid();
             var entityId = Guid.NewGuid();
-            var requestId = Guid.NewGuid();
 
             Approval storageApproval = CreateFlowApproval(
                 approvalId: approvalId,
@@ -203,9 +170,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     areConditionsMet: true,
                     shouldAutoApprove: true));
 
-            SetupRetirableApprovalReviewRequests(approvalId, requestId);
-            SetupClosedRoundRetirement();
-
             // when
             await this.approvalOrchestrationService.ProcessApprovalInputsChangedAsync(
                 approvalId,
@@ -215,139 +179,37 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             savedApprovals.Should().ContainSingle();
             savedApprovals[0].ApprovalStatus.Should().Be(ApprovalStatus.Approved);
 
-            this.approvalReviewRequestWorkflowServiceMock.Verify(service =>
-                service.RetireClosedRoundApprovalReviewRequestAsync(
-                    requestId,
-                    It.IsAny<CancellationToken>()),
-                Times.Once);
+            VerifyNoRetirementWasReachedForHere();
         }
 
         /// <summary>
-        /// The round is still OPEN — the conditions were not met — so the invitations are exactly
-        /// what they were asked for. Retiring here would cancel a round's reviewers for the crime
-        /// of somebody having looked at it.
+        /// The INVERSION of the ordering this file used to pin, and §7.9 rule 8 calls it "a
+        /// deliberate inversion of what this rule used to say". The retirement used to run LAST,
+        /// after the entity command had gone; as a reaction to the outcome write it runs BEFORE
+        /// it, because delivery is synchronous inside <c>ModifyApprovalAsync</c>.
+        ///
+        /// <para><b>What is observed here stands in for the retirement, and deliberately.</b>
+        /// This service no longer performs it, so a unit test of this service cannot watch it
+        /// happen; what it can watch is the write the retirement hangs off. The outcome write
+        /// publishes <c>Approval-Modified</c> and the subscription is delivered on that
+        /// publisher's own thread, so "the outcome write happened first" IS "the retirement
+        /// happened first". Move the write below the entity command and the inversion is
+        /// undone — which is what this goes red for.</para>
+        ///
+        /// <para>Nothing renders between the two, so no surface shows a different thing. The old
+        /// ordering existed to justify swallowing a failure on a decision that had already
+        /// committed; that justification moved to §EVN23's delivery report with the retirement
+        /// itself.</para>
         /// </summary>
         [Fact]
-        public async Task ShouldNotRetireAnythingWhileTheRoundIsStillOpenAsync()
+        public async Task ShouldRetireTheInvitationsBeforeTheEntityCommandHasGoneAsync()
         {
             // given
             var approvalId = Guid.NewGuid();
             var entityId = Guid.NewGuid();
-
-            Approval storageApproval = CreateFlowApproval(
-                approvalId: approvalId,
-                entityId: entityId,
-                entityType: EntityType.Link,
-                approvalStatus: ApprovalStatus.Submitted);
-
-            SetupFlowApprovalRow(storageApproval);
-            SetupFlowSystemEnvelope<Link>();
-            SetupFlowLinkCommandPublish();
-
-            SetupFlowConditionsReads(
-                firstConditions: CreateFlowConditions(
-                    areConditionsMet: false,
-                    shouldAutoApprove: true));
-
-            SetupRetirableApprovalReviewRequests(approvalId, Guid.NewGuid());
-            SetupClosedRoundRetirement();
-
-            // when
-            ApprovalOutcome actualOutcome =
-                await this.approvalOrchestrationService.ProcessApprovalInputsChangedAsync(
-                    approvalId,
-                    TestContext.Current.CancellationToken);
-
-            // then
-            actualOutcome.ApprovalStatus.Should().Be(ApprovalStatus.Submitted);
-
-            this.approvalReviewRequestWorkflowServiceMock.Verify(service =>
-                service.RetireClosedRoundApprovalReviewRequestAsync(
-                    It.IsAny<Guid>(),
-                    It.IsAny<CancellationToken>()),
-                Times.Never);
-
-            // Not even the READ. The helper is never entered at all on this path — the
-            // evaluation returns as soon as the conditions come back unmet — so what this pins is
-            // the FLOW not reaching for a retirement, which is a step above the helper's own
-            // status gate and survives that gate being removed.
-            this.accessBrokerMock.Verify(broker =>
-                broker.FindRetirableApprovalReviewRequestIdsAsync(
-                    It.IsAny<Guid>(),
-                    It.IsAny<CancellationToken>()),
-                Times.Never);
-        }
-
-        /// <summary>
-        /// §8.6 HR-4's override moves a decided round back to <c>Submitted</c>, which is the
-        /// opposite of closing it.
-        ///
-        /// <para><b>It passes because the reset never calls the helper</b>, not because the
-        /// helper's status gate turns it away — the reset is not one of the three call sites. So
-        /// what this pins is the call sites themselves: the reset reaches
-        /// <c>PublishEntityApprovalCommandAsync</c> exactly as the three closing routes do, and
-        /// a retirement moved inside that shared seam would start retiring the invitations of a
-        /// round being put back for review. This test is what would catch that.</para>
-        ///
-        /// <para>§7.9 rule 8 also rules that a reset does NOT bring retired invitations back: a
-        /// moderator asks again. Nothing here resurrects a row, and there is deliberately no verb
-        /// that could.</para>
-        /// </summary>
-        [Fact]
-        public async Task ShouldNotRetireAnythingWhenAnAdministratorResetsTheRoundAsync()
-        {
-            // given
-            this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Administrators);
-
-            Approval decidedApproval = SetupDecidedRound(ApprovalStatus.Approved);
-            SetupEntityVisibility(isEntityVisible: true);
-            SetupRetirableApprovalReviewRequests(decidedApproval.Id, Guid.NewGuid());
-            SetupClosedRoundRetirement();
-
-            // when
-            ApprovalOutcome actualOutcome =
-                await this.approvalOrchestrationService.ResetApprovalAsync(
-                    decidedApproval.EntityType,
-                    decidedApproval.EntityId,
-                    TestContext.Current.CancellationToken);
-
-            // then
-            actualOutcome.ApprovalStatus.Should().Be(ApprovalStatus.Submitted);
-
-            this.approvalReviewRequestWorkflowServiceMock.Verify(service =>
-                service.RetireClosedRoundApprovalReviewRequestAsync(
-                    It.IsAny<Guid>(),
-                    It.IsAny<CancellationToken>()),
-                Times.Never);
-
-            this.accessBrokerMock.Verify(broker =>
-                broker.FindRetirableApprovalReviewRequestIdsAsync(
-                    It.IsAny<Guid>(),
-                    It.IsAny<CancellationToken>()),
-                Times.Never);
-        }
-
-        /// <summary>
-        /// §7.9 rule 8 puts the retirement LAST, after the entity sync, and that ordering is the
-        /// whole ground on which its failure is allowed to be swallowed: the argument for logging
-        /// rather than propagating is that the outcome has already committed and the command has
-        /// already gone. Move this above the publish and that argument stops being true, so the
-        /// order is asserted rather than left to read correctly.
-        ///
-        /// <para>Both sides stamp a shared counter, so what is observed is the sequence rather
-        /// than the two calls merely having happened.</para>
-        /// </summary>
-        [Fact]
-        public async Task ShouldRetireTheInvitationsOnlyAfterTheEntityCommandHasGoneAsync()
-        {
-            // given
-            var approvalId = Guid.NewGuid();
-            var entityId = Guid.NewGuid();
-            var requestId = Guid.NewGuid();
             int decisionStep = 0;
             int entityCommandPublishedAt = 0;
-            int invitationRetiredAt = 0;
+            int outcomeWrittenAt = 0;
 
             Approval storageApproval = CreateDecisionApproval(
                 approvalId: approvalId,
@@ -361,26 +223,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 bypassVerdict: PermittedVerdict());
 
             SetupDecisionSystemEnvelopes();
-            SetupDecisionApprovalRow(storageApproval);
-            SetupRetirableApprovalReviewRequests(approvalId, requestId);
+
+            SetupDecisionApprovalRow(
+                storageApproval,
+                onApprovalSaved: () => outcomeWrittenAt = ++decisionStep);
 
             SetupDecisionLinkCommandPublish(
                 onCommandPublished: () => entityCommandPublishedAt = ++decisionStep);
-
-            this.approvalReviewRequestWorkflowServiceMock.Setup(service =>
-                service.RetireClosedRoundApprovalReviewRequestAsync(
-                    requestId,
-                    It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(() =>
-                        {
-                            invitationRetiredAt = ++decisionStep;
-
-                            return new ApprovalReviewRequest
-                            {
-                                Id = requestId,
-                                IsDeleted = true,
-                            };
-                        });
 
             // when
             await this.approvalOrchestrationService.DecideApprovalAsync(
@@ -392,23 +241,29 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 TestContext.Current.CancellationToken);
 
             // then
-            entityCommandPublishedAt.Should().Be(1);
-            invitationRetiredAt.Should().Be(2);
+            outcomeWrittenAt.Should().Be(1);
+            entityCommandPublishedAt.Should().Be(2);
 
-            invitationRetiredAt.Should().BeGreaterThan(entityCommandPublishedAt,
-                because: "the retirement may only be swallowed on failure because everything it "
-                    + "could have reported has already committed");
+            outcomeWrittenAt.Should().BeLessThan(entityCommandPublishedAt,
+                because: "the retirement is a synchronous delivery on the outcome write, so it "
+                    + "lands ahead of the entity command rather than after it");
         }
 
         /// <summary>
-        /// The decision has COMMITTED by the time the retirement runs, and the entity command has
-        /// gone with it. A failure on the tidy-up must not report that decision as a failure: the
-        /// moderator would be advised to retry, and the retry is then refused because the round is
-        /// no longer <c>Submitted</c> — a second, unrelated error on a round that was never
-        /// broken.
+        /// The decision has COMMITTED by the time the retirement would run, and a failure in it
+        /// must not report that decision as a failure — the moderator would be advised to retry,
+        /// and the retry is then refused because the round is no longer <c>Submitted</c>.
+        ///
+        /// <para><b>Re-aimed at the delivery.</b> That guarantee used to be a hand-written
+        /// <c>try</c>/<c>catch</c>/log inside this service; it is structural now, because the
+        /// retirement is a different delivery on a different service and cannot reach this call
+        /// stack at all. So a gathering seam that faults outright leaves the decision untouched
+        /// AND unlogged here — the failure is recorded on the retirement's own delivery
+        /// (§EVN23), and its assertions live in
+        /// <c>ApprovalReviewerOrchestrationServiceTests.Substrate.Exceptions.cs</c>.</para>
         /// </summary>
         [Fact]
-        public async Task ShouldLogAndNotFailTheDecisionWhenTheRetirementReadFailsAsync()
+        public async Task ShouldNotFailTheDecisionWhenTheRetirementReadFailsAsync()
         {
             // given
             var approvalId = Guid.NewGuid();
@@ -452,139 +307,23 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             savedApprovals.Should().ContainSingle();
             publishedCommands.Should().ContainSingle();
 
-            // Nothing is swallowed silently — the failure reaches the error log, which is the
-            // whole of what this step may cost.
+            // and it never saw the failure, because it never reached for the read. Not a
+            // swallowed exception — an untouched one.
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(retirementReadException),
-                Times.Once);
-        }
-
-        /// <summary>
-        /// The same posture one layer in: the read answered, and the WRITE failed. The rows stay
-        /// outstanding and a moderator can still withdraw them by hand, which is a smaller cost
-        /// than faulting a decision that fully worked.
-        /// </summary>
-        [Fact]
-        public async Task ShouldLogAndNotFailTheDecisionWhenARetirementWriteFailsAsync()
-        {
-            // given
-            var approvalId = Guid.NewGuid();
-            var entityId = Guid.NewGuid();
-            var requestId = Guid.NewGuid();
-
-            var retirementWriteException =
-                new ApprovalReviewRequestDependencyException(
-                    message: "Approval review request dependency error occurred, "
-                        + "contact support.",
-                    innerException: new Xeption(message: "storage is unhappy"));
-
-            Approval storageApproval = CreateDecisionApproval(
-                approvalId: approvalId,
-                entityId: entityId,
-                entityType: EntityType.Link);
-
-            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Submitted, approvalId));
-
-            SetupAccessDecisions(
-                decisionVerdict: PermittedVerdict(),
-                bypassVerdict: PermittedVerdict());
-
-            SetupDecisionSystemEnvelopes();
-            SetupDecisionLinkCommandPublish();
-            List<Approval> savedApprovals = SetupDecisionApprovalRow(storageApproval);
-            SetupRetirableApprovalReviewRequests(approvalId, requestId);
-
-            this.approvalReviewRequestWorkflowServiceMock.Setup(service =>
-                service.RetireClosedRoundApprovalReviewRequestAsync(
-                    requestId,
-                    It.IsAny<CancellationToken>()))
-                        .ThrowsAsync(retirementWriteException);
-
-            // when
-            ApprovalOutcome actualOutcome =
-                await this.approvalOrchestrationService.DecideApprovalAsync(
-                    EntityType.Link,
-                    entityId,
-                    ApprovalDecision.Approve,
-                    false,
-                    null,
-                    TestContext.Current.CancellationToken);
-
-            // then
-            actualOutcome.ApprovalStatus.Should().Be(ApprovalStatus.Approved);
-            savedApprovals.Should().ContainSingle();
-
-            this.loggingBrokerMock.Verify(broker =>
-                broker.LogErrorAsync(retirementWriteException),
-                Times.Once);
-        }
-
-        /// <summary>
-        /// Cancellation is the one thing that passes through. A cancelled operation is not a
-        /// failed one, and swallowing it here would leave the caller's own TryCatch unable to
-        /// report the timeout it exists to report.
-        /// </summary>
-        [Fact]
-        public async Task ShouldNotSwallowCancellationRaisedByTheRetirementAsync()
-        {
-            // given
-            var approvalId = Guid.NewGuid();
-            var entityId = Guid.NewGuid();
-            var operationCanceledException = new OperationCanceledException();
-
-            Approval storageApproval = CreateDecisionApproval(
-                approvalId: approvalId,
-                entityId: entityId,
-                entityType: EntityType.Link);
-
-            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Submitted, approvalId));
-
-            SetupAccessDecisions(
-                decisionVerdict: PermittedVerdict(),
-                bypassVerdict: PermittedVerdict());
-
-            SetupDecisionSystemEnvelopes();
-            SetupDecisionLinkCommandPublish();
-            SetupDecisionApprovalRow(storageApproval);
-
-            this.accessBrokerMock.Setup(broker =>
-                broker.FindRetirableApprovalReviewRequestIdsAsync(
-                    approvalId,
-                    It.IsAny<CancellationToken>()))
-                        .ThrowsAsync(operationCanceledException);
-
-            // when
-            ValueTask<ApprovalOutcome> decideTask =
-                this.approvalOrchestrationService.DecideApprovalAsync(
-                    EntityType.Link,
-                    entityId,
-                    ApprovalDecision.Approve,
-                    false,
-                    null,
-                    TestContext.Current.CancellationToken);
-
-            // then: it reaches the caller's TryCatch rather than the helper's catch, and is
-            // reported as the timeout that it is
-            await Assert.ThrowsAsync<ApprovalOrchestrationDependencyException>(
-                decideTask.AsTask);
-
-            this.loggingBrokerMock.Verify(broker =>
-                broker.LogErrorAsync(operationCanceledException),
                 Times.Never);
+
+            VerifyNoRetirementWasReachedForHere();
         }
 
-        // The workflow seam echoes back a retired row, so a test can assert on the argument and
-        // on what came back and know they are the same row.
-        private void SetupClosedRoundRetirement() =>
-            this.approvalReviewRequestWorkflowServiceMock.Setup(service =>
-                service.RetireClosedRoundApprovalReviewRequestAsync(
+        // The one assertion every test in this file makes: the gathering read §7.9 rule 8 needs
+        // is not reached from this service on any path. It is what goes red the moment a direct
+        // call is put back, whichever of the three routes puts it there.
+        private void VerifyNoRetirementWasReachedForHere() =>
+            this.accessBrokerMock.Verify(broker =>
+                broker.FindRetirableApprovalReviewRequestIdsAsync(
                     It.IsAny<Guid>(),
-                    It.IsAny<CancellationToken>()))
-                        .ReturnsAsync((Guid approvalReviewRequestId, CancellationToken _) =>
-                            new ApprovalReviewRequest
-                            {
-                                Id = approvalReviewRequestId,
-                                IsDeleted = true,
-                            });
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
     }
 }
