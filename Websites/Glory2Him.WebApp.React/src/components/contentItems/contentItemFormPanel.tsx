@@ -23,6 +23,7 @@ import {
     contributorApprovalStatusMembers,
     defaultContributorApprovalStatus,
     defaultShareabilityBasis,
+    isAmendableApprovalStatus,
     isContributorApprovalStatus,
     isOwnedShareabilityBasis,
     isPermissionShareabilityBasis,
@@ -507,10 +508,7 @@ export function ContentItemFormPanel({
     const resolvedEditRoleList = resolveRoles(editRoleList, selectedContentType);
     const resolvedDeleteRoleList = resolveRoles(deleteRoleList, selectedContentType);
 
-    const status = contentItem?.approvalStatus ?? ApprovalStatus.Draft;
-
-    const isAmendableStatus =
-        status === ApprovalStatus.Draft || status === ApprovalStatus.Submitted;
+    const isAmendableStatus = isAmendableApprovalStatus(contentItem?.approvalStatus);
 
     // The owner amends at any status — the consumer decides whether that PUTs or forks (§3.4 rule
     // 16). The rest of the tier is confined to a live item: a decided one is terminal to them.

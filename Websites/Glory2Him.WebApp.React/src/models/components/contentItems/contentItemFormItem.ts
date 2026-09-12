@@ -144,6 +144,22 @@ export const defaultContributorApprovalStatus: ApprovalStatus = ApprovalStatus.S
 export const isContributorApprovalStatus = (status: ApprovalStatus): boolean =>
     contributorApprovalStatusMembers.includes(status);
 
+// WHETHER THE ROW IS STILL AMENDABLE IN PLACE, and the one place that says so. Approved and
+// Rejected are TERMINAL — the content is immutable in place to anyone but its contributor,
+// whose amendment forks a new version instead (§3.4 rules 7, 8 and 16), and
+// ValidateStorageContentItemIsNotTerminal refuses the write unconditionally.
+//
+// Stated here because TWO surfaces ask it and they must never drift: the editor decides whether
+// it will open (ContentItemFormPanel's mayEdit), and the card decides whether to offer the
+// action at all (ContentItemPanel's terminal lock). #508 is what their disagreeing looked like —
+// a live button in front of an editor that refused.
+//
+// An ABSENT status is amendable: an item that names none has not been decided.
+export const isAmendableApprovalStatus = (
+    status: ApprovalStatus | null | undefined): boolean =>
+    (status ?? ApprovalStatus.Draft) === ApprovalStatus.Draft
+    || status === ApprovalStatus.Submitted;
+
 // The three surfaces of one content item. `add` has no item behind it yet; `read` renders the
 // item; `edit` renders the same fields the add surface does, over an item that already exists.
 export type ContentItemPanelMode = 'add' | 'read' | 'edit';

@@ -24,7 +24,8 @@ import {
     ContentItemFormItem,
     ContentItemPanelMode,
     ContentItemValidationIssues,
-    defaultShareabilityBasis
+    defaultShareabilityBasis,
+    isAmendableApprovalStatus
 } from '../../models/components/contentItems/contentItemFormItem';
 
 import {
@@ -378,7 +379,7 @@ export function ContentItemPanel({
     const isModerateButtonLocked =
         showsModerateButton
         && viewerOwnsItem === false
-        && contentItem.approvalStatus === ApprovalStatus.Approved;
+        && isAmendableApprovalStatus(contentItem.approvalStatus) === false;
 
     const Template =
         templateOverrides[contentItem.contentType] ?? ContentItemDefaultPanel;
