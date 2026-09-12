@@ -102,7 +102,7 @@ export type ApprovalReviewRequest = {
     isDeleted: boolean;
 };
 
-// GET/POST/DELETE api/Approvals/{entityType}/{entityId}/AIReviewer — Berean's status on this
+// GET/POST/DELETE api/AIReviewers/{entityType}/{entityId} — Berean's status on this
 // round (design §8.6.2). Unlike a human ApprovalReviewRequest, there is at most ONE of these
 // per approval and it carries no account id: Berean is not a role-bearing identity, so its
 // assignment is tracked in its own small resource rather than forced through the review-request
@@ -121,7 +121,7 @@ export type AIReviewerStatus = {
     isAIReviewCommentsPresent: boolean;
 };
 
-// POST/DELETE api/Approvals/{entityType}/{entityId}/AIReviewer response — the assignment row
+// POST/DELETE api/AIReviewers/{entityType}/{entityId} response — the assignment row
 // itself. POST is an upsert: absent → create (pending); completed → reset to pending (the
 // re-request action); still pending → no-op, all returning the live row.
 export type AIReviewerAssignment = {
