@@ -391,6 +391,36 @@ describe('ContentItemFormPanel', () => {
             expect(screen.getByRole('alert')).toBeInTheDocument();
         });
 
+        // #508: the refusal used to render ALONE — the card it replaced was gone, and the
+        // branch returned before the Cancel button, so a reader who took an action the editor
+        // would not perform was stranded on a surface with nothing to press. The refusal is
+        // correct and stays; the way back is not optional.
+        it('should offer a way back from an editor that refuses', async () => {
+            // given: a moderator who did not contribute the item, on a terminal row — the
+            // editor refuses, exactly as it should
+            signInAs(authState, ['Administrators']);
+            const onCancelled = vi.fn();
+
+            // when
+            renderWithAuth(
+                <ContentItemFormPanel
+                    contentItem={itemWith({
+                        createdBy: 'account-somebody-else',
+                        approvalStatus: ApprovalStatus.Approved
+                    })}
+                    showEditSection
+                    contentItemSettingCollection={settings}
+                    onCancelled={onCancelled} />);
+
+            // then: the refusal stands, and so does the route back off it
+            expect(screen.getByRole('alert')).toBeInTheDocument();
+            expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+
+            await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+            expect(onCancelled).toHaveBeenCalledTimes(1);
+        });
+
         it('should give the owner the editor and the takedown on their own item', () => {
             // given
             signInAs(authState);
