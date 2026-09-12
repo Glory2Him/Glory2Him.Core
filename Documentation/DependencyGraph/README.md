@@ -226,10 +226,9 @@ view you were on, and switching carries your current selection across.
   entirely — nothing subscribes to them.
 - **`EnvelopeIntegrityBroker` is new to the data.** Symmetric HMAC signing and
   verification of every envelope. It takes only `IConfiguration`, so it is a
-  leaf with no outbound edges — but most of the solution calls it: `EventBroker`
-  signs on publish and verifies on reply, and every service with a substrate
-  handler verifies inside it. `ApprovalReviewerOrchestrationService` joined them
-  in #522.
+  leaf with no outbound edges. `EventBroker` signs on publish and verifies on
+  reply, and every service with a substrate handler verifies inside it.
+  `ApprovalReviewerOrchestrationService` joined them in #522.
 
   **The caller list is derived rather than written down**, because a written one
   goes stale the next time anyone adds a substrate handler:
@@ -238,6 +237,18 @@ view you were on, and switching carries your current selection across.
   grep -rl "this\.envelopeIntegrityBroker" --include="*.cs" Glory2Him.Core/ \
     | sed -E 's#.*/##; s#^([^.]+).*\.cs$#\1#' | sort -u
   ```
+
+  **This bullet has carried a hand-written caller list twice, and both were
+  wrong.** One gave 16 callers rising to 17, with 12 foundations and two
+  orchestrations — every one of those four numbers was off, and it named
+  `ApprovalReviewerOrchestrationService` as the second orchestration to call the
+  broker when `ContentItemSettingOrchestrationService` already did. A later one
+  named the non-declarers as the foundations, both processing services and that
+  same orchestration, which summed to one short of the total beside it because
+  `EventBroker` was in the total and missing from the list. Both were produced by
+  deriving a delta and inheriting the absolute it applied to. That is why the
+  command is here and the list is not: run it rather than restating it, and if
+  you must quote a figure, quote the revision you measured.
 - **`Demote<Entity>VersionAsync` is gone, and the data finally agrees**
   (removed from the YAML 2026-09-07; reversed in source 2026-08-19 by
   `4d674b7d`, #265, which derives the version tip instead of storing it).
