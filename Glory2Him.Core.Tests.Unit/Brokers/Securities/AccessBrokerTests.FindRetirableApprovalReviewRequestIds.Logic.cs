@@ -139,6 +139,88 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                     + "invitation retired under the close reason");
         }
 
+        /// <summary>
+        /// A review that no longer STANDS does not protect its author's invitation — three cases
+        /// in one test, because all three fail the same clause of the same predicate.
+        ///
+        /// <para>Case (c) — stored at <c>Draft</c> or <c>Submitted</c> — is a decision, not a
+        /// coincidence. A review at that status is not an answer: nobody has voted, so its author
+        /// has not answered the round, and retiring their invitation under the close reason is
+        /// ACCURATE rather than merely consistent with <c>ActiveReviewerUserIds</c>.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldRetireAnInviteeWhoseOnlyReviewNoLongerStandsAsync()
+        {
+            // given
+            Guid approvalId = Guid.NewGuid();
+
+            // (a) Dismissed by a later edit (§9.5) — the re-invitation path that makes
+            // RecordedReviewerUserIds the wrong set to exclude by.
+            var dismissedReviewerRequest = new ApprovalReviewRequest
+            {
+                Id = Guid.NewGuid(),
+                ApprovalId = approvalId,
+                RequestedUserId = "dismissed-reviewer",
+            };
+
+            // (b) Withdrawn — soft-deleted.
+            var withdrawnReviewerRequest = new ApprovalReviewRequest
+            {
+                Id = Guid.NewGuid(),
+                ApprovalId = approvalId,
+                RequestedUserId = "withdrawn-reviewer",
+            };
+
+            // (c) Stored at Draft — corrupt per ToReviewVerdict's own comment, and not an answer:
+            // nobody has voted, so retiring this invitation is accurate rather than incidental.
+            var corruptStatusReviewerRequest = new ApprovalReviewRequest
+            {
+                Id = Guid.NewGuid(),
+                ApprovalId = approvalId,
+                RequestedUserId = "corrupt-status-reviewer",
+            };
+
+            SetupApprovalReviewRequests(
+                dismissedReviewerRequest,
+                withdrawnReviewerRequest,
+                corruptStatusReviewerRequest);
+
+            SetupApprovalReviews(
+                CreateApprovalReview(
+                    approvalId: approvalId,
+                    createdBy: "dismissed-reviewer",
+                    statusId: ApprovalStatus.Dismissed),
+
+                CreateApprovalReview(
+                    approvalId: approvalId,
+                    createdBy: "withdrawn-reviewer",
+                    statusId: ApprovalStatus.Approved,
+                    isDeleted: true),
+
+                CreateApprovalReview(
+                    approvalId: approvalId,
+                    createdBy: "corrupt-status-reviewer",
+                    statusId: ApprovalStatus.Draft));
+
+            // when
+            List<Guid> actualRetirableRequestIds =
+                await this.accessBroker.FindRetirableApprovalReviewRequestIdsAsync(
+                    approvalId: approvalId,
+                    cancellationToken: default);
+
+            // then
+            actualRetirableRequestIds.Should().BeEquivalentTo(
+                new[]
+                {
+                    dismissedReviewerRequest.Id,
+                    withdrawnReviewerRequest.Id,
+                    corruptStatusReviewerRequest.Id,
+                },
+                because: "a review that no longer stands - dismissed, withdrawn, or stored at a "
+                    + "status nobody could have voted from - does not protect its author's "
+                    + "invitation");
+        }
+
         [Fact]
         public async Task ShouldFindNoRetirableRequestsWhenNobodyWasAskedAsync()
         {
