@@ -12,6 +12,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
@@ -230,6 +231,44 @@ namespace Glory2Him.Core.Services.Orchestrations.ApprovalReviewers
             {
                 throw new NotFoundApprovalReviewerOrchestrationException(
                     message: $"Approval not found for {entityType} with id: {entityId}.");
+            }
+        }
+
+        // Null-check first (a malformed fact names no row), then VERIFY THE SIGNATURE against the
+        // event name this handler serves. A receiver verifies for itself rather than trusting the
+        // transport (§14.6 rule 4), precisely because a handler is reachable without going through
+        // the broker — and these two handlers write, so an unverified envelope reaching them would
+        // let anyone able to put a message on the address clear a round's panel.
+        //
+        // The NAME is a literal, matching all fifteen existing receivers. EventBroker composes the
+        // signed name as entityName + operation at publish time and exposes that composition to
+        // nobody; #286 is the sweep that gives every site one derivation, and a bespoke one at
+        // these two would make a third shape and pre-empt a ruling scoped to the rest. Safe here
+        // for the reason that covers most of #286's sites: EventBroker.Approval.cs and
+        // EventBroker.ApprovalReview.cs pass nameof(Approval) / nameof(ApprovalReview), so the
+        // literal is the type name and cannot drift.
+        //
+        // REQUEST, not Reply, and getting it wrong is silent. The direction is bound into the HMAC
+        // alongside the name, and EventBroker signs the publish leg as Request — so a receiver
+        // asking for Reply would refuse every genuine envelope it was correctly delivered, with
+        // nothing anywhere saying why.
+        private async ValueTask ValidateEntityFactEnvelopeAsync<TEntity>(
+            EventEnvelope<TEntity> envelope,
+            string eventName)
+        {
+            if (envelope is null || envelope.Content is null || envelope.Metadata is null)
+            {
+                throw new InvalidApprovalReviewerOrchestrationException(
+                    message: "Approval reviewer request is invalid, fix the errors and try again.");
+            }
+
+            bool isSignatureValid = await this.envelopeIntegrityBroker.VerifyAsync(
+                envelope, eventName, EnvelopeDirection.Request);
+
+            if (isSignatureValid is false)
+            {
+                throw new InvalidApprovalReviewerOrchestrationException(
+                    message: "Approval reviewer event is invalid. Integrity verification failed.");
             }
         }
 
