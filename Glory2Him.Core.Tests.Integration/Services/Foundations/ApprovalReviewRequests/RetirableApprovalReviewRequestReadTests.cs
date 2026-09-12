@@ -83,21 +83,10 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ApprovalReviewRe
             actualRetirableRequestIds.Should().NotContain(otherRoundsRequest.Id);
         }
 
-        [Fact]
-        public async Task ShouldFindNothingForARoundNobodyWasInvitedToAsync()
-        {
-            // given: the ordinary round — most reviews come from people nobody formally asked
-            Approval closingApproval = await SeedApprovalAsync(ApprovalStatus.Approved);
-
-            // when
-            List<Guid> actualRetirableRequestIds =
-                await this.accessBroker.FindRetirableApprovalReviewRequestIdsAsync(
-                    approvalId: closingApproval.Id,
-                    cancellationToken: TestContext.Current.CancellationToken);
-
-            // then
-            actualRetirableRequestIds.Should().BeEmpty();
-        }
+        // The empty-round case lives in the unit suite alone, deliberately. Nothing about it
+        // depends on a real catalogue — no index, no collation, no three-valued logic — so
+        // repeating it here would buy a second assertion of the same fact at the price of a
+        // database round trip.
 
         private async Task<Approval> SeedApprovalAsync(ApprovalStatus approvalStatus)
         {

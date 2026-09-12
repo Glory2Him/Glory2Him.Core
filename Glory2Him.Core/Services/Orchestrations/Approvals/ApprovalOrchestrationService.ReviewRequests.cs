@@ -392,12 +392,24 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         // §9.7.5 rejection branch, and the §9.7.7 automatic approval. One helper rather than
         // three copies, so the three cannot drift on what closing a round means.
         //
-        // GATED ON THE STORED STATUS rather than trusting its callers, which is the whole reason
-        // it takes the approval and not an id. Every current caller has just written Approved or
-        // Rejected, so the gate refuses nothing today — but a future caller that has not, and
-        // ResetApprovalAsync, which writes Submitted through the same publish seam, are then
-        // no-ops by construction instead of by everyone remembering. §14.6 rule 2 makes the
-        // duplicate deliberate.
+        // GATED ON THE ROUND'S STATUS, and it is worth being exact about what that buys, because
+        // an earlier version of this comment was not. The gate is DEAD TODAY: all three callers
+        // reach this line having just written Approved or Rejected, so it refuses nothing, and
+        // deleting it would turn no test red. ResetApprovalAsync is not held off by it either —
+        // that operation never calls this helper at all.
+        //
+        // It is kept as the guard for the caller that does not exist yet: a fourth route to an
+        // outcome, or a retirement moved inside PublishEntityApprovalCommandAsync, which the
+        // reset DOES reach and would then start retiring the invitations of a round being put
+        // back for review. §14.6 rule 2 makes that kind of duplicate deliberate.
+        //
+        // What it reads is the approval the CALLER hands over, not a re-read row, which is why it
+        // takes the approval rather than an id. Every caller passes what ModifyApprovalAsync
+        // echoed back — the persisted row, and §9.8 makes Approval.ApprovalStatus the source of
+        // truth written first — so today that IS stored state. A future caller that set the
+        // status locally and had not yet written it would pass this gate; re-reading to close
+        // that costs a round trip on every close, and the answer to a caller composing an outcome
+        // it has not persisted is §9.8, not a second read here.
         //
         // The READ is the gathering seam, and unlike the AI reset this is not a theoretical
         // point: only ONE of the three callers runs under a moderator. The automatic approval

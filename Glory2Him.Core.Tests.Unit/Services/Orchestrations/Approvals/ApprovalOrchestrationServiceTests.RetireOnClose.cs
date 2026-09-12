@@ -270,8 +270,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     It.IsAny<CancellationToken>()),
                 Times.Never);
 
-            // Not even the READ: the status gate is asked before the gather, so an open round
-            // costs nothing at all.
+            // Not even the READ. The helper is never entered at all on this path — the
+            // evaluation returns as soon as the conditions come back unmet — so what this pins is
+            // the FLOW not reaching for a retirement, which is a step above the helper's own
+            // status gate and survives that gate being removed.
             this.accessBrokerMock.Verify(broker =>
                 broker.FindRetirableApprovalReviewRequestIdsAsync(
                     It.IsAny<Guid>(),
@@ -281,9 +283,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
         /// <summary>
         /// §8.6 HR-4's override moves a decided round back to <c>Submitted</c>, which is the
-        /// opposite of closing it — and it reaches the entity command through the same publish
-        /// seam the three closing routes do. The status gate is what keeps it a no-op, so this is
-        /// the test that would catch the retirement being hidden inside that shared seam.
+        /// opposite of closing it.
+        ///
+        /// <para><b>It passes because the reset never calls the helper</b>, not because the
+        /// helper's status gate turns it away — the reset is not one of the three call sites. So
+        /// what this pins is the call sites themselves: the reset reaches
+        /// <c>PublishEntityApprovalCommandAsync</c> exactly as the three closing routes do, and
+        /// a retirement moved inside that shared seam would start retiring the invitations of a
+        /// round being put back for review. This test is what would catch that.</para>
         ///
         /// <para>§7.9 rule 8 also rules that a reset does NOT bring retired invitations back: a
         /// moderator asks again. Nothing here resurrects a row, and there is deliberately no verb
@@ -322,6 +329,78 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()),
                 Times.Never);
+        }
+
+        /// <summary>
+        /// §7.9 rule 8 puts the retirement LAST, after the entity sync, and that ordering is the
+        /// whole ground on which its failure is allowed to be swallowed: the argument for logging
+        /// rather than propagating is that the outcome has already committed and the command has
+        /// already gone. Move this above the publish and that argument stops being true, so the
+        /// order is asserted rather than left to read correctly.
+        ///
+        /// <para>Both sides stamp a shared counter, so what is observed is the sequence rather
+        /// than the two calls merely having happened.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldRetireTheInvitationsOnlyAfterTheEntityCommandHasGoneAsync()
+        {
+            // given
+            var approvalId = Guid.NewGuid();
+            var entityId = Guid.NewGuid();
+            var requestId = Guid.NewGuid();
+            int decisionStep = 0;
+            int entityCommandPublishedAt = 0;
+            int invitationRetiredAt = 0;
+
+            Approval storageApproval = CreateDecisionApproval(
+                approvalId: approvalId,
+                entityId: entityId,
+                entityType: EntityType.Link);
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Submitted, approvalId));
+
+            SetupAccessDecisions(
+                decisionVerdict: PermittedVerdict(),
+                bypassVerdict: PermittedVerdict());
+
+            SetupDecisionSystemEnvelopes();
+            SetupDecisionApprovalRow(storageApproval);
+            SetupRetirableApprovalReviewRequests(approvalId, requestId);
+
+            SetupDecisionLinkCommandPublish(
+                onCommandPublished: () => entityCommandPublishedAt = ++decisionStep);
+
+            this.approvalReviewRequestWorkflowServiceMock.Setup(service =>
+                service.RetireClosedRoundApprovalReviewRequestAsync(
+                    requestId,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(() =>
+                        {
+                            invitationRetiredAt = ++decisionStep;
+
+                            return new ApprovalReviewRequest
+                            {
+                                Id = requestId,
+                                IsDeleted = true,
+                            };
+                        });
+
+            // when
+            await this.approvalOrchestrationService.DecideApprovalAsync(
+                EntityType.Link,
+                entityId,
+                ApprovalDecision.Approve,
+                false,
+                null,
+                TestContext.Current.CancellationToken);
+
+            // then
+            entityCommandPublishedAt.Should().Be(1);
+            invitationRetiredAt.Should().Be(2);
+
+            invitationRetiredAt.Should().BeGreaterThan(entityCommandPublishedAt,
+                because: "the retirement may only be swallowed on failure because everything it "
+                    + "could have reported has already committed");
         }
 
         /// <summary>
