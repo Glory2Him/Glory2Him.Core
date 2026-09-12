@@ -34,22 +34,56 @@ namespace Glory2Him.Core.Brokers.Events
 {
     internal partial class EventBroker : IEventBroker
     {
-        private readonly EventHighwayClient eventHighwayClient;
+        private readonly string eventHighwayConnectionString;
+        private readonly object eventHighwayClientLock = new object();
         private readonly IEnvelopeIntegrityBroker envelopeIntegrityBroker;
+        private EventHighwayClient? eventHighwayClient;
 
+        // Reads configuration and nothing else. The substrate client is NOT built here: its
+        // constructor is not inert — it calls InitializeClients -> Database.Migrate(), which
+        // opens a connection and creates the substrate's catalogue if it is absent. Every service
+        // the subscriptions bind to takes IEventBroker, so building it here would mean no Core
+        // object graph could be constructed at all without a reachable SQL Server, and that
+        // constructing one wrote DDL to whatever EventHighwayConnectionString names. A broker
+        // constructor may read configuration and build options; it may not connect or issue DDL
+        // (§EVN24, §12.10 rule 11).
         public EventBroker(
             IConfiguration configuration,
             IEnvelopeIntegrityBroker envelopeIntegrityBroker)
         {
-            string connectionString = configuration
+            this.eventHighwayConnectionString = configuration
                 .GetConnectionString(name: "EventHighwayConnectionString") ?? string.Empty;
 
-            this.eventHighwayClient =
-                new EventHighwayClient(
-                    new SqlServerStorageBrokerProvider(connectionString),
-                    new EventHighwayConfiguration());
-
             this.envelopeIntegrityBroker = envelopeIntegrityBroker;
+        }
+
+        // The client is created on FIRST USE, once per process — the singleton lifetime is
+        // unchanged, because §EVN11's subscriptions bind their handlers into this one instance
+        // and a publish must go through the same client they were bound into.
+        //
+        // A lock rather than Lazy<T>, because each of Lazy's modes gives away one half of what is
+        // needed here. ExecutionAndPublication caches the FAILURE and rethrows the same exception
+        // forever, which would make four of the five attempts in Program.InitializeCoreAsync's
+        // retry dead code and leave the substrate permanently dormant on a host that started
+        // before its event store did. PublicationOnly does not cache the failure, but lets
+        // concurrent first uses each run the factory — several clients constructed, each running
+        // Database.Migrate() against the same store, all but one then discarded.
+        //
+        // The lock gives both halves: exactly one client even under concurrent first use, since
+        // the second thread blocks and then finds the field assigned; and no memory of a failure,
+        // since a creation that throws never reaches the assignment. Reads take the lock too, so
+        // the assignment made under it is visible to whichever thread arrives next. It is
+        // uncontended after the first call, and invisible beside the substrate round trip it
+        // precedes.
+        private EventHighwayClient GetEventHighwayClient()
+        {
+            lock (this.eventHighwayClientLock)
+            {
+                return this.eventHighwayClient ??=
+                    new EventHighwayClient(
+                        new SqlServerStorageBrokerProvider(this.eventHighwayConnectionString),
+                        new EventHighwayConfiguration());
+            }
         }
 
         public async ValueTask RegisterEventParticipantAsync(
@@ -57,7 +91,7 @@ namespace Glory2Him.Core.Brokers.Events
         {
             DateTimeOffset now = DateTimeOffset.UtcNow;
 
-            await this.eventHighwayClient.V2.EventParticipantV2Client
+            await GetEventHighwayClient().V2.EventParticipantV2Client
                 .RetrieveOrAddEventParticipantV2Async(
                     new EventParticipantV2
                     {
@@ -80,7 +114,7 @@ namespace Glory2Him.Core.Brokers.Events
             {
                 DateTimeOffset now = DateTimeOffset.UtcNow;
 
-                await this.eventHighwayClient.V2.EventAddressV2Client
+                await GetEventHighwayClient().V2.EventAddressV2Client
                     .RetrieveOrRegisterEventAddressV2Async(
                         new EventAddressV2
                         {
@@ -96,7 +130,7 @@ namespace Glory2Him.Core.Brokers.Events
 
         public ValueTask FireScheduledPendingEventsAsync(
             CancellationToken cancellationToken = default) =>
-                this.eventHighwayClient.V2.EventV2Client
+                GetEventHighwayClient().V2.EventV2Client
                     .FireScheduledPendingEventV2sAsync(cancellationToken);
 
         private async ValueTask<EventPublishResult<T>> PublishEventAsync<T, TOperation>(
@@ -142,7 +176,7 @@ namespace Glory2Him.Core.Brokers.Events
             // Stated here because a cancellation audit reads this line, sees the only
             // CancellationToken.None in the broker tree, and reasonably asks. The answer is that
             // it is the design, not an omission (#296).
-            EventV2 submittedEventV2 = await this.eventHighwayClient.V2.EventV2Client
+            EventV2 submittedEventV2 = await GetEventHighwayClient().V2.EventV2Client
                 .SubmitEventV2Async(eventV2, CancellationToken.None);
 
             // The reply the receiver signed is bound to the same event name as this request plus
@@ -300,13 +334,13 @@ namespace Glory2Him.Core.Brokers.Events
                 },
                 subscription.Name);
 
-            await this.eventHighwayClient.V2.RegisterEventHandlerAsync(
+            await GetEventHighwayClient().V2.RegisterEventHandlerAsync(
                 delegateEventHandler,
                 cancellationToken);
 
             DateTimeOffset now = DateTimeOffset.UtcNow;
 
-            await this.eventHighwayClient.V2.EventListenerV2Client
+            await GetEventHighwayClient().V2.EventListenerV2Client
                 .RetrieveOrRegisterEventListenerV2Async(
                     new EventListenerV2
                     {
