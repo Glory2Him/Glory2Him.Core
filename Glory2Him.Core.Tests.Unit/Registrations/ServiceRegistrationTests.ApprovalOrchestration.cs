@@ -30,14 +30,12 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
         public void ShouldResolveApprovalOrchestrationServiceFromTheDocumentedRegistrations()
         {
             // given: exactly what the XML doc on AddApprovalOrchestrationService asks for —
-            // the approval foundations, the invitation service and the identity-store window
+            // the approval foundations and the invitation service's workflow seam
             IServiceCollection services = CreateServicesWithBrokerStubs();
             services.AddApprovalService();
             services.AddApprovalReviewService();
-            services.AddApprovalCommentService();
             services.AddApprovalReviewRequestService();
             services.AddAIReviewerAssignmentService();
-            services.AddIdentityUserService();
 
             // when
             IServiceCollection returnedServices = services.AddApprovalOrchestrationService();

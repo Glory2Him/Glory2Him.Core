@@ -15,13 +15,14 @@ using System.Linq;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
+using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.IdentityUsers;
-using Glory2Him.Core.Models.Orchestrations.Approvals.Exceptions;
+using Glory2Him.Core.Models.Orchestrations.ApprovalReviewers.Exceptions;
 using Glory2Him.Core.Models.Securities;
 
-namespace Glory2Him.Core.Services.Orchestrations.Approvals
+namespace Glory2Him.Core.Services.Orchestrations.ApprovalReviewers
 {
-    internal partial class ApprovalOrchestrationService
+    internal partial class ApprovalReviewerOrchestrationService
     {
         // 7.9 rule 2 - the requesting tier is the whole review tier, everyone above the
         // read-only view. HR-3 does not narrow it: that rule bars a reviewer from SETTING an
@@ -33,7 +34,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         {
             if (securityContext is null || securityContext.IsAuthenticated is false)
             {
-                throw new UnauthorizedApprovalOrchestrationException(
+                throw new UnauthorizedApprovalReviewerOrchestrationException(
                     message: "The current user is not authenticated.");
             }
 
@@ -47,7 +48,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
 
             if (isPermitted is false)
             {
-                throw new UnauthorizedApprovalOrchestrationException(
+                throw new UnauthorizedApprovalReviewerOrchestrationException(
                     message: "The current user is not allowed to request approval reviews.");
             }
         }
@@ -116,7 +117,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         {
             if (maybeScope is null)
             {
-                throw new NotFoundApprovalOrchestrationException(
+                throw new NotFoundApprovalReviewerOrchestrationException(
                     message: $"Approval not found for {entityType} with id: {entityId}.");
             }
         }
@@ -131,7 +132,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         {
             if (scope.ApprovalStatus != ApprovalStatus.Submitted)
             {
-                throw new InvalidApprovalOrchestrationException(
+                throw new InvalidApprovalReviewerOrchestrationException(
                     message: $"Approval for {entityType} with id: {entityId} is not open for "
                         + "review requests. Its round is not submitted.");
             }
@@ -146,7 +147,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             if (string.IsNullOrWhiteSpace(scope.EntityCreatedBy) is false
                 && scope.EntityCreatedBy == requestedUserId)
             {
-                throw new InvalidApprovalOrchestrationException(
+                throw new InvalidApprovalReviewerOrchestrationException(
                     message: "The requested user owns this entity and cannot be asked to "
                         + "review their own work.");
             }
@@ -163,7 +164,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         {
             if (scope.ActiveReviewerUserIds.Contains(requestedUserId))
             {
-                throw new InvalidApprovalOrchestrationException(
+                throw new InvalidApprovalReviewerOrchestrationException(
                     message: "This review request has already been answered and can no longer " +
                         "be withdrawn.");
             }
@@ -179,7 +180,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         {
             if (requestedUser is null)
             {
-                throw new InvalidApprovalOrchestrationException(
+                throw new InvalidApprovalReviewerOrchestrationException(
                     message: $"User {requestedUserId} does not hold a review role for this "
                         + "entity, or is not an active account.");
             }
@@ -196,9 +197,48 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         {
             if (blockedUserIds.Contains(requestedUserId))
             {
-                throw new InvalidApprovalOrchestrationException(
+                throw new InvalidApprovalReviewerOrchestrationException(
                     message: $"User {requestedUserId} is restricted to read-only for this "
                         + "entity and cannot review it.");
+            }
+        }
+
+        // Reported as not-found rather than as an empty answer: a caller that cannot tell "no
+        // approval exists" from "an approval exists and nobody has been asked" would offer the
+        // invite control for a row with no round behind it.
+        private static void ValidateStorageApprovalExists(
+            ApprovalEntityMatch maybeMatch,
+            EntityType entityType,
+            Guid entityId)
+        {
+            if (maybeMatch is null)
+            {
+                throw new NotFoundApprovalReviewerOrchestrationException(
+                    message: $"Approval not found for {entityType} with id: {entityId}.");
+            }
+        }
+
+        // §9.7.6 rule 3 / §14.5 rule 3. A removed subject is reported exactly as a missing one —
+        // and "exactly" is load-bearing: the message is CHARACTER-FOR-CHARACTER the one
+        // ValidateStorageApprovalExists throws, because §14.5 rule 2 says exception messages
+        // surface outward to callers, so a message naming the ENTITY where the sibling names the
+        // APPROVAL is itself the denial reason. Two refusals a caller can tell apart are one
+        // refusal and one oracle: send a taken-down id and a random GUID, read the two bodies,
+        // and learn which id used to exist.
+        //
+        // The same sentence the approval round's pair and the AI reviewer's pair throw, for the
+        // same reason and across the same wire — the exposers return the INNER exception, so only
+        // the words travel and a caller cannot tell which service refused them. If any one of
+        // those sites is ever reworded, reword all of them.
+        private static void ValidateStorageEntityIsVisible(
+            bool isEntityVisible,
+            EntityType entityType,
+            Guid entityId)
+        {
+            if (isEntityVisible is false)
+            {
+                throw new NotFoundApprovalReviewerOrchestrationException(
+                    message: $"Approval not found for {entityType} with id: {entityId}.");
             }
         }
 
@@ -207,5 +247,37 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             Condition = string.IsNullOrWhiteSpace(text),
             Message = "Text is required"
         };
+
+        private static dynamic IsInvalid(Guid id) => new
+        {
+            Condition = id == Guid.Empty,
+            Message = "Id is required"
+        };
+
+        private static dynamic IsInvalid(EntityType entityType) => new
+        {
+            Condition = Enum.IsDefined(entityType) is false,
+            Message = "Value is not a recognized entity type"
+        };
+
+        private static void Validate(
+            string message,
+            params (dynamic Rule, string Parameter)[] validations)
+        {
+            var invalidApprovalReviewerOrchestrationException =
+                new InvalidApprovalReviewerOrchestrationException(message);
+
+            foreach ((dynamic rule, string parameter) in validations)
+            {
+                if (rule.Condition)
+                {
+                    invalidApprovalReviewerOrchestrationException.UpsertDataList(
+                        key: parameter,
+                        value: rule.Message);
+                }
+            }
+
+            invalidApprovalReviewerOrchestrationException.ThrowIfContainsErrors();
+        }
     }
 }

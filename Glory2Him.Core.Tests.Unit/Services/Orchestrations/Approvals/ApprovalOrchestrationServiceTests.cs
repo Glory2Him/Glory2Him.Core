@@ -44,9 +44,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
     {
         private readonly Mock<IApprovalWorkflowService> approvalServiceMock;
         private readonly Mock<IApprovalReviewWorkflowService> approvalReviewServiceMock;
-        private readonly Mock<IApprovalCommentService> approvalCommentServiceMock;
-        private readonly Mock<IApprovalReviewRequestService> approvalReviewRequestServiceMock;
         private readonly Mock<IApprovalReviewRequestWorkflowService> approvalReviewRequestWorkflowServiceMock;
+
+        // Only the WORKFLOW seam here too. The caller-facing IApprovalReviewRequestService left
+        // with §12.5.4's reviewer coordination for IApprovalReviewerOrchestrationService, and is
+        // covered by that service's own fixture — so the "not through the caller-facing
+        // foundation" assertions the retirement tests used to carry are gone rather than
+        // restated: this service can no longer reach that seam at all, and the compiler makes the
+        // point the assertions were making. IApprovalCommentService and IIdentityUserService went
+        // the same way and have no mock here at all.
 
         // Only the WORKFLOW seam. The caller-facing IAIReviewerAssignmentService left this
         // service with the three operations that used it — asking Berean, asking again,
@@ -60,7 +66,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         private readonly Mock<IAIReviewerAssignmentWorkflowService>
             aiReviewerAssignmentWorkflowServiceMock;
 
-        private readonly Mock<IIdentityUserService> identityUserServiceMock;
         private readonly Mock<IAccessBroker> accessBrokerMock;
         private readonly Mock<IEventEnvelopeBroker> eventEnvelopeBrokerMock;
         private readonly Mock<IEventBroker> eventBrokerMock;
@@ -73,33 +78,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         {
             this.approvalServiceMock = new Mock<IApprovalWorkflowService>();
             this.approvalReviewServiceMock = new Mock<IApprovalReviewWorkflowService>();
-            this.approvalCommentServiceMock = new Mock<IApprovalCommentService>();
-
-            // A ROUND WITH NO COMMENTS, unless a test says otherwise. Moq's default for
-            // ValueTask<IQueryable<T>> is an EMPTY queryable, but for ValueTask<IReadOnlyList<T>>
-            // it is NULL - so when this read stopped handing back a queryable, every test that
-            // never mentioned comments began dereferencing null. Stated here once rather than
-            // left to a default that differs by return type.
-            this.approvalCommentServiceMock.Setup(service =>
-                service.RetrieveApprovalCommentsByApprovalIdAsync(
-                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(
-                            (IReadOnlyList<global::Glory2Him.Core.Models.Foundations.ApprovalComments.ApprovalComment>)
-                                new List<global::Glory2Him.Core.Models.Foundations.ApprovalComments.ApprovalComment>());
-            this.approvalReviewRequestServiceMock = new Mock<IApprovalReviewRequestService>();
-
             this.approvalReviewRequestWorkflowServiceMock =
                 new Mock<IApprovalReviewRequestWorkflowService>();
 
             this.aiReviewerAssignmentWorkflowServiceMock =
                 new Mock<IAIReviewerAssignmentWorkflowService>();
 
-            this.identityUserServiceMock = new Mock<IIdentityUserService>();
-
-            // Nobody is blocked unless a test says so. Without this the veto read would answer
-            // null and every candidates and request test would fault on the subtraction rather
-            // than on its own subject.
-            SetupBlockedUsers();
             this.accessBrokerMock = new Mock<IAccessBroker>();
             this.eventEnvelopeBrokerMock = new Mock<IEventEnvelopeBroker>();
             this.eventBrokerMock = new Mock<IEventBroker>();
@@ -171,8 +155,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             this.approvalOrchestrationService = new ApprovalOrchestrationService(
                 approvalService: this.approvalServiceMock.Object,
                 approvalReviewWorkflowService: this.approvalReviewServiceMock.Object,
-                approvalCommentService: this.approvalCommentServiceMock.Object,
-                approvalReviewRequestService: this.approvalReviewRequestServiceMock.Object,
 
                 approvalReviewRequestWorkflowService:
                     this.approvalReviewRequestWorkflowServiceMock.Object,
@@ -180,7 +162,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 aiReviewerAssignmentWorkflowService:
                     this.aiReviewerAssignmentWorkflowServiceMock.Object,
 
-                identityUserService: this.identityUserServiceMock.Object,
                 accessBroker: this.accessBrokerMock.Object,
                 eventEnvelopeBroker: this.eventEnvelopeBrokerMock.Object,
                 eventBroker: this.eventBrokerMock.Object,

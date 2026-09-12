@@ -10,12 +10,10 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
-using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
 
 namespace Glory2Him.Core.Services.Orchestrations.Approvals
@@ -38,6 +36,13 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
     /// <para>DELIBERATELY NOT A DEPENDENCY — <c>IApprovalSettingService</c>. Resolving §8.4 here
     /// would put most-specific-wins in a second place beside the decision function, which
     /// §8.6.1 rule 4 exists to prevent. Every policy question is asked as a verdict.</para>
+    ///
+    /// <para>NO LONGER ON THIS CONTRACT — the reviewer-coordination operations. The candidate
+    /// listing, the invitation, its withdrawal, the outstanding-request read and the name
+    /// resolver are <c>IApprovalReviewerOrchestrationService</c>'s (§12.5.4), because
+    /// coordinating REVIEWERS is a different subject from the round itself. A caller that still
+    /// expects them here fails to compile rather than silently binding a service that no longer
+    /// answers.</para>
     /// </summary>
     public partial interface IApprovalOrchestrationService
     {
@@ -147,141 +152,6 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         /// </summary>
         ValueTask<ApprovalOutcome> ProcessApprovalInputsChangedAsync(
             Guid approvalId,
-            CancellationToken cancellationToken = default);
-
-        /// <summary>
-        /// Who is in scope to review this entity (§16.7.4) — the people holding a review-tier
-        /// role for it, minus the entity's own author alone. Anyone who has already answered, and
-        /// anyone already invited, stay IN: the read describes the round's population, and
-        /// deciding what is left to do belongs to the surface, which needs the whole set to do
-        /// it.
-        ///
-        /// <para>Writes nothing and grants nothing. It is a USER-ENUMERATION surface, so it is
-        /// restricted to the requesting tier (§7.9 rule 2) and each candidate carries an account
-        /// id, a display name and a username, and nothing else — no roles, no email, no account
-        /// state. The username is in that minimum rather than an addition to it (§16.7.4): a
-        /// display name is not unique, and choosing between two people called "John" from the
-        /// name alone is guessing.</para>
-        ///
-        /// <para>Role membership comes from the identity store through the read-only
-        /// <c>IdentityCoreStorageBroker</c> (§12.7.1); the tier NAMES are composed here from the
-        /// approval's role subjects, so §18.6's convention keeps one home.</para>
-        /// </summary>
-        ValueTask<IReadOnlyList<ReviewerCandidate>> RetrieveReviewerCandidatesAsync(
-            EntityType entityType,
-            Guid entityId,
-            CancellationToken cancellationToken = default);
-
-        /// <summary>
-        /// What everybody THIS ROUND names is CALLED (§16.7.4) — the one name resolver every
-        /// review surface asks, rather than a display-name projection per surface.
-        ///
-        /// <para><b>The gap it closes.</b> <c>ApprovalReview</c> carries <c>CreatedBy</c>, which
-        /// is an account id, and the only route that named other people was
-        /// <c>/api/admin/users</c> behind the <c>Administrators</c> role. So a <c>Publisher</c>
-        /// who is not an administrator — precisely the tier the review panel exists for — could
-        /// render their own name and nobody else's. The candidates read does not close it either:
-        /// it returns who is in scope for the round, so somebody who reviewed and then lost the
-        /// role vanishes from it entirely.</para>
-        ///
-        /// <para><b>The round is the answer's boundary, and it is also the gate.</b> The set is
-        /// built from the approval's review rows — <b>dismissed and soft-deleted ones
-        /// included</b>, because a panel renders those and their authors still need naming — and
-        /// its outstanding invitations. The review TIER is deliberately not part of it: a caller
-        /// that supplies no ids gives a tier read nothing to admit, so it would only re-answer
-        /// <c>ReviewerCandidates</c>, which the panel already asks and which already carries
-        /// display names. What is left is what makes the tier gate compose with an entity gate
-        /// rather than stand alone: a <c>Tag-Reviewer</c> can name the people a tag round
-        /// involves and nobody else. The caller names no ids of its own, so there is nothing to
-        /// probe with and no batch to bound.</para>
-        ///
-        /// <para><b>No role filter and no disabled filter, in the ONE identity read there is.</b>
-        /// Every id came off a row this approval already stores, so the account belongs to the
-        /// record whatever has happened to it since — which is the whole point, since the
-        /// reviewer who voted and then lost the role is the case that started this. Ids naming
-        /// nobody are absent rather than an error, so one deleted account cannot blank a
-        /// panel.</para>
-        ///
-        /// <para>A <b>user-enumeration surface</b>, so §16.7.4's posture governs it rather than
-        /// being re-derived: the requesting tier (§7.9 rule 2) and nobody else, an account id, a
-        /// display name and a username, and nothing else. It carries the username for the same
-        /// reason the candidates read does and by the same composition — a surface labelling a
-        /// candidate with their username and a cast reviewer without one would show one person
-        /// two ways. Ids are echoed back so a caller can join the answer onto the rows it holds
-        /// without depending on ordering.</para>
-        ///
-        /// <para>Throws <c>NotFoundApprovalOrchestrationException</c> when no approval occupies
-        /// the key, the same as the candidates read — there is no round, so there is nobody it
-        /// names.</para>
-        /// </summary>
-        ValueTask<IReadOnlyList<ReviewerDisplayName>> RetrieveReviewerDisplayNamesAsync(
-            EntityType entityType,
-            Guid entityId,
-            CancellationToken cancellationToken = default);
-
-        /// <summary>
-        /// Invites somebody to review this entity (§7.9). Refuses unless the round is
-        /// <c>Submitted</c> (rule 7), the invited person holds a review-tier role for the entity
-        /// and does not own it (rule 3), and the caller is in the requesting tier (rule 2).
-        ///
-        /// <para><b>Idempotent, and never an error</b> (rule 4). An active invitation already
-        /// standing comes back unchanged rather than colliding with the uniqueness index. And
-        /// somebody who has already ANSWERED needs no asking, so nothing is created and nothing is
-        /// returned: rule 6 retired their invitation the moment they answered, and a fresh one
-        /// could never be retired — the vote that would have done it has already happened — nor
-        /// withdrawn, since rule 5 refuses to withdraw an answered invitation. Both cases are a
-        /// stale panel rather than a mistake, so neither is worth an error.</para>
-        /// </summary>
-        ValueTask<ApprovalReviewRequest> RequestApprovalReviewAsync(
-            EntityType entityType,
-            Guid entityId,
-            string requestedUserId,
-            CancellationToken cancellationToken = default);
-
-        /// <summary>
-        /// Who has been asked to review this entity and has not yet answered (§7.9) — the read
-        /// §7.9 was written around, and without which its opening promise that "a moderation
-        /// surface can show who has been asked" could not be kept.
-        ///
-        /// <para><b>Pending only, and that falls out rather than being filtered for.</b> A
-        /// withdrawn invitation is soft-deleted by rule 5 and an answered one is retired by rule 6,
-        /// so the foundation's visibility filter — which drops deleted rows — leaves exactly the
-        /// outstanding set.</para>
-        ///
-        /// <para>Same tier as the candidates read, and for the same reason: these rows name people,
-        /// and §16.7.4 places them under §14.7 posture D. The foundation applies its own posture
-        /// underneath, and §14.6 rule 2 makes that duplicate deliberate.</para>
-        /// </summary>
-        ValueTask<IReadOnlyList<ApprovalReviewRequest>> RetrieveApprovalReviewRequestsAsync(
-            EntityType entityType,
-            Guid entityId,
-            CancellationToken cancellationToken = default);
-
-        /// <summary>
-        /// Withdraws a pending invitation (§7.9 rule 5) — the undo for one sent to the wrong
-        /// person. Open to the whole requesting tier rather than to the requester alone, because
-        /// a request carries no verdict to protect and the person who sent it may not be around.
-        ///
-        /// <para><b>Keyed on the PERSON, not the row.</b> The pair is already unique
-        /// (<c>UX_ApprovalReviewRequests_ApprovalId_RequestedUserId</c>), and it is how the
-        /// surface thinks — <c>onReviewRequestWithdrawn</c> hands its consumer somebody's account
-        /// id, never a request id. Keying on the row id required a round trip that no longer
-        /// exists: #352 correctly made the create return <c>204</c>, and the id had appeared
-        /// nowhere else, so withdrawal became unreachable from a browser.</para>
-        ///
-        /// <para><b>Idempotent.</b> Nothing outstanding for that person is a no-op, not a
-        /// not-found — withdrawing twice is a stale panel, not a mistake. An invitation that has
-        /// been ANSWERED is still refused (rule 5), which is reachable only where retirement has
-        /// not run: rule 6 ordinarily removes the row the moment its target answers.</para>
-        ///
-        /// <para>Distinct from the RETIREMENT of rule 6, which happens when the invited person
-        /// answers and runs under the system identity; that has no caller-facing verb.</para>
-        /// </summary>
-        ValueTask<ApprovalReviewRequest> WithdrawApprovalReviewRequestAsync(
-            EntityType entityType,
-            Guid entityId,
-            string requestedUserId,
-            string? deletionReason = null,
             CancellationToken cancellationToken = default);
     }
 }

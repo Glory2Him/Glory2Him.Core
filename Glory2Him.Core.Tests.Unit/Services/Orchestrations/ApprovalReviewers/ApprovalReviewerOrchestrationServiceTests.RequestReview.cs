@@ -18,7 +18,7 @@ using FluentAssertions;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Models.Foundations.IdentityUsers;
-using Glory2Him.Core.Models.Orchestrations.Approvals.Exceptions;
+using Glory2Him.Core.Models.Orchestrations.ApprovalReviewers.Exceptions;
 using Glory2Him.Core.Models.Securities;
 using Moq;
 using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests.Exceptions;
@@ -26,9 +26,9 @@ using G2H.Security.Client.Models.Foundations.Access;
 using Xeptions;
 using Glory2Him.Core.Models.Foundations.Approvals;
 
-namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
+namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ApprovalReviewers
 {
-    public partial class ApprovalOrchestrationServiceTests
+    public partial class ApprovalReviewerOrchestrationServiceTests
     {
         [Fact]
         public async Task ShouldRequestApprovalReviewAsync()
@@ -54,7 +54,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ApprovalReviewRequest actual =
-                await this.approvalOrchestrationService.RequestApprovalReviewAsync(
+                await this.approvalReviewerOrchestrationService.RequestApprovalReviewAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     invitedId.ToString(),
@@ -105,7 +105,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ApprovalReviewRequest actual =
-                await this.approvalOrchestrationService.RequestApprovalReviewAsync(
+                await this.approvalReviewerOrchestrationService.RequestApprovalReviewAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     invitedId.ToString(),
@@ -140,19 +140,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ValueTask<ApprovalReviewRequest> requestTask =
-                this.approvalOrchestrationService.RequestApprovalReviewAsync(
+                this.approvalReviewerOrchestrationService.RequestApprovalReviewAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     ownerId.ToString(),
                     TestContext.Current.CancellationToken);
 
-            ApprovalOrchestrationValidationException actualException =
-                await Assert.ThrowsAsync<ApprovalOrchestrationValidationException>(
+            ApprovalReviewerOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<ApprovalReviewerOrchestrationValidationException>(
                     requestTask.AsTask);
 
             // then
             actualException.InnerException.Should()
-                .BeOfType<InvalidApprovalOrchestrationException>();
+                .BeOfType<InvalidApprovalReviewerOrchestrationException>();
 
             this.approvalReviewRequestServiceMock.Verify(service =>
                 service.AddApprovalReviewRequestAsync(
@@ -178,19 +178,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ValueTask<ApprovalReviewRequest> requestTask =
-                this.approvalOrchestrationService.RequestApprovalReviewAsync(
+                this.approvalReviewerOrchestrationService.RequestApprovalReviewAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     Guid.NewGuid().ToString(),
                     TestContext.Current.CancellationToken);
 
-            ApprovalOrchestrationValidationException actualException =
-                await Assert.ThrowsAsync<ApprovalOrchestrationValidationException>(
+            ApprovalReviewerOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<ApprovalReviewerOrchestrationValidationException>(
                     requestTask.AsTask);
 
             // then
             actualException.InnerException.Should()
-                .BeOfType<InvalidApprovalOrchestrationException>();
+                .BeOfType<InvalidApprovalReviewerOrchestrationException>();
 
             this.approvalReviewRequestServiceMock.Verify(service =>
                 service.AddApprovalReviewRequestAsync(
@@ -216,19 +216,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ValueTask<ApprovalReviewRequest> requestTask =
-                this.approvalOrchestrationService.RequestApprovalReviewAsync(
+                this.approvalReviewerOrchestrationService.RequestApprovalReviewAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     Guid.NewGuid().ToString(),
                     TestContext.Current.CancellationToken);
 
-            ApprovalOrchestrationValidationException actualException =
-                await Assert.ThrowsAsync<ApprovalOrchestrationValidationException>(
+            ApprovalReviewerOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<ApprovalReviewerOrchestrationValidationException>(
                     requestTask.AsTask);
 
             // then
             actualException.InnerException.Should()
-                .BeOfType<InvalidApprovalOrchestrationException>();
+                .BeOfType<InvalidApprovalReviewerOrchestrationException>();
 
             this.approvalReviewRequestServiceMock.Verify(service =>
                 service.AddApprovalReviewRequestAsync(
@@ -260,7 +260,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ApprovalReviewRequest actualRequest =
-                await this.approvalOrchestrationService.RequestApprovalReviewAsync(
+                await this.approvalReviewerOrchestrationService.RequestApprovalReviewAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     reviewedId.ToString(),
@@ -292,19 +292,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ValueTask<ApprovalReviewRequest> requestTask =
-                this.approvalOrchestrationService.RequestApprovalReviewAsync(
+                this.approvalReviewerOrchestrationService.RequestApprovalReviewAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     Guid.NewGuid().ToString(),
                     TestContext.Current.CancellationToken);
 
-            ApprovalOrchestrationValidationException actualException =
-                await Assert.ThrowsAsync<ApprovalOrchestrationValidationException>(
+            ApprovalReviewerOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<ApprovalReviewerOrchestrationValidationException>(
                     requestTask.AsTask);
 
             // then
             actualException.InnerException.Should()
-                .BeOfType<UnauthorizedApprovalOrchestrationException>();
+                .BeOfType<UnauthorizedApprovalReviewerOrchestrationException>();
 
             this.approvalReviewRequestServiceMock.Verify(service =>
                 service.AddApprovalReviewRequestAsync(
@@ -353,7 +353,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             IReadOnlyList<ApprovalReviewRequest> actual =
-                await this.approvalOrchestrationService.RetrieveApprovalReviewRequestsAsync(
+                await this.approvalReviewerOrchestrationService.RetrieveApprovalReviewRequestsAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     TestContext.Current.CancellationToken);
@@ -378,18 +378,18 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ValueTask<IReadOnlyList<ApprovalReviewRequest>> retrieveTask =
-                this.approvalOrchestrationService.RetrieveApprovalReviewRequestsAsync(
+                this.approvalReviewerOrchestrationService.RetrieveApprovalReviewRequestsAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     TestContext.Current.CancellationToken);
 
-            ApprovalOrchestrationValidationException actualException =
-                await Assert.ThrowsAsync<ApprovalOrchestrationValidationException>(
+            ApprovalReviewerOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<ApprovalReviewerOrchestrationValidationException>(
                     retrieveTask.AsTask);
 
             // then
             actualException.InnerException.Should()
-                .BeOfType<UnauthorizedApprovalOrchestrationException>();
+                .BeOfType<UnauthorizedApprovalReviewerOrchestrationException>();
 
             this.approvalReviewRequestServiceMock.Verify(service =>
                 service.RetrieveApprovalReviewRequestsByApprovalIdAsync(
@@ -433,7 +433,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ApprovalReviewRequest actual =
-                await this.approvalOrchestrationService.WithdrawApprovalReviewRequestAsync(
+                await this.approvalReviewerOrchestrationService.WithdrawApprovalReviewRequestAsync(
                     EntityType.ContentItem,
                     entityId,
                     requestedUserId,
@@ -482,20 +482,20 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ValueTask<ApprovalReviewRequest> withdrawTask =
-                this.approvalOrchestrationService.WithdrawApprovalReviewRequestAsync(
+                this.approvalReviewerOrchestrationService.WithdrawApprovalReviewRequestAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     answeredById.ToString(),
                     GetRandomString(),
                     TestContext.Current.CancellationToken);
 
-            ApprovalOrchestrationValidationException actualException =
-                await Assert.ThrowsAsync<ApprovalOrchestrationValidationException>(
+            ApprovalReviewerOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<ApprovalReviewerOrchestrationValidationException>(
                     withdrawTask.AsTask);
 
             // then
             actualException.InnerException.Should()
-                .BeOfType<InvalidApprovalOrchestrationException>();
+                .BeOfType<InvalidApprovalReviewerOrchestrationException>();
 
             this.approvalReviewRequestServiceMock.Verify(service =>
                 service.RemoveApprovalReviewRequestByIdAsync(
@@ -533,7 +533,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ApprovalReviewRequest actual =
-                await this.approvalOrchestrationService.WithdrawApprovalReviewRequestAsync(
+                await this.approvalReviewerOrchestrationService.WithdrawApprovalReviewRequestAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     Guid.NewGuid().ToString(),
@@ -558,20 +558,20 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ValueTask<ApprovalReviewRequest> withdrawTask =
-                this.approvalOrchestrationService.WithdrawApprovalReviewRequestAsync(
+                this.approvalReviewerOrchestrationService.WithdrawApprovalReviewRequestAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     Guid.NewGuid().ToString(),
                     deletionReason: null,
                     cancellationToken: TestContext.Current.CancellationToken);
 
-            ApprovalOrchestrationValidationException actualException =
-                await Assert.ThrowsAsync<ApprovalOrchestrationValidationException>(
+            ApprovalReviewerOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<ApprovalReviewerOrchestrationValidationException>(
                     withdrawTask.AsTask);
 
             // then
             actualException.InnerException.Should()
-                .BeOfType<UnauthorizedApprovalOrchestrationException>();
+                .BeOfType<UnauthorizedApprovalReviewerOrchestrationException>();
 
             this.approvalReviewRequestServiceMock.Verify(service =>
                 service.RemoveApprovalReviewRequestByIdAsync(
@@ -666,7 +666,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ApprovalReviewRequest actualRequest =
-                await this.approvalOrchestrationService.RequestApprovalReviewAsync(
+                await this.approvalReviewerOrchestrationService.RequestApprovalReviewAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     invitedId.ToString(),

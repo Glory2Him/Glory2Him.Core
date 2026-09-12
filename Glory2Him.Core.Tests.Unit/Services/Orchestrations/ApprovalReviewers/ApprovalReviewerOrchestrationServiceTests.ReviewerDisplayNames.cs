@@ -21,14 +21,14 @@ using Glory2Him.Core.Models.Foundations.ApprovalComments.Exceptions;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.IdentityUsers;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
-using Glory2Him.Core.Models.Orchestrations.Approvals.Exceptions;
+using Glory2Him.Core.Models.Orchestrations.ApprovalReviewers.Exceptions;
 using Glory2Him.Core.Models.Securities;
 using Moq;
 using Xeptions;
 
-namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
+namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ApprovalReviewers
 {
-    public partial class ApprovalOrchestrationServiceTests
+    public partial class ApprovalReviewerOrchestrationServiceTests
     {
         // The thread as the caller can see it. The resolver reads through the comment SERVICE, so
         // §14.7 posture D's visibility filter is already applied by the time these rows arrive —
@@ -129,7 +129,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             IReadOnlyList<ReviewerDisplayName> reviewerDisplayNames =
-                await this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
+                await this.approvalReviewerOrchestrationService.RetrieveReviewerDisplayNamesAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     TestContext.Current.CancellationToken);
@@ -182,7 +182,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             IReadOnlyList<ReviewerDisplayName> reviewerDisplayNames =
-                await this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
+                await this.approvalReviewerOrchestrationService.RetrieveReviewerDisplayNamesAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     TestContext.Current.CancellationToken);
@@ -223,7 +223,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             IReadOnlyList<ReviewerDisplayName> reviewerDisplayNames =
-                await this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
+                await this.approvalReviewerOrchestrationService.RetrieveReviewerDisplayNamesAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     TestContext.Current.CancellationToken);
@@ -266,7 +266,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             IReadOnlyList<ReviewerDisplayName> reviewerDisplayNames =
-                await this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
+                await this.approvalReviewerOrchestrationService.RetrieveReviewerDisplayNamesAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     TestContext.Current.CancellationToken);
@@ -316,7 +316,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             IReadOnlyList<ReviewerDisplayName> reviewerDisplayNames =
-                await this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
+                await this.approvalReviewerOrchestrationService.RetrieveReviewerDisplayNamesAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     TestContext.Current.CancellationToken);
@@ -359,7 +359,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             IReadOnlyList<ReviewerDisplayName> reviewerDisplayNames =
-                await this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
+                await this.approvalReviewerOrchestrationService.RetrieveReviewerDisplayNamesAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     TestContext.Current.CancellationToken);
@@ -413,7 +413,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             IReadOnlyList<ReviewerDisplayName> reviewerDisplayNames =
-                await this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
+                await this.approvalReviewerOrchestrationService.RetrieveReviewerDisplayNamesAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     TestContext.Current.CancellationToken);
@@ -456,7 +456,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             IReadOnlyList<ReviewerDisplayName> reviewerDisplayNames =
-                await this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
+                await this.approvalReviewerOrchestrationService.RetrieveReviewerDisplayNamesAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     TestContext.Current.CancellationToken);
@@ -508,7 +508,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             IReadOnlyList<ReviewerDisplayName> reviewerDisplayNames =
-                await this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
+                await this.approvalReviewerOrchestrationService.RetrieveReviewerDisplayNamesAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     TestContext.Current.CancellationToken);
@@ -551,7 +551,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             IReadOnlyList<ReviewerDisplayName> reviewerDisplayNames =
-                await this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
+                await this.approvalReviewerOrchestrationService.RetrieveReviewerDisplayNamesAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     TestContext.Current.CancellationToken);
@@ -584,7 +584,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             IReadOnlyList<ReviewerDisplayName> reviewerDisplayNames =
-                await this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
+                await this.approvalReviewerOrchestrationService.RetrieveReviewerDisplayNamesAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     TestContext.Current.CancellationToken);
@@ -614,18 +614,18 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ValueTask<IReadOnlyList<ReviewerDisplayName>> resolveTask =
-                this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
+                this.approvalReviewerOrchestrationService.RetrieveReviewerDisplayNamesAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     TestContext.Current.CancellationToken);
 
-            ApprovalOrchestrationValidationException actualException =
-                await Assert.ThrowsAsync<ApprovalOrchestrationValidationException>(
+            ApprovalReviewerOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<ApprovalReviewerOrchestrationValidationException>(
                     resolveTask.AsTask);
 
             // then
             actualException.InnerException.Should()
-                .BeOfType<UnauthorizedApprovalOrchestrationException>();
+                .BeOfType<UnauthorizedApprovalReviewerOrchestrationException>();
 
             this.identityUserServiceMock.VerifyNoOtherCalls();
         }
@@ -663,18 +663,18 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ValueTask<IReadOnlyList<ReviewerDisplayName>> resolveTask =
-                this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
+                this.approvalReviewerOrchestrationService.RetrieveReviewerDisplayNamesAsync(
                     entityType,
                     entityId,
                     TestContext.Current.CancellationToken);
 
-            ApprovalOrchestrationValidationException actualException =
-                await Assert.ThrowsAsync<ApprovalOrchestrationValidationException>(
+            ApprovalReviewerOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<ApprovalReviewerOrchestrationValidationException>(
                     resolveTask.AsTask);
 
             // then
             actualException.InnerException.Should()
-                .BeOfType<InvalidApprovalOrchestrationException>();
+                .BeOfType<InvalidApprovalReviewerOrchestrationException>();
 
             // and: the rule that refused is the one this case broke, and it is the ONLY one - the
             // other half of the key was perfectly good
@@ -704,18 +704,18 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ValueTask<IReadOnlyList<ReviewerDisplayName>> resolveTask =
-                this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
+                this.approvalReviewerOrchestrationService.RetrieveReviewerDisplayNamesAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     TestContext.Current.CancellationToken);
 
-            ApprovalOrchestrationValidationException actualException =
-                await Assert.ThrowsAsync<ApprovalOrchestrationValidationException>(
+            ApprovalReviewerOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<ApprovalReviewerOrchestrationValidationException>(
                     resolveTask.AsTask);
 
             // then
             actualException.InnerException.Should()
-                .BeOfType<NotFoundApprovalOrchestrationException>();
+                .BeOfType<NotFoundApprovalReviewerOrchestrationException>();
 
             this.identityUserServiceMock.VerifyNoOtherCalls();
         }
@@ -767,7 +767,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             SetupReviewerScope(approvalId: approvalId);
 
             var expectedDependencyValidationException =
-                new ApprovalOrchestrationDependencyValidationException(
+                new ApprovalReviewerOrchestrationDependencyValidationException(
                     message: ExpectedDependencyValidationMessage,
                     innerException: (commentFoundationException.InnerException as Xeption)!);
 
@@ -779,13 +779,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ValueTask<IReadOnlyList<ReviewerDisplayName>> resolveTask =
-                this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
+                this.approvalReviewerOrchestrationService.RetrieveReviewerDisplayNamesAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     TestContext.Current.CancellationToken);
 
-            ApprovalOrchestrationDependencyValidationException actualException =
-                await Assert.ThrowsAsync<ApprovalOrchestrationDependencyValidationException>(
+            ApprovalReviewerOrchestrationDependencyValidationException actualException =
+                await Assert.ThrowsAsync<ApprovalReviewerOrchestrationDependencyValidationException>(
                     resolveTask.AsTask);
 
             // then
@@ -814,7 +814,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             SetupReviewerScope(approvalId: approvalId);
 
             var expectedDependencyException =
-                new ApprovalOrchestrationDependencyException(
+                new ApprovalReviewerOrchestrationDependencyException(
                     message: ExpectedDependencyMessage,
                     innerException: (commentFoundationException.InnerException as Xeption)!);
 
@@ -826,13 +826,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ValueTask<IReadOnlyList<ReviewerDisplayName>> resolveTask =
-                this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
+                this.approvalReviewerOrchestrationService.RetrieveReviewerDisplayNamesAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     TestContext.Current.CancellationToken);
 
-            ApprovalOrchestrationDependencyException actualException =
-                await Assert.ThrowsAsync<ApprovalOrchestrationDependencyException>(
+            ApprovalReviewerOrchestrationDependencyException actualException =
+                await Assert.ThrowsAsync<ApprovalReviewerOrchestrationDependencyException>(
                     resolveTask.AsTask);
 
             // then

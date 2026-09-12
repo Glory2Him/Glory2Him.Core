@@ -21,13 +21,13 @@ using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.IdentityUsers;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
-using Glory2Him.Core.Models.Orchestrations.Approvals.Exceptions;
+using Glory2Him.Core.Models.Orchestrations.ApprovalReviewers.Exceptions;
 using Glory2Him.Core.Models.Securities;
 using Moq;
 
-namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
+namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ApprovalReviewers
 {
-    public partial class ApprovalOrchestrationServiceTests
+    public partial class ApprovalReviewerOrchestrationServiceTests
     {
         private static IdentityUser CreateIdentityUser(
             Guid userId,
@@ -206,7 +206,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         /// in this entity's scope covers (§18.6 rule 2). Rule 3 refuses an invitation aimed at
         /// either outright, so listing them would offer a click that always fails. This case
         /// holds the block set empty and pins the owner half; the veto half is pinned in
-        /// ApprovalOrchestrationServiceTests.ReadOnlyVeto.
+        /// ApprovalReviewerOrchestrationServiceTests.ReadOnlyVeto.
         ///
         /// <para>Everyone else in the tier stays, INCLUDING people who have already answered and
         /// people already invited. The read answers "who belongs to this round", not "who is not
@@ -247,7 +247,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             IReadOnlyList<ReviewerCandidate> candidates =
-                await this.approvalOrchestrationService.RetrieveReviewerCandidatesAsync(
+                await this.approvalReviewerOrchestrationService.RetrieveReviewerCandidatesAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     TestContext.Current.CancellationToken);
@@ -288,7 +288,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             IReadOnlyList<ReviewerCandidate> candidates =
-                await this.approvalOrchestrationService.RetrieveReviewerCandidatesAsync(
+                await this.approvalReviewerOrchestrationService.RetrieveReviewerCandidatesAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     TestContext.Current.CancellationToken);
@@ -328,7 +328,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                         .ReturnsAsync(new List<IdentityUser>());
 
             // when
-            await this.approvalOrchestrationService.RetrieveReviewerCandidatesAsync(
+            await this.approvalReviewerOrchestrationService.RetrieveReviewerCandidatesAsync(
                 EntityType.ContentItem,
                 Guid.NewGuid(),
                 TestContext.Current.CancellationToken);
@@ -366,7 +366,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                         .ReturnsAsync(new List<IdentityUser>());
 
             // when
-            await this.approvalOrchestrationService.RetrieveReviewerCandidatesAsync(
+            await this.approvalReviewerOrchestrationService.RetrieveReviewerCandidatesAsync(
                 EntityType.ContentItem,
                 Guid.NewGuid(),
                 TestContext.Current.CancellationToken);

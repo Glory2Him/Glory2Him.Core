@@ -20,8 +20,10 @@ using Force.DeepCloner;
 using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.Approvals.Exceptions;
+using Glory2Him.Core.Models.Orchestrations.ApprovalReviewers.Exceptions;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
 using Glory2Him.Core.Models.Orchestrations.Approvals.Exceptions;
+using Glory2Him.Core.Services.Orchestrations.ApprovalReviewers;
 using Glory2Him.Core.Services.Orchestrations.Approvals;
 using Glory2Him.WebApp.Controllers.Approvals;
 using Microsoft.AspNetCore.Authorization;
@@ -54,14 +56,73 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
     public class ApprovalsControllerTests : RESTFulController
     {
         private readonly Mock<IApprovalOrchestrationService> approvalOrchestrationServiceMock;
+
+        // TWO service mocks, because the controller takes two services. The verdict, the decision
+        // and the reset are the ROUND's (§12.5.3); the five reviewer routes are
+        // IApprovalReviewerOrchestrationService's (§12.5.4) and raise its own exception family,
+        // so a test that reached for the wrong mock would set up a call the action never makes.
+        // #523 splits the controller and takes this second mock with it.
+        private readonly Mock<IApprovalReviewerOrchestrationService>
+            approvalReviewerOrchestrationServiceMock;
+
         private readonly ApprovalsController approvalsController;
 
         public ApprovalsControllerTests()
         {
             approvalOrchestrationServiceMock = new Mock<IApprovalOrchestrationService>();
 
-            approvalsController =
-                new ApprovalsController(approvalOrchestrationServiceMock.Object);
+            approvalReviewerOrchestrationServiceMock =
+                new Mock<IApprovalReviewerOrchestrationService>();
+
+            approvalsController = new ApprovalsController(
+                approvalOrchestrationServiceMock.Object,
+                approvalReviewerOrchestrationServiceMock.Object);
+        }
+
+        // The reviewer routes' own families. Kept apart from the round's three sets above rather
+        // than widened to hold both: an action catches ONE service's exceptions, so a theory
+        // feeding it the other's would prove the catch-all rather than the clause it names.
+        public static TheoryData<Xeption> ReviewerValidationExceptions()
+        {
+            var someInnerException = new Xeption();
+            string someMessage = GetRandomString();
+
+            return new TheoryData<Xeption>
+            {
+                new ApprovalReviewerOrchestrationValidationException(
+                    message: someMessage,
+                    innerException: someInnerException),
+
+                new ApprovalReviewerOrchestrationDependencyValidationException(
+                    message: someMessage,
+                    innerException: someInnerException)
+            };
+        }
+
+        public static TheoryData<Xeption> ReviewerDependencyExceptions()
+        {
+            var someInnerException = new Xeption();
+            string someMessage = GetRandomString();
+
+            return new TheoryData<Xeption>
+            {
+                new ApprovalReviewerOrchestrationDependencyException(
+                    message: someMessage,
+                    innerException: someInnerException)
+            };
+        }
+
+        public static TheoryData<Xeption> ReviewerServerExceptions()
+        {
+            var someInnerException = new Xeption();
+            string someMessage = GetRandomString();
+
+            return new TheoryData<Xeption>
+            {
+                new ApprovalReviewerOrchestrationServiceException(
+                    message: someMessage,
+                    innerException: someInnerException)
+            };
         }
 
         public static TheoryData<Xeption> ValidationExceptions()
@@ -1062,7 +1123,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
             Guid randomEntityId = Guid.NewGuid();
             string randomRequestedUserId = Guid.NewGuid().ToString();
 
-            this.approvalOrchestrationServiceMock.Setup(service =>
+            this.approvalReviewerOrchestrationServiceMock.Setup(service =>
                 service.RequestApprovalReviewAsync(
                     It.IsAny<EntityType>(),
                     It.IsAny<Guid>(),
@@ -1081,7 +1142,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
             // then
             actualActionResult.Result.Should().BeOfType<NoContentResult>();
 
-            this.approvalOrchestrationServiceMock.Verify(service =>
+            this.approvalReviewerOrchestrationServiceMock.Verify(service =>
                 service.RequestApprovalReviewAsync(
                     randomEntityType,
                     randomEntityId,
@@ -1089,7 +1150,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
                     It.IsAny<CancellationToken>()),
                         Times.Once);
 
-            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+            this.approvalReviewerOrchestrationServiceMock.VerifyNoOtherCalls();
         }
 
         /// <summary>
@@ -1101,7 +1162,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
         public async Task ShouldReturnNoContentOnPostReviewRequestWhenThereIsNothingToCreateAsync()
         {
             // given
-            this.approvalOrchestrationServiceMock.Setup(service =>
+            this.approvalReviewerOrchestrationServiceMock.Setup(service =>
                 service.RequestApprovalReviewAsync(
                     It.IsAny<EntityType>(),
                     It.IsAny<Guid>(),
@@ -1140,7 +1201,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
                     new ApprovalReviewRequest { Id = Guid.NewGuid() },
                 };
 
-            this.approvalOrchestrationServiceMock.Setup(service =>
+            this.approvalReviewerOrchestrationServiceMock.Setup(service =>
                 service.RetrieveApprovalReviewRequestsAsync(
                     It.IsAny<EntityType>(),
                     It.IsAny<Guid>(),
@@ -1160,14 +1221,14 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
             ((OkObjectResult)actualActionResult.Result).Value
                 .Should().BeSameAs(randomApprovalReviewRequests);
 
-            this.approvalOrchestrationServiceMock.Verify(service =>
+            this.approvalReviewerOrchestrationServiceMock.Verify(service =>
                 service.RetrieveApprovalReviewRequestsAsync(
                     randomEntityType,
                     randomEntityId,
                     It.IsAny<CancellationToken>()),
                         Times.Once);
 
-            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+            this.approvalReviewerOrchestrationServiceMock.VerifyNoOtherCalls();
         }
 
         /// <summary>
@@ -1203,7 +1264,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
                     },
                 };
 
-            this.approvalOrchestrationServiceMock.Setup(service =>
+            this.approvalReviewerOrchestrationServiceMock.Setup(service =>
                 service.RetrieveReviewerDisplayNamesAsync(
                     It.IsAny<EntityType>(),
                     It.IsAny<Guid>(),
@@ -1223,14 +1284,14 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
             ((OkObjectResult)actualActionResult.Result).Value
                 .Should().BeSameAs(randomReviewerDisplayNames);
 
-            this.approvalOrchestrationServiceMock.Verify(service =>
+            this.approvalReviewerOrchestrationServiceMock.Verify(service =>
                 service.RetrieveReviewerDisplayNamesAsync(
                     randomEntityType,
                     randomEntityId,
                     It.IsAny<CancellationToken>()),
                         Times.Once);
 
-            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+            this.approvalReviewerOrchestrationServiceMock.VerifyNoOtherCalls();
         }
 
         /// <summary>
@@ -1238,13 +1299,13 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
         /// round has replaced the caller-supplied batch.
         ///
         /// <para>NOT the tier gate and NOT the missing round, despite all three arriving as an
-        /// <c>ApprovalOrchestrationValidationException</c>: those wrap an
-        /// <c>UnauthorizedApprovalOrchestrationException</c> and a
-        /// <c>NotFoundApprovalOrchestrationException</c>, and the action catches both shapes
+        /// <c>ApprovalReviewerOrchestrationValidationException</c>: those wrap an
+        /// <c>UnauthorizedApprovalReviewerOrchestrationException</c> and a
+        /// <c>NotFoundApprovalReviewerOrchestrationException</c>, and the action catches both shapes
         /// FIRST, so neither can reach this <c>400</c> arm. Each is pinned by its own test.</para>
         /// </summary>
         [Theory]
-        [MemberData(nameof(ValidationExceptions))]
+        [MemberData(nameof(ReviewerValidationExceptions))]
         public async Task ShouldReturnBadRequestOnGetReviewerDisplayNamesIfValidationErrorAsync(
             Xeption validationException)
         {
@@ -1256,7 +1317,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
                 new ActionResult<IReadOnlyList<ReviewerDisplayName>>(
                     expectedBadRequestObjectResult);
 
-            this.approvalOrchestrationServiceMock.Setup(service =>
+            this.approvalReviewerOrchestrationServiceMock.Setup(service =>
                 service.RetrieveReviewerDisplayNamesAsync(
                     It.IsAny<EntityType>(),
                     It.IsAny<Guid>(),
@@ -1273,24 +1334,24 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
 
-            this.approvalOrchestrationServiceMock.Verify(service =>
+            this.approvalReviewerOrchestrationServiceMock.Verify(service =>
                 service.RetrieveReviewerDisplayNamesAsync(
                     It.IsAny<EntityType>(),
                     It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()),
                         Times.Once);
 
-            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+            this.approvalReviewerOrchestrationServiceMock.VerifyNoOtherCalls();
         }
 
         [Fact]
         public async Task ShouldReturnUnauthorizedOnGetReviewerDisplayNamesIfRefusedAsync()
         {
             // given
-            var unauthorizedException = new UnauthorizedApprovalOrchestrationException(
+            var unauthorizedException = new UnauthorizedApprovalReviewerOrchestrationException(
                 message: GetRandomString());
 
-            var validationException = new ApprovalOrchestrationValidationException(
+            var validationException = new ApprovalReviewerOrchestrationValidationException(
                 message: GetRandomString(),
                 innerException: unauthorizedException);
 
@@ -1301,7 +1362,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
                 new ActionResult<IReadOnlyList<ReviewerDisplayName>>(
                     expectedUnauthorizedObjectResult);
 
-            this.approvalOrchestrationServiceMock.Setup(service =>
+            this.approvalReviewerOrchestrationServiceMock.Setup(service =>
                 service.RetrieveReviewerDisplayNamesAsync(
                     It.IsAny<EntityType>(),
                     It.IsAny<Guid>(),
@@ -1318,14 +1379,14 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
 
-            this.approvalOrchestrationServiceMock.Verify(service =>
+            this.approvalReviewerOrchestrationServiceMock.Verify(service =>
                 service.RetrieveReviewerDisplayNamesAsync(
                     It.IsAny<EntityType>(),
                     It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()),
                         Times.Once);
 
-            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+            this.approvalReviewerOrchestrationServiceMock.VerifyNoOtherCalls();
         }
 
         /// <summary>
@@ -1340,23 +1401,23 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
             // given
             string someMessage = GetRandomString();
 
-            var notFoundApprovalOrchestrationException =
-                new NotFoundApprovalOrchestrationException(
+            var notFoundApprovalReviewerOrchestrationException =
+                new NotFoundApprovalReviewerOrchestrationException(
                     message: someMessage);
 
             var approvalOrchestrationValidationException =
-                new ApprovalOrchestrationValidationException(
+                new ApprovalReviewerOrchestrationValidationException(
                     message: someMessage,
-                    innerException: notFoundApprovalOrchestrationException);
+                    innerException: notFoundApprovalReviewerOrchestrationException);
 
             NotFoundObjectResult expectedNotFoundObjectResult =
-                NotFound(notFoundApprovalOrchestrationException);
+                NotFound(notFoundApprovalReviewerOrchestrationException);
 
             var expectedActionResult =
                 new ActionResult<IReadOnlyList<ReviewerDisplayName>>(
                     expectedNotFoundObjectResult);
 
-            this.approvalOrchestrationServiceMock.Setup(service =>
+            this.approvalReviewerOrchestrationServiceMock.Setup(service =>
                 service.RetrieveReviewerDisplayNamesAsync(
                     It.IsAny<EntityType>(),
                     It.IsAny<Guid>(),
@@ -1373,18 +1434,18 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
 
-            this.approvalOrchestrationServiceMock.Verify(service =>
+            this.approvalReviewerOrchestrationServiceMock.Verify(service =>
                 service.RetrieveReviewerDisplayNamesAsync(
                     It.IsAny<EntityType>(),
                     It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()),
                         Times.Once);
 
-            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+            this.approvalReviewerOrchestrationServiceMock.VerifyNoOtherCalls();
         }
 
         [Theory]
-        [MemberData(nameof(DependencyExceptions))]
+        [MemberData(nameof(ReviewerDependencyExceptions))]
         public async Task
             ShouldReturnFailedDependencyOnGetReviewerDisplayNamesIfDependencyErrorAsync(
                 Xeption dependencyException)
@@ -1397,7 +1458,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
                 new ActionResult<IReadOnlyList<ReviewerDisplayName>>(
                     expectedFailedDependencyObjectResult);
 
-            this.approvalOrchestrationServiceMock.Setup(service =>
+            this.approvalReviewerOrchestrationServiceMock.Setup(service =>
                 service.RetrieveReviewerDisplayNamesAsync(
                     It.IsAny<EntityType>(),
                     It.IsAny<Guid>(),
@@ -1414,18 +1475,18 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
 
-            this.approvalOrchestrationServiceMock.Verify(service =>
+            this.approvalReviewerOrchestrationServiceMock.Verify(service =>
                 service.RetrieveReviewerDisplayNamesAsync(
                     It.IsAny<EntityType>(),
                     It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()),
                         Times.Once);
 
-            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+            this.approvalReviewerOrchestrationServiceMock.VerifyNoOtherCalls();
         }
 
         [Theory]
-        [MemberData(nameof(ServerExceptions))]
+        [MemberData(nameof(ReviewerServerExceptions))]
         public async Task
             ShouldReturnInternalServerErrorOnGetReviewerDisplayNamesIfServerErrorAsync(
                 Xeption serverException)
@@ -1438,7 +1499,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
                 new ActionResult<IReadOnlyList<ReviewerDisplayName>>(
                     expectedInternalServerErrorObjectResult);
 
-            this.approvalOrchestrationServiceMock.Setup(service =>
+            this.approvalReviewerOrchestrationServiceMock.Setup(service =>
                 service.RetrieveReviewerDisplayNamesAsync(
                     It.IsAny<EntityType>(),
                     It.IsAny<Guid>(),
@@ -1455,14 +1516,14 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
 
-            this.approvalOrchestrationServiceMock.Verify(service =>
+            this.approvalReviewerOrchestrationServiceMock.Verify(service =>
                 service.RetrieveReviewerDisplayNamesAsync(
                     It.IsAny<EntityType>(),
                     It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()),
                         Times.Once);
 
-            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+            this.approvalReviewerOrchestrationServiceMock.VerifyNoOtherCalls();
         }
 
         /// <summary>
@@ -1479,7 +1540,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
             string randomRequestedUserId = Guid.NewGuid().ToString();
             string randomDeletionReason = Guid.NewGuid().ToString();
 
-            this.approvalOrchestrationServiceMock.Setup(service =>
+            this.approvalReviewerOrchestrationServiceMock.Setup(service =>
                 service.WithdrawApprovalReviewRequestAsync(
                     It.IsAny<EntityType>(),
                     It.IsAny<Guid>(),
@@ -1500,7 +1561,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
             // then
             actualActionResult.Result.Should().BeOfType<NoContentResult>();
 
-            this.approvalOrchestrationServiceMock.Verify(service =>
+            this.approvalReviewerOrchestrationServiceMock.Verify(service =>
                 service.WithdrawApprovalReviewRequestAsync(
                     randomEntityType,
                     randomEntityId,
@@ -1509,7 +1570,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
                     It.IsAny<CancellationToken>()),
                         Times.Once);
 
-            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+            this.approvalReviewerOrchestrationServiceMock.VerifyNoOtherCalls();
         }
 
         /// <summary>
@@ -1521,7 +1582,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
         public async Task ShouldReturnNoContentOnDeleteReviewRequestWhenNothingIsOutstandingAsync()
         {
             // given
-            this.approvalOrchestrationServiceMock.Setup(service =>
+            this.approvalReviewerOrchestrationServiceMock.Setup(service =>
                 service.WithdrawApprovalReviewRequestAsync(
                     It.IsAny<EntityType>(),
                     It.IsAny<Guid>(),
@@ -1560,23 +1621,23 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
             // given
             string someMessage = GetRandomString();
 
-            var notFoundApprovalOrchestrationException =
-                new NotFoundApprovalOrchestrationException(
+            var notFoundApprovalReviewerOrchestrationException =
+                new NotFoundApprovalReviewerOrchestrationException(
                     message: someMessage);
 
             var approvalOrchestrationValidationException =
-                new ApprovalOrchestrationValidationException(
+                new ApprovalReviewerOrchestrationValidationException(
                     message: someMessage,
-                    innerException: notFoundApprovalOrchestrationException);
+                    innerException: notFoundApprovalReviewerOrchestrationException);
 
             NotFoundObjectResult expectedNotFoundObjectResult =
-                NotFound(notFoundApprovalOrchestrationException);
+                NotFound(notFoundApprovalReviewerOrchestrationException);
 
             var expectedActionResult =
                 new ActionResult<IReadOnlyList<ApprovalReviewRequest>>(
                     expectedNotFoundObjectResult);
 
-            this.approvalOrchestrationServiceMock.Setup(service =>
+            this.approvalReviewerOrchestrationServiceMock.Setup(service =>
                 service.RetrieveApprovalReviewRequestsAsync(
                     It.IsAny<EntityType>(),
                     It.IsAny<Guid>(),
@@ -1593,14 +1654,14 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
 
-            this.approvalOrchestrationServiceMock.Verify(service =>
+            this.approvalReviewerOrchestrationServiceMock.Verify(service =>
                 service.RetrieveApprovalReviewRequestsAsync(
                     It.IsAny<EntityType>(),
                     It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()),
                         Times.Once);
 
-            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+            this.approvalReviewerOrchestrationServiceMock.VerifyNoOtherCalls();
         }
 
         /// <summary>
@@ -1616,11 +1677,11 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
             string someMessage = GetRandomString();
 
             var unauthorizedApprovalOrchestrationException =
-                new UnauthorizedApprovalOrchestrationException(
+                new UnauthorizedApprovalReviewerOrchestrationException(
                     message: someMessage);
 
             var approvalOrchestrationValidationException =
-                new ApprovalOrchestrationValidationException(
+                new ApprovalReviewerOrchestrationValidationException(
                     message: someMessage,
                     innerException: unauthorizedApprovalOrchestrationException);
 
@@ -1631,7 +1692,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
                 new ActionResult<IReadOnlyList<ApprovalReviewRequest>>(
                     expectedUnauthorizedObjectResult);
 
-            this.approvalOrchestrationServiceMock.Setup(service =>
+            this.approvalReviewerOrchestrationServiceMock.Setup(service =>
                 service.RetrieveApprovalReviewRequestsAsync(
                     It.IsAny<EntityType>(),
                     It.IsAny<Guid>(),
@@ -1648,18 +1709,18 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
 
-            this.approvalOrchestrationServiceMock.Verify(service =>
+            this.approvalReviewerOrchestrationServiceMock.Verify(service =>
                 service.RetrieveApprovalReviewRequestsAsync(
                     It.IsAny<EntityType>(),
                     It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()),
                         Times.Once);
 
-            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+            this.approvalReviewerOrchestrationServiceMock.VerifyNoOtherCalls();
         }
 
         [Theory]
-        [MemberData(nameof(ValidationExceptions))]
+        [MemberData(nameof(ReviewerValidationExceptions))]
         public async Task ShouldReturnBadRequestOnGetReviewRequestsIfValidationErrorOccurredAsync(
             Xeption validationException)
         {
@@ -1671,7 +1732,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
                 new ActionResult<IReadOnlyList<ApprovalReviewRequest>>(
                     expectedBadRequestObjectResult);
 
-            this.approvalOrchestrationServiceMock.Setup(service =>
+            this.approvalReviewerOrchestrationServiceMock.Setup(service =>
                 service.RetrieveApprovalReviewRequestsAsync(
                     It.IsAny<EntityType>(),
                     It.IsAny<Guid>(),
@@ -1688,18 +1749,18 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
 
-            this.approvalOrchestrationServiceMock.Verify(service =>
+            this.approvalReviewerOrchestrationServiceMock.Verify(service =>
                 service.RetrieveApprovalReviewRequestsAsync(
                     It.IsAny<EntityType>(),
                     It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()),
                         Times.Once);
 
-            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+            this.approvalReviewerOrchestrationServiceMock.VerifyNoOtherCalls();
         }
 
         [Theory]
-        [MemberData(nameof(DependencyExceptions))]
+        [MemberData(nameof(ReviewerDependencyExceptions))]
         public async Task ShouldReturnFailedDependencyOnGetReviewRequestsIfDependencyErrorAsync(
             Xeption dependencyException)
         {
@@ -1711,7 +1772,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
                 new ActionResult<IReadOnlyList<ApprovalReviewRequest>>(
                     expectedFailedDependencyObjectResult);
 
-            this.approvalOrchestrationServiceMock.Setup(service =>
+            this.approvalReviewerOrchestrationServiceMock.Setup(service =>
                 service.RetrieveApprovalReviewRequestsAsync(
                     It.IsAny<EntityType>(),
                     It.IsAny<Guid>(),
@@ -1728,18 +1789,18 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
 
-            this.approvalOrchestrationServiceMock.Verify(service =>
+            this.approvalReviewerOrchestrationServiceMock.Verify(service =>
                 service.RetrieveApprovalReviewRequestsAsync(
                     It.IsAny<EntityType>(),
                     It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()),
                         Times.Once);
 
-            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+            this.approvalReviewerOrchestrationServiceMock.VerifyNoOtherCalls();
         }
 
         [Theory]
-        [MemberData(nameof(ServerExceptions))]
+        [MemberData(nameof(ReviewerServerExceptions))]
         public async Task ShouldReturnInternalServerErrorOnGetReviewRequestsIfServerErrorAsync(
             Xeption serverException)
         {
@@ -1751,7 +1812,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
                 new ActionResult<IReadOnlyList<ApprovalReviewRequest>>(
                     expectedInternalServerErrorObjectResult);
 
-            this.approvalOrchestrationServiceMock.Setup(service =>
+            this.approvalReviewerOrchestrationServiceMock.Setup(service =>
                 service.RetrieveApprovalReviewRequestsAsync(
                     It.IsAny<EntityType>(),
                     It.IsAny<Guid>(),
@@ -1768,14 +1829,14 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
 
-            this.approvalOrchestrationServiceMock.Verify(service =>
+            this.approvalReviewerOrchestrationServiceMock.Verify(service =>
                 service.RetrieveApprovalReviewRequestsAsync(
                     It.IsAny<EntityType>(),
                     It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()),
                         Times.Once);
 
-            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+            this.approvalReviewerOrchestrationServiceMock.VerifyNoOtherCalls();
         }
 
         [Fact]
@@ -1784,22 +1845,22 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
             // given
             string someMessage = GetRandomString();
 
-            var notFoundApprovalOrchestrationException =
-                new NotFoundApprovalOrchestrationException(
+            var notFoundApprovalReviewerOrchestrationException =
+                new NotFoundApprovalReviewerOrchestrationException(
                     message: someMessage);
 
             var approvalOrchestrationValidationException =
-                new ApprovalOrchestrationValidationException(
+                new ApprovalReviewerOrchestrationValidationException(
                     message: someMessage,
-                    innerException: notFoundApprovalOrchestrationException);
+                    innerException: notFoundApprovalReviewerOrchestrationException);
 
             NotFoundObjectResult expectedNotFoundObjectResult =
-                NotFound(notFoundApprovalOrchestrationException);
+                NotFound(notFoundApprovalReviewerOrchestrationException);
 
             var expectedActionResult =
                 new ActionResult<ApprovalReviewRequest>(expectedNotFoundObjectResult);
 
-            this.approvalOrchestrationServiceMock.Setup(service =>
+            this.approvalReviewerOrchestrationServiceMock.Setup(service =>
                 service.WithdrawApprovalReviewRequestAsync(
                     It.IsAny<EntityType>(),
                     It.IsAny<Guid>(),
@@ -1820,7 +1881,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
 
-            this.approvalOrchestrationServiceMock.Verify(service =>
+            this.approvalReviewerOrchestrationServiceMock.Verify(service =>
                 service.WithdrawApprovalReviewRequestAsync(
                     It.IsAny<EntityType>(),
                     It.IsAny<Guid>(),
@@ -1829,7 +1890,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
                     It.IsAny<CancellationToken>()),
                         Times.Once);
 
-            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+            this.approvalReviewerOrchestrationServiceMock.VerifyNoOtherCalls();
         }
 
         [Fact]
@@ -1839,11 +1900,11 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
             string someMessage = GetRandomString();
 
             var unauthorizedApprovalOrchestrationException =
-                new UnauthorizedApprovalOrchestrationException(
+                new UnauthorizedApprovalReviewerOrchestrationException(
                     message: someMessage);
 
             var approvalOrchestrationValidationException =
-                new ApprovalOrchestrationValidationException(
+                new ApprovalReviewerOrchestrationValidationException(
                     message: someMessage,
                     innerException: unauthorizedApprovalOrchestrationException);
 
@@ -1853,7 +1914,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
             var expectedActionResult =
                 new ActionResult<ApprovalReviewRequest>(expectedUnauthorizedObjectResult);
 
-            this.approvalOrchestrationServiceMock.Setup(service =>
+            this.approvalReviewerOrchestrationServiceMock.Setup(service =>
                 service.WithdrawApprovalReviewRequestAsync(
                     It.IsAny<EntityType>(),
                     It.IsAny<Guid>(),
@@ -1874,7 +1935,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
 
-            this.approvalOrchestrationServiceMock.Verify(service =>
+            this.approvalReviewerOrchestrationServiceMock.Verify(service =>
                 service.WithdrawApprovalReviewRequestAsync(
                     It.IsAny<EntityType>(),
                     It.IsAny<Guid>(),
@@ -1883,7 +1944,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
                     It.IsAny<CancellationToken>()),
                         Times.Once);
 
-            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+            this.approvalReviewerOrchestrationServiceMock.VerifyNoOtherCalls();
         }
 
         /// <summary>
@@ -1893,7 +1954,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
         /// rather than being mistaken for a missing round.
         /// </summary>
         [Theory]
-        [MemberData(nameof(ValidationExceptions))]
+        [MemberData(nameof(ReviewerValidationExceptions))]
         public async Task ShouldReturnBadRequestOnDeleteReviewRequestIfValidationErrorAsync(
             Xeption validationException)
         {
@@ -1904,7 +1965,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
             var expectedActionResult =
                 new ActionResult<ApprovalReviewRequest>(expectedBadRequestObjectResult);
 
-            this.approvalOrchestrationServiceMock.Setup(service =>
+            this.approvalReviewerOrchestrationServiceMock.Setup(service =>
                 service.WithdrawApprovalReviewRequestAsync(
                     It.IsAny<EntityType>(),
                     It.IsAny<Guid>(),
@@ -1925,7 +1986,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
 
-            this.approvalOrchestrationServiceMock.Verify(service =>
+            this.approvalReviewerOrchestrationServiceMock.Verify(service =>
                 service.WithdrawApprovalReviewRequestAsync(
                     It.IsAny<EntityType>(),
                     It.IsAny<Guid>(),
@@ -1934,11 +1995,11 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
                     It.IsAny<CancellationToken>()),
                         Times.Once);
 
-            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+            this.approvalReviewerOrchestrationServiceMock.VerifyNoOtherCalls();
         }
 
         [Theory]
-        [MemberData(nameof(DependencyExceptions))]
+        [MemberData(nameof(ReviewerDependencyExceptions))]
         public async Task ShouldReturnFailedDependencyOnDeleteReviewRequestIfDependencyErrorAsync(
             Xeption dependencyException)
         {
@@ -1949,7 +2010,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
             var expectedActionResult =
                 new ActionResult<ApprovalReviewRequest>(expectedFailedDependencyObjectResult);
 
-            this.approvalOrchestrationServiceMock.Setup(service =>
+            this.approvalReviewerOrchestrationServiceMock.Setup(service =>
                 service.WithdrawApprovalReviewRequestAsync(
                     It.IsAny<EntityType>(),
                     It.IsAny<Guid>(),
@@ -1970,7 +2031,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
 
-            this.approvalOrchestrationServiceMock.Verify(service =>
+            this.approvalReviewerOrchestrationServiceMock.Verify(service =>
                 service.WithdrawApprovalReviewRequestAsync(
                     It.IsAny<EntityType>(),
                     It.IsAny<Guid>(),
@@ -1979,11 +2040,11 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
                     It.IsAny<CancellationToken>()),
                         Times.Once);
 
-            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+            this.approvalReviewerOrchestrationServiceMock.VerifyNoOtherCalls();
         }
 
         [Theory]
-        [MemberData(nameof(ServerExceptions))]
+        [MemberData(nameof(ReviewerServerExceptions))]
         public async Task ShouldReturnInternalServerErrorOnDeleteReviewRequestIfServerErrorAsync(
             Xeption serverException)
         {
@@ -1995,7 +2056,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
                 new ActionResult<ApprovalReviewRequest>(
                     expectedInternalServerErrorObjectResult);
 
-            this.approvalOrchestrationServiceMock.Setup(service =>
+            this.approvalReviewerOrchestrationServiceMock.Setup(service =>
                 service.WithdrawApprovalReviewRequestAsync(
                     It.IsAny<EntityType>(),
                     It.IsAny<Guid>(),
@@ -2016,7 +2077,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
 
-            this.approvalOrchestrationServiceMock.Verify(service =>
+            this.approvalReviewerOrchestrationServiceMock.Verify(service =>
                 service.WithdrawApprovalReviewRequestAsync(
                     It.IsAny<EntityType>(),
                     It.IsAny<Guid>(),
@@ -2025,7 +2086,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
                     It.IsAny<CancellationToken>()),
                         Times.Once);
 
-            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+            this.approvalReviewerOrchestrationServiceMock.VerifyNoOtherCalls();
         }
     }
 }

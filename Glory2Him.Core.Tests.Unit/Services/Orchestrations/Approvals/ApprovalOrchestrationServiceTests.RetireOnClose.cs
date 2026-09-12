@@ -99,12 +99,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             // Through the WORKFLOW seam, which mints the system identity itself. The caller
             // pressed Approve or Reject; they did not withdraw anybody's invitation, and
             // DeletedBy must not say they did.
-            this.approvalReviewRequestServiceMock.Verify(service =>
-                service.RemoveApprovalReviewRequestByIdAsync(
-                    It.IsAny<Guid>(),
-                    It.IsAny<string>(),
-                    It.IsAny<CancellationToken>()),
-                Times.Never);
+            //
+            // The "and NOT through the caller-facing RemoveApprovalReviewRequestByIdAsync"
+            // assertion that used to sit here is gone rather than restated: this service no
+            // longer holds IApprovalReviewRequestService at all — it left with §12.5.4's reviewer
+            // coordination — so the compiler makes the point the assertion was making.
 
             // And the ANSWERED retirement is not the verb reached: the two carry different
             // sentences, and a round closing on somebody is not the same as them answering.
@@ -121,8 +120,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     approvalId,
                     It.IsAny<CancellationToken>()),
                 Times.Once);
-
-            this.approvalReviewRequestServiceMock.VerifyNoOtherCalls();
         }
 
         /// <summary>
