@@ -9,17 +9,25 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Collections.Generic;
 using System.IO;
 using ADotNet.Clients;
 using ADotNet.Models.Pipelines.GithubPipelines.DotNets;
 using ADotNet.Models.Pipelines.GithubPipelines.DotNets.Tasks;
 using ADotNet.Models.Pipelines.GithubPipelines.DotNets.Tasks.SetupDotNetTaskV5s;
+using Glory2Him.Core.Infrastructure.Models.Pipelines;
 
 namespace Glory2Him.Core.Infrastructure.Services
 {
     internal class ScriptGenerationService
     {
+        // ADotNet 5.1.0 models no `working-directory:` key on a step, so every npm command
+        // carries its own `cd`. The four React gates exist as separate steps — and not as
+        // anything `dotnet build` does — because the esproj sets ShouldRunBuildScript=false
+        // and therefore never runs npm at all.
+        private const string ReactAppPath = "Websites/Glory2Him.WebApp.React";
+
         private readonly ADotNetClient adotNetClient;
 
         public ScriptGenerationService() =>
@@ -38,9 +46,12 @@ namespace Glory2Him.Core.Infrastructure.Services
                 {
                     Push = new PushEvent { Branches = [branchName] },
 
+                    // The branch filter is NOT a duplicate of Push.Branches above: without it the
+                    // build would also run for pull requests targeting a branch other than main.
                     PullRequest = new PullRequestEvent
                     {
-                        Types = ["opened", "synchronize", "reopened", "closed"]
+                        Types = ["opened", "synchronize", "reopened", "closed"],
+                        Branches = [branchName]
                     }
                 },
 
@@ -52,10 +63,6 @@ namespace Glory2Him.Core.Infrastructure.Services
                         {
                             Name = "Build",
                             RunsOn = BuildMachines.WindowsLatest,
-
-                            EnvironmentVariables = new Dictionary<string, string>
-                            {
-                            },
 
                             Steps = new List<GithubTask>
                             {
@@ -74,6 +81,21 @@ namespace Glory2Him.Core.Infrastructure.Services
                                     }
                                 },
 
+                                // The publish target and every React gate below build the SPA, so
+                                // pin Node rather than relying on whatever the runner image ships.
+                                new GithubTask
+                                {
+                                    Name = "Setup Node",
+                                    Uses = "actions/setup-node@v4",
+
+                                    With = new Dictionary<string, string>
+                                    {
+                                        { "node-version", "22" },
+                                        { "cache", "npm" },
+                                        { "cache-dependency-path", $"{ReactAppPath}/package-lock.json" }
+                                    }
+                                },
+
                                 new RestoreTask
                                 {
                                     Name = "Restore"
@@ -84,16 +106,63 @@ namespace Glory2Him.Core.Infrastructure.Services
                                     Name = "Build"
                                 },
 
+                                new GithubTask
+                                {
+                                    Name = "Restore React Dependencies",
+                                    Run =
+                                        $"""
+                                        cd {ReactAppPath}
+                                        npm ci
+                                        """
+                                },
+
+                                new GithubTask
+                                {
+                                    Name = "Lint React App",
+                                    Run =
+                                        $"""
+                                        cd {ReactAppPath}
+                                        npm run lint
+                                        """
+                                },
+
+                                new GithubTask
+                                {
+                                    Name = "Run React Unit Tests",
+                                    Run =
+                                        $"""
+                                        cd {ReactAppPath}
+                                        npm run test
+                                        """
+                                },
+
+                                new GithubTask
+                                {
+                                    Name = "Build React App",
+                                    Run =
+                                        $"""
+                                        # `npm run build` is `tsc -b && vite build`, so this type-checks BOTH tsconfig
+                                        # projects and then proves the bundle still builds. `dotnet build` cannot stand
+                                        # in for it: the esproj sets ShouldRunBuildScript=false, so it never runs npm.
+                                        cd {ReactAppPath}
+                                        npm run build
+                                        """
+                                },
+
                                 new TestTask
                                 {
                                     Name = "Run Unit Tests",
                                     Shell = "pwsh",
                                     Run =
                                         """
+                                        # A pwsh step takes its conclusion from the LAST command, so without this
+                                        # guard only the last discovered project could fail the build and every
+                                        # earlier project's failure was discarded silently. Same guard as below.
                                         $projects = Get-ChildItem -Path . -Filter "*Tests.Unit*.csproj" -Recurse
                                         foreach ($project in $projects) {
                                           Write-Host "Running tests for: $($project.FullName)"
                                           dotnet test $project.FullName --no-build --verbosity normal
+                                          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
                                         }
                                         """
                                 },
@@ -101,12 +170,14 @@ namespace Glory2Him.Core.Infrastructure.Services
                                 new TestTask
                                 {
                                     Name = "Run Acceptance Tests",
+                                    Shell = "pwsh",
                                     Run =
                                         """
                                         $projects = Get-ChildItem -Path . -Filter "*Tests.Acceptance*.csproj" -Recurse
                                         foreach ($project in $projects) {
                                           Write-Host "Running tests for: $($project.FullName)"
                                           dotnet test $project.FullName --no-build --verbosity normal
+                                          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
                                         }
                                         """
                                 },
@@ -126,6 +197,25 @@ namespace Glory2Him.Core.Infrastructure.Services
                                           dotnet test $project.FullName --no-build --verbosity normal
                                           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
                                         }
+                                        """
+                                },
+
+                                new TestTask
+                                {
+                                    Name = "Verify the model matches the migrations",
+                                    Shell = "pwsh",
+                                    Run =
+                                        """
+                                        # A configuration change with no migration behind it leaves the snapshot and the
+                                        # history describing a different schema from the model. Nothing else in the build
+                                        # notices — the code compiles and every test passes against the model — and the
+                                        # drift only surfaces when Database.Migrate() runs somewhere real.
+                                        dotnet tool install --global dotnet-ef --version 10.0.10 `
+                                          || dotnet tool update --global dotnet-ef --version 10.0.10
+                                        dotnet ef migrations has-pending-model-changes `
+                                          --project Glory2Him.Core/Glory2Him.Core.csproj `
+                                          --context Glory2Him.Core.Brokers.Storages.Sql.StorageBroker
+                                        if ($LASTEXITCODE -ne 0) { throw "the model has changes no migration carries" }
                                         """
                                 },
 
@@ -241,11 +331,19 @@ namespace Glory2Him.Core.Infrastructure.Services
                     },
                     {
                         "deploy_webapp",
-                        new Job
+                        new DeploymentJob
                         {
                             Name = "Deploy Web App To Azure (g2h-dev)",
                             RunsOn = BuildMachines.UbuntuLatest,
                             Needs = ["publish_webapp"],
+
+                            // Binds the run to the Development environment and hangs the deployed
+                            // URL off it in GitHub's UI.
+                            Environment = new DeploymentEnvironment
+                            {
+                                Name = "Development",
+                                Url = "${{ steps.deploy_to_webapp.outputs.webapp-url }}"
+                            },
 
                             Permissions = new Dictionary<string, string>
                             {
@@ -274,15 +372,16 @@ namespace Glory2Him.Core.Infrastructure.Services
 
                                     With = new Dictionary<string, string>
                                     {
-                                        { "client-id", "${{ secrets.AZUREAPPSERVICE_CLIENTID_8FD47A61697C42B88B3A8698602713EF }}" },
-                                        { "tenant-id", "${{ secrets.AZUREAPPSERVICE_TENANTID_FAA97044B19A4630977F2C86C14AB5A4 }}" },
-                                        { "subscription-id", "${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_5C67A75889F64364850175AD19913AA1 }}" }
+                                        { "client-id", "${{ secrets.AZURE_DEV_CLIENTID }}" },
+                                        { "tenant-id", "${{ secrets.AZURE_DEV_TENANTID }}" },
+                                        { "subscription-id", "${{ secrets.AZURE_DEV_SUBSCRIPTIONID }}" }
                                     }
                                 },
 
                                 new GithubTask
                                 {
                                     Name = "Deploy to Azure Web App",
+                                    Id = "deploy_to_webapp",
                                     Uses = "azure/webapps-deploy@v3",
 
                                     With = new Dictionary<string, string>
@@ -298,17 +397,7 @@ namespace Glory2Him.Core.Infrastructure.Services
                 }
             };
 
-            string buildScriptPath = "../../../../.github/workflows/build.yml";
-            string directoryPath = Path.GetDirectoryName(buildScriptPath);
-
-            if (!Directory.Exists(directoryPath))
-            {
-                Directory.CreateDirectory(directoryPath);
-            }
-
-            adotNetClient.SerializeAndWriteToFile(
-                adoPipeline: githubPipeline,
-                path: buildScriptPath);
+            WriteWorkflow(githubPipeline, workflowFileName: "build.yml");
         }
 
         public void GeneratePrLintScript(string branchName)
@@ -321,7 +410,8 @@ namespace Glory2Him.Core.Infrastructure.Services
                 {
                     PullRequest = new PullRequestEvent
                     {
-                        Types = ["opened", "edited", "synchronize", "reopened", "closed"]
+                        Types = ["opened", "edited", "synchronize", "reopened", "closed"],
+                        Branches = [branchName]
                     }
                 },
 
@@ -357,17 +447,29 @@ namespace Glory2Him.Core.Infrastructure.Services
                 }
             };
 
-            string buildScriptPath = "../../../../.github/workflows/prLinter.yml";
-            string directoryPath = Path.GetDirectoryName(buildScriptPath);
+            WriteWorkflow(githubPipeline, workflowFileName: "prLinter.yml");
+        }
 
-            if (!Directory.Exists(directoryPath))
+        /// <summary>
+        /// Anchored on the assembly's own location rather than the current directory, so
+        /// <c>dotnet run</c> from the project folder and running the built executable from
+        /// <c>bin/Debug/net10.0</c> both write the SAME file. A relative path resolved against the
+        /// working directory silently wrote the workflows outside the repository — and the
+        /// regeneration check is only worth anything if it cannot miss.
+        /// </summary>
+        private void WriteWorkflow(GithubPipeline githubPipeline, string workflowFileName)
+        {
+            string workflowsDirectory = Path.GetFullPath(
+                Path.Combine(AppContext.BaseDirectory, "../../../../.github/workflows"));
+
+            if (!Directory.Exists(workflowsDirectory))
             {
-                Directory.CreateDirectory(directoryPath);
+                Directory.CreateDirectory(workflowsDirectory);
             }
 
             adotNetClient.SerializeAndWriteToFile(
                 adoPipeline: githubPipeline,
-                path: buildScriptPath);
+                path: Path.Combine(workflowsDirectory, workflowFileName));
         }
     }
 }
