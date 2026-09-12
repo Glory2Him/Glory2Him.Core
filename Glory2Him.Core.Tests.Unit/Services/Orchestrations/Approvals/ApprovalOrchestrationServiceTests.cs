@@ -44,15 +44,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
     {
         private readonly Mock<IApprovalWorkflowService> approvalServiceMock;
         private readonly Mock<IApprovalReviewWorkflowService> approvalReviewServiceMock;
-        private readonly Mock<IApprovalReviewRequestWorkflowService> approvalReviewRequestWorkflowServiceMock;
 
-        // Only the WORKFLOW seam here too. The caller-facing IApprovalReviewRequestService left
-        // with §12.5.4's reviewer coordination for IApprovalReviewerOrchestrationService, and is
-        // covered by that service's own fixture — so the "not through the caller-facing
-        // foundation" assertions the retirement tests used to carry are gone rather than
-        // restated: this service can no longer reach that seam at all, and the compiler makes the
-        // point the assertions were making. IApprovalCommentService and IIdentityUserService went
-        // the same way and have no mock here at all.
+        // NO ApprovalReviewRequest MOCK OF ANY KIND, and that is the shape of the §12.5.4 split
+        // rather than an omission. The caller-facing foundation left with the reviewer
+        // coordination, and #522 took the WORKFLOW seam with the two §7.9 retirements — so this
+        // service can no longer reach the request record at all, and the compiler makes the point
+        // the "not through the caller-facing foundation" assertions used to make.
+        // IApprovalCommentService and IIdentityUserService went the same way.
 
         // Only the WORKFLOW seam. The caller-facing IAIReviewerAssignmentService left this
         // service with the three operations that used it — asking Berean, asking again,
@@ -78,9 +76,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         {
             this.approvalServiceMock = new Mock<IApprovalWorkflowService>();
             this.approvalReviewServiceMock = new Mock<IApprovalReviewWorkflowService>();
-            this.approvalReviewRequestWorkflowServiceMock =
-                new Mock<IApprovalReviewRequestWorkflowService>();
-
             this.aiReviewerAssignmentWorkflowServiceMock =
                 new Mock<IAIReviewerAssignmentWorkflowService>();
 
@@ -155,9 +150,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             this.approvalOrchestrationService = new ApprovalOrchestrationService(
                 approvalService: this.approvalServiceMock.Object,
                 approvalReviewWorkflowService: this.approvalReviewServiceMock.Object,
-
-                approvalReviewRequestWorkflowService:
-                    this.approvalReviewRequestWorkflowServiceMock.Object,
 
                 aiReviewerAssignmentWorkflowService:
                     this.aiReviewerAssignmentWorkflowServiceMock.Object,
@@ -366,21 +358,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                         .ReturnsAsync((Guid aiReviewerAssignmentId, CancellationToken _) =>
                             new AIReviewerAssignment { Id = aiReviewerAssignmentId });
 
-        // §7.9 rule 8's gathering seam — the invitations a closing round has to retire. UNFILTERED
-        // for the reason the dismissal read beside it is: two of the three closing routes run
-        // under the identity of whoever's edit or review tipped the round, which is ordinarily
-        // the author, and the caller-facing read would answer them with nothing.
-        //
-        // Keyed on the approval rather than It.IsAny so a test cannot pass by answering a
-        // question about a different round.
-        private void SetupRetirableApprovalReviewRequests(
-            Guid approvalId,
-            params Guid[] approvalReviewRequestIds) =>
-            this.accessBrokerMock.Setup(broker =>
-                broker.FindRetirableApprovalReviewRequestIdsAsync(
-                    approvalId,
-                    It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(approvalReviewRequestIds.ToList());
+        // §7.9 rule 8's gathering seam has NO SETUP HERE, deliberately. It moved with the
+        // retirement to ApprovalReviewerOrchestrationServiceTests, and the tests left in this
+        // fixture assert the read is never reached at all — a helper standing ready to answer it
+        // would only make that easier to break by accident.
 
         private void SetupConditions(ApprovalConditionsVerdict conditionsVerdict) =>
             this.accessBrokerMock.Setup(broker =>

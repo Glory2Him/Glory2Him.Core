@@ -1668,12 +1668,13 @@ for §7.9's retirements and neither for a re-test:
 | `Approval-Modified` | §7.9 rule 8 | The round may have closed; where the envelope's status says it did, every invitation still pending **and unanswered** is retired under the system identity. |
 
 **The two are independent and must stay independent — no delivery order is
-specified, and none may be relied on.** Rule 6 runs today as an
-`onVerifiedAsync` hook ordered ahead of the round's re-test, and that ordering is
-load-bearing under the current gather: the broker's `IsDeleted == false` filter
-means "still waiting on" only because rule 6 has already soft-deleted the
-answerer's row. Two subscriptions have no such order, and the losing order is the
-common case — the last vote closes the round, the re-test's write publishes
+specified, and none may be relied on.** Rule 6 used to run as an
+`onVerifiedAsync` hook ordered ahead of the round's re-test, and that ordering
+was load-bearing under the gather as it then stood: the broker's
+`IsDeleted == false` filter meant "still waiting on" only because rule 6 had
+already soft-deleted the answerer's row. Two subscriptions have no such order,
+and the losing order is the common case — the last vote closes the round, the
+re-test's write publishes
 `-Modified` synchronously, and rule 8 sweeps the answerer's own invitation with
 the reason "the approval round closed before this review was cast". So the rule 8
 gather **excludes any `RequestedUserId` holding a review that still STANDS** —
@@ -1694,6 +1695,18 @@ Three things about this pair, and each is a question a reviewer will ask:
    retirement previously ran as an `onVerifiedAsync` hook inside the round's
    handler, which coupled a reviewer-coordination write to the round's own
    delivery for no reason other than that both services did not yet exist.
+
+   **What the hook's POSITION used to guarantee now holds by construction.**
+   That hook sat after the signature check and *before* item (d)'s suppression
+   test, deliberately: suppression decides whether to re-test the round, and
+   retiring an answered invitation is not a re-test, so it had to happen either
+   way — otherwise a review recorded during a dismissal cascade would leave its
+   invitation standing forever. As a subscription on a service that has **no
+   suppression window at all**, rule 6 always runs, and there is no position
+   left to get wrong. The isolation the hook's surrounding `try`/`catch`
+   provided is structural for the same reason: two subscriptions, two
+   deliveries, two services, so a failing retirement cannot stop the round
+   re-testing.
 2. **`Approval-Modified` is admissible under item (e)'s amended boundary** —
    see the four conditions there. It is deliberately the *only* trigger for
    rule 8: a round closes three ways (§9.7.5, §9.7.7) and all three write the
@@ -1712,6 +1725,29 @@ Three things about this pair, and each is a question a reviewer will ask:
    (§12.5.3 rule 19). Introducing a discriminated `Approval-Reset` fact to move
    them too was considered and **deferred**: it adds event surface to remove a
    dependency that is already inside the Florance count.
+
+**Neither subscription DERIVES its accepted event name, and that is #286's to
+fix rather than this pair's.** The *address* is already canonical: both bind
+through `SubscribeTo<Entity>EventAsync(operation:)`, which resolves the address
+from `EventBrokerIdentifiers`' operation-to-address map, so no address is
+hand-written anywhere in this solution. The **signed event name** is a different
+string — `EventBroker` composes it as `entityName + operation` at publish time
+and exposes that composition to nobody — so every receiver states it as a
+literal, all of them today on `ApprovalOrchestrationService.Substrate.cs`. These
+two add `"ApprovalReviewAdded"` and `"ApprovalModified"` to that set rather than
+inventing a second shape beside it, because #286 is a sweep over all of them and
+a bespoke derivation at two sites would pre-empt a ruling scoped to the rest.
+Both literals are safe by the argument that already covers most of #286's:
+`EventBroker.Approval.cs` and `EventBroker.ApprovalReview.cs` pass
+`nameof(Approval)` and `nameof(ApprovalReview)`, so the literal is the type name
+and cannot drift the way `"ContentItemProcessing"` and `"LinkProcessing"` did in
+#278. `Approval-Modified` being the first of the `Approval` entity's own FACT
+addresses to carry a subscription — the five existing
+`SubscribeToApprovalEventAsync` registrations all bind command addresses —
+changes nothing here: the name is composed from the entity and the operation,
+never from the tense of the address. What verifies it against a real publisher
+is the acceptance suite, which drives the retirement over HTTP rather than
+calling the handler.
 
 **Outbound — approval-caused writes use a transition verb, never
 `-Modifying`.**
@@ -1862,21 +1898,56 @@ itself is at-least-once.**
    there is held off by the reset loop's suppression window rather than by a
    `ProcessedEvent` row (§EVN18(d)).
 
-   **The CALLER may still be a delivery, and that is a separate record.** The
-   dismissal and the AI return-to-pending are called from
+   **The CALLER may still be a delivery, and that delivery records nothing
+   either.** The dismissal and the AI return-to-pending are called from
    `ApprovalOrchestrationService`'s own flows. The two request retirements are
    called from `ApprovalReviewerOrchestrationService`'s subscriptions on
    `ApprovalReview-Added` and `Approval-Modified` (§EVN18's reviewer table,
-   `G2H Design.md` §12.5.4 business rule 4), so **that handler** records the
-   ordinary inbound `ProcessedEvent` against its own receiver name, exactly as
-   every other substrate handler does. Nothing above changes for the seam: the
-   handler's record is the delivery's, the seam's envelope is still
+   `G2H Design.md` §12.5.4 business rule 4). An earlier version of this
+   paragraph had that handler record "the ordinary inbound `ProcessedEvent`
+   against its own receiver name, exactly as every other substrate handler
+   does". **That comparison named the wrong tier.** The `ProcessedEvent` pair is
+   a FOUNDATION request-handler device: every
+   `SelectProcessedEventExistsAsync` / `InsertProcessedEventAsync` call site in
+   the solution sits on a foundation service, and
+   `ApprovalOrchestrationService.Substrate.cs` — whose fact handlers are the
+   only orchestration subscriptions built — writes none. The comparison is
+   narrowed to the tier it is true of, and the open question it left is ruled.
+
+   **A fact handler above the foundation records no inbound `ProcessedEvent`**,
+   and three things say so rather than one.
+
+   1. **It has no storage broker to write one with, and may not acquire one.**
+      Both halves of the pair are `IStorageBroker` calls, and `G2H Design.md`
+      §12.5 bars an orchestration from holding a storage broker outright.
+      Writing the record would take either that broker or a new service
+      invented to carry it.
+   2. **There would be no transaction to put it in.** This rule commits the row,
+      the outbox row and the pair together, which is what makes the pair mean
+      anything. The reviewer orchestration writes no row — it calls
+      `IApprovalReviewRequestWorkflowService`, which owns its own unit of work —
+      so a record written beside that call could commit while the retirement it
+      claims to have handled did not, leaving a row saying "already handled" in
+      front of work that never happened. That is worse than no record.
+   3. **Neither question the pair answers arises here.** The inbound record
+      exists so a replayed *request* is not applied twice, and the outbound
+      record so a published fact cannot loop back into the request handler that
+      caused it. A fact handler is asked for nothing and publishes nothing of
+      its own: `ApprovalReviewRequest-Modified` / `-Removed` go out from the
+      foundation seam, and nothing subscribes to either.
+
+   **What makes redelivery safe instead** is the handler's own gate rather than
+   a stored row: the signed status is read out of the HMAC before any gather,
+   and the gather returns no live rows once they are retired, so a second
+   delivery on a closed round finds nothing to do (`G2H Design.md` §12.5.4
+   business rule 4(i), §EVN18(e) condition 4). §EVN18(d) already rests on the
+   same footing — re-entry there is held off "rather than by a `ProcessedEvent`
+   row" — so this is that shape stated generally, not a new one.
+
+   Nothing above changes for the seam: the seam's envelope is still
    self-minted, and `ApprovalReviewRequest-Removed` still carries no subscriber.
-   The two records answer different questions — "has this delivery already been
-   handled" and "does this write need a dedup pair" — and conflating them is
-   what would make a redelivered `-Modified` look like a second write.
-   Under this ruling they take the row and the outbox row and nothing else, and
-   rules 2 and 5-7 hold for them unchanged: what makes a failed publish
+   Under this ruling the retirement takes the row and the outbox row and nothing
+   else, and rules 2 and 5-7 hold for it unchanged: what makes a failed publish
    recoverable is the outbox row, never the dedup pair.
 
    Three transitions sit the other way round, and are named here so the shape is

@@ -44,6 +44,7 @@ using Glory2Him.Core.Services.Foundations.ContentItemSettings;
 using Glory2Him.Core.Services.Foundations.Links;
 using Glory2Him.Core.Services.Foundations.Reactions;
 using Glory2Him.Core.Services.Foundations.Tags;
+using Glory2Him.Core.Services.Orchestrations.ApprovalReviewers;
 using Glory2Him.Core.Services.Orchestrations.Approvals;
 using Glory2Him.Core.Services.Orchestrations.ContentItemSettings;
 using Glory2Him.Core.Services.Processings.ContentItems;
@@ -1118,6 +1119,68 @@ namespace Glory2Him.Core.Registrations
                 approvalReviewEventHandler:
                     Scoped<IApprovalOrchestrationService, ApprovalReview>(
                         service => service.OnApprovalReviewAddedAsync),
+                cancellationToken: cancellationToken);
+
+            // §7.9 rule 6's retirement, and the SECOND subscriber on this one address (§EVN18's
+            // reviewer table). Two reactions on one address, in two services, with Deliveries
+            // recorded per subscription — not the double-fire §EVN2 rule 6 forbids, which bars ONE
+            // reaction from binding both the foundation and the layer tier of the same fact.
+            //
+            // It used to be an onVerifiedAsync hook inside the round's own handler above, which
+            // coupled a reviewer-coordination write to the round's delivery for no reason beyond
+            // both services not yet existing. As its own subscription it always runs: this service
+            // has no suppression window at all, so the guarantee that a review recorded during a
+            // dismissal cascade still retires its invitation is held by construction rather than
+            // by where a hook sat.
+            await this.eventBroker.SubscribeToApprovalReviewEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ApprovalReviewerOrchestrationOnApprovalReviewAddedSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalReviewerOrchestrationOnApprovalReviewAddedSubscriptionName,
+
+                    Description = "Reacts to a recorded review: retires the invitation its "
+                        + "author was asked through, under the system identity. Silent "
+                        + "where they were never invited."
+                },
+                operation: ApprovalReviewEventOperation.Added,
+                approvalReviewEventHandler:
+                    Scoped<IApprovalReviewerOrchestrationService, ApprovalReview>(
+                        service => service.OnApprovalReviewAddedAsync),
+                cancellationToken: cancellationToken);
+
+            // §7.9 rule 8's retirement, and the FIRST subscription in the solution on any of the
+            // Approval entity's own FACT addresses — the five SubscribeToApprovalEventAsync
+            // registrations bind Adding, Modifying, RemovingById, HardRemovingById and
+            // RetrievingById, every one of them a command.
+            //
+            // ONE subscription for all three routes to an outcome. The manual decision, the
+            // BlockOnReject rejection and the automatic approval all write through
+            // ModifyApprovalAsync, so they arrive here as one fact — where the three direct calls
+            // this replaces had to be kept in step by hand.
+            //
+            // Admissible under §EVN18(e)'s amended boundary because it is not a re-test: the
+            // handler reads no §8.5 predicate, moves none, and decides nothing. It gates on the
+            // status inside the envelope's HMAC and retires, or ends the delivery.
+            await this.eventBroker.SubscribeToApprovalEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ApprovalReviewerOrchestrationOnApprovalModifiedSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalReviewerOrchestrationOnApprovalModifiedSubscriptionName,
+
+                    Description = "Reacts to an amended approval: where its signed status says "
+                        + "the round CLOSED, retires every invitation still pending and "
+                        + "unanswered. An open round is left alone."
+                },
+                operation: ApprovalEventOperation.Modified,
+                approvalEventHandler:
+                    Scoped<IApprovalReviewerOrchestrationService, Approval>(
+                        service => service.OnApprovalModifiedAsync),
                 cancellationToken: cancellationToken);
 
             // The other seven workflow-record fact addresses (§10.17(a)). Every one of them can

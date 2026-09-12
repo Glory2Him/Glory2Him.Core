@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using G2H.Security.Client.Models.Foundations.Access;
 using G2H.Security.Client.Models.Securities;
 using Glory2Him.Core.Brokers.EventEnvelopes;
+using Glory2Him.Core.Brokers.Integrities;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Models.Enums;
@@ -32,11 +33,15 @@ namespace Glory2Him.Core.Services.Orchestrations.ApprovalReviewers
         : IApprovalReviewerOrchestrationService
     {
         private readonly IApprovalReviewRequestService approvalReviewRequestService;
+
+        private readonly IApprovalReviewRequestWorkflowService
+            approvalReviewRequestWorkflowService;
         private readonly IApprovalCommentService approvalCommentService;
         private readonly IIdentityUserService identityUserService;
         private readonly IApprovalWorkflowService approvalService;
         private readonly IAccessBroker accessBroker;
         private readonly IEventEnvelopeBroker eventEnvelopeBroker;
+        private readonly IEnvelopeIntegrityBroker envelopeIntegrityBroker;
         private readonly ILoggingBroker loggingBroker;
 
         // FOUR service dependencies and FOUR exception arms — fifteen downstream blocks, which is
@@ -69,27 +74,46 @@ namespace Glory2Him.Core.Services.Orchestrations.ApprovalReviewers
         //   to a moderator who can do nothing about it. Reached through the WORKFLOW seam because
         //   what a round IS is a fact about storage rather than a view of whoever is asking.
         //
-        // IAccessBroker and the envelope and logging brokers oblige no arm, so §12.5's broker rule
-        // keeps them outside the count.
+        // IAccessBroker and the envelope, integrity and logging brokers oblige no arm, so §12.5's
+        // broker rule keeps them outside the count.
+        //
+        // IApprovalReviewRequestWorkflowService is a FIFTH PARAMETER AND NOT A FIFTH DEPENDENCY,
+        // which is the one place the count and the constructor are allowed to disagree. It is a
+        // second door onto ApprovalReviewRequestService, and both doors share that class's own
+        // TryCatch — ApprovalReviewRequestService.Transitions.cs wraps the two retirement verbs in
+        // the same one the caller-facing operations use — so they throw ApprovalReviewRequest*
+        // between them and cost ONE arm, which arm 1 above already pays. §16.7.1 rule 2 counts the
+        // shared FAMILY rather than the shared instance, and says why the instance is the wrong
+        // thing to count.
+        //
+        // IEventBroker is DELIBERATELY ABSENT, unlike on the approval round's service. Nothing on
+        // this contract publishes: the two subscriptions verify an inbound envelope and cause
+        // their write through the workflow seam, which publishes for itself. Subscribing is not a
+        // reason to hold it either — EventSubscriptionRegistration holds the broker and binds the
+        // handler, exactly as it does for every other subscriber (§12.5.4 business rule 1).
         //
         // IApprovalOrchestrationService is DELIBERATELY NOT A DEPENDENCY. An orchestration calling
         // an orchestration is what the Standard has coordination services for, and there is no
         // coordination need: this service resolves the round it needs for itself.
         public ApprovalReviewerOrchestrationService(
             IApprovalReviewRequestService approvalReviewRequestService,
+            IApprovalReviewRequestWorkflowService approvalReviewRequestWorkflowService,
             IApprovalCommentService approvalCommentService,
             IIdentityUserService identityUserService,
             IApprovalWorkflowService approvalService,
             IAccessBroker accessBroker,
             IEventEnvelopeBroker eventEnvelopeBroker,
+            IEnvelopeIntegrityBroker envelopeIntegrityBroker,
             ILoggingBroker loggingBroker)
         {
             this.approvalReviewRequestService = approvalReviewRequestService;
+            this.approvalReviewRequestWorkflowService = approvalReviewRequestWorkflowService;
             this.approvalCommentService = approvalCommentService;
             this.identityUserService = identityUserService;
             this.approvalService = approvalService;
             this.accessBroker = accessBroker;
             this.eventEnvelopeBroker = eventEnvelopeBroker;
+            this.envelopeIntegrityBroker = envelopeIntegrityBroker;
             this.loggingBroker = loggingBroker;
         }
 

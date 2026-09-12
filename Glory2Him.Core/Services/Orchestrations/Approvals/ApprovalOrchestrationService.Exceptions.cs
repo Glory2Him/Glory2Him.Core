@@ -181,9 +181,9 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             // names all three. The only thing THIS service reads a comment for is the §8.5 count,
             // and that arrives as a verdict.
             //
-            // IApprovalReviewRequestWorkflowService is still a dependency and still costs no arm:
-            // the two retirements that use it each absorb and log what they raise, so nothing from
-            // that foundation reaches this chain. #522 takes the seam away entirely.
+            // IApprovalReviewRequestWorkflowService is not a dependency either any more: the two
+            // §7.9 retirements that held it are subscriptions on the reviewer orchestration now
+            // (§12.5.4 business rule 4), and its chain is where they report.
 
             // Any OTHER downstream foundation exception — an endpoint service's dependency or
             // service failure (its validation failures are already turned into a not-found at the

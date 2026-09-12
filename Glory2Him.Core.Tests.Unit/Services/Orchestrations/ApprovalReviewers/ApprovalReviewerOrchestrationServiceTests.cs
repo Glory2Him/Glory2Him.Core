@@ -15,6 +15,7 @@ using System.Linq.Expressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Brokers.EventEnvelopes;
+using Glory2Him.Core.Brokers.Integrities;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Models.Enums;
@@ -37,11 +38,20 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ApprovalReviewers
     public partial class ApprovalReviewerOrchestrationServiceTests
     {
         private readonly Mock<IApprovalReviewRequestService> approvalReviewRequestServiceMock;
+
+        // The SECOND door onto the same foundation class, and not a fifth dependency: both
+        // retirement verbs share ApprovalReviewRequestService's own TryCatch with the
+        // caller-facing door, so the two interfaces throw one family between them (§16.7.1 rule
+        // 2). Mocked separately here because a unit test asserts on the seam that was reached,
+        // and the two say different sentences on the row.
+        private readonly Mock<IApprovalReviewRequestWorkflowService>
+            approvalReviewRequestWorkflowServiceMock;
         private readonly Mock<IApprovalCommentService> approvalCommentServiceMock;
         private readonly Mock<IIdentityUserService> identityUserServiceMock;
         private readonly Mock<IApprovalWorkflowService> approvalServiceMock;
         private readonly Mock<IAccessBroker> accessBrokerMock;
         private readonly Mock<IEventEnvelopeBroker> eventEnvelopeBrokerMock;
+        private readonly Mock<IEnvelopeIntegrityBroker> envelopeIntegrityBrokerMock;
         private readonly Mock<ILoggingBroker> loggingBrokerMock;
         private readonly IApprovalReviewerOrchestrationService approvalReviewerOrchestrationService;
         private SecurityContext ambientSecurityContext;
@@ -49,6 +59,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ApprovalReviewers
         public ApprovalReviewerOrchestrationServiceTests()
         {
             this.approvalReviewRequestServiceMock = new Mock<IApprovalReviewRequestService>();
+
+            this.approvalReviewRequestWorkflowServiceMock =
+                new Mock<IApprovalReviewRequestWorkflowService>();
+
             this.approvalCommentServiceMock = new Mock<IApprovalCommentService>();
 
             // A ROUND WITH NO COMMENTS, unless a test says otherwise. Moq's default for
@@ -70,7 +84,18 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ApprovalReviewers
             this.approvalServiceMock = new Mock<IApprovalWorkflowService>();
             this.accessBrokerMock = new Mock<IAccessBroker>();
             this.eventEnvelopeBrokerMock = new Mock<IEventEnvelopeBroker>();
+            this.envelopeIntegrityBrokerMock = new Mock<IEnvelopeIntegrityBroker>();
             this.loggingBrokerMock = new Mock<ILoggingBroker>();
+
+            // EVERY INBOUND ENVELOPE VERIFIES unless a test says otherwise. Moq's default for
+            // ValueTask<bool> is false, so without this every substrate test would be refused at
+            // the signature check and would pass for the one reason it must not.
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    It.IsAny<EventEnvelope<It.IsAnyType>>(),
+                    It.IsAny<string>(),
+                    It.IsAny<EnvelopeDirection>()))
+                        .ReturnsAsync(true);
 
             // The subject is VISIBLE unless a test says otherwise. Without this every §14.5 rule 3
             // gate would read the mock's default false and refuse, and a suite about tiers and
@@ -108,11 +133,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ApprovalReviewers
 
             this.approvalReviewerOrchestrationService = new ApprovalReviewerOrchestrationService(
                 approvalReviewRequestService: this.approvalReviewRequestServiceMock.Object,
+
+                approvalReviewRequestWorkflowService:
+                    this.approvalReviewRequestWorkflowServiceMock.Object,
+
                 approvalCommentService: this.approvalCommentServiceMock.Object,
                 identityUserService: this.identityUserServiceMock.Object,
                 approvalService: this.approvalServiceMock.Object,
                 accessBroker: this.accessBrokerMock.Object,
                 eventEnvelopeBroker: this.eventEnvelopeBrokerMock.Object,
+                envelopeIntegrityBroker: this.envelopeIntegrityBrokerMock.Object,
                 loggingBroker: this.loggingBrokerMock.Object);
         }
 

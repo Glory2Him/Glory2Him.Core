@@ -113,8 +113,11 @@ view you were on, and switching carries your current selection across.
   `EventEnvelopeBroker`, `SecurityAuditBroker` and `DateTimeBroker` edges are
   gone from `CIP` and `LP` while the latest/published reads keep theirs — those
   two still apply the single-row posture themselves.
-- **All 112 subscriptions are drawn.** `EventSubscriptionRegistration` wires
-  112 and the data files carry 112. They first matched at 108 in the 2026-08-21
+- **All 114 subscriptions the data declares are drawn**, and two of them are
+  `ARO`'s, added by issue #522. `EventSubscriptionRegistration` wires 121, so
+  this bullet no longer reports a match — the seven-subscription drift is the
+  one the closing bullet records, and it predates both orchestration splits.
+  The data files first matched the registration at 108 in the 2026-08-21
   scan (the 2026-08-11 scan drew 71 against 85); the four added since are
   `ApprovalReviewRequest`'s, below. The original gap closed in two halves: the
   six approvable entities gained their `Submitting` / `Approving`
@@ -154,12 +157,20 @@ view you were on, and switching carries your current selection across.
   flow used to draw (`FS.Approval.FindApprovalByEntityAsync` then
   `AccessBroker.RetrieveApprovalReviewerScopeByIdAsync`) is made by no method on any service
   now. On a null it runs the §9.7.2 rule 1 repair — hence its `RetrieveEntityApprovalStatusAsync`,
-  `FindApprovalByEntityAsync` and `AddApprovalAsync` edges — and asks the gather again.
-- **`ARO` binds no subscriptions yet**, which is why the purple count did not move. The rule 6
-  retirement still hangs off `AO.OnApprovalReviewAddedAsync` and the rule 8 sweep off `AO`'s
-  closing paths; issue #522 brings both here as subscriptions and takes
-  `IApprovalReviewRequestWorkflowService` off `AO` with them. Issue #523 splits
-  `ApprovalsController`, which binds `ARO` for its five reviewer routes meanwhile.
+  `FindApprovalByEntityAsync` and `AddApprovalAsync` edges — and asks the gather again. The BY-ID
+  gather is still drawn, and by this same component: §7.9 rule 6's subscription resolves its round
+  by approval id off the envelope, so it needs no entity lookup ahead of it. It is the PAIR that
+  is gone, not the read.
+- **`ARO` binds TWO subscriptions and publishes nothing** (issue #522, design §12.5.4 business
+  rule 4). `ApprovalReview.Added` carries §7.9 rule 6's retirement and `Approval.Modified`
+  carries rule 8's — the first subscription in the solution on any of the `Approval` entity's
+  own FACT addresses, the five existing ones all binding command addresses. `ApprovalReview.Added`
+  therefore has two subscribers, `AO`'s re-test and this retirement: two reactions on one
+  address in two services, with `Deliveries` recorded per subscription, which is not the
+  double-fire §EVN2 rule 6 forbids. `AO` lost its `RetrieveApprovalReviewerScopeByIdAsync` and
+  both `Retire*ApprovalReviewRequestAsync` edges with them, and with those the
+  `IApprovalReviewRequestWorkflowService` seam entirely. Issue #523 splits `ApprovalsController`,
+  which binds `ARO` for its five reviewer routes meanwhile.
 - **`RetireAnsweredApprovalReviewRequestAsync` is the second workflow seam in
   the graph**, after `ApprovalReviewService.DismissStaleApprovalReviewAsync`,
   and it is drawn the same way: a `CreateSystemAsync` edge instead of
@@ -175,10 +186,13 @@ view you were on, and switching carries your current selection across.
   answered, because a review can no longer be recorded against a decided round
   and the row would go on rendering an ask nobody can answer. It is drawn
   identically — same `CreateSystemAsync`, same `Removed` fact, same absent
-  `InsertProcessedEventAsync` pair — and the graph shows FOUR `AO` methods
-  reaching it, which is the point of the pair of edges rather than one:
-  `DecideApprovalAsync` is the only route a person is on, and the other three
-  close rounds with nobody clicking. Its read is `AccessBroker`'s
+  `InsertProcessedEventAsync` pair. **Exactly ONE method reaches it, and it is
+  `ARO.OnApprovalModifiedAsync`** (issue #522). The graph used to show FOUR `AO`
+  methods reaching it — one per route a round can close by — and that
+  enumeration is what the subscription replaced: all three closing routes write
+  the outcome through `ModifyApprovalAsync`, so one subscriber on the fact that
+  write publishes hears all of them and no list of call sites has to be kept in
+  step. Its read is `AccessBroker`'s
   `FindRetirableApprovalReviewRequestIdsAsync` rather than the foundation's own
   round-keyed read, for the reason the dismissal's gather already carries: two
   of those routes run under the editor's or reviewer's identity, and the
@@ -196,21 +210,45 @@ view you were on, and switching carries your current selection across.
   §12.5.4's reviewer coordination in PR #535, and the only thing this service
   reads a comment for is the §8.5 count, which arrives as a verdict.
 - **Circular event flows now exist, and the red edges are correct.** 14 of the
-  112 subscriptions are on fact addresses, all handled by `AO`. `AO` publishes
+  114 subscriptions are on ENTITY fact addresses, all handled by `AO` — the two
+  `ARO` gained in issue #522 are on WORKFLOW-RECORD and `Approval` fact
+  addresses and are not among them, so they take no part in the cycle. `AO` publishes
   `<Entity>-Approving`, each entity publishes `<Entity>-Added` / `-Modified`
   back, and Tarjan finds one cyclic component: `AO`, `CIP`, `LP`,
   `FS.Tag`, `FS.Comment`, `FS.Reaction`, `FS.BibleReference`,
   `FS.Association`. 63 lines render red. `FS.ContentItem`
   and `FS.Link` stay out of it because `AO` addresses their processing tier.
   The `ApprovalReview` and `ApprovalComment` fact subscriptions stay purple:
-  nothing `AO` publishes reaches those two services. The two
+  nothing `AO` publishes reaches those two services. `ARO`'s two stay purple for
+  a second reason as well — it publishes nothing at all, so it can close no
+  loop. The two
   `<Entity>Processing-Approved` facts added on 2026-09-07 stay purple-free
   entirely — nothing subscribes to them.
 - **`EnvelopeIntegrityBroker` is new to the data.** Symmetric HMAC signing and
   verification of every envelope. It takes only `IConfiguration`, so it is a
-  leaf with no outbound edges — but 16 components call it: `EventBroker` signs
-  on publish and verifies on reply, and all 12 foundations, both processing
-  services and the orchestration verify inside their substrate handlers.
+  leaf with no outbound edges. `EventBroker` signs on publish and verifies on
+  reply, and every service with a substrate handler verifies inside it.
+  `ApprovalReviewerOrchestrationService` joined them in #522.
+
+  **The caller list is derived rather than written down**, because a written one
+  goes stale the next time anyone adds a substrate handler:
+
+  ```
+  grep -rl "this\.envelopeIntegrityBroker" --include="*.cs" Glory2Him.Core/ \
+    | sed -E 's#.*/##; s#^([^.]+).*\.cs$#\1#' | sort -u
+  ```
+
+  **This bullet has carried a hand-written caller list twice, and both were
+  wrong.** One gave 16 callers rising to 17, with 12 foundations and two
+  orchestrations — every one of those four numbers was off, and it named
+  `ApprovalReviewerOrchestrationService` as the second orchestration to call the
+  broker when `ContentItemSettingOrchestrationService` already did. A later one
+  named the non-declarers as the foundations, both processing services and that
+  same orchestration, which summed to one short of the total beside it because
+  `EventBroker` was in the total and missing from the list. Both were produced by
+  deriving a delta and inheriting the absolute it applied to. That is why the
+  command is here and the list is not: run it rather than restating it, and if
+  you must quote a figure, quote the revision you measured.
 - **`Demote<Entity>VersionAsync` is gone, and the data finally agrees**
   (removed from the YAML 2026-09-07; reversed in source 2026-08-19 by
   `4d674b7d`, #265, which derives the version tip instead of storing it).
@@ -293,17 +331,43 @@ view you were on, and switching carries your current selection across.
   caller today, and it is drawn.
 - **No foundation draws its `IEnvelopeIntegrityBroker` edge.** The body text
   above is right that every substrate handler verifies the envelope signature
-  there, but only `ApprovalOrchestrationService` declares those calls in the
-  data — the 14 foundations and both processing services do not.
+  there, but **only `ApprovalOrchestrationService` and — since #522 —
+  `ApprovalReviewerOrchestrationService` declare those calls in the data.** Every
+  other caller's are undrawn. The callers are the list the command in the
+  `EnvelopeIntegrityBroker` bullet above produces; subtract the two that declare.
   `FS.ApprovalReviewRequest` follows its siblings rather than fixing this for
   one service alone, which would make the picture less consistent, not more.
   Correcting it is a template-wide edit and belongs to a full re-scan.
-- **The header counts moved again on 2026-09-12.** Single copy reads
+- **The header counts moved again on 2026-09-12.** After #521 single copy read
   **68 components · 1406 flows**, per consumer **193 nodes · 1883 flows**.
-  Purple edges are still **112** in both views and **63** lines still render red
-  in both — neither the AI reviewer nor the reviewer orchestration added any, for
-  the reasons in the bullets below: `ARO` binds no subscriptions and publishes
-  nothing. The `/update-dependency-graph` skill's own verification numbers are
+  Purple edges were **112** in both views and **63** lines still render red in
+  both — the AI reviewer and the #521 reviewer split added neither, for the
+  reasons in the bullets below.
+
+  **Issue #522 leaves single copy at 68 components · 1404 flows**, measured the
+  same way rather than inferred. It moves no component. Its edge delta is **six
+  direct edges added and ten removed** — the four `ARO` retirement edges plus a
+  `VerifyAsync` edge for each of its two handlers, against the rule 6 hook's two
+  and the rule 8 sweep's two at each of *four* `AO` call sites — and **two
+  subscribe edges added**, taking purple from 112 to 114. Net two fewer flows.
+  Red is unmoved, because `ARO` publishes nothing and so can close no loop.
+
+  Counting the `AO` call sites as three is the mistake to avoid here, and an
+  earlier version of this bullet made it: `ProcessApprovalInputsChangedAsync`
+  drew the pair as well as the three closing routes.
+
+  **Per consumer, #522 reads 191 nodes · 1884 flows** — measured the same way,
+  by running `buildDuplicatedInstances` rather than deriving it. It cannot be
+  derived: that view duplicates a dependency per consumer, so removing `AO`'s
+  retirement edges removed two whole per-consumer COPIES while `ARO`'s handlers
+  added edges mostly onto instances that already existed. Nodes therefore fall
+  by two while flows rise by one, which is the opposite direction from the
+  single-copy total and the reason this number has to be run rather than
+  reasoned about. An earlier version of this bullet gave the underivability as
+  grounds for leaving it unmeasured; it is grounds for measuring it, and the
+  function sits in the same file as the one already being run.
+
+  The `/update-dependency-graph` skill's own verification numbers are
   stale by three generations now and should be read from here instead.
 
   *Measured by running the page's own `buildSingleCopyInstances` and
@@ -348,21 +412,49 @@ view you were on, and switching carries your current selection across.
   `IApprovalWorkflowService`, drawn as its `FindApprovalByEntityAsync` and
   `AddApprovalAsync` edges — that is the §9.7.2 rule 1 repair, and it is the
   approved Florance deviation §12.5's register records.
-  **`ARO` draws no purple edges and no red ones**: it binds no subscriptions and
-  publishes nothing today. Issue #522 brings the §7.9 rule 6 and rule 8
-  retirements here as subscriptions — which is when its first purple edges
-  appear and when `AO`'s `RetireAnsweredApprovalReviewRequestAsync` and
-  `RetrieveApprovalReviewerScopeByIdAsync` edges leave — and issue #523 splits
-  `ApprovalsController`. Like `AIRO`, it renders with zero inbound flows because
-  the controller folders are still unmodelled (see the bullet below).
-- **Two gaps are still open and neither is this update's doing.**
-  `EventSubscriptionRegistration` now wires **119** subscriptions while the data
-  declares **112** — a drift of seven that predates the AI reviewer and wants a
+  **`ARO` draws two purple edges and no red ones** since issue #522: it binds
+  the §7.9 rule 6 and rule 8 retirements as subscriptions and still publishes
+  nothing of its own, because both cause their write through the foundation's
+  workflow seam, which publishes for itself — which is why it holds
+  `IEnvelopeIntegrityBroker` but not `IEventBroker`. `AO`'s
+  `RetireAnsweredApprovalReviewRequestAsync`, `RetireClosedRoundApprovalReviewRequestAsync`,
+  `RetrieveApprovalReviewerScopeByIdAsync` and
+  `FindRetirableApprovalReviewRequestIdsAsync` edges left with them. Issue #523
+  splits `ApprovalsController`. Like `AIRO`, it renders with zero inbound flows
+  because the controller folders are still unmodelled (see the bullet below).
+- **Three gaps are still open and none is this update's doing.**
+  `EventSubscriptionRegistration` now wires **121** subscriptions while the data
+  declares **114** — a drift of seven that predates the AI reviewer and wants a
   targeted pass of its own. And the twelve controller folders (the eleven listed
   above plus `AIReviewers`) remain unmodelled, so `AIRO` renders with zero
   inbound flows and `WA.*` still has no edge into Core. Adding them is still the
   next full scan's job; doing it for the one new controller alone would make the
   picture less consistent, not more.
+
+  The third is **two more undrawn `AO` calls beside the `IsEntityVisibleAsync`
+  ones already recorded above** — `AccessBroker.MayAmendApprovalAsync` and
+  `AccessBroker.RetrieveEntityApprovalStatusAsync`. Both are in `AO`'s source on
+  `main` and absent from its `calls` on `main`, so they predate this change and
+  are left for the pass that owns `AO`, exactly as its sibling bullet leaves the
+  six visibility reads.
+
+  **A further six counts in this file are unverified and at least suspect**, all
+  byte-identical on `origin/main` and none this PR's to fix: `FS.ApprovalReviewRequest`'s
+  method/edge tallies, the `IAccessBroker` consumer list, `StorageBroker`'s drawn-row
+  figure, the 177-of-184 event-address arithmetic, "108 listeners" against the
+  121 recorded earlier in this file, and "Twelve" versus "eleven" controllers. Recorded here so
+  the re-scan has the list; deliberately not re-derived, because chasing them
+  from a reviewer-orchestration PR is how a documentation pass becomes a
+  template-wide edit.
+
+  **How they were found is the transferable part.** The graph had only ever been
+  checked in one direction — *does every drawn edge still exist in the code* —
+  and that direction is structurally blind to an omission. Running it the other
+  way, *is every code call drawn*, is what turned these up, and it is also what
+  caught `ARO`'s two missing `VerifyAsync` edges in #522: the forward check
+  passed on `ARO` while its own description asserted a verification the data did
+  not draw. `ARO` and `AIRO` are clean in both directions now. Worth repeating on
+  any component a change touches.
 
 ## The data files
 

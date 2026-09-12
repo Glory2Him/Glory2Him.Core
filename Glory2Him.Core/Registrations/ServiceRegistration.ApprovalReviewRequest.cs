@@ -40,8 +40,8 @@ namespace Glory2Him.Core.Registrations
             // right.
             services.AddSingleton<IApprovalReviewRequestService, ApprovalReviewRequestService>();
 
-            // Registered HERE rather than left to the host, because the approval orchestration
-            // will take this seam (§7.9 rule 6) and the interface is internal — a host outside
+            // Registered HERE rather than left to the host, because the reviewer orchestration
+            // takes this seam for §7.9 rules 6 and 8 and the interface is internal — a host outside
             // Core's friend set could not supply it itself.
             services.AddSingleton<IApprovalReviewRequestWorkflowService>(provider =>
                 (ApprovalReviewRequestService)provider
