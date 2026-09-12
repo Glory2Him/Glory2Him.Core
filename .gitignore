@@ -444,6 +444,11 @@ Documentation/api.bible/
 # Deployment artefact produced by Tools/new-database-script.sh
 Glory2Him.Core.Database.sql
 
+# The deliberately broken copy the build's migration rehearsal applies to prove that
+# its sqlcmd really does default QUOTED_IDENTIFIER OFF. It is a by-product of running
+# that check, never an input to anything.
+Glory2Him.Core.Database.HeaderStripped.sql
+
 # Throw-away broker wire-up probes. Brokers carry no logic and get no tests; the
 # only exception is a disposable probe under DeleteMe/Brokers/ that confirms an
 # external resource is actually connected, so a wire-up mistake surfaces in
