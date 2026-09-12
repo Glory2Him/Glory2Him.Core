@@ -48,56 +48,120 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
             this.seededAssociations = new List<Association>();
         }
 
+        /// <summary>
+        /// Both tiers reaching the expression tree at once, asserted on the ROWS that come back.
+        ///
+        /// <para>This replaced a test that read <c>ToQueryString()</c> and matched substrings of
+        /// the generated SQL — <c>= N'Tag'</c>, <c>[a].[EntityAType] =</c>, and the rest (#486).
+        /// Those assertions gated the build on EF's SQL formatting, which changes across provider
+        /// upgrades with no change in behaviour. Everything they were reaching for is visible in
+        /// the result set instead: a predicate EF cannot translate still throws before any row is
+        /// returned, and enum values parameterised as numbers rather than the
+        /// <c>HasConversion&lt;string&gt;()</c> names would match nothing, so the reachable rows
+        /// below would be missing.</para>
+        ///
+        /// <para>Five rows, because the narrow tier is FOUR conjuncts over two endpoints and a
+        /// row set that leaves any of them unexercised proves less than the SQL strings did.
+        /// The B-side branch needs a row whose only route in is <c>EntityBContentType</c> —
+        /// canonical ordering decides which endpoint a content item lands on, so the B side is
+        /// not a mirror that can be assumed. And the two endpoint-TYPE conjuncts need a row
+        /// carrying a content type on endpoints that are not content items, on BOTH sides —
+        /// the service refuses to write such a pair, but no check constraint does (see the
+        /// note on <c>ResolveReviewableContentTypes</c>), so the column can hold it and the
+        /// query is what must not be fooled by it.</para>
+        /// </summary>
         [Fact]
-        public async Task ShouldTranslateTheReviewableSetsToSqlAsync()
+        public async Task ShouldReturnRowsFromBothTiersWhenTheCallerHoldsCoarseAndNarrowRolesAsync()
         {
             // given: a caller holding both a coarse and a narrow scoped role, so both the
             // entity-type set and the content-type set are non-empty and both reach the
             // expression tree
+            string actorUserId = Guid.NewGuid().ToString();
+
             this.broker.ActAs(
-                actorUserId: Guid.NewGuid().ToString(),
+                actorUserId,
                 Roles.TagReviewers,
                 "ContentItem-Testimony-Reviewers");
+
+            // in through the coarse tier, on the B endpoint
+            Association coarseReachableAssociation = CreateAssociation(
+                entityAType: EntityType.ContentItem,
+                entityAContentType: ContentType.Story,
+                entityBType: EntityType.Tag,
+                isPublished: false,
+                createdBy: Guid.NewGuid().ToString());
+
+            // in through the narrow tier, on the A endpoint
+            Association narrowEndpointAReachableAssociation = CreateAssociation(
+                entityAType: EntityType.ContentItem,
+                entityAContentType: ContentType.Testimony,
+                entityBType: EntityType.Reaction,
+                isPublished: false,
+                createdBy: Guid.NewGuid().ToString());
+
+            // in through the narrow tier, on the B endpoint — its ONLY route in, so this dies
+            // if the B-side branch stops translating or reads the wrong column
+            Association narrowEndpointBReachableAssociation = CreateAssociation(
+                entityAType: EntityType.Comment,
+                entityAContentType: null,
+                entityBType: EntityType.ContentItem,
+                isPublished: false,
+                createdBy: Guid.NewGuid().ToString(),
+                entityBContentType: ContentType.Testimony);
+
+            // the B-side control: right endpoint type, wrong content type
+            Association otherContentTypeOnEndpointBAssociation = CreateAssociation(
+                entityAType: EntityType.Comment,
+                entityAContentType: null,
+                entityBType: EntityType.ContentItem,
+                isPublished: false,
+                createdBy: Guid.NewGuid().ToString(),
+                entityBContentType: ContentType.Story);
+
+            // a reviewable content type parked on BOTH endpoints, neither of them a content
+            // item. Carrying it on one endpoint only would mutation-test one conjunct and
+            // leave the other free: with the B column null, dropping
+            // EntityBType == ContentItem changes no answer here, because the null still fails
+            // the IS NOT NULL guard. Populated on both, this single row dies if EITHER
+            // endpoint-type conjunct goes.
+            Association contentTypeOnNonContentItemEndpointsAssociation = CreateAssociation(
+                entityAType: EntityType.Comment,
+                entityAContentType: ContentType.Testimony,
+                entityBType: EntityType.Link,
+                isPublished: false,
+                createdBy: Guid.NewGuid().ToString(),
+                entityBContentType: ContentType.Testimony);
+
+            await SeedAsync(
+                coarseReachableAssociation,
+                narrowEndpointAReachableAssociation,
+                narrowEndpointBReachableAssociation,
+                otherContentTypeOnEndpointBAssociation,
+                contentTypeOnNonContentItemEndpointsAssociation);
 
             // when
             IQueryable<Association> query =
                 await this.broker.AssociationService.RetrieveAllAssociationsAsync(
                     CancellationToken.None);
 
-            string sql = query.ToQueryString();
+            List<Association> actualAssociations =
+                await query.ToListAsync(TestContext.Current.CancellationToken);
 
-            // then: reaching a SQL string at all is the first half of the proof — a predicate
-            // EF cannot translate throws here rather than producing one
-            sql.Should().NotBeNullOrWhiteSpace();
-            sql.Should().Contain("SELECT");
+            // then: both tiers answer on both endpoints, and neither widens to everything
+            actualAssociations.Should().Contain(association =>
+                association.Id == coarseReachableAssociation.Id);
 
-            // The enum columns are mapped HasConversion<string>(), so the parameters SQL sees
-            // must be the member NAMES. If EF parameterised the underlying numbers the
-            // predicate would silently match nothing.
-            //
-            // Asserting on the bare words "Tag" and "Testimony" would not show that: both
-            // appear in the SELECT projection as part of column names. This asserts on the
-            // parameter's declared VALUE — an N-prefixed string literal, which is what a
-            // numeric parameterisation could not produce.
-            sql.Should().Contain("= N'Tag'",
-                because: "the reviewable entity type is parameterised as its name, not its number");
+            actualAssociations.Should().Contain(association =>
+                association.Id == narrowEndpointAReachableAssociation.Id);
 
-            sql.Should().Contain("= N'Testimony'",
-                because: "the reviewable content type is parameterised as its name, not its number");
+            actualAssociations.Should().Contain(association =>
+                association.Id == narrowEndpointBReachableAssociation.Id);
 
-            // The role predicate itself must be server-side. Asserting on a projected column
-            // proves nothing — every column is in the SELECT list regardless — so this looks
-            // for the role clauses in the WHERE.
-            sql.Should().Contain("[a].[EntityAType] =",
-                because: "the endpoint-A role clause is evaluated by the server");
+            actualAssociations.Should().NotContain(association =>
+                association.Id == otherContentTypeOnEndpointBAssociation.Id);
 
-            sql.Should().Contain("[a].[EntityBType] =",
-                because: "the endpoint-B role clause is evaluated by the server");
-
-            // EF must emit its own null guard around the nullable enum rather than relying on
-            // C# short-circuit ordering, which SQL does not guarantee
-            sql.Should().Contain("[a].[EntityAContentType] IS NOT NULL");
-            sql.Should().Contain("[a].[EntityBContentType] IS NOT NULL");
+            actualAssociations.Should().NotContain(association =>
+                association.Id == contentTypeOnNonContentItemEndpointsAssociation.Id);
         }
 
         [Fact]
@@ -168,6 +232,60 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
                 association.Id == unreachableAssociation.Id);
         }
 
+        /// <summary>
+        /// The coarse tier's A-endpoint clause, which nothing else in this file reaches.
+        ///
+        /// <para>Every other test grants <c>Tag-Reviewers</c>, and "Tag" sorts after every other
+        /// <c>EntityType</c> name under <c>Latin1_General_BIN2</c>, so
+        /// <c>CK_Association_CanonicalOrder</c> makes it impossible for a Tag endpoint to land on
+        /// A. The reviewable type therefore has to be one that sorts EARLY to test that side at
+        /// all — "ContentItem" precedes "Link", so a ContentItem reviewer is the caller that puts
+        /// the match on endpoint A. Without this, dropping
+        /// <c>reviewableEntityTypes.Contains(association.EntityAType)</c> changes no assertion in
+        /// the file.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnRowsMatchingTheCoarseTierOnTheAEndpointAsync()
+        {
+            // given: a caller whose only role is coarse over ContentItem
+            this.broker.ActAs(
+                actorUserId: Guid.NewGuid().ToString(),
+                Roles.ContentItemReviewers);
+
+            // reachable ONLY through EntityAType — the B endpoint is a Link, which this caller
+            // has no role over, and no narrow role is held so the content type cannot let it in
+            Association endpointAReachableAssociation = CreateAssociation(
+                entityAType: EntityType.ContentItem,
+                entityAContentType: ContentType.Story,
+                entityBType: EntityType.Link,
+                isPublished: false,
+                createdBy: Guid.NewGuid().ToString());
+
+            Association unreachableAssociation = CreateAssociation(
+                entityAType: EntityType.Comment,
+                entityAContentType: null,
+                entityBType: EntityType.Link,
+                isPublished: false,
+                createdBy: Guid.NewGuid().ToString());
+
+            await SeedAsync(endpointAReachableAssociation, unreachableAssociation);
+
+            // when
+            IQueryable<Association> query =
+                await this.broker.AssociationService.RetrieveAllAssociationsAsync(
+                    CancellationToken.None);
+
+            List<Association> actualAssociations =
+                await query.ToListAsync(TestContext.Current.CancellationToken);
+
+            // then
+            actualAssociations.Should().Contain(association =>
+                association.Id == endpointAReachableAssociation.Id);
+
+            actualAssociations.Should().NotContain(association =>
+                association.Id == unreachableAssociation.Id);
+        }
+
         [Fact]
         public async Task ShouldReturnRowsMatchingTheNarrowTierAndNotOtherContentTypesAsync()
         {
@@ -214,12 +332,15 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
             this.seededAssociations.AddRange(associations);
         }
 
+        // entityBContentType defaults to null because most cases only need the A side; the
+        // B-side narrow tier is a separate branch of the filter and has to be able to set it
         private static Association CreateAssociation(
             EntityType entityAType,
             ContentType? entityAContentType,
             EntityType entityBType,
             bool isPublished,
-            string createdBy)
+            string createdBy,
+            ContentType? entityBContentType = null)
         {
             DateTimeOffset now = DateTimeOffset.UtcNow;
 
@@ -235,7 +356,7 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
                 EntityBKeyId = Guid.NewGuid(),
                 EntityBGroupId = Guid.NewGuid(),
                 EntityBScope = Scope.AllVersions,
-                EntityBContentType = null,
+                EntityBContentType = entityBContentType,
                 ApprovalStatus = ApprovalStatus.Draft,
                 IsPublished = isPublished,
                 IsDeleted = false,

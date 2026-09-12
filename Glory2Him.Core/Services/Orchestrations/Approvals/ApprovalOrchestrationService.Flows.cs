@@ -371,6 +371,10 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         // the instance that serves the request. AsyncLocal rather than a field because the flow
         // and the handler it suppresses are the same logical call, and a field would leak the
         // suppression across concurrent evaluations of different rounds.
+        //
+        // That an AsyncLocal set here is READABLE inside a delivery is a property of the
+        // substrate rather than of this file, and it is measured — ExecutionContextFlowTests.
+        // Were it ever untrue, everything below would be dead code that still compiled.
         private static readonly AsyncLocal<Guid> suppressedDismissalApprovalId = new();
 
         private static bool IsDismissalReTestSuppressedFor(Guid approvalId) =>

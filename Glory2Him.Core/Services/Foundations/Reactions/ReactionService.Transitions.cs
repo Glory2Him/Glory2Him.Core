@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Exceptions;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Reactions;
 
@@ -136,11 +137,18 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
             // permitted the waiver.
             ValidateOnTransitionReactionApproval(reaction);
 
-            // The system identity is a claim about PROVENANCE, and provenance is not carried by
-            // the payload. It is honoured only where this service minted the context itself; an
-            // envelope that arrived over a public event address carries a deserialized,
-            // unverified context (§14.6 rule 4), and a caller able to assert the flag there
-            // would walk past every rule below by declaring themselves the workflow.
+            // The system identity is a claim about PROVENANCE, and the SIGNATURE carries it.
+            // The flag sits inside the signed payload and only this system holds the key, so it
+            // cannot be added to a genuine envelope without breaking the HMAC, nor asserted on
+            // a forged one — a verified envelope is one this system minted, whichever path it
+            // arrived by (§16.7.1). That is what lets the approval workflow sync its decision
+            // onto the entity over an event at all — a call-site rule could not.
+            //
+            // Provenance is still an ARGUMENT each entry point supplies rather than a property
+            // read off the data, so an entry point carrying no workflow command has a place to
+            // refuse the claim (§9.7.1 rule 3). Every entry point verifies its envelope and
+            // then passes true, so this conjunction narrows nothing today: it is the seam, not
+            // the guard. The guard is the signature check the receiver already ran.
             bool isSystemIdentity =
                 isSystemIdentityAdmissible
                     && inboundEnvelope.SecurityContext.IsSystemIdentity;
@@ -268,9 +276,80 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
                     sourceEnvelope: inboundEnvelope,
                     content: updatedReaction);
 
-            await this.eventBroker.PublishReactionAsync(
-                envelope: outboundEnvelope,
-                operation: operation);
+            EventPublishResult<Reaction> publishResult =
+                await this.eventBroker.PublishReactionAsync(
+                    envelope: outboundEnvelope,
+                    operation: operation);
+
+            // §EVN23. Delivery is contained, so a subscriber that failed says so HERE and
+            // nowhere else, and nothing redelivers it. Reaction-Submitted reaches the
+            // approval round; dropping it diverges the round from the row permanently,
+            // because the read-triggered repair only opens a MISSING round (§16.7.2).
+            // Unconditional because an unsubscribed address reports no deliveries at all —
+            // the subscription list answers this, and a copy of it does not belong in a
+            // service.
+            //
+            // Logged, never thrown: the row is already committed above, and failing the caller
+            // now would report a completed write as a failed one. What guarantees that is the
+            // CONTAINMENT below, not where this sits — an earlier version of this comment
+            // claimed the position did it.
+            //
+            // BEFORE the outbound dedup write, and that ordering is the rule's own requirement.
+            // That write can fail, and a report placed after it would be skipped by the very
+            // failure it has to survive, leaving a dropped required delivery unreported while an
+            // unrelated bookkeeping fault took the blame. The two are independent: a dedup row
+            // that would not save says nothing about whether the fact arrived, and the operator
+            // needs both. It sat after this write until the report was contained, so that a
+            // faulting sink could not cost the event its dedup row; containment answers that now.
+            if (publishResult.HasFailedDeliveries)
+            {
+                // CONTAINED, because the report is bookkeeping on somebody else's path and does
+                // not get to decide that path's outcome — the same shape, and the same argument,
+                // as ResetStaleAIReviewerAssignmentAsync and Substrate's onVerified hook.
+                // LogCriticalAsync has no try/catch of its own, so a faulting sink (back-
+                // pressure, a disposed provider at shutdown) would otherwise propagate: it would
+                // report a COMMITTED write as a failed one, which is exactly what rule 2 forbids
+                // and what being last in this method does NOT prevent. Being last only stops the
+                // throw skipping work that follows it HERE — and where this report sits in a
+                // shared helper, work still follows it in the CALLER.
+                //
+                // Swallowed rather than logged, and that is the one place this differs from
+                // those two: the sink that would have to carry a second message is the one that
+                // just threw. The delivery failure is already recorded on the event store's own
+                // row, which the event id and subscription id locate.
+                //
+                // EVERY exception, cancellation included, and that is deliberate.
+                // ILoggingBroker.LogCriticalAsync(Exception) takes no CancellationToken, so the
+                // caller's token cannot reach it: an OperationCanceledException raised in there
+                // is never the caller cancelling, it is the SINK failing — a disposed provider
+                // at shutdown, or a batching provider's own flush deadline — which is the case
+                // this block exists for. An earlier version carved it out by exception filter,
+                // copied from ResetStaleAIReviewerAssignmentAsync and Substrate's onVerified
+                // hook; both of those guard calls that DO take a token, so the carve-out means
+                // something there and nothing here.
+                //
+                // What the carve-out actually did: the escape landed in this service's TryCatch,
+                // whose cancellation arm matches an OperationCanceledException whose token is
+                // NOT cancelled — the exact shape of a sink-originated one — and turned a
+                // committed write into a timeout reported to the caller. It also skipped the
+                // outbound dedup write below, letting a redelivery re-apply the transition.
+                // Composed OUTSIDE the try, so only the SINK is contained. ForFailedDeliveries
+                // carries its own precondition and refuses to render a report naming nobody; a
+                // guard that can only ever be swallowed is not a guard, and a fault composing
+                // the message is a defect in this code rather than a sink that is down. Inside
+                // the block it would vanish with no log and no trace — a second silent
+                // containment in the mechanism built to end the first one.
+                FailedEventDeliveryException deliveryReport =
+                    FailedEventDeliveryException.ForFailedDeliveries(publishResult, operation);
+
+                try
+                {
+                    await this.loggingBroker.LogCriticalAsync(deliveryReport);
+                }
+                catch (Exception)
+                {
+                }
+            }
 
             await RecordEventProcessedAsync(
                 envelope: outboundEnvelope,

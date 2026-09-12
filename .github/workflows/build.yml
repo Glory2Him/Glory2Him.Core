@@ -49,11 +49,18 @@ jobs:
       working-directory: Websites/Glory2Him.WebApp.React
     - name: Run Unit Tests
       run: >-
+        # A pwsh step takes its conclusion from the LAST command, so without this
+
+        # guard only the last discovered project could fail the build and every
+
+        # earlier project's failure was discarded silently. Same guard as below.
+
         $projects = Get-ChildItem -Path . -Filter "*Tests.Unit*.csproj" -Recurse
 
         foreach ($project in $projects) {
           Write-Host "Running tests for: $($project.FullName)"
           dotnet test $project.FullName --no-build --verbosity normal
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
         }
       shell: pwsh
     - name: Run Acceptance Tests
@@ -63,7 +70,9 @@ jobs:
         foreach ($project in $projects) {
           Write-Host "Running tests for: $($project.FullName)"
           dotnet test $project.FullName --no-build --verbosity normal
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
         }
+      shell: pwsh
     - name: Run Integration Tests
       run: >-
         # windows-latest ships SQL Server LocalDB; the fixtures connect to

@@ -110,8 +110,15 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ContentItems
         }
 
         /// <summary>
-        /// A soft delete never clears IsPublished and the slot index names that column alone, so a
-        /// tombstone still holds the slot. Skipping it would leave the group unpublishable.
+        /// The slot READ carries no IsDeleted conjunct, so a row that was published and then
+        /// soft-deleted without its flag being cleared still surfaces as the incumbent. Skipping
+        /// it would leave the group unpublishable.
+        ///
+        /// <para>Note the index does not say so: migration
+        /// <c>20260830122844_FilterPublishedSlotIndexesOnLiveRows</c> narrowed
+        /// <c>IX_ContentItem_IsPublished</c> to <c>[IsPublished] = 1 AND [IsDeleted] = 0</c>, so a
+        /// tombstone is outside it. The read is what holds this behaviour, and this is the test
+        /// that says so.</para>
         /// </summary>
         [Fact]
         public async Task ShouldFindThePublishedTombstoneHoldingTheGroupSlotAsync()
@@ -290,10 +297,11 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ContentItems
         }
 
         /// <summary>
-        /// The tip derivation, asked as a boolean. Three conjuncts, one decoy each: a tombstone at
-        /// a higher version does NOT hold the tip away from a live row (the mirror image of the
-        /// version high-water mark, which counts it), a higher version in ANOTHER group is
-        /// irrelevant, and the row itself is not "higher" than itself.
+        /// The tip derivation, asked as a boolean. Three conjuncts, and two facts: this one says
+        /// a higher live sibling in the group IS seen, and the negative below says none of the
+        /// three decoys is — a tombstone at a higher version does NOT hold the tip away from a
+        /// live row (the mirror image of the version high-water mark, which counts it), a higher
+        /// version in ANOTHER group is irrelevant, and the row itself is not "higher" than itself.
         /// </summary>
         [Fact]
         public async Task ShouldReportAHigherLiveVersionInTheSameGroupAsync()
@@ -315,57 +323,35 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ContentItems
             exists.Should().BeTrue();
         }
 
+        /// <summary>
+        /// One negative fact carrying all three decoys at once, which is what the three separate
+        /// negatives it replaced (#486) bought between them. Seeding them together loses nothing:
+        /// each decoy is a row the predicate must keep excluding, so the test dies under any
+        /// mutation that BROADENS a conjunct — drop <c>IsDeleted == false</c> and the tombstone at
+        /// version 4 answers, drop <c>GroupId == groupId</c> and the other group's version 9 does,
+        /// weaken <c>&gt;</c> to <c>&gt;=</c> and the candidate reports itself as superseded.
+        ///
+        /// <para>It says nothing about a mutation that NARROWS one: reversing <c>&gt;</c> to
+        /// <c>&lt;</c> leaves this false and this test green. That direction is
+        /// <see cref="ShouldReportAHigherLiveVersionInTheSameGroupAsync"/>'s to catch, which is
+        /// why the positive fact stays — the two are a pair, not a fact and a spare.</para>
+        /// </summary>
         [Fact]
-        public async Task ShouldNotReportASoftDeletedHigherVersionAsHoldingTheTipAsync()
+        public async Task ShouldNotReportADecoyAsHoldingTheTipAsync()
         {
-            // given: the tombstone owns version 2 for NUMBERING purposes, but nobody edits it, so
-            // the live version 1 is still the tip
-            Guid groupId = Guid.NewGuid();
-
-            ContentItem candidate = CreateContentItem(groupId: groupId, version: 1);
-            ContentItem deletedNewer = CreateContentItem(groupId: groupId, version: 2);
-            deletedNewer.IsDeleted = true;
-
-            await SeedAsync(candidate, deletedNewer);
-
-            // when
-            bool exists =
-                await this.broker.StorageBroker.ExistsHigherLiveContentItemVersionInGroupAsync(
-                    groupId, 1, TestContext.Current.CancellationToken);
-
-            // then
-            exists.Should().BeFalse();
-        }
-
-        [Fact]
-        public async Task ShouldNotReportAHigherVersionFromAnotherGroupAsync()
-        {
-            // given
-            Guid groupId = Guid.NewGuid();
-
-            ContentItem candidate = CreateContentItem(groupId: groupId, version: 1);
-            ContentItem otherGroupNewer = CreateContentItem(groupId: Guid.NewGuid(), version: 9);
-
-            await SeedAsync(candidate, otherGroupNewer);
-
-            // when
-            bool exists =
-                await this.broker.StorageBroker.ExistsHigherLiveContentItemVersionInGroupAsync(
-                    groupId, 1, TestContext.Current.CancellationToken);
-
-            // then
-            exists.Should().BeFalse();
-        }
-
-        [Fact]
-        public async Task ShouldNotReportTheCandidatesOwnVersionAsHigherAsync()
-        {
-            // given: strictly greater, or a lone row would report itself as superseded
+            // given: the tombstone owns version 4 for NUMBERING purposes, but nobody edits it, so
+            // the live version 3 is still the tip. Neither is the other group's version 9
+            // relevant, nor is the candidate higher than itself.
             Guid groupId = Guid.NewGuid();
 
             ContentItem candidate = CreateContentItem(groupId: groupId, version: 3);
 
-            await SeedAsync(candidate);
+            ContentItem deletedNewer = CreateContentItem(groupId: groupId, version: 4);
+            deletedNewer.IsDeleted = true;
+
+            ContentItem otherGroupNewer = CreateContentItem(groupId: Guid.NewGuid(), version: 9);
+
+            await SeedAsync(candidate, deletedNewer, otherGroupNewer);
 
             // when
             bool exists =
