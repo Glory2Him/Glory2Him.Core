@@ -690,6 +690,28 @@ describe('ContentItemPanel', () => {
 
             expect(screen.getByRole('button', { name: /Moderate/ })).toBeDisabled();
         });
+
+        // A REGRESSION GUARD. A live row is the case the lock must not touch: the editor
+        // behind the action opens for the whole tier while the item is still amendable, so
+        // the action stays live and raises its event exactly as it did before #508.
+        it('should leave the moderation action live on a submitted item', async () => {
+            const onModerateClick = vi.fn();
+            const submittedItem = atStatus(devotionalItem, ApprovalStatus.Submitted);
+            signInAs(authState, ['Administrators']);
+
+            renderCard(
+                <ContentItemPanel
+                    contentItem={submittedItem}
+                    onModerateClick={onModerateClick} />);
+
+            const action = screen.getByRole('button', { name: /Moderate/ });
+
+            expect(action).toBeEnabled();
+
+            await userEvent.click(action);
+
+            expect(onModerateClick).toHaveBeenCalledWith(submittedItem);
+        });
     });
 
     describe('assigned reactions', () => {
