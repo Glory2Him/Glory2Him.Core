@@ -10,11 +10,13 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.AIReviewerAssignments;
+using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Orchestrations.AIReviewers;
@@ -101,6 +103,68 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
 
         public async ValueTask RemoveApprovalReviewAsync(ApprovalReview approvalReview) =>
             await this.storageBroker.DeleteApprovalReviewAsync(approvalReview);
+
+        /// <summary>
+        /// An outstanding invitation on a round (§7.9) — somebody who was asked and has not
+        /// answered. Arranged beneath HTTP like the round itself: the POST that would create one
+        /// gates on the invited person holding the review tier in the SECURITY store, which is a
+        /// different arrangement entirely from the one this row exists to serve.
+        /// </summary>
+        public async ValueTask<ApprovalReviewRequest> InsertPendingReviewRequestAsync(
+            Guid approvalId,
+            string requestedUserId)
+        {
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+
+            var approvalReviewRequest = new ApprovalReviewRequest
+            {
+                Id = Guid.NewGuid(),
+                ApprovalId = approvalId,
+                RequestedUserId = requestedUserId,
+                RequestedUserDisplayName = "Arranged Invitee",
+                IsDeleted = false,
+                CreatedBy = Guid.NewGuid().ToString(),
+                CreatedWhen = now,
+                UpdatedBy = Guid.NewGuid().ToString(),
+                UpdatedWhen = now
+            };
+
+            return await this.storageBroker.InsertApprovalReviewRequestAsync(
+                approvalReviewRequest);
+        }
+
+        /// <summary>
+        /// The stored row, read straight from Core. The caller-facing GET filters deleted rows
+        /// out, which is what a test about a RETIREMENT needs to see past — a soft delete and a
+        /// hard one look identical through that read, and only one of them is §7.9 rule 8.
+        /// </summary>
+        public async ValueTask<ApprovalReviewRequest> GetCoreApprovalReviewRequestByIdAsync(
+            Guid approvalReviewRequestId) =>
+            await this.storageBroker.SelectApprovalReviewRequestByIdAsync(
+                approvalReviewRequestId);
+
+        public async ValueTask RemoveApprovalReviewRequestAsync(
+            ApprovalReviewRequest approvalReviewRequest)
+        {
+            ApprovalReviewRequest stored =
+                await this.storageBroker.SelectApprovalReviewRequestByIdAsync(
+                    approvalReviewRequest.Id);
+
+            if (stored is not null)
+            {
+                await this.storageBroker.DeleteApprovalReviewRequestAsync(stored);
+            }
+        }
+
+        /// <summary>
+        /// Who has been asked and has not yet answered, through the exposer the moderation panel
+        /// calls (§16.7.4). Requesting tier only, so the caller has to be one.
+        /// </summary>
+        public async ValueTask<List<ApprovalReviewRequest>> GetApprovalReviewRequestsAsync(
+            EntityType entityType,
+            Guid entityId) =>
+            await this.apiFactoryClient.GetContentAsync<List<ApprovalReviewRequest>>(
+                $"api/approvals/{entityType}/{entityId}/ReviewRequests");
 
         public async ValueTask RemoveApprovalAsync(Approval approval) =>
             await this.storageBroker.DeleteApprovalAsync(approval);

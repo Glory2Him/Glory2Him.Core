@@ -703,6 +703,7 @@ export const ContentItemModerationDetailPage = () => {
                                 <ContentItemPanel
                                     contentItem={searchItem}
                                     showModerationSection
+                                    moderationOpensEditor
                                     showApprovalStatusRibbon
                                     showApprovalStatus={false}
                                     showContentExpanded

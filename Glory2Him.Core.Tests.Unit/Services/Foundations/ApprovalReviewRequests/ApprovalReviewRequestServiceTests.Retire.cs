@@ -29,6 +29,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviewRequests
         private const string ExpectedRetirementReason =
             "Retired: the invited reviewer recorded their review.";
 
+        private const string ExpectedClosedRoundRetirementReason =
+            "Retired: the approval round closed before this review was cast.";
+
         /// <summary>
         /// §7.9 rule 6 — the invited person answered, so the invitation retires itself. It runs
         /// under the SYSTEM identity, which is why it cannot go through the public withdraw verb:
@@ -261,7 +264,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviewRequests
 
             var unauthorizedApprovalReviewRequestException =
                 new UnauthorizedApprovalReviewRequestException(
-                    message: "Retiring an answered approval review request is the approval "
+                    message: "Retiring an approval review request is the approval "
                         + "workflow's own act; no user may perform it.");
 
             var expectedApprovalReviewRequestValidationException =
@@ -274,6 +277,225 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviewRequests
             ValueTask<ApprovalReviewRequest> retireTask =
                 this.approvalReviewRequestWorkflowService
                     .RetireAnsweredApprovalReviewRequestAsync(
+                        someApprovalReviewRequestId,
+                        TestContext.Current.CancellationToken);
+
+            ApprovalReviewRequestValidationException actualException =
+                await Assert.ThrowsAsync<ApprovalReviewRequestValidationException>(
+                    retireTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedApprovalReviewRequestValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectApprovalReviewRequestByIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        /// <summary>
+        /// §7.9 rule 8 — the round closed on an outcome, so an invitation it never answered is
+        /// retired. Same system identity as rule 6's retirement above, and a DIFFERENT
+        /// <c>DeletionReason</c>: that sentence is the only thing telling a reader which of the
+        /// two happened to the row, which is why this is its own verb rather than a parameter.
+        /// </summary>
+        [Fact]
+        public async Task ShouldRetireClosedRoundApprovalReviewRequestUnderTheSystemIdentityAsync()
+        {
+            // given: the caller holds NO review role — the system identity is the authority here
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+
+            ApprovalReviewRequest randomApprovalReviewRequest = CreateRandomApprovalReviewRequest();
+            Guid inputApprovalReviewRequestId = randomApprovalReviewRequest.Id;
+            ApprovalReviewRequest storageApprovalReviewRequest = randomApprovalReviewRequest;
+            ApprovalReviewRequest auditAppliedApprovalReviewRequest = storageApprovalReviewRequest.DeepClone();
+            auditAppliedApprovalReviewRequest.IsDeleted = true;
+            auditAppliedApprovalReviewRequest.DeletionReason = ExpectedClosedRoundRetirementReason;
+            ApprovalReviewRequest retiredApprovalReviewRequest = auditAppliedApprovalReviewRequest.DeepClone();
+            ApprovalReviewRequest expectedApprovalReviewRequest = retiredApprovalReviewRequest.DeepClone();
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectApprovalReviewRequestByIdAsync(
+                    inputApprovalReviewRequestId, It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageApprovalReviewRequest);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyRemoveAuditValuesAsync(
+                    storageApprovalReviewRequest,
+                    It.Is<SecurityContext>(context => context.IsSystemIdentity),
+                    ExpectedClosedRoundRetirementReason))
+                        .ReturnsAsync(auditAppliedApprovalReviewRequest);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateApprovalReviewRequestAsync(
+                    auditAppliedApprovalReviewRequest, It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(retiredApprovalReviewRequest);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishApprovalReviewRequestAsync(
+                    It.IsAny<EventEnvelope<ApprovalReviewRequest>>(),
+                    ApprovalReviewRequestEventOperation.Removed))
+                        .Returns(new ValueTask<EventPublishResult<ApprovalReviewRequest>>(
+                            new EventPublishResult<ApprovalReviewRequest>()));
+
+            // when
+            ApprovalReviewRequest actualApprovalReviewRequest =
+                await this.approvalReviewRequestWorkflowService
+                    .RetireClosedRoundApprovalReviewRequestAsync(
+                        inputApprovalReviewRequestId,
+                        TestContext.Current.CancellationToken);
+
+            // then
+            actualApprovalReviewRequest.Should().BeEquivalentTo(expectedApprovalReviewRequest);
+
+            actualApprovalReviewRequest.DeletionReason
+                .Should().Be(ExpectedClosedRoundRetirementReason);
+
+            // The two retirement sentences are genuinely different rows in the audit trail. A
+            // reader who cannot tell a close from an answer learns nothing from either.
+            actualApprovalReviewRequest.DeletionReason
+                .Should().NotBe(ExpectedRetirementReason);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyRemoveAuditValuesAsync(
+                    storageApprovalReviewRequest,
+                    It.Is<SecurityContext>(context => context.IsSystemIdentity),
+                    ExpectedClosedRoundRetirementReason),
+                Times.Once);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishApprovalReviewRequestAsync(
+                    It.IsAny<EventEnvelope<ApprovalReviewRequest>>(),
+                    ApprovalReviewRequestEventOperation.Removed),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertProcessedEventAsync(
+                    It.IsAny<ProcessedEvent>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        /// <summary>
+        /// The COMMON case on the close path, and the reason it costs nothing: most invitations
+        /// are already gone by the time the round closes — rule 6 retired the answered ones, and
+        /// the deciding review is frequently the very answer that retired the last of them. An
+        /// already-deleted row is returned unchanged and publishes no second removal fact.
+        /// </summary>
+        [Fact]
+        public async Task ShouldNotRetireAnAlreadyRetiredApprovalReviewRequestOnCloseAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            ApprovalReviewRequest randomApprovalReviewRequest = CreateRandomApprovalReviewRequest();
+            randomApprovalReviewRequest.IsDeleted = true;
+            Guid inputApprovalReviewRequestId = randomApprovalReviewRequest.Id;
+            ApprovalReviewRequest storageApprovalReviewRequest = randomApprovalReviewRequest;
+            ApprovalReviewRequest expectedApprovalReviewRequest = storageApprovalReviewRequest.DeepClone();
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectApprovalReviewRequestByIdAsync(
+                    inputApprovalReviewRequestId, It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageApprovalReviewRequest);
+
+            // when
+            ApprovalReviewRequest actualApprovalReviewRequest =
+                await this.approvalReviewRequestWorkflowService
+                    .RetireClosedRoundApprovalReviewRequestAsync(
+                        inputApprovalReviewRequestId,
+                        TestContext.Current.CancellationToken);
+
+            // then
+            actualApprovalReviewRequest.Should().BeEquivalentTo(expectedApprovalReviewRequest);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateApprovalReviewRequestAsync(
+                    It.IsAny<ApprovalReviewRequest>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishApprovalReviewRequestAsync(
+                    It.IsAny<EventEnvelope<ApprovalReviewRequest>>(),
+                    It.IsAny<ApprovalReviewRequestEventOperation>()),
+                Times.Never);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnRetireOnCloseIfIdIsInvalidAndLogItAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            Guid invalidApprovalReviewRequestId = Guid.Empty;
+
+            var invalidApprovalReviewRequestException =
+                new InvalidApprovalReviewRequestException(
+                    message: "Approval review request is invalid, fix the errors and try again.");
+
+            invalidApprovalReviewRequestException.AddData(
+                key: nameof(ApprovalReviewRequest.Id),
+                values: "Id is required");
+
+            var expectedApprovalReviewRequestValidationException =
+                new ApprovalReviewRequestValidationException(
+                    message: "Approval review request validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: invalidApprovalReviewRequestException);
+
+            // when
+            ValueTask<ApprovalReviewRequest> retireTask =
+                this.approvalReviewRequestWorkflowService
+                    .RetireClosedRoundApprovalReviewRequestAsync(
+                        invalidApprovalReviewRequestId,
+                        TestContext.Current.CancellationToken);
+
+            ApprovalReviewRequestValidationException actualException =
+                await Assert.ThrowsAsync<ApprovalReviewRequestValidationException>(
+                    retireTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedApprovalReviewRequestValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalReviewRequestValidationException))),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectApprovalReviewRequestByIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        /// <summary>
+        /// The same guard as rule 6's, reached through the same shared do-work: the close
+        /// retirement is the workflow's act too, and a caller-shaped context is refused whichever
+        /// verb it arrived on.
+        /// </summary>
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnRetireOnCloseIfTheContextIsNotTheSystemAsync()
+        {
+            // given: a caller-shaped context reaches the do-work instead of a system-minted one
+            this.systemContextIsGenuine = false;
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
+            Guid someApprovalReviewRequestId = Guid.NewGuid();
+
+            var unauthorizedApprovalReviewRequestException =
+                new UnauthorizedApprovalReviewRequestException(
+                    message: "Retiring an approval review request is the approval "
+                        + "workflow's own act; no user may perform it.");
+
+            var expectedApprovalReviewRequestValidationException =
+                new ApprovalReviewRequestValidationException(
+                    message: "Approval review request validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: unauthorizedApprovalReviewRequestException);
+
+            // when
+            ValueTask<ApprovalReviewRequest> retireTask =
+                this.approvalReviewRequestWorkflowService
+                    .RetireClosedRoundApprovalReviewRequestAsync(
                         someApprovalReviewRequestId,
                         TestContext.Current.CancellationToken);
 

@@ -284,10 +284,14 @@ components:
       - FindDismissableApprovalReviewIdsAsync
       - ResolveAIReviewerPolicyByIdAsync
       - FindResettableAIReviewerAssignmentIdAsync
+      - FindRetirableApprovalReviewRequestIdsAsync
     calls:
       - from: FindDismissableApprovalReviewIdsAsync
         to: StorageBroker
         method: SelectAllApprovalReviewsAsync
+      - from: FindRetirableApprovalReviewRequestIdsAsync
+        to: StorageBroker
+        method: SelectAllApprovalReviewRequestsAsync
       - from: ResolveAIReviewerPolicyByIdAsync
         to: SC.AccessClient
         method: ResolveAIReviewerPolicyAsync
@@ -2641,7 +2645,7 @@ components:
     name: ApprovalReviewRequestService
     layer: foundation
     col: 5
-    description: "Foundation CRUD for ApprovalReviewRequest - the review INVITATIONS of design 7.9. An invitation grants no eligibility and enters no 8.5 condition, so this service has no cross-entity invariant to defend and - uniquely among the approval foundations - takes NO IAccessBroker. It has no Modify either: ApprovalId and RequestedUserId are the halves of the uniqueness index and are fixed at creation, so a mistaken invitation is withdrawn and re-issued rather than edited. Reads are gated on the two parties (requester, invited user) plus the review tier, and answer not-found otherwise. Withdrawal is open to the whole review tier rather than to the requester alone (7.9 rule 5) - the one place it diverges from ApprovalReviewService - so its remove path takes no GetUserIdAsync ownership read. RetireAnsweredApprovalReviewRequestAsync is the workflow's own seam (7.9 rule 6, IApprovalReviewRequestWorkflowService): it mints the system identity through CreateSystemAsync and gates on IsSystemIdentity rather than on a role, because the system context carries no roles and so could never pass the withdraw gate. Like the sibling's dismissal it does NO ProcessedEvents bookkeeping - it has no event address and no handler, so both rows would be written with no reader. The On*Async substrate handlers are wired by EventSubscriptionRegistration to the entity's request events; after the ProcessedEvents dedupe check they delegate to the same Do*Async path as the public methods (dual ProcessedEvents record: inbound + outbound envelope)."
+    description: "Foundation CRUD for ApprovalReviewRequest - the review INVITATIONS of design 7.9. An invitation grants no eligibility and enters no 8.5 condition, so this service has no cross-entity invariant to defend and - uniquely among the approval foundations - takes NO IAccessBroker. It has no Modify either: ApprovalId and RequestedUserId are the halves of the uniqueness index and are fixed at creation, so a mistaken invitation is withdrawn and re-issued rather than edited. Reads are gated on the two parties (requester, invited user) plus the review tier, and answer not-found otherwise. Withdrawal is open to the whole review tier rather than to the requester alone (7.9 rule 5) - the one place it diverges from ApprovalReviewService - so its remove path takes no GetUserIdAsync ownership read. RetireAnsweredApprovalReviewRequestAsync and RetireClosedRoundApprovalReviewRequestAsync are the workflow's own seam (7.9 rules 6 and 8, IApprovalReviewRequestWorkflowService): both mint the system identity through CreateSystemAsync and gate on IsSystemIdentity rather than on a role, because the system context carries no roles and so could never pass the withdraw gate. They are two verbs over one body, and what differs is the DeletionReason each binds - answered, versus overtaken by the round closing - because a caller free to choose that sentence would be writing the audit trail. Like the sibling's dismissal it does NO ProcessedEvents bookkeeping - it has no event address and no handler, so both rows would be written with no reader. The On*Async substrate handlers are wired by EventSubscriptionRegistration to the entity's request events; after the ProcessedEvents dedupe check they delegate to the same Do*Async path as the public methods (dual ProcessedEvents record: inbound + outbound envelope)."
     methods:
       - AddApprovalReviewRequestAsync
       - RetrieveAllApprovalReviewRequestsAsync
@@ -2654,6 +2658,7 @@ components:
       - OnHardRemovingApprovalReviewRequestByIdAsync
       - OnRetrievingApprovalReviewRequestByIdAsync
       - RetireAnsweredApprovalReviewRequestAsync
+      - RetireClosedRoundApprovalReviewRequestAsync
     calls:
       - from: RetireAnsweredApprovalReviewRequestAsync
         to: EventEnvelopeBroker
@@ -2668,6 +2673,21 @@ components:
         to: StorageBroker
         method: UpdateApprovalReviewRequestAsync
       - from: RetireAnsweredApprovalReviewRequestAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: RetireClosedRoundApprovalReviewRequestAsync
+        to: EventEnvelopeBroker
+        method: CreateSystemAsync
+      - from: RetireClosedRoundApprovalReviewRequestAsync
+        to: StorageBroker
+        method: SelectApprovalReviewRequestByIdAsync
+      - from: RetireClosedRoundApprovalReviewRequestAsync
+        to: SecurityAuditBroker
+        method: ApplyRemoveAuditValuesAsync
+      - from: RetireClosedRoundApprovalReviewRequestAsync
+        to: StorageBroker
+        method: UpdateApprovalReviewRequestAsync
+      - from: RetireClosedRoundApprovalReviewRequestAsync
         to: EventEnvelopeBroker
         method: CreateNextAsync
       - from: AddApprovalReviewRequestAsync
@@ -2783,6 +2803,8 @@ components:
       - method: HardRemoveApprovalReviewRequestByIdAsync
         event: ApprovalReviewRequest.HardRemoved
       - method: RetireAnsweredApprovalReviewRequestAsync
+        event: ApprovalReviewRequest.Removed
+      - method: RetireClosedRoundApprovalReviewRequestAsync
         event: ApprovalReviewRequest.Removed
     subscribes:
       - event: ApprovalReviewRequest.Adding
@@ -3841,6 +3863,12 @@ components:
       - from: DecideApprovalAsync
         to: EventEnvelopeBroker
         method: CreateSystemAsync
+      - from: DecideApprovalAsync
+        to: AccessBroker
+        method: FindRetirableApprovalReviewRequestIdsAsync
+      - from: DecideApprovalAsync
+        to: FS.ApprovalReviewRequest
+        method: RetireClosedRoundApprovalReviewRequestAsync
       - from: ProcessEntityAddedAsync
         to: FS.Approval
         method: FindApprovalByEntityAsync
@@ -3859,6 +3887,12 @@ components:
       - from: ProcessEntityAddedAsync
         to: EventEnvelopeBroker
         method: CreateSystemAsync
+      - from: ProcessEntityAddedAsync
+        to: AccessBroker
+        method: FindRetirableApprovalReviewRequestIdsAsync
+      - from: ProcessEntityAddedAsync
+        to: FS.ApprovalReviewRequest
+        method: RetireClosedRoundApprovalReviewRequestAsync
       - from: ProcessEntityModifiedAsync
         to: FS.Approval
         method: FindApprovalByEntityAsync
@@ -3880,6 +3914,12 @@ components:
       - from: ProcessEntityModifiedAsync
         to: FS.ApprovalReview
         method: DismissStaleApprovalReviewAsync
+      - from: ProcessEntityModifiedAsync
+        to: AccessBroker
+        method: FindRetirableApprovalReviewRequestIdsAsync
+      - from: ProcessEntityModifiedAsync
+        to: FS.ApprovalReviewRequest
+        method: RetireClosedRoundApprovalReviewRequestAsync
       - from: ProcessApprovalInputsChangedAsync
         to: FS.Approval
         method: RetrieveApprovalByIdAsync
@@ -3892,6 +3932,12 @@ components:
       - from: ProcessApprovalInputsChangedAsync
         to: EventEnvelopeBroker
         method: CreateSystemAsync
+      - from: ProcessApprovalInputsChangedAsync
+        to: AccessBroker
+        method: FindRetirableApprovalReviewRequestIdsAsync
+      - from: ProcessApprovalInputsChangedAsync
+        to: FS.ApprovalReviewRequest
+        method: RetireClosedRoundApprovalReviewRequestAsync
       - from: OnTagAddedAsync
         to: EnvelopeIntegrityBroker
         method: VerifyAsync

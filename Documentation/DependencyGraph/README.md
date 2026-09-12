@@ -156,6 +156,19 @@ view you were on, and switching carries your current selection across.
   publishes the ordinary `ApprovalReviewRequest.Removed` fact; what
   distinguishes a retirement from a withdrawal is recorded on the row, not on
   a separate address.
+- **`RetireClosedRoundApprovalReviewRequestAsync` sits beside it** (§7.9 rule
+  8): a round that closes on an outcome retires every invitation it never
+  answered, because a review can no longer be recorded against a decided round
+  and the row would go on rendering an ask nobody can answer. It is drawn
+  identically — same `CreateSystemAsync`, same `Removed` fact, same absent
+  `InsertProcessedEventAsync` pair — and the graph shows FOUR `AO` methods
+  reaching it, which is the point of the pair of edges rather than one:
+  `DecideApprovalAsync` is the only route a person is on, and the other three
+  close rounds with nobody clicking. Its read is `AccessBroker`'s
+  `FindRetirableApprovalReviewRequestIdsAsync` rather than the foundation's own
+  round-keyed read, for the reason the dismissal's gather already carries: two
+  of those routes run under the editor's or reviewer's identity, and the
+  caller-facing read is filtered by §14.7 posture D.
 - **`ApprovalOrchestrationService` (`AO`) is the approval workflow**, added on
   this branch (PR #289 and the workflow-record subscriptions that followed).
   It records human approve/reject decisions on the `Approval` row and

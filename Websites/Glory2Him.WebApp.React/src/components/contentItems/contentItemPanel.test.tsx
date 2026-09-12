@@ -658,6 +658,226 @@ describe('ContentItemPanel', () => {
         });
     });
 
+    // THE TERMINAL LOCK (#508). Approved and Rejected are terminal — the row's content is
+    // immutable in place to a moderator who did not contribute it (§3.4 rules 7 and 16), and
+    // the editor behind the action already refuses. The card must say so BEFORE the press
+    // rather than stranding the reader on a refusal, so the action renders greyed out.
+    describe('the terminal lock', () => {
+        const atStatus = (
+            item: ContentItemSearchItem,
+            approvalStatus: ApprovalStatus): ContentItemSearchItem =>
+            ({ ...item, approvalStatus });
+
+        it('should lock the moderation action on an approved item for a moderator '
+            + 'who is not its contributor', () => {
+                signInAs(authState, ['Administrators']);
+
+                renderCard(
+                    <ContentItemPanel
+                        contentItem={atStatus(devotionalItem, ApprovalStatus.Approved)}
+                        moderationOpensEditor
+                        onModerateClick={vi.fn()} />);
+
+                expect(screen.getByRole('button', { name: /Moderate/ })).toBeDisabled();
+            });
+
+        it('should lock the moderation action on a rejected item on the same terms', () => {
+            signInAs(authState, ['Administrators']);
+
+            renderCard(
+                <ContentItemPanel
+                    contentItem={atStatus(devotionalItem, ApprovalStatus.Rejected)}
+                    moderationOpensEditor
+                    onModerateClick={vi.fn()} />);
+
+            expect(screen.getByRole('button', { name: /Moderate/ })).toBeDisabled();
+        });
+
+        // A REGRESSION GUARD. A live row is the case the lock must not touch: the editor
+        // behind the action opens for the whole tier while the item is still amendable, so
+        // the action stays live and raises its event exactly as it did before #508.
+        it('should leave the moderation action live on a submitted item', async () => {
+            const onModerateClick = vi.fn();
+            const submittedItem = atStatus(devotionalItem, ApprovalStatus.Submitted);
+            signInAs(authState, ['Administrators']);
+
+            // ON AN EDITING SURFACE, deliberately. Without moderationOpensEditor the lock
+            // short-circuits before the status is ever consulted, and this test would prove
+            // the routing exemption instead - a duplicate of the criterion 9 test below,
+            // leaving the STATUS question unasserted for the surface it governs. Editing a
+            // Submitted row on /Admin/Posts/{id} is the moderation queue's whole purpose.
+            renderCard(
+                <ContentItemPanel
+                    contentItem={submittedItem}
+                    moderationOpensEditor
+                    onModerateClick={onModerateClick} />);
+
+            const action = screen.getByRole('button', { name: /Moderate/ });
+
+            expect(action).toBeEnabled();
+
+            await userEvent.click(action);
+
+            expect(onModerateClick).toHaveBeenCalledWith(submittedItem);
+        });
+
+        // A REGRESSION GUARD, and the reason the lock cannot simply follow the status: the
+        // contributor's amendment of an approved row FORKS a new version (§3.4 rule 8), which
+        // ContentItemProcessingService.ModifyContentItemAsync already does. Both faces of the
+        // contributor's action are guarded — the pencil on an ordinary surface, and the
+        // moderated surface's Edit, which is Moderate wearing Edit's clothes.
+        it("should leave the contributor's own edit live on a terminal item", async () => {
+            const onEditClick = vi.fn();
+            const onModerateClick = vi.fn();
+            const ownApprovedItem = atStatus(
+                { ...devotionalItem, submittedById: 'user-1' },
+                ApprovalStatus.Approved);
+
+            signInAs(authState, ['Administrators']);
+
+            const rendered = renderCard(
+                <ContentItemPanel
+                    contentItem={ownApprovedItem}
+                    moderationOpensEditor
+                    onEditClick={onEditClick}
+                    onModerateClick={onModerateClick} />);
+
+            expect(screen.getByRole('button', { name: /Edit/ })).toBeEnabled();
+            expect(screen.getByRole('button', { name: /Moderate/ })).toBeEnabled();
+
+            rendered.rerender(
+                <AuthProvider>
+                    <ContentItemPanel
+                        contentItem={ownApprovedItem}
+                        showModerationSection
+                        moderationOpensEditor
+                        onEditClick={onEditClick}
+                        onModerateClick={onModerateClick} />
+                </AuthProvider>);
+
+            await userEvent.click(screen.getByRole('button', { name: /Edit/ }));
+
+            expect(onModerateClick).toHaveBeenCalledWith(ownApprovedItem);
+        });
+
+        // A REGRESSION GUARD over the distinction this issue must not blur: a SANCTION hides
+        // the affordance, a terminal row LOCKS it. #366 / §18.6 — a ReadOnly holder "sees no
+        // Edit and no Delete", which is not the same outcome as seeing a greyed-out one.
+        it('should show no action to a ReadOnly holder rather than a locked one', () => {
+            signInAs(authState, ['Administrators', 'ContentItem-Devotional-ReadOnly']);
+
+            renderCard(
+                <ContentItemPanel
+                    contentItem={atStatus(devotionalItem, ApprovalStatus.Approved)}
+                    moderationOpensEditor
+                    onEditClick={vi.fn()}
+                    onModerateClick={vi.fn()} />);
+
+            expect(screen.queryByRole('button', { name: /Moderate/ }))
+                .not.toBeInTheDocument();
+
+            expect(screen.queryByRole('button', { name: /Edit/ })).not.toBeInTheDocument();
+        });
+
+        // The point of the lock: the press that used to strand the reader now does nothing at
+        // all. Driven on the moderation surface, where the action wears Edit's label and the
+        // page is listening for the in-place editor — the card stays the card.
+        it('should raise nothing when a locked action is activated', async () => {
+            const onModerateClick = vi.fn();
+            const onModified = vi.fn();
+            signInAs(authState, ['Administrators']);
+
+            renderCard(
+                <ContentItemPanel
+                    contentItem={atStatus(devotionalItem, ApprovalStatus.Approved)}
+                    showModerationSection
+                    moderationOpensEditor
+                    showEditSection
+                    onModerateClick={onModerateClick}
+                    onModified={onModified} />);
+
+            await userEvent.click(screen.getByRole('button', { name: /Edit/ }));
+
+            expect(onModerateClick).not.toHaveBeenCalled();
+
+            // no editor: the card's own content is still what is on screen
+            expect(screen.getByText(devotionalItem.content)).toBeInTheDocument();
+            expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+        });
+
+        // The reason is worded from the action's OWN label, so the moderated surface — where
+        // the action reads "Edit" — says editing rather than moderation. On hover through
+        // title, and to assistive technology through a visually-hidden twin: a title alone is
+        // not announced, and an aria-label would REPLACE the visible name rather than add to it.
+        it("should word the lock from the action's own label", () => {
+            const approvedItem = atStatus(devotionalItem, ApprovalStatus.Approved);
+            signInAs(authState, ['Administrators']);
+
+            const rendered = renderCard(
+                <ContentItemPanel
+                    contentItem={approvedItem}
+                    moderationOpensEditor
+                    onModerateClick={vi.fn()} />);
+
+            const moderateAction = screen.getByRole('button', { name: /Moderate/ });
+
+            expect(moderateAction).toHaveAttribute('title', 'Locked for moderation');
+            expect(moderateAction).toHaveAccessibleName(/Locked for moderation/);
+
+            // The hover half needs the class: Bootstrap gives a disabled .btn
+            // pointer-events: none, which suppresses the title, and
+            // .g2h-content-item-action-locked:disabled in contentItems.css is what puts it
+            // back. Vitest stubs CSS, so the cascade itself cannot be measured here - but
+            // without this assertion the class could be dropped and every test would still
+            // pass while the tooltip silently stopped appearing in a browser.
+            expect(moderateAction).toHaveClass('g2h-content-item-action-locked');
+
+            rendered.rerender(
+                <AuthProvider>
+                    <ContentItemPanel
+                        contentItem={approvedItem}
+                        showModerationSection
+                        moderationOpensEditor
+                        onModerateClick={vi.fn()} />
+                </AuthProvider>);
+
+            const editAction = screen.getByRole('button', { name: /Edit/ });
+
+            expect(editAction).toHaveClass('g2h-content-item-action-locked');
+            expect(editAction).toHaveAttribute('title', 'Locked for editing');
+            expect(editAction).toHaveAccessibleName(/Locked for editing/);
+        });
+
+        // WHAT THE ACTION LEADS TO IS THE SURFACE'S TO SAY, and it is not the same answer
+        // everywhere: /Admin/Posts/{id} opens the editor on the spot, while the home feed, the
+        // public list, My Posts and the moderation QUEUE all route to that page instead. A
+        // route is an action the system will perform on a terminal row — the moderation detail
+        // is where approval reset, the review thread and the takedown live — so locking it
+        // would cut off the only way a moderator reaches them from a card. The rule stays here;
+        // only the destination is the page's to declare.
+        it('should leave the moderation action live where the surface routes rather than edits',
+            async () => {
+                const onModerateClick = vi.fn();
+                const approvedItem = atStatus(devotionalItem, ApprovalStatus.Approved);
+                signInAs(authState, ['Administrators']);
+
+                renderCard(
+                    <ContentItemPanel
+                        contentItem={approvedItem}
+                        onModerateClick={onModerateClick} />);
+
+                const action = screen.getByRole('button', { name: /Moderate/ });
+
+                expect(action).toBeEnabled();
+                expect(action).not.toHaveAttribute('title');
+                expect(action).not.toHaveClass('g2h-content-item-action-locked');
+
+                await userEvent.click(action);
+
+                expect(onModerateClick).toHaveBeenCalledWith(approvedItem);
+            });
+    });
+
     describe('assigned reactions', () => {
         it('should show the compact cluster with the summed total', () => {
             renderCard(<ContentItemPanel contentItem={quoteItem} />);

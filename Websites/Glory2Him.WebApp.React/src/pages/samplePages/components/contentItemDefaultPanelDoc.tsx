@@ -45,6 +45,15 @@ const templateProps: ReadonlyArray<ComponentPropRow> = [
             + 'moderateButtonIconCss and moderateButtonLabel arrive resolved the same way.'
     },
     {
+        name: 'moderateButtonLockReason',
+        type: 'string?',
+        description: 'Why the moderation action is rendered but REFUSED — the item is '
+            + 'terminal to this viewer, so the control stands greyed out wearing this reason '
+            + 'on hover and to assistive technology. Absent, the action is live. LOCKED IS '
+            + 'NOT HIDDEN: a ReadOnly sanction takes showsModerateButton itself to false, and '
+            + 'the two outcomes are deliberately different.'
+    },
+    {
         name: 'areReactionCountsExpanded / isReactionPickerOpen',
         type: 'boolean',
         description: 'The two per-card render toggles, owned by the dispatching panel’s '
