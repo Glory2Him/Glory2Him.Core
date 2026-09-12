@@ -33,6 +33,7 @@
     <PackageReference Include="QRCoder" Version="1.8.0" />
     <PackageReference Include="RESTFulSense" Version="3.2.0" />
     <PackageReference Include="SkiaSharp" Version="4.150.1" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.150.1" />
     <PackageReference Include="Xeption" Version="2.9.0" />
   </ItemGroup>
 
