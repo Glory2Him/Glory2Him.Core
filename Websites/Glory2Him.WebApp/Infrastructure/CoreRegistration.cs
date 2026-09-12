@@ -27,6 +27,7 @@ using Glory2Him.Core.Services.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Services.Foundations.IdentityUsers;
 using Glory2Him.Core.Services.Foundations.ApprovalReviews;
 using Glory2Him.Core.Services.Orchestrations.AIReviewers;
+using Glory2Him.Core.Services.Orchestrations.ApprovalReviewers;
 using Glory2Him.Core.Services.Orchestrations.Approvals;
 using Glory2Him.Core.Services.Processings.Links;
 using Glory2Him.Core.Services.Processings.ContentItems;
@@ -177,6 +178,18 @@ namespace Glory2Him.WebApp.Infrastructure
             // descriptor for IAIReviewerOrchestrationService, so MVC fails to activate the
             // controller on the FIRST REQUEST to api/AIReviewers and nothing complains until then.
             services.AddScoped<IAIReviewerOrchestrationService, AIReviewerOrchestrationService>();
+
+            // §12.5.4's reviewer coordination, beside the approval round's for the same reason the
+            // AI reviewer's is: coordinating REVIEWERS is a separate contract over a separate
+            // population, and ApprovalsController binds to it for the five reviewer routes until
+            // #523 splits that controller. Scoped for the same reason its neighbours are.
+            //
+            // WITHOUT THIS LINE the failure is not a startup error, exactly as above: the
+            // container simply has no descriptor, so MVC fails to activate ApprovalsController on
+            // the first request to any of its routes and nothing complains until then.
+            services.AddScoped<
+                IApprovalReviewerOrchestrationService,
+                ApprovalReviewerOrchestrationService>();
 
             // The remaining eleven. Not exposed by any endpoint this host serves — they are here
             // because this host now BINDS every subscription, and a subscription resolves its

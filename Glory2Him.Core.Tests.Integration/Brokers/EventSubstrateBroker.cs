@@ -135,9 +135,10 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
             ApprovalOrchestrationService = new ApprovalOrchestrationService(
                 approvalService: BuildApprovalWorkflowServiceMock().Object,
                 approvalReviewWorkflowService: new Mock<IApprovalReviewWorkflowService>().Object,
-                approvalCommentService: new Mock<IApprovalCommentService>().Object,
-                approvalReviewRequestService: new Mock<IApprovalReviewRequestService>().Object,
 
+                // Only the WORKFLOW seam here too: the caller-facing IApprovalReviewRequestService
+                // left with §12.5.4's reviewer coordination, and IApprovalCommentService and
+                // IIdentityUserService went with it.
                 approvalReviewRequestWorkflowService:
                     new Mock<IApprovalReviewRequestWorkflowService>().Object,
 
@@ -147,7 +148,6 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
                 aiReviewerAssignmentWorkflowService:
                     new Mock<IAIReviewerAssignmentWorkflowService>().Object,
 
-                identityUserService: new Mock<IIdentityUserService>().Object,
                 accessBroker: BuildAccessBrokerMock().Object,
                 eventEnvelopeBroker: new Mock<IEventEnvelopeBroker>().Object,
                 eventBroker: EventBroker,

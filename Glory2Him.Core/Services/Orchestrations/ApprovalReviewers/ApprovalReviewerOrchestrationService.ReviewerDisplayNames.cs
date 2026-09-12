@@ -20,7 +20,7 @@ using Glory2Him.Core.Models.Foundations.IdentityUsers;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
 using Glory2Him.Core.Models.Securities;
 
-namespace Glory2Him.Core.Services.Orchestrations.Approvals
+namespace Glory2Him.Core.Services.Orchestrations.ApprovalReviewers
 {
     /// <summary>
     /// The name resolver every review surface asks (design 16.7.4).
@@ -61,7 +61,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
     /// they do: WHO may enumerate users is an approval-workflow decision (7.9 rule 2), and the
     /// identity foundation deliberately takes no caller identity at all.</para>
     /// </summary>
-    internal partial class ApprovalOrchestrationService
+    internal partial class ApprovalReviewerOrchestrationService
     {
         public ValueTask<IReadOnlyList<ReviewerDisplayName>> RetrieveReviewerDisplayNamesAsync(
             EntityType entityType,

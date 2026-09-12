@@ -20,12 +20,12 @@ using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests.Exceptions;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.IdentityUsers.Exceptions;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
-using Glory2Him.Core.Models.Orchestrations.Approvals.Exceptions;
+using Glory2Him.Core.Models.Orchestrations.ApprovalReviewers.Exceptions;
 using Glory2Him.Core.Models.Securities;
 using Moq;
 using Xeptions;
 
-namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
+namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ApprovalReviewers
 {
     /// <summary>
     /// The ApprovalReviewRequest foundation's exceptions must categorise like every other
@@ -33,7 +33,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
     /// routine refusal - an over-long deletion reason, a blocked caller, a uniqueness collision -
     /// is reported to the caller as a 424 infrastructure fault.
     /// </summary>
-    public partial class ApprovalOrchestrationServiceTests
+    public partial class ApprovalReviewerOrchestrationServiceTests
     {
         [Fact]
         public async Task ShouldCategoriseRequestFoundationValidationAsDependencyValidationAsync()
@@ -59,14 +59,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ValueTask<ApprovalReviewRequest> requestTask =
-                this.approvalOrchestrationService.RequestApprovalReviewAsync(
+                this.approvalReviewerOrchestrationService.RequestApprovalReviewAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     invitedId.ToString(),
                     TestContext.Current.CancellationToken);
 
             // then: a caller-fixable refusal, NOT a dependency fault
-            await Assert.ThrowsAsync<ApprovalOrchestrationDependencyValidationException>(
+            await Assert.ThrowsAsync<ApprovalReviewerOrchestrationDependencyValidationException>(
                 requestTask.AsTask);
         }
 
@@ -105,14 +105,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ValueTask<ApprovalReviewRequest> requestTask =
-                this.approvalOrchestrationService.RequestApprovalReviewAsync(
+                this.approvalReviewerOrchestrationService.RequestApprovalReviewAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     invitedId.ToString(),
                     TestContext.Current.CancellationToken);
 
-            ApprovalOrchestrationDependencyValidationException actual =
-                await Assert.ThrowsAsync<ApprovalOrchestrationDependencyValidationException>(
+            ApprovalReviewerOrchestrationDependencyValidationException actual =
+                await Assert.ThrowsAsync<ApprovalReviewerOrchestrationDependencyValidationException>(
                     requestTask.AsTask);
 
             // then: the inner survives, so the exposer's Conflict branch can see it
@@ -135,28 +135,32 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             // given
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
 
-            this.approvalServiceMock.Setup(service =>
-                service.FindApprovalByEntityAsync(
+            // No round on the key, stated on the ENTITY-KEYED gather because that is the read the
+            // resolver makes. The repair that follows cannot open one either: the entity's own
+            // status is unreadable here, so §9.8's in-play gate refuses and the retry answers
+            // null again.
+            this.accessBrokerMock.Setup(broker =>
+                broker.RetrieveApprovalReviewerScopeByEntityAsync(
                     It.IsAny<EntityType>(),
                     It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()))
-                        .ReturnsAsync((ApprovalEntityMatch)null);
+                        .ReturnsAsync((ApprovalReviewerScope)null);
 
             // when
             ValueTask<ApprovalReviewRequest> withdrawTask =
-                this.approvalOrchestrationService.WithdrawApprovalReviewRequestAsync(
+                this.approvalReviewerOrchestrationService.WithdrawApprovalReviewRequestAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     Guid.NewGuid().ToString(),
                     deletionReason: null,
                     cancellationToken: TestContext.Current.CancellationToken);
 
-            ApprovalOrchestrationValidationException actual =
-                await Assert.ThrowsAsync<ApprovalOrchestrationValidationException>(
+            ApprovalReviewerOrchestrationValidationException actual =
+                await Assert.ThrowsAsync<ApprovalReviewerOrchestrationValidationException>(
                     withdrawTask.AsTask);
 
             // then: the exposer maps THIS to 404
-            actual.InnerException.Should().BeOfType<NotFoundApprovalOrchestrationException>();
+            actual.InnerException.Should().BeOfType<NotFoundApprovalReviewerOrchestrationException>();
 
             this.approvalReviewRequestServiceMock.Verify(service =>
                 service.RemoveApprovalReviewRequestByIdAsync(
@@ -204,7 +208,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ValueTask<ApprovalReviewRequest> withdrawTask =
-                this.approvalOrchestrationService.WithdrawApprovalReviewRequestAsync(
+                this.approvalReviewerOrchestrationService.WithdrawApprovalReviewRequestAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     requestedUserId,
@@ -212,7 +216,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     cancellationToken: TestContext.Current.CancellationToken);
 
             // then: a dependency-validation failure, which the exposer maps to 400 - not 404
-            await Assert.ThrowsAsync<ApprovalOrchestrationDependencyValidationException>(
+            await Assert.ThrowsAsync<ApprovalReviewerOrchestrationDependencyValidationException>(
                 withdrawTask.AsTask);
         }
 
@@ -264,7 +268,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             SetupReviewerScope(approvalId: approvalId);
 
             var expectedDependencyValidationException =
-                new ApprovalOrchestrationDependencyValidationException(
+                new ApprovalReviewerOrchestrationDependencyValidationException(
                     message: ExpectedDependencyValidationMessage,
                     innerException: (identityFoundationException.InnerException as Xeption)!);
 
@@ -276,13 +280,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ValueTask<IReadOnlyList<ReviewerCandidate>> candidatesTask =
-                this.approvalOrchestrationService.RetrieveReviewerCandidatesAsync(
+                this.approvalReviewerOrchestrationService.RetrieveReviewerCandidatesAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     TestContext.Current.CancellationToken);
 
-            ApprovalOrchestrationDependencyValidationException actualException =
-                await Assert.ThrowsAsync<ApprovalOrchestrationDependencyValidationException>(
+            ApprovalReviewerOrchestrationDependencyValidationException actualException =
+                await Assert.ThrowsAsync<ApprovalReviewerOrchestrationDependencyValidationException>(
                     candidatesTask.AsTask);
 
             // then
@@ -309,7 +313,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             SetupReviewerScope(approvalId: approvalId);
 
             var expectedDependencyException =
-                new ApprovalOrchestrationDependencyException(
+                new ApprovalReviewerOrchestrationDependencyException(
                     message: ExpectedDependencyMessage,
                     innerException: (identityFoundationException.InnerException as Xeption)!);
 
@@ -321,13 +325,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ValueTask<IReadOnlyList<ReviewerCandidate>> candidatesTask =
-                this.approvalOrchestrationService.RetrieveReviewerCandidatesAsync(
+                this.approvalReviewerOrchestrationService.RetrieveReviewerCandidatesAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     TestContext.Current.CancellationToken);
 
-            ApprovalOrchestrationDependencyException actualException =
-                await Assert.ThrowsAsync<ApprovalOrchestrationDependencyException>(
+            ApprovalReviewerOrchestrationDependencyException actualException =
+                await Assert.ThrowsAsync<ApprovalReviewerOrchestrationDependencyException>(
                     candidatesTask.AsTask);
 
             // then

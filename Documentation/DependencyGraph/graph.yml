@@ -71,6 +71,7 @@ roots:
   - LP
   - AO
   - AIRO
+  - ARO
   - ESR
   - SecurityBroker
   - AccessBroker

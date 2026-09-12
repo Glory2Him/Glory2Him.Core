@@ -18,8 +18,10 @@ using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests.Exceptions;
 using Glory2Him.Core.Models.Foundations.Approvals.Exceptions;
+using Glory2Him.Core.Models.Orchestrations.ApprovalReviewers.Exceptions;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
 using Glory2Him.Core.Models.Orchestrations.Approvals.Exceptions;
+using Glory2Him.Core.Services.Orchestrations.ApprovalReviewers;
 using Glory2Him.Core.Services.Orchestrations.Approvals;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -30,8 +32,9 @@ namespace Glory2Him.WebApp.Controllers.Approvals
 {
     /// <summary>
     /// The approval-workflow exposure point (design §12.6). Thin by construction: it authenticates
-    /// through middleware, hands the request to <see cref="IApprovalOrchestrationService"/>, and
-    /// maps the service's typed exceptions onto HTTP status codes. It carries no business logic
+    /// through middleware, hands the request to <see cref="IApprovalOrchestrationService"/> or, for
+    /// the five reviewer routes, to <see cref="IApprovalReviewerOrchestrationService"/>, and maps
+    /// each service's own typed exceptions onto HTTP status codes. It carries no business logic
     /// and builds no <c>SecurityContext</c>, <c>RequestContext</c> or <c>EventEnvelope&lt;T&gt;</c>
     /// — those are created only inside the service (design §10.12).
     ///
@@ -72,8 +75,22 @@ namespace Glory2Him.WebApp.Controllers.Approvals
     {
         private readonly IApprovalOrchestrationService approvalOrchestrationService;
 
-        public ApprovalsController(IApprovalOrchestrationService approvalOrchestrationService) =>
+        // TWO orchestrations, knowingly and temporarily. The verdict, the decision and the reset
+        // are the ROUND's (§12.5.3); the five reviewer routes below are
+        // IApprovalReviewerOrchestrationService's (§12.5.4), and they bind to it directly rather
+        // than through the round's contract, which no longer declares them. Issue #523 moves those
+        // five routes onto a controller of their own, at which point each controller takes one
+        // service again — the shape every other resource on this site already has.
+        private readonly IApprovalReviewerOrchestrationService
+            approvalReviewerOrchestrationService;
+
+        public ApprovalsController(
+            IApprovalOrchestrationService approvalOrchestrationService,
+            IApprovalReviewerOrchestrationService approvalReviewerOrchestrationService)
+        {
             this.approvalOrchestrationService = approvalOrchestrationService;
+            this.approvalReviewerOrchestrationService = approvalReviewerOrchestrationService;
+        }
 
         /// <summary>
         /// What may happen to this entity's approval now, and everything stopping it, answered for
@@ -360,41 +377,41 @@ namespace Glory2Him.WebApp.Controllers.Approvals
             try
             {
                 IReadOnlyList<ReviewerCandidate> reviewerCandidates =
-                    await this.approvalOrchestrationService.RetrieveReviewerCandidatesAsync(
+                    await this.approvalReviewerOrchestrationService.RetrieveReviewerCandidatesAsync(
                         entityType,
                         entityId,
                         cancellationToken);
 
                 return Ok(reviewerCandidates);
             }
-            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
-                when (approvalOrchestrationValidationException.InnerException
-                    is NotFoundApprovalOrchestrationException)
+            catch (ApprovalReviewerOrchestrationValidationException approvalReviewerOrchestrationValidationException)
+                when (approvalReviewerOrchestrationValidationException.InnerException
+                    is NotFoundApprovalReviewerOrchestrationException)
             {
-                return NotFound(approvalOrchestrationValidationException.InnerException);
+                return NotFound(approvalReviewerOrchestrationValidationException.InnerException);
             }
-            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
-                when (approvalOrchestrationValidationException.InnerException
-                    is UnauthorizedApprovalOrchestrationException)
+            catch (ApprovalReviewerOrchestrationValidationException approvalReviewerOrchestrationValidationException)
+                when (approvalReviewerOrchestrationValidationException.InnerException
+                    is UnauthorizedApprovalReviewerOrchestrationException)
             {
-                return Unauthorized(approvalOrchestrationValidationException.InnerException);
+                return Unauthorized(approvalReviewerOrchestrationValidationException.InnerException);
             }
-            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
+            catch (ApprovalReviewerOrchestrationValidationException approvalReviewerOrchestrationValidationException)
             {
-                return BadRequest(approvalOrchestrationValidationException.InnerException);
+                return BadRequest(approvalReviewerOrchestrationValidationException.InnerException);
             }
-            catch (ApprovalOrchestrationDependencyValidationException
-                approvalOrchestrationDependencyValidationException)
+            catch (ApprovalReviewerOrchestrationDependencyValidationException
+                approvalReviewerOrchestrationDependencyValidationException)
             {
-                return BadRequest(approvalOrchestrationDependencyValidationException.InnerException);
+                return BadRequest(approvalReviewerOrchestrationDependencyValidationException.InnerException);
             }
-            catch (ApprovalOrchestrationDependencyException approvalOrchestrationDependencyException)
+            catch (ApprovalReviewerOrchestrationDependencyException approvalReviewerOrchestrationDependencyException)
             {
-                return FailedDependency(approvalOrchestrationDependencyException.InnerException);
+                return FailedDependency(approvalReviewerOrchestrationDependencyException.InnerException);
             }
-            catch (ApprovalOrchestrationServiceException approvalOrchestrationServiceException)
+            catch (ApprovalReviewerOrchestrationServiceException approvalReviewerOrchestrationServiceException)
             {
-                return InternalServerError(approvalOrchestrationServiceException);
+                return InternalServerError(approvalReviewerOrchestrationServiceException);
             }
         }
 
@@ -442,41 +459,41 @@ namespace Glory2Him.WebApp.Controllers.Approvals
             try
             {
                 IReadOnlyList<ReviewerDisplayName> reviewerDisplayNames =
-                    await this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
+                    await this.approvalReviewerOrchestrationService.RetrieveReviewerDisplayNamesAsync(
                         entityType,
                         entityId,
                         cancellationToken);
 
                 return Ok(reviewerDisplayNames);
             }
-            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
-                when (approvalOrchestrationValidationException.InnerException
-                    is NotFoundApprovalOrchestrationException)
+            catch (ApprovalReviewerOrchestrationValidationException approvalReviewerOrchestrationValidationException)
+                when (approvalReviewerOrchestrationValidationException.InnerException
+                    is NotFoundApprovalReviewerOrchestrationException)
             {
-                return NotFound(approvalOrchestrationValidationException.InnerException);
+                return NotFound(approvalReviewerOrchestrationValidationException.InnerException);
             }
-            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
-                when (approvalOrchestrationValidationException.InnerException
-                    is UnauthorizedApprovalOrchestrationException)
+            catch (ApprovalReviewerOrchestrationValidationException approvalReviewerOrchestrationValidationException)
+                when (approvalReviewerOrchestrationValidationException.InnerException
+                    is UnauthorizedApprovalReviewerOrchestrationException)
             {
-                return Unauthorized(approvalOrchestrationValidationException.InnerException);
+                return Unauthorized(approvalReviewerOrchestrationValidationException.InnerException);
             }
-            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
+            catch (ApprovalReviewerOrchestrationValidationException approvalReviewerOrchestrationValidationException)
             {
-                return BadRequest(approvalOrchestrationValidationException.InnerException);
+                return BadRequest(approvalReviewerOrchestrationValidationException.InnerException);
             }
-            catch (ApprovalOrchestrationDependencyValidationException
-                approvalOrchestrationDependencyValidationException)
+            catch (ApprovalReviewerOrchestrationDependencyValidationException
+                approvalReviewerOrchestrationDependencyValidationException)
             {
-                return BadRequest(approvalOrchestrationDependencyValidationException.InnerException);
+                return BadRequest(approvalReviewerOrchestrationDependencyValidationException.InnerException);
             }
-            catch (ApprovalOrchestrationDependencyException approvalOrchestrationDependencyException)
+            catch (ApprovalReviewerOrchestrationDependencyException approvalReviewerOrchestrationDependencyException)
             {
-                return FailedDependency(approvalOrchestrationDependencyException.InnerException);
+                return FailedDependency(approvalReviewerOrchestrationDependencyException.InnerException);
             }
-            catch (ApprovalOrchestrationServiceException approvalOrchestrationServiceException)
+            catch (ApprovalReviewerOrchestrationServiceException approvalReviewerOrchestrationServiceException)
             {
-                return InternalServerError(approvalOrchestrationServiceException);
+                return InternalServerError(approvalReviewerOrchestrationServiceException);
             }
         }
 
@@ -512,7 +529,7 @@ namespace Glory2Him.WebApp.Controllers.Approvals
         {
             try
             {
-                await this.approvalOrchestrationService.RequestApprovalReviewAsync(
+                await this.approvalReviewerOrchestrationService.RequestApprovalReviewAsync(
                     entityType,
                     entityId,
                     requestedUserId,
@@ -529,41 +546,41 @@ namespace Glory2Him.WebApp.Controllers.Approvals
                 // body to special-case.
                 return NoContent();
             }
-            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
-                when (approvalOrchestrationValidationException.InnerException
-                    is NotFoundApprovalOrchestrationException)
+            catch (ApprovalReviewerOrchestrationValidationException approvalReviewerOrchestrationValidationException)
+                when (approvalReviewerOrchestrationValidationException.InnerException
+                    is NotFoundApprovalReviewerOrchestrationException)
             {
-                return NotFound(approvalOrchestrationValidationException.InnerException);
+                return NotFound(approvalReviewerOrchestrationValidationException.InnerException);
             }
-            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
-                when (approvalOrchestrationValidationException.InnerException
-                    is UnauthorizedApprovalOrchestrationException)
+            catch (ApprovalReviewerOrchestrationValidationException approvalReviewerOrchestrationValidationException)
+                when (approvalReviewerOrchestrationValidationException.InnerException
+                    is UnauthorizedApprovalReviewerOrchestrationException)
             {
-                return Unauthorized(approvalOrchestrationValidationException.InnerException);
+                return Unauthorized(approvalReviewerOrchestrationValidationException.InnerException);
             }
-            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
+            catch (ApprovalReviewerOrchestrationValidationException approvalReviewerOrchestrationValidationException)
             {
-                return BadRequest(approvalOrchestrationValidationException.InnerException);
+                return BadRequest(approvalReviewerOrchestrationValidationException.InnerException);
             }
-            catch (ApprovalOrchestrationDependencyValidationException
-                approvalOrchestrationDependencyValidationException)
-                when (approvalOrchestrationDependencyValidationException.InnerException
+            catch (ApprovalReviewerOrchestrationDependencyValidationException
+                approvalReviewerOrchestrationDependencyValidationException)
+                when (approvalReviewerOrchestrationDependencyValidationException.InnerException
                     is AlreadyExistsApprovalReviewRequestException)
             {
-                return Conflict(approvalOrchestrationDependencyValidationException.InnerException);
+                return Conflict(approvalReviewerOrchestrationDependencyValidationException.InnerException);
             }
-            catch (ApprovalOrchestrationDependencyValidationException
-                approvalOrchestrationDependencyValidationException)
+            catch (ApprovalReviewerOrchestrationDependencyValidationException
+                approvalReviewerOrchestrationDependencyValidationException)
             {
-                return BadRequest(approvalOrchestrationDependencyValidationException.InnerException);
+                return BadRequest(approvalReviewerOrchestrationDependencyValidationException.InnerException);
             }
-            catch (ApprovalOrchestrationDependencyException approvalOrchestrationDependencyException)
+            catch (ApprovalReviewerOrchestrationDependencyException approvalReviewerOrchestrationDependencyException)
             {
-                return FailedDependency(approvalOrchestrationDependencyException.InnerException);
+                return FailedDependency(approvalReviewerOrchestrationDependencyException.InnerException);
             }
-            catch (ApprovalOrchestrationServiceException approvalOrchestrationServiceException)
+            catch (ApprovalReviewerOrchestrationServiceException approvalReviewerOrchestrationServiceException)
             {
-                return InternalServerError(approvalOrchestrationServiceException);
+                return InternalServerError(approvalReviewerOrchestrationServiceException);
             }
         }
 
@@ -596,41 +613,41 @@ namespace Glory2Him.WebApp.Controllers.Approvals
             try
             {
                 IReadOnlyList<ApprovalReviewRequest> approvalReviewRequests =
-                    await this.approvalOrchestrationService.RetrieveApprovalReviewRequestsAsync(
+                    await this.approvalReviewerOrchestrationService.RetrieveApprovalReviewRequestsAsync(
                         entityType,
                         entityId,
                         cancellationToken);
 
                 return Ok(approvalReviewRequests);
             }
-            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
-                when (approvalOrchestrationValidationException.InnerException
-                    is NotFoundApprovalOrchestrationException)
+            catch (ApprovalReviewerOrchestrationValidationException approvalReviewerOrchestrationValidationException)
+                when (approvalReviewerOrchestrationValidationException.InnerException
+                    is NotFoundApprovalReviewerOrchestrationException)
             {
-                return NotFound(approvalOrchestrationValidationException.InnerException);
+                return NotFound(approvalReviewerOrchestrationValidationException.InnerException);
             }
-            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
-                when (approvalOrchestrationValidationException.InnerException
-                    is UnauthorizedApprovalOrchestrationException)
+            catch (ApprovalReviewerOrchestrationValidationException approvalReviewerOrchestrationValidationException)
+                when (approvalReviewerOrchestrationValidationException.InnerException
+                    is UnauthorizedApprovalReviewerOrchestrationException)
             {
-                return Unauthorized(approvalOrchestrationValidationException.InnerException);
+                return Unauthorized(approvalReviewerOrchestrationValidationException.InnerException);
             }
-            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
+            catch (ApprovalReviewerOrchestrationValidationException approvalReviewerOrchestrationValidationException)
             {
-                return BadRequest(approvalOrchestrationValidationException.InnerException);
+                return BadRequest(approvalReviewerOrchestrationValidationException.InnerException);
             }
-            catch (ApprovalOrchestrationDependencyValidationException
-                approvalOrchestrationDependencyValidationException)
+            catch (ApprovalReviewerOrchestrationDependencyValidationException
+                approvalReviewerOrchestrationDependencyValidationException)
             {
-                return BadRequest(approvalOrchestrationDependencyValidationException.InnerException);
+                return BadRequest(approvalReviewerOrchestrationDependencyValidationException.InnerException);
             }
-            catch (ApprovalOrchestrationDependencyException approvalOrchestrationDependencyException)
+            catch (ApprovalReviewerOrchestrationDependencyException approvalReviewerOrchestrationDependencyException)
             {
-                return FailedDependency(approvalOrchestrationDependencyException.InnerException);
+                return FailedDependency(approvalReviewerOrchestrationDependencyException.InnerException);
             }
-            catch (ApprovalOrchestrationServiceException approvalOrchestrationServiceException)
+            catch (ApprovalReviewerOrchestrationServiceException approvalReviewerOrchestrationServiceException)
             {
-                return InternalServerError(approvalOrchestrationServiceException);
+                return InternalServerError(approvalReviewerOrchestrationServiceException);
             }
         }
 
@@ -660,7 +677,7 @@ namespace Glory2Him.WebApp.Controllers.Approvals
         {
             try
             {
-                await this.approvalOrchestrationService.WithdrawApprovalReviewRequestAsync(
+                await this.approvalReviewerOrchestrationService.WithdrawApprovalReviewRequestAsync(
                     entityType,
                     entityId,
                     requestedUserId,
@@ -669,34 +686,34 @@ namespace Glory2Him.WebApp.Controllers.Approvals
 
                 return NoContent();
             }
-            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
-                when (approvalOrchestrationValidationException.InnerException
-                    is NotFoundApprovalOrchestrationException)
+            catch (ApprovalReviewerOrchestrationValidationException approvalReviewerOrchestrationValidationException)
+                when (approvalReviewerOrchestrationValidationException.InnerException
+                    is NotFoundApprovalReviewerOrchestrationException)
             {
-                return NotFound(approvalOrchestrationValidationException.InnerException);
+                return NotFound(approvalReviewerOrchestrationValidationException.InnerException);
             }
-            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
-                when (approvalOrchestrationValidationException.InnerException
-                    is UnauthorizedApprovalOrchestrationException)
+            catch (ApprovalReviewerOrchestrationValidationException approvalReviewerOrchestrationValidationException)
+                when (approvalReviewerOrchestrationValidationException.InnerException
+                    is UnauthorizedApprovalReviewerOrchestrationException)
             {
-                return Unauthorized(approvalOrchestrationValidationException.InnerException);
+                return Unauthorized(approvalReviewerOrchestrationValidationException.InnerException);
             }
-            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
+            catch (ApprovalReviewerOrchestrationValidationException approvalReviewerOrchestrationValidationException)
             {
-                return BadRequest(approvalOrchestrationValidationException.InnerException);
+                return BadRequest(approvalReviewerOrchestrationValidationException.InnerException);
             }
-            catch (ApprovalOrchestrationDependencyValidationException
-                approvalOrchestrationDependencyValidationException)
+            catch (ApprovalReviewerOrchestrationDependencyValidationException
+                approvalReviewerOrchestrationDependencyValidationException)
             {
-                return BadRequest(approvalOrchestrationDependencyValidationException.InnerException);
+                return BadRequest(approvalReviewerOrchestrationDependencyValidationException.InnerException);
             }
-            catch (ApprovalOrchestrationDependencyException approvalOrchestrationDependencyException)
+            catch (ApprovalReviewerOrchestrationDependencyException approvalReviewerOrchestrationDependencyException)
             {
-                return FailedDependency(approvalOrchestrationDependencyException.InnerException);
+                return FailedDependency(approvalReviewerOrchestrationDependencyException.InnerException);
             }
-            catch (ApprovalOrchestrationServiceException approvalOrchestrationServiceException)
+            catch (ApprovalReviewerOrchestrationServiceException approvalReviewerOrchestrationServiceException)
             {
-                return InternalServerError(approvalOrchestrationServiceException);
+                return InternalServerError(approvalReviewerOrchestrationServiceException);
             }
         }
     }

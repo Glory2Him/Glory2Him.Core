@@ -24,9 +24,7 @@ using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
 using Glory2Him.Core.Services.Foundations.AIReviewerAssignments;
-using Glory2Him.Core.Services.Foundations.ApprovalComments;
 using Glory2Him.Core.Services.Foundations.ApprovalReviewRequests;
-using Glory2Him.Core.Services.Foundations.IdentityUsers;
 using Glory2Him.Core.Services.Foundations.ApprovalReviews;
 using Glory2Him.Core.Services.Foundations.Approvals;
 
@@ -36,38 +34,47 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
     {
         private readonly IApprovalWorkflowService approvalService;
         private readonly IApprovalReviewWorkflowService approvalReviewWorkflowService;
-        private readonly IApprovalCommentService approvalCommentService;
-        private readonly IApprovalReviewRequestService approvalReviewRequestService;
         private readonly IApprovalReviewRequestWorkflowService approvalReviewRequestWorkflowService;
         private readonly IAIReviewerAssignmentWorkflowService aiReviewerAssignmentWorkflowService;
-        private readonly IIdentityUserService identityUserService;
         private readonly IAccessBroker accessBroker;
         private readonly IEventEnvelopeBroker eventEnvelopeBroker;
         private readonly IEventBroker eventBroker;
         private readonly IEnvelopeIntegrityBroker envelopeIntegrityBroker;
         private readonly ILoggingBroker loggingBroker;
 
-        // Seven service references over six foundations — four of them the workflow's own
-        // narrow write seams beside the public door — and five brokers. The seven entity
-        // services are absent on purpose: the decision reaches its entity as a command event
-        // rather than a call (§16.7.1), which is what keeps this inside the dependency-count
-        // guidance §12.5 entry 1 is on record as breaking. IApprovalSettingService is absent for
-        // a different reason — resolving §8.4 here would put most-specific-wins in a second place
-        // beside the decision function (§8.6.1 rule 4).
+        // THREE service dependencies that oblige an exception arm — IApprovalWorkflowService,
+        // IApprovalReviewWorkflowService and IAIReviewerAssignmentWorkflowService, giving
+        // Approval*, ApprovalReview* and AIReviewerAssignment* and twelve downstream blocks. That
+        // is AT the Florance ceiling and not over it (§16.7.1).
+        //
+        // The seven entity services are absent on purpose: the decision reaches its entity as a
+        // command event rather than a call (§16.7.1), which is what keeps this inside the
+        // dependency-count guidance §12.5 entry 1 is on record as breaking. IApprovalSettingService
+        // is absent for a different reason — resolving §8.4 here would put most-specific-wins in a
+        // second place beside the decision function (§8.6.1 rule 4).
         //
         // The AI reviewer's CALLER-FACING foundation is absent for a third reason: asking Berean,
         // asking it again and withdrawing it are their own contract now
         // (IAIReviewerOrchestrationService), and they took that seam with them. What is left here
         // is the workflow's own return-to-pending, which by design goes through
         // IAIReviewerAssignmentWorkflowService under the system identity instead.
+        //
+        // IApprovalReviewRequestService, IApprovalCommentService and IIdentityUserService went
+        // the same way, to IApprovalReviewerOrchestrationService with the reviewer-coordination
+        // operations (§12.5.4). The comment foundation is not merely unused here — the only thing
+        // this service reads a comment for is the §8.5 count, and that arrives as a verdict.
+        //
+        // IApprovalReviewRequestWorkflowService STAYS, and knowingly temporarily: the two rule 6
+        // and rule 8 retirements still run from here until #522 turns them into subscriptions on
+        // the reviewer orchestration's own substrate. It costs no fifth arm —
+        // ApprovalReviewRequestService.Transitions.cs wraps both retirement verbs in the same
+        // TryCatch the caller-facing operations use, so both doors throw the same family — and
+        // both helpers absorb or never reach this service's catch chain.
         public ApprovalOrchestrationService(
             IApprovalWorkflowService approvalService,
             IApprovalReviewWorkflowService approvalReviewWorkflowService,
-            IApprovalCommentService approvalCommentService,
-            IApprovalReviewRequestService approvalReviewRequestService,
             IApprovalReviewRequestWorkflowService approvalReviewRequestWorkflowService,
             IAIReviewerAssignmentWorkflowService aiReviewerAssignmentWorkflowService,
-            IIdentityUserService identityUserService,
             IAccessBroker accessBroker,
             IEventEnvelopeBroker eventEnvelopeBroker,
             IEventBroker eventBroker,
@@ -76,11 +83,8 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         {
             this.approvalService = approvalService;
             this.approvalReviewWorkflowService = approvalReviewWorkflowService;
-            this.approvalCommentService = approvalCommentService;
-            this.approvalReviewRequestService = approvalReviewRequestService;
             this.approvalReviewRequestWorkflowService = approvalReviewRequestWorkflowService;
             this.aiReviewerAssignmentWorkflowService = aiReviewerAssignmentWorkflowService;
-            this.identityUserService = identityUserService;
             this.accessBroker = accessBroker;
             this.eventEnvelopeBroker = eventEnvelopeBroker;
             this.eventBroker = eventBroker;

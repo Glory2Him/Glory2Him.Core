@@ -12,12 +12,8 @@
 using System;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.AIReviewerAssignments.Exceptions;
-using Glory2Him.Core.Models.Foundations.ApprovalComments.Exceptions;
-using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests.Exceptions;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews.Exceptions;
 using Glory2Him.Core.Models.Foundations.Approvals.Exceptions;
-using Glory2Him.Core.Models.Foundations.IdentityUsers.Exceptions;
-using Glory2Him.Core.Models.Orchestrations.Approvals;
 using Glory2Him.Core.Models.Orchestrations.Approvals.Exceptions;
 using Xeptions;
 
@@ -111,38 +107,10 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             }
 
 
-            // The ApprovalReviewRequest foundation's exceptions (design 7.9, 16.7.4). Without
-            // these the whole family falls to the catch-all below and every routine refusal - an
-            // over-long deletion reason, a ReadOnly caller, a uniqueness collision - is reported
-            // as a 424 infrastructure fault, and the Conflict branch on the exposer is dead code
-            // that can never be reached.
-            catch (ApprovalReviewRequestValidationException approvalReviewRequestValidationException)
-            {
-                throw await CreateAndLogDependencyValidationExceptionAsync(
-                    exception: approvalReviewRequestValidationException);
-            }
-            catch (ApprovalReviewRequestDependencyValidationException
-                approvalReviewRequestDependencyValidationException)
-            {
-                throw await CreateAndLogDependencyValidationExceptionAsync(
-                    exception: approvalReviewRequestDependencyValidationException);
-            }
-            catch (ApprovalReviewRequestDependencyException
-                approvalReviewRequestDependencyException)
-            {
-                throw await CreateAndLogDependencyExceptionAsync(
-                    exception: approvalReviewRequestDependencyException);
-            }
-            catch (ApprovalReviewRequestServiceException approvalReviewRequestServiceException)
-            {
-                throw await CreateAndLogDependencyExceptionAsync(
-                    exception: approvalReviewRequestServiceException);
-            }
-
-            // The AIReviewerAssignment foundation's exceptions (design 8.6.2), for exactly the
-            // reason the ApprovalReviewRequest arm above exists: Berean's assignment has the same
-            // four families, and left to the catch-all below every one of them reaches the client
-            // as a 424, which says the server is broken about something it understood perfectly.
+            // The AIReviewerAssignment foundation's exceptions (design 8.6.2): Berean's assignment
+            // has four families, and left to the catch-all below every one of them reaches the
+            // client as a 424, which says the server is broken about something it understood
+            // perfectly.
             //
             // ONE SOURCE REMAINS on this service, now that the caller-facing trio lives on
             // IAIReviewerOrchestrationService with its own catch chain: the workflow's own
@@ -206,56 +174,16 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                     exception: approvalReviewServiceException);
             }
 
-            // The ApprovalComment foundation's exceptions (design §16.7.1, issue #518) — the full
-            // four-block arm, reached through the reviewer display-name resolver's round-keyed
-            // comment read. Without the validation-shaped pair a refusal there also reported as a
-            // 424; the two failure-shaped blocks are named explicitly for the same reason the
-            // ApprovalReview arm's are, rather than left to the catch-all below.
-            catch (ApprovalCommentValidationException approvalCommentValidationException)
-            {
-                throw await CreateAndLogDependencyValidationExceptionAsync(
-                    exception: approvalCommentValidationException);
-            }
-            catch (ApprovalCommentDependencyValidationException
-                approvalCommentDependencyValidationException)
-            {
-                throw await CreateAndLogDependencyValidationExceptionAsync(
-                    exception: approvalCommentDependencyValidationException);
-            }
-            catch (ApprovalCommentDependencyException approvalCommentDependencyException)
-            {
-                throw await CreateAndLogDependencyExceptionAsync(
-                    exception: approvalCommentDependencyException);
-            }
-            catch (ApprovalCommentServiceException approvalCommentServiceException)
-            {
-                throw await CreateAndLogDependencyExceptionAsync(
-                    exception: approvalCommentServiceException);
-            }
-
-            // The IdentityUser foundation's exceptions (design §16.7.1, issue #518) — a THREE-block
-            // arm rather than four. IIdentityUserService exposes two read-only operations, and a
-            // read-only contract has no uniqueness collision, no foreign-key violation and no
-            // constraint conflict, so there is no IdentityUserDependencyValidationException
-            // anywhere in the solution and none should be added (issue #518 finding 1). Reached
-            // through the tier-membership read the candidates listing and the invitation flow both
-            // compose. The two failure-shaped blocks are named explicitly rather than left to the
-            // catch-all, for the same reason the other two arms' are.
-            catch (IdentityUserValidationException identityUserValidationException)
-            {
-                throw await CreateAndLogDependencyValidationExceptionAsync(
-                    exception: identityUserValidationException);
-            }
-            catch (IdentityUserDependencyException identityUserDependencyException)
-            {
-                throw await CreateAndLogDependencyExceptionAsync(
-                    exception: identityUserDependencyException);
-            }
-            catch (IdentityUserServiceException identityUserServiceException)
-            {
-                throw await CreateAndLogDependencyExceptionAsync(
-                    exception: identityUserServiceException);
-            }
+            // THREE ARMS AND TWELVE BLOCKS, which is AT the Florance ceiling and not over it
+            // (§16.7.1). The ApprovalReviewRequest*, ApprovalComment* and IdentityUser* arms are
+            // absent because the operations that raised them are: they left with §12.5.4's
+            // reviewer coordination for IApprovalReviewerOrchestrationService, and its own chain
+            // names all three. The only thing THIS service reads a comment for is the §8.5 count,
+            // and that arrives as a verdict.
+            //
+            // IApprovalReviewRequestWorkflowService is still a dependency and still costs no arm:
+            // the two retirements that use it each absorb and log what they raise, so nothing from
+            // that foundation reaches this chain. #522 takes the seam away entirely.
 
             // Any OTHER downstream foundation exception — an endpoint service's dependency or
             // service failure (its validation failures are already turned into a not-found at the
