@@ -267,6 +267,53 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                     + "anybody by, including a request whose own RequestedUserId is itself blank");
         }
 
+        /// <summary>
+        /// The round-scoping conjunct on the exclusion's own subquery
+        /// (<c>approvalReview.ApprovalId == approvalId</c>), pinned separately from
+        /// <see cref="ShouldExcludeAnInviteeWithAStandingReviewFromTheRetirableSetAsync"/> because
+        /// that test's single approval round cannot distinguish "the review was matched by
+        /// author" from "the review was matched by author AND round" — both readings return the
+        /// same answer when there is only one round in play. A reviewer's STANDING review
+        /// belongs to a round other than the one being closed, and must not reach across rounds to
+        /// protect an invitation on this one; only an answer to THIS round counts as having
+        /// answered it.
+        /// </summary>
+        [Fact]
+        public async Task ShouldNotExcludeAnInviteeWhoseStandingReviewIsOnADifferentApprovalAsync()
+        {
+            // given: the same person is invited on the round under test, and separately holds a
+            // standing Approved review recorded against a DIFFERENT round entirely
+            Guid approvalId = Guid.NewGuid();
+            Guid otherApprovalId = Guid.NewGuid();
+
+            var crossRoundReviewerRequest = new ApprovalReviewRequest
+            {
+                Id = Guid.NewGuid(),
+                ApprovalId = approvalId,
+                RequestedUserId = "cross-round-reviewer",
+            };
+
+            SetupApprovalReviewRequests(crossRoundReviewerRequest);
+
+            SetupApprovalReviews(
+                CreateApprovalReview(
+                    approvalId: otherApprovalId,
+                    createdBy: "cross-round-reviewer",
+                    statusId: ApprovalStatus.Approved));
+
+            // when
+            List<Guid> actualRetirableRequestIds =
+                await this.accessBroker.FindRetirableApprovalReviewRequestIdsAsync(
+                    approvalId: approvalId,
+                    cancellationToken: default);
+
+            // then
+            actualRetirableRequestIds.Should().Equal(
+                new[] { crossRoundReviewerRequest.Id },
+                because: "a standing review recorded against a DIFFERENT round never answers " +
+                    "THIS round, so it must not protect this round's invitation from retirement");
+        }
+
         [Fact]
         public async Task ShouldFindNoRetirableRequestsWhenNobodyWasAskedAsync()
         {
