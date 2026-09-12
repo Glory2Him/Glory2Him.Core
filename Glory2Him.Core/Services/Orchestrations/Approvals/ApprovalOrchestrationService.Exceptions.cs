@@ -12,6 +12,7 @@
 using System;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.AIReviewerAssignments.Exceptions;
+using Glory2Him.Core.Models.Foundations.ApprovalComments.Exceptions;
 using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests.Exceptions;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews.Exceptions;
 using Glory2Him.Core.Models.Foundations.Approvals.Exceptions;
@@ -189,6 +190,21 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             {
                 throw await CreateAndLogDependencyValidationExceptionAsync(
                     exception: approvalReviewDependencyValidationException);
+            }
+
+            // The ApprovalComment foundation's exceptions (design §16.7.1, issue #518). Reached
+            // through the reviewer display-name resolver's round-keyed comment read; without this
+            // pair a validation-shaped refusal there also reported as a 424.
+            catch (ApprovalCommentValidationException approvalCommentValidationException)
+            {
+                throw await CreateAndLogDependencyValidationExceptionAsync(
+                    exception: approvalCommentValidationException);
+            }
+            catch (ApprovalCommentDependencyValidationException
+                approvalCommentDependencyValidationException)
+            {
+                throw await CreateAndLogDependencyValidationExceptionAsync(
+                    exception: approvalCommentDependencyValidationException);
             }
 
             // Any OTHER downstream foundation exception — an endpoint service's dependency or
