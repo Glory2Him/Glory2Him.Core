@@ -63,8 +63,6 @@ namespace Glory2Him.Core.Services.Foundations.AIReviewerAssignments
             CancellationToken cancellationToken = default) =>
             TryCatch(async () =>
             {
-                cancellationToken.ThrowIfCancellationRequested();
-
                 // The verb owns every field of the row it writes, so the request carries nothing
                 // but the approval it belongs to — the entity exists to anchor the security
                 // context and the causation chain, exactly as the sibling's does.
