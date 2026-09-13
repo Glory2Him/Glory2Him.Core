@@ -58,7 +58,7 @@ The current source files are not complete. This document separates the design in
 under `Documentation/Design/`, each owning one area and numbering its sections
 with a prefix of its own. Two areas have moved so far: event design to
 [`Documentation/Design/Events.md`](Design/Events.md) (§10 below is the pointer),
-and UI design to [`Documentation/Design/Ui.md`](Design/Ui.md) (§20). Everything
+and UI design to [`Documentation/Design/UI.md`](Design/UI.md) (§20). Everything
 else is still written here, in the section that already owns the subject, and is
 still cited as `§N.M` until its own file exists.
 
@@ -100,7 +100,7 @@ dangle until then; this map is what resolves it.
 | §17 | Recommended API Design | `Design/Architecture.md` — not extracted yet, still in this document | `§ARC17` |
 | §18 | Authentication and Authorisation | `Design/Security.md` — not extracted yet, still in this document | `§SEC18` |
 | §19 | Search Engine Optimisation | `Design/Domain.md` — not extracted yet, still in this document | `§DOM19` |
-| §20 | UI / UX Design | [`Design/Ui.md`](Design/Ui.md) — extracted; §20 below is the pointer stub | `§UI20` |
+| §20 | UI / UX Design | [`Design/UI.md`](Design/UI.md) — extracted; §20 below is the pointer stub | `§UI20` |
 | §21 | Summary | This document — §21.1 to be retired, §21.2 to be kept here as a roadmap (`Split.md` §S4.2, §S4.3) | — |
 
 The six area files, one line each:
@@ -109,7 +109,7 @@ The six area files, one line each:
 - `Design/Approval.md` — `APR` — the approval entity, its settings, its lifecycle, and AI content analysis. *(planned)*
 - `Design/Architecture.md` — `ARC` — the layer model, per-service responsibilities, and the API surface. *(planned)*
 - `Design/Security.md` — `SEC` — visibility, enforcement posture, authentication and authorisation. *(planned)*
-- [`Design/Ui.md`](Design/Ui.md) — `UI` — the React application's pages, components, navigation and authentication. **Exists.**
+- [`Design/UI.md`](Design/UI.md) — `UI` — the React application's pages, components, navigation and authentication. **Exists.**
 - [`Design/Events.md`](Design/Events.md) — `EVN` — event naming, addressing, the envelope, and the substrate. **Exists.**
 
 ## 2. Domain Model Overview
@@ -3816,7 +3816,7 @@ The following sitemap and indexing support should be considered:
 
 ## 20. UI / UX Design
 
-Moved to [`Documentation/Design/Ui.md`](Design/Ui.md). Sections there carry a
+Moved to [`Documentation/Design/UI.md`](Design/UI.md). Sections there carry a
 `UI` prefix and otherwise keep the numbers they had here, so `§20.6.1` is now
 `§UI20.6.1`. Each relocated section also keeps a `(formerly §20.X)` annotation
 naming its old position, so a `§20.X` citation in code still resolves by grep

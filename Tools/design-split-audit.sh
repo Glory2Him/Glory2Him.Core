@@ -82,9 +82,9 @@ EVENTS="$AREA_DIR/Events.md"
 FAILURES=0
 
 area_files() {
-    # Every area file, rulings excluded. Scope 20 is Ui.md alone.
+    # Every area file, rulings excluded. Scope 20 is UI.md alone.
     if [ "$SCOPE" = "20" ]; then
-        [ -f "$AREA_DIR/Ui.md" ] && echo "$AREA_DIR/Ui.md"
+        [ -f "$AREA_DIR/UI.md" ] && echo "$AREA_DIR/UI.md"
         return
     fi
 
@@ -144,7 +144,7 @@ gate_g1() {
     files="$(area_files)"
 
     if [ -z "$files" ]; then
-        report "G1" "no area file in scope exists yet" "expected $AREA_DIR/Ui.md"
+        report "G1" "no area file in scope exists yet" "expected $AREA_DIR/UI.md"
         return
     fi
 
@@ -229,7 +229,7 @@ gate_g4() {
     files="$(area_files)"
 
     if [ -z "$files" ]; then
-        report "G4" "no area file in scope exists yet" "expected $AREA_DIR/Ui.md"
+        report "G4" "no area file in scope exists yet" "expected $AREA_DIR/UI.md"
         return
     fi
 
@@ -260,7 +260,7 @@ gate_g4() {
 # It is defined per extraction rather than per document, so it runs under
 # --scope 20 and each later extraction adds its own pairing.
 gate_verbatim() {
-    local file="$AREA_DIR/Ui.md" old new difference
+    local file="$AREA_DIR/UI.md" old new difference
 
     if [ "$SCOPE" != "20" ]; then
         report "VERBATIM" "defined per extraction, not for the whole document" \

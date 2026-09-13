@@ -25,7 +25,7 @@ moment it happens:
 ```markdown
 # Saved searches panel
 Source: Claude Design export, 2026-09-11. Issue: #512.
-Superseded by the design at `Documentation/Design/Ui.md` §UI7 — that section
+Superseded by the design at `Documentation/Design/UI.md` §UI7 — that section
 wins wherever the two disagree.
 ```
 

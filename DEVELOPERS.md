@@ -231,7 +231,7 @@ Documentation/
   G2H Design.md            the index, and every section not yet split out
   Design/                  area-scoped design documents, each with its own section prefix
     Events.md              §EVN0 … §EVN23  (event design)
-    Ui.md                  §UI20          (UI / UX design)
+    UI.md                  §UI20          (UI / UX design)
     Split.md               the rulings for the split itself, retired once it lands
   Mockups/                 Claude Design exports awaiting or feeding a design section
   Images/                  static visual assets referenced from issues and design docs
@@ -243,7 +243,7 @@ Documentation/
 ### The split, and why sections carry prefixes
 
 `G2H Design.md` is being broken into area-scoped files under
-`Documentation/Design/` (issue #481). `Events.md` came first and `Ui.md`
+`Documentation/Design/` (issue #481). `Events.md` came first and `UI.md`
 followed. The remaining areas — approval, architecture, domain, security — are
 planned and their prefixes are already reserved: `APR`, `ARC`, `DOM`, `SEC`.
 `G2H Design.md` is the index: the map at the top of it says, for every one of
@@ -316,7 +316,7 @@ spec:
 ```markdown
 # Content item search panel
 Source: Claude Design export, 2026-09-11. Issue: #398.
-Superseded by the design at `Documentation/Design/Ui.md` §UI4 — that section
+Superseded by the design at `Documentation/Design/UI.md` §UI4 — that section
 wins wherever the two disagree.
 ```
 
@@ -353,7 +353,7 @@ authoritative and the mockup is history — go back and add the "Superseded by"
 line to the mockup's README.
 
 **Where it writes, today.** Event design and UI design have split files, and
-`Design/Ui.md` is where UI design is written. Everything else still goes into
+`Design/UI.md` is where UI design is written. Everything else still goes into
 `Documentation/G2H Design.md`, in the section that already owns the subject,
 because that is what `architect.md` instructs and no other `Design/*.md` file
 exists yet. A prefixed number and a heading tag apply once the area has its own
@@ -363,7 +363,7 @@ numbering.
 ### 5.4 Then the analyst writes criteria in words
 
 ```
-Act as the analyst. Issue #512's design is at Documentation/Design/Ui.md §UI7.
+Act as the analyst. Issue #512's design is at Documentation/Design/UI.md §UI7.
 Write acceptance criteria into the issue.
 ```
 
@@ -507,11 +507,11 @@ Then embed `panel.webp` in the issue by raw URL pinned to that commit's SHA.
 
 **3 — Architect.** Fresh session: *"Act as the architect. Issue #512 has a mockup
 at Documentation/Mockups/saved-searches/. Settle the design."* It writes
-`Documentation/Design/Ui.md` §UI7, tagged `(#512)`, and commits with a `DESIGN:`
+`Documentation/Design/UI.md` §UI7, tagged `(#512)`, and commits with a `DESIGN:`
 prefix.
 
 **4 — Analyst.** Fresh session: *"Act as the analyst. Issue #512's design is at
-Documentation/Design/Ui.md §UI7. Write acceptance criteria into the issue."* It
+Documentation/Design/UI.md §UI7. Write acceptance criteria into the issue."* It
 writes six numbered criteria and applies `design: ui` and
 `status: needs-scoping`.
 
@@ -519,7 +519,7 @@ writes six numbered criteria and applies `design: ui` and
 
 ```
 Act as QA, reviewing the issues rather than a change. Issue #512's design is at
-Documentation/Design/Ui.md §UI7. There is no code yet — do not look for any.
+Documentation/Design/UI.md §UI7. There is no code yet — do not look for any.
 ```
 
 It checks that every section of the design for this feature has an issue behind
@@ -583,7 +583,7 @@ Act as the architect. Read issue #512 and settle the design.
 
 ```
 Act as the architect. Review PR #520 against the design at
-Documentation/Design/Ui.md §UI7 and report structural findings only.
+Documentation/Design/UI.md §UI7 and report structural findings only.
 ```
 
 ### Ask the analyst
@@ -628,7 +628,7 @@ Act as QA. PR #520 has had a round of fixes since your last pass. Re-verify.
 
 ```
 Act as QA, reviewing the issues rather than a change. Issue #512's design is at
-Documentation/Design/Ui.md §UI7. There is no code yet — do not look for any.
+Documentation/Design/UI.md §UI7. There is no code yet — do not look for any.
 ```
 
 That last one is QA's second mode. Name it explicitly — verifying a diff is the
