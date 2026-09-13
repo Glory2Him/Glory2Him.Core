@@ -20,6 +20,7 @@ using Glory2Him.Core.Models.Foundations.AIReviewerAssignments;
 using Glory2Him.Core.Models.Foundations.AIReviewerAssignments.Exceptions;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
 using Glory2Him.Core.Models.Securities;
+using Microsoft.Data.SqlClient;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.AIReviewerAssignments
@@ -403,6 +404,65 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.AIReviewerAssignments
                 broker.PublishAIReviewerAssignmentAsync(
                     It.IsAny<EventEnvelope<AIReviewerAssignment>>(),
                     It.IsAny<AIReviewerAssignmentEventOperation>()),
+                Times.Never);
+        }
+
+        /// <summary>
+        /// <c>ISecurityAuditBroker</c> faulting, and the first of the four mappings criterion 12
+        /// names: a SQL error is the CRITICAL dependency failure, logged through
+        /// <c>LogCriticalAsync</c> rather than <c>LogErrorAsync</c>.
+        ///
+        /// <para>The arm itself is the class's existing one — this verb shares the same
+        /// <c>TryCatch</c> and the same <c>AIReviewerAssignment*</c> family as the caller-facing
+        /// add, which is what keeps the orchestration that will call it at two exception families
+        /// rather than three. That is a fact worth verifying rather than assuming, which is why
+        /// this and its four siblings below are named tests rather than a line of prose.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldThrowCriticalDependencyExceptionOnAddAutomaticIfSqlErrorOccursAndLogItAsync()
+        {
+            // given
+            Guid someApprovalId = Guid.NewGuid();
+            SqlException sqlException = GetSqlException();
+
+            var failedStorageAIReviewerAssignmentException =
+                new FailedStorageAIReviewerAssignmentException(
+                    message: "Failed AI reviewer assignment storage error occurred, contact support.",
+                    innerException: sqlException,
+                    data: sqlException.Data);
+
+            var expectedAIReviewerAssignmentDependencyException =
+                new AIReviewerAssignmentDependencyException(
+                    message: "AI reviewer assignment dependency error occurred, contact support.",
+                    innerException: failedStorageAIReviewerAssignmentException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(
+                    It.IsAny<AIReviewerAssignment>(), It.IsAny<SecurityContext>()))
+                        .ThrowsAsync(sqlException);
+
+            // when
+            ValueTask<AIReviewerAssignment> addAutomaticTask =
+                this.aiReviewerAssignmentWorkflowService
+                    .AddAutomaticAIReviewerAssignmentAsync(
+                        someApprovalId,
+                        TestContext.Current.CancellationToken);
+
+            AIReviewerAssignmentDependencyException actualException =
+                await Assert.ThrowsAsync<AIReviewerAssignmentDependencyException>(
+                    addAutomaticTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedAIReviewerAssignmentDependencyException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogCriticalAsync(It.Is(
+                    SameExceptionAs(expectedAIReviewerAssignmentDependencyException))),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertAIReviewerAssignmentAsync(
+                    It.IsAny<AIReviewerAssignment>(), It.IsAny<CancellationToken>()),
                 Times.Never);
         }
     }
