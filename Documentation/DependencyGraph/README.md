@@ -302,9 +302,12 @@ view you were on, and switching carries your current selection across.
 - Approval policy is a pure decision function: `AccessClient`
   (`ISecurityClient.Access`) decides, and Core's `AccessBroker` does all the
   gathering from storage. The snapshot models 11 of its methods — 9 until #547
-  added `IsAIReviewerEverAssignedAsync` and `IsEntityVisibleAsync` — and it has
-  eight foundation consumers plus the orchestration, not the two the previous
-  snapshot named.
+  added `IsAIReviewerEverAssignedAsync` and `IsEntityVisibleAsync`. Its drawn
+  consumers are two foundation services (`FS.Association`, `FS.ApprovalReview`)
+  and three orchestrations (`AIRO`, `ARO`, `AO`). The CODE has ten foundation
+  services and the same three orchestrations injecting `IAccessBroker`, so the
+  eight foundation consumers this bullet used to claim matched neither, and the
+  eight the snapshot does not draw are the gap rather than the count.
 - `AssociationService` carries four approval state-transition verbs
   (transition, sort, set-confidence, set-scope), each publishing its own fact;
   `Sort` is call-only with no request event. The bypass folded into
@@ -418,8 +421,10 @@ view you were on, and switching carries your current selection across.
   second seam row. `Approval-Modified` now has TWO subscribers, `ARO`'s
   retirement and this one, which is not the double-fire §EVN2 rule 6 forbids:
   two reactions on one address in two services, with `Deliveries` recorded per
-  subscription. `AccessBroker` gains one edge from each handler,
-  `IsAIReviewerEverAssignedAsync`, which is gate 6's unfiltered presence check.
+  subscription. `AccessBroker` gains THREE edges from each handler —
+  `ResolveAIReviewerPolicyByIdAsync` for gate 4, `IsEntityVisibleAsync` for gate 5
+  and `IsAIReviewerEverAssignedAsync` for gate 6's unfiltered presence check —
+  six in all, not the one edge each this bullet used to name.
   **The other end of it is now drawn too** (#547): `AccessBroker`'s own `methods`
   list carries `IsAIReviewerEverAssignedAsync` and `IsEntityVisibleAsync`, and the
   `IsAIReviewerEverAssignedAsync` → `StorageBroker.SelectAllAIReviewerAssignmentsAsync`
@@ -464,9 +469,9 @@ view you were on, and switching carries your current selection across.
   are left for the pass that owns `AO`, exactly as its sibling bullet leaves the
   six visibility reads.
 
-  **A further six counts in this file are unverified and at least suspect**, all
+  **A further five counts in this file are unverified and at least suspect**, all
   byte-identical on `origin/main` and none this PR's to fix: `FS.ApprovalReviewRequest`'s
-  method/edge tallies, the `IAccessBroker` consumer list, `StorageBroker`'s drawn-row
+  method/edge tallies, `StorageBroker`'s drawn-row
   figure, the 177-of-184 event-address arithmetic, "108 listeners" against the
   121 recorded earlier in this file, and "Twelve" versus "eleven" controllers. Recorded here so
   the re-scan has the list; deliberately not re-derived, because chasing them
