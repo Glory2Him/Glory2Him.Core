@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -15,6 +15,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Brokers.EventEnvelopes;
+using Glory2Him.Core.Brokers.Integrities;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Models.Enums;
@@ -38,16 +39,26 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
     /// <para>ITS OWN FIXTURE, and that is the point. These tests ran against
     /// <c>ApprovalOrchestrationServiceTests</c> while the three operations hung off the approval
     /// round's contract, which meant every one of them was arranged through a fixture built for
-    /// thirteen dependencies and a reviewer-scope gather the AI path never read. The five
+    /// thirteen dependencies and a reviewer-scope gather the AI path never read. The seven
     /// dependencies below are the whole of what this service has, so an arrangement that is not
     /// needed here cannot be made here — the fixture states the seam rather than hiding it.</para>
+    ///
+    /// <para>Seven rather than the five this said before §8.6.2.1's automatic assignment landed:
+    /// the WORKFLOW seam beside the caller-facing foundation, and the integrity broker the two
+    /// new subscriptions verify their inbound envelopes through. Neither is a new exception arm —
+    /// the seam is a second door onto the foundation class and shares its <c>TryCatch</c>, and a
+    /// substrate broker obliges none.</para>
     /// </summary>
     public partial class AIReviewerOrchestrationServiceTests
     {
         private readonly Mock<IApprovalWorkflowService> approvalServiceMock;
         private readonly Mock<IAIReviewerAssignmentService> aiReviewerAssignmentServiceMock;
+
+        private readonly Mock<IAIReviewerAssignmentWorkflowService>
+            aiReviewerAssignmentWorkflowServiceMock;
         private readonly Mock<IAccessBroker> accessBrokerMock;
         private readonly Mock<IEventEnvelopeBroker> eventEnvelopeBrokerMock;
+        private readonly Mock<IEnvelopeIntegrityBroker> envelopeIntegrityBrokerMock;
         private readonly Mock<ILoggingBroker> loggingBrokerMock;
         private readonly IAIReviewerOrchestrationService aiReviewerOrchestrationService;
         private SecurityContext ambientSecurityContext;
@@ -56,9 +67,23 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
         {
             this.approvalServiceMock = new Mock<IApprovalWorkflowService>();
             this.aiReviewerAssignmentServiceMock = new Mock<IAIReviewerAssignmentService>();
+
+            this.aiReviewerAssignmentWorkflowServiceMock =
+                new Mock<IAIReviewerAssignmentWorkflowService>();
             this.accessBrokerMock = new Mock<IAccessBroker>();
             this.eventEnvelopeBrokerMock = new Mock<IEventEnvelopeBroker>();
+            this.envelopeIntegrityBrokerMock = new Mock<IEnvelopeIntegrityBroker>();
             this.loggingBrokerMock = new Mock<ILoggingBroker>();
+
+            // EVERY INBOUND ENVELOPE VERIFIES unless a test says otherwise. Moq's default for
+            // ValueTask<bool> is false, so without this every substrate test would be refused at
+            // the signature check and would pass for the one reason it must not.
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    It.IsAny<EventEnvelope<It.IsAnyType>>(),
+                    It.IsAny<string>(),
+                    It.IsAny<EnvelopeDirection>()))
+                        .ReturnsAsync(true);
 
             // The subject is VISIBLE unless a test says otherwise. Without this the §14.5 rule 3
             // gate would read the mock's default false and refuse, and a suite about offers and
@@ -87,8 +112,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
             this.aiReviewerOrchestrationService = new AIReviewerOrchestrationService(
                 approvalService: this.approvalServiceMock.Object,
                 aiReviewerAssignmentService: this.aiReviewerAssignmentServiceMock.Object,
+
+                aiReviewerAssignmentWorkflowService:
+                    this.aiReviewerAssignmentWorkflowServiceMock.Object,
                 accessBroker: this.accessBrokerMock.Object,
                 eventEnvelopeBroker: this.eventEnvelopeBrokerMock.Object,
+                envelopeIntegrityBroker: this.envelopeIntegrityBrokerMock.Object,
                 loggingBroker: this.loggingBrokerMock.Object);
         }
 
