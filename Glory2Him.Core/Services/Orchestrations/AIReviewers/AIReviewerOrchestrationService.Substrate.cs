@@ -131,6 +131,26 @@ namespace Glory2Him.Core.Services.Orchestrations.AIReviewers
                 return;
             }
 
+            // GATE 5 (§8.6.2.1's fourth) — THE SUBJECT IS VISIBLE, and none of the gates above
+            // can stand in for it. A takedown deliberately leaves the approval record and the
+            // entity's denormalised ApprovalStatus alone (§9.7.6), so a taken-down round reads as
+            // open to every status-shaped test: its own IsDeleted is false, its status still says
+            // Submitted, and its policy still resolves. Without this an edit to such a round would
+            // set an AI pass running over content nobody may see.
+            //
+            // VISIBLE rather than merely present, which is the question §14.5 rule 3 asks — the
+            // arms behind the probe are raw by-id reads and this repository has no EF global query
+            // filters. Keyed on the SIGNED EntityType and EntityId, never on a re-read.
+            bool isEntityVisible = await this.accessBroker.IsEntityVisibleAsync(
+                entityType: approval.EntityType,
+                entityId: approval.EntityId,
+                cancellationToken: cancellationToken);
+
+            if (isEntityVisible is false)
+            {
+                return;
+            }
+
             await this.aiReviewerAssignmentWorkflowService
                 .AddAutomaticAIReviewerAssignmentAsync(
                     approvalId: approval.Id,
