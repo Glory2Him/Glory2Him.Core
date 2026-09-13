@@ -29,6 +29,11 @@
     <File Path="Documentation/G2H Design.md" />
     <File Path="Documentation/Glory 2 Him.drawio" />
   </Folder>
+  <Folder Name="/Documentation/Design/">
+    <File Path="Documentation/Design/Events.md" />
+    <File Path="Documentation/Design/Split.md" />
+    <File Path="Documentation/Design/UI.md" />
+  </Folder>
   <Folder Name="/Documentation/Prompts/">
     <File Path="Documentation/Prompt-CreateFoundationService.md" />
   </Folder>

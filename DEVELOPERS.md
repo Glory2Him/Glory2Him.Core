@@ -228,9 +228,11 @@ architect.
 
 ```
 Documentation/
-  G2H Design.md            the main design document (~3,700 lines, numbered sections)
+  G2H Design.md            the index, and every section not yet split out
   Design/                  area-scoped design documents, each with its own section prefix
     Events.md              §EVN0 … §EVN23  (event design)
+    UI.md                  §UI20          (UI / UX design)
+    Split.md               the rulings for the split itself, retired once it lands
   Mockups/                 Claude Design exports awaiting or feeding a design section
   Images/                  static visual assets referenced from issues and design docs
   DependencyGraph/         generated architecture graph and its viewer
@@ -241,18 +243,25 @@ Documentation/
 ### The split, and why sections carry prefixes
 
 `G2H Design.md` is being broken into area-scoped files under
-`Documentation/Design/` (issue #481). `Events.md` is the first and currently the
-only one. The remaining areas — architecture, domain, security, UI — are planned
-and their prefixes are already reserved: `ARC`, `DOM`, `SEC`, `UI`.
+`Documentation/Design/` (issue #481). `Events.md` came first and `UI.md`
+followed. The remaining areas — approval, architecture, domain, security — are
+planned and their prefixes are already reserved: `APR`, `ARC`, `DOM`, `SEC`.
+`G2H Design.md` is the index: the map at the top of it says, for every one of
+the 21 original sections, which file it is in and what to cite it as.
 
-Sections in a split file carry a **flat, prefixed number** — `§EVN1`, `§EVN2` —
-rather than restarting at 1, so that a bare citation stays unambiguous once
-several `Design/*.md` files exist side by side. A relocated section also keeps a
-`(formerly §10.X)` annotation naming its old position, so the dozens of C#
-comments that cite the old number still resolve by grep.
+Sections in a split file carry a **prefixed number** and never one that restarts
+at 1, so that a bare citation stays unambiguous once several `Design/*.md` files
+exist side by side. A relocated section keeps the number it already had and gains
+its file's prefix — `§20.6.1` became `§UI20.6.1` — and carries a
+`(formerly §20.6.1)` annotation naming its old position, so the dozens of C#
+comments that cite the old number still resolve by grep. `Events.md` is the one
+file that renumbered instead, flat as `§EVN1`, `§EVN2`, because it merged two
+independently numbered documents; `Split.md` §S1.2 records that as an exception
+rather than the pattern to copy.
 
-**If you add a new split file, copy that convention from `Events.md`'s intro
-block.** Pick the reserved prefix for the area, number flat, and annotate every
+**If you add a new split file, copy the convention from `UI.md`'s intro block.**
+Pick the reserved prefix for the area, keep every section's existing number, open
+with a contents list so the gaps in the numbering read as one, and annotate every
 relocated section with where it came from.
 
 Two cautions learned the hard way:
@@ -260,9 +269,11 @@ Two cautions learned the hard way:
 - **Resolving is not the same as being right.** The annotation maps an old number
   to a new one; it says nothing about whether the section was the correct one to
   cite originally.
-- **Nothing validates citations.** No CI step, no script. The guarantee that an
-  old `§10.X` still resolves is maintained by the annotation convention and
-  nothing else.
+- **Nothing validates citations on every commit.** No CI step.
+  `Tools/design-split-audit.sh` checks the split's completeness and citation
+  gates when you run it, and nothing runs it for you. The guarantee that an old
+  `§10.X` still resolves is maintained by the annotation convention and that
+  script, run by hand.
 
 ### Citing design from code
 
@@ -310,7 +321,7 @@ spec:
 ```markdown
 # Content item search panel
 Source: Claude Design export, 2026-09-11. Issue: #398.
-Superseded by the design at `Documentation/Design/Ui.md` §UI4 — that section
+Superseded by the design at `Documentation/Design/UI.md` §UI20.6 — that section
 wins wherever the two disagree.
 ```
 
@@ -346,18 +357,23 @@ The architect writes the section. From that moment the design section is
 authoritative and the mockup is history — go back and add the "Superseded by"
 line to the mockup's README.
 
-**Where it writes, today.** Only event design has a split file. Everything else
-still goes into `Documentation/G2H Design.md`, in the section that already owns
-the subject, because that is what `architect.md` instructs and no other
-`Design/*.md` file exists yet. A prefixed number and a heading tag apply once the
-area has its own split file (#481); until then the architect follows the main
-document's existing numbering. The `Design/Ui.md` paths used in §8 below are
-illustrative of the end state, not a destination you can write to now.
+**Where it writes, today.** `architect.md` sends it to the file that owns the
+subject's area and names no file itself: the area file under
+`Documentation/Design/` where the area has one, and `Documentation/G2H Design.md`
+— in the section that already owns the subject — where it does not. The map at
+the top of `G2H Design.md` is what says which of the two, one row per section, so
+the instruction stays true as each remaining area moves. Two areas have their own
+file today: event design in `Design/Events.md` and UI design in `Design/UI.md`.
+Approval, architecture, domain and security are still written in the main
+document. What an extracted section leaves behind is a pointer stub, and design
+is never written into one. A section in an area file is numbered with that file's
+prefix; a section still in the main document keeps the number it has. Heading
+tags are a separate, not-yet-applied convention — see §6.
 
 ### 5.4 Then the analyst writes criteria in words
 
 ```
-Act as the analyst. Issue #512's design is at Documentation/Design/Ui.md §UI7.
+Act as the analyst. Issue #512's design is at Documentation/Design/UI.md §UI20.6.
 Write acceptance criteria into the issue.
 ```
 
@@ -373,21 +389,28 @@ Two mechanisms, deliberately different, answering two different questions.
 ### Heading tags — "what issue defines this section?"
 
 **Proposed, not yet applied.** This is #498's criterion 1 and no heading carries
-a tag today — every heading in `Events.md` is still bare. Adopt it as you
-touch sections; do not read it as an invariant you can rely on.
+a tag today — every heading in `Events.md` and `UI.md` is still bare, the second
+of them deliberately: the split relocates headings without touching them
+(`Split.md` §S5). Adopt it as you touch sections; do not read it as an invariant
+you can rely on.
 
 Every numbered heading in `Documentation/Design/*.md` should carry exactly one of
 two tags, never bare:
 
 ```markdown
-## UI7. Saved searches panel (#512)
-## UI8. Search result density (needs issue)
+### UI20.6 Components *(formerly §20.6)* (#512)
+### UI20.9 Services and Brokers *(formerly §20.9)* (needs issue)
 ```
 
 `(#N)` names the **most recent** issue that authoritatively defined the section —
 not an accumulating list, because `git log` and `git blame` already give the full
 history for free. `(needs issue)` is an explicit, greppable flag for design
 content nobody has scheduled yet.
+
+The tag is **added** to the heading as it stands; it never replaces what is
+already there. A relocated heading keeps its `*(formerly §N.M)*` annotation — that
+is the anchor an old `§20.6` citation in code resolves by, and dropping it fails
+`Split.md` §S6 gate G1 — so the tag goes after it, as the specimens show.
 
 The tag is mandatory rather than inferred, because a bare heading is ambiguous:
 deliberately skipped, or just missed? Requiring a tag forces the decision every
@@ -478,9 +501,6 @@ field on that command. Use the REST endpoint above.
 
 Issue #512, "add a saved-searches panel". UI work, so it starts with a picture.
 
-The `Design/Ui.md` paths below are illustrative — see §5.3 for where the
-architect actually writes today.
-
 **1 — Issue first.** Open it and describe the behaviour in prose. First line of
 the body:
 
@@ -504,11 +524,11 @@ Then embed `panel.webp` in the issue by raw URL pinned to that commit's SHA.
 
 **3 — Architect.** Fresh session: *"Act as the architect. Issue #512 has a mockup
 at Documentation/Mockups/saved-searches/. Settle the design."* It writes
-`Documentation/Design/Ui.md` §UI7, tagged `(#512)`, and commits with a `DESIGN:`
+`Documentation/Design/UI.md` §UI20.6, tagged `(#512)`, and commits with a `DESIGN:`
 prefix.
 
 **4 — Analyst.** Fresh session: *"Act as the analyst. Issue #512's design is at
-Documentation/Design/Ui.md §UI7. Write acceptance criteria into the issue."* It
+Documentation/Design/UI.md §UI20.6. Write acceptance criteria into the issue."* It
 writes six numbered criteria and applies `design: ui` and
 `status: needs-scoping`.
 
@@ -516,7 +536,7 @@ writes six numbered criteria and applies `design: ui` and
 
 ```
 Act as QA, reviewing the issues rather than a change. Issue #512's design is at
-Documentation/Design/Ui.md §UI7. There is no code yet — do not look for any.
+Documentation/Design/UI.md §UI20.6. There is no code yet — do not look for any.
 ```
 
 It checks that every section of the design for this feature has an issue behind
@@ -557,12 +577,12 @@ review` to PR #520 itself.
 
 ### The same example, starting from a sweep
 
-If §UI8 "Search result density" had been written by the architect and left
-`(needs issue)`, the start inverts: you run the sweep, the analyst opens issue #513
-with criteria already written and applies `design: ui`, `Opus 5 - Medium` and
-`status: needs-scoping`. You or the architect then rewrite the heading to
-`## UI8. Search result density (#513)` — the analyst cannot, for the reason in
-§6. You pick up at step 5.
+If a "Search result density" design had been written by the architect into
+§UI20.6 and left `(needs issue)`, the start inverts: you run the sweep, the
+analyst opens issue #513 with criteria already written and applies `design: ui`,
+`Opus 5 - Medium` and `status: needs-scoping`. You or the architect then rewrite
+the heading to `### UI20.6 Components *(formerly §20.6)* (#513)` — the analyst
+cannot, for the reason in §6. You pick up at step 5.
 
 That inversion is where the coverage check in step 5 earns its place: a design
 section the sweep missed has no issue at all, and a gap like that is invisible
@@ -580,7 +600,7 @@ Act as the architect. Read issue #512 and settle the design.
 
 ```
 Act as the architect. Review PR #520 against the design at
-Documentation/Design/Ui.md §UI7 and report structural findings only.
+Documentation/Design/UI.md §UI20.6 and report structural findings only.
 ```
 
 ### Ask the analyst
@@ -625,7 +645,7 @@ Act as QA. PR #520 has had a round of fixes since your last pass. Re-verify.
 
 ```
 Act as QA, reviewing the issues rather than a change. Issue #512's design is at
-Documentation/Design/Ui.md §UI7. There is no code yet — do not look for any.
+Documentation/Design/UI.md §UI20.6. There is no code yet — do not look for any.
 ```
 
 That last one is QA's second mode. Name it explicitly — verifying a diff is the
@@ -745,15 +765,11 @@ Stated plainly so nobody goes looking:
 - **The `design: <area>` labels are not created yet** either. Note the trap: an
   all-caps `DESIGN` label exists, auto-created by the PR linter from a `DESIGN:`
   title prefix. It is a category label on PRs, not an area label on issues.
-- **`Documentation/Design/` holds only `Events.md`.** The architecture, domain,
-  security and UI documents are issue #481, still open. Their prefixes are
-  reserved; their filenames are not decided, so this document uses
-  `Design/Ui.md` illustratively rather than authoritatively.
-- **`Documentation/Design/` has no index.** #481 calls for one.
 - **`Documentation/Mockups/` is introduced by this document.** The two existing
   precedents are `Documentation/Images/ContentItemSearchPanel/` and issue #398.
-- **Nothing validates design citations**, and nothing reads the `Model - Effort`
-  label to configure a session.
+- **Nothing validates design citations automatically.** `Tools/design-split-audit.sh`
+  exists and is run by hand; no CI step runs it. Nothing reads the
+  `Model - Effort` label to configure a session either.
 - **`Documentation/Prompt-CreateFoundationService.md`** predates the agents. It is
   listed in `Glory2Him.Core.slnx`, but no agent reads it. Treat the four-agent
   workflow as current.

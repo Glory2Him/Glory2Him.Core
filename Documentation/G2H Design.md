@@ -52,6 +52,66 @@ The current source files are not complete. This document separates the design in
 4. Recommended design rules.
 5. Final agreed direction where this supersedes earlier diagram wording.
 
+### 1.5 How This Document Is Laid Out
+
+**This document is the index.** Design is being split into area-scoped files
+under `Documentation/Design/`, each owning one area and numbering its sections
+with a prefix of its own. Two areas have moved so far: event design to
+[`Documentation/Design/Events.md`](Design/Events.md) (§10 below is the pointer),
+and UI design to [`Documentation/Design/UI.md`](Design/UI.md) (§20). Everything
+else is still written here, in the section that already owns the subject, and is
+still cited as `§N.M` until its own file exists.
+
+The map immediately below says where every section lives, what to cite it as,
+and — for an area not yet extracted — where it is going. The rulings behind the
+split, its filenames, prefixes, citation form and completeness gates, are in
+[`Documentation/Design/Split.md`](Design/Split.md), issue #481. `Split.md`
+retires once the split has landed.
+
+## Where Each Section Lives
+
+A stale deep link into this file lands here, at the top, rather than at a
+heading that has moved. This map is the one hop back: find the old number, and
+it names the file the section is in now and the number to cite it by.
+
+An area with no link is **not extracted yet** — its section is still in this
+document under its existing number, and the prefixed form is what it will be
+cited as once its file lands. A forward citation to one of those is expected to
+dangle until then; this map is what resolves it.
+
+| Old | Title | Lives in | Cite it as |
+| --- | --- | --- | --- |
+| §1 | Design Overview | This document — front matter for the whole design, not an area | `§1` |
+| §2 | Domain Model Overview | `Design/Domain.md` — not extracted yet, still in this document | `§DOM2` |
+| §3 | Content Design | `Design/Domain.md` — not extracted yet, still in this document | `§DOM3` |
+| §4 | Association Design | `Design/Domain.md` — not extracted yet, still in this document | `§DOM4` |
+| §5 | Supporting Content Entities | `Design/Domain.md` — not extracted yet, still in this document | `§DOM5` |
+| §6 | ContentItemSetting Design | `Design/Domain.md` — not extracted yet, still in this document | `§DOM6` |
+| §7 | Approval Design | `Design/Approval.md` — not extracted yet, still in this document | `§APR7` |
+| §8 | Approval Settings Design | `Design/Approval.md` — not extracted yet, still in this document | `§APR8` |
+| §9 | Approval Lifecycle | `Design/Approval.md` — not extracted yet, still in this document | `§APR9` |
+| §10 | Event Design | [`Design/Events.md`](Design/Events.md) — extracted; §10 below is the pointer stub | `§EVNn` — renumbered rather than prefixed, so look the old number up in that file's *(formerly §10.X)* annotations rather than deriving it |
+| §11 | Topic and Feed Design | `Design/Domain.md` — not extracted yet, still in this document | `§DOM11` |
+| §12 | Component Architecture | `Design/Architecture.md` — not extracted yet, still in this document | `§ARC12` |
+| §13 | AI Content Analysis | `Design/Approval.md` — not extracted yet, still in this document | `§APR13` |
+| §14 | Visibility Rules | `Design/Security.md` — not extracted yet, still in this document | `§SEC14` |
+| §15 | Recommended Corrections | This document — to be retired item by item, not relocated (`Split.md` §S4.1) | — |
+| §16 | Recommended Service Responsibilities | `Design/Architecture.md` — not extracted yet, still in this document | `§ARC16` |
+| §17 | Recommended API Design | `Design/Architecture.md` — not extracted yet, still in this document | `§ARC17` |
+| §18 | Authentication and Authorisation | `Design/Security.md` — not extracted yet, still in this document | `§SEC18` |
+| §19 | Search Engine Optimisation | `Design/Domain.md` — not extracted yet, still in this document | `§DOM19` |
+| §20 | UI / UX Design | [`Design/UI.md`](Design/UI.md) — extracted; §20 below is the pointer stub | `§UI20` |
+| §21 | Summary | This document — §21.1 to be retired, §21.2 to be kept here as a roadmap (`Split.md` §S4.2, §S4.3) | — |
+
+The six area files, one line each:
+
+- `Design/Domain.md` — `DOM` — the entity model: content, associations, supporting entities, settings, topic and feed, SEO. *(planned)*
+- `Design/Approval.md` — `APR` — the approval entity, its settings, its lifecycle, and AI content analysis. *(planned)*
+- `Design/Architecture.md` — `ARC` — the layer model, per-service responsibilities, and the API surface. *(planned)*
+- `Design/Security.md` — `SEC` — visibility, enforcement posture, authentication and authorisation. *(planned)*
+- [`Design/UI.md`](Design/UI.md) — `UI` — the React application's pages, components, navigation and authentication. **Exists.**
+- [`Design/Events.md`](Design/Events.md) — `EVN` — event naming, addressing, the envelope, and the substrate. **Exists.**
+
 ## 2. Domain Model Overview
 
 ### 2.1 Main Domain Areas
@@ -3756,255 +3816,11 @@ The following sitemap and indexing support should be considered:
 
 ## 20. UI / UX Design
 
-### 20.1 Purpose
-
-The G2H frontend is a React application responsible for presenting gospel content to users in a clean, readable, and accessible way.
-
-The design reference is the Blogzine Bootstrap template (https://www.webestica.com/bootstrap-templates/blogzine-blog-magazine-template), which will be converted into a React + TypeScript + Vite + Bootstrap architecture with full componentisation and clean separation of concerns.
-
-### 20.2 Technology Stack
-
-| Layer | Technology |
-| --- | --- |
-| Framework | React 19+ |
-| Language | TypeScript |
-| Build tool | Vite |
-| Styling | Bootstrap 5 |
-| Routing | React Router v7 |
-| State management | TBD — React Context or lightweight store |
-| HTTP client | Axios or native Fetch with typed wrappers |
-| Auth | Token-based — JWT or MSAL depending on identity provider |
-
-### 20.3 Architecture Principles
-
-The following principles apply to the frontend architecture:
-
-1. Every visual element must be a reusable React component.
-2. Components must not contain data-fetching logic — data flows in via props or context.
-3. Pages are thin — they compose components and delegate data loading to services.
-4. Services are typed wrappers over the HTTP layer and map API responses to frontend models.
-5. Brokers are the lowest-level HTTP callers — one per API area — and are injected into services.
-6. Models are TypeScript interfaces that match API response shapes.
-7. Navigation must support both unauthenticated public routes and authenticated, role-aware private routes.
-
-### 20.4 Folder Structure
-
-Recommended project structure:
-
-```
-src/
-  brokers/          # Typed HTTP callers per API area
-  services/         # Business logic, mapping, orchestration over brokers
-  models/           # TypeScript interfaces matching API response shapes
-  components/       # Reusable UI components (atoms, molecules, organisms)
-  pages/            # Route-level page components — compose components and call services
-  layouts/          # Layout wrappers (public layout, authenticated layout, admin layout)
-  navigation/       # Route definitions, guards, role-based access
-  hooks/            # Shared custom React hooks
-  context/          # React Context providers for auth, theme, etc.
-  assets/           # Static assets, images, fonts
-```
-
-### 20.5 Pages
-
-Planned pages based on the Blogzine template and the G2H domain:
-
-| Page | Purpose |
-| --- | --- |
-| `HomePage` | Feed of published content items ordered by publish date. |
-| `ContentItemPage` | Full view of a single published content item. |
-| `TopicPage` | Topic landing page with list of associated child content items. |
-| `TopicListPage` | Browse all published topics. |
-| `SearchPage` | Search results across published content. |
-| `LoginPage` | User login. |
-| `LogoutPage` | User logout and session cleanup. |
-| `ProfilePage` | Authenticated user profile. |
-| `SubmitContentPage` | Authenticated form to submit new content. |
-| `EditContentPage` | Authenticated form to edit a draft or create a new version. |
-| `ApprovalQueuePage` | Reviewer queue of content pending approval. |
-| `ApprovalDetailPage` | Detail view of a content item under review with review actions. |
-| `AdminDashboardPage` | Admin overview of content, settings, and approval configuration. |
-| `NotFoundPage` | 404 fallback. |
-
-### 20.6 Components
-
-Planned reusable components based on the Blogzine template:
-
-| Component | Purpose |
-| --- | --- |
-| `Navbar` | Top navigation bar with logo, links, search, and auth state. |
-| `Footer` | Site footer with links and attribution. |
-| `ContentCard` | Feed card for a single content item — header image (§4.9), title, type, excerpt, publish date. |
-| `ContentCardGrid` | Responsive grid of `ContentCard` components. |
-| `ContentCardFeatured` | Hero-style featured content card. |
-| `ContentDetail` | Full content item display — body, author, tags, reactions, comments, Bible references. |
-| `TopicCard` | Card for a topic landing page preview. |
-| `TagBadge` | Individual tag badge. |
-| `TagList` | List of `TagBadge` components. |
-| `ReactionBar` | Row of available reactions with counts. |
-| `CommentList` | List of approved comments for a content item. |
-| `CommentForm` | Authenticated form to submit a comment. |
-| `BibleReferenceBlock` | Display block for a Bible reference and optional scripture text. |
-| `ApprovalStatusBadge` | Badge showing current approval status. |
-| `ApprovalReviewForm` | Form for a reviewer to submit an approval or rejection decision. |
-| `ApprovalCommentForm` | RETIRED — superseded by `ReviewCommentPanel` below, which is the whole thread rather than the box alone. A separate add-only form would have had to re-decide the same three gates. |
-| `ReviewPanel` | The approval round rendered: reviews, the viewer's own vote, block reasons, bypass, the publisher-tier decision, and review requests (§20.6.1). |
-| `ReviewCommentPanel` | The round's conversation: the box and its Comment/Question choice, the thread newest-first, the settled tick on asks, and the author's Edit and Delete (§20.6.3). |
-| `ContentItemPanel` | One content item on whichever face the moment asks for — the add and edit templates and the per-type view templates, field-shaped per content type and gated per §18.6 (§20.6.2). Paste-to-upload for inline images (§5.6.6) is not part of it yet. |
-| `HeaderImagePicker` | Header-image candidates for a content item — upload, list, promote the default (§4.9). |
-| `ShareBar` | Share buttons composing real short-link URLs (§19.7). |
-| `SearchBar` | Search input with debounce. |
-| `Pagination` | Paginated navigation for feed and topic child lists. |
-| `PrivateRoute` | Route guard for authenticated routes. |
-| `RoleRoute` | Route guard for role-restricted routes. |
-| `LoadingSpinner` | Generic loading indicator. |
-| `ErrorMessage` | Generic error display. |
-
-#### 20.6.1 ReviewPanel — contract and dependencies
-
-`ReviewPanel` is a **pure presentation component**: props in, events out, no fetching, no sockets. Every gate it renders is a courtesy — the orchestration re-decides votes, decisions, bypass and requests against the stored rows (§14.6). Wherever the server has already answered a question per caller (`CanApprove`, `IsBypassAllowedForCurrentUser`), the verdict's answer is used verbatim rather than re-derived from role names; the remaining render gates compose roles per §18.6, capability-last and plural.
-
-**The consumer owns freshness.** The panel shows the world as of the last props it was handed, so its consumer must re-fetch and re-render when the round changes underneath it — another vote cast, a comment added or resolved, a decision or auto-approval, a request made or answered. SignalR, polling, or a refetch after each event callback are all acceptable; without one of them the panel is simply stale. Server side, the EventHighway facts the approval workflow already publishes (§10.17) are the signal a push channel would forward — a future SignalR hub subscribes to those; it does not add new facts.
-
-**Direct API dependencies** (called by the consumer, never the component):
-
-| Concern | Endpoint |
-| --- | --- |
-| The outcome section | `GET api/Approvals/{entityType}/{entityId}/Verdict` (§16.7.2 — moderation tier only, so the read-only view gets the status pill without block reasons) |
-| The decision | `POST api/Approvals/{entityType}/{entityId}/Decision` (bypass reason mandatory when bypassing) |
-| The viewer's vote | `POST` / `PUT api/ApprovalReviews` |
-| The review rows | `GET api/ApprovalReviews` filtered by `ApprovalId` |
-| The request rows and picker | The §16.7.4 candidates and review-request endpoints |
-| The names on its reviewers and its invitations | `GET api/Approvals/{entityType}/{entityId}/ReviewerDisplayNames` — the §16.7.4 resolver, asked once for the round. Candidates are NOT in it: the candidates read above already carries a display name for every person it offers, and both are composed by the same method, so the two never disagree |
-
-**Indirect dependencies:** the signed-in identity and roles (`/api/accounts/me` via the auth context) for the render gates, and the approval's status for the frozen/live switch — deliberately a prop of its own, because the read-only view has a status to show and no verdict to read it from.
-
-#### 20.6.2 ContentItemPanel — contract and dependencies
-
-`ContentItemPanel` is a **pure presentation component**: props in, events out, no fetching, no mutation, no sockets. It is the one dispatcher for a content item's every face: handed a settings collection and no item it renders the add template (`ContentItemAddPanel`); Edit taken in place — or `mode="edit"` passed — renders the edit template (`ContentItemEditPanel`); otherwise the item renders through the view template registered for its content type (`ContentItemDefaultPanel`, or an override such as `ContentItemQuotesPanel` deriving from it via `contentSlot`). `ContentItemListPanel` composes the search bar and the scrolled results, rendering this same panel for every element — one family, one tree, no second detail component to keep in sync. Every face runs on the family's one projection: a self-contained element carrying the item and its §6.4 winning setting, so a list element hands to a detail surface — and seeds its editor — with no further read, and an update is one element swapped by the consumer.
-
-**Security posture.** Every gate it renders decides what to SHOW and nothing more. The foundation and processing services re-decide add, modify and remove against the stored row (§14.6, §14.7 posture A), and must: a hidden button is a courtesy to the reader, never an authorization boundary.
-
-**Where Edit goes is the page's wiring.** A page listening on `onEditClick` alone gets the event and routes to its own edit surface, carrying its back context; a page that switches `showEditSection` on and listens on `onModified`/`onRemoved` gets the editor **in place** — the owner's Edit swaps the card for the edit template, and both a committed Save and Cancel swap the card back (`mode="edit"` lands straight on the editor, still subject to the same gates). What the card then shows is the consumer's element: the page persists and swaps it, so the amendments appear; Cancel discards the draft and reopening seeds from the original.
-
-**`showEditSection` is the surface switch, ahead of every role check**, and it is off by default — the safe posture `AssociationPanel` takes with `showModerationActions`. While it is off the panel renders no action affordance at all: no `Edit`, no `Delete`, no route into the editor however the roles fall, and the edit template refuses outright rather than downgrading — the read surface belongs to the view templates. A public page renders the panel without it and gets a view surface that cannot accidentally become an edit one; a profile or admin area switches it on and the role gates below then decide, per action, what is actually shown. It only ever subtracts.
-
-**Role composition** follows §18.6 — capability last and plural, resolved against the content type IN PLAY (the selected type while adding, the item's own type when reading or editing). Every set is an overridable comma-separated prop in which `{ContentType}` resolves to the enum member name, and `[OWNER]` names the item's contributor, matched on the account id and never on a display name.
-
-| Gate | Default |
-| --- | --- |
-| blocked by | `ReadOnly`, `ContentItem-ReadOnly`, `ContentItem-{ContentType}-ReadOnly` |
-| add | empty — any authenticated reader, since there is no `Contributor` role |
-| edit | `[OWNER]`, `Publishers`, `ContentItem-Publishers`, `ContentItem-{ContentType}-Publishers`, `Administrators` — the non-owner half further confined to `Draft` / `Submitted` |
-| delete | `[OWNER]`, `Administrators` — removal is a takedown, not a moderation step (§14.7 posture A.3) |
-
-**The block set is asked first and outranks every grant**, `[OWNER]` included: a contributor holding `ContentItem-Devotional-ReadOnly` sees no `Edit` and no `Delete` on their own devotional, and no add surface for that type, while stories and quotes stay open to them. The narrow block therefore lands on the **picker**, not only on the form: a blocked tile renders disabled with its reason on it, and only a reader blocked from every available type loses the form. The `Reviewers` tier appears in no set at all — a reviewer reviews.
-
-The panel's block set is still a render courtesy (§14.6), but it is no longer courtesy alone: `ContentItem-{ContentType}-ReadOnly` is a real role now — seeded, and refused by the foundation, the processing layer and the approval surface alike (§18.6 rule 2). The two answers agree by construction rather than by coincidence, because both compose the same name from the row's own content type.
-
-**The content type is create-only** (§12.4.1 rule 7a), so only `add` offers the choice: the edit template wears the same tile layout with every tile disabled and the item's own still selected — one look for both writing faces — falling back to a frozen chip when no default rows were handed over.
-
-**Which fields exist is per content type and is passed in, never fetched — and the panel resolves the EFFECTIVE row itself.** The consumer hands over the `ContentItemSetting` rows it already holds and the most specific one wins, exactly as §6.4 and §12.5.2 rules 1–2 require: an item-level override takes **full precedence** over the content type default, and a soft-deleted row is excluded from resolution entirely (§6.6). The override is matched on the **item** as well as the type, so a mixed collection is safe — one item's override is never applied to another's. `add` can therefore only ever resolve a default, because an override belongs to an item that does not exist yet.
-
-What the panel reads off the resolved row is the **field shaping and the type's presentation**: `HasTitle`, `HasAuthor`, `ContentTypeName`, `ContentTypeDescription`, `ContentTypeIconCssClass`. `HasTitle` and `HasAuthor` govern every face — the inputs in `add` and `edit`, and the title and author on the view templates (which additionally require the item to carry a value). The `Max*Length` ceilings cap the fields client-side: the input refuses further typing, and a stored value already over a lowered ceiling is refused at submit with the limit named. **A field the reader cannot see contributes nothing, and the row keeps whatever it already had.** One rule, settling both halves. On an amendment it means hiding is never destructive: a value already on the row survives an edit it was not shown for, so a setting changed after the item was written cannot silently blank it. On a contribution it means the opposite is equally true — a title typed under one content type and then abandoned by picking another whose setting has no title is **not** posted, because the contributor can no longer see it, the type is create-only, and no read surface would ever show it again. Where no row resolves at all there is no flag to obey, and the panel shows whichever of the two the item carries. **The page above the panel obeys the same rule**: a heading that named a title the panel deliberately hides would make the suppressed value the loudest thing on the screen, so `/posts/{id}` resolves the effective row through the same shared projection and falls back to the type's name.
-
-**`SharePermission` is the exception, and drops rather than persisting.** It is hidden by the contributor's own answer to a question in front of them — not by a setting they never chose — so "the row keeps what it had" does not apply: a note reading *permission granted by the author* stored against an item its contributor has just declared `Owned` is a provenance claim they withdrew. Nothing server-side correlates the two (the foundation length-checks `SharePermission` and no more), and no read surface renders it once the basis has moved, so preserving it would file a contradiction nobody can see or clear. The field, the placement of its validation messages and what is submitted all read the same flag, so the three cannot disagree. The **facet pairs** (§6.5 — `TagsAllowed`/`ShowTags` and the same for comments, reactions, links, attachments and bible references) govern surfaces this panel does not own; the panels rendering beside it read those, against this same effective row.
-
-**The picker offers the content type defaults carrying `IsAvailableAsGeneralUserContribution`**, which is exactly the question a tile asks. An override is never a tile however the consumer's collection arrived **The tiles are ordered by the rows' own `SortOrder`** (§6.6), ascending, so the order a contributor meets the types in is a decision recorded on the setting rather than an accident of the order the consumer's read answered with. The panel sorts what it is handed — it is a presentation component, so it does not depend on the consumer having ordered the collection — and the type it lands on by default is the first tile in that order. A tie keeps the order the rows arrived in.
-
-**The consumer owns persistence and freshness.** The panel raises `onAdded`, `onModified`, `onRemoved` and `onCancelled`, and does nothing else: the page decides whether `onModified` is a `PUT` or a fork of a new version on a terminal item (§3.4 rule 16), swaps the amended element so the closed editor's card shows it, and re-fetches whenever the item changes underneath it. The panel shows the world as of the last props it was handed.
-
-**Validation comes back from the API, not from the browser — with two ruled exceptions the panel is the right surface for.** A permission basis makes the `SharePermission` box mandatory (a claim of permission with no permission named is not a submission the product accepts), and the effective setting's `Max*Length` ceilings are enforced as above; both speak through the same field-issue channel the server's messages use. Everything else the panel leaves to the server — a second opinion in the browser would drift from it. The consumer submits, and hands the `errors` dictionary of the returned `ValidationProblemDetails` back to the panel as `validationIssues`; the panel matches those keys onto its fields case-insensitively (they are the server's parameter names) and summarises anything it cannot place rather than dropping it. The failure also raises a timed notification through the existing toast framework, carrying the API's own reason rather than a generic one.
-
-**Associations render beside it, never within it.** Tags and bible references belong to `AssociationPanel` and its two wrappers, which have their own approval and role rules and need an item to associate to — so they cannot render on an add surface at all. Approval controls belong to `ReviewPanel` (§20.6.1).
-
-**Direct API dependencies** (called by the consumer, never the component):
-
-| Concern | Endpoint |
-| --- | --- |
-| The type picker and field shaping | `GET api/ContentItemSettings` (`[AllowAnonymous]`; `$filter=contentItemId eq null` for the defaults, plus `isAvailableAsGeneralUserContribution eq true` for the contribution surface). A page rendering one item may also pass that item's override row alongside the defaults — the panel resolves which wins. |
-| The contribution | `POST api/ContentItems` — seven caller-supplied members only (`ContentType`, `Title`, `Author`, `Content`, `ShareabilityBasis`, `SharePermission`, `ApprovalStatus`); the processing service mints the identifiers, hashes the content and lands the row unpublished at the status the caller asked for — `Draft` or `Submitted` and nothing else (§9.7.1 rule 1), which is what the panel's "Submit as" row answers — and the foundation beneath it stamps the audit trail |
-| The item | `GET api/ContentItems/{contentItemId}` (`[AllowAnonymous]` — the service's own visibility filter decides what a caller may see) |
-| An amendment | `PUT api/ContentItems`, or the version fork on a terminal item |
-
-**Indirect dependencies:** the signed-in identity and roles (`/api/accounts/me` via the auth context) for the render gates, and the item's `ApprovalStatus` for the non-owner edit gate.
-
-**Consumers.** `/posts/contribute` renders the add face and owns the `POST`, the redirect to `/myposts/{contentItemId}`, the notification and the validation readback. `/posts/{contentItemId}` renders the view face with `showEditSection` left off; `/myposts/{contentItemId}` renders it with editing in place; and the feeds (`/`, `/posts`, `/myposts`, `/Admin/Posts`) render every element through this same panel via `ContentItemListPanel`.
-
-#### 20.6.3 ReviewCommentPanel — contract and dependencies
-
-`ReviewCommentPanel` is a **pure presentation component**: props in, events out, no fetching, no mutation, no sockets. It is the conversation the round is made of — the thing `ReviewPanel` can only report as a count of unresolved comments.
-
-```
-ReviewCommentPanel                 the thread, and who may do what to it
-├── ReviewCommentAddPanel          the box, the Comment/Question radios, Clear / Save
-└── ReviewCommentResultsPanel      the rows, newest first, scrolled rather than paged
-    ├── ReviewCommentViewPanel     READ:  author, chip, timestamp, resolve tick, Edit / Delete
-    └── ReviewCommentEditPanel     EDIT:  the words and the type, Save / Cancel
-```
-
-The dispatcher owns everything the faces share — the ordering, the ownership gate, the resolve tier and the `ReadOnly` veto — and the templates render what it decides, the way `ContentItemPanel` is built (§20.6.2).
-
-**The type is stated, not inferred.** The add face's radio pair writes `ApprovalCommentType` and derives the birth value of `IsResolved` from it — a `Question` is created outstanding and holds the approval shut, a `Comment` is created settled and never blocks. That is §7.8's own sentence rather than a rule the client invents: the flag carries no SHAPE rule, so a caller who said nothing would make every remark a blocker. The client is agreeing with the gate rather than being it — the server refuses the settled ask on both the add and the amend path.
-
-**Retyping moves the flag with the type, and only then.** The edit face offers the same pair, so an amendment that changes `ApprovalCommentType` re-derives `IsResolved` exactly as birth does — a remark retyped as a question is *outstanding*, a question retyped as a remark is *settled*. Sending the new type over the stored flag was the earlier shape and it could not work: a remark is born settled, so retyping one produced a question already resolved, which is the single pairing the amend gate refuses outright — the save came back a flat refusal and only the words could ever be edited. Where the type does **not** move the flag is left alone, because a settled ask may be edited by its author and re-deriving would silently re-open it; resolving and re-opening answer to their own operation and its tier (§14.7 rule 5).
-
-**Three gates, and the sanction reaches them differently.** Adding is any authenticated reader (§14.7 posture D rule 5 — submitters converse in review threads), stopped by the global `ReadOnly` alone. Amending and withdrawing are the **author alone**; no role widens them. The settled tick renders on an **ask only**, to the author or the publisher tier for the entity, and is stopped by a `ReadOnly` at any scope the entity composes — because that one control clears a §8.5 gate (§18.6 rule 3). Every one of them decides rendering only; the foundation re-decides each write against the stored row (§14.6).
-
-**The consumer owns freshness, and here that is a requirement rather than a note.** Two moderators working the same submission is the case this surface exists for, so the collection must be kept moving — `approvalCommentService.useGetApprovalComments` polls and refetches on focus. It also owns the confirmation: the panel raises which row the reader wants gone, and the page asks "Are you sure?", the same split `ContentItemSettingsPanel` makes for Remove Override.
-
-**Direct API dependencies** (called by the consumer, never the component):
-
-| Concern | Endpoint |
-| --- | --- |
-| The thread | `GET api/ApprovalComments` filtered by `ApprovalId` and `IsDeleted eq false` |
-| A new comment | `POST api/ApprovalComments` — the id minted client-side, the audit values stamped server-side |
-| An amend | `PUT api/ApprovalComments` — the whole row that was read, since four fields are pinned against storage |
-| A withdrawal | `DELETE api/ApprovalComments/{id}?deletionReason=` — the SOFT delete, which is what leaves the §8.5 block |
-| The settled flag | `POST api/ApprovalComments/{id}/Resolve?isResolved=` — always sent, since the endpoint binds it required |
-| The approval id, and the author names | The §16.7.2 verdict and the §16.7.4 resolver, both already read for `ReviewPanel` |
-
-Every write invalidates the thread **and** the verdict: an outstanding comment is one of the block reasons `ReviewPanel` prints in the column beside it.
-
-**Where it lands.** Beneath the bible references on `/Admin/Posts/{id}` — in the column with the thing being discussed, not in the decision column, which has to stay readable at a glance while a thread grows without limit.
-
-### 20.7 Navigation
-
-Navigation must support three levels:
-
-1. **Public routes** — accessible to unauthenticated users. Includes feed, content item views, topic pages, and search.
-2. **Authenticated routes** — require a valid session. Includes submit, edit, profile, and approval queue.
-3. **Role-restricted routes** — require a specific role such as `Reviewers` or `Administrators`. Includes approval actions and admin dashboard.
-
-Route guards should redirect unauthenticated users to the login page and unauthorised users to a 403 or not-found page.
-
-### 20.8 Authentication
-
-The following authentication behaviour is required:
-
-1. Login redirects to the identity provider or displays a username/password form depending on the configured auth strategy.
-2. On successful login, a token or session is stored and the user is redirected to the page they originally requested.
-3. Logout clears the session and redirects to the home page.
-4. The `Navbar` must reflect auth state — showing login or logout depending on session presence.
-5. Role claims from the token must be used to control visibility of role-restricted navigation items.
-6. Token refresh or silent renewal must be handled transparently.
-
-### 20.9 Services and Brokers
-
-| Layer | Responsibility |
-| --- | --- |
-| `ContentItemBroker` | Calls content item API endpoints. |
-| `TagBroker` | Calls tag API endpoints. |
-| `ReactionBroker` | Calls reaction API endpoints. |
-| `CommentBroker` | Calls comment API endpoints. |
-| `BibleReferenceBroker` | Calls Bible reference API endpoints. |
-| `ApprovalBroker` | Calls approval, review, and comment API endpoints. |
-| `FeedBroker` | Calls feed API endpoints. |
-| `AuthBroker` | Handles token acquisition, refresh, and logout. |
-| `ContentItemService` | Maps content item API responses to frontend models, composes broker calls. |
-| `FeedService` | Builds feed page data from `FeedBroker`. |
-| `ApprovalService` | Manages approval queue data and submission actions. |
-| `AuthService` | Manages session state, role extraction, and token lifecycle. |
+Moved to [`Documentation/Design/UI.md`](Design/UI.md). Sections there carry a
+`UI` prefix and otherwise keep the numbers they had here, so `§20.6.1` is now
+`§UI20.6.1`. Each relocated section also keeps a `(formerly §20.X)` annotation
+naming its old position, so a `§20.X` citation in code still resolves by grep
+even though the citable number itself is now prefixed.
 
 ## 21. Summary
 
