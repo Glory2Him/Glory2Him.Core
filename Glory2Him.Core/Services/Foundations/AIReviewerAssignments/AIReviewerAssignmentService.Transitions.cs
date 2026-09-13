@@ -108,6 +108,14 @@ namespace Glory2Him.Core.Services.Foundations.AIReviewerAssignments
                     entity: automaticAIReviewerAssignment,
                     securityContext: inboundEnvelope.SecurityContext);
 
+            // THE PUBLIC PATH'S OWN RULES, not a second copy of them. The row is the same row, so
+            // the rules over it must not be able to drift apart — and the only one a caller of
+            // this verb can trip is the approval id, because every other field is the service's
+            // own to set.
+            await ValidateOnAddAIReviewerAssignmentAsync(
+                aiReviewerAssignment: auditedAIReviewerAssignment,
+                securityContext: inboundEnvelope.SecurityContext);
+
             AIReviewerAssignment addedAIReviewerAssignment =
                 await this.storageBroker.InsertAIReviewerAssignmentAsync(
                     aiReviewerAssignment: auditedAIReviewerAssignment,
