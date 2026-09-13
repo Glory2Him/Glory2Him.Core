@@ -449,6 +449,84 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
             VerifyNoAutomaticAssignmentWasMade();
         }
 
+        /// <summary>
+        /// Criterion 6, first half. <c>ValidateUserMayRequestAIReviewer</c> is deliberately NOT
+        /// called here, and its absence is a ruling rather than an omission: there is no caller
+        /// whose tier it could ask about. The identity on the inbound envelope belongs to whoever
+        /// moved the round — ordinarily the AUTHOR revising their own submission, who holds no
+        /// review role at all (HR-1 forbids reviewing your own content) — and a gate that has to
+        /// be handed a forged context to pass is not a gate.
+        /// </summary>
+        [Theory]
+        [InlineData(AddedOperation)]
+        [InlineData(ModifiedOperation)]
+        public async Task ShouldAssignBereanWhenTheFactCarriesAnAuthorWithNoReviewRoleAsync(
+            string approvalEventOperation)
+        {
+            // given
+            Guid approvalId = Guid.NewGuid();
+
+            SetupAutomaticAIReviewerPolicy(approvalId, isAutomaticallyRequested: true);
+            SetupAIReviewerEverAssigned(approvalId, isEverAssigned: false);
+            SetupAutomaticAIReviewerAssignmentWrite();
+
+            // when
+            await DeliverApprovalFactAsync(
+                approvalEventOperation,
+                CreateApprovalFactEnvelope(
+                    approvalId,
+                    ApprovalStatus.Submitted,
+                    securityContext: CreateAuthenticatedSecurityContext()),
+                TestContext.Current.CancellationToken);
+
+            // then
+            this.aiReviewerAssignmentWorkflowServiceMock.Verify(service =>
+                service.AddAutomaticAIReviewerAssignmentAsync(
+                    approvalId,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
+        /// <summary>
+        /// Criterion 6, second half. Unlike <c>ApprovalOrchestrationService</c>'s entity
+        /// handlers, this one does NOT stand down on
+        /// <c>envelope.SecurityContext.IsSystemIdentity</c>. Those handlers bind facts that
+        /// describe something a PERSON did; a round reaches <c>Submitted</c> through the
+        /// workflow's own write, so the same guard here would mean this never fires at all.
+        ///
+        /// <para>Termination is carried by gate 5 instead, which is strictly stronger: an
+        /// identity test bounds one hop, that gate bounds the round forever.</para>
+        /// </summary>
+        [Theory]
+        [InlineData(AddedOperation)]
+        [InlineData(ModifiedOperation)]
+        public async Task ShouldAssignBereanWhenTheFactCarriesTheSystemIdentityAsync(
+            string approvalEventOperation)
+        {
+            // given
+            Guid approvalId = Guid.NewGuid();
+
+            SetupAutomaticAIReviewerPolicy(approvalId, isAutomaticallyRequested: true);
+            SetupAIReviewerEverAssigned(approvalId, isEverAssigned: false);
+            SetupAutomaticAIReviewerAssignmentWrite();
+
+            // when
+            await DeliverApprovalFactAsync(
+                approvalEventOperation,
+                CreateApprovalFactEnvelope(
+                    approvalId,
+                    ApprovalStatus.Submitted,
+                    securityContext: new SecurityContext { IsSystemIdentity = true }),
+                TestContext.Current.CancellationToken);
+
+            // then
+            this.aiReviewerAssignmentWorkflowServiceMock.Verify(service =>
+                service.AddAutomaticAIReviewerAssignmentAsync(
+                    approvalId,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
         // Both handlers, driven through one switch so every GATE below can be a theory over the
         // pair rather than a test written twice. That is criterion 2's "one private body" made
         // observable: the two differ only in the accepted event name, so a rule fixed on one
