@@ -199,6 +199,41 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
             VerifyNoAutomaticAssignmentWasMade();
         }
 
+        /// <summary>
+        /// Gate 2. A soft-deleted round gets no reviewer, and the flag is read off the SIGNED
+        /// content rather than re-read from storage — it is the row the foundation itself
+        /// published.
+        /// </summary>
+        [Theory]
+        [InlineData(AddedOperation)]
+        [InlineData(ModifiedOperation)]
+        public async Task ShouldNotAssignBereanWhenTheRoundIsSoftDeletedAsync(
+            string approvalEventOperation)
+        {
+            // given: a round that is Submitted and offered, and removed
+            Guid approvalId = Guid.NewGuid();
+
+            SetupAutomaticAIReviewerPolicy(approvalId, isAutomaticallyRequested: true);
+            SetupAIReviewerEverAssigned(approvalId, isEverAssigned: false);
+            SetupAutomaticAIReviewerAssignmentWrite();
+
+            // when
+            await DeliverApprovalFactAsync(
+                approvalEventOperation,
+                CreateApprovalFactEnvelope(
+                    approvalId, ApprovalStatus.Submitted, isDeleted: true),
+                TestContext.Current.CancellationToken);
+
+            // then: no verdict read, no presence read, no write
+            this.accessBrokerMock.Verify(broker =>
+                broker.ResolveAIReviewerPolicyByIdAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            VerifyNoAutomaticAssignmentWasMade();
+        }
+
         // Both handlers, driven through one switch so every GATE below can be a theory over the
         // pair rather than a test written twice. That is criterion 2's "one private body" made
         // observable: the two differ only in the accepted event name, so a rule fixed on one
