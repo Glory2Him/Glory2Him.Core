@@ -12,11 +12,13 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using FluentAssertions;
 using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.AIReviewerAssignments;
 using Glory2Him.Core.Models.Foundations.Approvals;
+using Glory2Him.Core.Models.Orchestrations.AIReviewers.Exceptions;
 using Glory2Him.Core.Models.Securities;
 using Moq;
 
@@ -525,6 +527,61 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
                     approvalId,
                     It.IsAny<CancellationToken>()),
                 Times.Once);
+        }
+
+        /// <summary>
+        /// GATE 1's other half. Criterion 3 names ApprovalOrchestrationService's verifier as the
+        /// pattern to follow, and that pattern opens by refusing a null Content or Metadata
+        /// BEFORE it verifies anything. Without it a signed envelope carrying no content passes
+        /// verification and then dereferences into the gates, so a malformed fact surfaces as a
+        /// service exception telling the operator to contact support rather than as the
+        /// validation refusal both sibling receivers produce for the same input.
+        ///
+        /// Not reachable from our own publisher today, which is why it is a mis-categorisation
+        /// rather than a hole — but a receiver is reachable without going through the broker, and
+        /// that is the whole reason §14.6 rule 4 puts verification here in the first place.
+        /// </summary>
+        [Theory]
+        [InlineData(AddedOperation)]
+        [InlineData(ModifiedOperation)]
+        public async Task ShouldRefuseAnApprovalFactEnvelopeWithNoContentAsync(
+            string approvalEventOperation)
+        {
+            // given: an envelope that VERIFIES — the integrity broker is left saying true — and
+            // still carries nothing to gate on
+            var contentlessEnvelope = new EventEnvelope<Approval>
+            {
+                Content = null,
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            // when
+            AIReviewerOrchestrationValidationException
+                actualAIReviewerOrchestrationValidationException =
+                    await Assert.ThrowsAsync<AIReviewerOrchestrationValidationException>(() =>
+                        DeliverApprovalFactAsync(
+                            approvalEventOperation,
+                            contentlessEnvelope,
+                            TestContext.Current.CancellationToken).AsTask());
+
+            // then: the validation family, not the service family
+            actualAIReviewerOrchestrationValidationException.InnerException
+                .Should().BeOfType<InvalidAIReviewerOrchestrationException>();
+
+            // and refused ahead of the gates, so no broker was asked anything
+            this.accessBrokerMock.Verify(broker =>
+                broker.ResolveAIReviewerPolicyByIdAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.accessBrokerMock.Verify(broker =>
+                broker.IsAIReviewerEverAssignedAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            VerifyNoAutomaticAssignmentWasMade();
         }
 
         // Both handlers, driven through one switch so every GATE below can be a theory over the
