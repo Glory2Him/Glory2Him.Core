@@ -301,17 +301,43 @@ describe('PostDetail', () => {
         expect(screen.getByRole('button', { name: /Save/ })).toBeInTheDocument();
     });
 
+    // Choosing CLOSES the picker — the panel's own behaviour — so both tests below reopen it
+    // to read the mark back. The card itself shows nothing yet: a summary needs counts, and
+    // those arrive with the association reads (#318).
+    const chooseReaction = async () => {
+        await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+        await userEvent.click(screen.getByRole('menuitem', { name: 'Amen' }));
+    };
+
+    const reopenPicker = async () => {
+        await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+
+        return screen.getByRole('menuitem', { name: 'Amen' });
+    };
+
     it('should mark the reaction the reader chose for this visit', async () => {
         // given
         renderPage();
 
         // when
-        await userEvent.click(screen.getByRole('button', { name: /Like/ }));
-        await userEvent.click(await screen.findByRole('button', { name: /Amen/ }));
+        await chooseReaction();
 
-        // then: the choice is the reader's own for this visit — nothing is persisted
-        // until the association write lands (#318)
-        expect(await screen.findByRole('button', { name: /Amen/ })).toBeInTheDocument();
+        // then: the choice reached the CARD, which is what this page's fold of the visit's
+        // reactions into its one projection is for. Nothing is persisted — the write lands
+        // with the association exposer (#318)
+        expect(await reopenPicker()).toHaveAttribute('aria-pressed', 'true');
+    });
+
+    it('should withdraw the reaction when the reader chooses it again', async () => {
+        // given
+        renderPage();
+        await chooseReaction();
+
+        // when: the same choice again is a change of mind
+        await userEvent.click(await reopenPicker());
+
+        // then
+        expect(await reopenPicker()).toHaveAttribute('aria-pressed', 'false');
     });
 
     it('should claim no engagement figures it has no source for', () => {

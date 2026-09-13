@@ -6,6 +6,7 @@ import { TagAssociationPanel } from '../components/associations/tagAssociationPa
 import { ContentItemPanel } from '../components/contentItems/contentItemPanel';
 import { SharingPanel } from '../components/contentItems/sharingPanel';
 import { Spinner } from '../components/coreUI/spinner';
+import { useContentItemEngagement } from '../hooks/useContentItemEngagement';
 import { contentItemService } from '../services/foundations/contentItemService';
 import { contentItemSettingService } from '../services/foundations/contentItemSettingService';
 import { contributorService } from '../services/foundations/contributorService';
@@ -52,6 +53,19 @@ export function PostDetail() {
         contentItemSettingService.useGetEffectiveSettingsFor(
             contentItemId.length > 0 ? [contentItemId] : []);
 
+    // LIKE, SHARE AND SAVE — the same thin wiring every feed card runs on, so a reader who
+    // followed a card here meets the controls it offered rather than losing them at the one
+    // address the item permanently has. Share is real (it copies this page's address); the
+    // reaction lives in page state for the visit and Save answers honestly, because both are
+    // ContentItem associations and those have no exposer yet (#318).
+    const {
+        reactionOptions,
+        onReactionSelected,
+        onShareClick,
+        onSaveClick,
+        withViewerReactions
+    } = useContentItemEngagement();
+
     // WHO SUBMITTED IT. The item carries CreatedBy — an account id — so the byline needs a second
     // read to turn that into a name and a face. Anonymous, so a signed-out reader gets the byline
     // too, and a 404 resolves to null rather than throwing: an account that has gone leaves the
@@ -65,7 +79,7 @@ export function PostDetail() {
     // The SAME self-contained element the feeds carry — one projection, one face, the whole
     // family — enriched with what this page alone has resolved: the contributor’s name for
     // the meta row.
-    const searchItem = useMemo(
+    const readItem = useMemo(
         () => contentItem == null
             ? undefined
             : {
@@ -74,6 +88,13 @@ export function PostDetail() {
                 submittedByImageUrl: contributor?.imageUrl ?? undefined
             },
         [contentItem, contentItemSettings, contributor]);
+
+    // The visit's chosen reaction, folded over the projection. OUTSIDE the memo deliberately:
+    // withViewerReactions closes over the choices and is rebuilt every render, so memoising on
+    // it would hand the panel a new item object on every render and reset the state it owns —
+    // the open reaction picker among it. The fold itself returns the SAME object while no
+    // reaction is held, so the identity only moves when the reader's choice actually does.
+    const searchItem = readItem == null ? undefined : withViewerReactions([readItem])[0];
 
     // What the page is called, on screen and in the tab.
     //
@@ -149,7 +170,11 @@ export function PostDetail() {
                                 contentItem={searchItem}
                                 showContentExpanded
                                 showTagSection={false}
-                                showBibleReferenceSection={false} />
+                                showBibleReferenceSection={false}
+                                reactionOptions={reactionOptions}
+                                onReactionSelected={onReactionSelected}
+                                onShareClick={onShareClick}
+                                onSaveClick={onSaveClick} />
                         </div>
 
                         <div className="col-lg-5">
