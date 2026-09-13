@@ -11,7 +11,7 @@ Repository Compliance
 	• Reuse repository implementations and conventions wherever possible.
 Identity Rules
 	• Identity is signed envelope data, never an ambient accessor. Every audit and user-id call takes the `SecurityContext` explicitly off the inbound envelope — `ApplyAddAuditValuesAsync(entity, securityContext)`, `GetUserIdAsync(securityContext)` — never the parameterless overload.
-	• The foundation enforces its own security (design §14.6). Do not assume an exposer or an upstream orchestration already gated the caller — every write path runs its own gate inside `DoXAsync`.
+	• The foundation enforces its own security (design §SEC14.6). Do not assume an exposer or an upstream orchestration already gated the caller — every write path runs its own gate inside `DoXAsync`.
 	• A caller who may not see a row is told not-found, never unauthorized. An authorization error would confirm the row exists; log the true denial reason server-side only.
 Testing Rules
 	• Anything that can be tested MUST be tested.
