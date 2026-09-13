@@ -41,9 +41,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
     public partial class AIReviewerOrchestrationServiceTests
     {
         /// <summary>
-        /// Criterion 1, and criterion 7's whole assertion: the write goes through the WORKFLOW
-        /// seam with this round's id, and never through the caller-facing foundation whose gate
-        /// asks for a review-tier role the system identity does not hold.
+        /// #532 criterion 1, and #532 criterion 7's whole assertion: the write goes through the
+        /// WORKFLOW seam with this round's id, and never through the caller-facing foundation
+        /// whose gate asks for a review-tier role the system identity does not hold.
         /// </summary>
         [Fact]
         public async Task ShouldAssignBereanWhenARoundOpensAlreadySubmittedAsync()
@@ -78,7 +78,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
         }
 
         /// <summary>
-        /// Criterion 2. The second subscription, covering both ways a round reaches
+        /// #532 criterion 2. The second subscription, covering both ways a round reaches
         /// <c>Submitted</c> after it opened — the submission of a round opened at <c>Draft</c>,
         /// and §8.6 HR-4's reset re-opening a decided one. One address hears every route,
         /// because all of them write through <c>ModifyApprovalAsync</c>.
@@ -113,12 +113,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
         }
 
         /// <summary>
-        /// Gate 1, and criterion 12's silent failure made loud. The event name is bound INTO the
-        /// HMAC, so a handler expecting the wrong one refuses a genuine envelope it was correctly
-        /// delivered — no misroute, no error, just a reaction that stops happening. The DIRECTION
-        /// is the same trap: <c>EventBroker</c> signs the publish leg as <c>Request</c>, so a
-        /// receiver asking for <c>Reply</c> would fail every verification with nothing to show
-        /// for it.
+        /// Gate 1, and #532 criterion 12's silent failure made loud. The event name is bound INTO
+        /// the HMAC, so a handler expecting the wrong one refuses a genuine envelope it was
+        /// correctly delivered — no misroute, no error, just a reaction that stops happening. The
+        /// DIRECTION is the same trap: <c>EventBroker</c> signs the publish leg as
+        /// <c>Request</c>, so a receiver asking for <c>Reply</c> would fail every verification
+        /// with nothing to show for it.
         ///
         /// <para>The literals are what every existing subscriber writes — <c>EventBroker</c>
         /// composes the name at publish time and exposes that composition to nobody (#286).</para>
@@ -398,9 +398,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
         }
 
         /// <summary>
-        /// Criterion 4, and it is named for the WITHDRAWAL rather than for the gate on purpose.
-        /// A moderator takes Berean off a round, the round is modified again, and nothing is
-        /// written — however many times that round is edited afterwards.
+        /// #532 criterion 4, and it is named for the WITHDRAWAL rather than for the gate on
+        /// purpose. A moderator takes Berean off a round, the round is modified again, and
+        /// nothing is written — however many times that round is edited afterwards.
         ///
         /// <para><b>This is the criterion most likely to be "fixed" later by somebody reading
         /// gate 5 as over-strict. It is not.</b> <c>WithdrawAIReviewerAsync</c> soft-deletes the
@@ -452,12 +452,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
         }
 
         /// <summary>
-        /// Criterion 6, first half. <c>ValidateUserMayRequestAIReviewer</c> is deliberately NOT
-        /// called here, and its absence is a ruling rather than an omission: there is no caller
-        /// whose tier it could ask about. The identity on the inbound envelope belongs to whoever
-        /// moved the round — ordinarily the AUTHOR revising their own submission, who holds no
-        /// review role at all (HR-1 forbids reviewing your own content) — and a gate that has to
-        /// be handed a forged context to pass is not a gate.
+        /// #532 criterion 6, first half. <c>ValidateUserMayRequestAIReviewer</c> is deliberately
+        /// NOT called here, and its absence is a ruling rather than an omission: there is no
+        /// caller whose tier it could ask about. The identity on the inbound envelope belongs to
+        /// whoever moved the round — ordinarily the AUTHOR revising their own submission, who
+        /// holds no review role at all (HR-1 forbids reviewing your own content) — and a gate
+        /// that has to be handed a forged context to pass is not a gate.
         /// </summary>
         [Theory]
         [InlineData(AddedOperation)]
@@ -490,7 +490,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
         }
 
         /// <summary>
-        /// Criterion 6, second half. Unlike <c>ApprovalOrchestrationService</c>'s entity
+        /// #532 criterion 6, second half. Unlike <c>ApprovalOrchestrationService</c>'s entity
         /// handlers, this one does NOT stand down on
         /// <c>envelope.SecurityContext.IsSystemIdentity</c>. Those handlers bind facts that
         /// describe something a PERSON did; a round reaches <c>Submitted</c> through the
@@ -718,9 +718,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
         }
 
         // Both handlers, driven through one switch so every GATE below can be a theory over the
-        // pair rather than a test written twice. That is criterion 2's "one private body" made
-        // observable: the two differ only in the accepted event name, so a rule fixed on one
-        // address and left broken on the other fails here rather than shipping.
+        // pair rather than a test written twice. That is #532 criterion 2's "one private body"
+        // made observable: the two differ only in the accepted event name, so a rule fixed on
+        // one address and left broken on the other fails here rather than shipping.
         private ValueTask<EventEnvelope<Approval>?> DeliverApprovalFactAsync(
             string approvalEventOperation,
             EventEnvelope<Approval> envelope,
