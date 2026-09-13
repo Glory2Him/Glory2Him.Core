@@ -20,7 +20,8 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
     {
         // §8.6.2. The tiering itself is exhaustively covered against EvaluateApprovalConditionsAsync
         // above — both ride the same private ResolvePolicy — so these pin only that this method
-        // reports the ONE field it exists to answer, off the same resolved row.
+        // reports IsOffered off the same resolved row. The second composed answer,
+        // IsAutomaticallyRequested, is pinned on its own below.
         [Fact]
         public async Task ShouldReportTheResolvedIsAIReviewerOfferedAsync()
         {
