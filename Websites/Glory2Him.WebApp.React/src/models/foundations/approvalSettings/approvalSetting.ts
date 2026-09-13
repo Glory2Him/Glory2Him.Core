@@ -116,6 +116,13 @@ export type ApprovalSetting = {
     isAIReviewerOffered: boolean;
     isAIAllowedToVote: boolean;
 
+    // Whether Berean is assigned to a round without anybody asking, once that round enters
+    // review (design §8.6.2, §8.6.2.1). A SIBLING of isAIAllowedToVote, not its child: storage
+    // carries NO constraint pairing it with isAIReviewerOffered, so it neither disables nor
+    // clears when the offer switch does — a dormant true under an offer of false is a legal,
+    // shipped preference rather than a contradiction.
+    isAIReviewerAutomaticallyRequested: boolean;
+
     // ConfidenceScore's own 0.00-10.00 scale (design §13.5), read only when isAIAllowedToVote is
     // true — otherwise the score is reported in Berean's comment and nothing is cast.
     aiApprovalConfidenceRejectionThreshold: number;
@@ -163,6 +170,9 @@ export const toApprovalSettingAddRequest = (
     isAIReviewerOffered: approvalSetting.isAIReviewerOffered,
     isAIAllowedToVote: approvalSetting.isAIAllowedToVote,
 
+    isAIReviewerAutomaticallyRequested:
+        approvalSetting.isAIReviewerAutomaticallyRequested,
+
     aiApprovalConfidenceRejectionThreshold:
         approvalSetting.aiApprovalConfidenceRejectionThreshold,
 
@@ -172,7 +182,7 @@ export const toApprovalSettingAddRequest = (
     isDeleted: approvalSetting.isDeleted
 });
 
-// What a NEW row opens on: the HOUSE POLICY, the same thirteen values ApprovalSettingSeedData
+// What a NEW row opens on: the HOUSE POLICY, the same fourteen values ApprovalSettingSeedData
 // writes for every entity-type default. A content-type row an administrator adds narrows a
 // seeded default, so it opens matching that default and the administrator changes only what
 // they mean to — a form that opened looser than the row it overrides would make the policy
@@ -199,6 +209,14 @@ export const newApprovalSetting = (id: string): ApprovalSetting => ({
     isAIAllowedToVote: false,
     aiApprovalConfidenceRejectionThreshold: 2.5,
     aiApprovalConfidenceApprovalThreshold: 7.5,
+
+    // PINNED TO THE SEED CONSTANT, not to the CLR initialiser it happens to agree with (§8.6.2.1
+    // criterion 2). ApprovalSettingSeedData ships this true for every entity-type default, and a
+    // new row opens matching that default for the same reason every other field above does — the
+    // fact that ApprovalSetting's own property initialiser is ALSO true is a different rule
+    // (§8.6.2 "Which default wins", point 1) that happens to land on the same value; the next
+    // field added here should not assume the two always will.
+    isAIReviewerAutomaticallyRequested: true,
 
     createdBy: '',
     createdWhen: '',
