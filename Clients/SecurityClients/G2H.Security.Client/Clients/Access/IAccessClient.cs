@@ -48,8 +48,9 @@ namespace G2H.Security.Client.Clients.Access
             ApprovalConditionsRequest approvalConditionsRequest);
 
         /// <summary>
-        /// Resolves whether Berean is offered on a round (design §8.6.2) — the tiered policy
-        /// pass, narrowed to the one field the invitation flow needs.
+        /// Resolves both composed answers §8.6.2 defines about Berean on a round — whether it is
+        /// offered, and whether it is assigned automatically once review opens (§8.6.2.1) — from
+        /// the tiered policy pass.
         /// </summary>
         ValueTask<AIReviewerPolicyVerdict> ResolveAIReviewerPolicyAsync(
             ResolveAIReviewerPolicyRequest resolveAIReviewerPolicyRequest);
