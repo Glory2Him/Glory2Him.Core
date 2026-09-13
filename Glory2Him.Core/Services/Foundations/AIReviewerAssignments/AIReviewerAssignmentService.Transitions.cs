@@ -84,6 +84,8 @@ namespace Glory2Him.Core.Services.Foundations.AIReviewerAssignments
             EventEnvelope<AIReviewerAssignment> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            ValidateAutomaticAssignmentIsTheWorkflowsOwnAct(inboundEnvelope.SecurityContext);
+
             // THE SAME ROW THE MODERATOR'S ADD WRITES. Both flags start false because they record
             // what Berean's pass eventually did and it has not run yet, and the id is minted here
             // because the caller handed over an act rather than an entity to carry one.
