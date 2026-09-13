@@ -621,6 +621,9 @@ namespace Glory2Him.Core.Brokers.Securities
                     IsAIReviewerOffered = setting.IsAIReviewerOffered,
                     IsAIAllowedToVote = setting.IsAIAllowedToVote,
 
+                    IsAIReviewerAutomaticallyRequested =
+                        setting.IsAIReviewerAutomaticallyRequested,
+
                     AIApprovalConfidenceRejectionThreshold =
                         setting.AIApprovalConfidenceRejectionThreshold,
 
