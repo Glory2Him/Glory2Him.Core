@@ -72,8 +72,14 @@ namespace Glory2Him.Core.Services.Orchestrations.AIReviewers
             EventEnvelope<Approval> envelope,
             string eventName)
         {
-            await this.envelopeIntegrityBroker.VerifyAsync(
+            bool isSignatureValid = await this.envelopeIntegrityBroker.VerifyAsync(
                 envelope, eventName, EnvelopeDirection.Request);
+
+            if (isSignatureValid is false)
+            {
+                throw new InvalidAIReviewerOrchestrationException(
+                    message: "AI reviewer event is invalid. Integrity verification failed.");
+            }
         }
 
         private static void ValidateOnRetrieveAIReviewerStatus(
