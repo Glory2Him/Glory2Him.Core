@@ -106,5 +106,59 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        // §8.6.2.1 criterion 1: what the administrator chose is what is stored. Set EXPLICITLY,
+        // both ways — a Filler-supplied random bool proves nothing by itself, because a
+        // caller-vs-storage assertion on an unset property cannot tell "passed through" apart
+        // from "coincidentally matched a default the service forced".
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task ShouldAddApprovalSettingWithTheCallersIsAIReviewerAutomaticallyRequestedAsync(
+            bool isAIReviewerAutomaticallyRequested)
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            ApprovalSetting randomApprovalSetting = CreateApprovalSettingFiller(randomDateTimeOffset).Create();
+            randomApprovalSetting.IsAIReviewerAutomaticallyRequested = isAIReviewerAutomaticallyRequested;
+            ApprovalSetting inputApprovalSetting = randomApprovalSetting;
+            ApprovalSetting auditAppliedApprovalSetting = inputApprovalSetting.DeepClone();
+            ApprovalSetting storageApprovalSetting = auditAppliedApprovalSetting.DeepClone();
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(inputApprovalSetting, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(auditAppliedApprovalSetting);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(auditAppliedApprovalSetting.CreatedBy);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.InsertApprovalSettingAsync(auditAppliedApprovalSetting, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(storageApprovalSetting);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishApprovalSettingAsync(
+                    It.IsAny<EventEnvelope<ApprovalSetting>>(),
+                    ApprovalSettingEventOperation.Added))
+                    .Returns(new ValueTask<EventPublishResult<ApprovalSetting>>(
+                        new EventPublishResult<ApprovalSetting>()));
+
+            // when
+            ApprovalSetting actualApprovalSetting =
+                await this.approvalSettingService.AddApprovalSettingAsync(
+                    inputApprovalSetting,
+                    TestContext.Current.CancellationToken);
+
+            // then — the caller's own choice, untouched: no default applied by the service and
+            // no value forced either way.
+            actualApprovalSetting.IsAIReviewerAutomaticallyRequested
+                .Should().Be(isAIReviewerAutomaticallyRequested);
+        }
     }
 }
