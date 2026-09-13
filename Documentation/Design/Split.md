@@ -39,11 +39,16 @@ drift this split exists to prevent.
 | `Documentation/Design/Approval.md` | `APR` | The approval entity, settings, lifecycle, and AI content analysis. |
 | `Documentation/Design/Architecture.md` | `ARC` | Layers, per-service responsibilities, API surface. |
 | `Documentation/Design/Security.md` | `SEC` | Visibility, enforcement posture, authentication and authorisation. |
-| `Documentation/Design/Ui.md` | `UI` | React UI and component design. |
+| `Documentation/Design/UI.md` | `UI` | React UI and component design. |
 | `Documentation/Design/Events.md` | `EVN` | Event design. **Already exists.** |
 
-`Ui.md` is deliberately the spelling `DEVELOPERS.md` §5.4 and §8 already use
-illustratively, so those examples become true rather than needing correction.
+**`UI.md`, capital I, is the user's ruling and is not open.** An earlier draft of
+this file chose `Ui.md` because that was the spelling `DEVELOPERS.md` §5.4 and §8
+already used illustratively; that reason is retired, and those illustrative paths
+are now what must be corrected (§S3.1). The file was created under the old name
+before the ruling, so carrying the rename on a case-insensitive filesystem takes
+`git mv --force` or a two-step through a temporary name — a plain filesystem
+rename is one git does not record.
 
 **`APR` is a new prefix.** `Events.md`'s header paragraph reserves `ARC`, `DOM`,
 `SEC` and `UI` and does not mention approval, because approval was expected to be
@@ -71,10 +76,13 @@ Three reasons, in order of weight:
 
 1. **The transformation becomes mechanical and therefore checkable.** Old `§N.M`
    maps to new `§<PREFIX>N.M` by a rule a script can apply and a script can verify
-   (§S6). The document carries 214 numbered headings, 193 of them subsections;
-   renumbering them into six files by hand is a transformation with 214 chances
-   to drop one, which is precisely the incident class #481 names as its first
-   non-negotiable.
+   (§S6). The document carries 213 numbered headings, 192 of them subsections,
+   re-measured at the commit the split branches from; renumbering them into six
+   files by hand is a transformation with 213 chances to drop one, which is
+   precisely the incident class #481 names as its first non-negotiable. *(214 is
+   the count of heading **lines**, which includes the unnumbered `# G2H Design`
+   title — not a section, and it does not move. Gate G2 compares numbered
+   headings, so 213 and 192 are the figures it works from.)*
 2. **Old citations stay legible.** `§8.6.1` and `§APR8.6.1` are recognisably the
    same section to a human reading a five-year-old comment, which no renumbering
    scheme gives for free.
@@ -149,11 +157,11 @@ set: one label per file — `design: domain`, `design: approval`,
 | §17 | Recommended API Design | 83 | `Architecture.md` | `§ARC17` |
 | §18 | Authentication and Authorisation | 324 | `Security.md` | `§SEC18` |
 | §19 | Search Engine Optimisation | 97 | `Domain.md` | `§DOM19` |
-| §20 | UI / UX Design | 252 | `Ui.md` | `§UI20` |
+| §20 | UI / UX Design | 252 | `UI.md` | `§UI20` |
 | §21 | Summary | 31 | *§21.1 retired, §21.2 to the index — §S4.2, §S4.3* | — |
 
 Resulting sizes: `Domain.md` ~923, `Approval.md` ~1,104, `Architecture.md` ~1,007,
-`Security.md` ~599, `Ui.md` ~252. The index retains ~102 lines (§1 at 64, the §10
+`Security.md` ~599, `UI.md` ~252. The index retains ~102 lines (§1 at 64, the §10
 stub at 21, §21.2 at 17) plus its new map.
 
 ### S2.1 The straddlers — lives here, referenced there
@@ -200,7 +208,7 @@ back.
 columns, filtered unique indexes and slug generation (§19.2, §19.3) — entity
 design. §19.5 structured data and §19.8 crawler head injection are rendering
 consequences of those stored fields rather than component design, so they travel
-with the fields. `Ui.md` §UI20 links to `§DOM19.5` and `§DOM19.8`.
+with the fields. `UI.md` §UI20 links to `§DOM19.5` and `§DOM19.8`.
 
 **§12 — `Architecture.md`, whole**, including §12.9 Content Analysis Service (a
 component, even though its subject matter is §APR13's) and §12.5, which
@@ -236,13 +244,57 @@ It keeps exactly three things, and §S4.3 adds a fourth:
 
 | Artefact | Change |
 | --- | --- |
-| `Glory2Him.Core.slnx` | Add a `/Documentation/Design/` folder listing all six area files. Note `Events.md` is **already** missing from the solution file — a pre-existing gap the split closes. |
+| `Glory2Him.Core.slnx` | Add a `/Documentation/Design/` folder listing all six area files. Note `Events.md` is **already** missing from the solution file — a pre-existing gap the split closes. The UI entry added ahead of the §S1.1 ruling is spelled `Ui.md` and must be respelled `UI.md`. |
 | `CLAUDE.md` | "`Documentation/G2H Design.md` on main is authoritative" becomes "is the index and entry point; the area files under `Documentation/Design/` are authoritative for their areas". In the non-negotiables, `§12.1 rule 2` becomes `§ARC12.1 rule 2` and `§12.5` becomes `§ARC12.5`. |
-| `.claude/agents/architect.md` | Lines 17–18 (where it writes), 82 and 104 (the Florance register and `§12.5` — becomes `Architecture.md §ARC16.7.1` / `§ARC12.5`), 125–126 (what is authoritative), 154–155 (the `Documentation/` path-scoping paragraph, which describes the split as begun and should describe it as done). |
+| `.claude/agents/architect.md` | Lines 17–19 (where it writes — §S3.2 rules the wording to use while the split is in progress), 82 and 104 (the Florance register and `§12.5` — becomes `Architecture.md §ARC16.7.1` / `§ARC12.5`), 125–126 (what is authoritative), 154–155 (the `Documentation/` path-scoping paragraph, which describes the split as begun and should describe it as done). |
 | `.claude/agents/qa.md` | Lines 84, 114 (the deviation register's location), 263, 385–386. |
 | `.claude/agents/analyst.md` | Lines 68–69. |
-| `DEVELOPERS.md` | §5.3 "Where it writes, today" (no longer true); §6's "adopt as you touch sections" (see §S5); §12 "What does not exist yet" — three of its bullets (filenames not decided, no index, only `Events.md`) are discharged by the split and must be **deleted**, not amended. |
+| `DEVELOPERS.md` | Every illustrative `Design/Ui.md` path respelled `Design/UI.md` (§S1.1); §5.3 "Where it writes, today" (no longer true); §6's "adopt as you touch sections" (see §S5); §12 "What does not exist yet" — three of its bullets (filenames not decided, no index, only `Events.md`) are discharged by the split and must be **deleted**, not amended. |
+| The `UI.md` rename (§S1.1) | `Documentation/Design/Ui.md` -> `Documentation/Design/UI.md` by `git mv --force`, plus every path that spells it: `Glory2Him.Core.slnx`, `Documentation/G2H Design.md` (four links: §1.5, the map, the area list, and the §20 stub), `Documentation/Mockups/README.md`, `Tools/design-split-audit.sh`, and `DEVELOPERS.md`'s illustrative paths. |
 | Issue #498 | One comment pointing at §S1.3. It is closed and cannot be edited. |
+
+### S3.2 Where an architect writes while the split is in progress
+
+`.claude/agents/architect.md` lines 17–19 name `Documentation/G2H Design.md` "in
+the section that already owns the subject", carve out
+`Documentation/Design/Events.md` for event design alone, and close with "Nothing
+else." That is already untrue — §20 is a pointer stub, so an architect settling UI
+design writes into a signpost — and it becomes untrue again at each of #552–#556.
+A wording that lists the extracted files by name has to be rewritten five more
+times, and a stale instruction in an agent file is the drift this split exists to
+stop.
+
+**The instruction names no file. It names the map.** The form of words, good from
+the first extraction to the last:
+
+> Write into the file that owns the subject's area: the area file under
+> `Documentation/Design/` where one exists for that area, and
+> `Documentation/G2H Design.md` where one does not, in the section that already
+> owns the subject. The map in `G2H Design.md` §1.5 says which of the two, one row
+> per section. A section whose row points at an area file has moved, and what is
+> left behind is a pointer stub — a signpost, not a home. Never write design into
+> a stub.
+
+Two consequences:
+
+1. **It is edited once and not again at #552–#556.** Every extraction updates the
+   map rows it moves, and the instruction reads off the map, so it stays true
+   without being touched. This discharges the "where it writes" part of §S3.1's
+   `architect.md` row for the whole split. The rest of that row — the Florance
+   register, what is authoritative, the path-scoping paragraph — still lands with
+   the file each part names.
+2. **The path-scoping hard rule at lines 154–155 is left alone for now.** It says
+   the split "has begun" and that the scope "should narrow to those two paths as
+   the rest of the split lands", which is true today and at every step up to #556,
+   where §S3.1 already has it rewritten.
+
+This rules the architect's **write target** only. The sentences that say what is
+authoritative to *read* — `architect.md` 125–126, `qa.md` 385–386, `analyst.md`
+68–69 — are stale today for the same reason, each naming `Events.md` as the only
+area file, and §S3.1 schedules them. Whoever edits them should use the same shape:
+name the files under `Documentation/Design/` as authoritative for their areas and
+the map as what says which areas those are, so they too survive the remaining
+extractions unedited.
 
 ---
 
@@ -353,11 +405,14 @@ Checked against the working tree rather than taken on trust:
    unresolvable. The split neither creates nor repairs it. *(Advisory, for whoever
    next edits that file: "the old §12.4.7" would read better as "§12.4.7, withdrawn
    and no longer in the document". Not the split's job.)*
-2. **`§1.1.3` is not a citation of this document.** Thirteen occurrences across the
-   orchestration services and their tests, every one attached to "no foundation
-   exception leaks to a higher layer" — The Standard's exception rule.
-   `G2H Design.md` §1.1 is "Purpose" and has no numbered subsections at all, so it
-   has no §1.1.3 to cite.
+2. **`§1.1.3` is not a citation of this document.** Sixteen occurrences across nine
+   files — four orchestration services and five of their test files — every one
+   attached to "no foundation exception leaks to a higher layer", The Standard's
+   exception rule. `G2H Design.md` §1.1 is "Purpose" and has no numbered
+   subsections at all, so it has no §1.1.3 to cite. *(A repository-wide grep
+   returns twenty rather than sixteen; the other four are this file's own three
+   mentions and one in `Tools/design-split-audit.sh`, none of which is a citation
+   that has to resolve.)*
 3. **`§534` is an issue number typed with a section sign.** One occurrence, at
    `Glory2Him.Core.Tests.Unit/Services/Orchestrations/AIReviewers/AIReviewerOrchestrationServiceTests.cs:205`,
    reading `(§534/#532)` — a pair of issue numbers, one of them mis-sigiled.
@@ -386,7 +441,7 @@ hop rather than to nothing.
 
 ## S8. Left open, deliberately
 
-- **Whether `Ui.md` should later absorb §DOM19.8 and §DOM19.5.** Ruled into
+- **Whether `UI.md` should later absorb §DOM19.8 and §DOM19.5.** Ruled into
   `Domain.md` for now because the stored fields are the load-bearing part. If the
   crawler and JSON-LD sections grow with real rendering design, revisit — as a
   design decision, not a tidy-up.
