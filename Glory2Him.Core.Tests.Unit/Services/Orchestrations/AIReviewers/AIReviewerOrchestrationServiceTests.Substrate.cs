@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -74,6 +74,68 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
                     It.IsAny<CancellationToken>()),
                 Times.Never);
         }
+
+        /// <summary>
+        /// Criterion 2. The second subscription, covering both ways a round reaches
+        /// <c>Submitted</c> after it opened — the submission of a round opened at <c>Draft</c>,
+        /// and §8.6 HR-4's reset re-opening a decided one. One address hears every route,
+        /// because all of them write through <c>ModifyApprovalAsync</c>.
+        /// </summary>
+        [Fact]
+        public async Task ShouldAssignBereanWhenARoundReachesSubmittedLaterAsync()
+        {
+            // given
+            Guid approvalId = Guid.NewGuid();
+
+            SetupAutomaticAIReviewerPolicy(approvalId, isAutomaticallyRequested: true);
+            SetupAIReviewerEverAssigned(approvalId, isEverAssigned: false);
+            SetupAutomaticAIReviewerAssignmentWrite();
+
+            // when
+            await this.aiReviewerOrchestrationService.OnApprovalModifiedAsync(
+                CreateApprovalFactEnvelope(approvalId, ApprovalStatus.Submitted),
+                TestContext.Current.CancellationToken);
+
+            // then
+            this.aiReviewerAssignmentWorkflowServiceMock.Verify(service =>
+                service.AddAutomaticAIReviewerAssignmentAsync(
+                    approvalId,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.aiReviewerAssignmentServiceMock.Verify(service =>
+                service.AddAIReviewerAssignmentAsync(
+                    It.IsAny<AIReviewerAssignment>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        // Both handlers, driven through one switch so every GATE below can be a theory over the
+        // pair rather than a test written twice. That is criterion 2's "one private body" made
+        // observable: the two differ only in the accepted event name, so a rule fixed on one
+        // address and left broken on the other fails here rather than shipping.
+        private ValueTask<EventEnvelope<Approval>?> DeliverApprovalFactAsync(
+            string approvalEventOperation,
+            EventEnvelope<Approval> envelope,
+            CancellationToken cancellationToken) =>
+            approvalEventOperation switch
+            {
+                AddedOperation =>
+                    this.aiReviewerOrchestrationService.OnApprovalAddedAsync(
+                        envelope, cancellationToken),
+
+                ModifiedOperation =>
+                    this.aiReviewerOrchestrationService.OnApprovalModifiedAsync(
+                        envelope, cancellationToken),
+
+                _ => throw new ArgumentOutOfRangeException(
+                    nameof(approvalEventOperation),
+                    approvalEventOperation,
+                    "This service subscribes to no other Approval fact address."),
+            };
+
+        private const string AddedOperation = "Added";
+        private const string ModifiedOperation = "Modified";
 
         // The signed fact the foundation publishes about a round. Every gate but the verdict and
         // the presence check reads this envelope and nothing else — it is inside the HMAC, which
