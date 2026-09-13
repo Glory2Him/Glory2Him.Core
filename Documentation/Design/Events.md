@@ -1794,9 +1794,9 @@ Both literals are safe by the argument that already covers most of #286's:
 `nameof(Approval)` and `nameof(ApprovalReview)`, so the literal is the type name
 and cannot drift the way `"ContentItemProcessing"` and `"LinkProcessing"` did in
 #278. `Approval-Modified` being the first of the `Approval` entity's own FACT
-addresses to carry a subscription — the five existing
-`SubscribeToApprovalEventAsync` registrations all bind command addresses —
-changes nothing here: the name is composed from the entity and the operation,
+addresses to carry a subscription — the five `SubscribeToApprovalEventAsync`
+registrations that stood before it all bind command addresses, and the two that
+have joined it since are the automatic Berean pair below — changes nothing here: the name is composed from the entity and the operation,
 never from the tense of the address. What verifies it against a real publisher
 is the acceptance suite, which drives the retirement over HTTP rather than
 calling the handler.
