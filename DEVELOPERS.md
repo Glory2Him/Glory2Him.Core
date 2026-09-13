@@ -398,14 +398,19 @@ Every numbered heading in `Documentation/Design/*.md` should carry exactly one o
 two tags, never bare:
 
 ```markdown
-### UI20.6 Components (#512)
-### UI20.9 Services and Brokers (needs issue)
+### UI20.6 Components *(formerly §20.6)* (#512)
+### UI20.9 Services and Brokers *(formerly §20.9)* (needs issue)
 ```
 
 `(#N)` names the **most recent** issue that authoritatively defined the section —
 not an accumulating list, because `git log` and `git blame` already give the full
 history for free. `(needs issue)` is an explicit, greppable flag for design
 content nobody has scheduled yet.
+
+The tag is **added** to the heading as it stands; it never replaces what is
+already there. A relocated heading keeps its `*(formerly §N.M)*` annotation — that
+is the anchor an old `§20.6` citation in code resolves by, and dropping it fails
+`Split.md` §S6 gate G1 — so the tag goes after it, as the specimens show.
 
 The tag is mandatory rather than inferred, because a bare heading is ambiguous:
 deliberately skipped, or just missed? Requiring a tag forces the decision every
@@ -576,8 +581,8 @@ If a "Search result density" design had been written by the architect into
 §UI20.6 and left `(needs issue)`, the start inverts: you run the sweep, the
 analyst opens issue #513 with criteria already written and applies `design: ui`,
 `Opus 5 - Medium` and `status: needs-scoping`. You or the architect then rewrite
-the heading to `### UI20.6 Components (#513)` — the analyst cannot, for the
-reason in §6. You pick up at step 5.
+the heading to `### UI20.6 Components *(formerly §20.6)* (#513)` — the analyst
+cannot, for the reason in §6. You pick up at step 5.
 
 That inversion is where the coverage check in step 5 earns its place: a design
 section the sweep missed has no issue at all, and a gap like that is invisible
