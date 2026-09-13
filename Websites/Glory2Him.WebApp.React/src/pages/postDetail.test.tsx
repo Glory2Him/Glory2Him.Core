@@ -184,6 +184,40 @@ describe('PostDetail', () => {
         expect(screen.queryByLabelText(/Title/)).not.toBeInTheDocument();
     });
 
+    it('should stand the item in the seven beside a five', () => {
+        // when
+        const { container } = renderPage();
+
+        // then: the layout contract itself — 7 for the item, 5 for what sits beside it,
+        // the same split the contributor's own surface keeps
+        expect(container.querySelector('.col-lg-7 h1')).toBeInTheDocument();
+        expect(container.querySelector('.col-lg-5')).toBeInTheDocument();
+    });
+
+    it('should stand the association surfaces in the five', () => {
+        // when
+        const { container } = renderPage();
+        const rightColumn = container.querySelector('.col-lg-5') as HTMLElement;
+
+        // then: a reader meets the tags and the bible references beside the article, and
+        // is invited to suggest one of each — the controls this page carried nowhere before
+        expect(rightColumn.textContent).toContain('Tags');
+        expect(rightColumn.textContent).toContain('Bible references');
+        expect(rightColumn.textContent).toContain('Suggest a tag');
+        expect(rightColumn.textContent).toContain('Suggest a bible reference');
+    });
+
+    it('should say the same association fact once, beside the card and not within it', () => {
+        // when
+        const { container } = renderPage();
+        const readingColumn = container.querySelector('.col-lg-7') as HTMLElement;
+
+        // then: the in-card sections are switched off, so when the association reads land
+        // (#318) a tag cannot appear both on the card and in the panel next to it
+        expect(readingColumn.textContent).not.toContain('Tags');
+        expect(readingColumn.textContent).not.toContain('Bible references');
+    });
+
     it('should head the document once, out of sight, and let the card carry the title', () => {
         // when
         renderPage();
