@@ -344,6 +344,57 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
             VerifyNoAutomaticAssignmentWasMade();
         }
 
+        /// <summary>
+        /// §8.6.2.1's gate 4 — the SUBJECT is visible. A takedown leaves the approval record and
+        /// the entity's denormalised <c>ApprovalStatus</c> alone (§9.7.6), so a taken-down row
+        /// still looks open to every status-shaped gate above: the round's own
+        /// <c>IsDeleted</c> is false, its status still says <c>Submitted</c>, and the policy
+        /// still resolves. Without this gate a <c>-Modified</c> on such a round would set an AI
+        /// pass running over content nobody may see.
+        ///
+        /// <para>Keyed on the envelope's signed <c>EntityType</c> and <c>EntityId</c>, which is
+        /// the same probe §16.7.2's repair and §12.5.4 business rule 2 hold themselves to.</para>
+        /// </summary>
+        [Theory]
+        [InlineData(AddedOperation)]
+        [InlineData(ModifiedOperation)]
+        public async Task ShouldNotAssignBereanWhenTheSubjectIsNoLongerVisibleAsync(
+            string approvalEventOperation)
+        {
+            // given: an open, offered round whose entity has been taken down
+            Guid approvalId = Guid.NewGuid();
+
+            SetupAutomaticAIReviewerPolicy(approvalId, isAutomaticallyRequested: true);
+            SetupAIReviewerEverAssigned(approvalId, isEverAssigned: false);
+            SetupAutomaticAIReviewerAssignmentWrite();
+            SetupEntityVisibility(isEntityVisible: false);
+
+            EventEnvelope<Approval> envelope =
+                CreateApprovalFactEnvelope(approvalId, ApprovalStatus.Submitted);
+
+            // when
+            await DeliverApprovalFactAsync(
+                approvalEventOperation,
+                envelope,
+                TestContext.Current.CancellationToken);
+
+            // then: probed on the SIGNED key, and refused before the presence check
+            this.accessBrokerMock.Verify(broker =>
+                broker.IsEntityVisibleAsync(
+                    envelope.Content.EntityType,
+                    envelope.Content.EntityId,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.accessBrokerMock.Verify(broker =>
+                broker.IsAIReviewerEverAssignedAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            VerifyNoAutomaticAssignmentWasMade();
+        }
+
         // Both handlers, driven through one switch so every GATE below can be a theory over the
         // pair rather than a test written twice. That is criterion 2's "one private body" made
         // observable: the two differ only in the accepted event name, so a rule fixed on one
