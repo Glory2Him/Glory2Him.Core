@@ -51,6 +51,11 @@ namespace Glory2Him.Core.Services.Orchestrations.AIReviewers
             CancellationToken cancellationToken = default) =>
             TryCatch<EventEnvelope<Approval>?>(async () =>
             {
+                // AHEAD OF THE VERIFY, and of every gate. Cancellation abandons the delivery
+                // outright, so there is nothing left to verify — and without it the refused
+                // branches would observe the token NOWHERE, since each gate returns before
+                // reaching a call that takes one.
+                cancellationToken.ThrowIfCancellationRequested();
                 await ValidateApprovalFactEnvelopeAsync(envelope, ApprovalAddedEventName);
 
                 await AssignAIReviewerAutomaticallyAsync(
@@ -65,6 +70,8 @@ namespace Glory2Him.Core.Services.Orchestrations.AIReviewers
             CancellationToken cancellationToken = default) =>
             TryCatch<EventEnvelope<Approval>?>(async () =>
             {
+                // Ahead of the verify, for the reason its sibling above gives.
+                cancellationToken.ThrowIfCancellationRequested();
                 await ValidateApprovalFactEnvelopeAsync(envelope, ApprovalModifiedEventName);
 
                 await AssignAIReviewerAutomaticallyAsync(
