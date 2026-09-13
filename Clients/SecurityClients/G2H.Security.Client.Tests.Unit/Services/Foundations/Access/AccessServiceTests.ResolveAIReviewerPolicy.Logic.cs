@@ -20,7 +20,8 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
     {
         // §8.6.2. The tiering itself is exhaustively covered against EvaluateApprovalConditionsAsync
         // above — both ride the same private ResolvePolicy — so these pin only that this method
-        // reports the ONE field it exists to answer, off the same resolved row.
+        // reports IsOffered off the same resolved row. The second composed answer,
+        // IsAutomaticallyRequested, is pinned on its own below.
         [Fact]
         public async Task ShouldReportTheResolvedIsAIReviewerOfferedAsync()
         {
@@ -51,7 +52,9 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
         }
 
         // §8.4 rule 2: fail-closed. No row at all resolves to the system default, which never
-        // offers Berean.
+        // offers Berean and never asks it automatically either — a fallback that granted an
+        // automatic action in an environment the seed has not reached is exactly what the
+        // fail-closed reading forbids (§8.6.2.1, criterion 7).
         [Fact]
         public async Task ShouldReportNotOfferedUnderTheFailClosedSystemDefaultAsync()
         {
@@ -71,6 +74,47 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
 
             // then
             actualVerdict.IsOffered.Should().BeFalse();
+            actualVerdict.IsAutomaticallyRequested.Should().BeFalse();
+        }
+
+        // §8.6.2 / §8.6.2.1, criterion 6: the composition is the whole point of this verdict, so
+        // all four combinations are pinned rather than only the "both on" case. Nothing above
+        // this decision function re-derives IsAutomaticallyRequested on its own (§8.6.1 rule 4).
+        [Theory]
+        [InlineData(true, true, true)]
+        [InlineData(true, false, false)]
+        [InlineData(false, true, false)]
+        [InlineData(false, false, false)]
+        public async Task ShouldComposeIsAutomaticallyRequestedFromBothSwitchesAsync(
+            bool isAIReviewerOffered,
+            bool isAIReviewerAutomaticallyRequested,
+            bool expectedIsAutomaticallyRequested)
+        {
+            // given
+            string entityType = GetRandomString();
+            string contentType = GetRandomString();
+
+            ApprovalPolicy contentTypeRow = CreateRandomApprovalPolicy(
+                entityType: entityType,
+                contentType: contentType,
+                isAIReviewerOffered: isAIReviewerOffered,
+                isAIReviewerAutomaticallyRequested: isAIReviewerAutomaticallyRequested);
+
+            var resolveAIReviewerPolicyRequest = new ResolveAIReviewerPolicyRequest
+            {
+                CandidatePolicies = new List<ApprovalPolicy> { contentTypeRow },
+                EntityType = entityType,
+                ContentType = contentType,
+                IsPersonal = null,
+            };
+
+            // when
+            AIReviewerPolicyVerdict actualVerdict =
+                await this.accessService.ResolveAIReviewerPolicyAsync(
+                    resolveAIReviewerPolicyRequest);
+
+            // then
+            actualVerdict.IsAutomaticallyRequested.Should().Be(expectedIsAutomaticallyRequested);
         }
 
         // The content-type row wins even when a broader row offers Berean — the same

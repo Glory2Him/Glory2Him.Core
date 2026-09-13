@@ -125,6 +125,9 @@ export const ApprovalSettingsPage = () => {
                     {featurePill('No bypass', approvalSetting.doNotAllowBypassingSettings)}
                     {featurePill('AI reviewer (Berean)', approvalSetting.isAIReviewerOffered)}
                     {featurePill('AI vote', approvalSetting.isAIAllowedToVote)}
+
+                    {featurePill('Auto-request AI reviewer', approvalSetting
+                        .isAIReviewerAutomaticallyRequested)}
                 </>
             )
         }

@@ -92,6 +92,19 @@ namespace Glory2Him.WebApp.Data
         internal const decimal AIApprovalConfidenceRejectionThreshold = 2.50m;
         internal const decimal AIApprovalConfidenceApprovalThreshold = 7.50m;
 
+        // Design §8.6.2 / §8.6.2.1: ships ON everywhere, unlike its two siblings above. It is a
+        // dormant preference while IsAIReviewerOffered stays false — nothing acts on it until an
+        // administrator turns Berean on for a scope, at which point it says "then ask it on
+        // every round" rather than leaving a second edit nobody is told to make.
+        //
+        // THE MIGRATION BACKFILLS THIS SAME VALUE, and has to, for the same reason the two
+        // thresholds above are pinned to the shipped band rather than to 0.00: a backfill that
+        // disagreed with the shipped policy would report every pre-existing row as
+        // administrator-diverged, at Information, on every start, for a value nobody chose.
+        // Core cannot reference this class, so the true literal is duplicated across that
+        // boundary on purpose and ApprovalSettingSeedTests pins it on this side.
+        internal const bool IsAIReviewerAutomaticallyRequested = true;
+
         public static async Task SeedAsync(IServiceProvider serviceProvider)
         {
             using IServiceScope scope = serviceProvider.CreateScope();
@@ -224,6 +237,7 @@ namespace Glory2Him.WebApp.Data
                 DoNotAllowBypassingSettings = DoNotAllowBypassingSettings,
                 IsAIReviewerOffered = IsAIReviewerOffered,
                 IsAIAllowedToVote = IsAIAllowedToVote,
+                IsAIReviewerAutomaticallyRequested = IsAIReviewerAutomaticallyRequested,
                 AIApprovalConfidenceRejectionThreshold = AIApprovalConfidenceRejectionThreshold,
                 AIApprovalConfidenceApprovalThreshold = AIApprovalConfidenceApprovalThreshold,
                 IsDeleted = false,
@@ -244,7 +258,7 @@ namespace Glory2Him.WebApp.Data
                     : $"{approvalSetting.EntityType.Value} "
                         + (approvalSetting.IsPersonal.Value ? "(personal)" : "(editorial)");
 
-        // The thirteen policy fields, by name, where the live row disagrees with the shipped one.
+        // The fourteen policy fields, by name, where the live row disagrees with the shipped one.
         // Scope and audit fields are not policy and are not compared.
         internal static string[] DescribeDivergence(ApprovalSetting live, ApprovalSetting shipped)
         {
@@ -284,6 +298,10 @@ namespace Glory2Him.WebApp.Data
 
                 (nameof(ApprovalSetting.IsAIAllowedToVote),
                     live.IsAIAllowedToVote != shipped.IsAIAllowedToVote),
+
+                (nameof(ApprovalSetting.IsAIReviewerAutomaticallyRequested),
+                    live.IsAIReviewerAutomaticallyRequested
+                        != shipped.IsAIReviewerAutomaticallyRequested),
 
                 (nameof(ApprovalSetting.AIApprovalConfidenceRejectionThreshold),
                     live.AIApprovalConfidenceRejectionThreshold

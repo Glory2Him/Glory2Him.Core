@@ -169,7 +169,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
                 broker.ResolveAIReviewerPolicyByIdAsync(
                     It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(new AIReviewerPolicyVerdict { IsOffered = isOffered });
+                        .ReturnsAsync(new AIReviewerPolicyVerdict
+                        {
+                            IsOffered = isOffered,
+
+                            // Out of scope here (§534/#532): this suite exercises the
+                            // caller-facing assignment, never the automatic one, so the field is
+                            // pinned rather than left to a filler that could vary it silently.
+                            IsAutomaticallyRequested = false,
+                        });
 
         // The round's ONE live assignment, or the absence of one. Keyed on the approval rather
         // than It.IsAny so a test cannot pass by answering a question about a different round.

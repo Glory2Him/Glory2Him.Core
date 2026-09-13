@@ -46,9 +46,11 @@ namespace G2H.Security.Client.Services.Foundations.Access
                         approvalConditionsRequest.ConfidenceScore));
             });
 
-        // §8.6.2. Resolves the same tiered policy EvaluateApprovalConditionsAsync does, but
-        // reports only IsAIReviewerOffered — the one field a caller deciding whether to offer
-        // Berean at all needs, without handing back the settings row itself.
+        // §8.6.2 / §8.6.2.1. Resolves the same tiered policy EvaluateApprovalConditionsAsync
+        // does, but reports the two composed answers a caller deciding about Berean needs,
+        // without handing back the settings row itself: whether Berean is offered, and whether
+        // it is asked for automatically — composed HERE and nowhere else (§8.6.1 rule 4), because
+        // storage guarantees no pairing between the two switches behind the second answer.
         public ValueTask<AIReviewerPolicyVerdict> ResolveAIReviewerPolicyAsync(
             ResolveAIReviewerPolicyRequest resolveAIReviewerPolicyRequest) =>
             TryCatch(() =>
@@ -62,7 +64,14 @@ namespace G2H.Security.Client.Services.Foundations.Access
                     resolveAIReviewerPolicyRequest.IsPersonal);
 
                 return new ValueTask<AIReviewerPolicyVerdict>(
-                    new AIReviewerPolicyVerdict { IsOffered = policy.IsAIReviewerOffered });
+                    new AIReviewerPolicyVerdict
+                    {
+                        IsOffered = policy.IsAIReviewerOffered,
+
+                        IsAutomaticallyRequested =
+                            policy.IsAIReviewerOffered
+                                && policy.IsAIReviewerAutomaticallyRequested,
+                    });
             });
 
         public ValueTask<AccessVerdict> MayRecordApprovalReviewAsync(

@@ -62,6 +62,13 @@ namespace G2H.Security.Client.Models.Foundations.Access
                 IsAIReviewerOffered = false,
                 IsAIAllowedToVote = false,
 
+                // §8.6.2.1: reached only when NO row resolves, so a true here would grant an
+                // automatic action in an environment the seed has not reached — exactly what
+                // §8.4 rule 2's fail-closed reading forbids. This is the one field on which this
+                // default deliberately disagrees with the CLR initialiser and the column default,
+                // both true (§8.6.2 "Which default wins").
+                IsAIReviewerAutomaticallyRequested = false,
+
                 // Never read while IsAIAllowedToVote is false (§8.6.2), which it always is here —
                 // 0.00 is not a claim about where a real deployment should set these, only that
                 // the system default casts no vote to threshold in the first place.

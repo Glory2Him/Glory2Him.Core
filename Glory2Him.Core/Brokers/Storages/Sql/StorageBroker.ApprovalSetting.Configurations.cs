@@ -169,6 +169,18 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                  .IsRequired()
                  .HasDefaultValue(false);
 
+            // design §8.6.2.1: no CHECK constraint pairs this with IsAIReviewerOffered (unlike
+            // the vote switch above) — a stored true under an offer of false is a dormant
+            // preference the offer switch has not caught up with yet, not a contradiction, and
+            // the pairing that matters is asked fresh on every automatic assignment instead. The
+            // column default and its backfill are true, matching the CLR initialiser (§8.6.2
+            // "Which default wins") and ApprovalSettingSeedData's own constant, which Core
+            // cannot reference — the true literal is duplicated across that boundary on purpose
+            // and the migration's comment says so.
+            model.Property(approvalSetting => approvalSetting.IsAIReviewerAutomaticallyRequested)
+                 .IsRequired()
+                 .HasDefaultValue(true);
+
             // decimal(4,2), the same precision as Association.ConfidenceScore (design §13.5) —
             // both thresholds are values on that scale, not a narrower one. Non-nullable, unlike
             // ConfidenceScore itself: a threshold with no value would compare against nothing.

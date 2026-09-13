@@ -25,8 +25,8 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
 {
     /// <summary>
     /// §8.6.2's feature switch, resolved on its OWN member rather than gathered with the reviewer
-    /// scope. These tests state the two halves of that split: the answer itself, and the reads it
-    /// does — and does not — pay for.
+    /// scope. These tests state the two halves of that split: the answers themselves, and the reads
+    /// it does — and does not — pay for.
     ///
     /// <para>Only settled here. Every caller above mocks <c>IAccessBroker</c>, so the orchestration
     /// suite can prove what the AI-reviewer paths do with the verdict but never that the broker
@@ -35,10 +35,10 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
     public partial class AccessBrokerTests
     {
         /// <summary>
-        /// The whole point of the member: the resolved <c>IsAIReviewerOffered</c> comes back, so
-        /// the orchestration's fail-closed gate has something explicit to read. Arranged as
-        /// <c>true</c> because the fixture defaults it <c>false</c> — a test proving the false
-        /// case could pass on a member that never asked at all.
+        /// One of the member's two composed answers: the resolved <c>IsAIReviewerOffered</c>
+        /// comes back, so the orchestration's fail-closed gate has something explicit to read.
+        /// Arranged as <c>true</c> because the fixture defaults it <c>false</c> — a test proving
+        /// the false case could pass on a member that never asked at all.
         /// </summary>
         [Fact]
         public async Task ShouldReportTheResolvedAIReviewerOfferAsync()
@@ -59,7 +59,11 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             this.accessClientMock.Setup(client =>
                 client.ResolveAIReviewerPolicyAsync(
                     It.IsAny<ResolveAIReviewerPolicyRequest>()))
-                        .ReturnsAsync(new AIReviewerPolicyVerdict { IsOffered = true });
+                        .ReturnsAsync(new AIReviewerPolicyVerdict
+                        {
+                            IsOffered = true,
+                            IsAutomaticallyRequested = false,
+                        });
 
             // when
             AIReviewerPolicyVerdict actualVerdict =
@@ -160,7 +164,11 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                     It.IsAny<ResolveAIReviewerPolicyRequest>()))
                         .Callback((ResolveAIReviewerPolicyRequest request) =>
                             capturedRequest = request)
-                        .ReturnsAsync(new AIReviewerPolicyVerdict { IsOffered = true });
+                        .ReturnsAsync(new AIReviewerPolicyVerdict
+                        {
+                            IsOffered = true,
+                            IsAutomaticallyRequested = false,
+                        });
 
             // when
             await this.accessBroker.ResolveAIReviewerPolicyByIdAsync(
@@ -214,7 +222,11 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                     It.IsAny<ResolveAIReviewerPolicyRequest>()))
                         .Callback((ResolveAIReviewerPolicyRequest request) =>
                             capturedRequest = request)
-                        .ReturnsAsync(new AIReviewerPolicyVerdict { IsOffered = false });
+                        .ReturnsAsync(new AIReviewerPolicyVerdict
+                        {
+                            IsOffered = false,
+                            IsAutomaticallyRequested = false,
+                        });
 
             // when
             await this.accessBroker.ResolveAIReviewerPolicyByIdAsync(
@@ -227,9 +239,10 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
         }
 
         /// <summary>
-        /// WHAT THE SPLIT BOUGHT, stated as a cost rather than as prose. This member resolves one
-        /// switch, so it reads the approval, the entity behind it and the settings — and none of
-        /// the reviews, comments or invitation rows the reviewer-scope gather beside it collects.
+        /// WHAT THE SPLIT BOUGHT, stated as a cost rather than as prose. This member resolves both
+        /// AI-reviewer answers together, so it reads the approval, the entity behind it and the
+        /// settings — and none of the reviews, comments or invitation rows the reviewer-scope
+        /// gather beside it collects.
         ///
         /// <para>The saving runs the other way too, and its own test sits on
         /// <c>RetrieveApprovalReviewerScopeByIdAsync</c>: that gather no longer scans

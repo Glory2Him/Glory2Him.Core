@@ -571,6 +571,24 @@ export const ApprovalSettingDetailPage = ({ isNew = false }: { isNew?: boolean }
                             verdict should be and the score behind it — a human casts the vote.
                         </div>
 
+                        {/* A SIBLING of the vote switch above, not its child (design §8.6.2.1):
+                            storage carries no constraint pairing this with the offer, so unlike
+                            the vote switch it is never disabled and never cleared by turning the
+                            offer off and on again. A dormant true under an offer of false is
+                            exactly what every seeded row holds. */}
+                        <FormSwitch
+                            label="Automatically assign Berean once a round opens"
+                            value={editModel.isAIReviewerAutomaticallyRequested}
+                            onValueChange={(value) =>
+                                setField('isAIReviewerAutomaticallyRequested', value)} />
+
+                        <div className="form-text mt-0 mb-3">
+                            Assigns Berean to a round without anybody asking, once that round
+                            enters review. Inert while &ldquo;Offer Berean as a reviewer&rdquo;
+                            above is off — turning that on later starts using this preference
+                            rather than requiring a second edit.
+                        </div>
+
                         <div className="row g-3">
                             <div className="col-md-6">
                                 <label

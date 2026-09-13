@@ -48,6 +48,7 @@ const createApprovalSetting = (
         doNotAllowBypassingSettings: false,
         isAIReviewerOffered: false,
         isAIAllowedToVote: false,
+        isAIReviewerAutomaticallyRequested: true,
         aiApprovalConfidenceRejectionThreshold: 2.5,
         aiApprovalConfidenceApprovalThreshold: 7.5,
         createdBy: 'admin',
@@ -213,8 +214,39 @@ describe('ApprovalSettingsPage', () => {
                 'Re-approve on change',
                 'No bypass',
                 'AI reviewer (Berean)',
-                'AI vote'
+                'AI vote',
+                'Auto-request AI reviewer'
             ].forEach(gate => expect(table.getByText(gate)).toBeInTheDocument());
+        });
+
+        // §8.6.2.1: the third pill, beside the two Berean pills already there. Pinned true and
+        // false in both directions like the others, so presence alone cannot pass this test.
+        it('should show the automatic-request pill as on when the policy requests it', () => {
+            // given
+            approvalSettings = [
+                createApprovalSetting({ isAIReviewerAutomaticallyRequested: true })
+            ];
+
+            // when
+            renderPageAt();
+
+            // then
+            expect(screen.getByText('Auto-request AI reviewer'))
+                .toHaveClass('bg-primary-subtle');
+        });
+
+        it('should show the automatic-request pill as off when the policy does not request it', () => {
+            // given
+            approvalSettings = [
+                createApprovalSetting({ isAIReviewerAutomaticallyRequested: false })
+            ];
+
+            // when
+            renderPageAt();
+
+            // then
+            expect(screen.getByText('Auto-request AI reviewer'))
+                .toHaveClass('bg-body-secondary');
         });
 
         // The pill is always drawn; only its styling says which way the gate is set, so on and

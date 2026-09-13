@@ -621,6 +621,9 @@ namespace Glory2Him.Core.Brokers.Securities
                     IsAIReviewerOffered = setting.IsAIReviewerOffered,
                     IsAIAllowedToVote = setting.IsAIAllowedToVote,
 
+                    IsAIReviewerAutomaticallyRequested =
+                        setting.IsAIReviewerAutomaticallyRequested,
+
                     AIApprovalConfidenceRejectionThreshold =
                         setting.AIApprovalConfidenceRejectionThreshold,
 
@@ -1063,8 +1066,8 @@ namespace Glory2Him.Core.Brokers.Securities
         }
 
         // §8.6.2's feature switch, resolved the same way its neighbour above resolves the §8.5
-        // conditions — off the STORED approval's target, never a payload — and narrowed to the
-        // one field a caller deciding whether to offer Berean at all can use.
+        // conditions — off the STORED approval's target, never a payload — and reporting both
+        // composed answers §8.6.2 defines (§8.6.2.1), not the settings row itself.
         //
         // ITS OWN MEMBER, and that is the point of it. This resolution used to ride on
         // RetrieveApprovalReviewerScopeByIdAsync below, which made EVERY caller of that gather —

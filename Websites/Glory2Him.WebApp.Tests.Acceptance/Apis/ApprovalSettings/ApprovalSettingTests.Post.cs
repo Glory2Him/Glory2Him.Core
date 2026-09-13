@@ -103,5 +103,38 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalSettings
                     invalidApprovalSetting.Id);
             }
         }
+
+        /// <summary>
+        /// Design §8.6.2.1: no CHECK constraint pairs <c>IsAIReviewerAutomaticallyRequested</c>
+        /// with <c>IsAIReviewerOffered</c>, unlike <c>CK_ApprovalSetting_AIVoteRequiresAIReviewer</c>
+        /// beside it. A row with the offer off and the automatic request on is a dormant
+        /// preference — the exact shape every shipped row holds — not a contradiction, so it must
+        /// save rather than be refused. A test that a constraint or a validation was added here by
+        /// mistake would fail this one.
+        /// </summary>
+        [Fact]
+        public async Task ShouldSaveTheDormantAutomaticRequestWithoutTheOfferAsync()
+        {
+            // given
+            ApprovalSetting dormantApprovalSetting = CreateRandomApprovalSetting();
+            dormantApprovalSetting.IsAIReviewerOffered = false;
+            dormantApprovalSetting.IsAIReviewerAutomaticallyRequested = true;
+
+            try
+            {
+                // when
+                ApprovalSetting actualApprovalSetting =
+                    await this.apiBroker.PostApprovalSettingAsync(dormantApprovalSetting);
+
+                // then
+                actualApprovalSetting.IsAIReviewerOffered.Should().BeFalse();
+                actualApprovalSetting.IsAIReviewerAutomaticallyRequested.Should().BeTrue();
+            }
+            finally
+            {
+                await this.apiBroker.RemoveCoreApprovalSettingByIdAsync(
+                    dormantApprovalSetting.Id);
+            }
+        }
     }
 }

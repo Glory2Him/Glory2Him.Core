@@ -53,6 +53,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             bool doNotAllowBypassingSettings = false,
             bool isAIReviewerOffered = false,
             bool isAIAllowedToVote = false,
+            bool isAIReviewerAutomaticallyRequested = false,
             decimal aiApprovalConfidenceRejectionThreshold = 0.00m,
             decimal aiApprovalConfidenceApprovalThreshold = 0.00m) =>
             new ApprovalPolicy
@@ -74,6 +75,9 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 DoNotAllowBypassingSettings = doNotAllowBypassingSettings,
                 IsAIReviewerOffered = isAIReviewerOffered,
                 IsAIAllowedToVote = isAIAllowedToVote,
+
+                IsAIReviewerAutomaticallyRequested =
+                    isAIReviewerAutomaticallyRequested,
 
                 AIApprovalConfidenceRejectionThreshold =
                     aiApprovalConfidenceRejectionThreshold,

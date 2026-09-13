@@ -120,6 +120,15 @@ namespace G2H.Security.Client.Models.Foundations.Access
         public required bool IsAIAllowedToVote { get; init; }
 
         /// <summary>
+        /// Whether Berean is assigned to a round without anybody asking, once that round enters
+        /// review. Requires <see cref="IsAIReviewerOffered"/> to have any effect — this client
+        /// does not re-derive that on its own, it is composed in
+        /// <c>AccessService.ResolveAIReviewerPolicyAsync</c> and nowhere else (§8.6.1 rule 4,
+        /// §8.6.2.1).
+        /// </summary>
+        public required bool IsAIReviewerAutomaticallyRequested { get; init; }
+
+        /// <summary>
         /// <c>ConfidenceScore</c> value below which Berean would file a <c>Rejected</c> review.
         /// Same 0.00–10.00 <c>decimal(4,2)</c> scale as the score itself (§13.5). Meaningful only
         /// where <see cref="IsAIAllowedToVote"/> is true (§8.6.2).
