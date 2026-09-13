@@ -242,27 +242,33 @@ It keeps exactly three things, and §S4.3 adds a fourth:
 
 ### S3.1 What else must change, and where
 
+Targets below are named by **section heading and quoted phrase, never by line
+number**. This list outlives several commits and every one of them shifts the
+numbers: `architect.md`'s `## What you produce` paragraph grew by three lines in
+this extraction alone, which silently moved four of the five targets originally
+recorded here. A phrase moves with what it names.
+
 | Artefact | Change |
 | --- | --- |
 | `Glory2Him.Core.slnx` | Add a `/Documentation/Design/` folder listing all six area files. Note `Events.md` is **already** missing from the solution file — a pre-existing gap the split closes. The UI entry added ahead of the §S1.1 ruling is spelled `Ui.md` and must be respelled `UI.md`. |
 | `CLAUDE.md` | "`Documentation/G2H Design.md` on main is authoritative" becomes "is the index and entry point; the area files under `Documentation/Design/` are authoritative for their areas". In the non-negotiables, `§12.1 rule 2` becomes `§ARC12.1 rule 2` and `§12.5` becomes `§ARC12.5`. |
-| `.claude/agents/architect.md` | Lines 17–19 (where it writes — §S3.2 rules the wording to use while the split is in progress), 82 and 104 (the Florance register and `§12.5` — becomes `Architecture.md §ARC16.7.1` / `§ARC12.5`), 125–126 (what is authoritative), 154–155 (the `Documentation/` path-scoping paragraph, which describes the split as begun and should describe it as done). |
-| `.claude/agents/qa.md` | Lines 84, 114 (the deviation register's location), 263, 385–386. |
-| `.claude/agents/analyst.md` | Lines 68–69. |
+| `.claude/agents/architect.md` | The opening paragraph of `## What you produce` (where it writes — §S3.2 rules the wording to use while the split is in progress). Under `## Boundaries you enforce`, "In this repository that register is" and the file's single `§12.5` citation (the Florance register and `§12.5` — becomes `Architecture.md §ARC16.7.1` / `§ARC12.5`). Under `## How you work`, "on main is authoritative, together with" (what is authoritative). Under `## Hard rules`, the "Never edit a file outside `Documentation/`" bullet (the path-scoping paragraph, which describes the split as begun and should describe it as done). |
+| `.claude/agents/qa.md` | Under `## What you check, in order`, the `§12.5` citation in the orchestration-dependency clause and "In this repository the register is" (the deviation register's location). Under `## Reviewing the issues before any code exists`, "The unit of review is the feature" (where the design is read). Under `## Hard rules`, "on main outranks the issue". |
+| `.claude/agents/analyst.md` | Under `## How you work`, "on main is authoritative, together with". |
 | `DEVELOPERS.md` | Every illustrative `Design/Ui.md` path respelled `Design/UI.md` (§S1.1); §5.3 "Where it writes, today" (no longer true); §6's "adopt as you touch sections" (see §S5); §12 "What does not exist yet" — three of its bullets (filenames not decided, no index, only `Events.md`) are discharged by the split and must be **deleted**, not amended. |
 | The `UI.md` rename (§S1.1) | `Documentation/Design/Ui.md` -> `Documentation/Design/UI.md` by `git mv --force`, plus every path that spells it: `Glory2Him.Core.slnx`, `Documentation/G2H Design.md` (four links: §1.5, the map, the area list, and the §20 stub), `Documentation/Mockups/README.md`, `Tools/design-split-audit.sh`, and `DEVELOPERS.md`'s illustrative paths. |
 | Issue #498 | One comment pointing at §S1.3. It is closed and cannot be edited. |
 
 ### S3.2 Where an architect writes while the split is in progress
 
-`.claude/agents/architect.md` lines 17–19 name `Documentation/G2H Design.md` "in
-the section that already owns the subject", carve out
-`Documentation/Design/Events.md` for event design alone, and close with "Nothing
-else." That is already untrue — §20 is a pointer stub, so an architect settling UI
-design writes into a signpost — and it becomes untrue again at each of #552–#556.
-A wording that lists the extracted files by name has to be rewritten five more
-times, and a stale instruction in an agent file is the drift this split exists to
-stop.
+`.claude/agents/architect.md`'s `## What you produce` names `Documentation/G2H
+Design.md` "in the section that already owns the subject", carves out
+`Documentation/Design/Events.md` for event design alone, and closes with
+"Nothing else." That is already untrue — §20 is a pointer stub, so an architect
+settling UI design writes into a signpost — and it becomes untrue again at each
+of #552–#556. A wording that lists the extracted files by name has to be
+rewritten five more times, and a stale instruction in an agent file is the drift
+this split exists to stop.
 
 **The instruction names no file. It names the map.** The form of words, good from
 the first extraction to the last:
@@ -283,18 +289,19 @@ Two consequences:
    `architect.md` row for the whole split. The rest of that row — the Florance
    register, what is authoritative, the path-scoping paragraph — still lands with
    the file each part names.
-2. **The path-scoping hard rule at lines 154–155 is left alone for now.** It says
-   the split "has begun" and that the scope "should narrow to those two paths as
-   the rest of the split lands", which is true today and at every step up to #556,
-   where §S3.1 already has it rewritten.
+2. **The path-scoping hard rule under `## Hard rules` is left alone for now.**
+   It says the split "has begun" and that the scope "should narrow to those two
+   paths as the rest of the split lands", which is true today and at every step
+   up to #556, where §S3.1 already has it rewritten.
 
 This rules the architect's **write target** only. The sentences that say what is
-authoritative to *read* — `architect.md` 125–126, `qa.md` 385–386, `analyst.md`
-68–69 — are stale today for the same reason, each naming `Events.md` as the only
-area file, and §S3.1 schedules them. Whoever edits them should use the same shape:
-name the files under `Documentation/Design/` as authoritative for their areas and
-the map as what says which areas those are, so they too survive the remaining
-extractions unedited.
+authoritative to *read* — `architect.md` and `analyst.md` under `## How you
+work`, `qa.md` under `## Hard rules` — are stale today for the same reason, each
+naming `Events.md` as the only area file, and §S3.1 schedules them. Whoever
+edits them should use the same shape: name the files under
+`Documentation/Design/` as authoritative for their areas and the map as what
+says which areas those are, so they too survive the remaining extractions
+unedited.
 
 ---
 
