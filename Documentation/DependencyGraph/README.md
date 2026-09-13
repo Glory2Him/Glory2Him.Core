@@ -415,7 +415,13 @@ view you were on, and switching carries your current selection across.
   retirement and this one, which is not the double-fire §EVN2 rule 6 forbids:
   two reactions on one address in two services, with `Deliveries` recorded per
   subscription. `AccessBroker` gains one edge from each handler,
-  `IsAIReviewerEverAssignedAsync`, which is gate 5's unfiltered presence check.
+  `IsAIReviewerEverAssignedAsync`, which is gate 6's unfiltered presence check.
+  **What is NOT drawn is the other end of it**: `AccessBroker`'s own `methods`
+  list carries neither `IsAIReviewerEverAssignedAsync` nor `IsEntityVisibleAsync`,
+  so its `IsAIReviewerEverAssignedAsync` → `StorageBroker.SelectAllAIReviewerAssignmentsAsync`
+  edge is absent from `projects/glory2him-core.yml`. It belongs with the undrawn
+  `IsEntityVisibleAsync` edges this file already records rather than being fixed
+  for one member alone.
 - **The reviewer orchestration is modelled as of 2026-09-12** — issue #521,
   PR #535. One new component, `ARO` (`ApprovalReviewerOrchestrationService`),
   and it is the same shape of split as `AIRO` for the same reason: one contract
