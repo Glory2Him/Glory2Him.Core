@@ -12,6 +12,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using EFxceptions.Models.Exceptions;
 using FluentAssertions;
 using Force.DeepCloner;
 using Glory2Him.Core.Models.Events;
@@ -23,6 +24,7 @@ using Glory2Him.Core.Models.Securities;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Moq;
+using Xeptions;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.AIReviewerAssignments
 {
@@ -521,6 +523,124 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.AIReviewerAssignments
                     It.IsAny<EventEnvelope<AIReviewerAssignment>>(),
                     It.IsAny<AIReviewerAssignmentEventOperation>()),
                 Times.Never);
+        }
+
+        /// <summary>
+        /// The STORAGE INSERT faulting on a rule the database holds, and mappings 3 and 4: a
+        /// concurrency conflict and a uniqueness violation are both dependency VALIDATION
+        /// failures — something the caller could in principle fix — rather than "our code is
+        /// broken".
+        ///
+        /// <para><c>UX_AIReviewerAssignments_ApprovalId</c> is the case this verb actually meets
+        /// in production: two deliveries of the same round's fact can both decide to assign
+        /// before either commits, and the filtered unique index refuses the loser. This verb
+        /// does NOT pre-check for an existing row — the "ever assigned, live or withdrawn" gate
+        /// belongs to the caller, and a check here would be a second, weaker copy of it that
+        /// could only disagree. A unique-INDEX violation also does not derive from
+        /// <c>DuplicateKeyException</c>, so without its own clause it would be mis-reported as a
+        /// service fault.</para>
+        /// </summary>
+        [Theory]
+        [MemberData(nameof(AddAutomaticDependencyValidationExceptions))]
+        public async Task ShouldThrowDependencyValidationExceptionOnAddAutomaticIfErrorOccursAndLogItAsync(
+            Exception thrownException,
+            Xeption expectedInnerException)
+        {
+            // given
+            Guid someApprovalId = Guid.NewGuid();
+            ArrangeAnAutomaticAssignmentReachingStorage(someApprovalId);
+
+            var expectedAIReviewerAssignmentDependencyValidationException =
+                new AIReviewerAssignmentDependencyValidationException(
+                    message: "AI reviewer assignment dependency validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: expectedInnerException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.InsertAIReviewerAssignmentAsync(
+                    It.IsAny<AIReviewerAssignment>(), It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(thrownException);
+
+            // when
+            ValueTask<AIReviewerAssignment> addAutomaticTask =
+                this.aiReviewerAssignmentWorkflowService
+                    .AddAutomaticAIReviewerAssignmentAsync(
+                        someApprovalId,
+                        TestContext.Current.CancellationToken);
+
+            AIReviewerAssignmentDependencyValidationException actualException =
+                await Assert.ThrowsAsync<AIReviewerAssignmentDependencyValidationException>(
+                    addAutomaticTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(
+                expectedAIReviewerAssignmentDependencyValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAIReviewerAssignmentDependencyValidationException))),
+                Times.Once);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishAIReviewerAssignmentAsync(
+                    It.IsAny<EventEnvelope<AIReviewerAssignment>>(),
+                    It.IsAny<AIReviewerAssignmentEventOperation>()),
+                Times.Never);
+        }
+
+        /// <summary>
+        /// Its own set rather than a reuse of the caller-facing add's or the modify's: those are
+        /// per-operation compositions, and this path's insert can raise a concurrency conflict
+        /// the add-side set has no reason to carry while still owing the unique-index case the
+        /// modify-side set carries for a different reason. A shared set would tie the three
+        /// together where nothing says they must change together.
+        /// </summary>
+        public static TheoryData<Exception, Xeption> AddAutomaticDependencyValidationExceptions()
+        {
+            string someMessage = GetRandomString();
+            var dbUpdateConcurrencyException = new DbUpdateConcurrencyException();
+            var duplicateKeyException = new DuplicateKeyException(someMessage);
+            var foreignKeyConstraintConflictException = new ForeignKeyConstraintConflictException(someMessage);
+
+            var duplicateKeyWithUniqueIndexException =
+                new DuplicateKeyWithUniqueIndexException(someMessage);
+
+            return new TheoryData<Exception, Xeption>
+            {
+                {
+                    dbUpdateConcurrencyException,
+                    new LockedAIReviewerAssignmentException(
+                        message: "Locked AI reviewer assignment record, please try again later.",
+                        innerException: dbUpdateConcurrencyException,
+                        data: dbUpdateConcurrencyException.Data)
+                },
+                {
+                    duplicateKeyException,
+                    new AlreadyExistsAIReviewerAssignmentException(
+                        message: "AI reviewer assignment already exists with the same Id.",
+                        innerException: duplicateKeyException,
+                        data: duplicateKeyException.Data)
+                },
+                {
+                    foreignKeyConstraintConflictException,
+                    new InvalidAIReviewerAssignmentReferenceException(
+                        message: "Invalid AI reviewer assignment reference error occurred.",
+                        innerException: foreignKeyConstraintConflictException,
+                        data: foreignKeyConstraintConflictException.Data)
+                },
+
+                // The route UX_AIReviewerAssignments_ApprovalId travels: a second LIVE assignment
+                // on the same approval trips it, which arrives as a unique-index violation rather
+                // than a duplicate key.
+                {
+                    duplicateKeyWithUniqueIndexException,
+                    new AlreadyExistsAIReviewerAssignmentException(
+                        message: "AI reviewer assignment already exists, " +
+                            "a uniqueness rule rejected the write.",
+                        innerException: duplicateKeyWithUniqueIndexException,
+                        data: duplicateKeyWithUniqueIndexException.Data)
+                }
+            };
         }
 
         /// <summary>
