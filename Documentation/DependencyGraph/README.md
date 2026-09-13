@@ -403,6 +403,19 @@ view you were on, and switching carries your current selection across.
   is declared and unwired. Its `EnvelopeIntegrityBroker` calls are deliberately
   NOT declared, following the 14 sibling foundations rather than fixing that
   inconsistency for one service alone (see the bullet above).
+- **Berean's AUTOMATIC assignment is modelled as of 2026-09-13** — issue #532.
+  No new component: `AIRO` gains two `On*Async` methods and two purple edges,
+  `Approval-Added` and `Approval-Modified`, for §8.6.2.1's assignment of Berean
+  to a round nobody asked about. It draws no red ones and still holds no
+  `IEventBroker`, for `ARO`'s reason — both handlers verify an inbound envelope
+  and cause their write through the foundation's workflow seam, which publishes
+  for itself — so `IEnvelopeIntegrityBroker` becomes an `AIRO` consumer and
+  `FS.AIReviewerAssignment`'s `AddAutomaticAIReviewerAssignmentAsync` (#534) its
+  second seam row. `Approval-Modified` now has TWO subscribers, `ARO`'s
+  retirement and this one, which is not the double-fire §EVN2 rule 6 forbids:
+  two reactions on one address in two services, with `Deliveries` recorded per
+  subscription. `AccessBroker` gains one edge from each handler,
+  `IsAIReviewerEverAssignedAsync`, which is gate 5's unfiltered presence check.
 - **The reviewer orchestration is modelled as of 2026-09-12** — issue #521,
   PR #535. One new component, `ARO` (`ApprovalReviewerOrchestrationService`),
   and it is the same shape of split as `AIRO` for the same reason: one contract
