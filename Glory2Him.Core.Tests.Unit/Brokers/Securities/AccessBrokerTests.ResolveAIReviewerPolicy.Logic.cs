@@ -59,7 +59,11 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             this.accessClientMock.Setup(client =>
                 client.ResolveAIReviewerPolicyAsync(
                     It.IsAny<ResolveAIReviewerPolicyRequest>()))
-                        .ReturnsAsync(new AIReviewerPolicyVerdict { IsOffered = true });
+                        .ReturnsAsync(new AIReviewerPolicyVerdict
+                        {
+                            IsOffered = true,
+                            IsAutomaticallyRequested = false,
+                        });
 
             // when
             AIReviewerPolicyVerdict actualVerdict =
@@ -160,7 +164,11 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                     It.IsAny<ResolveAIReviewerPolicyRequest>()))
                         .Callback((ResolveAIReviewerPolicyRequest request) =>
                             capturedRequest = request)
-                        .ReturnsAsync(new AIReviewerPolicyVerdict { IsOffered = true });
+                        .ReturnsAsync(new AIReviewerPolicyVerdict
+                        {
+                            IsOffered = true,
+                            IsAutomaticallyRequested = false,
+                        });
 
             // when
             await this.accessBroker.ResolveAIReviewerPolicyByIdAsync(
@@ -214,7 +222,11 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                     It.IsAny<ResolveAIReviewerPolicyRequest>()))
                         .Callback((ResolveAIReviewerPolicyRequest request) =>
                             capturedRequest = request)
-                        .ReturnsAsync(new AIReviewerPolicyVerdict { IsOffered = false });
+                        .ReturnsAsync(new AIReviewerPolicyVerdict
+                        {
+                            IsOffered = false,
+                            IsAutomaticallyRequested = false,
+                        });
 
             // when
             await this.accessBroker.ResolveAIReviewerPolicyByIdAsync(

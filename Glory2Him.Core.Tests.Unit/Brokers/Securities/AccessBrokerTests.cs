@@ -100,7 +100,11 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             // this the round it actually cares about Berean's offer.
             this.accessClientMock.Setup(client =>
                 client.ResolveAIReviewerPolicyAsync(It.IsAny<ResolveAIReviewerPolicyRequest>()))
-                    .ReturnsAsync(new AIReviewerPolicyVerdict { IsOffered = false });
+                    .ReturnsAsync(new AIReviewerPolicyVerdict
+                    {
+                        IsOffered = false,
+                        IsAutomaticallyRequested = false,
+                    });
 
             // The internal constructor. The public one news up a real SecurityClient, which would
             // make every test here an integration test against the decision function.
