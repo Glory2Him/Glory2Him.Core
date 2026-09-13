@@ -51,6 +51,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Models.ApprovalSettings
         // CK_ApprovalSetting_AIVoteRequiresAIReviewer.
         public bool IsAIReviewerOffered { get; set; }
         public bool IsAIAllowedToVote { get; set; }
+        public bool IsAIReviewerAutomaticallyRequested { get; set; }
 
         // ConfidenceScore's own 0.00-10.00 decimal(4,2) scale (§13.5).
         public decimal AIApprovalConfidenceRejectionThreshold { get; set; }
