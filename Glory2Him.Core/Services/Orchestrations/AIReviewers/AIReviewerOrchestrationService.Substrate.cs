@@ -12,6 +12,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Approvals;
 
@@ -83,6 +84,21 @@ namespace Glory2Him.Core.Services.Orchestrations.AIReviewers
             // than re-read from storage: this is the row the foundation itself published, and it
             // is inside the HMAC the gate above has already verified.
             if (approval.IsDeleted)
+            {
+                return;
+            }
+
+            // GATE 3, and the same signed-status gate §EVN18(e) condition 4 requires. It answers
+            // every publisher rather than an enumeration of call sites: a round reaches Submitted
+            // through a create, through the submit verb and through §8.6 HR-4's reset, and all of
+            // them land on one of these two addresses carrying the new status inside the HMAC.
+            //
+            // THREE CASES, ONE GATE. Draft is excluded here and not by a rule of its own (§9.2) —
+            // a round opened at Draft has not entered review and Berean must not read content its
+            // author has not offered, so it waits for the -Modified the submission publishes.
+            // Approved and Rejected are excluded for §7.9 rule 7's reason: an assignment on a
+            // closed round could never be answered.
+            if (approval.ApprovalStatus != ApprovalStatus.Submitted)
             {
                 return;
             }
