@@ -52,7 +52,7 @@ namespace Glory2Him.Core.Services.Orchestrations.AIReviewers
                 await ValidateApprovalFactEnvelopeAsync(envelope, ApprovalAddedEventName);
 
                 await AssignAIReviewerAutomaticallyAsync(
-                    approvalId: envelope.Content.Id,
+                    approval: envelope.Content,
                     cancellationToken: cancellationToken);
 
                 return null;
@@ -66,7 +66,7 @@ namespace Glory2Him.Core.Services.Orchestrations.AIReviewers
                 await ValidateApprovalFactEnvelopeAsync(envelope, ApprovalModifiedEventName);
 
                 await AssignAIReviewerAutomaticallyAsync(
-                    approvalId: envelope.Content.Id,
+                    approval: envelope.Content,
                     cancellationToken: cancellationToken);
 
                 return null;
@@ -76,12 +76,20 @@ namespace Glory2Him.Core.Services.Orchestrations.AIReviewers
         // replied with: returning the inbound envelope would put this service's name on a fact
         // another service published.
         private async ValueTask AssignAIReviewerAutomaticallyAsync(
-            Guid approvalId,
+            Approval approval,
             CancellationToken cancellationToken)
         {
+            // GATE 2. A soft-deleted round gets no reviewer. Read off the SIGNED content rather
+            // than re-read from storage: this is the row the foundation itself published, and it
+            // is inside the HMAC the gate above has already verified.
+            if (approval.IsDeleted)
+            {
+                return;
+            }
+
             await this.aiReviewerAssignmentWorkflowService
                 .AddAutomaticAIReviewerAssignmentAsync(
-                    approvalId: approvalId,
+                    approvalId: approval.Id,
                     cancellationToken: cancellationToken);
         }
     }
