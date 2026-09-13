@@ -110,6 +110,46 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
                 Times.Never);
         }
 
+        /// <summary>
+        /// Gate 1, and criterion 12's silent failure made loud. The event name is bound INTO the
+        /// HMAC, so a handler expecting the wrong one refuses a genuine envelope it was correctly
+        /// delivered — no misroute, no error, just a reaction that stops happening. The DIRECTION
+        /// is the same trap: <c>EventBroker</c> signs the publish leg as <c>Request</c>, so a
+        /// receiver asking for <c>Reply</c> would fail every verification with nothing to show
+        /// for it.
+        ///
+        /// <para>The literals are what every existing subscriber writes — <c>EventBroker</c>
+        /// composes the name at publish time and exposes that composition to nobody (#286).</para>
+        /// </summary>
+        [Theory]
+        [InlineData(AddedOperation, "ApprovalAdded")]
+        [InlineData(ModifiedOperation, "ApprovalModified")]
+        public async Task ShouldVerifyEachApprovalFactEnvelopeUnderItsPublishedNameAsync(
+            string approvalEventOperation,
+            string expectedSignedEventName)
+        {
+            // given
+            Guid approvalId = Guid.NewGuid();
+
+            SetupAutomaticAIReviewerPolicy(approvalId, isAutomaticallyRequested: true);
+            SetupAIReviewerEverAssigned(approvalId, isEverAssigned: false);
+            SetupAutomaticAIReviewerAssignmentWrite();
+
+            // when
+            await DeliverApprovalFactAsync(
+                approvalEventOperation,
+                CreateApprovalFactEnvelope(approvalId, ApprovalStatus.Submitted),
+                TestContext.Current.CancellationToken);
+
+            // then
+            this.envelopeIntegrityBrokerMock.Verify(broker =>
+                broker.VerifyAsync(
+                    It.IsAny<EventEnvelope<Approval>>(),
+                    expectedSignedEventName,
+                    EnvelopeDirection.Request),
+                Times.Once);
+        }
+
         // Both handlers, driven through one switch so every GATE below can be a theory over the
         // pair rather than a test written twice. That is criterion 2's "one private body" made
         // observable: the two differ only in the accepted event name, so a rule fixed on one
