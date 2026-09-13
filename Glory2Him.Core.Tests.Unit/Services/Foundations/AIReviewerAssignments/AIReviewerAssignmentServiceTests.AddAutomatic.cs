@@ -589,6 +589,58 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.AIReviewerAssignments
         }
 
         /// <summary>
+        /// The catch-all arm, which every other verb on this class has: an error nothing above
+        /// recognised is this service's own fault rather than a dependency's, and it says so.
+        /// </summary>
+        [Fact]
+        public async Task ShouldThrowServiceExceptionOnAddAutomaticIfServiceErrorOccursAndLogItAsync()
+        {
+            // given
+            Guid someApprovalId = Guid.NewGuid();
+            var serviceException = new Exception();
+
+            var failedAIReviewerAssignmentServiceException =
+                new FailedAIReviewerAssignmentServiceException(
+                    message: "Failed AI reviewer assignment service error occurred, " +
+                        "please contact support.",
+                    innerException: serviceException,
+                    data: serviceException.Data);
+
+            var expectedAIReviewerAssignmentServiceException =
+                new AIReviewerAssignmentServiceException(
+                    message: "AI reviewer assignment service error occurred, contact support.",
+                    innerException: failedAIReviewerAssignmentServiceException);
+
+            this.identifierBrokerMock.Setup(broker =>
+                broker.GetIdentifierAsync())
+                    .ThrowsAsync(serviceException);
+
+            // when
+            ValueTask<AIReviewerAssignment> addAutomaticTask =
+                this.aiReviewerAssignmentWorkflowService
+                    .AddAutomaticAIReviewerAssignmentAsync(
+                        someApprovalId,
+                        TestContext.Current.CancellationToken);
+
+            AIReviewerAssignmentServiceException actualException =
+                await Assert.ThrowsAsync<AIReviewerAssignmentServiceException>(
+                    addAutomaticTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedAIReviewerAssignmentServiceException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAIReviewerAssignmentServiceException))),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertAIReviewerAssignmentAsync(
+                    It.IsAny<AIReviewerAssignment>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        /// <summary>
         /// <c>IEventBroker</c> faulting, the last of the four dependencies this verb touches.
         /// The fault type is a stand-in here too; what is pinned is that a publish failure is
         /// wrapped into this class's own family and logged rather than escaping raw.
