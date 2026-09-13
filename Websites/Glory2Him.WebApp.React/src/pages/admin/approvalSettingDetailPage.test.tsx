@@ -245,22 +245,37 @@ describe('ApprovalSettingDetailPage', () => {
                 .not.toBeDisabled();
         });
 
-        // AND UNLIKE THE VOTE SWITCH, it must not be CLEARED by turning the offer off and back
-        // on — a row whose value was silently reset that way would diverge from the shipped
+        // AND UNLIKE THE VOTE SWITCH, it must not be CLEARED by turning the offer on and back
+        // off — a row whose value was silently reset that way would diverge from the shipped
         // policy without anybody choosing it.
-        it('should not clear the automatic-request switch when the offer is toggled off and on', async () => {
+        //
+        // Starts from the automatic-request switch's default ON and never touches it directly:
+        // turning it off first (as a prior version of this test did) leaves it FALSE for the
+        // whole exercise, so "left alone" and "cleared" both read the same and the guarantee
+        // goes unproven. The offer switch opens OFF on a new row (see "should open with Berean
+        // off" above), so the round trip that actually exercises the clearing bug is on, then
+        // off again — the second click is where a handler that ANDs the automatic-request value
+        // with the offer would zero it out, because the offer is false again at that point.
+        it('should not clear the automatic-request switch when the offer is toggled on and off', async () => {
             // given
             renderCreatePage();
-            await userEvent.click(screen.getByText('Automatically assign Berean once a round opens'));
-            expect(switchFor('Automatically assign Berean once a round opens')).not.toBeChecked();
+
+            expect(switchFor('Automatically assign Berean once a round opens'))
+                .toBeChecked();
 
             // when
             await userEvent.click(screen.getByText('Offer Berean as a reviewer'));
+
+            // then: still on once Berean is offered
+            expect(switchFor('Automatically assign Berean once a round opens'))
+                .toBeChecked();
+
+            // when
             await userEvent.click(screen.getByText('Offer Berean as a reviewer'));
 
-            // then
+            // then: still on once Berean is un-offered again
             expect(switchFor('Automatically assign Berean once a round opens'))
-                .not.toBeChecked();
+                .toBeChecked();
         });
 
         it('should write the chosen automatic-request value', async () => {
