@@ -19,15 +19,21 @@ using Glory2Him.Core.Models.Foundations.AIReviewerAssignments;
 namespace Glory2Him.Core.Services.Foundations.AIReviewerAssignments
 {
     /// <summary>
-    /// The workflow's own transition on Berean's assignment: returning one to pending when the
-    /// content it judged has changed under it (§8.8 rule 1) or the round's outcome has been
-    /// overridden (§8.6 HR-4). It is kept apart from the public modify verb because the two are
-    /// different acts by different actors — see
-    /// <see cref="IAIReviewerAssignmentWorkflowService"/> — and because the system identity this
-    /// runs under holds no roles, so the modify gate would refuse it.
+    /// The workflow's own acts on Berean's assignment, and the whole implementation of
+    /// <see cref="IAIReviewerAssignmentWorkflowService"/>. Both are kept apart from the public
+    /// verbs because they are different acts by different actors — see that interface — and
+    /// because the system identity they run under holds no roles, so the public gates would
+    /// refuse them.
     ///
-    /// <para>Like every transition it loads the row FIRST and authorizes against what is STORED;
-    /// the request carries only the id.</para>
+    /// <list type="number">
+    /// <item>Returning one to pending when the content it judged has changed under it (§8.8 rule
+    /// 1) or the round's outcome has been overridden (§8.6 HR-4). Like every transition it loads
+    /// the row FIRST and authorizes against what is STORED; the request carries only the
+    /// id.</item>
+    /// <item>Assigning one automatically when a round opens under a policy that says Berean
+    /// should look at it (§8.6.2.1). There is no row to load — this one AUTHORS the row, so the
+    /// request carries only the approval it belongs to.</item>
+    /// </list>
     /// </summary>
     internal partial class AIReviewerAssignmentService : IAIReviewerAssignmentWorkflowService
     {
@@ -51,6 +57,88 @@ namespace Glory2Him.Core.Services.Foundations.AIReviewerAssignments
                     inboundEnvelope: systemEnvelope,
                     cancellationToken: cancellationToken);
             });
+
+        public ValueTask<AIReviewerAssignment> AddAutomaticAIReviewerAssignmentAsync(
+            Guid approvalId,
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // The verb owns every field of the row it writes, so the request carries nothing
+                // but the approval it belongs to — the entity exists to anchor the security
+                // context and the causation chain, exactly as the sibling's does.
+                var automaticAssignmentRequest = new AIReviewerAssignment { ApprovalId = approvalId };
+
+                EventEnvelope<AIReviewerAssignment> systemEnvelope =
+                    await this.eventEnvelopeBroker.CreateSystemAsync(content: automaticAssignmentRequest);
+
+                return await DoAddAutomaticAIReviewerAssignmentAsync(
+                    approvalId: approvalId,
+                    inboundEnvelope: systemEnvelope,
+                    cancellationToken: cancellationToken);
+            });
+
+        private async ValueTask<AIReviewerAssignment> DoAddAutomaticAIReviewerAssignmentAsync(
+            Guid approvalId,
+            EventEnvelope<AIReviewerAssignment> inboundEnvelope,
+            CancellationToken cancellationToken)
+        {
+            // Deliberately NOT ValidateUserIsAllowedToManageAIReviewerAssignments, which the
+            // caller-facing add uses: the system identity holds no roles, so asking for the
+            // review tier here would refuse the only caller this verb has. The contribution half
+            // of that gate still runs, and the system-identity check below is what actually
+            // stands in for authorization — the same split the sibling verb documents.
+            ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
+            ValidateAutomaticAssignmentIsTheWorkflowsOwnAct(inboundEnvelope.SecurityContext);
+
+            // THE SAME ROW THE MODERATOR'S ADD WRITES. Both flags start false because they record
+            // what Berean's pass eventually did and it has not run yet, and the id is minted here
+            // because the caller handed over an act rather than an entity to carry one.
+            var automaticAIReviewerAssignment = new AIReviewerAssignment
+            {
+                Id = await this.identifierBroker.GetIdentifierAsync(),
+                ApprovalId = approvalId,
+                IsAIReviewCompleted = false,
+                IsAIReviewCommentsPresent = false
+            };
+
+            AIReviewerAssignment auditedAIReviewerAssignment =
+                await this.securityAuditBroker.ApplyAddAuditValuesAsync(
+                    entity: automaticAIReviewerAssignment,
+                    securityContext: inboundEnvelope.SecurityContext);
+
+            // THE PUBLIC PATH'S OWN RULES, not a second copy of them. The row is the same row, so
+            // the rules over it must not be able to drift apart — and the only one a caller of
+            // this verb can trip is the approval id, because every other field is the service's
+            // own to set.
+            await ValidateOnAddAIReviewerAssignmentAsync(
+                aiReviewerAssignment: auditedAIReviewerAssignment,
+                securityContext: inboundEnvelope.SecurityContext);
+
+            AIReviewerAssignment addedAIReviewerAssignment =
+                await this.storageBroker.InsertAIReviewerAssignmentAsync(
+                    aiReviewerAssignment: auditedAIReviewerAssignment,
+                    cancellationToken: cancellationToken);
+
+            // NO ProcessedEvents bookkeeping on this path either, and for the sibling's reason:
+            // the dual record exists so a do-work shared between a public verb and an event
+            // handler cannot process one delivery twice. This verb has no event address and no
+            // handler, so both rows would be written with no reader.
+            EventEnvelope<AIReviewerAssignment> outboundEnvelope =
+                await this.eventEnvelopeBroker.CreateNextAsync(
+                    sourceEnvelope: inboundEnvelope,
+                    content: addedAIReviewerAssignment);
+
+            // The ordinary Added fact any assignment publishes. §8.6.2.1 mints no address in
+            // either direction: what distinguishes an automatic assignment from a moderator's is
+            // recorded ON the row — CreatedBy names the system identity.
+            await this.eventBroker.PublishAIReviewerAssignmentAsync(
+                envelope: outboundEnvelope,
+                operation: AIReviewerAssignmentEventOperation.Added);
+
+            return addedAIReviewerAssignment;
+        }
 
         private async ValueTask<AIReviewerAssignment> DoReturnStaleAIReviewerAssignmentToPendingAsync(
             Guid aiReviewerAssignmentId,

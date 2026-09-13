@@ -1,0 +1,984 @@
+// ────────────────────────────────────────────────────────────────────────────────
+// Copyright (c) Glory 2 Him. All rights reserved.
+// Licensed under the Glory 2 Him Software License (G2HSL).
+// See License.txt in the project root for full license information.
+// FREE TO USE TO HELP SHARE THE GOSPEL
+// John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
+//                  No one comes to the Father except through me.’"
+// https://john.bible/john-14-6
+// If Jesus is who He said He is, what does that mean for you, today?
+// ────────────────────────────────────────────────────────────────────────────────
+
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+using EFxceptions.Models.Exceptions;
+using FluentAssertions;
+using Force.DeepCloner;
+using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
+using Glory2Him.Core.Models.Foundations.AIReviewerAssignments;
+using Glory2Him.Core.Models.Foundations.AIReviewerAssignments.Exceptions;
+using Glory2Him.Core.Models.Foundations.ProcessedEvents;
+using Glory2Him.Core.Models.Securities;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
+using Moq;
+using Xeptions;
+
+namespace Glory2Him.Core.Tests.Unit.Services.Foundations.AIReviewerAssignments
+{
+    public partial class AIReviewerAssignmentServiceTests
+    {
+        /// <summary>
+        /// §8.6.2.1 — a round opened at <c>Submitted</c> under a policy that says Berean should
+        /// look at it, so the assignment arrives with nobody having clicked. The caller hands
+        /// over the ACT and an approval id; the service mints both the identity and the row's
+        /// own <c>Id</c>, which is what makes <c>IsSystemIdentity</c> unforgeable by
+        /// construction rather than by validation.
+        ///
+        /// <para><b>What it catches.</b> The caller here holds NO review role — the system
+        /// identity <c>CreateSystemAsync</c> mints is deliberately roleless — so routing this
+        /// verb through <c>ValidateUserIsAllowedToManageAIReviewerAssignments</c> reds it, which
+        /// is the split §8.6.2.1 relies on. It also reds on either flag being carried rather
+        /// than driven to <c>false</c>, on the <c>Id</c> coming from anywhere but
+        /// <c>IIdentifierBroker</c>, and on any <c>ProcessedEvents</c> bookkeeping appearing:
+        /// the seam has no request address and no receiver name, so both halves of the dedup
+        /// pair would be written with no reader.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldAddAnAutomaticAIReviewerAssignmentUnderTheSystemIdentityAsync()
+        {
+            // given: the caller holds NO review role — the system identity is the authority here
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            Guid inputApprovalId = Guid.NewGuid();
+            Guid mintedIdentifier = Guid.NewGuid();
+
+            var auditAppliedAIReviewerAssignment = new AIReviewerAssignment
+            {
+                Id = mintedIdentifier,
+                ApprovalId = inputApprovalId,
+                IsAIReviewCompleted = false,
+                IsAIReviewCommentsPresent = false,
+                CreatedBy = SystemIdentity.UserId,
+                UpdatedBy = SystemIdentity.UserId,
+                CreatedWhen = randomDateTimeOffset,
+                UpdatedWhen = randomDateTimeOffset
+            };
+
+            AIReviewerAssignment storageAIReviewerAssignment =
+                auditAppliedAIReviewerAssignment.DeepClone();
+
+            AIReviewerAssignment expectedAIReviewerAssignment =
+                storageAIReviewerAssignment.DeepClone();
+
+            this.identifierBrokerMock.Setup(broker =>
+                broker.GetIdentifierAsync())
+                    .ReturnsAsync(mintedIdentifier);
+
+            // Matched on the row the verb ASSEMBLES and on a system context, so the setup itself
+            // states what this verb owes: the minted id, the caller's approval id, both flags
+            // false, and a stamp taken from an identity nobody could have supplied.
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(
+                    It.Is<AIReviewerAssignment>(aiReviewerAssignment =>
+                        aiReviewerAssignment.Id == mintedIdentifier
+                            && aiReviewerAssignment.ApprovalId == inputApprovalId
+                            && aiReviewerAssignment.IsAIReviewCompleted == false
+                            && aiReviewerAssignment.IsAIReviewCommentsPresent == false),
+                    It.Is<SecurityContext>(securityContext =>
+                        securityContext.IsSystemIdentity)))
+                            .ReturnsAsync(auditAppliedAIReviewerAssignment);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(SystemIdentity.UserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.InsertAIReviewerAssignmentAsync(
+                    auditAppliedAIReviewerAssignment, It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageAIReviewerAssignment);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishAIReviewerAssignmentAsync(
+                    It.IsAny<EventEnvelope<AIReviewerAssignment>>(),
+                    AIReviewerAssignmentEventOperation.Added))
+                        .Returns(new ValueTask<EventPublishResult<AIReviewerAssignment>>(
+                            new EventPublishResult<AIReviewerAssignment>()));
+
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
+            // when
+            AIReviewerAssignment actualAIReviewerAssignment =
+                await this.aiReviewerAssignmentWorkflowService
+                    .AddAutomaticAIReviewerAssignmentAsync(inputApprovalId, cancellationToken);
+
+            // then: the returned row is the STORED one, not the assembled one
+            actualAIReviewerAssignment.Should().BeEquivalentTo(expectedAIReviewerAssignment);
+
+            // BY REFERENCE, because BeEquivalentTo cannot tell the three rows apart — the
+            // assembled row, the audited row and the stored row are structurally identical here,
+            // so returning the pre-insert copy would satisfy every value assertion above it. The
+            // row storage hands back is the one carrying whatever the database decided, and it is
+            // also the row the Added fact is chained onto, so the two must not be allowed to
+            // diverge silently.
+            actualAIReviewerAssignment.Should().BeSameAs(storageAIReviewerAssignment);
+            actualAIReviewerAssignment.ApprovalId.Should().Be(inputApprovalId);
+            actualAIReviewerAssignment.IsAIReviewCompleted.Should().BeFalse();
+            actualAIReviewerAssignment.IsAIReviewCommentsPresent.Should().BeFalse();
+
+            // The caller hands over no entity, so the row's identity is the service's to mint.
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                Times.Once);
+
+            // PINNED ON THE SUBJECT, not only on the flag. IsSystemIdentity alone is satisfied by
+            // CreateElevatedAsync too, and that verb KEEPS the caller as the subject — so a verb
+            // switched to it would still pass a flag-only assertion while stamping CreatedBy with
+            // whoever's submission opened the round, which is the one thing §14.6.1's actor rule
+            // forbids here. The trigger survives on DelegatedBySubjectId, so the trail back to the
+            // person is kept without making them the author.
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyAddAuditValuesAsync(
+                    It.Is<AIReviewerAssignment>(aiReviewerAssignment =>
+                        aiReviewerAssignment.Id == mintedIdentifier
+                            && aiReviewerAssignment.ApprovalId == inputApprovalId
+                            && aiReviewerAssignment.IsAIReviewCompleted == false
+                            && aiReviewerAssignment.IsAIReviewCommentsPresent == false),
+                    It.Is<SecurityContext>(securityContext =>
+                        securityContext.IsSystemIdentity
+                            && securityContext.SubjectId == SystemIdentity.UserId
+                            && securityContext.Username == SystemIdentity.Username
+                            && securityContext.DelegatedBySubjectId
+                                == this.ambientSecurityContext.SubjectId)),
+                Times.Once);
+
+            // The CALLER's token, not a fresh one: a cancelled request has to reach the insert.
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertAIReviewerAssignmentAsync(
+                    auditAppliedAIReviewerAssignment, cancellationToken),
+                Times.Once);
+
+            // CHAINED, NOT NEWLY ROOTED. The fact has to descend from the envelope this verb
+            // minted for itself, carrying the stored row as its content. An It.IsAny pair here
+            // would sit green over a verb that rooted a fresh envelope with CreateSystemAsync, or
+            // that chained the pre-insert copy instead — neither of which any value assertion
+            // above would notice, because the rows are structurally identical.
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateNextAsync(
+                    It.Is<EventEnvelope<AIReviewerAssignment>>(sourceEnvelope =>
+                        sourceEnvelope.SecurityContext.IsSystemIdentity
+                            && sourceEnvelope.SecurityContext.SubjectId == SystemIdentity.UserId),
+                    storageAIReviewerAssignment),
+                Times.Once);
+
+            // The ordinary Added fact any assignment publishes — §8.6.2.1 mints no address of its
+            // own in either direction, and an automatic assignment is not something a caller may
+            // ask for. Pinned on the envelope's own content and identity rather than on It.IsAny,
+            // so the chain proved just above is the chain that actually reaches the broker.
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishAIReviewerAssignmentAsync(
+                    It.Is<EventEnvelope<AIReviewerAssignment>>(outboundEnvelope =>
+                        outboundEnvelope.Content == storageAIReviewerAssignment
+                            && outboundEnvelope.SecurityContext.IsSystemIdentity
+                            && outboundEnvelope.SecurityContext.SubjectId
+                                == SystemIdentity.UserId),
+                    AIReviewerAssignmentEventOperation.Added),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateAIReviewerAssignmentAsync(
+                    It.IsAny<AIReviewerAssignment>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            // No ProcessedEvents bookkeeping on either side, matching both siblings and
+            // Events.md §EVN19 rule 1: the seam has no request address and no receiver name a
+            // subscription owns, so a record written here would have no reader.
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertProcessedEventAsync(
+                    It.IsAny<ProcessedEvent>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectProcessedEventExistsAsync(
+                    It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        /// <summary>
+        /// THE ROW THIS VERB ASSEMBLES IS THE SAME ROW THE MODERATOR'S ADD WRITES, so the same
+        /// on-add rules stand over it. An approval id the caller never filled in is the one of
+        /// those rules a caller of THIS verb can actually trip, and it is refused before storage
+        /// is touched and before anything is published.
+        ///
+        /// <para><b>What it catches.</b> Dropping
+        /// <c>ValidateOnAddAIReviewerAssignmentAsync</c> from this path: an assignment keyed on
+        /// no approval would reach the insert, where nothing but a foreign key stands between it
+        /// and a row belonging to nobody. Reusing the public path's validator rather than
+        /// writing a second, weaker copy is the point — the row is the same row, so the rules
+        /// over it must not be able to drift apart.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddAutomaticIfApprovalIdIsInvalidAndLogItAsync()
+        {
+            // given
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            Guid invalidApprovalId = Guid.Empty;
+            Guid mintedIdentifier = Guid.NewGuid();
+
+            var auditAppliedAIReviewerAssignment = new AIReviewerAssignment
+            {
+                Id = mintedIdentifier,
+                ApprovalId = invalidApprovalId,
+                IsAIReviewCompleted = false,
+                IsAIReviewCommentsPresent = false,
+                CreatedBy = SystemIdentity.UserId,
+                UpdatedBy = SystemIdentity.UserId,
+                CreatedWhen = randomDateTimeOffset,
+                UpdatedWhen = randomDateTimeOffset
+            };
+
+            var invalidAIReviewerAssignmentException =
+                new InvalidAIReviewerAssignmentException(
+                    message: "AI reviewer assignment is invalid, fix the errors and try again.");
+
+            invalidAIReviewerAssignmentException.AddData(
+                key: nameof(AIReviewerAssignment.ApprovalId),
+                values: "Id is required");
+
+            var expectedAIReviewerAssignmentValidationException =
+                new AIReviewerAssignmentValidationException(
+                    message: "AI reviewer assignment validation error occurred, fix the errors and try again.",
+                    innerException: invalidAIReviewerAssignmentException);
+
+            this.identifierBrokerMock.Setup(broker =>
+                broker.GetIdentifierAsync())
+                    .ReturnsAsync(mintedIdentifier);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(
+                    It.IsAny<AIReviewerAssignment>(), It.IsAny<SecurityContext>()))
+                        .ReturnsAsync(auditAppliedAIReviewerAssignment);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(SystemIdentity.UserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            ValueTask<AIReviewerAssignment> addAutomaticTask =
+                this.aiReviewerAssignmentWorkflowService
+                    .AddAutomaticAIReviewerAssignmentAsync(
+                        invalidApprovalId,
+                        TestContext.Current.CancellationToken);
+
+            AIReviewerAssignmentValidationException actualException =
+                await Assert.ThrowsAsync<AIReviewerAssignmentValidationException>(
+                    addAutomaticTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedAIReviewerAssignmentValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAIReviewerAssignmentValidationException))),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertAIReviewerAssignmentAsync(
+                    It.IsAny<AIReviewerAssignment>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishAIReviewerAssignmentAsync(
+                    It.IsAny<EventEnvelope<AIReviewerAssignment>>(),
+                    It.IsAny<AIReviewerAssignmentEventOperation>()),
+                Times.Never);
+        }
+
+        /// <summary>
+        /// THE CONTRIBUTION HALF OF THE GATE RUNS, and it runs FIRST. The other half —
+        /// <c>ValidateUserIsAllowedToManageAIReviewerAssignments</c> — deliberately does not: the
+        /// system identity holds no roles, so asking for the review tier here would refuse the
+        /// only caller this verb has. That negative is proved by the happy path above, which
+        /// succeeds under a roleless context; this is the positive half.
+        ///
+        /// <para>Reached the same way the system-identity guard above is, through a
+        /// pass-through mint, so the unauthenticated caller's own context arrives at the do-work.
+        /// The message is what pins WHICH gate refused: the act guard would answer differently,
+        /// so a test that only asserted "refused" could not tell the two apart.</para>
+        /// </summary>
+        [Theory]
+        [MemberData(nameof(UnauthenticatedSecurityContexts))]
+        public async Task ShouldThrowValidationExceptionOnAddAutomaticIfTheContextMayNotContributeAsync(
+            SecurityContext unauthenticatedSecurityContext)
+        {
+            // given
+            this.systemContextIsGenuine = false;
+            this.ambientSecurityContext = unauthenticatedSecurityContext;
+            Guid someApprovalId = Guid.NewGuid();
+
+            var unauthorizedAIReviewerAssignmentException =
+                new UnauthorizedAIReviewerAssignmentException(
+                    message: "The current user is not authenticated.");
+
+            var expectedAIReviewerAssignmentValidationException =
+                new AIReviewerAssignmentValidationException(
+                    message: "AI reviewer assignment validation error occurred, fix the errors and try again.",
+                    innerException: unauthorizedAIReviewerAssignmentException);
+
+            // when
+            ValueTask<AIReviewerAssignment> addAutomaticTask =
+                this.aiReviewerAssignmentWorkflowService
+                    .AddAutomaticAIReviewerAssignmentAsync(
+                        someApprovalId,
+                        TestContext.Current.CancellationToken);
+
+            AIReviewerAssignmentValidationException actualException =
+                await Assert.ThrowsAsync<AIReviewerAssignmentValidationException>(
+                    addAutomaticTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedAIReviewerAssignmentValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAIReviewerAssignmentValidationException))),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertAIReviewerAssignmentAsync(
+                    It.IsAny<AIReviewerAssignment>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishAIReviewerAssignmentAsync(
+                    It.IsAny<EventEnvelope<AIReviewerAssignment>>(),
+                    It.IsAny<AIReviewerAssignmentEventOperation>()),
+                Times.Never);
+        }
+
+        /// <summary>
+        /// THE AUTHORIZATION BOUNDARY ON THIS SEAM. There is no tier to ask for — the system
+        /// identity holds no roles — so "is this the workflow's own act" is the whole of the
+        /// gate, and a gate nobody tests is a comment.
+        ///
+        /// <para>It is unreachable through the public seam, which mints the context itself two
+        /// methods up, so this exercises it through the ambient <c>CreateSystemAsync</c> stub
+        /// returning a NON-system context. What it protects against is a future second caller of
+        /// the private do-work supplying its own envelope — the route by which a person's context
+        /// could otherwise reach a write that must record the system.</para>
+        ///
+        /// <para><b>What it catches.</b> Deleting
+        /// <c>ValidateAutomaticAssignmentIsTheWorkflowsOwnAct</c>: an administrator — who passes
+        /// the contribution half of the gate on their own — would then be able to author an
+        /// assignment with <c>CreatedBy</c> naming them, which is a moderator's deliberate
+        /// request stamped onto an act nobody performed.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddAutomaticIfTheContextIsNotTheSystemAsync()
+        {
+            // given: the mint is a pass-through, so the ADMINISTRATOR's own context — their roles,
+            // their subject, no system flag — reaches the do-work instead of a system-minted one.
+            // An administrator because they are the one caller who passes every other gate on this
+            // path unaided, so this guard is all that stands between them and the write.
+            this.systemContextIsGenuine = false;
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
+            Guid someApprovalId = Guid.NewGuid();
+
+            var unauthorizedAIReviewerAssignmentException =
+                new UnauthorizedAIReviewerAssignmentException(
+                    message: "Assigning the AI reviewer automatically is the approval workflow's "
+                        + "own act; no user may perform it.");
+
+            var expectedAIReviewerAssignmentValidationException =
+                new AIReviewerAssignmentValidationException(
+                    message: "AI reviewer assignment validation error occurred, fix the errors and try again.",
+                    innerException: unauthorizedAIReviewerAssignmentException);
+
+            // when
+            ValueTask<AIReviewerAssignment> addAutomaticTask =
+                this.aiReviewerAssignmentWorkflowService
+                    .AddAutomaticAIReviewerAssignmentAsync(
+                        someApprovalId,
+                        TestContext.Current.CancellationToken);
+
+            AIReviewerAssignmentValidationException actualException =
+                await Assert.ThrowsAsync<AIReviewerAssignmentValidationException>(
+                    addAutomaticTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedAIReviewerAssignmentValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAIReviewerAssignmentValidationException))),
+                Times.Once);
+
+            // refused BEFORE any storage call, and before the row is even assembled
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertAIReviewerAssignmentAsync(
+                    It.IsAny<AIReviewerAssignment>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishAIReviewerAssignmentAsync(
+                    It.IsAny<EventEnvelope<AIReviewerAssignment>>(),
+                    It.IsAny<AIReviewerAssignmentEventOperation>()),
+                Times.Never);
+        }
+
+        /// <summary>
+        /// <c>ISecurityAuditBroker</c> faulting, and the first of the four mappings criterion 12
+        /// names: a SQL error is the CRITICAL dependency failure, logged through
+        /// <c>LogCriticalAsync</c> rather than <c>LogErrorAsync</c>.
+        ///
+        /// <para>The arm itself is the class's existing one — this verb shares the same
+        /// <c>TryCatch</c> and the same <c>AIReviewerAssignment*</c> family as the caller-facing
+        /// add, which is what keeps the orchestration that will call it at two exception families
+        /// rather than three. That is a fact worth verifying rather than assuming, which is why
+        /// this and its four siblings below are named tests rather than a line of prose.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldThrowCriticalDependencyExceptionOnAddAutomaticIfSqlErrorOccursAndLogItAsync()
+        {
+            // given
+            Guid someApprovalId = Guid.NewGuid();
+            SqlException sqlException = GetSqlException();
+
+            var failedStorageAIReviewerAssignmentException =
+                new FailedStorageAIReviewerAssignmentException(
+                    message: "Failed AI reviewer assignment storage error occurred, contact support.",
+                    innerException: sqlException,
+                    data: sqlException.Data);
+
+            var expectedAIReviewerAssignmentDependencyException =
+                new AIReviewerAssignmentDependencyException(
+                    message: "AI reviewer assignment dependency error occurred, contact support.",
+                    innerException: failedStorageAIReviewerAssignmentException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(
+                    It.IsAny<AIReviewerAssignment>(), It.IsAny<SecurityContext>()))
+                        .ThrowsAsync(sqlException);
+
+            // when
+            ValueTask<AIReviewerAssignment> addAutomaticTask =
+                this.aiReviewerAssignmentWorkflowService
+                    .AddAutomaticAIReviewerAssignmentAsync(
+                        someApprovalId,
+                        TestContext.Current.CancellationToken);
+
+            AIReviewerAssignmentDependencyException actualException =
+                await Assert.ThrowsAsync<AIReviewerAssignmentDependencyException>(
+                    addAutomaticTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedAIReviewerAssignmentDependencyException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogCriticalAsync(It.Is(
+                    SameExceptionAs(expectedAIReviewerAssignmentDependencyException))),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertAIReviewerAssignmentAsync(
+                    It.IsAny<AIReviewerAssignment>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        /// <summary>
+        /// The STORAGE INSERT faulting, and the second of the four mappings: a general storage
+        /// error is the ordinary dependency failure rather than the critical one, logged through
+        /// <c>LogErrorAsync</c>.
+        /// </summary>
+        [Fact]
+        public async Task ShouldThrowDependencyExceptionOnAddAutomaticIfStorageErrorOccursAndLogItAsync()
+        {
+            // given
+            Guid someApprovalId = Guid.NewGuid();
+            ArrangeAnAutomaticAssignmentReachingStorage(someApprovalId);
+            var dbUpdateException = new DbUpdateException();
+
+            var failedStorageAIReviewerAssignmentException =
+                new FailedStorageAIReviewerAssignmentException(
+                    message: "Failed AI reviewer assignment storage error occurred, contact support.",
+                    innerException: dbUpdateException,
+                    data: dbUpdateException.Data);
+
+            var expectedAIReviewerAssignmentDependencyException =
+                new AIReviewerAssignmentDependencyException(
+                    message: "AI reviewer assignment dependency error occurred, contact support.",
+                    innerException: failedStorageAIReviewerAssignmentException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.InsertAIReviewerAssignmentAsync(
+                    It.IsAny<AIReviewerAssignment>(), It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(dbUpdateException);
+
+            // when
+            ValueTask<AIReviewerAssignment> addAutomaticTask =
+                this.aiReviewerAssignmentWorkflowService
+                    .AddAutomaticAIReviewerAssignmentAsync(
+                        someApprovalId,
+                        TestContext.Current.CancellationToken);
+
+            AIReviewerAssignmentDependencyException actualException =
+                await Assert.ThrowsAsync<AIReviewerAssignmentDependencyException>(
+                    addAutomaticTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedAIReviewerAssignmentDependencyException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAIReviewerAssignmentDependencyException))),
+                Times.Once);
+
+            // the fact is never published for a row that never landed
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishAIReviewerAssignmentAsync(
+                    It.IsAny<EventEnvelope<AIReviewerAssignment>>(),
+                    It.IsAny<AIReviewerAssignmentEventOperation>()),
+                Times.Never);
+        }
+
+        /// <summary>
+        /// The STORAGE INSERT faulting on a rule the database holds, and mappings 3 and 4: a
+        /// concurrency conflict and a uniqueness violation are both dependency VALIDATION
+        /// failures — something the caller could in principle fix — rather than "our code is
+        /// broken".
+        ///
+        /// <para><c>UX_AIReviewerAssignments_ApprovalId</c> is the case this verb actually meets
+        /// in production: two deliveries of the same round's fact can both decide to assign
+        /// before either commits, and the filtered unique index refuses the loser. This verb
+        /// does NOT pre-check for an existing row — the "ever assigned, live or withdrawn" gate
+        /// belongs to the caller, and a check here would be a second, weaker copy of it that
+        /// could only disagree. A unique-INDEX violation also does not derive from
+        /// <c>DuplicateKeyException</c>, so without its own clause it would be mis-reported as a
+        /// service fault.</para>
+        /// </summary>
+        [Theory]
+        [MemberData(nameof(AddAutomaticDependencyValidationExceptions))]
+        public async Task ShouldThrowDependencyValidationExceptionOnAddAutomaticIfErrorOccursAndLogItAsync(
+            Exception thrownException,
+            Xeption expectedInnerException)
+        {
+            // given
+            Guid someApprovalId = Guid.NewGuid();
+            ArrangeAnAutomaticAssignmentReachingStorage(someApprovalId);
+
+            var expectedAIReviewerAssignmentDependencyValidationException =
+                new AIReviewerAssignmentDependencyValidationException(
+                    message: "AI reviewer assignment dependency validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: expectedInnerException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.InsertAIReviewerAssignmentAsync(
+                    It.IsAny<AIReviewerAssignment>(), It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(thrownException);
+
+            // when
+            ValueTask<AIReviewerAssignment> addAutomaticTask =
+                this.aiReviewerAssignmentWorkflowService
+                    .AddAutomaticAIReviewerAssignmentAsync(
+                        someApprovalId,
+                        TestContext.Current.CancellationToken);
+
+            AIReviewerAssignmentDependencyValidationException actualException =
+                await Assert.ThrowsAsync<AIReviewerAssignmentDependencyValidationException>(
+                    addAutomaticTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(
+                expectedAIReviewerAssignmentDependencyValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAIReviewerAssignmentDependencyValidationException))),
+                Times.Once);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishAIReviewerAssignmentAsync(
+                    It.IsAny<EventEnvelope<AIReviewerAssignment>>(),
+                    It.IsAny<AIReviewerAssignmentEventOperation>()),
+                Times.Never);
+        }
+
+        /// <summary>
+        /// The other half of the pair: an <c>OperationCanceledException</c> surfacing from a
+        /// DEPENDENCY while the caller's token is still live is a timeout, and a timeout is a
+        /// dependency failure. Same exception type as the test below, opposite answer, and the
+        /// token is the only thing that tells them apart.
+        /// </summary>
+        [Fact]
+        public async Task ShouldThrowDependencyExceptionOnAddAutomaticIfOperationCanceledExceptionOccursAndLogItAsync()
+        {
+            // given
+            Guid someApprovalId = Guid.NewGuid();
+            var operationCanceledException = new OperationCanceledException();
+            var timeoutException = new TimeoutException("The dependency operation timed out.");
+
+            var timeoutAIReviewerAssignmentException =
+                new TimeoutAIReviewerAssignmentException(
+                    message: "Failed AI reviewer assignment timeout error occurred, contact support.",
+                    innerException: timeoutException,
+                    data: timeoutException.Data);
+
+            var expectedAIReviewerAssignmentDependencyException =
+                new AIReviewerAssignmentDependencyException(
+                    message: "AI reviewer assignment dependency error occurred, contact support.",
+                    innerException: timeoutAIReviewerAssignmentException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(
+                    It.IsAny<AIReviewerAssignment>(), It.IsAny<SecurityContext>()))
+                        .ThrowsAsync(operationCanceledException);
+
+            // when
+            ValueTask<AIReviewerAssignment> addAutomaticTask =
+                this.aiReviewerAssignmentWorkflowService
+                    .AddAutomaticAIReviewerAssignmentAsync(
+                        someApprovalId,
+                        TestContext.Current.CancellationToken);
+
+            AIReviewerAssignmentDependencyException actualException =
+                await Assert.ThrowsAsync<AIReviewerAssignmentDependencyException>(
+                    addAutomaticTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedAIReviewerAssignmentDependencyException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAIReviewerAssignmentDependencyException))),
+                Times.Once);
+        }
+
+        /// <summary>
+        /// A GENUINE cancellation — the caller's token — passes straight through rather than
+        /// being categorized as a timeout. The distinction is the <c>when</c> clause on the
+        /// first catch: a dependency that gave up looks identical to a caller who walked away
+        /// unless the token is consulted, and reporting an abandoned request as a storage fault
+        /// would page somebody over nothing.
+        ///
+        /// <para>The check sits at the TOP, ahead of minting the envelope — an act nobody is
+        /// waiting for any more should not mint an identity to perform it under.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldRethrowOnAddAutomaticIfCancellationIsRequestedAsync()
+        {
+            // given
+            using var cancellationTokenSource = new CancellationTokenSource();
+            await cancellationTokenSource.CancelAsync();
+
+            // when
+            ValueTask<AIReviewerAssignment> addAutomaticTask =
+                this.aiReviewerAssignmentWorkflowService
+                    .AddAutomaticAIReviewerAssignmentAsync(
+                        Guid.NewGuid(),
+                        cancellationTokenSource.Token);
+
+            // then
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(addAutomaticTask.AsTask);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateSystemAsync(It.IsAny<AIReviewerAssignment>()),
+                Times.Never);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertAIReviewerAssignmentAsync(
+                    It.IsAny<AIReviewerAssignment>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            // NOT reported as a dependency failure — nothing is logged at all
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        /// <summary>
+        /// The catch-all arm, which every other verb on this class has: an error nothing above
+        /// recognised is this service's own fault rather than a dependency's, and it says so.
+        /// </summary>
+        [Fact]
+        public async Task ShouldThrowServiceExceptionOnAddAutomaticIfServiceErrorOccursAndLogItAsync()
+        {
+            // given
+            Guid someApprovalId = Guid.NewGuid();
+            var serviceException = new Exception();
+
+            var failedAIReviewerAssignmentServiceException =
+                new FailedAIReviewerAssignmentServiceException(
+                    message: "Failed AI reviewer assignment service error occurred, " +
+                        "please contact support.",
+                    innerException: serviceException,
+                    data: serviceException.Data);
+
+            var expectedAIReviewerAssignmentServiceException =
+                new AIReviewerAssignmentServiceException(
+                    message: "AI reviewer assignment service error occurred, contact support.",
+                    innerException: failedAIReviewerAssignmentServiceException);
+
+            this.identifierBrokerMock.Setup(broker =>
+                broker.GetIdentifierAsync())
+                    .ThrowsAsync(serviceException);
+
+            // when
+            ValueTask<AIReviewerAssignment> addAutomaticTask =
+                this.aiReviewerAssignmentWorkflowService
+                    .AddAutomaticAIReviewerAssignmentAsync(
+                        someApprovalId,
+                        TestContext.Current.CancellationToken);
+
+            AIReviewerAssignmentServiceException actualException =
+                await Assert.ThrowsAsync<AIReviewerAssignmentServiceException>(
+                    addAutomaticTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedAIReviewerAssignmentServiceException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAIReviewerAssignmentServiceException))),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertAIReviewerAssignmentAsync(
+                    It.IsAny<AIReviewerAssignment>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        /// <summary>
+        /// <c>IEventBroker</c> faulting, the last of the four dependencies this verb touches.
+        /// The fault type is a stand-in here too; what is pinned is that a publish failure is
+        /// wrapped into this class's own family and logged rather than escaping raw.
+        /// </summary>
+        [Fact]
+        public async Task ShouldThrowDependencyExceptionOnAddAutomaticIfEventBrokerErrorOccursAndLogItAsync()
+        {
+            // given
+            Guid someApprovalId = Guid.NewGuid();
+
+            AIReviewerAssignment auditAppliedAIReviewerAssignment =
+                ArrangeAnAutomaticAssignmentReachingStorage(someApprovalId);
+
+            var dbUpdateException = new DbUpdateException();
+
+            var failedStorageAIReviewerAssignmentException =
+                new FailedStorageAIReviewerAssignmentException(
+                    message: "Failed AI reviewer assignment storage error occurred, contact support.",
+                    innerException: dbUpdateException,
+                    data: dbUpdateException.Data);
+
+            var expectedAIReviewerAssignmentDependencyException =
+                new AIReviewerAssignmentDependencyException(
+                    message: "AI reviewer assignment dependency error occurred, contact support.",
+                    innerException: failedStorageAIReviewerAssignmentException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.InsertAIReviewerAssignmentAsync(
+                    It.IsAny<AIReviewerAssignment>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(auditAppliedAIReviewerAssignment);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishAIReviewerAssignmentAsync(
+                    It.IsAny<EventEnvelope<AIReviewerAssignment>>(),
+                    AIReviewerAssignmentEventOperation.Added))
+                        .ThrowsAsync(dbUpdateException);
+
+            // when
+            ValueTask<AIReviewerAssignment> addAutomaticTask =
+                this.aiReviewerAssignmentWorkflowService
+                    .AddAutomaticAIReviewerAssignmentAsync(
+                        someApprovalId,
+                        TestContext.Current.CancellationToken);
+
+            AIReviewerAssignmentDependencyException actualException =
+                await Assert.ThrowsAsync<AIReviewerAssignmentDependencyException>(
+                    addAutomaticTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedAIReviewerAssignmentDependencyException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAIReviewerAssignmentDependencyException))),
+                Times.Once);
+        }
+
+        /// <summary>
+        /// <c>IEventEnvelopeBroker</c> faulting, on the chaining call that builds the outbound
+        /// envelope from the inbound one. The row is already committed by this point, and the
+        /// caller is still told — this verb reports a failure rather than swallowing it, and the
+        /// decision about whether a missed fact should fault the round belongs to the caller
+        /// that will sit above it.
+        ///
+        /// <para>The fault type is a stand-in; what is pinned is that a failure from THIS
+        /// dependency is wrapped into this class's own family and logged, rather than escaping
+        /// raw.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldThrowDependencyExceptionOnAddAutomaticIfEnvelopeBrokerErrorOccursAndLogItAsync()
+        {
+            // given
+            Guid someApprovalId = Guid.NewGuid();
+
+            AIReviewerAssignment auditAppliedAIReviewerAssignment =
+                ArrangeAnAutomaticAssignmentReachingStorage(someApprovalId);
+
+            var dbUpdateException = new DbUpdateException();
+
+            var failedStorageAIReviewerAssignmentException =
+                new FailedStorageAIReviewerAssignmentException(
+                    message: "Failed AI reviewer assignment storage error occurred, contact support.",
+                    innerException: dbUpdateException,
+                    data: dbUpdateException.Data);
+
+            var expectedAIReviewerAssignmentDependencyException =
+                new AIReviewerAssignmentDependencyException(
+                    message: "AI reviewer assignment dependency error occurred, contact support.",
+                    innerException: failedStorageAIReviewerAssignmentException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.InsertAIReviewerAssignmentAsync(
+                    It.IsAny<AIReviewerAssignment>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(auditAppliedAIReviewerAssignment);
+
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateNextAsync(
+                    It.IsAny<EventEnvelope<AIReviewerAssignment>>(),
+                    It.IsAny<AIReviewerAssignment>()))
+                        .ThrowsAsync(dbUpdateException);
+
+            // when
+            ValueTask<AIReviewerAssignment> addAutomaticTask =
+                this.aiReviewerAssignmentWorkflowService
+                    .AddAutomaticAIReviewerAssignmentAsync(
+                        someApprovalId,
+                        TestContext.Current.CancellationToken);
+
+            AIReviewerAssignmentDependencyException actualException =
+                await Assert.ThrowsAsync<AIReviewerAssignmentDependencyException>(
+                    addAutomaticTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedAIReviewerAssignmentDependencyException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAIReviewerAssignmentDependencyException))),
+                Times.Once);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishAIReviewerAssignmentAsync(
+                    It.IsAny<EventEnvelope<AIReviewerAssignment>>(),
+                    It.IsAny<AIReviewerAssignmentEventOperation>()),
+                Times.Never);
+        }
+
+        /// <summary>
+        /// Its own set rather than a reuse of the caller-facing add's or the modify's: those are
+        /// per-operation compositions, and this path's insert can raise a concurrency conflict
+        /// the add-side set has no reason to carry while still owing the unique-index case the
+        /// modify-side set carries for a different reason. A shared set would tie the three
+        /// together where nothing says they must change together.
+        /// </summary>
+        public static TheoryData<Exception, Xeption> AddAutomaticDependencyValidationExceptions()
+        {
+            string someMessage = GetRandomString();
+            var dbUpdateConcurrencyException = new DbUpdateConcurrencyException();
+            var duplicateKeyException = new DuplicateKeyException(someMessage);
+            var foreignKeyConstraintConflictException = new ForeignKeyConstraintConflictException(someMessage);
+
+            var duplicateKeyWithUniqueIndexException =
+                new DuplicateKeyWithUniqueIndexException(someMessage);
+
+            return new TheoryData<Exception, Xeption>
+            {
+                {
+                    dbUpdateConcurrencyException,
+                    new LockedAIReviewerAssignmentException(
+                        message: "Locked AI reviewer assignment record, please try again later.",
+                        innerException: dbUpdateConcurrencyException,
+                        data: dbUpdateConcurrencyException.Data)
+                },
+                {
+                    duplicateKeyException,
+                    new AlreadyExistsAIReviewerAssignmentException(
+                        message: "AI reviewer assignment already exists with the same Id.",
+                        innerException: duplicateKeyException,
+                        data: duplicateKeyException.Data)
+                },
+                {
+                    foreignKeyConstraintConflictException,
+                    new InvalidAIReviewerAssignmentReferenceException(
+                        message: "Invalid AI reviewer assignment reference error occurred.",
+                        innerException: foreignKeyConstraintConflictException,
+                        data: foreignKeyConstraintConflictException.Data)
+                },
+
+                // The route UX_AIReviewerAssignments_ApprovalId travels: a second LIVE assignment
+                // on the same approval trips it, which arrives as a unique-index violation rather
+                // than a duplicate key.
+                {
+                    duplicateKeyWithUniqueIndexException,
+                    new AlreadyExistsAIReviewerAssignmentException(
+                        message: "AI reviewer assignment already exists, " +
+                            "a uniqueness rule rejected the write.",
+                        innerException: duplicateKeyWithUniqueIndexException,
+                        data: duplicateKeyWithUniqueIndexException.Data)
+                }
+            };
+        }
+
+        /// <summary>
+        /// The arrangement every fault BELOW the validation gate needs: an id to mint, an audit
+        /// stamp the on-add rules accept, and a clock the recency rule accepts. Without it the
+        /// verb refuses the row before it ever reaches the dependency the test is about, and the
+        /// test would pass for the wrong reason.
+        /// </summary>
+        private AIReviewerAssignment ArrangeAnAutomaticAssignmentReachingStorage(Guid approvalId)
+        {
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+
+            var auditAppliedAIReviewerAssignment = new AIReviewerAssignment
+            {
+                Id = Guid.NewGuid(),
+                ApprovalId = approvalId,
+                IsAIReviewCompleted = false,
+                IsAIReviewCommentsPresent = false,
+                CreatedBy = SystemIdentity.UserId,
+                UpdatedBy = SystemIdentity.UserId,
+                CreatedWhen = randomDateTimeOffset,
+                UpdatedWhen = randomDateTimeOffset
+            };
+
+            this.identifierBrokerMock.Setup(broker =>
+                broker.GetIdentifierAsync())
+                    .ReturnsAsync(auditAppliedAIReviewerAssignment.Id);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(
+                    It.IsAny<AIReviewerAssignment>(), It.IsAny<SecurityContext>()))
+                        .ReturnsAsync(auditAppliedAIReviewerAssignment);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(SystemIdentity.UserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            return auditAppliedAIReviewerAssignment;
+        }
+    }
+}

@@ -63,5 +63,29 @@ namespace Glory2Him.Core.Services.Foundations.AIReviewerAssignments
         ValueTask<AIReviewerAssignment> ReturnStaleAIReviewerAssignmentToPendingAsync(
             Guid aiReviewerAssignmentId,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Assigns Berean to a round nobody asked it to look at — §8.6.2.1's automatic
+        /// assignment, where a resolved policy has already decided that a round opening at
+        /// <c>Submitted</c> gets an AI pass without a click. It writes the same row the
+        /// caller-facing add writes and publishes the same fact, and it cannot BE the
+        /// caller-facing add: that verb's gate asks for the review tier, and the identity this
+        /// one runs under holds no roles.
+        ///
+        /// <para>Like its sibling it takes the ACT and no context — an approval id and a token,
+        /// and nothing a caller could use to describe who is asking. The row's own
+        /// <c>Id</c> is minted here too, because the caller hands over no entity to carry
+        /// one.</para>
+        ///
+        /// <para>It pre-checks nothing about an existing assignment. Deciding whether Berean has
+        /// ever been on this round is the CALLER's gate — it is the question an identity- and
+        /// deletion-filtered read cannot answer — and a weaker copy of it here would only
+        /// disagree with the real one. A second live row is refused by
+        /// <c>UX_AIReviewerAssignments_ApprovalId</c> and surfaces as a dependency validation
+        /// failure.</para>
+        /// </summary>
+        ValueTask<AIReviewerAssignment> AddAutomaticAIReviewerAssignmentAsync(
+            Guid approvalId,
+            CancellationToken cancellationToken = default);
     }
 }

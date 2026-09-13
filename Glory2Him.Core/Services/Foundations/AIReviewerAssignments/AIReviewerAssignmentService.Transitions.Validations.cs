@@ -46,5 +46,29 @@ namespace Glory2Him.Core.Services.Foundations.AIReviewerAssignments
                         + "workflow's own act; no user may perform it.");
             }
         }
+
+        // THE AUTHORIZATION BOUNDARY ON THE AUTOMATIC ADD (§8.6.2.1 security boundary rule 2).
+        // There is no tier left to ask for on this path — the system identity holds no roles —
+        // so this assertion is the whole of the gate rather than one clause of it.
+        //
+        // A separate method from the sibling above even though the two currently test the same
+        // field: they refuse different acts and say so, and the moment one of them needs a rule
+        // the other must not have, a shared validator could not give it one without changing
+        // both.
+        //
+        // Unreachable through the public seam for the sibling's reason — that seam calls
+        // CreateSystemAsync itself before delegating — so what it actually guards is a future
+        // second caller of the private DoAddAutomaticAIReviewerAssignmentAsync supplying its own
+        // envelope.
+        private static void ValidateAutomaticAssignmentIsTheWorkflowsOwnAct(
+            SecurityContext securityContext)
+        {
+            if (securityContext.IsSystemIdentity is false)
+            {
+                throw new UnauthorizedAIReviewerAssignmentException(
+                    message: "Assigning the AI reviewer automatically is the approval workflow's "
+                        + "own act; no user may perform it.");
+            }
+        }
     }
 }
