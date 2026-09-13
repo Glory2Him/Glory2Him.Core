@@ -234,6 +234,12 @@ namespace Glory2Him.WebApp.Tests.Unit.Data
                 approvalSetting.IsAIAllowedToVote.Should().BeFalse();
                 approvalSetting.AIApprovalConfidenceRejectionThreshold.Should().Be(2.50m);
                 approvalSetting.AIApprovalConfidenceApprovalThreshold.Should().Be(7.50m);
+
+                // Unlike its two siblings above, this one ships ON everywhere (§8.6.2.1): a
+                // dormant preference for the day IsAIReviewerOffered is turned on, not an action
+                // performed today. The migration's backfill and the CLR initialiser agree with
+                // this same constant — change it here and both have to move with it.
+                approvalSetting.IsAIReviewerAutomaticallyRequested.Should().BeTrue();
             }
         }
 
@@ -310,7 +316,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Data
         }
 
         /// <summary>
-        /// The Berean fields (§8.6.2) are the newest four, and the newest field is exactly the
+        /// The Berean fields (§8.6.2) are the newest five, and the newest field is exactly the
         /// one an unseeded/uncompared column drifts on silently (the documented incident this
         /// suite exists to prevent) — so each is asserted here on its own rather than trusted to
         /// the general case above.
@@ -338,6 +344,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Data
                 DoNotAllowBypassingSettings = shipped.DoNotAllowBypassingSettings,
                 IsAIReviewerOffered = true,
                 IsAIAllowedToVote = shipped.IsAIAllowedToVote,
+                IsAIReviewerAutomaticallyRequested = !shipped.IsAIReviewerAutomaticallyRequested,
                 AIApprovalConfidenceRejectionThreshold = shipped.AIApprovalConfidenceRejectionThreshold + 1,
                 AIApprovalConfidenceApprovalThreshold = shipped.AIApprovalConfidenceApprovalThreshold + 1,
                 CreatedBy = "an-administrator",
@@ -352,6 +359,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Data
             // then
             divergingFields.Should().BeEquivalentTo(
                 nameof(ApprovalSetting.IsAIReviewerOffered),
+                nameof(ApprovalSetting.IsAIReviewerAutomaticallyRequested),
                 nameof(ApprovalSetting.AIApprovalConfidenceRejectionThreshold),
                 nameof(ApprovalSetting.AIApprovalConfidenceApprovalThreshold));
         }
