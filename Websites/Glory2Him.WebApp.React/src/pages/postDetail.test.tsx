@@ -2,7 +2,7 @@ import { createElement } from 'react';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PostDetail } from './postDetail';
 import { AuthProvider } from '../components/securitys/authProvider';
 import { ContentItem } from '../models/foundations/contentItems/contentItem';
@@ -213,6 +213,12 @@ const renderPage = () =>
         </MemoryRouter>);
 
 describe('PostDetail', () => {
+    afterEach(() => {
+        // In the test body this is skipped by a failing assertion, and the stubbed navigator
+        // then leaks into every test declared after it.
+        vi.unstubAllGlobals();
+    });
+
     beforeEach(() => {
         toastSuccess.mockClear();
         panelProps = undefined;
@@ -423,8 +429,6 @@ describe('PostDetail', () => {
         // then: the item's own permanent address, not the feed the reader came from
         expect(writeText).toHaveBeenCalledWith(
             `${window.location.origin}/posts/content-item-1`);
-
-        vi.unstubAllGlobals();
     });
 
     it('should offer no moderation control however the reader is trusted', () => {
@@ -560,6 +564,21 @@ describe('PostDetail', () => {
         // then
         expect(screen.queryByRole('button', { name: /Edit/ })).not.toBeInTheDocument();
         expect(screen.queryByRole('button', { name: /Delete/ })).not.toBeInTheDocument();
+    });
+
+    it('should stand the spinner in the same column the refusal stands in', () => {
+        // given: neither a spinner nor a refusal has anything to stand beside, so both keep
+        // the centred single column rather than taking the reading half of a 7/5 split
+        isLoading = true;
+
+        // when
+        const { container } = renderPage();
+
+        // then
+        expect(container.querySelector('.row.justify-content-center .col-xl-9 .spinner-border'))
+            .toBeInTheDocument();
+
+        expect(container.querySelector('.col-lg-7')).not.toBeInTheDocument();
     });
 
     it('should say so rather than render an empty page when the item cannot be read', () => {
