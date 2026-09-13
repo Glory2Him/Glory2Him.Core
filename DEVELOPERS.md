@@ -321,7 +321,7 @@ spec:
 ```markdown
 # Content item search panel
 Source: Claude Design export, 2026-09-11. Issue: #398.
-Superseded by the design at `Documentation/Design/UI.md` §UI4 — that section
+Superseded by the design at `Documentation/Design/UI.md` §UI20.6 — that section
 wins wherever the two disagree.
 ```
 
@@ -373,7 +373,7 @@ tags are a separate, not-yet-applied convention — see §6.
 ### 5.4 Then the analyst writes criteria in words
 
 ```
-Act as the analyst. Issue #512's design is at Documentation/Design/UI.md §UI7.
+Act as the analyst. Issue #512's design is at Documentation/Design/UI.md §UI20.6.
 Write acceptance criteria into the issue.
 ```
 
@@ -398,8 +398,8 @@ Every numbered heading in `Documentation/Design/*.md` should carry exactly one o
 two tags, never bare:
 
 ```markdown
-## UI7. Saved searches panel (#512)
-## UI8. Search result density (needs issue)
+### UI20.6 Components (#512)
+### UI20.9 Services and Brokers (needs issue)
 ```
 
 `(#N)` names the **most recent** issue that authoritatively defined the section —
@@ -519,11 +519,11 @@ Then embed `panel.webp` in the issue by raw URL pinned to that commit's SHA.
 
 **3 — Architect.** Fresh session: *"Act as the architect. Issue #512 has a mockup
 at Documentation/Mockups/saved-searches/. Settle the design."* It writes
-`Documentation/Design/UI.md` §UI7, tagged `(#512)`, and commits with a `DESIGN:`
+`Documentation/Design/UI.md` §UI20.6, tagged `(#512)`, and commits with a `DESIGN:`
 prefix.
 
 **4 — Analyst.** Fresh session: *"Act as the analyst. Issue #512's design is at
-Documentation/Design/UI.md §UI7. Write acceptance criteria into the issue."* It
+Documentation/Design/UI.md §UI20.6. Write acceptance criteria into the issue."* It
 writes six numbered criteria and applies `design: ui` and
 `status: needs-scoping`.
 
@@ -531,7 +531,7 @@ writes six numbered criteria and applies `design: ui` and
 
 ```
 Act as QA, reviewing the issues rather than a change. Issue #512's design is at
-Documentation/Design/UI.md §UI7. There is no code yet — do not look for any.
+Documentation/Design/UI.md §UI20.6. There is no code yet — do not look for any.
 ```
 
 It checks that every section of the design for this feature has an issue behind
@@ -572,12 +572,12 @@ review` to PR #520 itself.
 
 ### The same example, starting from a sweep
 
-If §UI8 "Search result density" had been written by the architect and left
-`(needs issue)`, the start inverts: you run the sweep, the analyst opens issue #513
-with criteria already written and applies `design: ui`, `Opus 5 - Medium` and
-`status: needs-scoping`. You or the architect then rewrite the heading to
-`## UI8. Search result density (#513)` — the analyst cannot, for the reason in
-§6. You pick up at step 5.
+If a "Search result density" design had been written by the architect into
+§UI20.6 and left `(needs issue)`, the start inverts: you run the sweep, the
+analyst opens issue #513 with criteria already written and applies `design: ui`,
+`Opus 5 - Medium` and `status: needs-scoping`. You or the architect then rewrite
+the heading to `### UI20.6 Components (#513)` — the analyst cannot, for the
+reason in §6. You pick up at step 5.
 
 That inversion is where the coverage check in step 5 earns its place: a design
 section the sweep missed has no issue at all, and a gap like that is invisible
@@ -595,7 +595,7 @@ Act as the architect. Read issue #512 and settle the design.
 
 ```
 Act as the architect. Review PR #520 against the design at
-Documentation/Design/UI.md §UI7 and report structural findings only.
+Documentation/Design/UI.md §UI20.6 and report structural findings only.
 ```
 
 ### Ask the analyst
@@ -640,7 +640,7 @@ Act as QA. PR #520 has had a round of fixes since your last pass. Re-verify.
 
 ```
 Act as QA, reviewing the issues rather than a change. Issue #512's design is at
-Documentation/Design/UI.md §UI7. There is no code yet — do not look for any.
+Documentation/Design/UI.md §UI20.6. There is no code yet — do not look for any.
 ```
 
 That last one is QA's second mode. Name it explicitly — verifying a diff is the
