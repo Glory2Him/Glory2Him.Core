@@ -568,18 +568,18 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
             // #545 criterion 1 states, so it is asked whether it was called at all.
             this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
 
-            // and refused ahead of the gates, so no broker was asked anything
-            this.accessBrokerMock.Verify(broker =>
-                broker.ResolveAIReviewerPolicyByIdAsync(
-                    It.IsAny<Guid>(),
-                    It.IsAny<CancellationToken>()),
-                Times.Never);
-
-            this.accessBrokerMock.Verify(broker =>
-                broker.IsAIReviewerEverAssignedAsync(
-                    It.IsAny<Guid>(),
-                    It.IsAny<CancellationToken>()),
-                Times.Never);
+            // and refused ahead of the gates, so nothing else was asked anything either.
+            // #545 criterion 2 says NO BROKER is asked anything, which is why the sweep is over
+            // WHOLE mocks rather than over two named IAccessBroker members: a gather put ahead
+            // of the guard — IsEntityVisibleAsync, say — clears a pair of named Times.Never
+            // assertions without being noticed, and the criterion would be broken with the
+            // suite green. The logging broker is deliberately outside the sweep, because a
+            // refusal IS logged and that log is the TryCatch doing its job.
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.approvalServiceMock.VerifyNoOtherCalls();
+            this.aiReviewerAssignmentServiceMock.VerifyNoOtherCalls();
+            this.aiReviewerAssignmentWorkflowServiceMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
 
             VerifyNoAutomaticAssignmentWasMade();
         }
@@ -628,18 +628,18 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
             // #545 criterion 1 states, so it is asked whether it was called at all.
             this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
 
-            // and refused ahead of the gates, so no broker was asked anything
-            this.accessBrokerMock.Verify(broker =>
-                broker.ResolveAIReviewerPolicyByIdAsync(
-                    It.IsAny<Guid>(),
-                    It.IsAny<CancellationToken>()),
-                Times.Never);
-
-            this.accessBrokerMock.Verify(broker =>
-                broker.IsAIReviewerEverAssignedAsync(
-                    It.IsAny<Guid>(),
-                    It.IsAny<CancellationToken>()),
-                Times.Never);
+            // and refused ahead of the gates, so nothing else was asked anything either.
+            // #545 criterion 2 says NO BROKER is asked anything, which is why the sweep is over
+            // WHOLE mocks rather than over two named IAccessBroker members: a gather put ahead
+            // of the guard — IsEntityVisibleAsync, say — clears a pair of named Times.Never
+            // assertions without being noticed, and the criterion would be broken with the
+            // suite green. The logging broker is deliberately outside the sweep, because a
+            // refusal IS logged and that log is the TryCatch doing its job.
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.approvalServiceMock.VerifyNoOtherCalls();
+            this.aiReviewerAssignmentServiceMock.VerifyNoOtherCalls();
+            this.aiReviewerAssignmentWorkflowServiceMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
 
             VerifyNoAutomaticAssignmentWasMade();
         }
@@ -701,18 +701,18 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
             // #545 criterion 1 states, so it is asked whether it was called at all.
             this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
 
-            // and refused ahead of the gates, so no broker was asked anything
-            this.accessBrokerMock.Verify(broker =>
-                broker.ResolveAIReviewerPolicyByIdAsync(
-                    It.IsAny<Guid>(),
-                    It.IsAny<CancellationToken>()),
-                Times.Never);
-
-            this.accessBrokerMock.Verify(broker =>
-                broker.IsAIReviewerEverAssignedAsync(
-                    It.IsAny<Guid>(),
-                    It.IsAny<CancellationToken>()),
-                Times.Never);
+            // and refused ahead of the gates, so nothing else was asked anything either.
+            // #545 criterion 2 says NO BROKER is asked anything, which is why the sweep is over
+            // WHOLE mocks rather than over two named IAccessBroker members: a gather put ahead
+            // of the guard — IsEntityVisibleAsync, say — clears a pair of named Times.Never
+            // assertions without being noticed, and the criterion would be broken with the
+            // suite green. The logging broker is deliberately outside the sweep, because a
+            // refusal IS logged and that log is the TryCatch doing its job.
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.approvalServiceMock.VerifyNoOtherCalls();
+            this.aiReviewerAssignmentServiceMock.VerifyNoOtherCalls();
+            this.aiReviewerAssignmentWorkflowServiceMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
 
             VerifyNoAutomaticAssignmentWasMade();
         }
