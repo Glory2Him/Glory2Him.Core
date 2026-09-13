@@ -301,8 +301,9 @@ view you were on, and switching carries your current selection across.
   the operation enum selects the event address GUID.
 - Approval policy is a pure decision function: `AccessClient`
   (`ISecurityClient.Access`) decides, and Core's `AccessBroker` does all the
-  gathering from storage. `IAccessBroker` now carries 9 methods and has eight
-  foundation consumers plus the orchestration — not the two the previous
+  gathering from storage. The snapshot models 11 of its methods — 9 until #547
+  added `IsAIReviewerEverAssignedAsync` and `IsEntityVisibleAsync` — and it has
+  eight foundation consumers plus the orchestration, not the two the previous
   snapshot named.
 - `AssociationService` carries four approval state-transition verbs
   (transition, sort, set-confidence, set-scope), each publishing its own fact;
@@ -419,12 +420,13 @@ view you were on, and switching carries your current selection across.
   two reactions on one address in two services, with `Deliveries` recorded per
   subscription. `AccessBroker` gains one edge from each handler,
   `IsAIReviewerEverAssignedAsync`, which is gate 6's unfiltered presence check.
-  **What is NOT drawn is the other end of it**: `AccessBroker`'s own `methods`
-  list carries neither `IsAIReviewerEverAssignedAsync` nor `IsEntityVisibleAsync`,
-  so its `IsAIReviewerEverAssignedAsync` → `StorageBroker.SelectAllAIReviewerAssignmentsAsync`
-  edge is absent from `projects/glory2him-core.yml`. It belongs with the undrawn
-  `IsEntityVisibleAsync` edges this file already records rather than being fixed
-  for one member alone.
+  **The other end of it is now drawn too** (#547): `AccessBroker`'s own `methods`
+  list carries `IsAIReviewerEverAssignedAsync` and `IsEntityVisibleAsync`, and the
+  `IsAIReviewerEverAssignedAsync` → `StorageBroker.SelectAllAIReviewerAssignmentsAsync`
+  edge is in `projects/glory2him-core.yml`. What is still undrawn is
+  `IsEntityVisibleAsync`'s OWN outbound set — the eight-arm `Select*ByIdAsync` switch
+  behind it — along with `AO`'s six inbound calls to it recorded above. Both belong
+  to a pass that owns that member rather than to this one.
 - **The reviewer orchestration is modelled as of 2026-09-12** — issue #521,
   PR #535. One new component, `ARO` (`ApprovalReviewerOrchestrationService`),
   and it is the same shape of split as `AIRO` for the same reason: one contract
