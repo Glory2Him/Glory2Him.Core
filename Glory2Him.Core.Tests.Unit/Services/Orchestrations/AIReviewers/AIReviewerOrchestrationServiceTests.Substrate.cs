@@ -634,6 +634,74 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
             VerifyNoAutomaticAssignmentWasMade();
         }
 
+        /// <summary>
+        /// GATE 1's third clause. The metadata is the delivery's own identity — its EventId is
+        /// what a redelivery is recognised by — so an envelope without one is as malformed as an
+        /// envelope without content, and the two sibling receivers refuse both in the same
+        /// breath.
+        ///
+        /// <para>Arranged on an OTHERWISE PERFECT delivery: a Submitted round, a policy that asks
+        /// for Berean, no assignment ever made and the write stubbed. Every gate below would pass
+        /// it, so with the clause trimmed nothing refuses and the assignment is written — which
+        /// is what makes the refusal this test asserts the clause's own work rather than some
+        /// later gate's.</para>
+        /// </summary>
+        [Theory]
+        [InlineData(AddedOperation)]
+        [InlineData(ModifiedOperation)]
+        public async Task ShouldRefuseAnApprovalFactEnvelopeWithNoMetadataAsync(
+            string approvalEventOperation)
+        {
+            // given: an envelope that VERIFIES and whose content would clear every gate
+            Guid approvalId = Guid.NewGuid();
+
+            SetupAutomaticAIReviewerPolicy(approvalId, isAutomaticallyRequested: true);
+            SetupAIReviewerEverAssigned(approvalId, isEverAssigned: false);
+            SetupAutomaticAIReviewerAssignmentWrite();
+
+            var metadatalessEnvelope = new EventEnvelope<Approval>
+            {
+                Content = new Approval
+                {
+                    Id = approvalId,
+                    EntityType = EntityType.Tag,
+                    EntityId = Guid.NewGuid(),
+                    ApprovalStatus = ApprovalStatus.Submitted,
+                    IsDeleted = false,
+                },
+
+                Metadata = null
+            };
+
+            // when
+            AIReviewerOrchestrationValidationException
+                actualAIReviewerOrchestrationValidationException =
+                    await Assert.ThrowsAsync<AIReviewerOrchestrationValidationException>(() =>
+                        DeliverApprovalFactAsync(
+                            approvalEventOperation,
+                            metadatalessEnvelope,
+                            TestContext.Current.CancellationToken).AsTask());
+
+            // then: the validation family, not the acceptance every gate below would have given it
+            actualAIReviewerOrchestrationValidationException.InnerException
+                .Should().BeOfType<InvalidAIReviewerOrchestrationException>();
+
+            // and refused ahead of the gates, so no broker was asked anything
+            this.accessBrokerMock.Verify(broker =>
+                broker.ResolveAIReviewerPolicyByIdAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.accessBrokerMock.Verify(broker =>
+                broker.IsAIReviewerEverAssignedAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            VerifyNoAutomaticAssignmentWasMade();
+        }
+
         // Both handlers, driven through one switch so every GATE below can be a theory over the
         // pair rather than a test written twice. That is criterion 2's "one private body" made
         // observable: the two differ only in the accepted event name, so a rule fixed on one
