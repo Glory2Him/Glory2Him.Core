@@ -181,8 +181,22 @@ lifecycle moment and the right as the reaction that moment is meant to cause.
 
 The table predates the transition verbs and the approval wiring, so two groups
 of rows record intent that is deliberately not wired. The three `Approval*`
-rows describe a subscriber on `Approval-Added` / `-Modified`; there is none, and
-§EVN18(e) says why. The three `Attachment*` rows describe an entity that has no
+rows describe a subscriber on `Approval-Added` / `-Modified` that **re-tests the
+round**; there is none **and there will be none**, and §EVN18(e) says why.
+
+That is narrower than the flat "there is none" this paragraph used to carry, and
+the narrowing is §EVN18(e)'s amended boundary rather than a change of mind: a
+subscriber that reads no `G2H Design.md` §8.5 predicate and moves none is
+admissible on those addresses, and two are designed on exactly that footing —
+`ApprovalReviewerOrchestrationService`'s retirement sweep on `Approval-Modified`
+(`G2H Design.md` §12.5.4, built) and `AIReviewerOrchestrationService`'s automatic
+Berean assignment on both addresses (`G2H Design.md` §8.6.2.1, designed and not
+built). Neither is what these rows describe. `ApprovalUpdatedEvent`'s stated
+purpose — propagating status to a denormalised field — remains something this
+system does through the transition verbs of §EVN18 rules 4–5 and not through a
+subscriber here.
+
+The three `Attachment*` rows describe an entity that has no
 foundation service and does not yet participate in approval (§EVN2 rule 4,
 §EVN18 rule 5). Nothing in this table supersedes §EVN2 or §EVN18.
 
@@ -1641,6 +1655,44 @@ either.
      nothing costs one comparison and no gather at all, and a redelivered one on
      a closed round finds no live rows.
 
+  **A SECOND subscriber is designed on this boundary, and it is worked through
+  here rather than assumed to pass. DESIGNED, NOT BUILT.**
+  `AIReviewerOrchestrationService` binds **both** addresses to assign Berean
+  automatically where the resolved policy asks for it (`G2H Design.md`
+  §8.6.2.1). The four conditions:
+
+  1. **It reads no §8.5 predicate and moves none.** An `AIReviewerAssignment`
+     appears in no §8.5 condition — the formula reads reviews, comments and the
+     confidence score, and an assignment is none of those — so creating one
+     cannot change what any evaluation would answer. The sharp edge is worth
+     naming: Berean's eventual `ApprovalComment` **can** hold a round shut
+     (`G2H Design.md` §8.6.2), but that is a different write on a different
+     address, arriving as `ApprovalComment-Added` where item (a) already
+     governs it. The assignment is the invitation, not the verdict.
+  2. **It causes no approval write.** It writes an `AIReviewerAssignment` and
+     nothing else, so item (h)'s cycle rule is not engaged and nothing goes
+     back out as a `-Modified` on the record that triggered it.
+  3. **Its own write terminates, and the argument is longer than the
+     retirement's.** The seam publishes `AIReviewerAssignment-Added`, which
+     carries no subscriber today — but §8.6.2's open question 3 designs one,
+     the classification pass, and that pass writes an `ApprovalComment` and
+     possibly an `ApprovalReview`. Those re-enter the round's re-test through
+     items (a)–(b), and a re-test that decides publishes `Approval-Modified`,
+     which arrives back here. **Gate 5 is what closes that loop**: the
+     automatic assignment stands down where any assignment row exists for the
+     round, live or soft-deleted, so the second arrival finds the row the first
+     one wrote and does nothing. The cycle is bounded at one hop by a gate
+     rather than by an absent subscriber, which is the stronger of the two and
+     the reason gate 5 is unfiltered.
+  4. **It gates on the round's state, and is idempotent under redelivery.** The
+     gate reads `envelope.Content.ApprovalStatus` — signed system data inside
+     the HMAC — before any gather, and admits `Submitted` alone: a `Draft`
+     round has nothing to review yet and a decided one is closed. Redelivery is
+     answered by gate 5 rather than by a `ProcessedEvent` row (§EVN19 rules 1
+     and 4). Two deliveries at once may both pass gate 5, and the filtered
+     unique index on `ApprovalId` refuses the loser — the accepted posture of
+     `G2H Design.md` §12.5.4 business rule 4, not a new one.
+
   **RULE — a handler may bind an `Approval` fact only if all four hold.**
   Anything that would re-test, decide, or write the approval binds the entity
   and workflow-record facts of items (a)–(d) instead, for the reason the
@@ -1748,6 +1800,54 @@ changes nothing here: the name is composed from the entity and the operation,
 never from the tense of the address. What verifies it against a real publisher
 is the acceptance suite, which drives the retirement over HTTP rather than
 calling the handler.
+
+**Inbound — `AIReviewerOrchestrationService`, two subscriptions. DESIGNED, NOT
+BUILT.**
+
+The AI reviewer orchestration (`G2H Design.md` §12.5 entry 4) is designed to bind
+two addresses of its own, both for the automatic Berean assignment of
+`G2H Design.md` §8.6.2.1 and neither for a re-test:
+
+| Address | Rule | Reaction |
+| --- | --- | --- |
+| `Approval-Added` | §8.6.2.1 | A round opened. Where it opened at `Submitted` and the five gates pass, Berean is assigned under the system identity. |
+| `Approval-Modified` | §8.6.2.1 | A round may have *reached* `Submitted` — a draft submitted, or §8.6 HR-4's reset re-opening a decided one. Same gates, same write. |
+
+Four things about this pair:
+
+1. **Two addresses rather than one, because the round can open at `Submitted`
+   or arrive there later**, and no single address hears both. `Approval-Added`
+   at `Submitted` is `G2H Design.md` §9.7.2 rule 1's create-at-`Submitted`
+   case; every other route to `Submitted` writes through
+   `ModifyApprovalAsync` and lands on `Approval-Modified`, which is the same
+   argument item (e) condition 4 already makes for the retirement — one
+   address hears every publisher, and no enumeration of call sites has to be
+   kept in step. The two handlers run the same gates and differ only in which
+   fact woke them.
+2. **`Approval-Modified` now has two subscribers**, this one and the
+   retirement sweep, and that is not the double-fire §EVN2 rule 6 forbids —
+   for the same reason `ApprovalReview-Added` having two is not: that rule bars
+   *one* reaction from binding both the foundation and the layer tier of one
+   fact, and here there are two reactions in two services, with `Deliveries`
+   recorded per subscription (§EVN11). `Approval-Added` gains its first
+   subscriber of any kind.
+3. **The two are independent of each other and of the retirement**, and no
+   delivery order is specified or may be relied on. Nothing here needs one:
+   every ordering question this pair could raise is answered by gate 5's
+   unfiltered presence check, which makes "has this round already been decided
+   about" a property of storage rather than of which handler ran first.
+4. **Neither needs the fact to say why the round moved**, so neither earns a
+   discriminated address. `Approval-Added` and `Approval-Modified` both carry
+   the `ApprovalStatus` in signed content, which is the whole of what gate 1
+   reads. This is the same answer the reviewer pair's point 3 gives, and the
+   same reason a discriminated `Approval-Reset` stays deferred.
+
+**The accepted event names are literals here too**, `"ApprovalAdded"` and
+`"ApprovalModified"`, for the reason the reviewer pair's closing paragraph
+gives: #286 is a sweep over every receiver's literal and a bespoke derivation at
+two more sites would pre-empt it. `"ApprovalModified"` is the same literal the
+retirement handler already states, which is a duplication #286 removes rather
+than something this design should solve locally.
 
 **Outbound — approval-caused writes use a transition verb, never
 `-Modifying`.**
@@ -1883,17 +1983,29 @@ itself is at-least-once.**
    record pre-claims the published fact's id against that same handler so the
    fact cannot loop back into it. A transition with no request address of its
    own has no handler to name and therefore no receiver to key either record on.
-   Three publish a fact and write neither —
+   **Four** publish a fact and write neither —
    `ApprovalReviewService.DismissStaleApprovalReviewAsync` onto
    `ApprovalReview-Dismissed`,
    `ApprovalReviewRequestService.RetireAnsweredApprovalReviewRequestAsync` onto
-   `ApprovalReviewRequest-Removed`, and
+   `ApprovalReviewRequest-Removed`,
    `AIReviewerAssignmentService.ReturnStaleAIReviewerAssignmentToPendingAsync`
-   onto `AIReviewerAssignment-Modified`. Each is reached by a direct in-process
+   onto `AIReviewerAssignment-Modified`, and — **designed and not built** —
+   `AIReviewerAssignmentService.AddAutomaticAIReviewerAssignmentAsync` onto
+   `AIReviewerAssignment-Added` (`G2H Design.md` §8.6.2.1). Each is reached by a
+   direct in-process
    call from an orchestration, on an envelope the service mints for itself
    under the system identity, so **the seam itself** has no inbound delivery to
    deduplicate and no request handler of its own to key the outbound record
-   against. Two of the three facts carry no subscriber at all;
+   against. The fourth is the first of them to publish on an address that also
+   carries a caller-facing publisher — the ordinary
+   `AIReviewerAssignment-Added` — which changes nothing here: the pair follows
+   the handler, and the seam verb has no request handler whichever address its
+   fact lands on.
+
+   Three of the four facts carry no subscriber today — `AIReviewerAssignment-Added`
+   is designed to gain one, the classification pass of `G2H Design.md` §8.6.2's
+   open question 3, and §EVN18(e)'s second amendment works through why that
+   second hop still terminates;
    `ApprovalReview-Dismissed` carries the one §EVN18(a) requires, and re-entry
    there is held off by the reset loop's suppression window rather than by a
    `ProcessedEvent` row (§EVN18(d)).
@@ -1903,15 +2015,18 @@ itself is at-least-once.**
    `ApprovalOrchestrationService`'s own flows. The two request retirements are
    called from `ApprovalReviewerOrchestrationService`'s subscriptions on
    `ApprovalReview-Added` and `Approval-Modified` (§EVN18's reviewer table,
-   `G2H Design.md` §12.5.4 business rule 4). An earlier version of this
+   `G2H Design.md` §12.5.4 business rule 4), and the automatic AI assignment is
+   designed to be called from `AIReviewerOrchestrationService`'s subscriptions
+   on `Approval-Added` and `Approval-Modified` (§EVN18's AI table,
+   `G2H Design.md` §8.6.2.1). An earlier version of this
    paragraph had that handler record "the ordinary inbound `ProcessedEvent`
    against its own receiver name, exactly as every other substrate handler
    does". **That comparison named the wrong tier.** The `ProcessedEvent` pair is
    a FOUNDATION request-handler device: every
    `SelectProcessedEventExistsAsync` / `InsertProcessedEventAsync` call site in
-   the solution sits on a foundation service, and
-   `ApprovalOrchestrationService.Substrate.cs` — whose fact handlers are the
-   only orchestration subscriptions built — writes none. The comparison is
+   the solution sits on a foundation service, and no orchestration subscription
+   writes one — not `ApprovalOrchestrationService.Substrate.cs`'s fact handlers,
+   and not the reviewer orchestration's two. The comparison is
    narrowed to the tier it is true of, and the open question it left is ruled.
 
    **A fact handler above the foundation records no inbound `ProcessedEvent`**,
@@ -1924,23 +2039,28 @@ itself is at-least-once.**
       invented to carry it.
    2. **There would be no transaction to put it in.** This rule commits the row,
       the outbox row and the pair together, which is what makes the pair mean
-      anything. The reviewer orchestration writes no row — it calls
-      `IApprovalReviewRequestWorkflowService`, which owns its own unit of work —
-      so a record written beside that call could commit while the retirement it
+      anything. Neither orchestration writes a row of its own — the reviewer's
+      handlers call `IApprovalReviewRequestWorkflowService` and the AI
+      orchestration's call `IAIReviewerAssignmentWorkflowService`, each of which
+      owns its own unit of work —
+      so a record written beside that call could commit while the work it
       claims to have handled did not, leaving a row saying "already handled" in
       front of work that never happened. That is worse than no record.
    3. **Neither question the pair answers arises here.** The inbound record
       exists so a replayed *request* is not applied twice, and the outbound
       record so a published fact cannot loop back into the request handler that
       caused it. A fact handler is asked for nothing and publishes nothing of
-      its own: `ApprovalReviewRequest-Modified` / `-Removed` go out from the
-      foundation seam, and nothing subscribes to either.
+      its own: `ApprovalReviewRequest-Modified` / `-Removed` and
+      `AIReviewerAssignment-Added` go out from the
+      foundation seam, keyed to no handler above it.
 
    **What makes redelivery safe instead** is the handler's own gate rather than
    a stored row: the signed status is read out of the HMAC before any gather,
-   and the gather returns no live rows once they are retired, so a second
-   delivery on a closed round finds nothing to do (`G2H Design.md` §12.5.4
-   business rule 4(i), §EVN18(e) condition 4). §EVN18(d) already rests on the
+   and what the handler then reads has nothing left to act on — the retirement's
+   gather returns no live rows once they are retired, and the automatic
+   assignment's unfiltered presence check finds the row the first delivery wrote
+   (`G2H Design.md` §12.5.4 business rule 4(i) and §8.6.2.1 gates 1 and 5,
+   §EVN18(e) condition 4 of each amendment). §EVN18(d) already rests on the
    same footing — re-entry there is held off "rather than by a `ProcessedEvent`
    row" — so this is that shape stated generally, not a new one.
 
@@ -1984,10 +2104,23 @@ itself is at-least-once.**
 4. **The guarantee becomes at-least-once, and receivers are already safe for
    it.** A foundation request handler checks `ProcessedEvents`, unique on
    `EventId` + `ReceiverName`, and a deduplicated delivery replies `null`, so a
-   redelivered envelope is a no-op there. Above the foundation nothing checks
-   that table: a redelivered fact is handled again, and safety rests on the
-   handler re-evaluating the round rather than applying a delta. Both properties
-   exist already; neither is new work.
+   redelivered envelope is a no-op there. **Above the foundation nothing checks
+   that table and nothing writes it** — the tier rule of rule 1, not a tally of
+   the services that happen to exist — so a redelivered fact is handled again
+   and safety is the handler's own, by one of two shapes:
+
+   - **Re-evaluate rather than apply a delta.** `ApprovalOrchestrationService`'s
+     fact handlers re-run the whole `G2H Design.md` §8.5 evaluation from stored
+     state, so a second delivery reaches the same conclusion (§EVN18(b)).
+   - **Gate on signed state, then find nothing left to do.** The two
+     non-re-testing subscriber sets of §EVN18(e) read the round's status out of
+     the HMAC before any gather, and their gather or presence check is empty on
+     a second pass — the reviewer orchestration's retirements (built) and the AI
+     orchestration's automatic assignment (designed, not built).
+
+   Both shapes exist already; neither is new work. An earlier version of this
+   rule offered only the first, which was true of every orchestration handler
+   built at the time and is not the general rule.
 
 5. **The outbox stores the envelope minted before the commit and the
    destination it is owed to; a retry republishes exactly that, and only the
