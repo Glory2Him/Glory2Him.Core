@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -37,10 +37,13 @@ namespace Glory2Him.Core.Models.Configurations
         // (§EVN11).
         //
         // Approval-Modified is the FIRST subscription in the solution on any of the Approval
-        // entity's own fact addresses — the five SubscribeToApprovalEventAsync registrations all
-        // bind command addresses. It is admissible under §EVN18(e)'s amended boundary precisely
-        // because this handler re-tests nothing: it reads no §8.5 predicate, moves none, and
-        // decides nothing.
+        // entity's own fact addresses — the five COMMAND registrations beside it bind Adding,
+        // Modifying, RemovingById, HardRemovingById and RetrievingById, every one of them a
+        // request. It is admissible under §EVN18(e)'s amended boundary precisely because this
+        // handler re-tests nothing: it reads no §8.5 predicate, moves none, and decides nothing.
+        //
+        // FIRST, no longer only: §8.6.2.1's automatic assignment binds both Approval fact
+        // addresses on AIReviewerOrchestrationService, admitted through the same boundary.
 
         public static readonly Guid
             ApprovalReviewerOrchestrationOnApprovalReviewAddedSubscriptionId =

@@ -1153,9 +1153,10 @@ namespace Glory2Him.Core.Registrations
                 cancellationToken: cancellationToken);
 
             // §7.9 rule 8's retirement, and the FIRST subscription in the solution on any of the
-            // Approval entity's own FACT addresses — the five SubscribeToApprovalEventAsync
-            // registrations bind Adding, Modifying, RemovingById, HardRemovingById and
-            // RetrievingById, every one of them a command.
+            // Approval entity's own FACT addresses — the five COMMAND registrations above bind
+            // Adding, Modifying, RemovingById, HardRemovingById and RetrievingById, every one of
+            // them a request. First and no longer only: §8.6.2.1's pair below binds both fact
+            // addresses.
             //
             // ONE subscription for all three routes to an outcome. The manual decision, the
             // BlockOnReject rejection and the automatic approval all write through

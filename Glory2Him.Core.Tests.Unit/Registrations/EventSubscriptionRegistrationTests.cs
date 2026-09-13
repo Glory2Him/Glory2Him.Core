@@ -982,8 +982,9 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                     .OnApprovalReviewAddedAsync);
 
             // §7.9 rule 8's retirement, and the FIRST subscription in the solution on any of the
-            // Approval entity's own fact addresses — the five SubscribeToApprovalEventAsync
-            // registrations above all bind COMMAND addresses.
+            // Approval entity's own fact addresses — the five COMMAND registrations above bind
+            // Adding, Modifying, RemovingById, HardRemovingById and RetrievingById. First and no
+            // longer only: §8.6.2.1's pair below binds both fact addresses.
             VerifyApprovalSubscription(
                 expectedSubscriptionId: EventBrokerIdentifiers
                     .ApprovalReviewerOrchestrationOnApprovalModifiedSubscriptionId,

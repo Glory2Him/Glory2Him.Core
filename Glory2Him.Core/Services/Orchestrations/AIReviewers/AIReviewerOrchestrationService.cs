@@ -86,8 +86,10 @@ namespace Glory2Him.Core.Services.Orchestrations.AIReviewers
             this.loggingBroker = loggingBroker;
         }
 
-        // The shared opening move of all three operations: capture the ambient caller, gate them,
-        // and resolve the approval behind the entity. Kept together because doing them in a
+        // The shared opening move of all three CALLER-FACING operations: capture the ambient
+        // caller, gate them, and resolve the approval behind the entity. The substrate handlers
+        // reach none of it — they have no ambient caller to capture and the round arrives on the
+        // envelope already resolved. Kept together because doing them in a
         // different order would gate against something other than the stored row.
         //
         // NARROWER THAN THE HUMAN SIBLING'S ResolveReviewerScopeAsync, deliberately, and this is

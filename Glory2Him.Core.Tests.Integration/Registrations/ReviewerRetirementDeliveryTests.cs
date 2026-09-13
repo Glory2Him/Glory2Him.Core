@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -161,9 +161,10 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
                             EventBrokerIdentifiers
                                 .ApprovalReviewerOrchestrationOnApprovalModifiedSubscriptionId
                         },
-                        because: "Approval-Modified is the first of the Approval entity's own "
-                            + "FACT addresses to carry a subscription — the five existing "
-                            + "registrations all bind command addresses");
+                        because: "the RETIREMENT is the only subscription of the reviewer "
+                            + "orchestration's this address reaches — Approval-Modified has a "
+                            + "second subscriber in §8.6.2.1's automatic assignment, which is "
+                            + "why this reads the reviewer set rather than the whole delivery");
 
             DeliveryOutcomeFor(
                 publishResult,
