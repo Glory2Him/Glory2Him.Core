@@ -40,6 +40,7 @@ const approvalSetting: ApprovalSetting = {
     doNotAllowBypassingSettings: false,
     isAIReviewerOffered: false,
     isAIAllowedToVote: false,
+    isAIReviewerAutomaticallyRequested: true,
     aiApprovalConfidenceRejectionThreshold: 2.5,
     aiApprovalConfidenceApprovalThreshold: 7.5,
     createdBy: 'admin',
