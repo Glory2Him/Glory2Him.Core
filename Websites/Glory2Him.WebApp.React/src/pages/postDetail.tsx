@@ -1,5 +1,8 @@
 import { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { toastSuccess } from '../brokers/toastBroker.success';
+import { BibleReferenceAssociationPanel } from '../components/associations/bibleReferenceAssociationPanel';
+import { TagAssociationPanel } from '../components/associations/tagAssociationPanel';
 import { ContentItemPanel } from '../components/contentItems/contentItemPanel';
 import { Spinner } from '../components/coreUI/spinner';
 import { contentItemService } from '../services/foundations/contentItemService';
@@ -15,6 +18,15 @@ import { useDocumentTitle } from './useDocumentTitle';
 
 // One content item, read. Where a contribution lands after it is submitted, and the permanent
 // address of the item afterwards.
+//
+// TWO COLUMNS, 7 / 5, the same split the contributor's own surface keeps: the item on the left,
+// and on the right the surfaces that belong BESIDE a content item rather than within it
+// (§20.6.2) — its tags and its bible references. A reader arriving at a post meets them there
+// and is invited to suggest one of each; the panels are pure renderers, so this page owns what
+// the events mean, and today that is an honest "coming soon": a suggestion is a ContentItem
+// association write, and associations have no HTTP exposer yet (#318). The panels take their
+// collections from THIS page, which holds the item's id off the URL — the wiring point where the
+// association read plugs in when it exists.
 //
 // EDITING IS OFF HERE. showEditSection is left at its default, the surface switch
 // ContentItemPanel puts ahead of every role check: no Edit, no route into the editor,
@@ -87,40 +99,74 @@ export function PostDetail() {
     useDocumentTitle(
         contentItem == null ? 'Glory 2 Him' : `${pageHeading} — Glory 2 Him`);
 
+    // The association writes arrive with #318; until then the boxes answer honestly rather
+    // than silently dropping what somebody typed.
+    const suggestTag = () => toastSuccess('Suggesting tags is coming soon.');
+
+    const suggestBibleReference = () =>
+        toastSuccess('Suggesting bible references is coming soon.');
+
     return (
         <section className="pt-4 pb-5">
             <div className="container">
-                <div className="row justify-content-center">
-                    <div className="col-xl-9">
-                        {isLoading ? (
-                            <div className="text-center py-5"><Spinner /></div>
-                        ) : isError || searchItem == null ? (
-                            <>
-                                <div className="alert alert-danger" role="alert">
-                                    We could not load this contribution right now. It may have been
-                                    removed, or it may not be yours to read.
-                                </div>
+                {isLoading ? (
+                    <div className="text-center py-5"><Spinner /></div>
+                ) : isError || searchItem == null ? (
+                    <div className="row justify-content-center">
+                        <div className="col-xl-9">
+                            <div className="alert alert-danger" role="alert">
+                                We could not load this contribution right now. It may have been
+                                removed, or it may not be yours to read.
+                            </div>
 
-                                <Link to="/" className="btn btn-outline-primary mb-0">
-                                    <i className="bi bi-arrow-left me-1" aria-hidden="true"></i>
-                                    Back to the journal
-                                </Link>
-                            </>
-                        ) : (
-                            <>
-                                {/* The card carries the visible title now — the same face
-                                    the feeds show — so the page states its heading for the
-                                    outline alone rather than printing it twice. */}
-                                <h1 className="visually-hidden">{pageHeading}</h1>
-
-                                {/* The full reading surface: no cut, no read-more. */}
-                                <ContentItemPanel
-                                    contentItem={searchItem}
-                                    showContentExpanded />
-                            </>
-                        )}
+                            <Link to="/" className="btn btn-outline-primary mb-0">
+                                <i className="bi bi-arrow-left me-1" aria-hidden="true"></i>
+                                Back to the journal
+                            </Link>
+                        </div>
                     </div>
-                </div>
+                ) : (
+                    <div className="row g-4">
+                        <div className="col-lg-7">
+                            {/* The card carries the visible title now — the same face
+                                the feeds show — so the page states its heading for the
+                                outline alone rather than printing it twice. */}
+                            <h1 className="visually-hidden">{pageHeading}</h1>
+
+                            {/* The full reading surface: no cut, no read-more. Tags and bible
+                                references stand in the side panels on the right, so the in-card
+                                sections are switched off — the same facts must not appear twice
+                                on one screen. */}
+                            <ContentItemPanel
+                                contentItem={searchItem}
+                                showContentExpanded
+                                showTagSection={false}
+                                showBibleReferenceSection={false} />
+                        </div>
+
+                        <div className="col-lg-5">
+                            {/* The associations render from what this page holds — the item's id
+                                is here off the URL, which is where the association read keys in
+                                when #318 gives it an exposer. Until then the collections are
+                                honestly empty rather than invented.
+
+                                showModerationActions is left off, which is the point of a public
+                                reading surface: a reader may suggest and withdraw their own
+                                suggestion, and nothing here decides anything. */}
+                            <TagAssociationPanel
+                                associationCollection={[]}
+                                onAdd={suggestTag}
+                                showBorder
+                                cssClass="mb-4" />
+
+                            <BibleReferenceAssociationPanel
+                                associationCollection={[]}
+                                onAdd={suggestBibleReference}
+                                showBorder
+                                cssClass="mb-4" />
+                        </div>
+                    </div>
+                )}
             </div>
         </section>
     );
