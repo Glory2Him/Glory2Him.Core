@@ -25,8 +25,8 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
 {
     /// <summary>
     /// §8.6.2's feature switch, resolved on its OWN member rather than gathered with the reviewer
-    /// scope. These tests state the two halves of that split: the answer itself, and the reads it
-    /// does — and does not — pay for.
+    /// scope. These tests state the two halves of that split: the answers themselves, and the reads
+    /// it does — and does not — pay for.
     ///
     /// <para>Only settled here. Every caller above mocks <c>IAccessBroker</c>, so the orchestration
     /// suite can prove what the AI-reviewer paths do with the verdict but never that the broker
@@ -239,9 +239,10 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
         }
 
         /// <summary>
-        /// WHAT THE SPLIT BOUGHT, stated as a cost rather than as prose. This member resolves one
-        /// switch, so it reads the approval, the entity behind it and the settings — and none of
-        /// the reviews, comments or invitation rows the reviewer-scope gather beside it collects.
+        /// WHAT THE SPLIT BOUGHT, stated as a cost rather than as prose. This member resolves both
+        /// AI-reviewer answers together, so it reads the approval, the entity behind it and the
+        /// settings — and none of the reviews, comments or invitation rows the reviewer-scope
+        /// gather beside it collects.
         ///
         /// <para>The saving runs the other way too, and its own test sits on
         /// <c>RetrieveApprovalReviewerScopeByIdAsync</c>: that gather no longer scans
