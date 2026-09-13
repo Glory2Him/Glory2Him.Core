@@ -89,11 +89,11 @@ export function PostDetail() {
             },
         [contentItem, contentItemSettings, contributor]);
 
-    // The visit's chosen reaction, folded over the projection. OUTSIDE the memo deliberately:
-    // withViewerReactions closes over the choices and is rebuilt every render, so memoising on
-    // it would hand the panel a new item object on every render and reset the state it owns —
-    // the open reaction picker among it. The fold itself returns the SAME object while no
-    // reaction is held, so the identity only moves when the reader's choice actually does.
+    // The visit's chosen reaction, folded over the projection — and deliberately NOT memoised.
+    // withViewerReactions closes over the choices and is rebuilt every render, so a memo listing
+    // it recomputes every render and buys nothing, while a memo keyed on readItem alone would go
+    // stale the moment the reader chose. The fold is a map over one item; a plain call is the
+    // honest shape.
     const searchItem = readItem == null ? undefined : withViewerReactions([readItem])[0];
 
     // What the page is called, on screen and in the tab.
@@ -124,8 +124,10 @@ export function PostDetail() {
     useDocumentTitle(
         contentItem == null ? 'Glory 2 Him' : `${pageHeading} — Glory 2 Him`);
 
-    // Where the contribution surface sends the reader back to — the post they were reading
-    // when the invitation caught them, rather than a guess.
+    // The origin the contribution surface is handed, the way every other consumer of
+    // SharingPanel hands it over. What /posts/contribute currently DOES with it is nothing — it
+    // lands on /myposts either way — so this claims no destination, only that the post the
+    // invitation caught the reader on is on the record for whenever that surface reads it.
     const from = `${location.pathname}${location.search}`;
 
     // The association writes arrive with #318; until then the boxes answer honestly rather
@@ -139,7 +141,11 @@ export function PostDetail() {
         <section className="pt-4 pb-5">
             <div className="container">
                 {isLoading ? (
-                    <div className="text-center py-5"><Spinner /></div>
+                    <div className="row justify-content-center">
+                        <div className="col-xl-9">
+                            <div className="text-center py-5"><Spinner /></div>
+                        </div>
+                    </div>
                 ) : isError || searchItem == null ? (
                     <div className="row justify-content-center">
                         <div className="col-xl-9">
