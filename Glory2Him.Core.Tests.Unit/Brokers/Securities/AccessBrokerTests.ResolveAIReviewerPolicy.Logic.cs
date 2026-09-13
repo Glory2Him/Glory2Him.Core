@@ -35,10 +35,10 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
     public partial class AccessBrokerTests
     {
         /// <summary>
-        /// The whole point of the member: the resolved <c>IsAIReviewerOffered</c> comes back, so
-        /// the orchestration's fail-closed gate has something explicit to read. Arranged as
-        /// <c>true</c> because the fixture defaults it <c>false</c> — a test proving the false
-        /// case could pass on a member that never asked at all.
+        /// One of the member's two composed answers: the resolved <c>IsAIReviewerOffered</c>
+        /// comes back, so the orchestration's fail-closed gate has something explicit to read.
+        /// Arranged as <c>true</c> because the fixture defaults it <c>false</c> — a test proving
+        /// the false case could pass on a member that never asked at all.
         /// </summary>
         [Fact]
         public async Task ShouldReportTheResolvedAIReviewerOfferAsync()
