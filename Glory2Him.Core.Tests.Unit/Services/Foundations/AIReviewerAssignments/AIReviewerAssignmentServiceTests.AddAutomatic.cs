@@ -589,6 +589,64 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.AIReviewerAssignments
         }
 
         /// <summary>
+        /// <c>IEventBroker</c> faulting, the last of the four dependencies this verb touches.
+        /// The fault type is a stand-in here too; what is pinned is that a publish failure is
+        /// wrapped into this class's own family and logged rather than escaping raw.
+        /// </summary>
+        [Fact]
+        public async Task ShouldThrowDependencyExceptionOnAddAutomaticIfEventBrokerErrorOccursAndLogItAsync()
+        {
+            // given
+            Guid someApprovalId = Guid.NewGuid();
+
+            AIReviewerAssignment auditAppliedAIReviewerAssignment =
+                ArrangeAnAutomaticAssignmentReachingStorage(someApprovalId);
+
+            var dbUpdateException = new DbUpdateException();
+
+            var failedStorageAIReviewerAssignmentException =
+                new FailedStorageAIReviewerAssignmentException(
+                    message: "Failed AI reviewer assignment storage error occurred, contact support.",
+                    innerException: dbUpdateException,
+                    data: dbUpdateException.Data);
+
+            var expectedAIReviewerAssignmentDependencyException =
+                new AIReviewerAssignmentDependencyException(
+                    message: "AI reviewer assignment dependency error occurred, contact support.",
+                    innerException: failedStorageAIReviewerAssignmentException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.InsertAIReviewerAssignmentAsync(
+                    It.IsAny<AIReviewerAssignment>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(auditAppliedAIReviewerAssignment);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishAIReviewerAssignmentAsync(
+                    It.IsAny<EventEnvelope<AIReviewerAssignment>>(),
+                    AIReviewerAssignmentEventOperation.Added))
+                        .ThrowsAsync(dbUpdateException);
+
+            // when
+            ValueTask<AIReviewerAssignment> addAutomaticTask =
+                this.aiReviewerAssignmentWorkflowService
+                    .AddAutomaticAIReviewerAssignmentAsync(
+                        someApprovalId,
+                        TestContext.Current.CancellationToken);
+
+            AIReviewerAssignmentDependencyException actualException =
+                await Assert.ThrowsAsync<AIReviewerAssignmentDependencyException>(
+                    addAutomaticTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedAIReviewerAssignmentDependencyException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAIReviewerAssignmentDependencyException))),
+                Times.Once);
+        }
+
+        /// <summary>
         /// <c>IEventEnvelopeBroker</c> faulting, on the chaining call that builds the outbound
         /// envelope from the inbound one. The row is already committed by this point, and the
         /// caller is still told — this verb reports a failure rather than swallowing it, and the
