@@ -92,6 +92,22 @@ vi.mock('../services/foundations/contentItemSettingService', () => ({
     }
 }));
 
+// The reaction vocabulary behind the Like control, the same read the feeds make.
+vi.mock('../services/foundations/reactionService', () => ({
+    reactionService: {
+        useGetApprovedReactions: () => ({
+            data: [{
+                id: 'reaction-1',
+                name: 'Amen',
+                unicodeEmoji: '🙏',
+                isPublished: true,
+                approvalStatus: 2,
+                isDeleted: false
+            }]
+        })
+    }
+}));
+
 // The byline's second read. Mocked with a resolved contributor by default so the byline is
 // present in every test below rather than being a special case, and captured so the page can be
 // held to asking for the account the ITEM names rather than for the reader who is signed in.
@@ -272,6 +288,30 @@ describe('PostDetail', () => {
         expect(requestedContributorId).toBe('somebody-else');
         expect(screen.getByText('Submitted by')).toBeInTheDocument();
         expect(screen.getByText('Louis Ferguson')).toBeInTheDocument();
+    });
+
+    it('should carry the engagement row the feeds carry', () => {
+        // when
+        renderPage();
+
+        // then: a reader who followed a card here meets the same three controls the card
+        // offered — the detail surface must not be the one place they go missing
+        expect(screen.getByRole('button', { name: /Like/ })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Share/ })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Save/ })).toBeInTheDocument();
+    });
+
+    it('should mark the reaction the reader chose for this visit', async () => {
+        // given
+        renderPage();
+
+        // when
+        await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+        await userEvent.click(await screen.findByRole('button', { name: /Amen/ }));
+
+        // then: the choice is the reader's own for this visit — nothing is persisted
+        // until the association write lands (#318)
+        expect(await screen.findByRole('button', { name: /Amen/ })).toBeInTheDocument();
     });
 
     it('should claim no engagement figures it has no source for', () => {
