@@ -395,6 +395,60 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
             VerifyNoAutomaticAssignmentWasMade();
         }
 
+        /// <summary>
+        /// Criterion 4, and it is named for the WITHDRAWAL rather than for the gate on purpose.
+        /// A moderator takes Berean off a round, the round is modified again, and nothing is
+        /// written — however many times that round is edited afterwards.
+        ///
+        /// <para><b>This is the criterion most likely to be "fixed" later by somebody reading
+        /// gate 5 as over-strict. It is not.</b> <c>WithdrawAIReviewerAsync</c> soft-deletes the
+        /// row, so a gate that looked only at live rows would put Berean straight back on the
+        /// next <c>Approval-Modified</c>, in a loop the moderator cannot win. A withdrawal is a
+        /// decision; asking Berean again after one stays their explicit act, and
+        /// <c>POST api/AIReviewers/...</c> is theirs to press.</para>
+        ///
+        /// <para>The same gate is what carries TERMINATION and what answers REDELIVERY. Once any
+        /// row exists the handler is a no-op for that round forever, so no cycle can be sustained
+        /// through it however many hops arrive — which is strictly more than a
+        /// <c>ProcessedEvent</c> row would give, that being keyed on <c>EventId</c>: two
+        /// DIFFERENT <c>Approval-Modified</c> facts about one round would each pass it, and this
+        /// gate stops both.</para>
+        ///
+        /// <para>That the unfiltered read really does answer <c>true</c> for a withdrawn row is
+        /// settled where the predicate lives —
+        /// <c>AccessBrokerTests.IsAIReviewerEverAssigned.Logic</c> and the integration test over
+        /// a real catalogue. Here it is a mock, so what this pins is that the handler asks the
+        /// UNFILTERED question about THIS round and stands down on a yes.</para>
+        /// </summary>
+        [Theory]
+        [InlineData(AddedOperation)]
+        [InlineData(ModifiedOperation)]
+        public async Task ShouldNotAssignBereanAfterAModeratorHasWithdrawnItAsync(
+            string approvalEventOperation)
+        {
+            // given: an open, offered, visible round that has had an assignment on it before
+            Guid approvalId = Guid.NewGuid();
+
+            SetupAutomaticAIReviewerPolicy(approvalId, isAutomaticallyRequested: true);
+            SetupAIReviewerEverAssigned(approvalId, isEverAssigned: true);
+            SetupAutomaticAIReviewerAssignmentWrite();
+
+            // when
+            await DeliverApprovalFactAsync(
+                approvalEventOperation,
+                CreateApprovalFactEnvelope(approvalId, ApprovalStatus.Submitted),
+                TestContext.Current.CancellationToken);
+
+            // then: asked about THIS round, and nothing written
+            this.accessBrokerMock.Verify(broker =>
+                broker.IsAIReviewerEverAssignedAsync(
+                    approvalId,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            VerifyNoAutomaticAssignmentWasMade();
+        }
+
         // Both handlers, driven through one switch so every GATE below can be a theory over the
         // pair rather than a test written twice. That is criterion 2's "one private body" made
         // observable: the two differ only in the accepted event name, so a rule fixed on one
