@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -18,6 +18,8 @@ using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Events.Processings;
+using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.BibleReferences;
@@ -61,7 +63,7 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
         [Fact]
         public void ShouldRegisterEverySubscriptionWithoutThrowing()
         {
-            // given, when: the fixture ran the real RegisterAsync over all 121 subscriptions
+            // given, when: the fixture ran the real RegisterAsync over all 123 subscriptions
 
             // then
             this.broker.RegistrationException.Should().BeNull(
@@ -175,6 +177,121 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
                     },
                     because: "an added review either moves the approval count or raises a " +
                         "blocking rejection, so it must re-test the approval exactly once");
+        }
+
+        /// <summary>
+        /// §8.6.2.1's two subscriptions, made VISIBLE to this suite rather than being the only
+        /// bindings in the system it says nothing about.
+        ///
+        /// <para>Distinct from <c>EventSubscriptionRegistrationTests</c>, which pins the
+        /// addresses and the handlers against a mocked broker: a mocked broker cannot tell a
+        /// bound handler from an unbound one. What this pins is that nothing ELSE of the AI
+        /// reviewer orchestration's is listening on either address — an exact set, so a
+        /// duplicated listener or a second binding with its own id fails it.</para>
+        ///
+        /// <para>Both halves asserted per address, and that pairing is what makes it worth
+        /// running: a bare "did not reach" passes just as well when the substrate is dead and
+        /// NOTHING is delivered.</para>
+        /// </summary>
+        [Theory]
+        [InlineData(ApprovalEventOperation.Added)]
+        [InlineData(ApprovalEventOperation.Modified)]
+        public async Task ShouldReachTheAutomaticAIReviewerAssignmentFromEachApprovalFactAsync(
+            ApprovalEventOperation approvalEventOperation)
+        {
+            // given: a round can open AT Submitted or arrive there later, and no single address
+            // hears both — which is why the pair exists at all
+            Guid expectedSubscriptionId =
+                approvalEventOperation == ApprovalEventOperation.Added
+                    ? EventBrokerIdentifiers
+                        .AIReviewerOrchestrationOnApprovalAddedSubscriptionId
+                    : EventBrokerIdentifiers
+                        .AIReviewerOrchestrationOnApprovalModifiedSubscriptionId;
+
+            Guid otherAddressSubscriptionId =
+                approvalEventOperation == ApprovalEventOperation.Added
+                    ? EventBrokerIdentifiers
+                        .AIReviewerOrchestrationOnApprovalModifiedSubscriptionId
+                    : EventBrokerIdentifiers
+                        .AIReviewerOrchestrationOnApprovalAddedSubscriptionId;
+
+            // when
+            EventPublishResult<Approval> publishResult =
+                await this.broker.EventBroker.PublishApprovalAsync(
+                    new EventEnvelope<Approval>
+                    {
+                        Content = new Approval
+                        {
+                            Id = Guid.NewGuid(),
+                            EntityType = EntityType.Tag,
+                            EntityId = Guid.NewGuid(),
+                            ApprovalStatus = ApprovalStatus.Submitted,
+                        }
+                    },
+                    approvalEventOperation);
+
+            IReadOnlyList<Guid> subscriptionsReached =
+                EventSubstrateBroker.SubscriptionsReached(publishResult);
+
+            // then
+            EventSubstrateBroker.AIReviewerSubscriptionsReached(subscriptionsReached)
+                .Should().Equal(
+                    new[] { expectedSubscriptionId },
+                    because: "each Approval fact address must reach the automatic assignment "
+                        + "exactly once, through its own subscription and no other — a second "
+                        + "binding on this address, whatever its id, would assign Berean twice "
+                        + "for one round and the losing write would be refused by "
+                        + "UX_AIReviewerAssignments_ApprovalId");
+
+            subscriptionsReached.Should().NotContain(otherAddressSubscriptionId,
+                because: "the two handlers differ ONLY in the event name they verify against, "
+                    + "and that name is inside the HMAC — so a handler bound to the wrong "
+                    + "address refuses every genuine envelope it receives, silently");
+        }
+
+        /// <summary>
+        /// The other half of §EVN18's AI table: <c>Approval-Modified</c> now has TWO designed
+        /// subscribers, and they must not be merged. §7.9 rule 8's retirement acts where the
+        /// signed status says the round CLOSED, §8.6.2.1's assignment where it says the round is
+        /// OPEN, so the two gates are disjoint by construction and no delivery reaches both
+        /// bodies.
+        ///
+        /// <para>What this asserts is that both are REACHED — which is what makes "disjoint by
+        /// construction" a claim about the gates rather than about the wiring.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldReachBothOfApprovalModifiedsDesignedSubscribersAsync()
+        {
+            // when
+            EventPublishResult<Approval> publishResult =
+                await this.broker.EventBroker.PublishApprovalAsync(
+                    new EventEnvelope<Approval>
+                    {
+                        Content = new Approval
+                        {
+                            Id = Guid.NewGuid(),
+                            EntityType = EntityType.Tag,
+                            EntityId = Guid.NewGuid(),
+                            ApprovalStatus = ApprovalStatus.Submitted,
+                        }
+                    },
+                    ApprovalEventOperation.Modified);
+
+            // then
+            EventSubstrateBroker.SubscriptionsReached(publishResult)
+                .Should().BeEquivalentTo(
+                    new[]
+                    {
+                        EventBrokerIdentifiers
+                            .ApprovalReviewerOrchestrationOnApprovalModifiedSubscriptionId,
+
+                        EventBrokerIdentifiers
+                            .AIReviewerOrchestrationOnApprovalModifiedSubscriptionId
+                    },
+                    because: "Approval-Modified has exactly two designed subscribers and no "
+                        + "others — two reactions on one address in two services, with "
+                        + "Deliveries recorded per subscription, which is not the double-fire "
+                        + "§EVN2 rule 6 forbids");
         }
 
         [Fact]

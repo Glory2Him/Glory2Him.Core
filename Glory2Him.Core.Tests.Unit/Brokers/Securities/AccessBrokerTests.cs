@@ -23,6 +23,7 @@ using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Foundations.AIReviewerAssignments;
 using Glory2Him.Core.Models.Foundations.ApprovalComments;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.Approvals;
@@ -92,6 +93,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             // takes the last matching setup, so a test's own SetupApprovals wins over this one.
             SetupApprovals();
             SetupApprovalReviews();
+            SetupAIReviewerAssignments();
             SetupApprovalComments();
             SetupApprovalSettings();
             SetupAccessClientToReturn(CreatePermittedVerdict());
@@ -176,6 +178,16 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             this.storageBrokerMock.Setup(broker =>
                 broker.SelectAllApprovalReviewsAsync(It.IsAny<CancellationToken>()))
                     .ReturnsAsync(new List<ApprovalReview>(approvalReviews).AsQueryable());
+
+        // §8.6.2.1 gate 5's source, and UNFILTERED on purpose: the set a test hands in may carry
+        // soft-deleted rows, because "has Berean ever been on this round" has to see a
+        // withdrawal that the live-row read hides.
+        private void SetupAIReviewerAssignments(
+            params AIReviewerAssignment[] aiReviewerAssignments) =>
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAllAIReviewerAssignmentsAsync(It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(
+                        new List<AIReviewerAssignment>(aiReviewerAssignments).AsQueryable());
 
         private void SetupApprovalComments(params ApprovalComment[] approvalComments) =>
             this.storageBrokerMock.Setup(broker =>
@@ -406,6 +418,16 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                 ApprovalId = approvalId,
                 CreatedBy = createdBy,
                 StatusId = statusId,
+                IsDeleted = isDeleted,
+            };
+
+        private static AIReviewerAssignment CreateAIReviewerAssignment(
+            Guid approvalId,
+            bool isDeleted = false) =>
+            new AIReviewerAssignment
+            {
+                Id = Guid.NewGuid(),
+                ApprovalId = approvalId,
                 IsDeleted = isDeleted,
             };
 

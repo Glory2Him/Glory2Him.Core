@@ -68,7 +68,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
         // registration binds nothing at all — every assertion below is over a set that would
         // then be empty. Adding a subscription means bumping this number, which is the point:
         // it forces the new binding past the resolution check rather than around it.
-        private const int ExpectedBoundHandlerCount = 121;
+        private const int ExpectedBoundHandlerCount = 123;
 
         [Fact]
         public async Task ShouldResolveEveryServiceTheEventSubscriptionsBindToAsync()
@@ -166,7 +166,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
                     // construct without a usable key (#392), and EVERY service the subscriptions
                     // bind to takes that broker — so with this section absent the real provider
                     // throws before it can build a single one of them. The probe would then
-                    // record 121 resolutions that never resolved anything, and pass. A test-only
+                    // record 123 resolutions that never resolved anything, and pass. A test-only
                     // secret: it proves nothing about production keying, it only lets the graph
                     // come up.
                     ["EventEnvelopeSigning:0:KeyId"] = "webapp-unit-test-key",

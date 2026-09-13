@@ -1,0 +1,203 @@
+﻿// ────────────────────────────────────────────────────────────────────────────────
+// Copyright (c) Glory 2 Him. All rights reserved.
+// Licensed under the Glory 2 Him Software License (G2HSL).
+// See License.txt in the project root for full license information.
+// FREE TO USE TO HELP SHARE THE GOSPEL
+// John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
+//                  No one comes to the Father except through me.’"
+// https://john.bible/john-14-6
+// If Jesus is who He said He is, what does that mean for you, today?
+// ────────────────────────────────────────────────────────────────────────────────
+
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+using G2H.Security.Client.Models.Foundations.Access;
+using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Foundations.Approvals;
+
+namespace Glory2Him.Core.Services.Orchestrations.AIReviewers
+{
+    /// <summary>
+    /// §8.6.2.1's automatic assignment — Berean goes onto a round that has entered review,
+    /// wherever the resolved policy asks for it, with nobody having pressed anything.
+    ///
+    /// <para><b>Nobody's act, so nobody's identity.</b> The write goes through the WORKFLOW seam,
+    /// which mints the system identity in process, rather than through the caller-facing
+    /// foundation whose gate asks for a review tier the system identity does not hold — and which
+    /// would in any case record the wrong author, since the identity on the inbound envelope
+    /// belongs to whoever moved the round.</para>
+    /// </summary>
+    internal partial class AIReviewerOrchestrationService
+    {
+        // THE ONE THING THAT DIFFERS BETWEEN THE TWO HANDLERS, and the only thing that may.
+        //
+        // Stated as literals because there is nowhere to read them from: EventBroker composes the
+        // signed name as entityName + operation on the PUBLISH side alone and exposes that
+        // composition to nobody, so every receiver in this solution states its own. #286 is the
+        // sweep that would introduce a canonical map, and a bespoke derivation at two more sites
+        // would pre-empt a ruling scoped to all of them.
+        //
+        // Composed from the ENTITY and the OPERATION, never from the tense of the address. That
+        // these are FACT addresses rather than the command addresses most subscriptions in this
+        // solution bind changes nothing about the name.
+        private const string ApprovalAddedEventName = "ApprovalAdded";
+        private const string ApprovalModifiedEventName = "ApprovalModified";
+
+        public ValueTask<EventEnvelope<Approval>?> OnApprovalAddedAsync(
+            EventEnvelope<Approval> envelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatch<EventEnvelope<Approval>?>(async () =>
+            {
+                // AHEAD OF THE VERIFY, and of every gate. Cancellation abandons the delivery
+                // outright, so there is nothing left to verify — and without it the refused
+                // branches would observe the token NOWHERE, since each gate returns before
+                // reaching a call that takes one.
+                cancellationToken.ThrowIfCancellationRequested();
+                await ValidateApprovalFactEnvelopeAsync(envelope, ApprovalAddedEventName);
+
+                await AssignAIReviewerAutomaticallyAsync(
+                    approval: envelope.Content,
+                    cancellationToken: cancellationToken);
+
+                return null;
+            });
+
+        public ValueTask<EventEnvelope<Approval>?> OnApprovalModifiedAsync(
+            EventEnvelope<Approval> envelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatch<EventEnvelope<Approval>?>(async () =>
+            {
+                // Ahead of the verify, for the reason its sibling above gives.
+                cancellationToken.ThrowIfCancellationRequested();
+                await ValidateApprovalFactEnvelopeAsync(envelope, ApprovalModifiedEventName);
+
+                await AssignAIReviewerAutomaticallyAsync(
+                    approval: envelope.Content,
+                    cancellationToken: cancellationToken);
+
+                return null;
+            });
+
+        // The shared body both subscriptions delegate to — ONE copy of the gates, the write and
+        // the failure posture, so a rule cannot be fixed on one address and left broken on the
+        // other. A fact is a notification, so nothing is replied with: returning the inbound
+        // envelope would put this service's name on a fact another service published.
+        //
+        // SIX GATES, in this order, all fail-closed and each refusing on its own; the first that
+        // refuses ends the delivery having made no further broker call and no write. Gate 1 —
+        // the envelope verifies against the accepted name for its address — has already run in
+        // the handler above, because everything below reads that envelope's content.
+        //
+        // Cheapest first, which is the order rather than a coincidence: the three that read the
+        // signed envelope cost nothing, and the three broker reads follow in the order §8.6.2.1
+        // puts them.
+        private async ValueTask AssignAIReviewerAutomaticallyAsync(
+            Approval approval,
+            CancellationToken cancellationToken)
+        {
+            // GATE 2. A soft-deleted round gets no reviewer. Read off the SIGNED content rather
+            // than re-read from storage: this is the row the foundation itself published, and it
+            // is inside the HMAC the gate above has already verified.
+            if (approval.IsDeleted)
+            {
+                return;
+            }
+
+            // GATE 3, and the same signed-status gate §EVN18(e) condition 4 requires. It answers
+            // every publisher rather than an enumeration of call sites: a round reaches Submitted
+            // through a create, through the submit verb and through §8.6 HR-4's reset, and all of
+            // them land on one of these two addresses carrying the new status inside the HMAC.
+            //
+            // THREE CASES, ONE GATE. Draft is excluded here and not by a rule of its own (§9.2) —
+            // a round opened at Draft has not entered review and Berean must not read content its
+            // author has not offered, so it waits for the -Modified the submission publishes.
+            // Approved and Rejected are excluded for §7.9 rule 7's reason: an assignment on a
+            // closed round could never be answered.
+            if (approval.ApprovalStatus != ApprovalStatus.Submitted)
+            {
+                return;
+            }
+
+            // GATE 4, and the ONE composed field this path may read. §8.6.1 rule 4 keeps the
+            // composition — IsAIReviewerOffered && IsAIReviewerAutomaticallyRequested — inside
+            // the decision function and nowhere else, so a verdict that answers true here has
+            // already answered §8.6.2's offer as well. Re-deriving it from IsOffered, or reaching
+            // for the raw column through an IApprovalSettingService this service deliberately
+            // does not hold, would put most-specific-wins in a second place.
+            //
+            // FAIL-CLOSED (§8.4 rule 2): the broker answers null for a round it cannot resolve,
+            // and that collapses to false here exactly as the manual offer already treats it.
+            //
+            // IT IS ALSO THE AUTOMATIC ROUTE'S FRESH OFFER CHECK, which is why the seam verb does
+            // not repeat one: §8.6.2 requires the offer to be re-read on every write, the manual
+            // route does that in this same layer, and the composed verdict read here carries
+            // IsAIReviewerOffered inside it.
+            AIReviewerPolicyVerdict maybeAIReviewerPolicy =
+                await this.accessBroker.ResolveAIReviewerPolicyByIdAsync(
+                    approvalId: approval.Id,
+                    cancellationToken: cancellationToken);
+
+            bool isAutomaticallyRequested =
+                maybeAIReviewerPolicy?.IsAutomaticallyRequested ?? false;
+
+            if (isAutomaticallyRequested is false)
+            {
+                return;
+            }
+
+            // GATE 5 (§8.6.2.1's fourth) — THE SUBJECT IS VISIBLE, and none of the gates above
+            // can stand in for it. A takedown deliberately leaves the approval record and the
+            // entity's denormalised ApprovalStatus alone (§9.7.6), so a taken-down round reads as
+            // open to every status-shaped test: its own IsDeleted is false, its status still says
+            // Submitted, and its policy still resolves. Without this an edit to such a round would
+            // set an AI pass running over content nobody may see.
+            //
+            // VISIBLE rather than merely present, which is the question §14.5 rule 3 asks — the
+            // arms behind the probe are raw by-id reads and this repository has no EF global query
+            // filters. Keyed on the SIGNED EntityType and EntityId, never on a re-read.
+            bool isEntityVisible = await this.accessBroker.IsEntityVisibleAsync(
+                entityType: approval.EntityType,
+                entityId: approval.EntityId,
+                cancellationToken: cancellationToken);
+
+            if (isEntityVisible is false)
+            {
+                return;
+            }
+
+            // GATE 6, THE LAST ONE, and the strict form on purpose: has ANY assignment ever
+            // existed on this round, live or soft-deleted. A live row means Berean is already
+            // assigned and this is a redelivery or a second route; a soft-deleted row means a
+            // human WITHDREW it, and an automatic policy must not overturn a person's decision on
+            // the round in front of them. Their route back is unchanged — POST asks again
+            // explicitly — and it is theirs to take.
+            //
+            // UNFILTERED, which is why this is IAccessBroker's own member and not
+            // RetrieveAIReviewerAssignmentByApprovalIdAsync: that read answers null, and logs a
+            // denial, for anyone outside the review tier, and here the presence check IS the
+            // invariant. "Nothing you may see" would create a duplicate row rather than refuse.
+            //
+            // IT IS ALSO WHAT MAKES THIS REACTION TERMINATE (§EVN18(e) condition 3). Once the row
+            // exists this handler is a no-op for that round forever, so no cycle can be sustained
+            // through it however many hops arrive — and it covers strictly more than a
+            // ProcessedEvent row would, that being keyed on EventId while this is keyed on the
+            // round.
+            bool isAIReviewerEverAssigned =
+                await this.accessBroker.IsAIReviewerEverAssignedAsync(
+                    approvalId: approval.Id,
+                    cancellationToken: cancellationToken);
+
+            if (isAIReviewerEverAssigned)
+            {
+                return;
+            }
+
+            await this.aiReviewerAssignmentWorkflowService
+                .AddAutomaticAIReviewerAssignmentAsync(
+                    approvalId: approval.Id,
+                    cancellationToken: cancellationToken);
+        }
+    }
+}

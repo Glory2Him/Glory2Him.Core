@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -14,6 +14,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Brokers.EventEnvelopes;
+using Glory2Him.Core.Brokers.Integrities;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Models.Enums;
@@ -28,42 +29,67 @@ namespace Glory2Him.Core.Services.Orchestrations.AIReviewers
     {
         private readonly IApprovalWorkflowService approvalService;
         private readonly IAIReviewerAssignmentService aiReviewerAssignmentService;
+
+        private readonly IAIReviewerAssignmentWorkflowService
+            aiReviewerAssignmentWorkflowService;
         private readonly IAccessBroker accessBroker;
         private readonly IEventEnvelopeBroker eventEnvelopeBroker;
+        private readonly IEnvelopeIntegrityBroker envelopeIntegrityBroker;
         private readonly ILoggingBroker loggingBroker;
 
-        // Two service references over two foundations, and three brokers — a fraction of what the
-        // approval round's orchestration carries, because this contract answers one question
+        // Three service references over two foundations, and four brokers — a fraction of what
+        // the approval round's orchestration carries, because this contract answers one question
         // about one row. The Approval foundation is reached through the WORKFLOW seam rather than
         // the public one, for the reason that interface documents: what a round IS is a fact
         // about storage, not a view of whoever is asking, and the repair below must see rows the
         // caller-facing read hides.
         //
+        // STILL TWO EXCEPTION ARMS, and a reviewer counting constructor parameters rather than
+        // arms will miscount this service. IAIReviewerAssignmentWorkflowService is a second door
+        // onto AIReviewerAssignmentService and its verbs run inside that class's own TryCatch, so
+        // the two throw AIReviewerAssignment* between them and cost ONE arm (§16.7.1 rule 2).
+        // IEnvelopeIntegrityBroker obliges none at all — §12.5's broker rule keeps a substrate
+        // broker outside the Florance count, and it is what the two subscriptions below verify
+        // their inbound envelopes through.
+        //
         // IApprovalSettingService is absent on purpose (§8.6.1 rule 4): resolving §8.4 here would
         // put most-specific-wins in a second place beside the decision function. The §8.6.2 offer
         // arrives as a verdict from IAccessBroker instead.
         //
-        // IAIReviewerAssignmentWorkflowService is absent too, and that is the split this service
-        // turns on: the workflow's own return-to-pending — the one the edit and reset flows
-        // perform on nobody's behalf — stays with the approval orchestration, beside the human
-        // dismissal it mirrors. Everything on THIS contract is somebody's act, so everything here
-        // goes through the caller-facing foundation under the caller's own identity.
+        // THE LINE IS CALLER-FACING VERSUS DELIVERED, not public versus internal. Every
+        // caller-facing operation here — the three an exposer calls — is somebody's act, so each
+        // goes through the caller-facing foundation under the caller's own identity. A substrate
+        // handler is nobody's act: only a delivery calls it, there is no caller whose identity
+        // could be stamped on the row, and it takes the WORKFLOW seam for exactly that reason.
+        //
+        // Drawing the line on accessibility instead would have been false the day it was written:
+        // IAIReviewerOrchestrationService is already a public partial interface.
+        //
+        // The seam's OTHER verb still belongs elsewhere, and that split is unchanged: the
+        // workflow's own return-to-pending — the one the edit and reset flows perform on nobody's
+        // behalf — stays with the approval orchestration, beside the human dismissal it mirrors.
         public AIReviewerOrchestrationService(
             IApprovalWorkflowService approvalService,
             IAIReviewerAssignmentService aiReviewerAssignmentService,
+            IAIReviewerAssignmentWorkflowService aiReviewerAssignmentWorkflowService,
             IAccessBroker accessBroker,
             IEventEnvelopeBroker eventEnvelopeBroker,
+            IEnvelopeIntegrityBroker envelopeIntegrityBroker,
             ILoggingBroker loggingBroker)
         {
             this.approvalService = approvalService;
             this.aiReviewerAssignmentService = aiReviewerAssignmentService;
+            this.aiReviewerAssignmentWorkflowService = aiReviewerAssignmentWorkflowService;
             this.accessBroker = accessBroker;
             this.eventEnvelopeBroker = eventEnvelopeBroker;
+            this.envelopeIntegrityBroker = envelopeIntegrityBroker;
             this.loggingBroker = loggingBroker;
         }
 
-        // The shared opening move of all three operations: capture the ambient caller, gate them,
-        // and resolve the approval behind the entity. Kept together because doing them in a
+        // The shared opening move of all three CALLER-FACING operations: capture the ambient
+        // caller, gate them, and resolve the approval behind the entity. The substrate handlers
+        // reach none of it — they have no ambient caller to capture and the round arrives on the
+        // envelope already resolved. Kept together because doing them in a
         // different order would gate against something other than the stored row.
         //
         // NARROWER THAN THE HUMAN SIBLING'S ResolveReviewerScopeAsync, deliberately, and this is

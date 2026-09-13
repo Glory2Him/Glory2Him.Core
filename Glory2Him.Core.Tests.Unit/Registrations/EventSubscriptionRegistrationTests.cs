@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -48,6 +48,7 @@ using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 using Glory2Him.Core.Services.Foundations.ContentItemSettings;
 using Glory2Him.Core.Services.Orchestrations.ContentItemSettings;
 using Glory2Him.Core.Models.Events.Processings;
+using Glory2Him.Core.Services.Orchestrations.AIReviewers;
 using Glory2Him.Core.Services.Orchestrations.ApprovalReviewers;
 using Glory2Him.Core.Services.Orchestrations.Approvals;
 using Glory2Him.Core.Services.Processings.ContentItems;
@@ -81,6 +82,9 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
 
         private readonly Mock<IApprovalReviewerOrchestrationService>
             approvalReviewerOrchestrationServiceMock;
+
+        private readonly Mock<IAIReviewerOrchestrationService>
+            aiReviewerOrchestrationServiceMock;
         private readonly IEventSubscriptionRegistration eventSubscriptionRegistration;
 
         public EventSubscriptionRegistrationTests()
@@ -108,6 +112,9 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
 
             this.approvalReviewerOrchestrationServiceMock =
                 new Mock<IApprovalReviewerOrchestrationService>();
+
+            this.aiReviewerOrchestrationServiceMock =
+                new Mock<IAIReviewerOrchestrationService>();
 
             // The registration no longer holds services; it opens a scope per delivery and
             // resolves from it. The provider hands back the same mocks, so every assertion
@@ -155,6 +162,10 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             serviceProviderMock.Setup(p =>
                 p.GetService(typeof(IApprovalReviewerOrchestrationService)))
                     .Returns(this.approvalReviewerOrchestrationServiceMock.Object);
+
+            serviceProviderMock.Setup(p =>
+                p.GetService(typeof(IAIReviewerOrchestrationService)))
+                    .Returns(this.aiReviewerOrchestrationServiceMock.Object);
 
             var serviceScopeMock = new Mock<IServiceScope>();
             serviceScopeMock.Setup(scope => scope.ServiceProvider)
@@ -971,8 +982,9 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                     .OnApprovalReviewAddedAsync);
 
             // §7.9 rule 8's retirement, and the FIRST subscription in the solution on any of the
-            // Approval entity's own fact addresses — the five SubscribeToApprovalEventAsync
-            // registrations above all bind COMMAND addresses.
+            // Approval entity's own fact addresses — the five COMMAND registrations above bind
+            // Adding, Modifying, RemovingById, HardRemovingById and RetrievingById. First and no
+            // longer only: §8.6.2.1's pair below binds both fact addresses.
             VerifyApprovalSubscription(
                 expectedSubscriptionId: EventBrokerIdentifiers
                     .ApprovalReviewerOrchestrationOnApprovalModifiedSubscriptionId,
@@ -980,6 +992,39 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                     .ApprovalReviewerOrchestrationOnApprovalModifiedSubscriptionName,
                 expectedOperation: ApprovalEventOperation.Modified,
                 expectedHandler: this.approvalReviewerOrchestrationServiceMock.Object
+                    .OnApprovalModifiedAsync);
+
+            // §8.6.2.1's automatic Berean assignment, on BOTH of the Approval entity's fact
+            // addresses. Two addresses rather than one because a round can open at Submitted or
+            // arrive there later, and no single address hears both.
+            //
+            // THE ACCEPTED EVENT NAMES ARE WHAT THIS PAIR IS REALLY GUARDING, and they are
+            // pinned on the handler side (AIReviewerOrchestrationServiceTests.Substrate) rather
+            // than here — what THIS asserts is that each handler is bound to the address whose
+            // name it verifies against. Get either half wrong and the failure is SILENT: the name
+            // is inside the HMAC, so the fact is delivered, verified against a name it was never
+            // signed with, and discarded.
+            //
+            // Approval-Modified now has TWO designed subscribers and they must not be merged:
+            // §7.9 rule 8's retirement above acts where the status says the round CLOSED, this one
+            // where it says the round is OPEN, so the two gates are disjoint by construction and
+            // no delivery reaches both bodies.
+            VerifyApprovalSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers
+                    .AIReviewerOrchestrationOnApprovalAddedSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers
+                    .AIReviewerOrchestrationOnApprovalAddedSubscriptionName,
+                expectedOperation: ApprovalEventOperation.Added,
+                expectedHandler: this.aiReviewerOrchestrationServiceMock.Object
+                    .OnApprovalAddedAsync);
+
+            VerifyApprovalSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers
+                    .AIReviewerOrchestrationOnApprovalModifiedSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers
+                    .AIReviewerOrchestrationOnApprovalModifiedSubscriptionName,
+                expectedOperation: ApprovalEventOperation.Modified,
+                expectedHandler: this.aiReviewerOrchestrationServiceMock.Object
                     .OnApprovalModifiedAsync);
 
             // The other seven workflow-record fact addresses (§10.17(a)). Each can move a §8.5
@@ -1594,6 +1639,7 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             this.linkProcessingServiceMock.VerifyNoOtherCalls();
             this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
             this.contentItemSettingOrchestrationServiceMock.VerifyNoOtherCalls();
+            this.aiReviewerOrchestrationServiceMock.VerifyNoOtherCalls();
         }
 
         // The registration binds a scope-opening lambda, not a method group, so a delegate
@@ -1670,7 +1716,8 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 this.contentItemSettingOrchestrationServiceMock,
                 this.contentItemProcessingServiceMock,
                 this.linkProcessingServiceMock, this.approvalOrchestrationServiceMock,
-                this.approvalReviewerOrchestrationServiceMock
+                this.approvalReviewerOrchestrationServiceMock,
+                this.aiReviewerOrchestrationServiceMock
             };
     }
 }

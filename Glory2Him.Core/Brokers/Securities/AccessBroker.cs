@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -474,6 +474,27 @@ namespace Glory2Him.Core.Brokers.Securities
             return isReportingAFinishedPass
                 ? maybeAIReviewerAssignment.Id
                 : null;
+        }
+
+        // UNFILTERED ON IsDeleted AND ON NOTHING ELSE — ApprovalId is the whole predicate, and a
+        // second conjunct here would be the defect rather than a tightening. See IAccessBroker
+        // for why neither the round-keyed storage read nor the caller-facing foundation read can
+        // answer this: the first hides a withdrawal, the second hides a row the caller may not
+        // see, and gate 5 has to tell either of those from a round nobody has ever asked about.
+        //
+        // Composed over SelectAllAIReviewerAssignmentsAsync with the await in the broker, which
+        // is the same shape FindDismissableApprovalReviewIdsAsync performs over
+        // SelectAllApprovalReviewsAsync — predicate and await both here, never split across the
+        // layer boundary.
+        public async ValueTask<bool> IsAIReviewerEverAssignedAsync(
+            Guid approvalId,
+            CancellationToken cancellationToken = default)
+        {
+            IQueryable<AIReviewerAssignment> allAIReviewerAssignments =
+                await this.storageBroker.SelectAllAIReviewerAssignmentsAsync(cancellationToken);
+
+            return allAIReviewerAssignments.Any(aiReviewerAssignment =>
+                aiReviewerAssignment.ApprovalId == approvalId);
         }
 
         // Unfiltered on IsDeleted, deliberately — see IAccessBroker for why the caller-facing read

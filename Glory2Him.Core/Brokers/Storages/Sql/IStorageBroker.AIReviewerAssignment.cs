@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -11,6 +11,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.AIReviewerAssignments;
@@ -25,6 +26,22 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
 
         ValueTask<AIReviewerAssignment> SelectAIReviewerAssignmentByIdAsync(
             Guid aiReviewerAssignmentId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Every assignment row, unfiltered, for a caller that composes its own predicate over
+        /// the live queryable — the member fourteen sibling entities on this broker already
+        /// carry and this one was given without.
+        ///
+        /// <para>It answers a different question from
+        /// <see cref="SelectAIReviewerAssignmentByApprovalIdAsync"/> below rather than
+        /// duplicating it: that read hard-filters <c>IsDeleted == false</c> inside the query, so
+        /// a WITHDRAWN assignment reads as absent through it. The automatic assignment of
+        /// design §8.6.2.1 has to be able to tell "nobody has ever decided about Berean on this
+        /// round" from "the row a moderator took off is hidden", and only an unfiltered read
+        /// can (§8.6.2.1 rule 3).</para>
+        /// </summary>
+        ValueTask<IQueryable<AIReviewerAssignment>> SelectAllAIReviewerAssignmentsAsync(
             CancellationToken cancellationToken = default);
 
         /// <summary>

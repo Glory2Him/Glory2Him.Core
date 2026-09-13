@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -43,6 +43,7 @@ using Glory2Him.Core.Services.Foundations.ContentItemSettings;
 using Glory2Him.Core.Services.Foundations.Links;
 using Glory2Him.Core.Services.Foundations.Reactions;
 using Glory2Him.Core.Services.Foundations.Tags;
+using Glory2Him.Core.Services.Orchestrations.AIReviewers;
 using Glory2Him.Core.Services.Orchestrations.ApprovalReviewers;
 using Glory2Him.Core.Services.Orchestrations.Approvals;
 using Glory2Him.Core.Services.Orchestrations.ContentItemSettings;
@@ -204,8 +205,8 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
                 loggingBroker: new Mock<ILoggingBroker>().Object);
 
             // The registration opens a scope per delivery now, so the fixture supplies a
-            // provider that hands back these instances. The two orchestrations are real; the
-            // other fifteen are mocks, which is what keeps this suite about the WIRING.
+            // provider that hands back these instances. Two orchestrations are real; the other
+            // seventeen are mocks, which is what keeps this suite about the WIRING.
             //
             // Every service the subscriptions bind must appear below: Scoped<TService,TEntity>
             // resolves through GetRequiredService at DELIVERY time, so a missing one throws
@@ -262,6 +263,17 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
             //
             // Measured: verifying as Reply rather than Request reds all four.
             Provide<IApprovalReviewerOrchestrationService>(ApprovalReviewerOrchestrationService);
+
+            // MOCKED, unlike the two above, and deliberately so. §8.6.2.1's automatic assignment
+            // binds both Approval fact addresses, and what this suite asks of that pair is a
+            // ROUTING question — which subscription a published fact reaches — which the delivery
+            // records whether or not the handler behind it then succeeds.
+            //
+            // The entry is not optional even so: Scoped<TService,TEntity> resolves through
+            // GetRequiredService at DELIVERY time, so without it both bindings would throw
+            // mid-delivery and be recorded as failed deliveries with nothing surfacing.
+            Provide<IAIReviewerOrchestrationService>(
+                new Mock<IAIReviewerOrchestrationService>().Object);
 
             var serviceScopeMock = new Mock<IServiceScope>();
             serviceScopeMock.Setup(scope => scope.ServiceProvider)
@@ -660,6 +672,37 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
             IReadOnlyList<Guid> subscriptionsReached) =>
                 subscriptionsReached
                     .Where(reached => ReviewerSubscriptionIds.Contains(reached))
+                    .ToList();
+
+        /// <summary>
+        /// The two subscriptions the AI REVIEWER orchestration owns (§8.6.2.1).
+        /// </summary>
+        /// <remarks>
+        /// A THIRD set rather than an addition to either above, for the reason the reviewer set
+        /// gives of itself: those sets' tests assert that a fact reaches a named service's
+        /// subscriptions and no others, and folding these two in would change what those
+        /// assertions mean. What actually happened is that <c>Approval-Modified</c> acquired a
+        /// second subscriber in a DIFFERENT service — which is not the double-fire §EVN2 rule 6
+        /// forbids — and <c>Approval-Added</c> acquired its first.
+        /// </remarks>
+        private static readonly HashSet<Guid> AIReviewerSubscriptionIds =
+            new HashSet<Guid>
+            {
+                EventBrokerIdentifiers
+                    .AIReviewerOrchestrationOnApprovalAddedSubscriptionId,
+
+                EventBrokerIdentifiers
+                    .AIReviewerOrchestrationOnApprovalModifiedSubscriptionId,
+            };
+
+        /// <summary>
+        /// Every delivery this publish made to a subscription the AI reviewer orchestration owns,
+        /// in order and WITHOUT de-duplication — so a repeated id survives to be asserted on.
+        /// </summary>
+        internal static IReadOnlyList<Guid> AIReviewerSubscriptionsReached(
+            IReadOnlyList<Guid> subscriptionsReached) =>
+                subscriptionsReached
+                    .Where(reached => AIReviewerSubscriptionIds.Contains(reached))
                     .ToList();
 
         /// <summary>

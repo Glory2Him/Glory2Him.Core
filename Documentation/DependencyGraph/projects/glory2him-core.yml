@@ -3660,12 +3660,44 @@ components:
     name: AIReviewerOrchestrationService
     layer: orchestration
     col: 4
-    description: "Berean invitation flow, and its own contract since PR 475 (design 8.6.2, issue 354 Track A): reporting where the AI reviewer stands on a round, asking for it, asking again once a prior pass completed, and withdrawing it. Separate from ApprovalOrchestrationService because Berean is not a role-bearing identity - it has no ApprovalReviewRequest row, so none of the approval orchestration tier-membership, duplicate-invitation or answered-invitation machinery applies, and giving that service a second contract is what the PR review objected to. It does NOT borrow the human reviewer scope gather: a narrow private resolver, ResolveAIReviewerApprovalAsync, mints the envelope for the security context, checks entity visibility, resolves the approval behind the entity through FindApprovalByEntityAsync and self-heals a missing round through AddApprovalAsync (9.7.2 rule 1) - reading two fields where the human gather returns invitations, reviewers and role subjects this flow never looks at. The offer switch is asked fresh on every read and write through ResolveAIReviewerPolicyByIdAsync and is fail-closed (8.4 rule 2). It publishes NO events of its own - all event traffic on this path is the AIReviewerAssignment foundation - and ILoggingBroker is exception-path only, so no logging edge is drawn. The workflow return-to-pending on a reset or an edit is deliberately NOT here: that is the approval workflow own act and stays private to ApprovalOrchestrationService, reaching the same foundation through its system-identity seam."
+    description: "Berean invitation flow, and its own contract since PR 475 (design 8.6.2, issue 354 Track A): reporting where the AI reviewer stands on a round, asking for it, asking again once a prior pass completed, and withdrawing it. Separate from ApprovalOrchestrationService because Berean is not a role-bearing identity - it has no ApprovalReviewRequest row, so none of the approval orchestration tier-membership, duplicate-invitation or answered-invitation machinery applies, and giving that service a second contract is what the PR review objected to. It does NOT borrow the human reviewer scope gather: a narrow private resolver, ResolveAIReviewerApprovalAsync, mints the envelope for the security context, checks entity visibility, resolves the approval behind the entity through FindApprovalByEntityAsync and self-heals a missing round through AddApprovalAsync (9.7.2 rule 1) - reading two fields where the human gather returns invitations, reviewers and role subjects this flow never looks at. The offer switch is asked fresh on every read and write through ResolveAIReviewerPolicyByIdAsync and is fail-closed (8.4 rule 2). It publishes NO events of its own - all event traffic on this path is the AIReviewerAssignment foundation - and ILoggingBroker is exception-path only, so no logging edge is drawn. The workflow return-to-pending on a reset or an edit is deliberately NOT here: that is the approval workflow own act and stays private to ApprovalOrchestrationService, reaching the same foundation through its system-identity seam. Since issue 532 it also binds TWO SUBSCRIPTIONS for the 8.6.2.1 automatic assignment - Approval.Added and Approval.Modified, because a round can open at Submitted or arrive there later and no single address hears both - which is why it now holds IEnvelopeIntegrityBroker and still NOT IEventBroker: both handlers verify an inbound envelope and cause their write through a seam that publishes for itself. Both delegate to ONE private body, so a rule cannot be fixed on one address and left broken on the other, and it runs six gates in order, each fail-closed and each refusing on its own: the envelope verifies against the accepted name for its address, the round is not soft-deleted, its signed ApprovalStatus is Submitted, the resolved verdict IsAutomaticallyRequested is true (null collapses to false), the entity behind the round is still visible, and no AIReviewerAssignment has EVER existed on it - live or soft-deleted, through the unfiltered IAccessBroker.IsAIReviewerEverAssignedAsync, because a withdrawal is a decision an automatic policy must not overturn. That last gate is also what makes the reaction terminate and what answers redelivery, so neither handler records or checks a ProcessedEvent (EVN19 rules 1 and 4). The write goes through IAIReviewerAssignmentWorkflowService.AddAutomaticAIReviewerAssignmentAsync, which mints the system identity in process - NOT the caller-facing add, whose gate asks for a review tier the system identity does not hold - and that seam is a second door onto AIReviewerAssignmentService sharing its TryCatch, so the service still maps TWO exception families and costs no third arm (16.7.1 rule 2). There is no caller-identity gate and no IsSystemIdentity stand-down, both deliberately: the identity on the inbound envelope belongs to whoever moved the round, and a round reaches Submitted through the workflow own write."
     methods:
       - RetrieveAIReviewerStatusAsync
       - RequestAIReviewerAsync
       - WithdrawAIReviewerAsync
+      - OnApprovalAddedAsync
+      - OnApprovalModifiedAsync
     calls:
+      - from: OnApprovalAddedAsync
+        to: EnvelopeIntegrityBroker
+        method: VerifyAsync
+      - from: OnApprovalAddedAsync
+        to: AccessBroker
+        method: ResolveAIReviewerPolicyByIdAsync
+      - from: OnApprovalAddedAsync
+        to: AccessBroker
+        method: IsEntityVisibleAsync
+      - from: OnApprovalAddedAsync
+        to: AccessBroker
+        method: IsAIReviewerEverAssignedAsync
+      - from: OnApprovalAddedAsync
+        to: FS.AIReviewerAssignment
+        method: AddAutomaticAIReviewerAssignmentAsync
+      - from: OnApprovalModifiedAsync
+        to: EnvelopeIntegrityBroker
+        method: VerifyAsync
+      - from: OnApprovalModifiedAsync
+        to: AccessBroker
+        method: ResolveAIReviewerPolicyByIdAsync
+      - from: OnApprovalModifiedAsync
+        to: AccessBroker
+        method: IsEntityVisibleAsync
+      - from: OnApprovalModifiedAsync
+        to: AccessBroker
+        method: IsAIReviewerEverAssignedAsync
+      - from: OnApprovalModifiedAsync
+        to: FS.AIReviewerAssignment
+        method: AddAutomaticAIReviewerAssignmentAsync
       - from: RetrieveAIReviewerStatusAsync
         to: EventEnvelopeBroker
         method: CreateAsync
@@ -3735,6 +3767,11 @@ components:
       - from: WithdrawAIReviewerAsync
         to: FS.AIReviewerAssignment
         method: RemoveAIReviewerAssignmentByIdAsync
+    subscribes:
+      - event: Approval.Added
+        handler: OnApprovalAddedAsync
+      - event: Approval.Modified
+        handler: OnApprovalModifiedAsync
   - id: ARO
     name: ApprovalReviewerOrchestrationService
     layer: orchestration

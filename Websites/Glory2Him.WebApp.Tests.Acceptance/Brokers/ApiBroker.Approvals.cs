@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -232,6 +232,15 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
         public async ValueTask<AIReviewerAssignment> GetCoreAIReviewerAssignmentByIdAsync(
             Guid aiReviewerAssignmentId) =>
             await this.storageBroker.SelectAIReviewerAssignmentByIdAsync(aiReviewerAssignmentId);
+
+        /// <summary>
+        /// The round's LIVE assignment, read beneath the endpoints. Its one caller is the
+        /// automatic-assignment suite, which never learns an assignment id any other way — nobody
+        /// posted for the row, so nothing handed one back — and needs it to tear the row down.
+        /// </summary>
+        public async ValueTask<AIReviewerAssignment> GetCoreAIReviewerAssignmentByApprovalIdAsync(
+            Guid approvalId) =>
+            await this.storageBroker.SelectAIReviewerAssignmentByApprovalIdAsync(approvalId);
 
         /// <summary>
         /// Physical teardown, for the same reason <c>ApprovalSetting</c>'s is physical: the row

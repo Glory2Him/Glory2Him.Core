@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -321,6 +321,40 @@ namespace Glory2Him.Core.Brokers.Securities
         /// earlier is exactly the payload that verb must not trust.</para>
         /// </remarks>
         ValueTask<Guid?> FindResettableAIReviewerAssignmentIdAsync(
+            Guid approvalId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Whether an <c>AIReviewerAssignment</c> has EVER existed on a round — live or
+        /// soft-deleted — which is gate 5 of the automatic assignment (design §8.6.2.1).
+        /// </summary>
+        /// <remarks>
+        /// <para>Actor-independent, for the reason its neighbours above are: what a round has
+        /// been asked is a property of the approval, not of the caller.</para>
+        ///
+        /// <para><b>UNFILTERED on <c>IsDeleted</c>, and that is the whole of why it exists.</b>
+        /// <see cref="FindResettableAIReviewerAssignmentIdAsync"/> above reads the round's ONE
+        /// LIVE row, which is the right question for a reset and the wrong one here:
+        /// <c>WithdrawAIReviewerAsync</c> soft-deletes the row, so a live-row read answers
+        /// "nothing here" for a round a moderator has just taken Berean off — and the automatic
+        /// policy would put it straight back on the next <c>Approval-Modified</c>, in a loop the
+        /// moderator cannot win. A withdrawal is a decision, and asking Berean again after one
+        /// stays their explicit act.</para>
+        ///
+        /// <para>Not the caller-facing
+        /// <c>IAIReviewerAssignmentService.RetrieveAIReviewerAssignmentByApprovalIdAsync</c>
+        /// either, which answers null — and logs a denial — for anyone outside the review tier.
+        /// Here the presence check IS the invariant, and a read that answered "nothing you may
+        /// see" would create a duplicate row rather than refuse. The distinction is between
+        /// <i>no row exists</i> and <i>this caller may not see the row</i>, and only the first
+        /// may drive this write.</para>
+        ///
+        /// <para>No schema change and no new index.
+        /// <c>UX_AIReviewerAssignments_ApprovalId</c> is filtered to live rows, so it does not
+        /// cover this probe — accepted at this table's size, at most one live row per round plus
+        /// its withdrawals, and it is the first read to index if that stops being true.</para>
+        /// </remarks>
+        ValueTask<bool> IsAIReviewerEverAssignedAsync(
             Guid approvalId,
             CancellationToken cancellationToken = default);
 

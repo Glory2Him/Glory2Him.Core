@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -366,11 +366,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ApprovalReviewers
         }
 
         /// <summary>
-        /// <c>Approval-Modified</c> is the first of the <c>Approval</c> entity's own FACT
-        /// addresses to carry a subscription — the five existing registrations all bind command
-        /// addresses — so the name it verifies under is worth pinning against the literal rather
-        /// than inferred from the address's tense. It is composed from the entity and the
-        /// operation, never from the tense.
+        /// <c>Approval-Modified</c> was the first of the <c>Approval</c> entity's own FACT
+        /// addresses to carry a subscription — the five COMMAND registrations beside it bind
+        /// Adding, Modifying, RemovingById, HardRemovingById and RetrievingById — so the name it
+        /// verifies under is worth pinning against the literal rather than inferred from the
+        /// address's tense. It is composed from the entity and the operation, never from the
+        /// tense, and §8.6.2.1's automatic assignment states the same literal on the second
+        /// subscriber this address now has.
         /// </summary>
         [Fact]
         public async Task ShouldVerifyTheApprovalModifiedEnvelopeUnderItsPublishedNameAsync()

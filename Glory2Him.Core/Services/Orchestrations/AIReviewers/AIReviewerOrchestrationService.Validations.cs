@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -11,6 +11,8 @@
 
 using System;
 using System.Linq;
+using System.Threading.Tasks;
+using Glory2Him.Core.Brokers.Integrities;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Approvals;
@@ -55,6 +57,28 @@ namespace Glory2Him.Core.Services.Orchestrations.AIReviewers
             {
                 throw new UnauthorizedAIReviewerOrchestrationException(
                     message: "The current user is not allowed to request approval reviews.");
+            }
+        }
+
+        // GATE 1 of §8.6.2.1's automatic assignment: the envelope verifies against the accepted
+        // name for the address it arrived on. The workflow is a receiver like any other, and
+        // §14.6 rule 4 puts verification in the RECEIVER rather than the transport precisely
+        // because a handler is reachable without going through the broker.
+        //
+        // Without it, anyone able to put a message on either fact address could drive Berean onto
+        // any round they named. The signature binds the event name too, so an Approval-Added
+        // envelope cannot be replayed onto the Modified handler.
+        private async ValueTask ValidateApprovalFactEnvelopeAsync(
+            EventEnvelope<Approval> envelope,
+            string eventName)
+        {
+            bool isSignatureValid = await this.envelopeIntegrityBroker.VerifyAsync(
+                envelope, eventName, EnvelopeDirection.Request);
+
+            if (isSignatureValid is false)
+            {
+                throw new InvalidAIReviewerOrchestrationException(
+                    message: "AI reviewer event is invalid. Integrity verification failed.");
             }
         }
 
