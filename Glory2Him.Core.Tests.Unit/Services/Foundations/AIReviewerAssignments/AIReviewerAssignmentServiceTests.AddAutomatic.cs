@@ -17,6 +17,7 @@ using Force.DeepCloner;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.AIReviewerAssignments;
+using Glory2Him.Core.Models.Foundations.AIReviewerAssignments.Exceptions;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
 using Glory2Him.Core.Models.Securities;
 using Moq;
@@ -176,6 +177,76 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.AIReviewerAssignments
             this.storageBrokerMock.Verify(broker =>
                 broker.SelectProcessedEventExistsAsync(
                     It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        /// <summary>
+        /// THE AUTHORIZATION BOUNDARY ON THIS SEAM. There is no tier to ask for — the system
+        /// identity holds no roles — so "is this the workflow's own act" is the whole of the
+        /// gate, and a gate nobody tests is a comment.
+        ///
+        /// <para>It is unreachable through the public seam, which mints the context itself two
+        /// methods up, so this exercises it through the ambient <c>CreateSystemAsync</c> stub
+        /// returning a NON-system context. What it protects against is a future second caller of
+        /// the private do-work supplying its own envelope — the route by which a person's context
+        /// could otherwise reach a write that must record the system.</para>
+        ///
+        /// <para><b>What it catches.</b> Deleting
+        /// <c>ValidateAutomaticAssignmentIsTheWorkflowsOwnAct</c>: an administrator — who passes
+        /// the contribution half of the gate on their own — would then be able to author an
+        /// assignment with <c>CreatedBy</c> naming them, which is a moderator's deliberate
+        /// request stamped onto an act nobody performed.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddAutomaticIfTheContextIsNotTheSystemAsync()
+        {
+            // given: the mint is a pass-through, so the ADMINISTRATOR's own context — their roles,
+            // their subject, no system flag — reaches the do-work instead of a system-minted one.
+            // An administrator because they are the one caller who passes every other gate on this
+            // path unaided, so this guard is all that stands between them and the write.
+            this.systemContextIsGenuine = false;
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
+            Guid someApprovalId = Guid.NewGuid();
+
+            var unauthorizedAIReviewerAssignmentException =
+                new UnauthorizedAIReviewerAssignmentException(
+                    message: "Assigning the AI reviewer automatically is the approval workflow's "
+                        + "own act; no user may perform it.");
+
+            var expectedAIReviewerAssignmentValidationException =
+                new AIReviewerAssignmentValidationException(
+                    message: "AI reviewer assignment validation error occurred, fix the errors and try again.",
+                    innerException: unauthorizedAIReviewerAssignmentException);
+
+            // when
+            ValueTask<AIReviewerAssignment> addAutomaticTask =
+                this.aiReviewerAssignmentWorkflowService
+                    .AddAutomaticAIReviewerAssignmentAsync(
+                        someApprovalId,
+                        TestContext.Current.CancellationToken);
+
+            AIReviewerAssignmentValidationException actualException =
+                await Assert.ThrowsAsync<AIReviewerAssignmentValidationException>(
+                    addAutomaticTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedAIReviewerAssignmentValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAIReviewerAssignmentValidationException))),
+                Times.Once);
+
+            // refused BEFORE any storage call, and before the row is even assembled
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertAIReviewerAssignmentAsync(
+                    It.IsAny<AIReviewerAssignment>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishAIReviewerAssignmentAsync(
+                    It.IsAny<EventEnvelope<AIReviewerAssignment>>(),
+                    It.IsAny<AIReviewerAssignmentEventOperation>()),
                 Times.Never);
         }
     }
