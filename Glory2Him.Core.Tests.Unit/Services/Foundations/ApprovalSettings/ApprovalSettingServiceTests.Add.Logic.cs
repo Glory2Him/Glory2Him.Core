@@ -159,6 +159,21 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
             // no value forced either way.
             actualApprovalSetting.IsAIReviewerAutomaticallyRequested
                 .Should().Be(isAIReviewerAutomaticallyRequested);
+
+            // Asserted again against what was actually HANDED TO STORAGE, not only against the
+            // pre-baked return value above. The Setup above matches InsertApprovalSettingAsync by
+            // reference to auditAppliedApprovalSetting, so a bug that overwrote this field on
+            // that same object right before the call would still satisfy the Setup (same
+            // reference) and still return the untouched storageApprovalSetting clone taken before
+            // the call — leaving the assertion above unable to catch it. It.Is below inspects the
+            // actual argument the call was made with instead.
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertApprovalSettingAsync(
+                    It.Is<ApprovalSetting>(setting =>
+                        setting.IsAIReviewerAutomaticallyRequested
+                            == isAIReviewerAutomaticallyRequested),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
         }
     }
 }

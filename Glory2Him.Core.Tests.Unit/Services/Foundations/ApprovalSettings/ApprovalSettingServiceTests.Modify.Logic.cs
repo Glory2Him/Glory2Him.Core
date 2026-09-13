@@ -157,6 +157,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
             ApprovalSetting auditAppliedApprovalSetting = inputApprovalSetting.DeepClone();
             ApprovalSetting storageApprovalSetting = auditAppliedApprovalSetting.DeepClone();
             storageApprovalSetting.UpdatedWhen = storageApprovalSetting.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+
+            // Deliberately the OPPOSITE of what the caller is modifying to. Left as the clone's
+            // (matching) value, a "read the stored row back over the caller's change" bug would
+            // coincidentally produce the same field value the test expects, and the assertion
+            // below could not tell that apart from the caller's choice actually round-tripping.
+            storageApprovalSetting.IsAIReviewerAutomaticallyRequested = !isAIReviewerAutomaticallyRequested;
+
             ApprovalSetting auditPreservedApprovalSetting = auditAppliedApprovalSetting.DeepClone();
             ApprovalSetting updatedApprovalSetting = auditPreservedApprovalSetting.DeepClone();
 
@@ -204,6 +211,20 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
             // then
             actualApprovalSetting.IsAIReviewerAutomaticallyRequested
                 .Should().Be(isAIReviewerAutomaticallyRequested);
+
+            // Asserted again against what was actually HANDED TO STORAGE, not only against the
+            // pre-baked return value above — same reasoning as the Add twin. It.Is inspects the
+            // actual argument UpdateApprovalSettingAsync was called with, which is what tells a
+            // "read the stored row back over the caller's change" bug apart from the caller's
+            // value genuinely round-tripping, now that the stored row above deliberately holds
+            // the opposite value.
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateApprovalSettingAsync(
+                    It.Is<ApprovalSetting>(setting =>
+                        setting.IsAIReviewerAutomaticallyRequested
+                            == isAIReviewerAutomaticallyRequested),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
         }
     }
 }
