@@ -589,6 +589,46 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.AIReviewerAssignments
         }
 
         /// <summary>
+        /// A GENUINE cancellation — the caller's token — passes straight through rather than
+        /// being categorized as a timeout. The distinction is the <c>when</c> clause on the
+        /// first catch: a dependency that gave up looks identical to a caller who walked away
+        /// unless the token is consulted, and reporting an abandoned request as a storage fault
+        /// would page somebody over nothing.
+        ///
+        /// <para>The check sits at the TOP, ahead of minting the envelope — an act nobody is
+        /// waiting for any more should not mint an identity to perform it under.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldRethrowOnAddAutomaticIfCancellationIsRequestedAsync()
+        {
+            // given
+            using var cancellationTokenSource = new CancellationTokenSource();
+            await cancellationTokenSource.CancelAsync();
+
+            // when
+            ValueTask<AIReviewerAssignment> addAutomaticTask =
+                this.aiReviewerAssignmentWorkflowService
+                    .AddAutomaticAIReviewerAssignmentAsync(
+                        Guid.NewGuid(),
+                        cancellationTokenSource.Token);
+
+            // then
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(addAutomaticTask.AsTask);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateSystemAsync(It.IsAny<AIReviewerAssignment>()),
+                Times.Never);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertAIReviewerAssignmentAsync(
+                    It.IsAny<AIReviewerAssignment>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            // NOT reported as a dependency failure — nothing is logged at all
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        /// <summary>
         /// The catch-all arm, which every other verb on this class has: an error nothing above
         /// recognised is this service's own fault rather than a dependency's, and it says so.
         /// </summary>
