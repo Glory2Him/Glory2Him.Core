@@ -326,7 +326,7 @@ namespace Glory2Him.Core.Brokers.Securities
 
         /// <summary>
         /// Whether an <c>AIReviewerAssignment</c> has EVER existed on a round — live or
-        /// soft-deleted — which is gate 5 of the automatic assignment (design §8.6.2.1).
+        /// soft-deleted — which is gate 6 of the automatic assignment (design §8.6.2.1).
         /// </summary>
         /// <remarks>
         /// <para>Actor-independent, for the reason its neighbours above are: what a round has

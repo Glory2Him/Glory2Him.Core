@@ -179,7 +179,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                 broker.SelectAllApprovalReviewsAsync(It.IsAny<CancellationToken>()))
                     .ReturnsAsync(new List<ApprovalReview>(approvalReviews).AsQueryable());
 
-        // §8.6.2.1 gate 5's source, and UNFILTERED on purpose: the set a test hands in may carry
+        // §8.6.2.1 gate 6's source, and UNFILTERED on purpose: the set a test hands in may carry
         // soft-deleted rows, because "has Berean ever been on this round" has to see a
         // withdrawal that the live-row read hides.
         private void SetupAIReviewerAssignments(

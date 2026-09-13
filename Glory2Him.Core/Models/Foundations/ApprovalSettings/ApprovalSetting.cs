@@ -128,7 +128,7 @@ namespace Glory2Him.Core.Models.Foundations.ApprovalSettings
         /// any effect, but — unlike <see cref="IsAIAllowedToVote"/> — that pairing carries NO
         /// CHECK constraint: a stored <c>true</c> under an offer of <c>false</c> is a dormant
         /// preference rather than a contradiction, and the gate that matters is asked fresh on
-        /// every automatic assignment instead (§8.6.2.1 gate 2).
+        /// every automatic assignment instead (§8.6.2.1 gate 4).
         ///
         /// <para>THE CLR INITIALISER IS <c>true</c>, deliberately unlike
         /// <see cref="IsAIReviewerOffered"/>'s own <c>false</c>: a blank row's useful reading is

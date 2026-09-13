@@ -480,7 +480,7 @@ namespace Glory2Him.Core.Brokers.Securities
         // second conjunct here would be the defect rather than a tightening. See IAccessBroker
         // for why neither the round-keyed storage read nor the caller-facing foundation read can
         // answer this: the first hides a withdrawal, the second hides a row the caller may not
-        // see, and gate 5 has to tell either of those from a round nobody has ever asked about.
+        // see, and gate 6 has to tell either of those from a round nobody has ever asked about.
         //
         // Composed over SelectAllAIReviewerAssignmentsAsync with the await in the broker, which
         // is the same shape FindDismissableApprovalReviewIdsAsync performs over

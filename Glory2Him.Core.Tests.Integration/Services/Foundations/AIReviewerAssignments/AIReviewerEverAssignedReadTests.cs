@@ -23,7 +23,7 @@ using Xunit;
 namespace Glory2Him.Core.Tests.Integration.Services.Foundations.AIReviewerAssignments
 {
     /// <summary>
-    /// Proves <see cref="IAccessBroker.IsAIReviewerEverAssignedAsync"/> — §8.6.2.1's gate 5 —
+    /// Proves <see cref="IAccessBroker.IsAIReviewerEverAssignedAsync"/> — §8.6.2.1's gate 6 —
     /// against a real catalogue.
     ///
     /// <para>The unit suite settles the predicate over an in-memory queryable, which is where a
@@ -37,7 +37,7 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.AIReviewerAssign
     /// <item>that the <b>true-regardless-of-<c>IsDeleted</c></b> semantics survive the round trip.
     /// The seeded set carries a soft-deleted assignment on the round under test, and that is the
     /// row the whole gate turns on: <c>UX_AIReviewerAssignments_ApprovalId</c> is FILTERED to live
-    /// rows, so a reader who assumed the index covered this probe would have built gate 5 on a
+    /// rows, so a reader who assumed the index covered this probe would have built gate 6 on a
     /// read that answers "nothing here" for a round a moderator took Berean off.</item>
     /// </list>
     ///

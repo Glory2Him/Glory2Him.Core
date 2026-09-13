@@ -35,7 +35,7 @@ namespace Glory2Him.Core.Migrations
     /// <c>CK_ApprovalSetting_AIVoteRequiresAIReviewer</c> beside it. A stored <c>true</c> under an
     /// offer of <c>false</c> is a dormant preference — exactly what every shipped row holds — not
     /// a contradiction a constraint would have to refuse; the pairing that matters is asked fresh
-    /// on every automatic assignment instead (§8.6.2.1 gate 2). A constraint here would refuse the
+    /// on every automatic assignment instead (§8.6.2.1 gate 4). A constraint here would refuse the
     /// seed itself.</para>
     /// </summary>
     /// <inheritdoc />
