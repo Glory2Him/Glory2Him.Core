@@ -34,8 +34,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
     public partial class AIReviewerOrchestrationServiceTests
     {
         /// <summary>
-        /// Criterion 10, downstream failure one of three — the VERDICT READ. The access broker
-        /// catches nothing, so a storage outage arrives raw and lands in the service category.
+        /// #532 criterion 10, downstream failure one of three — the VERDICT READ. The access
+        /// broker catches nothing, so a storage outage arrives raw and lands in the service
+        /// category.
         ///
         /// <para>What this asserts is that it FAULTS THE DELIVERY rather than being swallowed
         /// here, which is what puts it on <c>EventPublishResult.FailedDeliveries</c> instead of
@@ -94,7 +95,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
         /// Downstream failure two of three — the PRESENCE READ, on the same posture one gate
         /// further in. Written rather than folded into the test above because the two are
         /// different call sites, and a catch added around one and not the other is exactly the
-        /// shape the criterion forbids.
+        /// shape #532 criterion 10 forbids.
         /// </summary>
         [Theory]
         [InlineData(AddedOperation)]
@@ -146,7 +147,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
         }
 
         /// <summary>
-        /// Downstream failure three of three — the WORKFLOW WRITE, and criterion 9's rule 2
+        /// Downstream failure three of three — the WORKFLOW WRITE, and #532 criterion 9's rule 2
         /// verified rather than assumed from the registration. The seam's verb runs inside
         /// <c>AIReviewerAssignmentService</c>'s OWN <c>TryCatch</c>, so it throws the same
         /// <c>AIReviewerAssignment*</c> family the caller-facing door does and the arm this
@@ -198,7 +199,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
                     deliveryTask.AsTask);
 
             // then: the losing delivery FAILS and is recorded, which is exactly the posture
-            // criterion 10 requires and why no concurrency token is introduced (#479)
+            // #532 criterion 10 requires and why no concurrency token is introduced (#479)
             actualException.Should().BeEquivalentTo(expectedDependencyValidationException);
 
             this.loggingBrokerMock.Verify(broker =>
