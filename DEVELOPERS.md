@@ -249,14 +249,19 @@ planned and their prefixes are already reserved: `APR`, `ARC`, `DOM`, `SEC`.
 `G2H Design.md` is the index: the map at the top of it says, for every one of
 the 21 original sections, which file it is in and what to cite it as.
 
-Sections in a split file carry a **flat, prefixed number** — `§EVN1`, `§EVN2` —
-rather than restarting at 1, so that a bare citation stays unambiguous once
-several `Design/*.md` files exist side by side. A relocated section also keeps a
-`(formerly §10.X)` annotation naming its old position, so the dozens of C#
-comments that cite the old number still resolve by grep.
+Sections in a split file carry a **prefixed number** and never one that restarts
+at 1, so that a bare citation stays unambiguous once several `Design/*.md` files
+exist side by side. A relocated section keeps the number it already had and gains
+its file's prefix — `§20.6.1` became `§UI20.6.1` — and carries a
+`(formerly §20.6.1)` annotation naming its old position, so the dozens of C#
+comments that cite the old number still resolve by grep. `Events.md` is the one
+file that renumbered instead, flat as `§EVN1`, `§EVN2`, because it merged two
+independently numbered documents; `Split.md` §S1.2 records that as an exception
+rather than the pattern to copy.
 
-**If you add a new split file, copy that convention from `Events.md`'s intro
-block.** Pick the reserved prefix for the area, number flat, and annotate every
+**If you add a new split file, copy the convention from `UI.md`'s intro block.**
+Pick the reserved prefix for the area, keep every section's existing number, open
+with a contents list so the gaps in the numbering read as one, and annotate every
 relocated section with where it came from.
 
 Two cautions learned the hard way:
@@ -352,13 +357,18 @@ The architect writes the section. From that moment the design section is
 authoritative and the mockup is history — go back and add the "Superseded by"
 line to the mockup's README.
 
-**Where it writes, today.** Event design and UI design have split files, and
-`Design/UI.md` is where UI design is written. Everything else still goes into
-`Documentation/G2H Design.md`, in the section that already owns the subject,
-because that is what `architect.md` instructs and no other `Design/*.md` file
-exists yet. A prefixed number and a heading tag apply once the area has its own
-split file (#481); until then the architect follows the main document's existing
-numbering.
+**Where it writes, today.** `architect.md` sends it to the file that owns the
+subject's area and names no file itself: the area file under
+`Documentation/Design/` where the area has one, and `Documentation/G2H Design.md`
+— in the section that already owns the subject — where it does not. The map at
+the top of `G2H Design.md` is what says which of the two, one row per section, so
+the instruction stays true as each remaining area moves. Two areas have their own
+file today: event design in `Design/Events.md` and UI design in `Design/UI.md`.
+Approval, architecture, domain and security are still written in the main
+document. What an extracted section leaves behind is a pointer stub, and design
+is never written into one. A section in an area file is numbered with that file's
+prefix; a section still in the main document keeps the number it has. Heading
+tags are a separate, not-yet-applied convention — see §6.
 
 ### 5.4 Then the analyst writes criteria in words
 
@@ -379,8 +389,10 @@ Two mechanisms, deliberately different, answering two different questions.
 ### Heading tags — "what issue defines this section?"
 
 **Proposed, not yet applied.** This is #498's criterion 1 and no heading carries
-a tag today — every heading in `Events.md` is still bare. Adopt it as you
-touch sections; do not read it as an invariant you can rely on.
+a tag today — every heading in `Events.md` and `UI.md` is still bare, the second
+of them deliberately: the split relocates headings without touching them
+(`Split.md` §S5). Adopt it as you touch sections; do not read it as an invariant
+you can rely on.
 
 Every numbered heading in `Documentation/Design/*.md` should carry exactly one of
 two tags, never bare:
