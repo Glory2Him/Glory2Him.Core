@@ -21,6 +21,7 @@ using Glory2Him.Core.Models.Foundations.AIReviewerAssignments.Exceptions;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
 using Glory2Him.Core.Models.Securities;
 using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.AIReviewerAssignments
@@ -464,6 +465,104 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.AIReviewerAssignments
                 broker.InsertAIReviewerAssignmentAsync(
                     It.IsAny<AIReviewerAssignment>(), It.IsAny<CancellationToken>()),
                 Times.Never);
+        }
+
+        /// <summary>
+        /// The STORAGE INSERT faulting, and the second of the four mappings: a general storage
+        /// error is the ordinary dependency failure rather than the critical one, logged through
+        /// <c>LogErrorAsync</c>.
+        /// </summary>
+        [Fact]
+        public async Task ShouldThrowDependencyExceptionOnAddAutomaticIfStorageErrorOccursAndLogItAsync()
+        {
+            // given
+            Guid someApprovalId = Guid.NewGuid();
+            ArrangeAnAutomaticAssignmentReachingStorage(someApprovalId);
+            var dbUpdateException = new DbUpdateException();
+
+            var failedStorageAIReviewerAssignmentException =
+                new FailedStorageAIReviewerAssignmentException(
+                    message: "Failed AI reviewer assignment storage error occurred, contact support.",
+                    innerException: dbUpdateException,
+                    data: dbUpdateException.Data);
+
+            var expectedAIReviewerAssignmentDependencyException =
+                new AIReviewerAssignmentDependencyException(
+                    message: "AI reviewer assignment dependency error occurred, contact support.",
+                    innerException: failedStorageAIReviewerAssignmentException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.InsertAIReviewerAssignmentAsync(
+                    It.IsAny<AIReviewerAssignment>(), It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(dbUpdateException);
+
+            // when
+            ValueTask<AIReviewerAssignment> addAutomaticTask =
+                this.aiReviewerAssignmentWorkflowService
+                    .AddAutomaticAIReviewerAssignmentAsync(
+                        someApprovalId,
+                        TestContext.Current.CancellationToken);
+
+            AIReviewerAssignmentDependencyException actualException =
+                await Assert.ThrowsAsync<AIReviewerAssignmentDependencyException>(
+                    addAutomaticTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedAIReviewerAssignmentDependencyException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAIReviewerAssignmentDependencyException))),
+                Times.Once);
+
+            // the fact is never published for a row that never landed
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishAIReviewerAssignmentAsync(
+                    It.IsAny<EventEnvelope<AIReviewerAssignment>>(),
+                    It.IsAny<AIReviewerAssignmentEventOperation>()),
+                Times.Never);
+        }
+
+        /// <summary>
+        /// The arrangement every fault BELOW the validation gate needs: an id to mint, an audit
+        /// stamp the on-add rules accept, and a clock the recency rule accepts. Without it the
+        /// verb refuses the row before it ever reaches the dependency the test is about, and the
+        /// test would pass for the wrong reason.
+        /// </summary>
+        private AIReviewerAssignment ArrangeAnAutomaticAssignmentReachingStorage(Guid approvalId)
+        {
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+
+            var auditAppliedAIReviewerAssignment = new AIReviewerAssignment
+            {
+                Id = Guid.NewGuid(),
+                ApprovalId = approvalId,
+                IsAIReviewCompleted = false,
+                IsAIReviewCommentsPresent = false,
+                CreatedBy = SystemIdentity.UserId,
+                UpdatedBy = SystemIdentity.UserId,
+                CreatedWhen = randomDateTimeOffset,
+                UpdatedWhen = randomDateTimeOffset
+            };
+
+            this.identifierBrokerMock.Setup(broker =>
+                broker.GetIdentifierAsync())
+                    .ReturnsAsync(auditAppliedAIReviewerAssignment.Id);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(
+                    It.IsAny<AIReviewerAssignment>(), It.IsAny<SecurityContext>()))
+                        .ReturnsAsync(auditAppliedAIReviewerAssignment);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(SystemIdentity.UserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            return auditAppliedAIReviewerAssignment;
         }
     }
 }
