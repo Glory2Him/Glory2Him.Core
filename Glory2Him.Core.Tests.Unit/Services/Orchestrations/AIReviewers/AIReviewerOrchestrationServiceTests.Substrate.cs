@@ -234,6 +234,58 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
             VerifyNoAutomaticAssignmentWasMade();
         }
 
+        /// <summary>
+        /// Gate 3, and EVERY status the gate must refuse rather than a sample of them. Three
+        /// separate cases sit behind one gate:
+        ///
+        /// <list type="bullet">
+        /// <item><c>Draft</c> is excluded HERE and not by a rule of its own (§9.2) — a round
+        /// opened at Draft has not entered review, and Berean must not read content its author
+        /// has not offered. It is picked up later by the <c>-Modified</c> its submission
+        /// publishes.</item>
+        /// <item><c>Approved</c> and <c>Rejected</c> are excluded by the same gate for §7.9 rule
+        /// 7's reason: an assignment on a closed round could never be answered.</item>
+        /// <item><c>Dismissed</c> is reachable and would otherwise be the one value of the enum
+        /// nothing here exercises.</item>
+        /// </list>
+        /// </summary>
+        [Theory]
+        [InlineData(AddedOperation, ApprovalStatus.Draft)]
+        [InlineData(AddedOperation, ApprovalStatus.Approved)]
+        [InlineData(AddedOperation, ApprovalStatus.Rejected)]
+        [InlineData(AddedOperation, ApprovalStatus.Dismissed)]
+        [InlineData(ModifiedOperation, ApprovalStatus.Draft)]
+        [InlineData(ModifiedOperation, ApprovalStatus.Approved)]
+        [InlineData(ModifiedOperation, ApprovalStatus.Rejected)]
+        [InlineData(ModifiedOperation, ApprovalStatus.Dismissed)]
+        public async Task ShouldNotAssignBereanWhileTheRoundIsNotSubmittedAsync(
+            string approvalEventOperation,
+            ApprovalStatus refusedStatus)
+        {
+            // given
+            Guid approvalId = Guid.NewGuid();
+
+            SetupAutomaticAIReviewerPolicy(approvalId, isAutomaticallyRequested: true);
+            SetupAIReviewerEverAssigned(approvalId, isEverAssigned: false);
+            SetupAutomaticAIReviewerAssignmentWrite();
+
+            // when
+            await DeliverApprovalFactAsync(
+                approvalEventOperation,
+                CreateApprovalFactEnvelope(approvalId, refusedStatus),
+                TestContext.Current.CancellationToken);
+
+            // then: the gate runs before the broker is reached, so a fact about a round that has
+            // not entered review costs one comparison and no round trip
+            this.accessBrokerMock.Verify(broker =>
+                broker.ResolveAIReviewerPolicyByIdAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            VerifyNoAutomaticAssignmentWasMade();
+        }
+
         // Both handlers, driven through one switch so every GATE below can be a theory over the
         // pair rather than a test written twice. That is criterion 2's "one private body" made
         // observable: the two differ only in the accepted event name, so a rule fixed on one
