@@ -123,6 +123,25 @@ namespace Glory2Him.Core.Models.Foundations.ApprovalSettings
         public bool IsAIAllowedToVote { get; set; } = false;
 
         /// <summary>
+        /// Whether Berean is assigned to a round WITHOUT anybody asking, once that round enters
+        /// review (design §8.6.2, §8.6.2.1). Requires <see cref="IsAIReviewerOffered"/> to have
+        /// any effect, but — unlike <see cref="IsAIAllowedToVote"/> — that pairing carries NO
+        /// CHECK constraint: a stored <c>true</c> under an offer of <c>false</c> is a dormant
+        /// preference rather than a contradiction, and the gate that matters is asked fresh on
+        /// every automatic assignment instead (§8.6.2.1 gate 2).
+        ///
+        /// <para>THE CLR INITIALISER IS <c>true</c>, deliberately unlike
+        /// <see cref="IsAIReviewerOffered"/>'s own <c>false</c>: a blank row's useful reading is
+        /// "once somebody turns Berean on for this scope, ask it on every round" rather than a
+        /// second edit nobody is told to make. The column default and its backfill agree with
+        /// this reading (§8.6.2 "Which default wins"); <c>ApprovalPolicyDefaults</c> — reached
+        /// only when NO row resolves at all — deliberately disagrees with all three, because a
+        /// fallback that granted an automatic action in an environment the seed has not reached
+        /// is exactly what §8.4 rule 2's fail-closed reading forbids.</para>
+        /// </summary>
+        public bool IsAIReviewerAutomaticallyRequested { get; set; } = true;
+
+        /// <summary>
         /// <c>IConfidence.ConfidenceScore</c> value below which Berean files a <c>Rejected</c>
         /// <c>ApprovalReview</c>. On the score's own 0.00–10.00 <c>decimal(4,2)</c> scale (design
         /// §13.5) rather than a normalised one — there is one confidence scale in this system.
