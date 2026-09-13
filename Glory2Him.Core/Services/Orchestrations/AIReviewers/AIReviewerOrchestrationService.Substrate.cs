@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -30,6 +30,18 @@ namespace Glory2Him.Core.Services.Orchestrations.AIReviewers
     internal partial class AIReviewerOrchestrationService
     {
         public ValueTask<EventEnvelope<Approval>?> OnApprovalAddedAsync(
+            EventEnvelope<Approval> envelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatch<EventEnvelope<Approval>?>(async () =>
+            {
+                await AssignAIReviewerAutomaticallyAsync(
+                    approvalId: envelope.Content.Id,
+                    cancellationToken: cancellationToken);
+
+                return null;
+            });
+
+        public ValueTask<EventEnvelope<Approval>?> OnApprovalModifiedAsync(
             EventEnvelope<Approval> envelope,
             CancellationToken cancellationToken = default) =>
             TryCatch<EventEnvelope<Approval>?>(async () =>

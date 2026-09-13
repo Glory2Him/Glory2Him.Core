@@ -40,5 +40,18 @@ namespace Glory2Him.Core.Services.Orchestrations.AIReviewers
         ValueTask<EventEnvelope<Approval>?> OnApprovalAddedAsync(
             EventEnvelope<Approval> envelope,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// §8.6.2.1 — a round may have REACHED <c>Submitted</c> after it opened: the submission
+        /// of a round opened at <c>Draft</c>, or §8.6 HR-4's reset re-opening a decided one. One
+        /// address hears every route, because all of them write through
+        /// <c>ModifyApprovalAsync</c>.
+        ///
+        /// <para>Same gates, same write, same body — only the accepted event name differs from
+        /// its sibling above.</para>
+        /// </summary>
+        ValueTask<EventEnvelope<Approval>?> OnApprovalModifiedAsync(
+            EventEnvelope<Approval> envelope,
+            CancellationToken cancellationToken = default);
     }
 }
