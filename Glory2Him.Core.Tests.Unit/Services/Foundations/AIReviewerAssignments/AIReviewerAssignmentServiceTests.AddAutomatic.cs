@@ -181,6 +181,100 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.AIReviewerAssignments
         }
 
         /// <summary>
+        /// THE ROW THIS VERB ASSEMBLES IS THE SAME ROW THE MODERATOR'S ADD WRITES, so the same
+        /// on-add rules stand over it. An approval id the caller never filled in is the one of
+        /// those rules a caller of THIS verb can actually trip, and it is refused before storage
+        /// is touched and before anything is published.
+        ///
+        /// <para><b>What it catches.</b> Dropping
+        /// <c>ValidateOnAddAIReviewerAssignmentAsync</c> from this path: an assignment keyed on
+        /// no approval would reach the insert, where nothing but a foreign key stands between it
+        /// and a row belonging to nobody. Reusing the public path's validator rather than
+        /// writing a second, weaker copy is the point — the row is the same row, so the rules
+        /// over it must not be able to drift apart.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddAutomaticIfApprovalIdIsInvalidAndLogItAsync()
+        {
+            // given
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            Guid invalidApprovalId = Guid.Empty;
+            Guid mintedIdentifier = Guid.NewGuid();
+
+            var auditAppliedAIReviewerAssignment = new AIReviewerAssignment
+            {
+                Id = mintedIdentifier,
+                ApprovalId = invalidApprovalId,
+                IsAIReviewCompleted = false,
+                IsAIReviewCommentsPresent = false,
+                CreatedBy = SystemIdentity.UserId,
+                UpdatedBy = SystemIdentity.UserId,
+                CreatedWhen = randomDateTimeOffset,
+                UpdatedWhen = randomDateTimeOffset
+            };
+
+            var invalidAIReviewerAssignmentException =
+                new InvalidAIReviewerAssignmentException(
+                    message: "AI reviewer assignment is invalid, fix the errors and try again.");
+
+            invalidAIReviewerAssignmentException.AddData(
+                key: nameof(AIReviewerAssignment.ApprovalId),
+                values: "Id is required");
+
+            var expectedAIReviewerAssignmentValidationException =
+                new AIReviewerAssignmentValidationException(
+                    message: "AI reviewer assignment validation error occurred, fix the errors and try again.",
+                    innerException: invalidAIReviewerAssignmentException);
+
+            this.identifierBrokerMock.Setup(broker =>
+                broker.GetIdentifierAsync())
+                    .ReturnsAsync(mintedIdentifier);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(
+                    It.IsAny<AIReviewerAssignment>(), It.IsAny<SecurityContext>()))
+                        .ReturnsAsync(auditAppliedAIReviewerAssignment);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(SystemIdentity.UserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            ValueTask<AIReviewerAssignment> addAutomaticTask =
+                this.aiReviewerAssignmentWorkflowService
+                    .AddAutomaticAIReviewerAssignmentAsync(
+                        invalidApprovalId,
+                        TestContext.Current.CancellationToken);
+
+            AIReviewerAssignmentValidationException actualException =
+                await Assert.ThrowsAsync<AIReviewerAssignmentValidationException>(
+                    addAutomaticTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedAIReviewerAssignmentValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAIReviewerAssignmentValidationException))),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertAIReviewerAssignmentAsync(
+                    It.IsAny<AIReviewerAssignment>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishAIReviewerAssignmentAsync(
+                    It.IsAny<EventEnvelope<AIReviewerAssignment>>(),
+                    It.IsAny<AIReviewerAssignmentEventOperation>()),
+                Times.Never);
+        }
+
+        /// <summary>
         /// THE CONTRIBUTION HALF OF THE GATE RUNS, and it runs FIRST. The other half —
         /// <c>ValidateUserIsAllowedToManageAIReviewerAssignments</c> — deliberately does not: the
         /// system identity holds no roles, so asking for the review tier here would refuse the
