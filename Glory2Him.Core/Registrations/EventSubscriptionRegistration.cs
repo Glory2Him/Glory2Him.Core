@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -44,6 +44,7 @@ using Glory2Him.Core.Services.Foundations.ContentItemSettings;
 using Glory2Him.Core.Services.Foundations.Links;
 using Glory2Him.Core.Services.Foundations.Reactions;
 using Glory2Him.Core.Services.Foundations.Tags;
+using Glory2Him.Core.Services.Orchestrations.AIReviewers;
 using Glory2Him.Core.Services.Orchestrations.ApprovalReviewers;
 using Glory2Him.Core.Services.Orchestrations.Approvals;
 using Glory2Him.Core.Services.Orchestrations.ContentItemSettings;
@@ -1180,6 +1181,67 @@ namespace Glory2Him.Core.Registrations
                 operation: ApprovalEventOperation.Modified,
                 approvalEventHandler:
                     Scoped<IApprovalReviewerOrchestrationService, Approval>(
+                        service => service.OnApprovalModifiedAsync),
+                cancellationToken: cancellationToken);
+
+            // §8.6.2.1's automatic Berean assignment, on BOTH of the Approval entity's fact
+            // addresses. Two addresses rather than one because a round can open AT Submitted or
+            // arrive there later, and no single address hears both: Approval-Added at Submitted
+            // is §9.7.2 rule 1's create-at-Submitted case, and every other route to Submitted
+            // writes through ModifyApprovalAsync and lands on Approval-Modified.
+            //
+            // Admissible under §EVN18(e)'s amended boundary for the same four reasons the
+            // retirement above is, worked through there: it reads no §8.5 predicate and moves
+            // none, it causes no approval write, its own write terminates — gate 5 stands the
+            // handler down wherever any assignment row exists for the round — and it gates on the
+            // signed status before any gather.
+            //
+            // APPROVAL-MODIFIED NOW HAS TWO SUBSCRIBERS and they must not be merged. The
+            // retirement acts where the status says the round CLOSED, this one where it says the
+            // round is OPEN, so the two gates are disjoint by construction and no delivery
+            // reaches both bodies. Two reactions on one address in two services is not the
+            // double-fire §EVN2 rule 6 forbids — that rule bars ONE reaction from binding both
+            // the foundation and the layer tier of one fact — and Deliveries are recorded per
+            // subscription.
+            //
+            // Approval-Added gains its first subscriber of any kind.
+            await this.eventBroker.SubscribeToApprovalEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .AIReviewerOrchestrationOnApprovalAddedSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .AIReviewerOrchestrationOnApprovalAddedSubscriptionName,
+
+                    Description = "Reacts to an opened approval: where it opened already "
+                        + "SUBMITTED and the resolved policy asks for it, assigns Berean to "
+                        + "the round under the system identity. A round opened at Draft is "
+                        + "left alone until its submission."
+                },
+                operation: ApprovalEventOperation.Added,
+                approvalEventHandler:
+                    Scoped<IAIReviewerOrchestrationService, Approval>(
+                        service => service.OnApprovalAddedAsync),
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .AIReviewerOrchestrationOnApprovalModifiedSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .AIReviewerOrchestrationOnApprovalModifiedSubscriptionName,
+
+                    Description = "Reacts to an amended approval: where its signed status says "
+                        + "the round has reached SUBMITTED and the resolved policy asks for "
+                        + "it, assigns Berean under the system identity. A round Berean has "
+                        + "ever been on is left alone, withdrawals included."
+                },
+                operation: ApprovalEventOperation.Modified,
+                approvalEventHandler:
+                    Scoped<IAIReviewerOrchestrationService, Approval>(
                         service => service.OnApprovalModifiedAsync),
                 cancellationToken: cancellationToken);
 
