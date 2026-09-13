@@ -245,8 +245,8 @@ namespace Glory2Him.Core.Brokers.Securities
             CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Resolves §8.6.2's AI-reviewer feature switch for a stored approval — whether Berean is
-        /// offered on this round and may be assigned to it at all.
+        /// Resolves §8.6.2's AI-reviewer feature switch for a stored approval — reporting both
+        /// composed answers §8.6.2 defines (§8.6.2.1), not the settings row itself.
         ///
         /// <para>Asked ON ITS OWN rather than gathered with
         /// <see cref="RetrieveApprovalReviewerScopeByIdAsync"/>, and for two reasons. Berean is not

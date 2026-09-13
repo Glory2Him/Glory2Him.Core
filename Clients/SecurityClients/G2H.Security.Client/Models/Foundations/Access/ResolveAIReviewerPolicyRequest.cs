@@ -14,8 +14,9 @@ using System.Collections.Generic;
 namespace G2H.Security.Client.Models.Foundations.Access
 {
     /// <summary>
-    /// The policy key alone (design §8.4), for a caller that needs one resolved field rather than
-    /// a full conditions evaluation — see <see cref="AIReviewerPolicyVerdict"/>.
+    /// The policy key alone (design §8.4), for a caller that needs the two composed answers
+    /// §8.6.2 defines about Berean rather than a full conditions evaluation — see
+    /// <see cref="AIReviewerPolicyVerdict"/>.
     ///
     /// <para>The same four fields <see cref="ApprovalConditionsRequest"/> carries, and nothing
     /// else: no reviews, no comments, no confidence score, because this answers a question about
