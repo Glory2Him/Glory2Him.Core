@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.gstatic.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;700&family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/vendor/font-awesome/css/all.min.css">
+<link rel="stylesheet" href="assets/vendor/bootstrap-icons/bootstrap-icons.css">
+<link rel="stylesheet" href="assets/css/style.css">
+<style>a{text-decoration:none}.side-link{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:.4rem;color:#29292e;font-weight:600}.side-link:hover{background:rgba(78,95,249,.08);color:#4e5ff9}.side-link.on{background:rgba(78,95,249,.1);color:#4e5ff9}</style>
+</helmet>
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#e8862e"/><text x="50" y="62" font-size="34" text-anchor="middle" fill="#fff" font-family="Georgia,serif" font-weight="bold">G2H</text></svg></template>
+<header style="background-image:url(uploads/Glory2Him-Banner-NoText1.png);background-size:cover;background-position:center 70%">
+  <div style="background:rgba(20,15,5,.25)">
+    <div class="container d-flex align-items-center flex-wrap py-2" style="gap:22px">
+      <a href="#" class="text-white small fw-bold">About</a>
+      <a href="#" class="text-white small fw-bold">Contact</a>
+      <span class="d-flex align-items-center" style="gap:18px"><a href="Admin Users.dc.html" class="text-white small fw-bold">Admin</a><span class="text-white small" style="opacity:.5">|</span><a href="#" class="text-white small fw-bold"><i class="bi bi-person me-1"></i>{{ authedName }}</a><a href="#" class="text-white small fw-bold" onClick="{{ doLogout }}"><i class="bi bi-box-arrow-right me-1"></i>Logout</a></span>
+      <div class="ms-auto d-flex align-items-center" style="gap:14px">
+        <div class="bg-white rounded p-1 d-flex" style="gap:2px">
+          <span class="btn btn-xs btn-outline-primary mb-0">A-</span>
+          <span class="btn btn-xs btn-primary mb-0">A</span>
+          <span class="btn btn-xs btn-outline-primary mb-0">A+</span>
+        </div>
+        <a href="#" class="text-white"><i class="fas fa-adjust"></i></a>
+        <a href="#" class="text-white"><i class="fab fa-facebook-f"></i></a>
+        <a href="#" class="text-white"><i class="fab fa-twitter"></i></a>
+        <a href="#" class="text-white"><i class="fab fa-linkedin-in"></i></a>
+        <a href="#" class="text-white"><i class="fab fa-youtube"></i></a>
+      </div>
+    </div>
+    <div class="container d-flex align-items-center flex-wrap py-3" style="gap:26px">
+      <a href="Home.dc.html" class="text-white h2 mb-0 fw-bold" style="font-family:Rubik,sans-serif;text-shadow:0 1px 6px rgba(0,0,0,.35)">Glory 2 Him</a>
+      <ul class="list-unstyled d-flex align-items-center flex-wrap mb-0 ms-lg-5" style="gap:26px">
+        <li><a href="Home.dc.html" class="text-white fw-bold">Home</a></li>
+        <li class="position-relative"><a href="#" class="text-white fw-bold" onClick="{{ togglePagesMenu }}">Pages <i class="bi bi-chevron-down small"></i></a><sc-if value="{{ pagesMenuOpen }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:100%;left:0;z-index:60;min-width:180px;background:#fff;border:1px solid rgba(0,0,0,.12);border-radius:.5rem;box-shadow:0 8px 24px rgba(0,0,0,.18);overflow:hidden"><a href="Home 1.dc.html" class="d-block px-3 py-2 fw-bold" style="color:#29292e" style-hover="background:rgba(78,95,249,.08)">Home 1</a><a href="Home 2.dc.html" class="d-block px-3 py-2 fw-bold" style="color:#29292e" style-hover="background:rgba(78,95,249,.08)">Home 2</a></div></sc-if></li>
+        <li><a href="Post Detail.dc.html" class="text-white fw-bold">Post <i class="bi bi-chevron-down small"></i></a></li>
+        <li><a href="#" class="text-white fw-bold">Shop <i class="bi bi-chevron-down small"></i></a></li>
+        <li><a href="#" class="text-white fw-bold">Contact</a></li>
+      </ul>
+      <div class="ms-auto d-flex align-items-center" style="gap:16px">
+        <a href="#" class="btn btn-sm btn-danger mb-0">Subscribe!</a>
+        <a href="#" class="text-white"><i class="bi bi-search fs-4"></i></a>
+        <span class="d-flex align-items-center" style="gap:14px"><a href="#" class="text-white position-relative"><i class="bi bi-bell fs-4"></i><span style="position:absolute;top:2px;right:-2px;width:8px;height:8px;border-radius:50%;background:#d6293e"></span></a><a href="#" class="text-white fw-bold d-flex align-items-center justify-content-center" style="width:38px;height:38px;border-radius:50%;background:#0cbc87;font-size:.85rem">{{ authedInitials }}</a></span>
+        <a href="#" class="text-white"><i class="bi bi-text-right fs-3"></i></a>
+      </div>
+    </div>
+  </div>
+</header>
+<main class="py-4">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-3">
+        <div class="card border p-3">
+          <a href="#" class="side-link"><i class="bi bi-speedometer2"></i>Dashboard</a>
+          <p class="small text-uppercase fw-bold mt-3 mb-1 ms-2" style="color:#7b8089;letter-spacing:.06em"><i class="bi bi-gear me-1"></i>Admin</p>
+          <a href="Admin Users.dc.html" class="side-link on"><i class="bi bi-people"></i>Users</a>
+          <a href="Admin Reactions.dc.html" class="side-link"><i class="bi bi-emoji-smile"></i>Reactions</a>
+          <a href="Admin Tags.dc.html" class="side-link"><i class="bi bi-tag"></i>Tags</a>
+          <a href="Admin Content Item Settings.dc.html" class="side-link"><i class="bi bi-sliders2"></i>Content Item Settings</a>
+          <a href="Admin Posts.dc.html" class="side-link"><i class="bi bi-file-earmark-text"></i>Posts</a>
+        </div>
+      </div>
+      <div class="col-lg-9">
+        <div class="d-flex align-items-center flex-wrap mb-3" style="gap:12px">
+          <h1 class="mb-0 h2">User</h1>
+          <nav class="ms-auto small" style="color:#7b8089">
+            <a href="Home.dc.html" style="color:#7b8089">Home</a> / <a href="Admin Users.dc.html" style="color:#7b8089">Admin</a> / <a href="Admin Users.dc.html" style="color:#7b8089">Users</a> / <span style="color:#b9bdc4">admin</span>
+          </nav>
+        </div>
+        <hr class="mt-0">
+        <div class="text-end mb-4"><a href="Admin Users.dc.html" class="btn btn-secondary mb-0"><i class="bi bi-arrow-left me-1"></i>Back to Users</a></div>
+        <p class="mb-3">User details</p>
+        <div class="d-flex align-items-center mb-3" style="gap:16px">
+          <span class="text-white fw-bold d-flex align-items-center justify-content-center flex-shrink-0" style="width:52px;height:52px;border-radius:50%;background:#4e5ff9">AU</span>
+          <div>
+            <h4 class="mb-0">Admin User</h4>
+            <span class="small" style="color:#b9bdc4;font-family:monospace">d133dcf3-ec55-4085-75d8-08def8b7799a</span>
+          </div>
+        </div>
+        <div class="d-flex flex-wrap mb-4" style="gap:8px">
+          <span class="badge bg-success">Email confirmed</span>
+          <span class="badge bg-success">Not locked</span>
+          <span class="badge bg-dark">2FA off</span>
+          <span class="badge bg-success">Active</span>
+          <span class="badge border text-body">Failed logins: 0</span>
+        </div>
+        <div class="row g-3">
+          <div class="col-md-6"><label class="form-label">Username</label><input type="text" class="form-control" value="admin"></div>
+          <div class="col-md-6"><label class="form-label">Email</label><input type="email" class="form-control" value="admin@g2h.org"></div>
+          <div class="col-md-6"><label class="form-label">First name</label><input type="text" class="form-control" value="Admin"></div>
+          <div class="col-md-6"><label class="form-label">Surname</label><input type="text" class="form-control" value="User"></div>
+          <div class="col-md-6"><label class="form-label">Preferred name</label><input type="text" class="form-control"></div>
+          <div class="col-md-6"><label class="form-label">Phone number</label><input type="text" class="form-control"></div>
+          <div class="col-md-6"><label class="form-label">Date of birth</label><input type="date" class="form-control"></div>
+          <div class="col-12"><button class="btn btn-primary mb-0">Save profile</button></div>
+        </div>
+        <p class="mt-5 mb-2">Roles</p>
+        <div class="card border">
+          <sc-for list="{{ roles }}" as="r" hint-placeholder-count="2">
+            <div class="d-flex align-items-center justify-content-between p-3 border-bottom">
+              <span class="badge bg-primary">{{ r.name }}</span>
+              <button class="btn btn-sm btn-outline-danger mb-0" onClick="{{ r.remove }}">Remove</button>
+            </div>
+          </sc-for>
+        </div>
+        <div class="text-center my-3"><button class="btn btn-primary mb-0" onClick="{{ addRole }}">Add</button></div>
+        <div class="d-flex align-items-center" style="gap:10px">
+          <span class="small">Add role</span>
+          <select class="form-select" style="max-width:240px" value="{{ rolePick }}" onChange="{{ onRolePick }}">
+            <sc-for list="{{ roleOptions }}" as="o" hint-placeholder-count="3"><option value="{{ o }}">{{ o }}</option></sc-for>
+          </select>
+        </div>
+        <p class="mt-5 mb-2">Account actions</p>
+        <div class="d-flex flex-wrap" style="gap:10px">
+          <button class="btn btn-outline-secondary mb-0">Email confirmation link</button>
+          <button class="btn btn-outline-secondary mb-0">Password reset link</button>
+          <button class="btn btn-warning mb-0">Lock</button>
+          <button class="btn btn-outline-secondary mb-0">Reset failed count</button>
+          <button class="btn btn-outline-secondary mb-0">Enable 2FA</button>
+          <button class="btn btn-danger mb-0">Disable user</button>
+          <button class="btn btn-danger mb-0">Delete user</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+<footer class="pb-0 mt-4" style="background:#0f1013;color:#9a9ea6">
+  <div style="background:#0a0b0d">
+    <div class="container d-flex flex-wrap align-items-center py-3" style="gap:20px">
+      <span>©2026 Glory 2 Him. Free to use to help share the Gospel.</span>
+      <div class="ms-auto d-flex" style="gap:20px">
+        <a href="#" style="color:#9a9ea6">Terms</a><a href="#" style="color:#9a9ea6">Privacy</a><a href="#" style="color:#9a9ea6">Cookies</a>
+      </div>
+    </div>
+  </div>
+</footer>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { roles:['Administrators','Admin'], rolePick:'Attachment-Publisher' };
+  static ALL_ROLES = ['Attachment-Publisher','Editors','Moderators','Users'];
+  renderVals() {
+    const S = this.state;
+    const authedUser = localStorage.getItem('g2h-user') || 'Admin';
+    return {
+      pagesMenuOpen: !!(this.state&&this.state.pagesMenuOpen),
+      togglePagesMenu:(e)=>{e.preventDefault();this.setState(s=>({pagesMenuOpen:!(s&&s.pagesMenuOpen)}));},
+      authedName: authedUser,
+      authedInitials: authedUser.slice(0,2).toUpperCase(),
+      doLogout:(e)=>{ e.preventDefault(); localStorage.removeItem('g2h-user'); window.location.href='Home.dc.html'; },
+      roles: S.roles.map(name=>({name, remove:()=>this.setState(s=>({roles:s.roles.filter(x=>x!==name)}))})),
+      roleOptions: Component.ALL_ROLES.filter(r=>!S.roles.includes(r)),
+      rolePick: S.rolePick,
+      onRolePick:(e)=>this.setState({rolePick:e.target.value}),
+      addRole:()=>{ if(S.rolePick && !S.roles.includes(S.rolePick)) this.setState(s=>({roles:[...s.roles, s.rolePick]})); }
+    };
+  }
+}
+</script>
+</body>
+</html>

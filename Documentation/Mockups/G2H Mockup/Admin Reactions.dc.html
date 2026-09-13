@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.gstatic.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;700&family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/vendor/font-awesome/css/all.min.css">
+<link rel="stylesheet" href="assets/vendor/bootstrap-icons/bootstrap-icons.css">
+<link rel="stylesheet" href="assets/css/style.css">
+<style>a{text-decoration:none}.side-link{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:.4rem;color:#29292e;font-weight:600}.side-link:hover{background:rgba(78,95,249,.08);color:#4e5ff9}.side-link.on{background:rgba(78,95,249,.1);color:#4e5ff9}</style>
+</helmet>
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#e8862e"/><text x="50" y="62" font-size="34" text-anchor="middle" fill="#fff" font-family="Georgia,serif" font-weight="bold">G2H</text></svg></template>
+<header style="background-image:url(uploads/Glory2Him-Banner-NoText1.png);background-size:cover;background-position:center 70%">
+  <div style="background:rgba(20,15,5,.25)">
+    <div class="container d-flex align-items-center flex-wrap py-2" style="gap:22px">
+      <a href="#" class="text-white small fw-bold">About</a>
+      <a href="#" class="text-white small fw-bold">Contact</a>
+      <span class="d-flex align-items-center" style="gap:18px"><a href="Admin Users.dc.html" class="text-white small fw-bold">Admin</a><span class="text-white small" style="opacity:.5">|</span><a href="#" class="text-white small fw-bold"><i class="bi bi-person me-1"></i>{{ authedName }}</a><a href="#" class="text-white small fw-bold" onClick="{{ doLogout }}"><i class="bi bi-box-arrow-right me-1"></i>Logout</a></span>
+      <div class="ms-auto d-flex align-items-center" style="gap:14px">
+        <div class="bg-white rounded p-1 d-flex" style="gap:2px">
+          <span class="btn btn-xs btn-outline-primary mb-0">A-</span>
+          <span class="btn btn-xs btn-primary mb-0">A</span>
+          <span class="btn btn-xs btn-outline-primary mb-0">A+</span>
+        </div>
+        <a href="#" class="text-white"><i class="fas fa-adjust"></i></a>
+        <a href="#" class="text-white"><i class="fab fa-facebook-f"></i></a>
+        <a href="#" class="text-white"><i class="fab fa-twitter"></i></a>
+        <a href="#" class="text-white"><i class="fab fa-linkedin-in"></i></a>
+        <a href="#" class="text-white"><i class="fab fa-youtube"></i></a>
+      </div>
+    </div>
+    <div class="container d-flex align-items-center flex-wrap py-3" style="gap:26px">
+      <a href="Home.dc.html" class="text-white h2 mb-0 fw-bold" style="font-family:Rubik,sans-serif;text-shadow:0 1px 6px rgba(0,0,0,.35)">Glory 2 Him</a>
+      <ul class="list-unstyled d-flex align-items-center flex-wrap mb-0 ms-lg-5" style="gap:26px">
+        <li><a href="Home.dc.html" class="text-white fw-bold">Home</a></li>
+        <li class="position-relative"><a href="#" class="text-white fw-bold" onClick="{{ togglePagesMenu }}">Pages <i class="bi bi-chevron-down small"></i></a><sc-if value="{{ pagesMenuOpen }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:100%;left:0;z-index:60;min-width:180px;background:#fff;border:1px solid rgba(0,0,0,.12);border-radius:.5rem;box-shadow:0 8px 24px rgba(0,0,0,.18);overflow:hidden"><a href="Home 1.dc.html" class="d-block px-3 py-2 fw-bold" style="color:#29292e" style-hover="background:rgba(78,95,249,.08)">Home 1</a><a href="Home 2.dc.html" class="d-block px-3 py-2 fw-bold" style="color:#29292e" style-hover="background:rgba(78,95,249,.08)">Home 2</a></div></sc-if></li>
+        <li><a href="Post Detail.dc.html" class="text-white fw-bold">Post <i class="bi bi-chevron-down small"></i></a></li>
+        <li><a href="#" class="text-white fw-bold">Shop <i class="bi bi-chevron-down small"></i></a></li>
+        <li><a href="#" class="text-white fw-bold">Contact</a></li>
+      </ul>
+      <div class="ms-auto d-flex align-items-center" style="gap:16px">
+        <a href="#" class="btn btn-sm btn-danger mb-0">Subscribe!</a>
+        <a href="#" class="text-white"><i class="bi bi-search fs-4"></i></a>
+        <span class="d-flex align-items-center" style="gap:14px"><a href="#" class="text-white position-relative"><i class="bi bi-bell fs-4"></i><span style="position:absolute;top:2px;right:-2px;width:8px;height:8px;border-radius:50%;background:#d6293e"></span></a><a href="#" class="text-white fw-bold d-flex align-items-center justify-content-center" style="width:38px;height:38px;border-radius:50%;background:#0cbc87;font-size:.85rem">{{ authedInitials }}</a></span>
+        <a href="#" class="text-white"><i class="bi bi-text-right fs-3"></i></a>
+      </div>
+    </div>
+  </div>
+</header>
+<main class="py-4">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-3">
+        <div class="card border p-3">
+          <a href="#" class="side-link"><i class="bi bi-speedometer2"></i>Dashboard</a>
+          <p class="small text-uppercase fw-bold mt-3 mb-1 ms-2" style="color:#7b8089;letter-spacing:.06em"><i class="bi bi-gear me-1"></i>Admin</p>
+          <a href="Admin Users.dc.html" class="side-link"><i class="bi bi-people"></i>Users</a>
+          <a href="Admin Reactions.dc.html" class="side-link on"><i class="bi bi-emoji-smile"></i>Reactions</a>
+          <a href="Admin Tags.dc.html" class="side-link"><i class="bi bi-tag"></i>Tags</a>
+          <a href="Admin Content Item Settings.dc.html" class="side-link"><i class="bi bi-sliders2"></i>Content Item Settings</a>
+          <a href="Admin Posts.dc.html" class="side-link"><i class="bi bi-file-earmark-text"></i>Posts</a>
+        </div>
+      </div>
+      <div class="col-lg-9">
+        <div class="d-flex align-items-center flex-wrap mb-3" style="gap:12px">
+          <h1 class="mb-0 h2">Reactions</h1>
+          <nav class="ms-auto small" style="color:#7b8089">
+            <a href="Home.dc.html" style="color:#7b8089">Home</a> / <a href="Admin Users.dc.html" style="color:#7b8089">Admin</a> / <span style="color:#b9bdc4">Reactions</span>
+          </nav>
+        </div>
+        <hr class="mt-0">
+        <div class="d-flex mb-3" style="gap:10px">
+          <input type="text" class="form-control form-control-lg" placeholder="Search…" value="{{ query }}" onChange="{{ onQuery }}">
+          <div class="d-flex align-items-center flex-shrink-0" style="gap:6px">
+            <sc-for list="{{ statusOptions }}" as="o" hint-placeholder-count="4">
+              <button class="btn btn-sm {{ o.cls }} mb-0" onClick="{{ o.pick }}">{{ o.label }}</button>
+            </sc-for>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead>
+              <tr><th></th><th>Name</th><th class="text-center">Emoji</th><th class="text-center">Usage</th><th class="text-center">Status</th><th class="text-center">Reviews</th><th></th></tr>
+            </thead>
+            <tbody>
+              <sc-for list="{{ reactions }}" as="r" hint-placeholder-count="4">
+                <tr>
+                  <td style="width:56px"><span class="d-flex align-items-center justify-content-center fs-5" style="width:40px;height:40px;border-radius:50%;background:rgba(0,0,0,.05)">{{ r.emoji }}</span></td>
+                  <td class="fw-bold">{{ r.name }}</td>
+                  <td class="text-center"><span class="fs-5">{{ r.emoji }}</span></td>
+                  <td class="text-center">{{ r.usage }}</td>
+                  <td class="text-center"><span class="badge {{ r.statusCls }}">{{ r.status }}</span></td>
+                  <td class="text-center">{{ r.reviewCount }}</td>
+                  <td class="text-end"><a href="Admin Reaction Detail.dc.html" class="btn btn-sm btn-outline-primary mb-0">View</a></td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+<footer class="pb-0 mt-4" style="background:#0f1013;color:#9a9ea6">
+  <div style="background:#0a0b0d">
+    <div class="container d-flex flex-wrap align-items-center py-3" style="gap:20px">
+      <span>©2026 Glory 2 Him. Free to use to help share the Gospel.</span>
+      <div class="ms-auto d-flex" style="gap:20px">
+        <a href="#" style="color:#9a9ea6">Terms</a><a href="#" style="color:#9a9ea6">Privacy</a><a href="#" style="color:#9a9ea6">Cookies</a>
+      </div>
+    </div>
+  </div>
+</footer>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { query:'', statusFilter:'All' };
+  static REACTIONS = [
+    {name:'Amen', emoji:'\u{1F44D}', color:'#4e5ff9', usage:1834, status:'Approved', statusCls:'bg-success'},
+    {name:'Love', emoji:'\u2764\uFE0F', color:'#d6293e', usage:1211, status:'Approved', statusCls:'bg-success'},
+    {name:'Joy', emoji:'\u{1F604}', color:'#f7c32e', usage:642, status:'Approved', statusCls:'bg-success'},
+    {name:'Moved', emoji:'\u{1F622}', color:'#17a2b8', usage:187, status:'Submitted', statusCls:'bg-info'},
+    {name:'Praying', emoji:'\u{1F64F}', color:'#0cbc87', usage:0, status:'Draft', statusCls:'bg-secondary'},
+    {name:'Warning', emoji:'\u26A0\uFE0F', color:'#fd7e14', usage:0, status:'Rejected', statusCls:'bg-danger'}
+  ];
+  renderVals() {
+    const authedUser = localStorage.getItem('g2h-user') || 'Admin';
+    const q = this.state.query.toLowerCase();
+    return {
+      pagesMenuOpen: !!(this.state&&this.state.pagesMenuOpen),
+      togglePagesMenu:(e)=>{e.preventDefault();this.setState(s=>({pagesMenuOpen:!(s&&s.pagesMenuOpen)}));},
+      authedName: authedUser,
+      authedInitials: authedUser.slice(0,2).toUpperCase(),
+      doLogout:(e)=>{ e.preventDefault(); localStorage.removeItem('g2h-user'); window.location.href='Home.dc.html'; },
+      query: this.state.query,
+      onQuery:(e)=>this.setState({query:e.target.value}),
+      statusOptions: ['All','Approved','Submitted','Draft','Rejected'].map(label=>({label, cls: this.state.statusFilter===label?'btn-primary':'btn-outline-secondary', pick:()=>this.setState({statusFilter:label})})),
+      reactions: Component.REACTIONS.map(r=>({...r, reviewCount:{Approved:2,Submitted:1,Draft:0,Rejected:2}[r.status]})).filter(r=>(!q || r.name.toLowerCase().includes(q)) && (this.state.statusFilter==='All' || r.status===this.state.statusFilter))
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.gstatic.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;700&family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/vendor/font-awesome/css/all.min.css">
+<link rel="stylesheet" href="assets/vendor/bootstrap-icons/bootstrap-icons.css">
+<link rel="stylesheet" href="assets/css/style.css">
+<style>a{text-decoration:none}.side-link{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:.4rem;color:#29292e;font-weight:600}.side-link:hover{background:rgba(78,95,249,.08);color:#4e5ff9}.side-link.on{background:rgba(78,95,249,.1);color:#4e5ff9}</style>
+</helmet>
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#e8862e"/><text x="50" y="62" font-size="34" text-anchor="middle" fill="#fff" font-family="Georgia,serif" font-weight="bold">G2H</text></svg></template>
+<header style="background-image:url(uploads/Glory2Him-Banner-NoText1.png);background-size:cover;background-position:center 70%">
+  <div style="background:rgba(20,15,5,.25)">
+    <div class="container d-flex align-items-center flex-wrap py-2" style="gap:22px">
+      <a href="#" class="text-white small fw-bold">About</a>
+      <a href="#" class="text-white small fw-bold">Contact</a>
+      <span class="d-flex align-items-center" style="gap:18px"><a href="Admin Users.dc.html" class="text-white small fw-bold">Admin</a><span class="text-white small" style="opacity:.5">|</span><a href="#" class="text-white small fw-bold"><i class="bi bi-person me-1"></i>{{ authedName }}</a><a href="#" class="text-white small fw-bold" onClick="{{ doLogout }}"><i class="bi bi-box-arrow-right me-1"></i>Logout</a></span>
+      <div class="ms-auto d-flex align-items-center" style="gap:14px">
+        <div class="bg-white rounded p-1 d-flex" style="gap:2px">
+          <span class="btn btn-xs btn-outline-primary mb-0">A-</span>
+          <span class="btn btn-xs btn-primary mb-0">A</span>
+          <span class="btn btn-xs btn-outline-primary mb-0">A+</span>
+        </div>
+        <a href="#" class="text-white"><i class="fas fa-adjust"></i></a>
+        <a href="#" class="text-white"><i class="fab fa-facebook-f"></i></a>
+        <a href="#" class="text-white"><i class="fab fa-twitter"></i></a>
+        <a href="#" class="text-white"><i class="fab fa-linkedin-in"></i></a>
+        <a href="#" class="text-white"><i class="fab fa-youtube"></i></a>
+      </div>
+    </div>
+    <div class="container d-flex align-items-center flex-wrap py-3" style="gap:26px">
+      <a href="Home.dc.html" class="text-white h2 mb-0 fw-bold" style="font-family:Rubik,sans-serif;text-shadow:0 1px 6px rgba(0,0,0,.35)">Glory 2 Him</a>
+      <ul class="list-unstyled d-flex align-items-center flex-wrap mb-0 ms-lg-5" style="gap:26px">
+        <li><a href="Home.dc.html" class="text-white fw-bold">Home</a></li>
+        <li class="position-relative"><a href="#" class="text-white fw-bold" onClick="{{ togglePagesMenu }}">Pages <i class="bi bi-chevron-down small"></i></a><sc-if value="{{ pagesMenuOpen }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:100%;left:0;z-index:60;min-width:180px;background:#fff;border:1px solid rgba(0,0,0,.12);border-radius:.5rem;box-shadow:0 8px 24px rgba(0,0,0,.18);overflow:hidden"><a href="Home 1.dc.html" class="d-block px-3 py-2 fw-bold" style="color:#29292e" style-hover="background:rgba(78,95,249,.08)">Home 1</a><a href="Home 2.dc.html" class="d-block px-3 py-2 fw-bold" style="color:#29292e" style-hover="background:rgba(78,95,249,.08)">Home 2</a></div></sc-if></li>
+        <li><a href="Post Detail.dc.html" class="text-white fw-bold">Post <i class="bi bi-chevron-down small"></i></a></li>
+        <li><a href="#" class="text-white fw-bold">Shop <i class="bi bi-chevron-down small"></i></a></li>
+        <li><a href="#" class="text-white fw-bold">Contact</a></li>
+      </ul>
+      <div class="ms-auto d-flex align-items-center" style="gap:16px">
+        <a href="#" class="btn btn-sm btn-danger mb-0">Subscribe!</a>
+        <a href="#" class="text-white"><i class="bi bi-search fs-4"></i></a>
+        <span class="d-flex align-items-center" style="gap:14px"><a href="#" class="text-white position-relative"><i class="bi bi-bell fs-4"></i><span style="position:absolute;top:2px;right:-2px;width:8px;height:8px;border-radius:50%;background:#d6293e"></span></a><a href="#" class="text-white fw-bold d-flex align-items-center justify-content-center" style="width:38px;height:38px;border-radius:50%;background:#0cbc87;font-size:.85rem">{{ authedInitials }}</a></span>
+        <a href="#" class="text-white"><i class="bi bi-text-right fs-3"></i></a>
+      </div>
+    </div>
+  </div>
+</header>
+<main class="py-4">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-3">
+        <div class="card border p-3">
+          <a href="#" class="side-link"><i class="bi bi-speedometer2"></i>Dashboard</a>
+          <p class="small text-uppercase fw-bold mt-3 mb-1 ms-2" style="color:#7b8089;letter-spacing:.06em"><i class="bi bi-gear me-1"></i>Admin</p>
+          <a href="Admin Users.dc.html" class="side-link"><i class="bi bi-people"></i>Users</a>
+          <a href="Admin Reactions.dc.html" class="side-link"><i class="bi bi-emoji-smile"></i>Reactions</a>
+          <a href="Admin Tags.dc.html" class="side-link on"><i class="bi bi-tag"></i>Tags</a>
+          <a href="Admin Content Item Settings.dc.html" class="side-link"><i class="bi bi-sliders2"></i>Content Item Settings</a>
+          <a href="Admin Posts.dc.html" class="side-link"><i class="bi bi-file-earmark-text"></i>Posts</a>
+        </div>
+      </div>
+      <div class="col-lg-9">
+        <div class="d-flex align-items-center flex-wrap mb-3" style="gap:12px">
+          <h1 class="mb-0 h2">Tag</h1>
+          <nav class="ms-auto small" style="color:#7b8089">
+            <a href="Home.dc.html" style="color:#7b8089">Home</a> / <a href="Admin Users.dc.html" style="color:#7b8089">Admin</a> / <a href="Admin Tags.dc.html" style="color:#7b8089">Tags</a> / <span style="color:#b9bdc4">creation</span>
+          </nav>
+        </div>
+        <hr class="mt-0">
+        <div class="text-end mb-4"><a href="Admin Tags.dc.html" class="btn btn-secondary mb-0"><i class="bi bi-arrow-left me-1"></i>Back to Tags</a></div>
+        <div class="row g-4">
+        <div class="col-lg-7">
+        <p class="mb-3">Tag details</p>
+        <div class="d-flex align-items-center mb-3" style="gap:16px">
+          <span class="d-flex align-items-center justify-content-center flex-shrink-0 fs-3" style="width:52px;height:52px;border-radius:50%;background:rgba(78,95,249,.1);color:#4e5ff9"><i class="bi bi-tag fs-4"></i></span>
+          <div>
+            <h4 class="mb-0">#creation</h4>
+            <span class="small" style="color:#b9bdc4;font-family:monospace">7f21ac04-3b6d-49e2-91c5-02aef1b6d210</span>
+          </div>
+        </div>
+        <div class="d-flex flex-wrap mb-4" style="gap:8px">
+          <span class="badge {{ itemStatusCls }}">{{ itemStatus }}</span>
+          <span class="badge border text-body">Used 96 times</span>
+          <span class="badge border text-body">Created: Aug 12, 2026</span>
+          <span class="badge border text-body">By: admin</span>
+        </div>
+        <div class="row g-3">
+          <div class="col-md-6"><label class="form-label">Name</label><input type="text" class="form-control" value="creation"></div>
+          
+          <div class="col-md-6"><label class="form-label">Sort order</label><input type="number" class="form-control" value="4"></div>
+          <div class="col-12"><label class="form-label">Description</label><textarea class="form-control" rows="2">Posts about God’s creation and the natural world.</textarea></div>
+          <div class="col-12"><button class="btn btn-primary mb-0">Save tag</button></div>
+        </div>
+        </div>
+        <div class="col-lg-5">
+          <div class="card border p-4">
+            <div class="d-flex align-items-center justify-content-between mb-3 position-relative"><h4 class="mb-0">Reviews</h4><a href="#" title="Request a reviewer" style="color:#7b8089" onClick="{{ toggleReviewerMenu }}"><i class="bi bi-gear-fill fs-5"></i></a>
+              <sc-if value="{{ reviewerMenuOpen }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute;top:100%;right:0;z-index:40;width:320px;background:#fff;border:1px solid rgba(0,0,0,.12);border-radius:.5rem;box-shadow:0 8px 24px rgba(0,0,0,.18);overflow:hidden">
+                  <div class="p-3 border-bottom fw-bold">Request up to 15 reviewers</div>
+                  <div class="p-2 border-bottom"><input class="form-control" type="text" placeholder="Type or choose a user" value="{{ reviewerQuery }}" onChange="{{ onReviewerQuery }}"></div>
+                  <div style="max-height:480px;overflow-y:auto">
+                    <sc-if value="{{ hasSuggestions }}" hint-placeholder-val="{{ true }}">
+                      <div class="px-3 py-2 small fw-bold border-bottom" style="background:rgba(0,0,0,.03)">Suggestions</div>
+                      <sc-for list="{{ suggestedReviewers }}" as="u" hint-placeholder-count="2">
+                        <div class="d-flex align-items-center px-3 py-2 border-bottom" style="gap:10px;cursor:pointer" onClick="{{ u.pick }}" style-hover="background:rgba(78,95,249,.08)">
+                          <span class="flex-shrink-0 d-flex justify-content-center" style="width:16px"><sc-if value="{{ u.assigned }}" hint-placeholder-val="{{ false }}"><i class="bi bi-check-lg"></i></sc-if></span>
+                          <sc-if value="{{ u.isBot }}" hint-placeholder-val="{{ false }}"><i class="bi bi-person-circle flex-shrink-0" style="font-size:26px;color:#7b8089;line-height:1"></i></sc-if>
+                          <sc-if value="{{ u.notBot }}" hint-placeholder-val="{{ true }}"><span class="text-white fw-bold d-flex align-items-center justify-content-center flex-shrink-0" style="width:30px;height:30px;border-radius:50%;background:{{ u.color }};font-size:.7rem">{{ u.initials }}</span></sc-if>
+                          <span><span class="fw-bold d-block" style="line-height:1.2">{{ u.display }}</span><span class="small" style="color:#7b8089">{{ u.sub }}</span><sc-if value="{{ u.hintLine }}" hint-placeholder-val="{{ false }}"><br><span class="small" style="color:#7b8089">{{ u.hintLine }}</span></sc-if></span>
+                        </div>
+                      </sc-for>
+                    </sc-if>
+                    <sc-if value="{{ hasRequestedSection }}" hint-placeholder-val="{{ false }}">
+                      <div class="px-3 py-2 small fw-bold border-bottom" style="background:rgba(0,0,0,.03)">Requested</div>
+                      <sc-for list="{{ requestedMenuUsers }}" as="u" hint-placeholder-count="1">
+                        <div class="d-flex align-items-center px-3 py-2 border-bottom" style="gap:10px;cursor:pointer" title="Click to remove request" onClick="{{ u.pick }}" style-hover="background:rgba(214,41,62,.06)">
+                          <span class="flex-shrink-0 d-flex justify-content-center" style="width:16px"><sc-if value="{{ u.assigned }}" hint-placeholder-val="{{ false }}"><i class="bi bi-check-lg"></i></sc-if></span>
+                          <sc-if value="{{ u.isBot }}" hint-placeholder-val="{{ false }}"><i class="bi bi-person-circle flex-shrink-0" style="font-size:26px;color:#7b8089;line-height:1"></i></sc-if>
+                          <sc-if value="{{ u.notBot }}" hint-placeholder-val="{{ true }}"><span class="text-white fw-bold d-flex align-items-center justify-content-center flex-shrink-0" style="width:30px;height:30px;border-radius:50%;background:{{ u.color }};font-size:.7rem">{{ u.initials }}</span></sc-if>
+                          <span><span class="fw-bold d-block" style="line-height:1.2">{{ u.display }}</span><span class="small" style="color:#7b8089">{{ u.sub }}</span><sc-if value="{{ u.hintLine }}" hint-placeholder-val="{{ false }}"><br><span class="small" style="color:#7b8089">{{ u.hintLine }}</span></sc-if></span>
+                        </div>
+                      </sc-for>
+                    </sc-if>
+                    <div class="px-3 py-2 small fw-bold border-bottom" style="background:rgba(0,0,0,.03)">Everyone else</div>
+                    <sc-for list="{{ otherReviewers }}" as="u" hint-placeholder-count="4">
+                      <div class="d-flex align-items-center px-3 py-2 border-bottom" style="gap:10px;cursor:pointer" onClick="{{ u.pick }}" style-hover="background:rgba(78,95,249,.08)">
+                        <span class="flex-shrink-0 d-flex justify-content-center" style="width:16px"><sc-if value="{{ u.assigned }}" hint-placeholder-val="{{ false }}"><i class="bi bi-check-lg"></i></sc-if></span>
+                          <span class="text-white fw-bold d-flex align-items-center justify-content-center flex-shrink-0" style="width:30px;height:30px;border-radius:50%;background:{{ u.color }};font-size:.7rem">{{ u.initials }}</span>
+                        <span><span class="fw-bold d-block" style="line-height:1.2">{{ u.display }}</span><span class="small" style="color:#7b8089">{{ u.sub }}</span><sc-if value="{{ u.hintLine }}" hint-placeholder-val="{{ false }}"><br><span class="small" style="color:#7b8089">{{ u.hintLine }}</span></sc-if></span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-if>
+              </div>
+            <div class="py-2 border-bottom">
+              <span class="d-flex align-items-center" style="gap:10px"><span class="text-white fw-bold d-flex align-items-center justify-content-center flex-shrink-0" style="width:30px;height:30px;border-radius:50%;background:#0cbc87;font-size:.7rem">{{ authedInitials }}</span><span><span class="fw-bold d-block" style="line-height:1.2">{{ authedName }}</span><span class="small" style="color:#7b8089">{{ authedUsername }}</span></span></span>
+              <div class="position-relative mt-1 w-100">
+                <button class="btn btn-sm mb-0 w-100 d-flex align-items-center justify-content-between {{ voteBtnCls }}" onClick="{{ toggleVoteMenu }}"><span>{{ voteBtnLabel }}</span><i class="bi bi-chevron-down"></i></button>
+                <sc-if value="{{ voteMenuOpen }}" hint-placeholder-val="{{ false }}">
+                  <div style="position:absolute;top:100%;right:0;z-index:30;width:280px;background:#fff;border:1px solid rgba(0,0,0,.12);border-radius:.4rem;box-shadow:0 5px 15px rgba(0,0,0,.15);overflow:hidden">
+                    <div class="p-3 border-bottom" style="cursor:pointer" onClick="{{ voteApprove }}" style-hover="background:rgba(12,188,135,.08)">
+                      <div class="fw-bold"><sc-if value="{{ voteIsApproved }}" hint-placeholder-val="{{ false }}"><i class="bi bi-check me-1"></i></sc-if>Approve</div>
+                      <div class="small" style="color:#7b8089">I am happy with this tag</div>
+                    </div>
+                    <div class="p-3" style="cursor:pointer" onClick="{{ voteReject }}" style-hover="background:rgba(214,41,62,.08)">
+                      <div class="fw-bold"><sc-if value="{{ voteIsRejected }}" hint-placeholder-val="{{ false }}"><i class="bi bi-check me-1"></i></sc-if>Reject</div>
+                      <div class="small" style="color:#7b8089">I do not think we should add this tag</div>
+                    </div>
+                  </div>
+                </sc-if>
+              </div>
+            </div>
+            <sc-for list="{{ requestedReviewers }}" as="u" hint-placeholder-count="0">
+              <div class="py-2 border-bottom">
+                <span class="d-flex align-items-center" style="gap:10px"><sc-if value="{{ u.isBot }}" hint-placeholder-val="{{ false }}"><i class="bi bi-person-circle flex-shrink-0" style="font-size:26px;color:#7b8089;line-height:1"></i></sc-if><sc-if value="{{ u.notBot }}" hint-placeholder-val="{{ true }}"><span class="text-white fw-bold d-flex align-items-center justify-content-center flex-shrink-0" style="width:30px;height:30px;border-radius:50%;background:{{ u.color }};font-size:.7rem">{{ u.initials }}</span></sc-if><span><span class="fw-bold d-block" style="line-height:1.2">{{ u.display }}</span><span class="small" style="color:#7b8089">{{ u.sub }}</span></span><sc-if value="{{ u.isBot }}" hint-placeholder-val="{{ false }}"><span class="ms-auto d-flex align-items-center" style="gap:12px"><i class="bi bi-arrow-repeat" style="cursor:pointer;color:#7b8089" title="Re-request Berean review"></i><i class="bi bi-chat" style="cursor:pointer;color:#7b8089" title="Berean left review comments"></i></span></sc-if></span>
+                <sc-if value="{{ u.notBot }}" hint-placeholder-val="{{ true }}"><span class="badge bg-warning text-dark d-flex align-items-center justify-content-center w-100 mt-1" style="height:31px;font-size:.875rem">Requested</span></sc-if>
+              </div>
+            </sc-for>
+            <div class="py-2 border-bottom">
+              <span class="d-flex align-items-center" style="gap:10px"><span class="text-white fw-bold d-flex align-items-center justify-content-center flex-shrink-0" style="width:30px;height:30px;border-radius:50%;background:#4e5ff9;font-size:.7rem">JO</span><span><span class="fw-bold d-block" style="line-height:1.2">John</span><span class="small" style="color:#7b8089">john</span></span></span>
+              <span class="badge bg-success d-flex align-items-center justify-content-center w-100 mt-1" style="height:31px;font-size:.875rem">Approved</span>
+            </div>
+            <div class="py-2 border-bottom">
+              <span class="d-flex align-items-center" style="gap:10px"><span class="text-white fw-bold d-flex align-items-center justify-content-center flex-shrink-0" style="width:30px;height:30px;border-radius:50%;background:#17a2b8;font-size:.7rem">SU</span><span><span class="fw-bold d-block" style="line-height:1.2">Susan</span><span class="small" style="color:#7b8089">susan</span></span></span>
+              <span class="badge bg-success d-flex align-items-center justify-content-center w-100 mt-1" style="height:31px;font-size:.875rem">Approved</span>
+            </div>
+            <div class="pt-3 mt-2 border-top">
+              <h4 class="mb-3">Review Outcome</h4>
+              <sc-if value="{{ hasWarnings }}" hint-placeholder-val="{{ true }}">
+                <div class="d-flex mb-3" style="gap:14px">
+                  <span class="d-flex align-items-center justify-content-center flex-shrink-0 text-white" style="width:44px;height:44px;border-radius:50%;background:#d6293e"><i class="fas fa-exclamation-triangle"></i></span>
+                  <div>
+                    <div class="fw-bold">Approval is blocked</div>
+                    <sc-for list="{{ warnings }}" as="w" hint-placeholder-count="2">
+                      <div class="small" style="color:#7b8089">{{ w }}</div>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-if>
+              <span class="d-flex align-items-center justify-content-center text-white w-100" style="gap:8px;height:34px;border-radius:.375rem;background:{{ outcomeStatusBg }};font-weight:600"><span style="width:10px;height:10px;border-radius:50%;background:{{ outcomeStatusDot }}"></span>{{ outcomeStatusLabel }}</span>
+              <sc-if value="{{ hasWarnings }}" hint-placeholder-val="{{ true }}">
+                <div class="form-check mt-3 mb-0">
+                  <input class="form-check-input" type="checkbox" id="bypass" checked="{{ bypass }}" onChange="{{ onBypass }}">
+                  <label class="form-check-label text-danger" for="bypass">Approve without waiting for requirements to be met (bypass rules)</label>
+                </div>
+                <sc-if value="{{ bypass }}" hint-placeholder-val="{{ false }}">
+                  <textarea class="form-control mt-2" rows="2" placeholder="Reason for bypassing the rules…" value="{{ bypassReason }}" onChange="{{ onBypassReason }}"></textarea>
+                </sc-if>
+              </sc-if>
+              <div class="position-relative mt-3">
+                <button class="btn {{ outcomeBtnCls }} mb-0 w-100 d-flex align-items-center justify-content-between" disabled="{{ outcomeDisabled }}" onClick="{{ toggleMenu }}"><span>{{ outcomeBtnLabel }}</span><i class="bi bi-chevron-down"></i></button>
+                <sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}">
+                  <div style="position:absolute;top:100%;left:0;right:0;z-index:30;background:#fff;border:1px solid rgba(0,0,0,.12);border-radius:.4rem;box-shadow:0 5px 15px rgba(0,0,0,.15);overflow:hidden">
+                    <div class="p-3 border-bottom" style="cursor:pointer" onClick="{{ pickApprove }}" style-hover="background:rgba(12,188,135,.08)">
+                      <div class="fw-bold"><sc-if value="{{ isApproved }}" hint-placeholder-val="{{ false }}"><i class="bi bi-check me-1"></i></sc-if>Approve this item</div>
+                      <div class="small" style="color:#7b8089">Approve this item based on the Reviewer votes</div>
+                    </div>
+                    <div class="p-3" style="cursor:pointer" onClick="{{ pickReject }}" style-hover="background:rgba(214,41,62,.08)">
+                      <div class="fw-bold"><sc-if value="{{ isRejected }}" hint-placeholder-val="{{ false }}"><i class="bi bi-check me-1"></i></sc-if>Reject this item</div>
+                      <div class="small" style="color:#7b8089">Reject this item based on the Reviewer votes</div>
+                    </div>
+                  </div>
+                </sc-if>
+              </div>
+              <sc-if value="{{ showSubmit }}" hint-placeholder-val="{{ false }}">
+                <button class="btn {{ outcomeBtnCls }} mb-0 w-100 mt-2" onClick="{{ submitOutcome }}">Submit</button>
+              </sc-if>
+            </div>
+          </div>
+        </div>
+        </div>
+        <h4 class="mt-5 mb-3">Review Comments</h4>
+        <textarea class="form-control" rows="3" placeholder="Write a comment or ask a question…" value="{{ draft }}" onChange="{{ onDraft }}"></textarea>
+        <div class="d-flex align-items-center flex-wrap mt-2" style="gap:18px">
+          <div class="form-check mb-0"><input class="form-check-input" type="radio" name="ctype" id="ct-comment" checked="{{ isComment }}" onChange="{{ pickComment }}"><label class="form-check-label" for="ct-comment">Comment</label></div>
+          <div class="form-check mb-0"><input class="form-check-input" type="radio" name="ctype" id="ct-question" checked="{{ isQuestion }}" onChange="{{ pickQuestion }}"><label class="form-check-label" for="ct-question">Question</label></div>
+          <div class="ms-auto d-flex" style="gap:10px">
+            <button class="btn btn-outline-secondary mb-0" onClick="{{ clearDraft }}">Clear</button>
+            <button class="btn btn-primary mb-0" onClick="{{ saveDraft }}">Save</button>
+          </div>
+        </div>
+        <div class="mt-4">
+          <sc-for list="{{ reviewComments }}" as="c" hint-placeholder-count="2">
+            <div class="border-bottom py-3">
+              <div class="d-flex align-items-center" style="gap:10px">
+                <span class="fw-bold">{{ c.name }}</span>
+                <span class="badge {{ c.typeCls }}">{{ c.type }}</span>
+                <span class="small ms-auto" style="color:#7b8089">{{ c.date }}</span>
+              </div>
+              <p class="mb-1 mt-2">{{ c.text }}</p>
+              <sc-if value="{{ c.isQuestion }}" hint-placeholder-val="{{ false }}">
+                <div class="form-check mt-1"><input class="form-check-input" type="checkbox" id="{{ c.resolvedId }}" checked="{{ c.resolved }}" onChange="{{ c.toggleResolved }}"><label class="form-check-label small" for="{{ c.resolvedId }}">Is resolved — I got my answer</label></div>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+<footer class="pb-0 mt-4" style="background:#0f1013;color:#9a9ea6">
+  <div style="background:#0a0b0d">
+    <div class="container d-flex flex-wrap align-items-center py-3" style="gap:20px">
+      <span>©2026 Glory 2 Him. Free to use to help share the Gospel.</span>
+      <div class="ms-auto d-flex" style="gap:20px">
+        <a href="#" style="color:#9a9ea6">Terms</a><a href="#" style="color:#9a9ea6">Privacy</a><a href="#" style="color:#9a9ea6">Cookies</a>
+      </div>
+    </div>
+  </div>
+</footer>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { myVote:'Rejected', draft:'', draftType:'Comment', resolved:{}, added:[], bypass:false, menuOpen:false, outcome:'', submittedOutcome:'' };
+  static COMMENTS = [
+    {id:'john', name:'John', type:'Question', date:'Aug 27, 2026', text:'Is this content about God\u2019s creation or the created world?  Do we need more specific tags?'},
+    {id:'susan', name:'Susan', type:'Comment', date:'Aug 26, 2026', text:'I would keep it as one tag — broad is fine at our current volume of posts.'}
+  ];
+  renderVals() {
+    const authedUser = localStorage.getItem('g2h-user') || 'Admin';
+    return {
+      pagesMenuOpen: !!(this.state&&this.state.pagesMenuOpen),
+      togglePagesMenu:(e)=>{e.preventDefault();this.setState(s=>({pagesMenuOpen:!(s&&s.pagesMenuOpen)}));},
+      authedName: authedUser,
+      authedUsername: authedUser.toLowerCase(),
+      authedInitials: authedUser.slice(0,2).toUpperCase(),
+      doLogout:(e)=>{ e.preventDefault(); localStorage.removeItem('g2h-user'); window.location.href='Home.dc.html'; },
+      ...(() => {
+        const warnings = [];
+        const approvals = 2 + (this.state.myVote==='Approved' ? 1 : 0);
+        if (approvals < 3) warnings.push('At least 3 approving review(s) is required by reviewers.');
+        if (this.state.myVote==='Rejected') warnings.push('A rejected review is blocking approval');
+        if (!this.state.resolved['john']) warnings.push('All review comments must be resolved.');
+        return { warnings, hasWarnings: warnings.length>0, outcomeDisabled: warnings.length>0 && !this.state.bypass };
+      })(),
+      bypass: this.state.bypass,
+      onBypass:(e)=>this.setState({bypass:e.target.checked, menuOpen:false, bypassReason: e.target.checked ? this.state.bypassReason||'' : ''}),
+      bypassReason: this.state.bypassReason||'',
+      onBypassReason:(e)=>this.setState({bypassReason:e.target.value}),
+      reviewerMenuOpen: !!this.state.reviewerMenuOpen,
+      toggleReviewerMenu:(e)=>{ e.preventDefault(); this.setState(s=>({reviewerMenuOpen:!s.reviewerMenuOpen})); },
+      reviewerQuery: this.state.reviewerQuery||'',
+      onReviewerQuery:(e)=>this.setState({reviewerQuery:e.target.value}),
+      ...(() => {
+        const all = [
+          {username:'Berean', fullName:'', color:'#7b8089', suggested:true, isBot:true, hint:'Your AI Pair Reviewer'},
+          {username:'cjdutoit', fullName:'Christo du Toit', color:'#0cbc87'},
+          {username:'BillWoodNHS', fullName:'Bill Wood', color:'#4e5ff9'},
+          {username:'CarolineCousins', fullName:'', color:'#17a2b8'},
+          {username:'davidhayes03', fullName:'David Hayes', color:'#f7c32e', suggested:true, hint:'Recently reviewed this type'},
+          {username:'acebirim', fullName:'', color:'#fd7e14'},
+          {username:'anickson', fullName:'', color:'#d6293e'}
+        ];
+        const me = localStorage.getItem('g2h-user') || 'Admin';
+        const meExisting = all.find(u=>u.username.toLowerCase()===me.toLowerCase());
+        if (meExisting) { meExisting.assigned = true; meExisting.suggested = false; }
+        else all.push({username:me, fullName:'', color:'#0cbc87', assigned:true});
+        all.push({username:'john', fullName:'John', color:'#4e5ff9', assigned:true});
+        all.push({username:'susan', fullName:'Susan', color:'#17a2b8', assigned:true});
+        all.push({username:'joe', fullName:'Joe', color:'#f7c32e'});
+        const requested = this.state.requested||['joe'];
+        const q = (this.state.reviewerQuery||'').toLowerCase();
+        const matches = u => !q || u.username.toLowerCase().includes(q) || (u.fullName||'').toLowerCase().includes(q);
+        const mk = u=>({...u, notBot:!u.isBot, display:u.isBot?u.username:(u.fullName||u.username), sub:u.isBot?u.hint:u.username, hintLine:(!u.isBot&&u.suggested)?u.hint:null, initials:u.username.slice(0,2).toUpperCase(), pick: u.assigned ? ()=>{} : ()=>this.setState(s=>({requested:[...(s.requested||['joe']), u.username], reviewerMenuOpen:false, reviewerQuery:''}))});
+        const avail = all.filter(u=>!requested.includes(u.username) && matches(u));
+        const reqMenu = all.filter(u=>requested.includes(u.username) && matches(u)).map(u=>({...u, assigned:true, notBot:!u.isBot, display:u.isBot?u.username:(u.fullName||u.username), sub:u.isBot?u.hint:u.username, initials:u.username.slice(0,2).toUpperCase(), pick:()=>this.setState({requested:requested.filter(x=>x!==u.username)})}));
+        const sugg = avail.filter(u=>u.suggested).map(mk);
+        return {
+          suggestedReviewers: sugg,
+          hasSuggestions: sugg.length>0,
+          requestedMenuUsers: reqMenu,
+          hasRequestedSection: reqMenu.length>0,
+          otherReviewers: avail.filter(u=>!u.suggested).sort((a,b)=>(b.assigned?1:0)-(a.assigned?1:0)).map(mk),
+          requestedReviewers: requested.map(username=>{ const u=all.find(x=>x.username===username)||{username}; return {username, display:u.fullName||username, sub:u.isBot?u.hint:username, isBot:!!u.isBot, notBot:!u.isBot, color:u.color||'#7b8089', initials:username.slice(0,2).toUpperCase(), remove:()=>this.setState(s=>({requested:(s.requested||['joe']).filter(x=>x!==username)}))}; })
+        };
+      })(),
+      menuOpen: this.state.menuOpen,
+      toggleMenu:()=>this.setState(s=>({menuOpen:!s.menuOpen})),
+      outcomeBtnLabel: this.state.outcome ? (this.state.outcome==='Approved'?'Approve this item':'Reject this item') : 'Set approval status',
+      outcomeBtnCls: this.state.outcome==='Approved' ? 'btn-success' : this.state.outcome==='Rejected' ? 'btn-danger' : 'btn-secondary',
+      isApproved: this.state.outcome==='Approved',
+      isRejected: this.state.outcome==='Rejected',
+      pickApprove:()=>this.setState({outcome:'Approved', menuOpen:false}),
+      pickReject:()=>this.setState({outcome:'Rejected', menuOpen:false}),
+      showSubmit: !!this.state.outcome && this.state.outcome!==this.state.submittedOutcome,
+      submitOutcome:()=>this.setState(s=>({submittedOutcome:s.outcome})),
+      outcomeStatusLabel: this.state.submittedOutcome || 'Awaiting approval',
+      outcomeStatusBg: this.state.submittedOutcome==='Approved' ? '#0cbc87' : this.state.submittedOutcome==='Rejected' ? '#d6293e' : '#595d69',
+      outcomeStatusDot: this.state.submittedOutcome ? '#fff' : '#f7c32e',
+      itemStatus: this.state.submittedOutcome || 'Submitted',
+      itemStatusCls: this.state.submittedOutcome==='Approved' ? 'bg-success' : this.state.submittedOutcome==='Rejected' ? 'bg-danger' : 'bg-info',
+      voteBtnLabel: this.state.myVote || 'Vote…',
+      voteBtnCls: this.state.myVote==='Approved' ? 'btn-success' : this.state.myVote==='Rejected' ? 'btn-danger' : 'btn-outline-secondary',
+      voteMenuOpen: !!this.state.voteMenuOpen,
+      toggleVoteMenu:()=>this.setState(s=>({voteMenuOpen:!s.voteMenuOpen})),
+      voteIsApproved: this.state.myVote==='Approved',
+      voteIsRejected: this.state.myVote==='Rejected',
+      voteApprove:()=>this.setState({myVote:'Approved', voteMenuOpen:false}),
+      voteReject:()=>this.setState({myVote:'Rejected', voteMenuOpen:false}),
+      draft: this.state.draft,
+      onDraft:(e)=>this.setState({draft:e.target.value}),
+      isComment: this.state.draftType==='Comment',
+      isQuestion: this.state.draftType==='Question',
+      pickComment:()=>this.setState({draftType:'Comment'}),
+      pickQuestion:()=>this.setState({draftType:'Question'}),
+      clearDraft:()=>this.setState({draft:'', draftType:'Comment'}),
+      saveDraft:()=>{ const t=this.state.draft.trim(); if(!t) return;
+        this.setState(s=>({added:[{id:'me-'+Date.now(), name:authedUser, type:s.draftType, date:'Aug 28, 2026', text:t}, ...s.added], draft:'', draftType:'Comment'})); },
+      reviewComments: [...this.state.added, ...Component.COMMENTS].map(c=>({...c,
+        isQuestion: c.type==='Question',
+        typeCls: c.type==='Question' ? 'bg-info' : 'bg-secondary',
+        resolvedId: 'res-'+c.id,
+        resolved: !!this.state.resolved[c.id],
+        toggleResolved:()=>this.setState(s=>({resolved:{...s.resolved,[c.id]:!s.resolved[c.id]}}))
+      }))
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.gstatic.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;700&family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/vendor/font-awesome/css/all.min.css">
+<link rel="stylesheet" href="assets/vendor/bootstrap-icons/bootstrap-icons.css">
+<link rel="stylesheet" href="assets/css/style.css">
+<style>a{text-decoration:none}.reaction-btn{border:1px solid rgba(0,0,0,.12);background:#fff;border-radius:50rem;padding:6px 14px;font-size:.9rem;display:inline-flex;align-items:center;gap:7px;cursor:pointer;transition:all .15s}.reaction-btn:hover{transform:translateY(-2px);box-shadow:0 3px 8px rgba(0,0,0,.1)}.reaction-btn.on{border-color:#4e5ff9;background:rgba(78,95,249,.08)}.cmt-react{border:none;background:none;padding:0;font-size:.8rem;cursor:pointer;color:#7b8089}.cmt-react.on{color:#d6293e;font-weight:700}.suggest-drop{position:absolute;top:100%;left:0;right:0;z-index:20;background:#fff;border:1px solid rgba(0,0,0,.12);border-radius:.4rem;box-shadow:0 5px 15px rgba(0,0,0,.12);overflow:hidden}.suggest-item{padding:7px 12px;cursor:pointer;font-size:.9rem}.suggest-item:hover{background:rgba(78,95,249,.08)}</style>
+</helmet>
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#e8862e"/><text x="50" y="62" font-size="34" text-anchor="middle" fill="#fff" font-family="Georgia,serif" font-weight="bold">G2H</text></svg></template>
+<header style="background-image:url(uploads/Glory2Him-Banner-NoText1.png);background-size:cover;background-position:center 70%">
+  <div style="background:rgba(20,15,5,.25)">
+    <div class="container d-flex align-items-center flex-wrap py-2" style="gap:22px">
+      <a href="#" class="text-white small fw-bold">About</a>
+      <a href="#" class="text-white small fw-bold">Contact</a>
+      <sc-if value="{{ authedOut }}" hint-placeholder-val="{{ true }}"><a href="Login.dc.html" class="text-white small fw-bold">Login / Join</a></sc-if><sc-if value="{{ authedIn }}" hint-placeholder-val="{{ false }}"><span class="d-flex align-items-center" style="gap:18px"><a href="Admin Users.dc.html" class="text-white small fw-bold">Admin</a><span class="text-white small" style="opacity:.5">|</span><a href="#" class="text-white small fw-bold"><i class="bi bi-person me-1"></i>{{ authedName }}</a><a href="#" class="text-white small fw-bold" onClick="{{ doLogout }}"><i class="bi bi-box-arrow-right me-1"></i>Logout</a></span></sc-if>
+      <div class="ms-auto d-flex align-items-center" style="gap:14px">
+        <div class="bg-white rounded p-1 d-flex" style="gap:2px">
+          <span class="btn btn-xs btn-outline-primary mb-0">A-</span>
+          <span class="btn btn-xs btn-primary mb-0">A</span>
+          <span class="btn btn-xs btn-outline-primary mb-0">A+</span>
+        </div>
+        <a href="#" class="text-white"><i class="fas fa-adjust"></i></a>
+        <a href="#" class="text-white"><i class="fab fa-facebook-f"></i></a>
+        <a href="#" class="text-white"><i class="fab fa-twitter"></i></a>
+        <a href="#" class="text-white"><i class="fab fa-linkedin-in"></i></a>
+        <a href="#" class="text-white"><i class="fab fa-youtube"></i></a>
+      </div>
+    </div>
+    <div class="container d-flex align-items-center flex-wrap py-3" style="gap:26px">
+      <a href="Home.dc.html" class="text-white h2 mb-0 fw-bold" style="font-family:Rubik,sans-serif;text-shadow:0 1px 6px rgba(0,0,0,.35)">Glory 2 Him</a>
+      <ul class="list-unstyled d-flex align-items-center flex-wrap mb-0 ms-lg-5" style="gap:26px">
+        <li><a href="Home.dc.html" class="text-white fw-bold">Home</a></li>
+        <li class="position-relative"><a href="#" class="text-white fw-bold" onClick="{{ togglePagesMenu }}">Pages <i class="bi bi-chevron-down small"></i></a><sc-if value="{{ pagesMenuOpen }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:100%;left:0;z-index:60;min-width:180px;background:#fff;border:1px solid rgba(0,0,0,.12);border-radius:.5rem;box-shadow:0 8px 24px rgba(0,0,0,.18);overflow:hidden"><a href="Home 1.dc.html" class="d-block px-3 py-2 fw-bold" style="color:#29292e" style-hover="background:rgba(78,95,249,.08)">Home 1</a><a href="Home 2.dc.html" class="d-block px-3 py-2 fw-bold" style="color:#29292e" style-hover="background:rgba(78,95,249,.08)">Home 2</a></div></sc-if></li>
+        <li><a href="Post Detail.dc.html" class="text-white fw-bold">Post <i class="bi bi-chevron-down small"></i></a></li>
+        <li><a href="#" class="text-white fw-bold">Shop <i class="bi bi-chevron-down small"></i></a></li>
+        <li><a href="#" class="text-white fw-bold">Contact</a></li>
+      </ul>
+      <div class="ms-auto d-flex align-items-center" style="gap:16px">
+        <a href="#" class="btn btn-sm btn-danger mb-0">Subscribe!</a>
+        <a href="#" class="text-white"><i class="bi bi-search fs-4"></i></a>
+        <sc-if value="{{ authedOut }}" hint-placeholder-val="{{ true }}"><a href="Login.dc.html" class="text-white"><i class="bi bi-person-circle fs-4"></i></a></sc-if><sc-if value="{{ authedIn }}" hint-placeholder-val="{{ false }}"><span class="d-flex align-items-center" style="gap:14px"><a href="#" class="text-white position-relative"><i class="bi bi-bell fs-4"></i><span style="position:absolute;top:2px;right:-2px;width:8px;height:8px;border-radius:50%;background:#d6293e"></span></a><a href="#" class="text-white fw-bold d-flex align-items-center justify-content-center" style="width:38px;height:38px;border-radius:50%;background:#0cbc87;font-size:.85rem">{{ authedInitials }}</a></span></sc-if>
+        <a href="#" class="text-white"><i class="bi bi-text-right fs-3"></i></a>
+      </div>
+    </div>
+  </div>
+</header>
+<main>
+<div class="border-bottom border-primary border-1 opacity-1"></div>
+<section class="pb-3 pb-lg-5">
+  <div class="container">
+    <div class="row">
+      <div class="col-lg-8 offset-lg-1">
+        <a href="#" class="badge text-bg-warning mb-2"><i class="fas fa-circle me-2 small fw-bold"></i>Testimony</a>
+        <h1>NASA Proves The Bible Is True</h1>
+        <div class="d-flex align-items-center flex-wrap mt-3" style="gap:10px">
+          <div class="avatar avatar-md"><img class="avatar-img rounded-circle" src="assets/images/avatar/11.jpg" alt="avatar"></div>
+          <div class="me-2">
+            <span class="small d-block">Submitted by</span>
+            <a href="#" class="fw-bold text-reset d-block">Louis Ferguson</a>
+          </div>
+          <div class="me-2 ps-3 border-start">
+            <span class="small d-block">Author</span>
+            <span class="fw-bold d-block">John Smith</span>
+          </div>
+          <div class="me-2 ps-3 border-start">
+            <span class="small d-block">Shareability</span>
+            <span class="fw-bold d-block">Public Domain</span>
+          </div>
+          <ul class="nav nav-divider align-items-center small mb-0">
+            <li class="nav-item">Jul 15, 2026</li>
+            <li class="nav-item"><i class="far fa-clock me-1"></i>5 min read</li>
+            <li class="nav-item"><i class="far fa-heart me-1"></i>{{ totalReactions }} reactions</li>
+            <li class="nav-item"><i class="far fa-comment me-1"></i>{{ commentCount }} comments</li>
+            <li class="nav-item"><i class="far fa-eye me-1"></i>2344 Views</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<section class="pt-0">
+  <div class="container position-relative">
+    <div class="row">
+      <div class="col-lg-7 offset-lg-1 mb-5">
+        <p><span class="dropcap">F</span>or all the scientists out there, and for all the students who have a hard time convincing people of the truth of the Bible — here is something that shows God's awesome creation, and that He is still in control.</p>
+        <p>Did you know that the space program is busy proving that what has been called "myth" in the Bible is true? Mr. Harold Hill, President of the Curtis Engine Company in Baltimore, Maryland, and a consultant in the space program, relates the following development.</p>
+        <p>Our astronauts and space scientists at Green Belt, Maryland were checking the position of the sun, moon, and planets out in space — where they would be 100 years and 1,000 years from now. Orbits must be laid out in terms of the life of the satellite, so the whole thing does not bog down.</p>
+        <p>They ran the computer measurement back and forth over the centuries and it came to a halt. The computer stopped and put up a red signal: something was wrong with either the information fed into it, or the results as compared to the standards. The service department found <mark>there is a day missing in space in elapsed time</mark>. There was no answer.</p>
+        <figure class="figure mt-2">
+          <img class="rounded" src="assets/images/blog/3by2/04.jpg" alt="Image">
+          <figcaption class="figure-caption text-center">(Image placeholder — drop in a fitting photo)</figcaption>
+        </figure>
+        <p>Finally, a Christian man on the team remembered Sunday School and the sun standing still. In the book of Joshua they found the Lord saying, "Fear them not, I have delivered them into thy hand." Joshua, surrounded by the enemy and fearing darkness, asked the Lord to make the sun stand still.</p>
+        <figure class="my-4">
+          <blockquote class="blockquote"><p>The sun stood still and the moon stayed — and hasted not to go down about a whole day.</p></blockquote>
+          <figcaption class="blockquote-footer">Joshua 10:13</figcaption>
+        </figure>
+        <p>There was the missing day! They checked the computers back to the time it was written — close, but not close enough. The elapsed time missing in Joshua's day was 23 hours and 20 minutes, not a whole day. The Bible says "about (approximately) a day" — but 40 minutes still had to be found, because it multiplies many times over in orbits.</p>
+        <p>The Christian employee remembered the sun going <em>backwards</em>. In 2 Kings, Hezekiah, on his death-bed, asked for a sign. Isaiah said, "Do you want the sun to go ahead 10 degrees?" Hezekiah answered, "Let the shadow return backward 10 degrees." And the Lord brought the shadow 10 degrees backward!</p>
+        <p>Ten degrees is exactly 40 minutes. Twenty-three hours and 20 minutes in Joshua, plus 40 minutes in Second Kings, make the missing day in the universe!</p>
+        <div class="bg-light rounded p-4 mt-5 text-center">
+          <h5 class="mb-3">How did this post speak to you?</h5>
+          <div class="d-flex justify-content-center flex-wrap" style="gap:10px">
+            <sc-for list="{{ reactions }}" as="r" hint-placeholder-count="4">
+              <button class="reaction-btn {{ r.cls }}" onClick="{{ r.toggle }}"><span>{{ r.emoji }}</span><span>{{ r.label }}</span><span class="fw-bold">{{ r.count }}</span></button>
+            </sc-for>
+          </div>
+        </div>
+        <hr class="my-5">
+        <div>
+          <h3>{{ commentCount }} comments</h3>
+          <sc-for list="{{ comments }}" as="c" hint-placeholder-count="3">
+            <div class="my-4 d-flex {{ c.indent }}">
+              {{ c.avatarEl }}
+              <div>
+                <div class="mb-2">
+                  <h5 class="m-0">{{ c.name }}</h5>
+                  <span class="me-3 small">{{ c.date }}</span>
+                  <a href="#" class="text-body fw-normal small">Reply</a>
+                </div>
+                <p class="mb-1">{{ c.text }}</p>
+                <button class="cmt-react {{ c.likeCls }}" onClick="{{ c.toggleLike }}"><i class="{{ c.likeIcon }} me-1"></i>{{ c.likes }}</button>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+        <div>
+          <h3>Leave a reply</h3>
+          <form class="row g-3 mt-1">
+            <div class="col-md-6"><label class="form-label">Name *</label><input type="text" class="form-control"></div>
+            <div class="col-md-6"><label class="form-label">Email *</label><input type="email" class="form-control"></div>
+            <div class="col-12"><label class="form-label">Your Comment *</label><textarea class="form-control" rows="3"></textarea></div>
+            <div class="col-12"><button type="submit" class="btn btn-primary">Post comment</button></div>
+          </form>
+        </div>
+      </div>
+      <div class="col-lg-3">
+        <div>
+          <h4>Tags</h4>
+          <div class="d-flex flex-wrap mb-3" style="gap:8px">
+            <a class="btn btn-xs btn-success-soft mb-0" href="#">#creation</a>
+            <a class="btn btn-xs btn-success-soft mb-0" href="#">#science</a>
+            <a class="btn btn-xs btn-success-soft mb-0" href="#">#faith</a>
+            <a class="btn btn-xs btn-success-soft mb-0" href="#">#miracles</a>
+            <sc-for list="{{ pendingTags }}" as="t" hint-placeholder-count="0">
+              <span class="btn btn-xs btn-success-soft mb-0 d-inline-flex align-items-center" style="gap:5px;border:1px dashed #0cbc87" title="Pending review"><i class="bi bi-hourglass-split"></i><span>#{{ t.name }}</span><i class="bi bi-x text-danger" style="cursor:pointer" onClick="{{ t.remove }}"></i></span>
+            </sc-for>
+          </div>
+          <p class="small text-uppercase fw-bold mb-1">Suggest a tag</p>
+          <p class="small mb-2">Think a tag is missing? Suggest one and help others find this post.</p>
+          <div class="position-relative mb-2">
+            <input class="form-control" type="text" placeholder="Start typing a tag…" value="{{ tagQuery }}" onChange="{{ onTagInput }}" onKeyDown="{{ onTagKey }}">
+            <sc-if value="{{ showTagDrop }}" hint-placeholder-val="{{ false }}">
+              <div class="suggest-drop">
+                <sc-for list="{{ tagMatches }}" as="m" hint-placeholder-count="2">
+                  <div class="suggest-item" onClick="{{ m.pick }}">#{{ m.name }}</div>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+          <hr class="my-4">
+          <h4>Bible references</h4>
+          <div class="d-flex flex-wrap mb-3" style="gap:8px">
+            <a href="#" class="btn btn-xs btn-primary-soft mb-0"><i class="bi bi-book me-1"></i>Joshua 10:8, 12–13</a>
+            <a href="#" class="btn btn-xs btn-primary-soft mb-0"><i class="bi bi-book me-1"></i>2 Kings 20:9–11</a>
+            <sc-for list="{{ pendingRefs }}" as="r" hint-placeholder-count="0">
+              <span class="btn btn-xs btn-primary-soft mb-0 d-inline-flex align-items-center" style="gap:5px;border:1px dashed #4e5ff9" title="Pending review"><i class="bi bi-hourglass-split"></i>{{ r.name }}<i class="bi bi-x text-danger" style="cursor:pointer" onClick="{{ r.remove }}"></i></span>
+            </sc-for>
+          </div>
+          <p class="small text-uppercase fw-bold mb-1">Suggest a bible reference</p>
+          <p class="small mb-2">Know a matching verse? Suggest it below.</p>
+          <div class="position-relative mb-2">
+            <input class="form-control" type="text" placeholder="e.g. Romans 3:23…" value="{{ refQuery }}" onChange="{{ onRefInput }}" onKeyDown="{{ onRefKey }}">
+            <sc-if value="{{ showRefDrop }}" hint-placeholder-val="{{ false }}">
+              <div class="suggest-drop">
+                <sc-for list="{{ refMatches }}" as="m" hint-placeholder-count="2">
+                  <div class="suggest-item" onClick="{{ m.pick }}"><i class="bi bi-book me-2"></i>{{ m.name }}</div>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+          <div class="card border mt-4 mb-4 p-4">
+            <h4 class="mb-2"><i class="bi bi-pencil-square me-2" style="color:#4e5ff9;font-size:inherit"></i>Have something to share?</h4>
+            <p class="mb-0">A story, a testimony, or a verse that carried you through — if it might encourage someone else, we would love to read it.</p>
+            <a href="Contribute.dc.html" class="btn btn-primary-soft mt-3 mb-0">Submit a contribution <i class="bi bi-arrow-right ms-1"></i></a>
+          </div>
+          <h4>Share this article</h4>
+          <ul class="nav text-white-force">
+            <li class="nav-item"><a class="nav-link icon-md rounded-circle me-2 mb-2 p-0 fs-5 bg-facebook" href="#"><i class="fab fa-facebook-square align-middle"></i></a></li>
+            <li class="nav-item"><a class="nav-link icon-md rounded-circle me-2 mb-2 p-0 fs-5 bg-twitter" href="#"><i class="fab fa-twitter-square align-middle"></i></a></li>
+            <li class="nav-item"><a class="nav-link icon-md rounded-circle me-2 mb-2 p-0 fs-5 bg-linkedin" href="#"><i class="fab fa-linkedin align-middle"></i></a></li>
+            <li class="nav-item"><a class="nav-link icon-md rounded-circle me-2 mb-2 p-0 fs-5 bg-primary" href="#"><i class="far fa-envelope align-middle"></i></a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+<footer class="pb-0 mt-4" style="background:#0f1013;color:#9a9ea6">
+  <div style="background:#181a20">
+    <div class="container text-center py-5">
+      <i class="fas fa-quote-left fs-1" style="color:#4e5ff9"></i>
+      <p class="h4 text-white mt-3 mb-2" style="font-weight:400">"Go into all the world and preach the gospel to all creation."</p>
+      <p class="mb-3" style="color:#7b8089">— Mark 16:15</p>
+      <p class="mb-0" style="color:#9a9ea6">Every story shared here points back to Jesus. Thank you for reading, and may you be encouraged today.</p>
+    </div>
+  </div>
+  <div class="container pt-5">
+    <div class="row g-4 align-items-center pb-4" style="border-bottom:1px solid rgba(255,255,255,.1)">
+      <div class="col-lg-3"><a href="Home.dc.html"><img src="uploads/Glory2Him-Banner.png" alt="Glory 2 Him" class="rounded" style="width:100%;max-width:280px"></a></div>
+      <div class="col-lg-5"><p class="mb-0">Glory 2 Him is a place to read, reflect, and be encouraged in the good news of Jesus Christ — sharing stories that point all glory back to Him.</p></div>
+      <div class="col-lg-4">
+        <div class="d-flex" style="gap:8px">
+          <input type="email" class="form-control" placeholder="Enter your email address" style="background:#1d1f26;border-color:#2a2d35;color:#fff">
+          <a href="#" class="btn btn-primary mb-0 flex-shrink-0">Subscribe</a>
+        </div>
+        <p class="small mt-2 mb-0" style="color:#7b8089">By subscribing you agree to our <a href="#" class="text-decoration-underline" style="color:#9a9ea6">Privacy Policy</a></p>
+      </div>
+    </div>
+    <div class="row g-4 pt-5">
+      <div class="col-6 col-lg-3">
+        <h5 class="text-white mb-4">Explore</h5>
+        <ul class="list-unstyled d-flex flex-column" style="gap:12px">
+          <li><a href="Home.dc.html" style="color:#9a9ea6">Home</a></li>
+          <li><a href="#" style="color:#9a9ea6">About</a></li>
+          <li><a href="#" style="color:#9a9ea6">Journal</a></li>
+          <li><a href="#" style="color:#9a9ea6">Authors</a></li>
+          <li><a href="#" style="color:#9a9ea6">Contact us</a></li>
+        </ul>
+      </div>
+      <div class="col-6 col-lg-3">
+        <h5 class="text-white mb-4">Account</h5>
+        <ul class="list-unstyled d-flex flex-column" style="gap:12px">
+          <li><a href="#" style="color:#9a9ea6">Sign in</a></li>
+          <li><a href="#" style="color:#9a9ea6">Sign up</a></li>
+          <li><a href="#" style="color:#9a9ea6">My account</a></li>
+        </ul>
+      </div>
+      <div class="col-6 col-lg-3">
+        <h5 class="text-white mb-4">Get Regular Updates</h5>
+        <ul class="list-unstyled d-flex flex-column" style="gap:12px">
+          <li><a href="#" style="color:#9a9ea6"><i class="fab fa-whatsapp me-2"></i>WhatsApp</a></li>
+          <li><a href="#" style="color:#9a9ea6"><i class="fab fa-youtube me-2"></i>YouTube</a></li>
+          <li><a href="#" style="color:#9a9ea6"><i class="bi bi-bell me-2"></i>Notifications</a></li>
+          <li><a href="#" style="color:#9a9ea6"><i class="far fa-envelope me-2"></i>Newsletters</a></li>
+        </ul>
+      </div>
+      <div class="col-6 col-lg-3">
+        <h5 class="text-white mb-4">A word of hope</h5>
+        <p class="mb-0">"Jesus answered, 'I am the way and the truth and the life. No one comes to the Father except through me.'" — John 14:6</p>
+      </div>
+    </div>
+    <div class="pt-4 pb-2">
+      <h5 class="text-white mb-3">Hot topics</h5>
+      <div class="d-flex flex-wrap" style="gap:18px">
+        <a href="#" style="color:#9a9ea6">Faith</a><a href="#" style="color:#9a9ea6">Hope</a><a href="#" style="color:#9a9ea6">Prayer</a><a href="#" style="color:#9a9ea6">Scripture</a><a href="#" style="color:#9a9ea6">Testimony</a><a href="#" style="color:#9a9ea6">Worship</a><a href="#" style="color:#9a9ea6">Community</a><a href="#" style="color:#9a9ea6">Missions</a>
+      </div>
+    </div>
+  </div>
+  <div style="background:#0a0b0d">
+    <div class="container d-flex flex-wrap align-items-center py-3" style="gap:20px">
+      <span>©2026 Glory 2 Him. Free to use to help share the Gospel.</span>
+      <div class="ms-auto d-flex" style="gap:20px">
+        <a href="#" style="color:#9a9ea6">Terms</a><a href="#" style="color:#9a9ea6">Privacy</a><a href="#" style="color:#9a9ea6">Cookies</a>
+      </div>
+    </div>
+  </div>
+</footer>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    rx: {like:{n:112,on:false},heart:{n:98,on:false},smile:{n:41,on:false},sad:{n:6,on:false}},
+    cLikes: {}, tagQuery:'', refQuery:'', pendingTags:[], pendingRefs:[]
+  };
+  static RX = [
+    {k:'like', emoji:'\u{1F44D}', label:'Amen'},
+    {k:'heart', emoji:'\u2764\uFE0F', label:'Love'},
+    {k:'smile', emoji:'\u{1F604}', label:'Joy'},
+    {k:'sad', emoji:'\u{1F622}', label:'Moved'}
+  ];
+  static COMMENTS = [
+    {id:1, name:'Allen Smith', avatar:'assets/images/avatar/01.jpg', date:'Jul 16, 2026 at 6:01 am', likes:14, indent:'', text:'This blessed me so much. The little words in Scripture really do matter \u2014 "about a whole day"!'},
+    {id:2, name:'Louis Ferguson', avatar:'assets/images/avatar/11.jpg', date:'Jul 16, 2026 at 6:55 am', likes:8, indent:'ps-2 ps-md-5', text:'Amen Allen \u2014 that detail is what convinced me to share the story.'},
+    {id:3, name:'Frances Guerrero', avatar:'assets/images/avatar/03.jpg', date:'Jul 17, 2026 at 12:35 pm', likes:5, indent:'ps-2 ps-md-5', text:'Joshua 10 and 2 Kings 20 side by side \u2014 40 minutes exactly. Glory to Him!'},
+    {id:4, name:'Judy Nguyen', avatar:'assets/images/avatar/04.jpg', date:'Jul 18, 2026 at 11:55 am', likes:3, indent:'', text:'Sharing this with my youth group tonight. Thank you for writing it up.'}
+  ];
+  static TAGS = ['creation','science','faith','miracles','grace','redemption','justified','prayer','apologetics','astronomy','joshua','hezekiah','sovereignty','truth'];
+  static REFS = ['Joshua 10:8','Joshua 10:12\u201313','2 Kings 20:9\u201311','Romans 3:23\u201324','Ephesians 2:8\u20139','Psalm 19:1','Isaiah 38:8','Habakkuk 3:11','John 1:3','Colossians 1:16\u201317'];
+  componentDidMount(){ this.forceUpdate(); }
+  renderVals() {
+    const S = this.state, C = Component;
+    const reactions = C.RX.map(r => {
+      const st = S.rx[r.k];
+      return {emoji:r.emoji, label:r.label, count:st.n + (st.on?1:0), cls:st.on?'on':'',
+        toggle:() => this.setState(s => ({rx:{...s.rx,[r.k]:{...s.rx[r.k],on:!s.rx[r.k].on}}}))};
+    });
+    const comments = C.COMMENTS.map(c => {
+      const on = !!S.cLikes[c.id];
+      return {...c, likes:c.likes+(on?1:0), likeCls:on?'on':'', likeIcon:on?'fas fa-heart':'far fa-heart',
+        avatarEl: React.createElement('img', {className:'avatar avatar-md rounded-circle float-start me-3', src:c.avatar, alt:'avatar'}),
+        toggleLike:() => this.setState(s => ({cLikes:{...s.cLikes,[c.id]:!s.cLikes[c.id]}}))};
+    });
+    const match = (list, q) => q.length<1?[]:list.filter(x=>x.toLowerCase().includes(q.toLowerCase())).slice(0,5);
+    const addTag = (name)=>{ name=name.trim().replace(/^#/,''); if(name && !S.pendingTags.includes(name)) this.setState(s=>({pendingTags:[...s.pendingTags,name], tagQuery:''})); else this.setState({tagQuery:''}); };
+    const addRef = (name)=>{ name=name.trim(); if(name && !S.pendingRefs.includes(name)) this.setState(s=>({pendingRefs:[...s.pendingRefs,name], refQuery:''})); else this.setState({refQuery:''}); };
+    const tagMatches = match(C.TAGS, S.tagQuery).map(name=>({name, pick:()=>addTag(name)}));
+    const refMatches = match(C.REFS, S.refQuery).map(name=>({name, pick:()=>addRef(name)}));
+    const authedUser=localStorage.getItem('g2h-user')||''; const authVals={authedIn:!!authedUser, authedOut:!authedUser, authedName:authedUser, authedInitials:(authedUser||'?').slice(0,2).toUpperCase(), doLogout:(e)=>{e.preventDefault();localStorage.removeItem('g2h-user');this.forceUpdate();}};
+    return { ...authVals,
+      pagesMenuOpen: !!(this.state&&this.state.pagesMenuOpen),
+      togglePagesMenu:(e)=>{e.preventDefault();this.setState(s=>({pagesMenuOpen:!(s&&s.pagesMenuOpen)}));},
+      reactions, comments,
+      totalReactions: reactions.reduce((a,r)=>a+r.count,0),
+      commentCount: comments.length,
+      tagQuery:S.tagQuery, refQuery:S.refQuery,
+      onTagInput:(e)=>this.setState({tagQuery:e.target.value}),
+      onRefInput:(e)=>this.setState({refQuery:e.target.value}),
+      tagMatches, refMatches,
+      showTagDrop: tagMatches.length>0,
+      showRefDrop: refMatches.length>0,
+      onTagKey:(e)=>{ if(e.key==='Enter'){ e.preventDefault(); addTag(e.target.value); } },
+      onRefKey:(e)=>{ if(e.key==='Enter'){ e.preventDefault(); addRef(e.target.value); } },
+      pendingTags: S.pendingTags.map(name=>({name, remove:()=>this.setState(s=>({pendingTags:s.pendingTags.filter(x=>x!==name)}))})),
+      pendingRefs: S.pendingRefs.map(name=>({name, remove:()=>this.setState(s=>({pendingRefs:s.pendingRefs.filter(x=>x!==name)}))}))
+    };
+  }
+}
+</script>
+</body>
+</html>
