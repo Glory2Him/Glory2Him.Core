@@ -12,11 +12,13 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using FluentAssertions;
 using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.AIReviewerAssignments;
 using Glory2Him.Core.Models.Foundations.Approvals;
+using Glory2Him.Core.Models.Orchestrations.AIReviewers.Exceptions;
 using Glory2Him.Core.Models.Securities;
 using Moq;
 
@@ -39,9 +41,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
     public partial class AIReviewerOrchestrationServiceTests
     {
         /// <summary>
-        /// Criterion 1, and criterion 7's whole assertion: the write goes through the WORKFLOW
-        /// seam with this round's id, and never through the caller-facing foundation whose gate
-        /// asks for a review-tier role the system identity does not hold.
+        /// #532 criterion 1, and #532 criterion 7's whole assertion: the write goes through the
+        /// WORKFLOW seam with this round's id, and never through the caller-facing foundation
+        /// whose gate asks for a review-tier role the system identity does not hold.
         /// </summary>
         [Fact]
         public async Task ShouldAssignBereanWhenARoundOpensAlreadySubmittedAsync()
@@ -76,7 +78,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
         }
 
         /// <summary>
-        /// Criterion 2. The second subscription, covering both ways a round reaches
+        /// #532 criterion 2. The second subscription, covering both ways a round reaches
         /// <c>Submitted</c> after it opened — the submission of a round opened at <c>Draft</c>,
         /// and §8.6 HR-4's reset re-opening a decided one. One address hears every route,
         /// because all of them write through <c>ModifyApprovalAsync</c>.
@@ -111,12 +113,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
         }
 
         /// <summary>
-        /// Gate 1, and criterion 12's silent failure made loud. The event name is bound INTO the
-        /// HMAC, so a handler expecting the wrong one refuses a genuine envelope it was correctly
-        /// delivered — no misroute, no error, just a reaction that stops happening. The DIRECTION
-        /// is the same trap: <c>EventBroker</c> signs the publish leg as <c>Request</c>, so a
-        /// receiver asking for <c>Reply</c> would fail every verification with nothing to show
-        /// for it.
+        /// Gate 1, and #532 criterion 12's silent failure made loud. The event name is bound INTO
+        /// the HMAC, so a handler expecting the wrong one refuses a genuine envelope it was
+        /// correctly delivered — no misroute, no error, just a reaction that stops happening. The
+        /// DIRECTION is the same trap: <c>EventBroker</c> signs the publish leg as
+        /// <c>Request</c>, so a receiver asking for <c>Reply</c> would fail every verification
+        /// with nothing to show for it.
         ///
         /// <para>The literals are what every existing subscriber writes — <c>EventBroker</c>
         /// composes the name at publish time and exposes that composition to nobody (#286).</para>
@@ -396,9 +398,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
         }
 
         /// <summary>
-        /// Criterion 4, and it is named for the WITHDRAWAL rather than for the gate on purpose.
-        /// A moderator takes Berean off a round, the round is modified again, and nothing is
-        /// written — however many times that round is edited afterwards.
+        /// #532 criterion 4, and it is named for the WITHDRAWAL rather than for the gate on
+        /// purpose. A moderator takes Berean off a round, the round is modified again, and
+        /// nothing is written — however many times that round is edited afterwards.
         ///
         /// <para><b>This is the criterion most likely to be "fixed" later by somebody reading
         /// gate 5 as over-strict. It is not.</b> <c>WithdrawAIReviewerAsync</c> soft-deletes the
@@ -450,12 +452,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
         }
 
         /// <summary>
-        /// Criterion 6, first half. <c>ValidateUserMayRequestAIReviewer</c> is deliberately NOT
-        /// called here, and its absence is a ruling rather than an omission: there is no caller
-        /// whose tier it could ask about. The identity on the inbound envelope belongs to whoever
-        /// moved the round — ordinarily the AUTHOR revising their own submission, who holds no
-        /// review role at all (HR-1 forbids reviewing your own content) — and a gate that has to
-        /// be handed a forged context to pass is not a gate.
+        /// #532 criterion 6, first half. <c>ValidateUserMayRequestAIReviewer</c> is deliberately
+        /// NOT called here, and its absence is a ruling rather than an omission: there is no
+        /// caller whose tier it could ask about. The identity on the inbound envelope belongs to
+        /// whoever moved the round — ordinarily the AUTHOR revising their own submission, who
+        /// holds no review role at all (HR-1 forbids reviewing your own content) — and a gate
+        /// that has to be handed a forged context to pass is not a gate.
         /// </summary>
         [Theory]
         [InlineData(AddedOperation)]
@@ -488,7 +490,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
         }
 
         /// <summary>
-        /// Criterion 6, second half. Unlike <c>ApprovalOrchestrationService</c>'s entity
+        /// #532 criterion 6, second half. Unlike <c>ApprovalOrchestrationService</c>'s entity
         /// handlers, this one does NOT stand down on
         /// <c>envelope.SecurityContext.IsSystemIdentity</c>. Those handlers bind facts that
         /// describe something a PERSON did; a round reaches <c>Submitted</c> through the
@@ -527,10 +529,198 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
                 Times.Once);
         }
 
+        /// <summary>
+        /// GATE 1's first clause. A null envelope is not an empty fact but a broken delivery —
+        /// there is nothing to verify, nothing to gate on, and no content id to read.
+        ///
+        /// <para>It was refused before this guard existed only by ACCIDENT:
+        /// <c>EnvelopeIntegrityBroker</c> reads <c>envelope?.Integrity</c>, so verification
+        /// answered false for it. That is the broker's null tolerance standing in for the
+        /// receiver's own gate, and the moment the clause is trimmed the validator dereferences
+        /// the null itself — a broken delivery then surfaces as a service exception telling the
+        /// operator to contact support. #545 criterion 1 puts the refusal here, where the two
+        /// sibling receivers put theirs.</para>
+        /// </summary>
+        [Theory]
+        [InlineData(AddedOperation)]
+        [InlineData(ModifiedOperation)]
+        public async Task ShouldRefuseANullApprovalFactEnvelopeAsync(
+            string approvalEventOperation)
+        {
+            // given: no delivery at all
+            EventEnvelope<Approval> nullEnvelope = null;
+
+            // when
+            AIReviewerOrchestrationValidationException
+                actualAIReviewerOrchestrationValidationException =
+                    await Assert.ThrowsAsync<AIReviewerOrchestrationValidationException>(() =>
+                        DeliverApprovalFactAsync(
+                            approvalEventOperation,
+                            nullEnvelope,
+                            TestContext.Current.CancellationToken).AsTask());
+
+            // then: the validation family, not the service family a dereferenced null produces
+            actualAIReviewerOrchestrationValidationException.InnerException
+                .Should().BeOfType<InvalidAIReviewerOrchestrationException>();
+
+            // and refused AHEAD OF THE VERIFY rather than after it, which nothing below
+            // could tell apart: gate 1's own broker is the only witness to the ordering
+            // #545 criterion 1 states, so it is asked whether it was called at all.
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
+
+            // and refused ahead of the gates, so nothing else was asked anything either.
+            // #545 criterion 2 says NO BROKER is asked anything, which is why the sweep is over
+            // WHOLE mocks rather than over two named IAccessBroker members: a gather put ahead
+            // of the guard — IsEntityVisibleAsync, say — clears a pair of named Times.Never
+            // assertions without being noticed, and the criterion would be broken with the
+            // suite green. The logging broker is deliberately outside the sweep, because a
+            // refusal IS logged and that log is the TryCatch doing its job.
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.approvalServiceMock.VerifyNoOtherCalls();
+            this.aiReviewerAssignmentServiceMock.VerifyNoOtherCalls();
+            this.aiReviewerAssignmentWorkflowServiceMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+
+            VerifyNoAutomaticAssignmentWasMade();
+        }
+
+        /// <summary>
+        /// GATE 1's second clause. Issue #532 criterion 3 names ApprovalOrchestrationService's
+        /// verifier as the pattern to follow, and that pattern opens by refusing a null Content
+        /// or Metadata BEFORE it verifies anything. Without it a signed envelope carrying no content passes
+        /// verification and then dereferences into the gates, so a malformed fact surfaces as a
+        /// service exception telling the operator to contact support rather than as the
+        /// validation refusal both sibling receivers produce for the same input.
+        ///
+        /// Not reachable from our own publisher today, which is why it is a mis-categorisation
+        /// rather than a hole — but a receiver is reachable without going through the broker, and
+        /// that is the whole reason §14.6 rule 4 puts verification here in the first place.
+        /// </summary>
+        [Theory]
+        [InlineData(AddedOperation)]
+        [InlineData(ModifiedOperation)]
+        public async Task ShouldRefuseAnApprovalFactEnvelopeWithNoContentAsync(
+            string approvalEventOperation)
+        {
+            // given: an envelope that VERIFIES — the integrity broker is left saying true — and
+            // still carries nothing to gate on
+            var contentlessEnvelope = new EventEnvelope<Approval>
+            {
+                Content = null,
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            // when
+            AIReviewerOrchestrationValidationException
+                actualAIReviewerOrchestrationValidationException =
+                    await Assert.ThrowsAsync<AIReviewerOrchestrationValidationException>(() =>
+                        DeliverApprovalFactAsync(
+                            approvalEventOperation,
+                            contentlessEnvelope,
+                            TestContext.Current.CancellationToken).AsTask());
+
+            // then: the validation family, not the service family
+            actualAIReviewerOrchestrationValidationException.InnerException
+                .Should().BeOfType<InvalidAIReviewerOrchestrationException>();
+
+            // and refused AHEAD OF THE VERIFY rather than after it, which nothing below
+            // could tell apart: gate 1's own broker is the only witness to the ordering
+            // #545 criterion 1 states, so it is asked whether it was called at all.
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
+
+            // and refused ahead of the gates, so nothing else was asked anything either.
+            // #545 criterion 2 says NO BROKER is asked anything, which is why the sweep is over
+            // WHOLE mocks rather than over two named IAccessBroker members: a gather put ahead
+            // of the guard — IsEntityVisibleAsync, say — clears a pair of named Times.Never
+            // assertions without being noticed, and the criterion would be broken with the
+            // suite green. The logging broker is deliberately outside the sweep, because a
+            // refusal IS logged and that log is the TryCatch doing its job.
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.approvalServiceMock.VerifyNoOtherCalls();
+            this.aiReviewerAssignmentServiceMock.VerifyNoOtherCalls();
+            this.aiReviewerAssignmentWorkflowServiceMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+
+            VerifyNoAutomaticAssignmentWasMade();
+        }
+
+        /// <summary>
+        /// GATE 1's third clause. The metadata is the delivery's own identity — its EventId is
+        /// what a redelivery is recognised by — so an envelope without one is as malformed as an
+        /// envelope without content, and the two sibling receivers refuse both in the same
+        /// breath.
+        ///
+        /// <para>Arranged on an OTHERWISE PERFECT delivery: a Submitted round, a policy that asks
+        /// for Berean, no assignment ever made and the write stubbed. Every gate below would pass
+        /// it, so with the clause trimmed nothing refuses and the assignment is written — which
+        /// is what makes the refusal this test asserts the clause's own work rather than some
+        /// later gate's.</para>
+        /// </summary>
+        [Theory]
+        [InlineData(AddedOperation)]
+        [InlineData(ModifiedOperation)]
+        public async Task ShouldRefuseAnApprovalFactEnvelopeWithNoMetadataAsync(
+            string approvalEventOperation)
+        {
+            // given: an envelope that VERIFIES and whose content would clear every gate
+            Guid approvalId = Guid.NewGuid();
+
+            SetupAutomaticAIReviewerPolicy(approvalId, isAutomaticallyRequested: true);
+            SetupAIReviewerEverAssigned(approvalId, isEverAssigned: false);
+            SetupAutomaticAIReviewerAssignmentWrite();
+
+            var metadatalessEnvelope = new EventEnvelope<Approval>
+            {
+                Content = new Approval
+                {
+                    Id = approvalId,
+                    EntityType = EntityType.Tag,
+                    EntityId = Guid.NewGuid(),
+                    ApprovalStatus = ApprovalStatus.Submitted,
+                    IsDeleted = false,
+                },
+
+                Metadata = null
+            };
+
+            // when
+            AIReviewerOrchestrationValidationException
+                actualAIReviewerOrchestrationValidationException =
+                    await Assert.ThrowsAsync<AIReviewerOrchestrationValidationException>(() =>
+                        DeliverApprovalFactAsync(
+                            approvalEventOperation,
+                            metadatalessEnvelope,
+                            TestContext.Current.CancellationToken).AsTask());
+
+            // then: the validation family, not the acceptance every gate below would have given it
+            actualAIReviewerOrchestrationValidationException.InnerException
+                .Should().BeOfType<InvalidAIReviewerOrchestrationException>();
+
+            // and refused AHEAD OF THE VERIFY rather than after it, which nothing below
+            // could tell apart: gate 1's own broker is the only witness to the ordering
+            // #545 criterion 1 states, so it is asked whether it was called at all.
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
+
+            // and refused ahead of the gates, so nothing else was asked anything either.
+            // #545 criterion 2 says NO BROKER is asked anything, which is why the sweep is over
+            // WHOLE mocks rather than over two named IAccessBroker members: a gather put ahead
+            // of the guard — IsEntityVisibleAsync, say — clears a pair of named Times.Never
+            // assertions without being noticed, and the criterion would be broken with the
+            // suite green. The logging broker is deliberately outside the sweep, because a
+            // refusal IS logged and that log is the TryCatch doing its job.
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.approvalServiceMock.VerifyNoOtherCalls();
+            this.aiReviewerAssignmentServiceMock.VerifyNoOtherCalls();
+            this.aiReviewerAssignmentWorkflowServiceMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+
+            VerifyNoAutomaticAssignmentWasMade();
+        }
+
         // Both handlers, driven through one switch so every GATE below can be a theory over the
-        // pair rather than a test written twice. That is criterion 2's "one private body" made
-        // observable: the two differ only in the accepted event name, so a rule fixed on one
-        // address and left broken on the other fails here rather than shipping.
+        // pair rather than a test written twice. That is #532 criterion 2's "one private body"
+        // made observable: the two differ only in the accepted event name, so a rule fixed on
+        // one address and left broken on the other fails here rather than shipping.
         private ValueTask<EventEnvelope<Approval>?> DeliverApprovalFactAsync(
             string approvalEventOperation,
             EventEnvelope<Approval> envelope,
