@@ -141,7 +141,11 @@ export function PostDetail() {
         <section className="pt-4 pb-5">
             <div className="container">
                 {isLoading ? (
-                    <div className="text-center py-5"><Spinner /></div>
+                    <div className="row justify-content-center">
+                        <div className="col-xl-9">
+                            <div className="text-center py-5"><Spinner /></div>
+                        </div>
+                    </div>
                 ) : isError || searchItem == null ? (
                     <div className="row justify-content-center">
                         <div className="col-xl-9">
