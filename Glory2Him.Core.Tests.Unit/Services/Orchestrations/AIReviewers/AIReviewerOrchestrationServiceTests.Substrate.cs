@@ -150,6 +150,55 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
                 Times.Once);
         }
 
+        /// <summary>
+        /// Gate 1's refusal. Every gate after it reads the envelope's own signed content, so an
+        /// unverifiable envelope must be refused before a single field of it is trusted —
+        /// otherwise the status gate is reading whatever the sender felt like writing.
+        /// </summary>
+        [Theory]
+        [InlineData(AddedOperation)]
+        [InlineData(ModifiedOperation)]
+        public async Task ShouldNotAssignBereanWhenTheEnvelopeFailsVerificationAsync(
+            string approvalEventOperation)
+        {
+            // given: an otherwise perfect delivery — every other gate would pass
+            Guid approvalId = Guid.NewGuid();
+
+            SetupAutomaticAIReviewerPolicy(approvalId, isAutomaticallyRequested: true);
+            SetupAIReviewerEverAssigned(approvalId, isEverAssigned: false);
+            SetupAutomaticAIReviewerAssignmentWrite();
+
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    It.IsAny<EventEnvelope<It.IsAnyType>>(),
+                    It.IsAny<string>(),
+                    It.IsAny<EnvelopeDirection>()))
+                        .ReturnsAsync(false);
+
+            // when
+            await Assert.ThrowsAnyAsync<Exception>(() =>
+                DeliverApprovalFactAsync(
+                    approvalEventOperation,
+                    CreateApprovalFactEnvelope(approvalId, ApprovalStatus.Submitted),
+                    TestContext.Current.CancellationToken).AsTask());
+
+            // then: no further BROKER CALL and no write, which is what "the first gate that
+            // refuses ends the delivery" means
+            this.accessBrokerMock.Verify(broker =>
+                broker.ResolveAIReviewerPolicyByIdAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.accessBrokerMock.Verify(broker =>
+                broker.IsAIReviewerEverAssignedAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            VerifyNoAutomaticAssignmentWasMade();
+        }
+
         // Both handlers, driven through one switch so every GATE below can be a theory over the
         // pair rather than a test written twice. That is criterion 2's "one private body" made
         // observable: the two differ only in the accepted event name, so a rule fixed on one
@@ -173,6 +222,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
                     approvalEventOperation,
                     "This service subscribes to no other Approval fact address."),
             };
+
+        // Repeated at the end of every refusal below, because "the gate refused" and "the write
+        // did not happen" are two claims and only the second is the one that matters.
+        private void VerifyNoAutomaticAssignmentWasMade() =>
+            this.aiReviewerAssignmentWorkflowServiceMock.Verify(service =>
+                service.AddAutomaticAIReviewerAssignmentAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
 
         private const string AddedOperation = "Added";
         private const string ModifiedOperation = "Modified";
