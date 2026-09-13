@@ -13,10 +13,11 @@
 # reported.
 #
 # Usage:
-#   Tools/design-split-audit.sh [--baseline <ref>] [--scope <20|all>] [--gate <g1|g2|g3|g4|verbatim|all>]
+#   Tools/design-split-audit.sh [--baseline <ref>] [--scope <20|sec|all>] [--gate <g1|g2|g3|g4|verbatim|all>]
 #
 # Examples:
 #   Tools/design-split-audit.sh                        # every gate, scoped to §20
+#   Tools/design-split-audit.sh --scope sec            # every gate, scoped to §14 and §18
 #   Tools/design-split-audit.sh --scope all            # every gate, whole document
 #   Tools/design-split-audit.sh --gate g2 --scope all  # the completeness gate alone
 #   Tools/design-split-audit.sh --gate verbatim        # the prose-identity proof alone
@@ -30,10 +31,14 @@
 #                         is refused rather than used, and a `main` that disagrees
 #                         with `origin/main` is reported; the header prints the
 #                         baseline's date and subject so a stale one is visible.
-#   --scope     20        §20 is the extraction issue #481 performs. `all` is the
-#                         whole-document mode: it reports every section not yet
-#                         extracted and is expected to be NON-EMPTY until the last
-#                         extraction (#556) runs it to empty.
+#   --scope     20        §20 is the extraction issue #481 performs. `sec` is
+#                         issue #552's extraction — §14 and §18, both landing in
+#                         `Security.md` under the same `SEC` prefix, non-contiguous
+#                         with each other and with everything either side of them.
+#                         `all` is the whole-document mode: it reports every
+#                         section not yet extracted and is expected to be
+#                         NON-EMPTY until the last extraction (#556) runs it to
+#                         empty.
 #   --gate      all       G1-G4 are Split.md §S6's gates. `verbatim` is the extra
 #                         check #481 criterion 2 asks for — that no sentence was
 #                         reworded inside the move — which no section-level gate
@@ -74,7 +79,7 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-case "$SCOPE" in 20|all) ;; *) echo "--scope must be 20 or all" >&2; exit 2 ;; esac
+case "$SCOPE" in 20|sec|all) ;; *) echo "--scope must be 20, sec or all" >&2; exit 2 ;; esac
 case "$GATE" in g1|g2|g3|g4|verbatim|all) ;; *) echo "--gate must be g1, g2, g3, g4, verbatim or all" >&2; exit 2 ;; esac
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
@@ -150,9 +155,15 @@ EVENTS="$AREA_DIR/Events.md"
 FAILURES=0
 
 area_files() {
-    # Every area file, rulings excluded. Scope 20 is UI.md alone.
+    # Every area file, rulings excluded. Scope 20 is UI.md alone; scope sec is
+    # Security.md alone (§14 and §18, issue #552).
     if [ "$SCOPE" = "20" ]; then
         [ -f "$AREA_DIR/UI.md" ] && echo "$AREA_DIR/UI.md"
+        return
+    fi
+
+    if [ "$SCOPE" = "sec" ]; then
+        [ -f "$AREA_DIR/Security.md" ] && echo "$AREA_DIR/Security.md"
         return
     fi
 
@@ -163,10 +174,22 @@ area_files() {
     done
 }
 
+expected_area_file() {
+    # The one file a narrow scope resolves to, named for a "not extracted yet"
+    # message. Meaningless under --scope all, which resolves to every area file.
+    case "$SCOPE" in
+        20)  echo "$AREA_DIR/UI.md" ;;
+        sec) echo "$AREA_DIR/Security.md" ;;
+        *)   echo "$AREA_DIR/*.md" ;;
+    esac
+}
+
 in_scope() {
     # Filters a stream of heading numbers down to the scope.
     if [ "$SCOPE" = "20" ]; then
         grep -E '^20($|\.)'
+    elif [ "$SCOPE" = "sec" ]; then
+        grep -E '^(14|18)($|\.)'
     else
         cat
     fi
@@ -212,7 +235,7 @@ gate_g1() {
     files="$(area_files)"
 
     if [ -z "$files" ]; then
-        report "G1" "no area file in scope exists yet" "expected $AREA_DIR/UI.md"
+        report "G1" "no area file in scope exists yet" "expected $(expected_area_file)"
         return
     fi
 
@@ -262,6 +285,8 @@ gate_g3() {
 
     if [ "$SCOPE" = "20" ]; then
         pattern='§20[0-9.]*'
+    elif [ "$SCOPE" = "sec" ]; then
+        pattern='§(14|18)(\.[0-9]+)*'
     else
         pattern='§[0-9]+(\.[0-9]+)*'
     fi
@@ -301,7 +326,7 @@ gate_g4() {
     files="$(area_files)"
 
     if [ -z "$files" ]; then
-        report "G4" "no area file in scope exists yet" "expected $AREA_DIR/UI.md"
+        report "G4" "no area file in scope exists yet" "expected $(expected_area_file)"
         return
     fi
 
@@ -330,40 +355,75 @@ gate_g4() {
 # its title line. Anything else is a rewrite hidden inside a move.
 #
 # It is defined per extraction rather than per document, so it runs under
-# --scope 20 and each later extraction adds its own pairing.
+# --scope 20 or --scope sec, and each later extraction adds its own pairing.
 gate_verbatim() {
-    local file="$AREA_DIR/UI.md" old new difference
+    local file old new difference
 
-    if [ "$SCOPE" != "20" ]; then
-        report "VERBATIM" "defined per extraction, not for the whole document" \
-            "run it with --scope 20"
-        return
-    fi
+    case "$SCOPE" in
+        20)  file="$AREA_DIR/UI.md" ;;
+        sec) file="$AREA_DIR/Security.md" ;;
+        *)
+            report "VERBATIM" "defined per extraction, not for the whole document" \
+                "run it with --scope 20 or --scope sec"
+            return
+            ;;
+    esac
 
     if [ ! -f "$file" ]; then
         report "VERBATIM" "no area file in scope exists yet" "expected $file"
         return
     fi
 
-    old="$(git show "$BASELINE:$DESIGN_DOC" \
-        | sed -n '/^## 20\. /,/^## 21\. /p' \
-        | sed '$d' \
-        | sed -e :a -e '/^[[:space:]]*$/{$d;N;ba' -e '}')"
+    if [ "$SCOPE" = "20" ]; then
+        old="$(git show "$BASELINE:$DESIGN_DOC" \
+            | sed -n '/^## 20\. /,/^## 21\. /p' \
+            | sed '$d' \
+            | sed -e :a -e '/^[[:space:]]*$/{$d;N;ba' -e '}')"
 
-    # Everything below the rule closing the header block is the relocated body.
-    # The heading annotation is dropped rather than checked here, because G1 and
-    # G2 have already proved every one of them carries the right old number.
+        # Everything below the rule closing the header block is the relocated
+        # body. The heading annotation is dropped rather than checked here,
+        # because G1 and G2 have already proved every one of them carries the
+        # right old number.
+        new="$(sed -n '/^---$/,$p' "$file" \
+            | tail -n +2 \
+            | sed -e '/./,$!d' \
+            | sed -E 's/^(#{2,6} )UI(20[0-9.]*)( .*) \*\(formerly §[0-9][0-9.]*\)\*$/\1\2\3/' \
+            | sed -E 's/§(DOM|APR|ARC|SEC|UI)([0-9])/§\2/g' \
+            | sed -E 's/§EVN18/§10.17/g' \
+            | sed -e :a -e '/^[[:space:]]*$/{$d;N;ba' -e '}')"
+
+        difference="$(diff <(echo "$old") <(echo "$new") || true)"
+
+        report "VERBATIM" "normalised differences against the baseline §20 body" "$difference"
+        return
+    fi
+
+    # SCOPE = sec. §14 and §18 are non-contiguous in G2H Design.md (§15-§17
+    # stand between them) but contiguous in Security.md, so the baseline body
+    # is two ranges concatenated rather than one.
+    old="$({
+        git show "$BASELINE:$DESIGN_DOC" | sed -n '/^## 14\. /,/^## 15\. /p' | sed '$d'
+        git show "$BASELINE:$DESIGN_DOC" | sed -n '/^## 18\. /,/^## 19\. /p' | sed '$d'
+    } | sed -e :a -e '/^[[:space:]]*$/{$d;N;ba' -e '}')"
+
+    # §14.6 already cited `Events.md` as `§EVN18(d)` at the baseline — Events
+    # had already been extracted, so that citation was never `§10.17` to begin
+    # with and must not be reversed alongside the ones that were. It is
+    # protected behind a placeholder for the run of the `§EVN18` -> `§10.17`
+    # reversal below, then restored.
     new="$(sed -n '/^---$/,$p' "$file" \
         | tail -n +2 \
         | sed -e '/./,$!d' \
-        | sed -E 's/^(#{2,6} )UI(20[0-9.]*)( .*) \*\(formerly §[0-9][0-9.]*\)\*$/\1\2\3/' \
+        | sed -E 's/^(#{2,6} )SEC((14|18)[0-9.]*)( .*) \*\(formerly §[0-9][0-9.]*\)\*$/\1\2\4/' \
         | sed -E 's/§(DOM|APR|ARC|SEC|UI)([0-9])/§\2/g' \
+        | sed -E 's/§EVN18\(d\)/§XEVN18DX/g' \
         | sed -E 's/§EVN18/§10.17/g' \
+        | sed -E 's/§XEVN18DX/§EVN18(d)/g' \
         | sed -e :a -e '/^[[:space:]]*$/{$d;N;ba' -e '}')"
 
     difference="$(diff <(echo "$old") <(echo "$new") || true)"
 
-    report "VERBATIM" "normalised differences against the baseline §20 body" "$difference"
+    report "VERBATIM" "normalised differences against the baseline §14/§18 body" "$difference"
 }
 
 echo "design-split-audit — baseline $BASELINE, scope §$SCOPE, gate $GATE"
