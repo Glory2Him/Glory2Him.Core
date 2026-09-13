@@ -29,11 +29,28 @@ namespace Glory2Him.Core.Services.Orchestrations.AIReviewers
     /// </summary>
     internal partial class AIReviewerOrchestrationService
     {
+        // THE ONE THING THAT DIFFERS BETWEEN THE TWO HANDLERS, and the only thing that may.
+        //
+        // Stated as literals because there is nowhere to read them from: EventBroker composes the
+        // signed name as entityName + operation on the PUBLISH side alone and exposes that
+        // composition to nobody, so every receiver in this solution states its own. #286 is the
+        // sweep that would introduce a canonical map, and a bespoke derivation at two more sites
+        // would pre-empt a ruling scoped to all of them.
+        //
+        // Composed from the ENTITY and the OPERATION, never from the tense of the address:
+        // Approval-Added and Approval-Modified are the first of the Approval entity's own FACT
+        // addresses to carry a subscription from this service, and that changes nothing about the
+        // name.
+        private const string ApprovalAddedEventName = "ApprovalAdded";
+        private const string ApprovalModifiedEventName = "ApprovalModified";
+
         public ValueTask<EventEnvelope<Approval>?> OnApprovalAddedAsync(
             EventEnvelope<Approval> envelope,
             CancellationToken cancellationToken = default) =>
             TryCatch<EventEnvelope<Approval>?>(async () =>
             {
+                await ValidateApprovalFactEnvelopeAsync(envelope, ApprovalAddedEventName);
+
                 await AssignAIReviewerAutomaticallyAsync(
                     approvalId: envelope.Content.Id,
                     cancellationToken: cancellationToken);
@@ -46,6 +63,8 @@ namespace Glory2Him.Core.Services.Orchestrations.AIReviewers
             CancellationToken cancellationToken = default) =>
             TryCatch<EventEnvelope<Approval>?>(async () =>
             {
+                await ValidateApprovalFactEnvelopeAsync(envelope, ApprovalModifiedEventName);
+
                 await AssignAIReviewerAutomaticallyAsync(
                     approvalId: envelope.Content.Id,
                     cancellationToken: cancellationToken);
