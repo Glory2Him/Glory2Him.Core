@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PostDetail } from './postDetail';
@@ -148,6 +149,11 @@ const renderPage = () =>
         <MemoryRouter initialEntries={['/posts/content-item-1']}>
             <AuthProvider>
                 <Routes>
+                    {/* Declared before the parameter route for the reader's sake — React
+                        Router ranks a static segment above a dynamic one whatever the order.
+                        It stands here so the invitation to contribute has a real destination
+                        to land on rather than an assertion about a spy. */}
+                    <Route path="/posts/contribute" element={<h2>Share something</h2>} />
                     <Route path="/posts/:contentItemId" element={<PostDetail />} />
                 </Routes>
             </AuthProvider>
@@ -205,6 +211,27 @@ describe('PostDetail', () => {
         expect(rightColumn.textContent).toContain('Bible references');
         expect(rightColumn.textContent).toContain('Suggest a tag');
         expect(rightColumn.textContent).toContain('Suggest a bible reference');
+    });
+
+    it('should invite the reader to share something of their own from the five', () => {
+        // when
+        const { container } = renderPage();
+        const rightColumn = container.querySelector('.col-lg-5') as HTMLElement;
+
+        // then
+        expect(rightColumn.textContent).toContain('Have something to share?');
+    });
+
+    it('should carry the reader to the contribution surface and back here', async () => {
+        // given
+        renderPage();
+
+        // when
+        await userEvent.click(screen.getByRole('button', { name: /Submit a contribution/ }));
+
+        // then: the invitation leads somewhere real, and names the post as where the
+        // contributor came from so the way back is this page rather than a guess
+        expect(screen.getByRole('heading', { name: 'Share something' })).toBeInTheDocument();
     });
 
     it('should say the same association fact once, beside the card and not within it', () => {
