@@ -120,6 +120,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.AIReviewerAssignments
 
             // then: the returned row is the STORED one, not the assembled one
             actualAIReviewerAssignment.Should().BeEquivalentTo(expectedAIReviewerAssignment);
+
+            // BY REFERENCE, because BeEquivalentTo cannot tell the three rows apart — the
+            // assembled row, the audited row and the stored row are structurally identical here,
+            // so returning the pre-insert copy would satisfy every value assertion above it. The
+            // row storage hands back is the one carrying whatever the database decided, and it is
+            // also the row the Added fact is chained onto, so the two must not be allowed to
+            // diverge silently.
+            actualAIReviewerAssignment.Should().BeSameAs(storageAIReviewerAssignment);
             actualAIReviewerAssignment.ApprovalId.Should().Be(inputApprovalId);
             actualAIReviewerAssignment.IsAIReviewCompleted.Should().BeFalse();
             actualAIReviewerAssignment.IsAIReviewCommentsPresent.Should().BeFalse();
@@ -156,12 +164,30 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.AIReviewerAssignments
                     auditAppliedAIReviewerAssignment, cancellationToken),
                 Times.Once);
 
+            // CHAINED, NOT NEWLY ROOTED. The fact has to descend from the envelope this verb
+            // minted for itself, carrying the stored row as its content. An It.IsAny pair here
+            // would sit green over a verb that rooted a fresh envelope with CreateSystemAsync, or
+            // that chained the pre-insert copy instead — neither of which any value assertion
+            // above would notice, because the rows are structurally identical.
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateNextAsync(
+                    It.Is<EventEnvelope<AIReviewerAssignment>>(sourceEnvelope =>
+                        sourceEnvelope.SecurityContext.IsSystemIdentity
+                            && sourceEnvelope.SecurityContext.SubjectId == SystemIdentity.UserId),
+                    storageAIReviewerAssignment),
+                Times.Once);
+
             // The ordinary Added fact any assignment publishes — §8.6.2.1 mints no address of its
             // own in either direction, and an automatic assignment is not something a caller may
-            // ask for.
+            // ask for. Pinned on the envelope's own content and identity rather than on It.IsAny,
+            // so the chain proved just above is the chain that actually reaches the broker.
             this.eventBrokerMock.Verify(broker =>
                 broker.PublishAIReviewerAssignmentAsync(
-                    It.IsAny<EventEnvelope<AIReviewerAssignment>>(),
+                    It.Is<EventEnvelope<AIReviewerAssignment>>(outboundEnvelope =>
+                        outboundEnvelope.Content == storageAIReviewerAssignment
+                            && outboundEnvelope.SecurityContext.IsSystemIdentity
+                            && outboundEnvelope.SecurityContext.SubjectId
+                                == SystemIdentity.UserId),
                     AIReviewerAssignmentEventOperation.Added),
                 Times.Once);
 
