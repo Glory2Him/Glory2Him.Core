@@ -285,6 +285,8 @@ components:
       - ResolveAIReviewerPolicyByIdAsync
       - FindResettableAIReviewerAssignmentIdAsync
       - FindRetirableApprovalReviewRequestIdsAsync
+      - IsAIReviewerEverAssignedAsync
+      - IsEntityVisibleAsync
     calls:
       - from: FindDismissableApprovalReviewIdsAsync
         to: StorageBroker
@@ -313,6 +315,9 @@ components:
       - from: FindResettableAIReviewerAssignmentIdAsync
         to: StorageBroker
         method: SelectAIReviewerAssignmentByApprovalIdAsync
+      - from: IsAIReviewerEverAssignedAsync
+        to: StorageBroker
+        method: SelectAllAIReviewerAssignmentsAsync
       - from: MayDecideApprovalAsync
         to: SC.AccessClient
         method: MayDecideApprovalAsync

@@ -164,11 +164,14 @@ view you were on, and switching carries your current selection across.
 - **`ARO` binds TWO subscriptions and publishes nothing** (issue #522, design §12.5.4 business
   rule 4). `ApprovalReview.Added` carries §7.9 rule 6's retirement and `Approval.Modified`
   carries rule 8's — the first subscription in the solution on any of the `Approval` entity's
-  own FACT addresses, the five existing ones all binding command addresses. `ApprovalReview.Added`
-  therefore has two subscribers, `AO`'s re-test and this retirement: two reactions on one
-  address in two services, with `Deliveries` recorded per subscription, which is not the
-  double-fire §EVN2 rule 6 forbids. `AO` lost its `RetrieveApprovalReviewerScopeByIdAsync` and
-  both `Retire*ApprovalReviewRequestAsync` edges with them, and with those the
+  own FACT addresses. It is no longer the only one: `SubscribeToApprovalEventAsync` is called
+  EIGHT times now, five on command addresses and three on fact addresses — this retirement plus
+  §8.6.2.1's `Approval.Added`/`Approval.Modified` pair (#532), recorded further down this file.
+  `ApprovalReview.Added` therefore has two subscribers, `AO`'s re-test and this retirement: two
+  reactions on one address in two services, with `Deliveries` recorded per subscription, which
+  is not the double-fire §EVN2 rule 6 forbids. `AO` lost its
+  `RetrieveApprovalReviewerScopeByIdAsync` and both `Retire*ApprovalReviewRequestAsync` edges
+  with them, and with those the
   `IApprovalReviewRequestWorkflowService` seam entirely. Issue #523 has split
   `ApprovalsController`, moving those five reviewer routes onto `ApprovalReviewersController`,
   which binds `ARO` alone.
@@ -298,9 +301,13 @@ view you were on, and switching carries your current selection across.
   the operation enum selects the event address GUID.
 - Approval policy is a pure decision function: `AccessClient`
   (`ISecurityClient.Access`) decides, and Core's `AccessBroker` does all the
-  gathering from storage. `IAccessBroker` now carries 9 methods and has eight
-  foundation consumers plus the orchestration — not the two the previous
-  snapshot named.
+  gathering from storage. The snapshot models 11 of its methods — 9 until #547
+  added `IsAIReviewerEverAssignedAsync` and `IsEntityVisibleAsync`. Its drawn
+  consumers are two foundation services (`FS.Association`, `FS.ApprovalReview`)
+  and three orchestrations (`AIRO`, `ARO`, `AO`). The CODE has ten foundation
+  services and the same three orchestrations injecting `IAccessBroker`, so the
+  eight foundation consumers this bullet used to claim matched neither, and the
+  eight the snapshot does not draw are the gap rather than the count.
 - `AssociationService` carries four approval state-transition verbs
   (transition, sort, set-confidence, set-scope), each publishing its own fact;
   `Sort` is call-only with no request event. The bypass folded into
@@ -414,8 +421,17 @@ view you were on, and switching carries your current selection across.
   second seam row. `Approval-Modified` now has TWO subscribers, `ARO`'s
   retirement and this one, which is not the double-fire §EVN2 rule 6 forbids:
   two reactions on one address in two services, with `Deliveries` recorded per
-  subscription. `AccessBroker` gains one edge from each handler,
-  `IsAIReviewerEverAssignedAsync`, which is gate 5's unfiltered presence check.
+  subscription. `AccessBroker` gains THREE edges from each handler —
+  `ResolveAIReviewerPolicyByIdAsync` for gate 4, `IsEntityVisibleAsync` for gate 5
+  and `IsAIReviewerEverAssignedAsync` for gate 6's unfiltered presence check —
+  six in all, not the one edge each this bullet used to name.
+  **The other end of it is now drawn too** (#547): `AccessBroker`'s own `methods`
+  list carries `IsAIReviewerEverAssignedAsync` and `IsEntityVisibleAsync`, and the
+  `IsAIReviewerEverAssignedAsync` → `StorageBroker.SelectAllAIReviewerAssignmentsAsync`
+  edge is in `projects/glory2him-core.yml`. What is still undrawn is
+  `IsEntityVisibleAsync`'s OWN outbound set — the eight-arm `Select*ByIdAsync` switch
+  behind it — along with `AO`'s six inbound calls to it recorded above. Both belong
+  to a pass that owns that member rather than to this one.
 - **The reviewer orchestration is modelled as of 2026-09-12** — issue #521,
   PR #535. One new component, `ARO` (`ApprovalReviewerOrchestrationService`),
   and it is the same shape of split as `AIRO` for the same reason: one contract
@@ -453,9 +469,9 @@ view you were on, and switching carries your current selection across.
   are left for the pass that owns `AO`, exactly as its sibling bullet leaves the
   six visibility reads.
 
-  **A further six counts in this file are unverified and at least suspect**, all
+  **A further five counts in this file are unverified and at least suspect**, all
   byte-identical on `origin/main` and none this PR's to fix: `FS.ApprovalReviewRequest`'s
-  method/edge tallies, the `IAccessBroker` consumer list, `StorageBroker`'s drawn-row
+  method/edge tallies, `StorageBroker`'s drawn-row
   figure, the 177-of-184 event-address arithmetic, "108 listeners" against the
   121 recorded earlier in this file, and "Twelve" versus "eleven" controllers. Recorded here so
   the re-scan has the list; deliberately not re-derived, because chasing them

@@ -1193,7 +1193,7 @@ namespace Glory2Him.Core.Registrations
             //
             // Admissible under §EVN18(e)'s amended boundary for the same four reasons the
             // retirement above is, worked through there: it reads no §8.5 predicate and moves
-            // none, it causes no approval write, its own write terminates — gate 5 stands the
+            // none, it causes no approval write, its own write terminates — gate 6 stands the
             // handler down wherever any assignment row exists for the round — and it gates on the
             // signed status before any gather.
             //

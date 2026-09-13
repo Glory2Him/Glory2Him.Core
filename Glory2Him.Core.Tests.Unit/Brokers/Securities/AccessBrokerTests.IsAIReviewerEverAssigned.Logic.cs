@@ -21,7 +21,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
 {
     public partial class AccessBrokerTests
     {
-        // Gate 5 of the automatic assignment (design §8.6.2.1): has anybody EVER decided about
+        // Gate 6 of the automatic assignment (design §8.6.2.1): has anybody EVER decided about
         // Berean on this round. The predicate is one term — ApprovalId — and carries no IsDeleted
         // term at all, which is the whole reason the member exists.
         //

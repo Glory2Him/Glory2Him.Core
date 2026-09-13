@@ -29,7 +29,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
     /// would report a successful reset as an error, while this one is a whole delivery of its own
     /// with nothing committed behind it.
     ///
-    /// <para>Redelivery is safe because gates 3 and 5 make the handler idempotent.</para>
+    /// <para>Redelivery is safe because gates 3 and 6 make the handler idempotent.</para>
     /// </summary>
     public partial class AIReviewerOrchestrationServiceTests
     {
@@ -164,7 +164,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
             string approvalEventOperation)
         {
             // given: the collision UX_AIReviewerAssignments_ApprovalId refuses when two
-            // deliveries for one round both pass gate 5 — the concurrency posture #479 ruled
+            // deliveries for one round both pass gate 6 — the concurrency posture #479 ruled
             Guid approvalId = Guid.NewGuid();
 
             var assignmentWriteException =

@@ -347,7 +347,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
         }
 
         /// <summary>
-        /// §8.6.2.1's gate 4 — the SUBJECT is visible. A takedown leaves the approval record and
+        /// §8.6.2.1's gate 5 — the SUBJECT is visible. A takedown leaves the approval record and
         /// the entity's denormalised <c>ApprovalStatus</c> alone (§9.7.6), so a taken-down row
         /// still looks open to every status-shaped gate above: the round's own
         /// <c>IsDeleted</c> is false, its status still says <c>Submitted</c>, and the policy
@@ -403,7 +403,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
         /// nothing is written — however many times that round is edited afterwards.
         ///
         /// <para><b>This is the criterion most likely to be "fixed" later by somebody reading
-        /// gate 5 as over-strict. It is not.</b> <c>WithdrawAIReviewerAsync</c> soft-deletes the
+        /// gate 6 as over-strict. It is not.</b> <c>WithdrawAIReviewerAsync</c> soft-deletes the
         /// row, so a gate that looked only at live rows would put Berean straight back on the
         /// next <c>Approval-Modified</c>, in a loop the moderator cannot win. A withdrawal is a
         /// decision; asking Berean again after one stays their explicit act, and
@@ -496,7 +496,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
         /// describe something a PERSON did; a round reaches <c>Submitted</c> through the
         /// workflow's own write, so the same guard here would mean this never fires at all.
         ///
-        /// <para>Termination is carried by gate 5 instead, which is strictly stronger: an
+        /// <para>Termination is carried by gate 6 instead, which is strictly stronger: an
         /// identity test bounds one hop, that gate bounds the round forever.</para>
         /// </summary>
         [Theory]

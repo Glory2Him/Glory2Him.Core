@@ -187,11 +187,11 @@ round**; there is none **and there will be none**, and §EVN18(e) says why.
 That is narrower than the flat "there is none" this paragraph used to carry, and
 the narrowing is §EVN18(e)'s amended boundary rather than a change of mind: a
 subscriber that reads no `G2H Design.md` §8.5 predicate and moves none is
-admissible on those addresses, and two are designed on exactly that footing —
+admissible on those addresses, and two sit on exactly that footing —
 `ApprovalReviewerOrchestrationService`'s retirement sweep on `Approval-Modified`
 (`G2H Design.md` §12.5.4, built) and `AIReviewerOrchestrationService`'s automatic
-Berean assignment on both addresses (`G2H Design.md` §8.6.2.1, designed and not
-built). Neither is what these rows describe. `ApprovalUpdatedEvent`'s stated
+Berean assignment on both addresses (`G2H Design.md` §8.6.2.1, built). Neither is
+what these rows describe. `ApprovalUpdatedEvent`'s stated
 purpose — propagating status to a denormalised field — remains something this
 system does through the transition verbs of §EVN18 rules 4–5 and not through a
 subscriber here.
@@ -1655,8 +1655,8 @@ either.
      nothing costs one comparison and no gather at all, and a redelivered one on
      a closed round finds no live rows.
 
-  **A SECOND subscriber is designed on this boundary, and it is worked through
-  here rather than assumed to pass. DESIGNED, NOT BUILT.**
+  **A SECOND subscriber sits on this boundary, and it was worked through
+  here rather than assumed to pass. BUILT (#532).**
   `AIReviewerOrchestrationService` binds **both** addresses to assign Berean
   automatically where the resolved policy asks for it (`G2H Design.md`
   §8.6.2.1). The four conditions:
@@ -1678,18 +1678,18 @@ either.
      the classification pass, and that pass writes an `ApprovalComment` and
      possibly an `ApprovalReview`. Those re-enter the round's re-test through
      items (a)–(b), and a re-test that decides publishes `Approval-Modified`,
-     which arrives back here. **Gate 5 is what closes that loop**: the
+     which arrives back here. **Gate 6 is what closes that loop**: the
      automatic assignment stands down where any assignment row exists for the
      round, live or soft-deleted, so the second arrival finds the row the first
      one wrote and does nothing. The cycle is bounded at one hop by a gate
      rather than by an absent subscriber, which is the stronger of the two and
-     the reason gate 5 is unfiltered.
+     the reason gate 6 is unfiltered.
   4. **It gates on the round's state, and is idempotent under redelivery.** The
      gate reads `envelope.Content.ApprovalStatus` — signed system data inside
      the HMAC — before any gather, and admits `Submitted` alone: a `Draft`
      round has nothing to review yet and a decided one is closed. Redelivery is
-     answered by gate 5 rather than by a `ProcessedEvent` row (§EVN19 rules 1
-     and 4). Two deliveries at once may both pass gate 5, and the filtered
+     answered by gate 6 rather than by a `ProcessedEvent` row (§EVN19 rules 1
+     and 4). Two deliveries at once may both pass gate 6, and the filtered
      unique index on `ApprovalId` refuses the loser — the accepted posture of
      `G2H Design.md` §12.5.4 business rule 4, not a new one.
 
@@ -1801,16 +1801,16 @@ never from the tense of the address. What verifies it against a real publisher
 is the acceptance suite, which drives the retirement over HTTP rather than
 calling the handler.
 
-**Inbound — `AIReviewerOrchestrationService`, two subscriptions. DESIGNED, NOT
-BUILT.**
+**Inbound — `AIReviewerOrchestrationService`, two subscriptions. BUILT
+(#532).**
 
-The AI reviewer orchestration (`G2H Design.md` §12.5 entry 4) is designed to bind
-two addresses of its own, both for the automatic Berean assignment of
+The AI reviewer orchestration (`G2H Design.md` §12.5 entry 4) binds two
+addresses of its own, both for the automatic Berean assignment of
 `G2H Design.md` §8.6.2.1 and neither for a re-test:
 
 | Address | Rule | Reaction |
 | --- | --- | --- |
-| `Approval-Added` | §8.6.2.1 | A round opened. Where it opened at `Submitted` and the five gates pass, Berean is assigned under the system identity. |
+| `Approval-Added` | §8.6.2.1 | A round opened. Where it opened at `Submitted` and the six gates pass, Berean is assigned under the system identity. |
 | `Approval-Modified` | §8.6.2.1 | A round may have *reached* `Submitted` — a draft submitted, or §8.6 HR-4's reset re-opening a decided one. Same gates, same write. |
 
 Four things about this pair:
@@ -1833,12 +1833,12 @@ Four things about this pair:
    subscriber of any kind.
 3. **The two are independent of each other and of the retirement**, and no
    delivery order is specified or may be relied on. Nothing here needs one:
-   every ordering question this pair could raise is answered by gate 5's
+   every ordering question this pair could raise is answered by gate 6's
    unfiltered presence check, which makes "has this round already been decided
    about" a property of storage rather than of which handler ran first.
 4. **Neither needs the fact to say why the round moved**, so neither earns a
    discriminated address. `Approval-Added` and `Approval-Modified` both carry
-   the `ApprovalStatus` in signed content, which is the whole of what gate 1
+   the `ApprovalStatus` in signed content, which is the whole of what gate 3
    reads. This is the same answer the reviewer pair's point 3 gives, and the
    same reason a discriminated `Approval-Reset` stays deferred.
 
@@ -1989,7 +1989,7 @@ itself is at-least-once.**
    `ApprovalReviewRequestService.RetireAnsweredApprovalReviewRequestAsync` onto
    `ApprovalReviewRequest-Removed`,
    `AIReviewerAssignmentService.ReturnStaleAIReviewerAssignmentToPendingAsync`
-   onto `AIReviewerAssignment-Modified`, and — **designed and not built** —
+   onto `AIReviewerAssignment-Modified`, and
    `AIReviewerAssignmentService.AddAutomaticAIReviewerAssignmentAsync` onto
    `AIReviewerAssignment-Added` (`G2H Design.md` §8.6.2.1). Each is reached by a
    direct in-process
@@ -2016,7 +2016,7 @@ itself is at-least-once.**
    called from `ApprovalReviewerOrchestrationService`'s subscriptions on
    `ApprovalReview-Added` and `Approval-Modified` (§EVN18's reviewer table,
    `G2H Design.md` §12.5.4 business rule 4), and the automatic AI assignment is
-   designed to be called from `AIReviewerOrchestrationService`'s subscriptions
+   called from `AIReviewerOrchestrationService`'s subscriptions
    on `Approval-Added` and `Approval-Modified` (§EVN18's AI table,
    `G2H Design.md` §8.6.2.1). An earlier version of this
    paragraph had that handler record "the ordinary inbound `ProcessedEvent`
@@ -2059,7 +2059,7 @@ itself is at-least-once.**
    and what the handler then reads has nothing left to act on — the retirement's
    gather returns no live rows once they are retired, and the automatic
    assignment's unfiltered presence check finds the row the first delivery wrote
-   (`G2H Design.md` §12.5.4 business rule 4(i) and §8.6.2.1 gates 1 and 5,
+   (`G2H Design.md` §12.5.4 business rule 4(i) and §8.6.2.1 gates 3 and 6,
    §EVN18(e) condition 4 of each amendment). §EVN18(d) already rests on the
    same footing — re-entry there is held off "rather than by a `ProcessedEvent`
    row" — so this is that shape stated generally, not a new one.
@@ -2115,8 +2115,8 @@ itself is at-least-once.**
    - **Gate on signed state, then find nothing left to do.** The two
      non-re-testing subscriber sets of §EVN18(e) read the round's status out of
      the HMAC before any gather, and their gather or presence check is empty on
-     a second pass — the reviewer orchestration's retirements (built) and the AI
-     orchestration's automatic assignment (designed, not built).
+     a second pass — the reviewer orchestration's retirements and the AI
+     orchestration's automatic assignment, both built.
 
    Both shapes exist already; neither is new work. An earlier version of this
    rule offered only the first, which was true of every orchestration handler
