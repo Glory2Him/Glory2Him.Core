@@ -589,6 +589,56 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.AIReviewerAssignments
         }
 
         /// <summary>
+        /// The other half of the pair: an <c>OperationCanceledException</c> surfacing from a
+        /// DEPENDENCY while the caller's token is still live is a timeout, and a timeout is a
+        /// dependency failure. Same exception type as the test below, opposite answer, and the
+        /// token is the only thing that tells them apart.
+        /// </summary>
+        [Fact]
+        public async Task ShouldThrowDependencyExceptionOnAddAutomaticIfOperationCanceledExceptionOccursAndLogItAsync()
+        {
+            // given
+            Guid someApprovalId = Guid.NewGuid();
+            var operationCanceledException = new OperationCanceledException();
+            var timeoutException = new TimeoutException("The dependency operation timed out.");
+
+            var timeoutAIReviewerAssignmentException =
+                new TimeoutAIReviewerAssignmentException(
+                    message: "Failed AI reviewer assignment timeout error occurred, contact support.",
+                    innerException: timeoutException,
+                    data: timeoutException.Data);
+
+            var expectedAIReviewerAssignmentDependencyException =
+                new AIReviewerAssignmentDependencyException(
+                    message: "AI reviewer assignment dependency error occurred, contact support.",
+                    innerException: timeoutAIReviewerAssignmentException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(
+                    It.IsAny<AIReviewerAssignment>(), It.IsAny<SecurityContext>()))
+                        .ThrowsAsync(operationCanceledException);
+
+            // when
+            ValueTask<AIReviewerAssignment> addAutomaticTask =
+                this.aiReviewerAssignmentWorkflowService
+                    .AddAutomaticAIReviewerAssignmentAsync(
+                        someApprovalId,
+                        TestContext.Current.CancellationToken);
+
+            AIReviewerAssignmentDependencyException actualException =
+                await Assert.ThrowsAsync<AIReviewerAssignmentDependencyException>(
+                    addAutomaticTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedAIReviewerAssignmentDependencyException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAIReviewerAssignmentDependencyException))),
+                Times.Once);
+        }
+
+        /// <summary>
         /// A GENUINE cancellation — the caller's token — passes straight through rather than
         /// being categorized as a timeout. The distinction is the <c>when</c> clause on the
         /// first catch: a dependency that gave up looks identical to a caller who walked away
