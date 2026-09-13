@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Brokers.Storages.Sql;
+using Glory2Him.Core.Models.Foundations.AIReviewerAssignments;
 using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.Approvals;
@@ -100,6 +101,16 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
             }
         }
 
+        public async ValueTask SeedAsync(
+            params AIReviewerAssignment[] aiReviewerAssignments)
+        {
+            foreach (AIReviewerAssignment aiReviewerAssignment in aiReviewerAssignments)
+            {
+                await this.storageBroker.InsertAIReviewerAssignmentAsync(
+                    aiReviewerAssignment, CancellationToken.None);
+            }
+        }
+
         public async ValueTask SeedAsync(params ApprovalReview[] approvalReviews)
         {
             foreach (ApprovalReview approvalReview in approvalReviews)
@@ -164,6 +175,27 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
                 if (stored is not null)
                 {
                     await this.storageBroker.DeleteApprovalReviewRequestAsync(
+                        stored, CancellationToken.None);
+                }
+            }
+        }
+
+        // Cleared BEFORE the approvals they hang off, since the FK refuses the other order —
+        // matching ApprovalReviewRequest's own teardown beside it. PHYSICAL, on rows a test may
+        // have seeded already soft-deleted: the unfiltered read this fixture hosts is precisely
+        // the one that still sees them.
+        public async ValueTask ClearAsync(
+            IEnumerable<AIReviewerAssignment> aiReviewerAssignments)
+        {
+            foreach (AIReviewerAssignment aiReviewerAssignment in aiReviewerAssignments)
+            {
+                AIReviewerAssignment stored =
+                    await this.storageBroker.SelectAIReviewerAssignmentByIdAsync(
+                        aiReviewerAssignment.Id, CancellationToken.None);
+
+                if (stored is not null)
+                {
+                    await this.storageBroker.DeleteAIReviewerAssignmentAsync(
                         stored, CancellationToken.None);
                 }
             }
