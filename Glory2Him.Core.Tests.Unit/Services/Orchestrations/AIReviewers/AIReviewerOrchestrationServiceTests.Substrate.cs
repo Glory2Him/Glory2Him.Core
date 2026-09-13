@@ -585,9 +585,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
         }
 
         /// <summary>
-        /// GATE 1's other half. Criterion 3 names ApprovalOrchestrationService's verifier as the
-        /// pattern to follow, and that pattern opens by refusing a null Content or Metadata
-        /// BEFORE it verifies anything. Without it a signed envelope carrying no content passes
+        /// GATE 1's second clause. Issue #532 criterion 3 names ApprovalOrchestrationService's
+        /// verifier as the pattern to follow, and that pattern opens by refusing a null Content
+        /// or Metadata BEFORE it verifies anything. Without it a signed envelope carrying no content passes
         /// verification and then dereferences into the gates, so a malformed fact surfaces as a
         /// service exception telling the operator to contact support rather than as the
         /// validation refusal both sibling receivers produce for the same input.
