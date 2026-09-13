@@ -135,5 +135,75 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        // §8.6.2.1 criterion 1, the modify twin of the add test beside it: the caller's chosen
+        // value round-trips untouched, in both directions.
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task ShouldModifyApprovalSettingWithTheCallersIsAIReviewerAutomaticallyRequestedAsync(
+            bool isAIReviewerAutomaticallyRequested)
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+
+            ApprovalSetting randomApprovalSetting =
+                CreateRandomModifyApprovalSetting(randomDateTimeOffset, randomUserId);
+
+            randomApprovalSetting.IsAIReviewerAutomaticallyRequested = isAIReviewerAutomaticallyRequested;
+            ApprovalSetting inputApprovalSetting = randomApprovalSetting;
+            ApprovalSetting auditAppliedApprovalSetting = inputApprovalSetting.DeepClone();
+            ApprovalSetting storageApprovalSetting = auditAppliedApprovalSetting.DeepClone();
+            storageApprovalSetting.UpdatedWhen = storageApprovalSetting.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+            ApprovalSetting auditPreservedApprovalSetting = auditAppliedApprovalSetting.DeepClone();
+            ApprovalSetting updatedApprovalSetting = auditPreservedApprovalSetting.DeepClone();
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(inputApprovalSetting, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(auditAppliedApprovalSetting);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectApprovalSettingByIdAsync(
+                    auditAppliedApprovalSetting.Id,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageApprovalSetting);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    auditAppliedApprovalSetting,
+                    storageApprovalSetting))
+                        .ReturnsAsync(auditPreservedApprovalSetting);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateApprovalSettingAsync(auditPreservedApprovalSetting, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(updatedApprovalSetting);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishApprovalSettingAsync(
+                    It.IsAny<EventEnvelope<ApprovalSetting>>(),
+                    ApprovalSettingEventOperation.Modified))
+                    .Returns(new ValueTask<EventPublishResult<ApprovalSetting>>(
+                        new EventPublishResult<ApprovalSetting>()));
+
+            // when
+            ApprovalSetting actualApprovalSetting =
+                await this.approvalSettingService.ModifyApprovalSettingAsync(
+                    inputApprovalSetting,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualApprovalSetting.IsAIReviewerAutomaticallyRequested
+                .Should().Be(isAIReviewerAutomaticallyRequested);
+        }
     }
 }
