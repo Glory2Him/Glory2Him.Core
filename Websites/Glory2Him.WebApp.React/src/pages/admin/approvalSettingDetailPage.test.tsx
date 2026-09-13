@@ -81,6 +81,7 @@ const createApprovalSetting = (
         doNotAllowBypassingSettings: false,
         isAIReviewerOffered: false,
         isAIAllowedToVote: false,
+        isAIReviewerAutomaticallyRequested: true,
         aiApprovalConfidenceRejectionThreshold: 2.5,
         aiApprovalConfidenceApprovalThreshold: 7.5,
         createdBy: 'admin',
@@ -216,6 +217,65 @@ describe('ApprovalSettingDetailPage', () => {
             // then
             expect(switchFor('Offer Berean as a reviewer')).not.toBeChecked();
             expect(switchFor('Allow Berean to additionally cast a vote')).toBeDisabled();
+        });
+
+        // §8.6.2.1: the third switch on the Berean card. It opens ON, matching what
+        // ApprovalSettingSeedData ships everywhere — the same house-policy reasoning the other
+        // fields above are asserted against, restated for the newest one.
+        it('should open with the automatic-request switch already on', () => {
+            // given
+            renderCreatePage();
+
+            // then
+            expect(switchFor('Automatically assign Berean once a round opens'))
+                .toBeChecked();
+        });
+
+        // UNLIKE THE VOTE SWITCH, this one must not disable while Berean is not offered: the
+        // dormant pair (offered = false, automatic = true) is legal and is exactly what every
+        // shipped row holds.
+        it('should not disable the automatic-request switch while Berean is not offered', () => {
+            // given
+            renderCreatePage();
+
+            // then
+            expect(switchFor('Offer Berean as a reviewer')).not.toBeChecked();
+
+            expect(switchFor('Automatically assign Berean once a round opens'))
+                .not.toBeDisabled();
+        });
+
+        // AND UNLIKE THE VOTE SWITCH, it must not be CLEARED by turning the offer off and back
+        // on — a row whose value was silently reset that way would diverge from the shipped
+        // policy without anybody choosing it.
+        it('should not clear the automatic-request switch when the offer is toggled off and on', async () => {
+            // given
+            renderCreatePage();
+            await userEvent.click(screen.getByText('Automatically assign Berean once a round opens'));
+            expect(switchFor('Automatically assign Berean once a round opens')).not.toBeChecked();
+
+            // when
+            await userEvent.click(screen.getByText('Offer Berean as a reviewer'));
+            await userEvent.click(screen.getByText('Offer Berean as a reviewer'));
+
+            // then
+            expect(switchFor('Automatically assign Berean once a round opens'))
+                .not.toBeChecked();
+        });
+
+        it('should write the chosen automatic-request value', async () => {
+            // given
+            renderCreatePage();
+            await userEvent.click(screen.getByText('Automatically assign Berean once a round opens'));
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Create setting' }));
+
+            // then
+            await waitFor(() =>
+                expect(added).toHaveBeenCalledWith(expect.objectContaining({
+                    isAIReviewerAutomaticallyRequested: false
+                })));
         });
 
         it('should enable the vote switch once Berean is offered', async () => {
