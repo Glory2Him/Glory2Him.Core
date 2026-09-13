@@ -151,6 +151,33 @@ namespace Glory2Him.Core.Services.Orchestrations.AIReviewers
                 return;
             }
 
+            // THE LAST GATE, and the strict form on purpose: has ANY assignment ever existed on
+            // this round, live or soft-deleted. A live row means Berean is already assigned and
+            // this is a redelivery or a second route; a soft-deleted row means a human WITHDREW
+            // it, and an automatic policy must not overturn a person's decision on the round in
+            // front of them. Their route back is unchanged — POST asks again explicitly — and it
+            // is theirs to take.
+            //
+            // UNFILTERED, which is why this is IAccessBroker's own member and not
+            // RetrieveAIReviewerAssignmentByApprovalIdAsync: that read answers null, and logs a
+            // denial, for anyone outside the review tier, and here the presence check IS the
+            // invariant. "Nothing you may see" would create a duplicate row rather than refuse.
+            //
+            // IT IS ALSO WHAT MAKES THIS REACTION TERMINATE (§EVN18(e) condition 3). Once the row
+            // exists this handler is a no-op for that round forever, so no cycle can be sustained
+            // through it however many hops arrive — and it covers strictly more than a
+            // ProcessedEvent row would, that being keyed on EventId while this is keyed on the
+            // round.
+            bool isAIReviewerEverAssigned =
+                await this.accessBroker.IsAIReviewerEverAssignedAsync(
+                    approvalId: approval.Id,
+                    cancellationToken: cancellationToken);
+
+            if (isAIReviewerEverAssigned)
+            {
+                return;
+            }
+
             await this.aiReviewerAssignmentWorkflowService
                 .AddAutomaticAIReviewerAssignmentAsync(
                     approvalId: approval.Id,
