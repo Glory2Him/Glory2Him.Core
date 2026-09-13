@@ -72,6 +72,17 @@ namespace Glory2Him.Core.Services.Orchestrations.AIReviewers
             EventEnvelope<Approval> envelope,
             string eventName)
         {
+            // AHEAD OF THE VERIFY, matching the pattern criterion 3 names. The integrity broker
+            // reads envelope?.Integrity, so a null envelope already answers false — but a signed
+            // envelope carrying no Content verifies perfectly well and then dereferences into the
+            // gates below, surfacing a malformed fact as a service exception that tells an
+            // operator to contact support. Both sibling receivers refuse it here instead.
+            if (envelope is null || envelope.Content is null || envelope.Metadata is null)
+            {
+                throw new InvalidAIReviewerOrchestrationException(
+                    message: "AI reviewer event is invalid. Envelope is incomplete.");
+            }
+
             bool isSignatureValid = await this.envelopeIntegrityBroker.VerifyAsync(
                 envelope, eventName, EnvelopeDirection.Request);
 
