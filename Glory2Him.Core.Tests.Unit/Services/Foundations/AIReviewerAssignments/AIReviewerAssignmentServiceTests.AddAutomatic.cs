@@ -589,6 +589,76 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.AIReviewerAssignments
         }
 
         /// <summary>
+        /// <c>IEventEnvelopeBroker</c> faulting, on the chaining call that builds the outbound
+        /// envelope from the inbound one. The row is already committed by this point, and the
+        /// caller is still told — this verb reports a failure rather than swallowing it, and the
+        /// decision about whether a missed fact should fault the round belongs to the caller
+        /// that will sit above it.
+        ///
+        /// <para>The fault type is a stand-in; what is pinned is that a failure from THIS
+        /// dependency is wrapped into this class's own family and logged, rather than escaping
+        /// raw.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldThrowDependencyExceptionOnAddAutomaticIfEnvelopeBrokerErrorOccursAndLogItAsync()
+        {
+            // given
+            Guid someApprovalId = Guid.NewGuid();
+
+            AIReviewerAssignment auditAppliedAIReviewerAssignment =
+                ArrangeAnAutomaticAssignmentReachingStorage(someApprovalId);
+
+            var dbUpdateException = new DbUpdateException();
+
+            var failedStorageAIReviewerAssignmentException =
+                new FailedStorageAIReviewerAssignmentException(
+                    message: "Failed AI reviewer assignment storage error occurred, contact support.",
+                    innerException: dbUpdateException,
+                    data: dbUpdateException.Data);
+
+            var expectedAIReviewerAssignmentDependencyException =
+                new AIReviewerAssignmentDependencyException(
+                    message: "AI reviewer assignment dependency error occurred, contact support.",
+                    innerException: failedStorageAIReviewerAssignmentException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.InsertAIReviewerAssignmentAsync(
+                    It.IsAny<AIReviewerAssignment>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(auditAppliedAIReviewerAssignment);
+
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateNextAsync(
+                    It.IsAny<EventEnvelope<AIReviewerAssignment>>(),
+                    It.IsAny<AIReviewerAssignment>()))
+                        .ThrowsAsync(dbUpdateException);
+
+            // when
+            ValueTask<AIReviewerAssignment> addAutomaticTask =
+                this.aiReviewerAssignmentWorkflowService
+                    .AddAutomaticAIReviewerAssignmentAsync(
+                        someApprovalId,
+                        TestContext.Current.CancellationToken);
+
+            AIReviewerAssignmentDependencyException actualException =
+                await Assert.ThrowsAsync<AIReviewerAssignmentDependencyException>(
+                    addAutomaticTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedAIReviewerAssignmentDependencyException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAIReviewerAssignmentDependencyException))),
+                Times.Once);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishAIReviewerAssignmentAsync(
+                    It.IsAny<EventEnvelope<AIReviewerAssignment>>(),
+                    It.IsAny<AIReviewerAssignmentEventOperation>()),
+                Times.Never);
+        }
+
+        /// <summary>
         /// Its own set rather than a reuse of the caller-facing add's or the modify's: those are
         /// per-operation compositions, and this path's insert can raise a concurrency conflict
         /// the add-side set has no reason to carry while still owing the unique-index case the
