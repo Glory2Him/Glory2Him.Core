@@ -39,10 +39,9 @@ namespace Glory2Him.Core.Services.Orchestrations.AIReviewers
         // sweep that would introduce a canonical map, and a bespoke derivation at two more sites
         // would pre-empt a ruling scoped to all of them.
         //
-        // Composed from the ENTITY and the OPERATION, never from the tense of the address:
-        // Approval-Added and Approval-Modified are the first of the Approval entity's own FACT
-        // addresses to carry a subscription from this service, and that changes nothing about the
-        // name.
+        // Composed from the ENTITY and the OPERATION, never from the tense of the address. That
+        // these are FACT addresses rather than the command addresses most subscriptions in this
+        // solution bind changes nothing about the name.
         private const string ApprovalAddedEventName = "ApprovalAdded";
         private const string ApprovalModifiedEventName = "ApprovalModified";
 
@@ -81,9 +80,19 @@ namespace Glory2Him.Core.Services.Orchestrations.AIReviewers
                 return null;
             });
 
-        // The shared body both subscriptions delegate to. A fact is a notification, so nothing is
-        // replied with: returning the inbound envelope would put this service's name on a fact
-        // another service published.
+        // The shared body both subscriptions delegate to — ONE copy of the gates, the write and
+        // the failure posture, so a rule cannot be fixed on one address and left broken on the
+        // other. A fact is a notification, so nothing is replied with: returning the inbound
+        // envelope would put this service's name on a fact another service published.
+        //
+        // SIX GATES, in this order, all fail-closed and each refusing on its own; the first that
+        // refuses ends the delivery having made no further broker call and no write. Gate 1 —
+        // the envelope verifies against the accepted name for its address — has already run in
+        // the handler above, because everything below reads that envelope's content.
+        //
+        // Cheapest first, which is the order rather than a coincidence: the three that read the
+        // signed envelope cost nothing, and the three broker reads follow in the order §8.6.2.1
+        // puts them.
         private async ValueTask AssignAIReviewerAutomaticallyAsync(
             Approval approval,
             CancellationToken cancellationToken)
@@ -158,12 +167,12 @@ namespace Glory2Him.Core.Services.Orchestrations.AIReviewers
                 return;
             }
 
-            // THE LAST GATE, and the strict form on purpose: has ANY assignment ever existed on
-            // this round, live or soft-deleted. A live row means Berean is already assigned and
-            // this is a redelivery or a second route; a soft-deleted row means a human WITHDREW
-            // it, and an automatic policy must not overturn a person's decision on the round in
-            // front of them. Their route back is unchanged — POST asks again explicitly — and it
-            // is theirs to take.
+            // GATE 6, THE LAST ONE, and the strict form on purpose: has ANY assignment ever
+            // existed on this round, live or soft-deleted. A live row means Berean is already
+            // assigned and this is a redelivery or a second route; a soft-deleted row means a
+            // human WITHDREW it, and an automatic policy must not overturn a person's decision on
+            // the round in front of them. Their route back is unchanged — POST asks again
+            // explicitly — and it is theirs to take.
             //
             // UNFILTERED, which is why this is IAccessBroker's own member and not
             // RetrieveAIReviewerAssignmentByApprovalIdAsync: that read answers null, and logs a
