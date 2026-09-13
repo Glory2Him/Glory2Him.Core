@@ -530,6 +530,56 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
         }
 
         /// <summary>
+        /// GATE 1's first clause. A null envelope is not an empty fact but a broken delivery —
+        /// there is nothing to verify, nothing to gate on, and no content id to read.
+        ///
+        /// <para>It was refused before this guard existed only by ACCIDENT:
+        /// <c>EnvelopeIntegrityBroker</c> reads <c>envelope?.Integrity</c>, so verification
+        /// answered false for it. That is the broker's null tolerance standing in for the
+        /// receiver's own gate, and the moment the clause is trimmed the validator dereferences
+        /// the null itself — a broken delivery then surfaces as a service exception telling the
+        /// operator to contact support. #545 criterion 1 puts the refusal here, where the two
+        /// sibling receivers put theirs.</para>
+        /// </summary>
+        [Theory]
+        [InlineData(AddedOperation)]
+        [InlineData(ModifiedOperation)]
+        public async Task ShouldRefuseANullApprovalFactEnvelopeAsync(
+            string approvalEventOperation)
+        {
+            // given: no delivery at all
+            EventEnvelope<Approval> nullEnvelope = null;
+
+            // when
+            AIReviewerOrchestrationValidationException
+                actualAIReviewerOrchestrationValidationException =
+                    await Assert.ThrowsAsync<AIReviewerOrchestrationValidationException>(() =>
+                        DeliverApprovalFactAsync(
+                            approvalEventOperation,
+                            nullEnvelope,
+                            TestContext.Current.CancellationToken).AsTask());
+
+            // then: the validation family, not the service family a dereferenced null produces
+            actualAIReviewerOrchestrationValidationException.InnerException
+                .Should().BeOfType<InvalidAIReviewerOrchestrationException>();
+
+            // and refused ahead of the gates, so no broker was asked anything
+            this.accessBrokerMock.Verify(broker =>
+                broker.ResolveAIReviewerPolicyByIdAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.accessBrokerMock.Verify(broker =>
+                broker.IsAIReviewerEverAssignedAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            VerifyNoAutomaticAssignmentWasMade();
+        }
+
+        /// <summary>
         /// GATE 1's other half. Criterion 3 names ApprovalOrchestrationService's verifier as the
         /// pattern to follow, and that pattern opens by refusing a null Content or Metadata
         /// BEFORE it verifies anything. Without it a signed envelope carrying no content passes
