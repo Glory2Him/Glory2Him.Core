@@ -563,6 +563,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
             actualAIReviewerOrchestrationValidationException.InnerException
                 .Should().BeOfType<InvalidAIReviewerOrchestrationException>();
 
+            // and refused AHEAD OF THE VERIFY rather than after it, which nothing below
+            // could tell apart: gate 1's own broker is the only witness to the ordering
+            // #545 criterion 1 states, so it is asked whether it was called at all.
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
+
             // and refused ahead of the gates, so no broker was asked anything
             this.accessBrokerMock.Verify(broker =>
                 broker.ResolveAIReviewerPolicyByIdAsync(
@@ -617,6 +622,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
             // then: the validation family, not the service family
             actualAIReviewerOrchestrationValidationException.InnerException
                 .Should().BeOfType<InvalidAIReviewerOrchestrationException>();
+
+            // and refused AHEAD OF THE VERIFY rather than after it, which nothing below
+            // could tell apart: gate 1's own broker is the only witness to the ordering
+            // #545 criterion 1 states, so it is asked whether it was called at all.
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
 
             // and refused ahead of the gates, so no broker was asked anything
             this.accessBrokerMock.Verify(broker =>
@@ -685,6 +695,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
             // then: the validation family, not the acceptance every gate below would have given it
             actualAIReviewerOrchestrationValidationException.InnerException
                 .Should().BeOfType<InvalidAIReviewerOrchestrationException>();
+
+            // and refused AHEAD OF THE VERIFY rather than after it, which nothing below
+            // could tell apart: gate 1's own broker is the only witness to the ordering
+            // #545 criterion 1 states, so it is asked whether it was called at all.
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
 
             // and refused ahead of the gates, so no broker was asked anything
             this.accessBrokerMock.Verify(broker =>
