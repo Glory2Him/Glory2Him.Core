@@ -12,6 +12,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Approvals;
@@ -99,6 +100,33 @@ namespace Glory2Him.Core.Services.Orchestrations.AIReviewers
             // Approved and Rejected are excluded for §7.9 rule 7's reason: an assignment on a
             // closed round could never be answered.
             if (approval.ApprovalStatus != ApprovalStatus.Submitted)
+            {
+                return;
+            }
+
+            // GATE 4, and the ONE composed field this path may read. §8.6.1 rule 4 keeps the
+            // composition — IsAIReviewerOffered && IsAIReviewerAutomaticallyRequested — inside
+            // the decision function and nowhere else, so a verdict that answers true here has
+            // already answered §8.6.2's offer as well. Re-deriving it from IsOffered, or reaching
+            // for the raw column through an IApprovalSettingService this service deliberately
+            // does not hold, would put most-specific-wins in a second place.
+            //
+            // FAIL-CLOSED (§8.4 rule 2): the broker answers null for a round it cannot resolve,
+            // and that collapses to false here exactly as the manual offer already treats it.
+            //
+            // IT IS ALSO THE AUTOMATIC ROUTE'S FRESH OFFER CHECK, which is why the seam verb does
+            // not repeat one: §8.6.2 requires the offer to be re-read on every write, the manual
+            // route does that in this same layer, and the composed verdict read here carries
+            // IsAIReviewerOffered inside it.
+            AIReviewerPolicyVerdict maybeAIReviewerPolicy =
+                await this.accessBroker.ResolveAIReviewerPolicyByIdAsync(
+                    approvalId: approval.Id,
+                    cancellationToken: cancellationToken);
+
+            bool isAutomaticallyRequested =
+                maybeAIReviewerPolicy?.IsAutomaticallyRequested ?? false;
+
+            if (isAutomaticallyRequested is false)
             {
                 return;
             }
