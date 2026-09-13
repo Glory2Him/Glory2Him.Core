@@ -22,8 +22,11 @@
 #   Tools/design-split-audit.sh --gate verbatim        # the prose-identity proof alone
 #
 # Defaults:
-#   --baseline  55c461e2  the commit the split branches from, with #548 merged.
-#                         Override to re-baseline a later extraction.
+#   --baseline  resolved  `git merge-base origin/main HEAD` — the commit the split
+#                         branches from. It is RESOLVED and never pinned: a pinned
+#                         SHA is orphaned by any history rewrite, and then resolves
+#                         on the machine that pinned it and nowhere else. Override
+#                         to re-baseline a later extraction.
 #   --scope     20        §20 is the extraction issue #481 performs. `all` is the
 #                         whole-document mode: it reports every section not yet
 #                         extracted and is expected to be NON-EMPTY until the last
@@ -54,7 +57,7 @@ set -u
 export MSYS_NO_PATHCONV=1
 export MSYS2_ARG_CONV_EXCL='*'
 
-BASELINE="55c461e2"
+BASELINE=""
 SCOPE="20"
 GATE="all"
 
@@ -63,7 +66,7 @@ while [ $# -gt 0 ]; do
         --baseline) BASELINE="$2"; shift 2 ;;
         --scope)    SCOPE="$2";    shift 2 ;;
         --gate)     GATE="$2";     shift 2 ;;
-        -h|--help)  sed -n '2,46p' "$0"; exit 0 ;;
+        -h|--help)  sed -n '2,52p' "$0"; exit 0 ;;
         *) echo "Unknown argument: $1" >&2; exit 2 ;;
     esac
 done
@@ -73,6 +76,30 @@ case "$GATE" in g1|g2|g3|g4|verbatim|all) ;; *) echo "--gate must be g1, g2, g3,
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT" || exit 2
+
+# The baseline is resolved, not pinned. A pinned SHA survives only in the object
+# store of the machine that pinned it: reword the branch, clone it, or run a
+# `git gc`, and the pin dangles while every gate reports the whole extraction as a
+# difference. The merge base is the same commit by construction and stays correct
+# for each later extraction without being re-pinned.
+if [ -z "$BASELINE" ]; then
+    for candidate in origin/main main; do
+        if git rev-parse --verify --quiet "$candidate^{commit}" >/dev/null; then
+            BASELINE="$(git merge-base "$candidate" HEAD)" && break
+        fi
+    done
+fi
+
+if [ -z "$BASELINE" ]; then
+    echo "Could not resolve a baseline: no origin/main or main to take a merge base from." >&2
+    echo "Pass one explicitly with --baseline <ref>." >&2
+    exit 2
+fi
+
+if ! git rev-parse --verify --quiet "$BASELINE^{commit}" >/dev/null; then
+    echo "Baseline '$BASELINE' does not resolve to a commit in this repository." >&2
+    exit 2
+fi
 
 DESIGN_DOC="Documentation/G2H Design.md"
 AREA_DIR="Documentation/Design"
