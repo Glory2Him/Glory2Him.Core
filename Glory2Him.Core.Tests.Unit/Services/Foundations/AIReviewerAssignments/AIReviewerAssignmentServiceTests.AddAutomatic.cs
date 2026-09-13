@@ -181,6 +181,68 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.AIReviewerAssignments
         }
 
         /// <summary>
+        /// THE CONTRIBUTION HALF OF THE GATE RUNS, and it runs FIRST. The other half —
+        /// <c>ValidateUserIsAllowedToManageAIReviewerAssignments</c> — deliberately does not: the
+        /// system identity holds no roles, so asking for the review tier here would refuse the
+        /// only caller this verb has. That negative is proved by the happy path above, which
+        /// succeeds under a roleless context; this is the positive half.
+        ///
+        /// <para>Reached the same way the system-identity guard above is, through a
+        /// pass-through mint, so the unauthenticated caller's own context arrives at the do-work.
+        /// The message is what pins WHICH gate refused: the act guard would answer differently,
+        /// so a test that only asserted "refused" could not tell the two apart.</para>
+        /// </summary>
+        [Theory]
+        [MemberData(nameof(UnauthenticatedSecurityContexts))]
+        public async Task ShouldThrowValidationExceptionOnAddAutomaticIfTheContextMayNotContributeAsync(
+            SecurityContext unauthenticatedSecurityContext)
+        {
+            // given
+            this.systemContextIsGenuine = false;
+            this.ambientSecurityContext = unauthenticatedSecurityContext;
+            Guid someApprovalId = Guid.NewGuid();
+
+            var unauthorizedAIReviewerAssignmentException =
+                new UnauthorizedAIReviewerAssignmentException(
+                    message: "The current user is not authenticated.");
+
+            var expectedAIReviewerAssignmentValidationException =
+                new AIReviewerAssignmentValidationException(
+                    message: "AI reviewer assignment validation error occurred, fix the errors and try again.",
+                    innerException: unauthorizedAIReviewerAssignmentException);
+
+            // when
+            ValueTask<AIReviewerAssignment> addAutomaticTask =
+                this.aiReviewerAssignmentWorkflowService
+                    .AddAutomaticAIReviewerAssignmentAsync(
+                        someApprovalId,
+                        TestContext.Current.CancellationToken);
+
+            AIReviewerAssignmentValidationException actualException =
+                await Assert.ThrowsAsync<AIReviewerAssignmentValidationException>(
+                    addAutomaticTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedAIReviewerAssignmentValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAIReviewerAssignmentValidationException))),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertAIReviewerAssignmentAsync(
+                    It.IsAny<AIReviewerAssignment>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishAIReviewerAssignmentAsync(
+                    It.IsAny<EventEnvelope<AIReviewerAssignment>>(),
+                    It.IsAny<AIReviewerAssignmentEventOperation>()),
+                Times.Never);
+        }
+
+        /// <summary>
         /// THE AUTHORIZATION BOUNDARY ON THIS SEAM. There is no tier to ask for — the system
         /// identity holds no roles — so "is this the workflow's own act" is the whole of the
         /// gate, and a gate nobody tests is a comment.
