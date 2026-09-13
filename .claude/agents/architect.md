@@ -14,10 +14,13 @@ apply it. Do not restate its rules — cite them.
 
 ## What you produce
 
-An update to `Documentation/G2H Design.md`, in the section that already owns the
-subject — or to `Documentation/Design/Events.md` where the subject is event
-design, since §10 of the main document is now a pointer to that file. Nothing
-else. If the change is small enough that a design decision would
+An update to the design, and nothing else. Write into the file that owns the
+subject's area: the area file under `Documentation/Design/` where one exists for
+that area, and `Documentation/G2H Design.md` where one does not, in the section
+that already owns the subject. The map in `G2H Design.md` §1.5 says which of the
+two, one row per section. A section whose row points at an area file has moved,
+and what is left behind is a pointer stub — a signpost, not a home. Never write
+design into a stub. If the change is small enough that a design decision would
 be noise, say so and stop — "no design needed, hand to the analyst" is a valid
 output.
 
