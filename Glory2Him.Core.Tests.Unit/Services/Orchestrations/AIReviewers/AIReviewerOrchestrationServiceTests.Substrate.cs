@@ -286,6 +286,64 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
             VerifyNoAutomaticAssignmentWasMade();
         }
 
+        /// <summary>
+        /// Gate 4, in its two separate cases. A verdict that says <c>false</c> refuses — the
+        /// realistic tier that offers Berean and leaves the asking to a person — and a round the
+        /// broker cannot resolve at all answers <c>null</c>, which COLLAPSES to false exactly as
+        /// the manual offer already treats it (§8.4 rule 2). A policy nobody could read is not a
+        /// permission.
+        ///
+        /// <para>The handler reads the ONE composed field. §8.6.1 rule 4 keeps the composition
+        /// — <c>IsAIReviewerOffered &amp;&amp; IsAIReviewerAutomaticallyRequested</c> — inside
+        /// the decision function and nowhere else, which is also why this service holds no
+        /// <c>IApprovalSettingService</c> to re-derive it from.</para>
+        /// </summary>
+        [Theory]
+        [InlineData(AddedOperation, true)]
+        [InlineData(AddedOperation, false)]
+        [InlineData(ModifiedOperation, true)]
+        [InlineData(ModifiedOperation, false)]
+        public async Task ShouldNotAssignBereanWhenTheResolvedPolicyDoesNotAskForItAsync(
+            string approvalEventOperation,
+            bool isPolicyResolvable)
+        {
+            // given
+            Guid approvalId = Guid.NewGuid();
+
+            if (isPolicyResolvable)
+            {
+                SetupAutomaticAIReviewerPolicy(approvalId, isAutomaticallyRequested: false);
+            }
+            else
+            {
+                SetupUnresolvableAIReviewerPolicy(approvalId);
+            }
+
+            SetupAIReviewerEverAssigned(approvalId, isEverAssigned: false);
+            SetupAutomaticAIReviewerAssignmentWrite();
+
+            // when
+            await DeliverApprovalFactAsync(
+                approvalEventOperation,
+                CreateApprovalFactEnvelope(approvalId, ApprovalStatus.Submitted),
+                TestContext.Current.CancellationToken);
+
+            // then: read for THIS round, and refused before the presence check costs anything
+            this.accessBrokerMock.Verify(broker =>
+                broker.ResolveAIReviewerPolicyByIdAsync(
+                    approvalId,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.accessBrokerMock.Verify(broker =>
+                broker.IsAIReviewerEverAssignedAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            VerifyNoAutomaticAssignmentWasMade();
+        }
+
         // Both handlers, driven through one switch so every GATE below can be a theory over the
         // pair rather than a test written twice. That is criterion 2's "one private body" made
         // observable: the two differ only in the accepted event name, so a rule fixed on one
@@ -348,11 +406,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
 
-        // The ONE composed field §8.6.1 rule 4 allows this path to read. IsOffered is carried
-        // alongside it deliberately at the value the composition implies — the decision function
-        // composes IsAutomaticallyRequested as IsOffered && IsAIReviewerAutomaticallyRequested,
-        // so a verdict answering true here has already answered the offer, and a test that let
-        // the two disagree would be arranging a state the decision function cannot produce.
+        // The ONE composed field §8.6.1 rule 4 allows this path to read. IsOffered is OFFERED
+        // throughout, so the refusal a test arranges is the realistic one — a tier that offers
+        // Berean and leaves the asking to a person — rather than a state the decision function
+        // could not produce: it composes IsAutomaticallyRequested as
+        // IsOffered && IsAIReviewerAutomaticallyRequested, so a verdict answering true here has
+        // already answered the offer.
         //
         // Keyed on the approval id rather than It.IsAny, so a test cannot pass by answering a
         // question about a different round.
@@ -365,9 +424,18 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.AIReviewers
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(new AIReviewerPolicyVerdict
                         {
-                            IsOffered = isAutomaticallyRequested,
+                            IsOffered = true,
                             IsAutomaticallyRequested = isAutomaticallyRequested,
                         });
+
+        // A round the broker cannot resolve a policy for. Answered as null rather than as a
+        // manufactured false, so the handler is the thing that has to fail closed.
+        private void SetupUnresolvableAIReviewerPolicy(Guid approvalId) =>
+            this.accessBrokerMock.Setup(broker =>
+                broker.ResolveAIReviewerPolicyByIdAsync(
+                    approvalId,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((AIReviewerPolicyVerdict)null);
 
         private void SetupAIReviewerEverAssigned(Guid approvalId, bool isEverAssigned) =>
             this.accessBrokerMock.Setup(broker =>
