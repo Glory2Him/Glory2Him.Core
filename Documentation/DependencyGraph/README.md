@@ -164,11 +164,14 @@ view you were on, and switching carries your current selection across.
 - **`ARO` binds TWO subscriptions and publishes nothing** (issue #522, design §12.5.4 business
   rule 4). `ApprovalReview.Added` carries §7.9 rule 6's retirement and `Approval.Modified`
   carries rule 8's — the first subscription in the solution on any of the `Approval` entity's
-  own FACT addresses, the five existing ones all binding command addresses. `ApprovalReview.Added`
-  therefore has two subscribers, `AO`'s re-test and this retirement: two reactions on one
-  address in two services, with `Deliveries` recorded per subscription, which is not the
-  double-fire §EVN2 rule 6 forbids. `AO` lost its `RetrieveApprovalReviewerScopeByIdAsync` and
-  both `Retire*ApprovalReviewRequestAsync` edges with them, and with those the
+  own FACT addresses. It is no longer the only one: `SubscribeToApprovalEventAsync` is called
+  EIGHT times now, five on command addresses and three on fact addresses — this retirement plus
+  §8.6.2.1's `Approval.Added`/`Approval.Modified` pair (#532), recorded further down this file.
+  `ApprovalReview.Added` therefore has two subscribers, `AO`'s re-test and this retirement: two
+  reactions on one address in two services, with `Deliveries` recorded per subscription, which
+  is not the double-fire §EVN2 rule 6 forbids. `AO` lost its
+  `RetrieveApprovalReviewerScopeByIdAsync` and both `Retire*ApprovalReviewRequestAsync` edges
+  with them, and with those the
   `IApprovalReviewRequestWorkflowService` seam entirely. Issue #523 has split
   `ApprovalsController`, moving those five reviewer routes onto `ApprovalReviewersController`,
   which binds `ARO` alone.
