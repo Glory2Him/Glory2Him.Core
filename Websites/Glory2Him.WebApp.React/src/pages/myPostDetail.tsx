@@ -27,9 +27,8 @@ import { useDocumentTitle } from './useDocumentTitle';
 
 // ONE OF MY POSTS, read on its own surface — where /posts/contribute lands a fresh submission
 // and where /myposts sends every click into an item. The public /posts/{id} page keeps the same
-// 7 / 5 split and the same two association panels; this one is the CONTRIBUTOR's view of their
-// own item, so it adds the way back to their list, editing in place, and the invitation to
-// share something else.
+// 7 / 5 split and the same three right-column panels; this one is the CONTRIBUTOR's view of
+// their own item, so it adds the way back to their list and editing in place.
 //
 // TWO COLUMNS, 7 / 5: the item on the left, and on the right the surfaces that belong BESIDE a
 // content item rather than within it (§20.6.2) — its tags, its bible references, and the

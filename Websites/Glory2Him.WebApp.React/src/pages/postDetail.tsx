@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toastSuccess } from '../brokers/toastBroker.success';
 import { BibleReferenceAssociationPanel } from '../components/associations/bibleReferenceAssociationPanel';
 import { TagAssociationPanel } from '../components/associations/tagAssociationPanel';
 import { ContentItemPanel } from '../components/contentItems/contentItemPanel';
+import { SharingPanel } from '../components/contentItems/sharingPanel';
 import { Spinner } from '../components/coreUI/spinner';
 import { contentItemService } from '../services/foundations/contentItemService';
 import { contentItemSettingService } from '../services/foundations/contentItemSettingService';
@@ -21,8 +22,9 @@ import { useDocumentTitle } from './useDocumentTitle';
 //
 // TWO COLUMNS, 7 / 5, the same split the contributor's own surface keeps: the item on the left,
 // and on the right the surfaces that belong BESIDE a content item rather than within it
-// (§20.6.2) — its tags and its bible references. A reader arriving at a post meets them there
-// and is invited to suggest one of each; the panels are pure renderers, so this page owns what
+// (§20.6.2) — its tags, its bible references, and the invitation to share something else. A
+// reader arriving at a post meets them there and is invited to suggest one of each; the
+// association panels are pure renderers, so this page owns what
 // the events mean, and today that is an honest "coming soon": a suggestion is a ContentItem
 // association write, and associations have no HTTP exposer yet (#318). The panels take their
 // collections from THIS page, which holds the item's id off the URL — the wiring point where the
@@ -35,6 +37,8 @@ import { useDocumentTitle } from './useDocumentTitle';
 // separate page's decision, not this one's.
 export function PostDetail() {
     const { contentItemId = '' } = useParams();
+    const navigate = useNavigate();
+    const location = useLocation();
 
     const { data: contentItem, isLoading, isError } =
         contentItemService.useGetContentItemById(contentItemId, contentItemId.length > 0);
@@ -98,6 +102,10 @@ export function PostDetail() {
 
     useDocumentTitle(
         contentItem == null ? 'Glory 2 Him' : `${pageHeading} — Glory 2 Him`);
+
+    // Where the contribution surface sends the reader back to — the post they were reading
+    // when the invitation caught them, rather than a guess.
+    const from = `${location.pathname}${location.search}`;
 
     // The association writes arrive with #318; until then the boxes answer honestly rather
     // than silently dropping what somebody typed.
@@ -164,6 +172,14 @@ export function PostDetail() {
                                 onAdd={suggestBibleReference}
                                 showBorder
                                 cssClass="mb-4" />
+
+                            {/* Reading somebody else's contribution is the moment the
+                                invitation lands best, so it stands under the two
+                                association panels here exactly as it does on the
+                                contributor's own surface. */}
+                            <SharingPanel
+                                onSubmit={() =>
+                                    navigate('/posts/contribute', { state: { from } })} />
                         </div>
                     </div>
                 )}
