@@ -26,7 +26,10 @@
 #                         branches from. It is RESOLVED and never pinned: a pinned
 #                         SHA is orphaned by any history rewrite, and then resolves
 #                         on the machine that pinned it and nowhere else. Override
-#                         to re-baseline a later extraction.
+#                         to re-baseline a later extraction. A purely local `main`
+#                         is refused rather than used, and a `main` that disagrees
+#                         with `origin/main` is reported; the header prints the
+#                         baseline's date and subject so a stale one is visible.
 #   --scope     20        §20 is the extraction issue #481 performs. `all` is the
 #                         whole-document mode: it reports every section not yet
 #                         extracted and is expected to be NON-EMPTY until the last
@@ -66,7 +69,7 @@ while [ $# -gt 0 ]; do
         --baseline) BASELINE="$2"; shift 2 ;;
         --scope)    SCOPE="$2";    shift 2 ;;
         --gate)     GATE="$2";     shift 2 ;;
-        -h|--help)  sed -n '2,52p' "$0"; exit 0 ;;
+        -h|--help)  awk 'NR == 1 { next } /^# [^A-Za-z0-9]*$/ { if (++rule == 2) exit; next } { print }' "$0"; exit 0 ;;
         *) echo "Unknown argument: $1" >&2; exit 2 ;;
     esac
 done
@@ -82,16 +85,54 @@ cd "$REPO_ROOT" || exit 2
 # `git gc`, and the pin dangles while every gate reports the whole extraction as a
 # difference. The merge base is the same commit by construction and stays correct
 # for each later extraction without being re-pinned.
+#
+# Resolution is, however, the one part of this script that depends on the machine
+# it runs on. `origin/main` is a local pointer, and a clone, a stale fetch or a
+# fork can leave it behind the real main. A baseline a few commits early still
+# passes every gate whose sections those commits did not touch, so the audit then
+# reports success about the wrong commit and says nothing about it. Nothing inside
+# a repository can prove that pointer is current, so this does the three things
+# that are possible: it refuses a purely local `main`, it says so when the two
+# candidates disagree, and it prints the baseline's subject and date so a wrong
+# one is recognisable on sight rather than only as a SHA.
+BASELINE_SOURCE="the --baseline argument"
+
 if [ -z "$BASELINE" ]; then
-    for candidate in origin/main main; do
-        if git rev-parse --verify --quiet "$candidate^{commit}" >/dev/null; then
-            BASELINE="$(git merge-base "$candidate" HEAD)" && break
+    REMOTE_BASE=""
+    LOCAL_BASE=""
+
+    if git rev-parse --verify --quiet "origin/main^{commit}" >/dev/null; then
+        REMOTE_BASE="$(git merge-base origin/main HEAD)"
+    fi
+
+    if git rev-parse --verify --quiet "main^{commit}" >/dev/null; then
+        LOCAL_BASE="$(git merge-base main HEAD)"
+    fi
+
+    if [ -n "$REMOTE_BASE" ]; then
+        BASELINE="$REMOTE_BASE"
+        BASELINE_SOURCE="git merge-base origin/main HEAD"
+
+        if [ -n "$LOCAL_BASE" ] && [ "$LOCAL_BASE" != "$REMOTE_BASE" ]; then
+            echo "WARNING: origin/main and main disagree about the baseline." >&2
+            echo "         origin/main -> $REMOTE_BASE  (used)" >&2
+            echo "         main        -> $LOCAL_BASE" >&2
+            echo "         One of the two is stale. Fetch, or pass --baseline <ref>." >&2
+            echo >&2
         fi
-    done
+    elif [ -n "$LOCAL_BASE" ]; then
+        echo "Refusing to baseline on a local 'main': there is no origin/main to check it" >&2
+        echo "against. A local branch pointer is not evidence of where this work branches" >&2
+        echo "from, and a baseline even a few commits early passes every gate whose sections" >&2
+        echo "those commits did not touch. Pass the commit explicitly:" >&2
+        echo >&2
+        echo "    Tools/design-split-audit.sh --baseline $LOCAL_BASE" >&2
+        exit 2
+    fi
 fi
 
 if [ -z "$BASELINE" ]; then
-    echo "Could not resolve a baseline: no origin/main or main to take a merge base from." >&2
+    echo "Could not resolve a baseline: no origin/main to take a merge base from." >&2
     echo "Pass one explicitly with --baseline <ref>." >&2
     exit 2
 fi
@@ -326,6 +367,8 @@ gate_verbatim() {
 }
 
 echo "design-split-audit — baseline $BASELINE, scope §$SCOPE, gate $GATE"
+echo "  $(git log -1 --format='%ad  %s' --date=short "$BASELINE")"
+echo "  resolved by $BASELINE_SOURCE; $(git rev-list --count "$BASELINE..HEAD") commit(s) under audit"
 echo
 
 [ "$GATE" = "g1" ] || [ "$GATE" = "all" ] && gate_g1
