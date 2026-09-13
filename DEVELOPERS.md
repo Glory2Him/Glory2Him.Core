@@ -228,9 +228,11 @@ architect.
 
 ```
 Documentation/
-  G2H Design.md            the main design document (~3,700 lines, numbered sections)
+  G2H Design.md            the index, and every section not yet split out
   Design/                  area-scoped design documents, each with its own section prefix
     Events.md              §EVN0 … §EVN23  (event design)
+    Ui.md                  §UI20          (UI / UX design)
+    Split.md               the rulings for the split itself, retired once it lands
   Mockups/                 Claude Design exports awaiting or feeding a design section
   Images/                  static visual assets referenced from issues and design docs
   DependencyGraph/         generated architecture graph and its viewer
@@ -241,9 +243,11 @@ Documentation/
 ### The split, and why sections carry prefixes
 
 `G2H Design.md` is being broken into area-scoped files under
-`Documentation/Design/` (issue #481). `Events.md` is the first and currently the
-only one. The remaining areas — architecture, domain, security, UI — are planned
-and their prefixes are already reserved: `ARC`, `DOM`, `SEC`, `UI`.
+`Documentation/Design/` (issue #481). `Events.md` came first and `Ui.md`
+followed. The remaining areas — approval, architecture, domain, security — are
+planned and their prefixes are already reserved: `APR`, `ARC`, `DOM`, `SEC`.
+`G2H Design.md` is the index: the map at the top of it says, for every one of
+the 21 original sections, which file it is in and what to cite it as.
 
 Sections in a split file carry a **flat, prefixed number** — `§EVN1`, `§EVN2` —
 rather than restarting at 1, so that a bare citation stays unambiguous once
@@ -260,9 +264,11 @@ Two cautions learned the hard way:
 - **Resolving is not the same as being right.** The annotation maps an old number
   to a new one; it says nothing about whether the section was the correct one to
   cite originally.
-- **Nothing validates citations.** No CI step, no script. The guarantee that an
-  old `§10.X` still resolves is maintained by the annotation convention and
-  nothing else.
+- **Nothing validates citations on every commit.** No CI step.
+  `Tools/design-split-audit.sh` checks the split's completeness and citation
+  gates when you run it, and nothing runs it for you. The guarantee that an old
+  `§10.X` still resolves is maintained by the annotation convention and that
+  script, run by hand.
 
 ### Citing design from code
 
@@ -346,13 +352,13 @@ The architect writes the section. From that moment the design section is
 authoritative and the mockup is history — go back and add the "Superseded by"
 line to the mockup's README.
 
-**Where it writes, today.** Only event design has a split file. Everything else
-still goes into `Documentation/G2H Design.md`, in the section that already owns
-the subject, because that is what `architect.md` instructs and no other
-`Design/*.md` file exists yet. A prefixed number and a heading tag apply once the
-area has its own split file (#481); until then the architect follows the main
-document's existing numbering. The `Design/Ui.md` paths used in §8 below are
-illustrative of the end state, not a destination you can write to now.
+**Where it writes, today.** Event design and UI design have split files, and
+`Design/Ui.md` is where UI design is written. Everything else still goes into
+`Documentation/G2H Design.md`, in the section that already owns the subject,
+because that is what `architect.md` instructs and no other `Design/*.md` file
+exists yet. A prefixed number and a heading tag apply once the area has its own
+split file (#481); until then the architect follows the main document's existing
+numbering.
 
 ### 5.4 Then the analyst writes criteria in words
 
@@ -477,9 +483,6 @@ field on that command. Use the REST endpoint above.
 ## 8. A worked example
 
 Issue #512, "add a saved-searches panel". UI work, so it starts with a picture.
-
-The `Design/Ui.md` paths below are illustrative — see §5.3 for where the
-architect actually writes today.
 
 **1 — Issue first.** Open it and describe the behaviour in prose. First line of
 the body:
@@ -745,15 +748,11 @@ Stated plainly so nobody goes looking:
 - **The `design: <area>` labels are not created yet** either. Note the trap: an
   all-caps `DESIGN` label exists, auto-created by the PR linter from a `DESIGN:`
   title prefix. It is a category label on PRs, not an area label on issues.
-- **`Documentation/Design/` holds only `Events.md`.** The architecture, domain,
-  security and UI documents are issue #481, still open. Their prefixes are
-  reserved; their filenames are not decided, so this document uses
-  `Design/Ui.md` illustratively rather than authoritatively.
-- **`Documentation/Design/` has no index.** #481 calls for one.
 - **`Documentation/Mockups/` is introduced by this document.** The two existing
   precedents are `Documentation/Images/ContentItemSearchPanel/` and issue #398.
-- **Nothing validates design citations**, and nothing reads the `Model - Effort`
-  label to configure a session.
+- **Nothing validates design citations automatically.** `Tools/design-split-audit.sh`
+  exists and is run by hand; no CI step runs it. Nothing reads the
+  `Model - Effort` label to configure a session either.
 - **`Documentation/Prompt-CreateFoundationService.md`** predates the agents. It is
   listed in `Glory2Him.Core.slnx`, but no agent reads it. Treat the four-agent
   workflow as current.
