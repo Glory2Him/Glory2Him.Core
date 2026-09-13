@@ -549,7 +549,9 @@ with `Closes #512` in the body.
 
 **8 — QA, on the work.** A *different* fresh session from step 5: *"Act as QA.
 Verify PR #520 against the acceptance criteria on issue #512."* Move the issue to
-`status: in-qa`. QA reports two ADVISORY findings and no BLOCKING ones.
+`status: in-qa`. QA reports two ADVISORY findings and no BLOCKING ones, and — this
+part is real today, unlike the `status:` lifecycle above — applies `ready for
+review` to PR #520 itself.
 
 **9 — Merge**, and set `status: done`.
 
