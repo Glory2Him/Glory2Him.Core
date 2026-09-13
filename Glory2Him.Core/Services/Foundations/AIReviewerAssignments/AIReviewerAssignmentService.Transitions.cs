@@ -84,6 +84,12 @@ namespace Glory2Him.Core.Services.Foundations.AIReviewerAssignments
             EventEnvelope<AIReviewerAssignment> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            // Deliberately NOT ValidateUserIsAllowedToManageAIReviewerAssignments, which the
+            // caller-facing add uses: the system identity holds no roles, so asking for the
+            // review tier here would refuse the only caller this verb has. The contribution half
+            // of that gate still runs, and the system-identity check below is what actually
+            // stands in for authorization — the same split the sibling verb documents.
+            ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
             ValidateAutomaticAssignmentIsTheWorkflowsOwnAct(inboundEnvelope.SecurityContext);
 
             // THE SAME ROW THE MODERATOR'S ADD WRITES. Both flags start false because they record
