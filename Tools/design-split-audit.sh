@@ -225,7 +225,11 @@ gate_g3() {
         pattern='§[0-9]+(\.[0-9]+)*'
     fi
 
-    citations="$(git grep -h -o -E "$pattern" "$BASELINE" -- . ':(exclude)Documentation/' \
+    # `-I` excludes binary files. Without it `git grep` emits a `Binary file
+    # <rev>:<path> matches` line into the citation stream, each of which is then
+    # judged as a citation and reported as resolving to no heading — a finding the
+    # whole-document mode could never be run to empty.
+    citations="$(git grep -I -h -o -E "$pattern" "$BASELINE" -- . ':(exclude)Documentation/' \
         | sort -u -V)"
 
     if [ "$SCOPE" = "all" ]; then
@@ -240,7 +244,7 @@ gate_g3() {
         local number anchored count
         number="${citation#§}"
         anchored="§$(echo "$number" | sed 's/\./\\./g')(\$|[^0-9.])"
-        count="$(grep -rhE '^#{1,6} ' --include='*.md' "Documentation/" \
+        count="$(grep -rIhE '^#{1,6} ' --include='*.md' "Documentation/" \
             | grep -cE "$anchored" || true)"
         [ "$count" = "1" ] || body="$body$citation resolves to $count headings, expected 1
 "
