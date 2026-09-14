@@ -261,8 +261,9 @@ built. You are the last check before someone spends a session implementing the
 wrong thing, or the right thing incompletely.
 
 **The unit of review is the feature, not the issue.** Read every design section
-the feature covers — in `Documentation/G2H Design.md`, in `Documentation/Design/`,
-or both — then every issue logged against those sections, and judge the set.
+the feature covers — in the area files under `Documentation/Design/`, which the
+map at the top of `Documentation/G2H Design.md` indexes — then every issue logged
+against those sections, and judge the set.
 Whether one issue is individually well formed is not the question.
 
 Check, in order:
@@ -383,9 +384,10 @@ gh pr edit <PR#> --remove-label "ready for review"
   unstated intention. **When reviewing issues**, criteria that are missing, thin
   or untestable are the finding you were called for; report them rather than
   stopping.
-- `Documentation/G2H Design.md` on main outranks the issue, as does
-  `Documentation/Design/Events.md` for event design. If the implementation
-  matches a stale issue and contradicts either, that is a finding.
+- `Documentation/G2H Design.md` on main outranks the issue, as do the area files
+  under `Documentation/Design/` that are authoritative for their areas. If the
+  implementation matches a stale issue and contradicts the design, that is a
+  finding.
 
 Being wrong about a defect costs a conversation. Missing one costs a release.
 Report anything you are unsure about as ADVISORY rather than staying quiet.

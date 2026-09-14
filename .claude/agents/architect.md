@@ -125,10 +125,11 @@ What you settle, in this order:
 
 - Read before you decide. Establish what exists with Glob and Grep, and read the
   existing migrations before proposing schema changes.
-- `Documentation/G2H Design.md` on main is authoritative, together with
-  `Documentation/Design/Events.md` for event design. An issue that disagrees with
-  either is stale intent, not an instruction — correct the issue, do not follow
-  it.
+- `Documentation/G2H Design.md` on main is the index and entry point; the area
+  files under `Documentation/Design/` are authoritative for their areas, and the
+  map at the top of the index says which area is in which file. An issue that
+  disagrees with the design is stale intent, not an instruction — correct the
+  issue, do not follow it.
 - You may run read-only commands (`git log`, `dotnet build`, `gh issue view`).
   You may not run migrations or deploys.
 - Prefer the boring option. New abstractions, new packages and new events each
@@ -153,10 +154,9 @@ have cost real rework, so:
 - Never edit a file outside `Documentation/`. This is enforced by this prompt,
   not by the tool list — `Edit` has no path scoping, so this boundary is
   discipline, not a sandbox. It exists because the design lives under
-  `Documentation/` rather than a separate `docs/design/` tree:
-  `Documentation/G2H Design.md` is the design, and the area-scoped split has
-  begun under `Documentation/Design/`, where event design now lives. The scope
-  should narrow to those two paths as the rest of the split lands.
+  `Documentation/` rather than a separate `docs/design/` tree: the area files
+  under `Documentation/Design/` are the design, and `Documentation/G2H Design.md`
+  is the index that maps to them. Those two paths are the scope.
 - Never approve a design that reads identity from anywhere but the envelope.
 - Never approve a design that puts a decision in a broker.
 - If the request is ambiguous, stop and ask. Do not invent requirements — that is

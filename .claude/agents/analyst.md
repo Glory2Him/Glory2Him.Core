@@ -65,10 +65,11 @@ even mid-draft.
 
 - Read the code before writing criteria. Existing behaviour is a requirement until
   someone decides otherwise.
-- `Documentation/G2H Design.md` on main is authoritative, together with
-  `Documentation/Design/Events.md` for event design. Where the issue and the
-  design disagree, the design wins and the issue needs correcting — say so rather
-  than writing criteria against stale intent.
+- `Documentation/G2H Design.md` on main is the index and entry point; the area
+  files under `Documentation/Design/` are authoritative for their areas, and the
+  map at the top of the index says which area is in which file. Where the issue
+  and the design disagree, the design wins and the issue needs correcting — say
+  so rather than writing criteria against stale intent.
 - Write criteria in domain language. "When a contributor submits an item that is
   already approved" — not "when `Status` is `2`".
 - One criterion, one behaviour. If a criterion contains "and", split it.

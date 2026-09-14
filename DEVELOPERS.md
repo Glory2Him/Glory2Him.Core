@@ -228,7 +228,7 @@ architect.
 
 ```
 Documentation/
-  G2H Design.md            the index, and every section not yet split out
+  G2H Design.md            the index: §1, the map, the pointer stubs, the roadmap
   Design/                  area-scoped design documents, each with its own section prefix
     Events.md              §EVN0 … §EVN23  (event design)
     UI.md                  §UI20          (UI / UX design)
@@ -365,13 +365,12 @@ line to the mockup's README.
 subject's area and names no file itself: the area file under
 `Documentation/Design/` where the area has one, and `Documentation/G2H Design.md`
 — in the section that already owns the subject — where it does not. The map at
-the top of `G2H Design.md` is what says which of the two, one row per section, so
-the instruction stays true as each remaining area moves. Six areas have their
-own file today: event design in `Design/Events.md`, UI design in `Design/UI.md`,
-security design in `Design/Security.md`, architecture design in
-`Design/Architecture.md`, approval design in `Design/Approval.md` and domain
-design in `Design/Domain.md`. What an extracted section leaves behind
-is a pointer stub, and design is never written into one. A section in an area
+the top of `G2H Design.md` is what says which of the two, one row per section.
+Six areas have their own file today: event design in `Design/Events.md`, UI
+design in `Design/UI.md`, security design in `Design/Security.md`, architecture
+design in `Design/Architecture.md`, approval design in `Design/Approval.md` and
+domain design in `Design/Domain.md`. What an extracted section leaves behind is a
+pointer stub, and design is never written into one. A section in an area
 file is numbered with that file's prefix; a section still in the main document
 keeps the number it has. Heading tags are a separate, not-yet-applied
 convention — see §6.
