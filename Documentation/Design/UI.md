@@ -6,14 +6,13 @@ components, navigation and authentication design.
 Section numbers below carry a **`UI` prefix** and are otherwise the numbers
 these sections already had: an old `§20.N` is now `§UI20.N`, and nothing was
 renumbered, reordered, merged or split in the move. That is the
-prefix-preserving rule of [`Documentation/Design/Split.md`](Split.md) §S1.2. It
-means this file starts at `UI20` rather than at 1 and its numbering is not
-contiguous with the other area files, so the contents list below is what makes
-that gap read as a table of contents rather than as missing content. The other
-`Documentation/Design/*.md` files carry their own prefixes — `ARC`, `APR`,
-`DOM`, `SEC`, `EVN` — so a bare `§UI20.6.1` is unambiguous once they exist.
-Until they do, the map at the top of [`G2H Design.md`](../G2H%20Design.md) is
-what resolves a citation into a file not yet written.
+prefix-preserving rule of §IDX1.5. It means this file starts at `UI20` rather than
+at 1 and its numbering is not contiguous with the other area files, so the
+contents list below is what makes that gap read as a table of contents rather
+than as missing content. The other `Documentation/Design/*.md` files carry
+their own prefixes — `ARC`, `APR`, `DOM`, `SEC`, `EVN` — so a bare `§UI20.6.1`
+is unambiguous. Where this file cites one of them, the map at the top of
+[`G2H Design.md`](../G2H%20Design.md) is what resolves it.
 
 **`Events.md` is the one file a citation into it cannot be derived for.** It
 renumbered rather than prefix-preserved, so an into-Events citation is looked up
