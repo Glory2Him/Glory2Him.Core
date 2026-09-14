@@ -32,6 +32,7 @@
   <Folder Name="/Documentation/Design/">
     <File Path="Documentation/Design/Approval.md" />
     <File Path="Documentation/Design/Architecture.md" />
+    <File Path="Documentation/Design/Domain.md" />
     <File Path="Documentation/Design/Events.md" />
     <File Path="Documentation/Design/Security.md" />
     <File Path="Documentation/Design/Split.md" />
