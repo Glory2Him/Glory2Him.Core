@@ -159,7 +159,7 @@ it names the file the section is in now and the number to cite it by.
 | §18 | Authentication and Authorisation | [`Design/Security.md`](Design/Security.md) — extracted; §18 below is the pointer stub | `§SEC18` |
 | §19 | Search Engine Optimisation | [`Design/Domain.md`](Design/Domain.md) — extracted; §19 below is the pointer stub | `§DOM19` |
 | §20 | UI / UX Design | [`Design/UI.md`](Design/UI.md) — extracted; §20 below is the pointer stub | `§UI20` |
-| §21 | Summary | **Retired** — §21.1 restated rules that are defined elsewhere and was deleted sentence by sentence; §21.2 is in this document under *Roadmap — Immediate Next Changes*, which is a work plan rather than design | — |
+| §21 | Summary | **Retired** — its *Final Design Direction* half restated rules that are defined elsewhere and was deleted sentence by sentence; its *Immediate Next Changes* half is in this document under *Roadmap — Immediate Next Changes*, which is a work plan rather than design | — |
 
 The six area files, one line each:
 
