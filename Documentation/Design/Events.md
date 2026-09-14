@@ -1771,7 +1771,7 @@ Three things about this pair, and each is a question a reviewer will ask:
    (e) condition 4). Contrast the round's own dismissal, which cannot be
    driven this way: dismissing stale reviews is conditional on
    `RequireReapprovalOnChange` on the edit path and unconditional on the §8.6
-   HR-4 reset (`G2H Design.md` §12.5.3 rule 12, §16.7.5), and a bare
+   HR-4 reset (`G2H Design.md` §12.5.3 business rule 12, §16.7.5), and a bare
    `Approval-Modified` cannot tell those apart — which is why the dismissal and
    Berean's return-to-pending stay direct calls on the round's own service
    (§12.5.3 rule 19). Introducing a discriminated `Approval-Reset` fact to move
