@@ -16,7 +16,7 @@ namespace Glory2Him.Core.Models.Foundations.Approvals
 {
     /// <summary>
     /// The non-leaking result of the unfiltered <c>(EntityType, EntityId)</c> lookup
-    /// (design §9.7.2 rule 3, §12.4.4 BR14).
+    /// (design §9.7.2 rule 3, §ARC12.5.3 BR14).
     ///
     /// <para>The retrieve-or-create flow must see rows the caller-facing reads hide, and for a
     /// different reason than the association probe: <c>UX_Approvals_EntityType_EntityId</c> is
@@ -42,7 +42,7 @@ namespace Glory2Him.Core.Models.Foundations.Approvals
 
         /// <summary>
         /// Whether the matched row is soft-deleted. A closed approval is **reinstated in place**,
-        /// never re-inserted (§12.4.4 BR14) — the unique index spans deleted rows, so a second
+        /// never re-inserted (§ARC12.5.3 BR14) — the unique index spans deleted rows, so a second
         /// insert on the same key cannot succeed.
         /// </summary>
         public bool IsDeleted { get; set; }

@@ -95,7 +95,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         // One verb for every approval-state move, because they are one act under different
         // authority rather than three operations: the ordinary Submitted -> Approved/Rejected
         // verdict, the Administrators override that re-opens a terminal row (§8.6 HR-4), and the bypass
-        // that approves OVER unmet conditions (§12.4.4 rule 11).
+        // that approves OVER unmet conditions (§ARC12.5.3 business rule 11).
         //
         // The bypass was previously its own verb, on the reasoning that a flag would make every
         // ordinary approve a potential bypass and would demote the reason — the only thing that
