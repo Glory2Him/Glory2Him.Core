@@ -418,18 +418,18 @@ gate_g3() {
         | sort -u -V)"
 
     if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "arc" ]; then
-        # §12.4.7 is G5's standing exemption (Split.md §S6): it dangled before
-        # the split and the split neither creates nor repairs it. §12.4.4 is a
-        # second, previously unrecorded dangle found by issue #553 — cited as
-        # "§12.4.4 BR14" / "§12.4.4 rule 11" from six files
+        # §12.4.7 dangled before the split, and the split neither creates nor
+        # repairs it. §12.4.4 was `ApprovalOrchestrationService`; commit
+        # 757a8100 renumbered that section to §ARC12.5.3, and its citers
         # (`ApprovalEntityProbeReadTests.cs`,
         # `AssociationServiceTests.TransitionApproval.Validations.cs`,
         # `ApprovalEntityMatch.cs` twice, `IApprovalService.cs`,
-        # `IAssociationService.cs`) plus one more inside `G2H Design.md` §9.7.x —
-        # §12.4 has only §12.4.1 and §12.4.2, and no BR14 or rule 11 stands
-        # anywhere under it today. It is subtracted the same way as §12.4.7
-        # rather than reported, on the same §S4.1 precedent: a gate nobody can
-        # run green stops being run. Tracked as issue #559.
+        # `IAssociationService.cs`, and `G2H Design.md` §9.7.x) were repointed
+        # to §ARC12.5.3 at issue #559 — but this scope's corpus is built from
+        # `$BASELINE`, the pre-split tree, where §12.4.4 still appears, so the
+        # number survives here regardless of the repointing. Both are
+        # subtracted rather than reported: a gate nobody can run green stops
+        # being run.
         citations="$(echo "$citations" | grep -Ev '^§(12\.4\.7|12\.4\.4)$')"
     fi
 

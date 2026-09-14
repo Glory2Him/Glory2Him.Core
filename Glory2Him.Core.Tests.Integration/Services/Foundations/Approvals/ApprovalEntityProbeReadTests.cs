@@ -113,7 +113,7 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Approvals
                 probeEntityId,
                 TestContext.Current.CancellationToken);
 
-            // then: the closed row surfaces, so the flow reinstates it in place (§12.4.4 BR14)
+            // then: the closed row surfaces, so the flow reinstates it in place (§ARC12.5.3 BR14)
             match.Should().NotBeNull();
             match.Id.Should().Be(softDeletedApproval.Id);
             match.IsDeleted.Should().BeTrue();

@@ -254,7 +254,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             actualQuery.RoleSubjects[1].EntityType.Should().Be(nameof(EntityType.Tag));
             actualQuery.RoleSubjects[1].ContentType.Should().BeNull();
 
-            // bypass is its own operation and this is not it (§12.4.4 rule 11)
+            // bypass is its own operation and this is not it (§ARC12.5.3 business rule 11)
             actualQuery.IsBypassRequested.Should().BeFalse();
             actualQuery.BypassReason.Should().BeNull();
         }
