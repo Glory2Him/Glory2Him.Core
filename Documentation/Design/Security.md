@@ -18,9 +18,8 @@ and it stays at heading level 3 as `### SEC14.6.1` rather than being promoted
 to match its number; the anomaly is preserved, not tidied (§IDX1.5, the same
 precedent already applied to §ARC16.7.5). The other `Documentation/Design/*.md`
 files carry their own prefixes — `ARC`, `APR`, `DOM`, `EVN`, `UI` — so a bare
-`§SEC14.7` is unambiguous once they exist. Where this file cites one of them
-ahead of its own existence, the map at the top of
-[`G2H Design.md`](../G2H%20Design.md) is what resolves it.
+`§SEC14.7` is unambiguous. Where this file cites one of them, the map at the
+top of [`G2H Design.md`](../G2H%20Design.md) is what resolves it.
 
 **`Events.md` is the one file a citation into it cannot be derived for.** It
 renumbered rather than prefix-preserved, so an into-Events citation is looked

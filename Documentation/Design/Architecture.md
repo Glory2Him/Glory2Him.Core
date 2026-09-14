@@ -17,9 +17,9 @@ stood between `16.7.2` and `16.7.3` before the move** — that position is
 preserved, not tidied (§IDX1.5 reason 3; the same kind of preservation
 `Security.md`'s header block names for §SEC14.6.1's heading-level anomaly). The
 other `Documentation/Design/*.md` files carry their own prefixes — `APR`,
-`DOM`, `EVN`, `SEC`, `UI` — so a bare `§ARC12.5` is unambiguous once they
-exist. Where this file cites one of them ahead of its own existence, the map at
-the top of [`G2H Design.md`](../G2H%20Design.md) is what resolves it.
+`DOM`, `EVN`, `SEC`, `UI` — so a bare `§ARC12.5` is unambiguous. Where this
+file cites one of them, the map at the top of
+[`G2H Design.md`](../G2H%20Design.md) is what resolves it.
 
 **`Events.md` is the one file a citation into it cannot be derived for.** It
 renumbered rather than prefix-preserved, so an into-Events citation is looked

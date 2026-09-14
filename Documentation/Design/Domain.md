@@ -20,7 +20,7 @@ as missing content. **Unlike `Approval.md`, `Architecture.md` and
 heading's level matches its number's depth throughout, `##` for `N`, `###` for
 `N.M` and `####` for `N.M.K`. The other `Documentation/Design/*.md` files carry
 their own prefixes — `APR`, `ARC`, `EVN`, `SEC`, `UI` — so a bare `§DOM4.2` is
-unambiguous once they exist. Where this file cites one of them, the map at the
+unambiguous. Where this file cites one of them, the map at the
 top of [`G2H Design.md`](../G2H%20Design.md) is what resolves it.
 
 **`Events.md` is the one file a citation into it cannot be derived for.** It

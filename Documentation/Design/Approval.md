@@ -22,9 +22,8 @@ being promoted to match their numbers: the anomaly is preserved, not tidied
 (§IDX1.5, the same precedent `Security.md`'s header block names for §SEC14.6.1 and
 `Architecture.md`'s for §ARC16.7.5). The other `Documentation/Design/*.md`
 files carry their own prefixes — `ARC`, `DOM`, `EVN`, `SEC`, `UI` — so a bare
-`§APR8.6` is unambiguous once they exist. Where this file cites one of them
-ahead of its own existence, the map at the top of
-[`G2H Design.md`](../G2H%20Design.md) is what resolves it.
+`§APR8.6` is unambiguous. Where this file cites one of them, the map at the
+top of [`G2H Design.md`](../G2H%20Design.md) is what resolves it.
 
 **`Events.md` is the one file a citation into it cannot be derived for.** It
 renumbered rather than prefix-preserved, so an into-Events citation is looked
