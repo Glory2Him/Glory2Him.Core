@@ -234,6 +234,7 @@ Documentation/
     UI.md                  §UI20          (UI / UX design)
     Security.md            §SEC14, §SEC18  (security design)
     Architecture.md        §ARC12, §ARC16, §ARC17  (architecture design)
+    Approval.md            §APR7, §APR8, §APR9, §APR13  (approval design)
     Split.md               the rulings for the split itself, retired once it lands
   Mockups/                 Claude Design exports awaiting or feeding a design section
   Images/                  static visual assets referenced from issues and design docs
@@ -246,8 +247,8 @@ Documentation/
 
 `G2H Design.md` is being broken into area-scoped files under
 `Documentation/Design/` (issue #481). `Events.md` came first, then `UI.md`, then
-`Security.md`, then `Architecture.md`. The remaining areas — approval, domain —
-are planned and their prefixes are already reserved: `APR`, `DOM`.
+`Security.md`, then `Architecture.md`, then `Approval.md`. The one remaining
+area — domain — is planned and its prefix is already reserved: `DOM`.
 `G2H Design.md` is the index: the map at the top of it says, for every one of
 the 21 original sections, which file it is in and what to cite it as.
 
@@ -364,11 +365,11 @@ subject's area and names no file itself: the area file under
 `Documentation/Design/` where the area has one, and `Documentation/G2H Design.md`
 — in the section that already owns the subject — where it does not. The map at
 the top of `G2H Design.md` is what says which of the two, one row per section, so
-the instruction stays true as each remaining area moves. Four areas have their
+the instruction stays true as each remaining area moves. Five areas have their
 own file today: event design in `Design/Events.md`, UI design in `Design/UI.md`,
-security design in `Design/Security.md` and architecture design in
-`Design/Architecture.md`. Approval and domain are still written in the main
-document. What an extracted section leaves behind
+security design in `Design/Security.md`, architecture design in
+`Design/Architecture.md` and approval design in `Design/Approval.md`. Domain is
+still written in the main document. What an extracted section leaves behind
 is a pointer stub, and design is never written into one. A section in an area
 file is numbered with that file's prefix; a section still in the main document
 keeps the number it has. Heading tags are a separate, not-yet-applied
