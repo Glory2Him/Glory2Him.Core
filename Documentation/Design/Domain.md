@@ -11,7 +11,7 @@ these sections already had: an old `§2.N` is now `§DOM2.N`, an old `§3.N` is
 now `§DOM3.N`, an old `§4.N` is now `§DOM4.N`, an old `§5.N` is now `§DOM5.N`,
 an old `§6.N` is now `§DOM6.N`, an old `§11.N` is now `§DOM11.N`, and an old
 `§19.N` is now `§DOM19.N`, and nothing was renumbered, reordered, merged or
-split in the move. That is the prefix-preserving rule of §1.5. It means this
+split in the move. That is the prefix-preserving rule of §IDX1.5. It means this
 file runs from `DOM2` to `DOM6` and then jumps to `DOM11` and then to `DOM19`,
 so its numbering is not contiguous with the other area files, and the contents
 list below is what makes those two gaps read as a table of contents rather than

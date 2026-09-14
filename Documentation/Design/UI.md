@@ -6,7 +6,7 @@ components, navigation and authentication design.
 Section numbers below carry a **`UI` prefix** and are otherwise the numbers
 these sections already had: an old `§20.N` is now `§UI20.N`, and nothing was
 renumbered, reordered, merged or split in the move. That is the
-prefix-preserving rule of §1.5. It means this file starts at `UI20` rather than
+prefix-preserving rule of §IDX1.5. It means this file starts at `UI20` rather than
 at 1 and its numbering is not contiguous with the other area files, so the
 contents list below is what makes that gap read as a table of contents rather
 than as missing content. The other `Documentation/Design/*.md` files carry

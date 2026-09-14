@@ -228,7 +228,7 @@ architect.
 
 ```
 Documentation/
-  G2H Design.md            the index: §1, the map, the pointer stubs, the roadmap
+  G2H Design.md            the index: §IDX1, the map, the pointer stubs, the roadmap
   Design/                  area-scoped design documents, each with its own section prefix
     Events.md              §EVN0 … §EVN23  (event design)
     UI.md                  §UI20          (UI / UX design)
@@ -239,7 +239,7 @@ Documentation/
   Mockups/                 Claude Design exports awaiting or feeding a design section
   Images/                  static visual assets referenced from issues and design docs
   DependencyGraph/         generated architecture graph and its viewer
-  Glory 2 Him.drawio       the original design sketch, cited by §1.3 as a source input
+  Glory 2 Him.drawio       the original design sketch, cited by §IDX1.3 as a source input
   Prompt-CreateFoundationService.md   a standalone prompt template, predating the agents
 ```
 
@@ -259,7 +259,7 @@ its file's prefix — `§20.6.1` became `§UI20.6.1` — and carries a
 `(formerly §20.6.1)` annotation naming its old position, so the dozens of C#
 comments that cite the old number still resolve by grep. `Events.md` is the one
 file that renumbered instead, flat as `§EVN1`, `§EVN2`, because it merged two
-independently numbered documents; §1.5 records that as an exception rather
+independently numbered documents; §IDX1.5 records that as an exception rather
 than the pattern to copy.
 
 **If you add a new split file, copy the convention from `UI.md`'s intro block.**
