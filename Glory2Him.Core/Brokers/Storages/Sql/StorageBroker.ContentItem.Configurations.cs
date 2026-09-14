@@ -146,13 +146,15 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
 
             AddPublishedSlotIndex(model, "IX_ContentItem_IsPublished");
 
-            // §14.2 — additional recommended indexes
+            // §DOM3.8 rule 2 — excludes Topic and Series content items from the feed
             model.HasIndex(contentItem => contentItem.ContentType)
                  .HasDatabaseName("IX_ContentItems_ContentType");
 
+            // §SEC14.1 — publish window; §DOM11.3 — feed order
             model.HasIndex(contentItem => contentItem.PublishDate)
                  .HasDatabaseName("IX_ContentItems_PublishDate");
 
+            // §SEC14.1 — visibility predicate terms 2, 3 and 4, in order
             model.HasIndex(contentItem => new
             {
                 contentItem.ApprovalStatus,
@@ -161,6 +163,7 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             })
                  .HasDatabaseName("IX_ContentItems_Feed");
 
+            // §SEC14.1 — visibility predicate term 1
             model.HasIndex(contentItem => contentItem.DeletedWhen)
                  .HasDatabaseName("IX_ContentItems_DeletedWhen");
 
