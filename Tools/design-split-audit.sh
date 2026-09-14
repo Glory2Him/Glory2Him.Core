@@ -13,15 +13,20 @@
 # reported.
 #
 # Usage:
-#   Tools/design-split-audit.sh [--baseline <ref>] [--scope <20|sec|arc|apr|all>] [--gate <g1|g2|g3|g4|verbatim|all>]
+#   Tools/design-split-audit.sh [--baseline <ref>] [--scope <20|sec|arc|apr|dom|all>] [--gate <g1|g2|g3|g4|verbatim|all>]
 #
 # Examples:
 #   Tools/design-split-audit.sh                        # every gate, scoped to §20
 #   Tools/design-split-audit.sh --scope sec            # every gate, scoped to §14 and §18
 #   Tools/design-split-audit.sh --scope arc            # every gate, scoped to §12, §16 and §17
 #   Tools/design-split-audit.sh --scope apr            # every gate, scoped to §7, §8, §9 and §13
+#   Tools/design-split-audit.sh --scope dom            # every gate, scoped to §2, §3, §4, §5, §6, §11, §19
 #   Tools/design-split-audit.sh --scope all            # every gate, whole document
-#   Tools/design-split-audit.sh --gate g2 --scope all  # the completeness gate alone
+#   Tools/design-split-audit.sh --gate g2 --scope all --baseline 854515f2
+#                                                       # the whole-document completeness gate; --scope all
+#                                                       # NEEDS the pre-split baseline passed explicitly (see
+#                                                       # the --scope all note below) rather than the resolved
+#                                                       # default, which drifts with every extraction that lands
 #   Tools/design-split-audit.sh --gate verbatim        # the prose-identity proof alone
 #
 # Defaults:
@@ -45,10 +50,26 @@
 #                         landing in `Approval.md` under the `APR` prefix; §10 to
 #                         §12 stand between §9 and §13 in `G2H Design.md` but the
 #                         four ranges are contiguous in `Approval.md`.
+#                         `dom` is issue #555's extraction — §2, §3, §4, §5, §6,
+#                         §11 and §19, landing in `Domain.md` under the `DOM`
+#                         prefix; §7 to §10 stand between §6 and §11, and §12 to
+#                         §18 stand between §11 and §19, in `G2H Design.md`, but
+#                         the seven ranges are contiguous in `Domain.md`. This is
+#                         the first scope whose section numbers are proper
+#                         prefixes of other sections' numbers (`2` of `20`/`21`,
+#                         `5` of `534`), so its G3 citation pattern is
+#                         right-anchored against a following digit — see the note
+#                         below.
 #                         `all` is the whole-document mode: it reports every
 #                         section not yet extracted and is expected to be
 #                         NON-EMPTY until the last extraction (#556) runs it to
-#                         empty.
+#                         empty. It needs the PRE-SPLIT baseline passed
+#                         explicitly — `--baseline 854515f2` — because the
+#                         resolved default moves with `origin/main`, and once an
+#                         extraction has merged its sections no longer stand in
+#                         the "old" heading set the default baseline reads, so
+#                         each already-extracted section reports as `invented`
+#                         rather than the gate running clean.
 #   --gate      all       G1-G4 are Split.md §S6's gates. `verbatim` is the extra
 #                         check #481 criterion 2 asks for — that no sentence was
 #                         reworded inside the move — which no section-level gate
@@ -73,6 +94,16 @@
 # - Greps for an old number are RIGHT-ANCHORED — `§20\.6($|[^0-9.])`. An
 #   unanchored `§20.6` matches the `§20.6.1` heading too, and every parent number
 #   then reports a false duplicate against its own children.
+# - `--scope dom`'s G3 citation-extraction pattern is ALSO right-anchored against
+#   a following DIGIT (`git grep -P`, a lookahead), which none of the other four
+#   scopes needed. `2`, `3`, `4`, `5`, `6`, `11` and `19` are the first section
+#   numbers in this split that are themselves proper prefixes of other sections'
+#   numbers — no number in `20|14|18|12|16|17|7|8|9|13` is a prefix of a longer
+#   one, so those four scopes were right by luck rather than by anchoring.
+#   Unanchored, `§2` matches inside `§20` and `§21`, and `§5` matches inside
+#   `§534` (the mis-sigiled issue number G6 already exempts) — phantom tokens
+#   that still resolve to exactly one heading each, so this is a correctness fix
+#   to what the gate measures, not a red-to-green fix for a prior finding.
 # - `--scope arc`'s VERBATIM pairing normalises the BASELINE forward rather than
 #   the new file backward, unlike `--scope sec`. §12/§16/§17 carry 21 pre-split
 #   `§10.x` citations into event design (`§10.2`, `§10.4`, `§10.5`, `§10.7`,
@@ -96,6 +127,16 @@
 #   byte-identical once written and a backward reversal cannot tell them apart.
 #   Unlike `--scope arc`, this body carries no markdown link at all, so the
 #   link-target rewrite that pairing needs has no counterpart here.
+# - `--scope dom`'s VERBATIM pairing also normalises the BASELINE forward, for
+#   consistency with `--scope arc` and `--scope apr` rather than necessity: the
+#   DOM body carries exactly one `§10.x` citation (`§10.4`, in §5.6.4) and no
+#   pre-existing `§EVN` occurrence, so there is no output-token collision and a
+#   backward reversal would be unambiguous too. `§10.4` resolves to `§EVN4` —
+#   looked up in `Events.md`'s own *(formerly §10.4)* annotation, never derived.
+#   The body carries one markdown link (`](/media/{attachmentId})`, §5.6.6, an
+#   absolute site path inside inline code), which needs no rewrite: it is
+#   unaffected by the prose moving one directory down, so this pairing needs no
+#   link-target rule.
 # ────────────────────────────────────────────────────────────────────────────────
 
 set -u
@@ -117,7 +158,7 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-case "$SCOPE" in 20|sec|arc|apr|all) ;; *) echo "--scope must be 20, sec, arc, apr or all" >&2; exit 2 ;; esac
+case "$SCOPE" in 20|sec|arc|apr|dom|all) ;; *) echo "--scope must be 20, sec, arc, apr, dom or all" >&2; exit 2 ;; esac
 case "$GATE" in g1|g2|g3|g4|verbatim|all) ;; *) echo "--gate must be g1, g2, g3, g4, verbatim or all" >&2; exit 2 ;; esac
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
@@ -196,7 +237,8 @@ area_files() {
     # Every area file, rulings excluded. Scope 20 is UI.md alone; scope sec is
     # Security.md alone (§14 and §18, issue #552); scope arc is Architecture.md
     # alone (§12, §16 and §17, issue #553); scope apr is Approval.md alone
-    # (§7, §8, §9 and §13, issue #554).
+    # (§7, §8, §9 and §13, issue #554); scope dom is Domain.md alone
+    # (§2, §3, §4, §5, §6, §11 and §19, issue #555).
     if [ "$SCOPE" = "20" ]; then
         [ -f "$AREA_DIR/UI.md" ] && echo "$AREA_DIR/UI.md"
         return
@@ -217,6 +259,11 @@ area_files() {
         return
     fi
 
+    if [ "$SCOPE" = "dom" ]; then
+        [ -f "$AREA_DIR/Domain.md" ] && echo "$AREA_DIR/Domain.md"
+        return
+    fi
+
     for file in "$AREA_DIR"/*.md; do
         [ -f "$file" ] || continue
         [ "$file" = "$RULINGS" ] && continue
@@ -232,6 +279,7 @@ expected_area_file() {
         sec) echo "$AREA_DIR/Security.md" ;;
         arc) echo "$AREA_DIR/Architecture.md" ;;
         apr) echo "$AREA_DIR/Approval.md" ;;
+        dom) echo "$AREA_DIR/Domain.md" ;;
         *)   echo "$AREA_DIR/*.md" ;;
     esac
 }
@@ -246,6 +294,8 @@ in_scope() {
         grep -E '^(12|16|17)($|\.)'
     elif [ "$SCOPE" = "apr" ]; then
         grep -E '^(7|8|9|13)($|\.)'
+    elif [ "$SCOPE" = "dom" ]; then
+        grep -E '^(2|3|4|5|6|11|19)($|\.)'
     else
         cat
     fi
@@ -337,7 +387,7 @@ gate_g2() {
 
 # ── G3 — every old citation from code still resolves, to exactly one heading ────
 gate_g3() {
-    local pattern citations body=""
+    local pattern citations body="" grep_flag="-E"
 
     if [ "$SCOPE" = "20" ]; then
         pattern='§20[0-9.]*'
@@ -347,6 +397,15 @@ gate_g3() {
         pattern='§(12|16|17)(\.[0-9]+)*'
     elif [ "$SCOPE" = "apr" ]; then
         pattern='§(7|8|9|13)(\.[0-9]+)*'
+    elif [ "$SCOPE" = "dom" ]; then
+        # 2, 3, 4, 5, 6, 11 and 19 are proper prefixes of other section numbers
+        # (20, 21, 534, ...), which the other four scopes never had to be safe
+        # against. A `-E` alternation stops at the first matching alternative —
+        # `§2` inside `§20` — rather than continuing to consume the trailing
+        # digit, so extraction here needs a real lookahead: `-P`, checked
+        # against a following digit.
+        pattern='§(2|3|4|5|6|11|19)(\.[0-9]+)*(?![0-9])'
+        grep_flag="-P"
     else
         pattern='§[0-9]+(\.[0-9]+)*'
     fi
@@ -355,7 +414,7 @@ gate_g3() {
     # <rev>:<path> matches` line into the citation stream, each of which is then
     # judged as a citation and reported as resolving to no heading — a finding the
     # whole-document mode could never be run to empty.
-    citations="$(git grep -I -h -o -E "$pattern" "$BASELINE" -- . ':(exclude)Documentation/' \
+    citations="$(git grep -I -h -o "$grep_flag" "$pattern" "$BASELINE" -- . ':(exclude)Documentation/' \
         | sort -u -V)"
 
     if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "arc" ]; then
@@ -451,9 +510,10 @@ gate_verbatim() {
         sec) file="$AREA_DIR/Security.md" ;;
         arc) file="$AREA_DIR/Architecture.md" ;;
         apr) file="$AREA_DIR/Approval.md" ;;
+        dom) file="$AREA_DIR/Domain.md" ;;
         *)
             report "VERBATIM" "defined per extraction, not for the whole document" \
-                "run it with --scope 20, --scope sec, --scope arc or --scope apr"
+                "run it with --scope 20, --scope sec, --scope arc, --scope apr or --scope dom"
             return
             ;;
     esac
@@ -552,6 +612,43 @@ gate_verbatim() {
         difference="$(diff <(echo "$old_forward") <(echo "$new") || true)"
 
         report "VERBATIM" "normalised differences against the baseline §7/§8/§9/§13 body" "$difference"
+        return
+    fi
+
+    if [ "$SCOPE" = "dom" ]; then
+        # §2, §3, §4, §5, §6, §11 and §19 are non-contiguous in G2H Design.md
+        # (§7-§10 stand between §6 and §11, §12-§18 between §11 and §19) but
+        # contiguous in Domain.md, so the baseline body is seven ranges
+        # concatenated rather than one, in section order.
+        old="$({
+            git show "$BASELINE:$DESIGN_DOC" | sed -n '/^## 2\. /,/^## 3\. /p'   | sed '$d'
+            git show "$BASELINE:$DESIGN_DOC" | sed -n '/^## 3\. /,/^## 4\. /p'   | sed '$d'
+            git show "$BASELINE:$DESIGN_DOC" | sed -n '/^## 4\. /,/^## 5\. /p'   | sed '$d'
+            git show "$BASELINE:$DESIGN_DOC" | sed -n '/^## 5\. /,/^## 6\. /p'   | sed '$d'
+            git show "$BASELINE:$DESIGN_DOC" | sed -n '/^## 6\. /,/^## 7\. /p'   | sed '$d'
+            git show "$BASELINE:$DESIGN_DOC" | sed -n '/^## 11\. /,/^## 12\. /p' | sed '$d'
+            git show "$BASELINE:$DESIGN_DOC" | sed -n '/^## 19\. /,/^## 20\. /p' | sed '$d'
+        } | sed -e :a -e '/^[[:space:]]*$/{$d;N;ba' -e '}')"
+
+        new="$(sed -n '/^---$/,$p' "$file" \
+            | tail -n +2 \
+            | sed -e '/./,$!d' \
+            | sed -E 's/^(#{2,6} )DOM((2|3|4|5|6|11|19)[0-9.]*)( .*) \*\(formerly §[0-9][0-9.]*\)\*$/\1\2\4/' \
+            | sed -E 's/§(DOM|APR|ARC|SEC|UI)([0-9])/§\2/g' \
+            | sed -e :a -e '/^[[:space:]]*$/{$d;N;ba' -e '}')"
+
+        # Only one pre-split `§10.x` citation stands in this body — `§10.4`, in
+        # §5.6.4 — and no pre-existing `§EVN` occurrence, so unlike `--scope arc`
+        # and `--scope apr` there is no output-token collision here; forward
+        # normalisation is used anyway, for consistency with those two rather
+        # than necessity. This body carries no relative `Events.md` link either,
+        # so it needs no link-target rule.
+        old_forward="$(printf '%s\n' "$old" \
+            | sed -E 's/§10\.4($|[^0-9])/§EVN4\1/g')"
+
+        difference="$(diff <(echo "$old_forward") <(echo "$new") || true)"
+
+        report "VERBATIM" "normalised differences against the baseline §2/§3/§4/§5/§6/§11/§19 body" "$difference"
         return
     fi
 
