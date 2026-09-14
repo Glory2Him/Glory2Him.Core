@@ -10,21 +10,20 @@ Section numbers below carry an **`APR` prefix** and are otherwise the numbers
 these sections already had: an old `§7.N` is now `§APR7.N`, an old `§8.N` is
 now `§APR8.N`, an old `§9.N` is now `§APR9.N`, and an old `§13.N` is now
 `§APR13.N`, and nothing was renumbered, reordered, merged or split in the move.
-That is the prefix-preserving rule of
-[`Documentation/Design/Split.md`](Split.md) §S1.2. It means this file runs from
-`APR7` to `APR9` and then jumps to `APR13` with nothing between, so its
-numbering is not contiguous with the other area files, and the contents list
-below is what makes that gap read as a table of contents rather than as missing
-content. **Four headings carry a number deeper than their heading level** —
+That is the prefix-preserving rule of §1.5. It means this file runs from `APR7`
+to `APR9` and then jumps to `APR13` with nothing between, so its numbering is
+not contiguous with the other area files, and the contents list below is what
+makes that gap read as a table of contents rather than as missing content.
+**Four headings carry a number deeper than their heading level** —
 `### APR7.5.1`, `### APR8.6.1`, `### APR8.6.2` and `### APR8.6.2.1`, all at
 heading level 3, exactly as `### 7.5.1`, `### 8.6.1`, `### 8.6.2` and
 `### 8.6.2.1` stood in `G2H Design.md`. All four stay at level 3 rather than
 being promoted to match their numbers: the anomaly is preserved, not tidied
-(`Split.md` §S1.2, the same precedent `Security.md`'s header block names for
-§SEC14.6.1 and `Architecture.md`'s for §ARC16.7.5). The other
-`Documentation/Design/*.md` files carry their own prefixes — `ARC`, `DOM`,
-`EVN`, `SEC`, `UI` — so a bare `§APR8.6` is unambiguous once they exist. Where
-this file cites one of them ahead of its own existence, the map at the top of
+(§1.5, the same precedent `Security.md`'s header block names for §SEC14.6.1 and
+`Architecture.md`'s for §ARC16.7.5). The other `Documentation/Design/*.md`
+files carry their own prefixes — `ARC`, `DOM`, `EVN`, `SEC`, `UI` — so a bare
+`§APR8.6` is unambiguous once they exist. Where this file cites one of them
+ahead of its own existence, the map at the top of
 [`G2H Design.md`](../G2H%20Design.md) is what resolves it.
 
 **`Events.md` is the one file a citation into it cannot be derived for.** It

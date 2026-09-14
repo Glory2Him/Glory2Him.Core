@@ -8,19 +8,18 @@ Section numbers below carry an **`ARC` prefix** and are otherwise the numbers
 these sections already had: an old `§12.N` is now `§ARC12.N`, an old `§16.N` is
 now `§ARC16.N`, and an old `§17.N` is now `§ARC17.N`, and nothing was
 renumbered, reordered, merged or split in the move. That is the
-prefix-preserving rule of [`Documentation/Design/Split.md`](Split.md) §S1.2. It
-means this file jumps from `ARC12` to `ARC16` to `ARC17` with nothing between,
-so its numbering is not contiguous with the other area files, and the contents
-list below is what makes those gaps read as a table of contents rather than as
-missing content. **§ARC16.7.5 stands between §ARC16.7.2 and §ARC16.7.3, out of
-numeric order, exactly as `16.7.5` stood between `16.7.2` and `16.7.3` before
-the move** — that position is preserved, not tidied (`Split.md` §S1.2 reason 3 and
-§S8; the same kind of preservation `Security.md`'s header block names for
-§SEC14.6.1's heading-level anomaly). The other `Documentation/Design/*.md`
-files carry their own prefixes — `APR`, `DOM`, `EVN`, `SEC`, `UI` — so a bare
-`§ARC12.5` is unambiguous once they exist. Where this file cites one of them
-ahead of its own existence, the map at the top of
-[`G2H Design.md`](../G2H%20Design.md) is what resolves it.
+prefix-preserving rule of §1.5. It means this file jumps from `ARC12` to
+`ARC16` to `ARC17` with nothing between, so its numbering is not contiguous
+with the other area files, and the contents list below is what makes those gaps
+read as a table of contents rather than as missing content. **§ARC16.7.5 stands
+between §ARC16.7.2 and §ARC16.7.3, out of numeric order, exactly as `16.7.5`
+stood between `16.7.2` and `16.7.3` before the move** — that position is
+preserved, not tidied (§1.5 reason 3; the same kind of preservation
+`Security.md`'s header block names for §SEC14.6.1's heading-level anomaly). The
+other `Documentation/Design/*.md` files carry their own prefixes — `APR`,
+`DOM`, `EVN`, `SEC`, `UI` — so a bare `§ARC12.5` is unambiguous once they
+exist. Where this file cites one of them ahead of its own existence, the map at
+the top of [`G2H Design.md`](../G2H%20Design.md) is what resolves it.
 
 **`Events.md` is the one file a citation into it cannot be derived for.** It
 renumbered rather than prefix-preserved, so an into-Events citation is looked

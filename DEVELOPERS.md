@@ -236,7 +236,6 @@ Documentation/
     Architecture.md        §ARC12, §ARC16, §ARC17  (architecture design)
     Approval.md            §APR7, §APR8, §APR9, §APR13  (approval design)
     Domain.md              §DOM2, §DOM3, §DOM4, §DOM5, §DOM6, §DOM11, §DOM19  (domain design)
-    Split.md               the rulings for the split itself, retired once it lands
   Mockups/                 Claude Design exports awaiting or feeding a design section
   Images/                  static visual assets referenced from issues and design docs
   DependencyGraph/         generated architecture graph and its viewer
@@ -260,8 +259,8 @@ its file's prefix — `§20.6.1` became `§UI20.6.1` — and carries a
 `(formerly §20.6.1)` annotation naming its old position, so the dozens of C#
 comments that cite the old number still resolve by grep. `Events.md` is the one
 file that renumbered instead, flat as `§EVN1`, `§EVN2`, because it merged two
-independently numbered documents; `Split.md` §S1.2 records that as an exception
-rather than the pattern to copy.
+independently numbered documents; §1.5 records that as an exception rather
+than the pattern to copy.
 
 **If you add a new split file, copy the convention from `UI.md`'s intro block.**
 Pick the reserved prefix for the area, keep every section's existing number, open
@@ -395,9 +394,8 @@ Two mechanisms, deliberately different, answering two different questions.
 
 **Proposed, not yet applied.** This is #498's criterion 1 and no heading carries
 a tag today — every heading in `Events.md` and `UI.md` is still bare, the second
-of them deliberately: the split relocates headings without touching them
-(`Split.md` §S5). Adopt it as you touch sections; do not read it as an invariant
-you can rely on.
+of them deliberately: the split relocates headings without touching them.
+Adopt it as you touch sections; do not read it as an invariant you can rely on.
 
 Every numbered heading in `Documentation/Design/*.md` should carry exactly one of
 two tags, never bare:
@@ -415,7 +413,7 @@ content nobody has scheduled yet.
 The tag is **added** to the heading as it stands; it never replaces what is
 already there. A relocated heading keeps its `*(formerly §N.M)*` annotation — that
 is the anchor an old `§20.6` citation in code resolves by, and dropping it fails
-`Split.md` §S6 gate G1 — so the tag goes after it, as the specimens show.
+gate G1 — so the tag goes after it, as the specimens show.
 
 The tag is mandatory rather than inferred, because a bare heading is ambiguous:
 deliberately skipped, or just missed? Requiring a tag forces the decision every
