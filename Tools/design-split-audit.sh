@@ -500,13 +500,24 @@ gate_verbatim() {
         | sed -E 's/§(DOM|APR|ARC|SEC|UI)([0-9])/§\2/g' \
         | sed -e :a -e '/^[[:space:]]*$/{$d;N;ba' -e '}')"
 
+    # The body also carries two relative links to `Events.md`. At the baseline
+    # they resolved from `Documentation/`, so they read `](Design/Events.md)`;
+    # the prose now sits one directory down in `Documentation/Design/`, so the
+    # identical target would 404, and the corrected file reads `](Events.md)`
+    # instead (#553 criterion 2's fifth permitted difference). The baseline
+    # carries no occurrence of the bare `](Events.md)` form, so — as with the
+    # `§10.17`/`§10.18` collision above — this is resolved by normalising the
+    # baseline forward rather than the new file backward, and the direction is
+    # unambiguous either way. This matches the link target only, never the link
+    # text or an anchor, so a rewrite of either still fails the diff below.
     old_forward="$(printf '%s\n' "$old" \
         | sed -E 's/§10\.2($|[^0-9])/§EVN2\1/g' \
         | sed -E 's/§10\.4($|[^0-9])/§EVN4\1/g' \
         | sed -E 's/§10\.5($|[^0-9])/§EVN5\1/g' \
         | sed -E 's/§10\.7($|[^0-9])/§EVN7\1/g' \
         | sed -E 's/§10\.17($|[^0-9])/§EVN18\1/g' \
-        | sed -E 's/§10\.18($|[^0-9])/§EVN19\1/g')"
+        | sed -E 's/§10\.18($|[^0-9])/§EVN19\1/g' \
+        | sed -E 's/\]\(Design\/Events\.md\)/](Events.md)/g')"
 
     difference="$(diff <(echo "$old_forward") <(echo "$new") || true)"
 
