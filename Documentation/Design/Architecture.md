@@ -14,8 +14,14 @@ with the other area files, and the contents list below is what makes those gaps
 read as a table of contents rather than as missing content. **§ARC16.7.5 stands
 between §ARC16.7.2 and §ARC16.7.3, out of numeric order, exactly as `16.7.5`
 stood between `16.7.2` and `16.7.3` before the move** — that position is
-preserved, not tidied (§IDX1.5 reason 3; the same kind of preservation
-`Security.md`'s header block names for §SEC14.6.1's heading-level anomaly). The
+accepted permanently, ruled in #568 rather than renumbered now or later:
+renumbering it, its ARC16.7.4 neighbour and the ARC16.7.3 named above would, as
+measured when this was ruled in September 2026, repoint 102 citations of the
+three of them (71 of them outside `Documentation/` in source and tests),
+leave two sections competing for the same *(formerly §16.7.N)* grep anchor,
+and §IDX1.5 reason 3 already forbids the reorder — the same kind of
+preservation `Security.md`'s header
+block names for §SEC14.6.1's heading-level anomaly. The
 other `Documentation/Design/*.md` files carry their own prefixes — `APR`,
 `DOM`, `EVN`, `SEC`, `UI` — so a bare `§ARC12.5` is unambiguous. Where this
 file cites one of them, the map at the top of
@@ -341,14 +347,6 @@ Business Rules:
    - `DeletedBy`
    - `DeletedWhen`
    - `DeletionReason`
-
-   **`ContentType` and `ContentItemId` are pinned against storage on a modify**, which is how this
-   rule is enforced for the two of them rather than merely stated. A row's scope is fixed at
-   creation: rules 3 and 4 make the two scopes different policies rather than two states of one,
-   so moving a row between them is authoring a different setting, not amending this one. The pin
-   applies to every caller, `Administrators` included — it is what the row IS, not who may change
-   it — and it is what stops rule 6's tier from being sidestepped by a publisher sending their own
-   override back with the field nulled.
    - `ContentHash`
    - `Slug` (§DOM19.3 — designed, not a column yet)
    - `ShortCode` (§DOM19.7 — designed, not a column yet)
@@ -522,7 +520,7 @@ Business Rules:
    - `ContentType` — **derived, not accepted**, on an item override: `ContentItemSettingOrchestrationService` reads the `ContentItem` the row names and overwrites whatever the caller sent (rule 6, #450), because the write gate composes the publisher tier from this value. The same service handles the `ContentItemSetting-Adding` event address for the same reason (#456); there it refuses a contradicting claim instead of overwriting it, because the claim is inside a signed envelope — see rule 6. On a per-type default there is no item to derive from and the field is the row's own subject, so it is caller-supplied and validated against the enum.
    - `ContentItemId` — **caller-supplied on add, by necessity**: it is how a caller names the item being configured. It is pinned on modify by rule 9, so a row can never be moved to another item, nor flattened into a default.
    - `ApprovalStatus`, `IsDeleted`, `CreatedBy`, `CreatedWhen`, `DeletedBy`, `DeletedWhen`, `DeletionReason` — never accepted from an external caller; set internally by the owning workflow.
-9. On every update the stored row must be loaded and the control fields above must not be permitted to change. This is the **foundation's** work rather than an orchestration's — it is a rule about one row (§ARC12.3, and rule 5 above) — and `ContentItemSettingService.ValidateAgainstStorageContentItemSettingOnModify` enforces it by comparing the incoming `ContentItemId`, `ContentType`, `CreatedWhen`, `CreatedBy` and `UpdatedWhen` against the stored values and refusing any that differ, for every caller including `Administrators`. Note that this REFUSES a changed control field rather than silently mapping around it, so a caller learns their write was rejected. Only the setting fields themselves (`TagsAllowed`, `ShowTags`, `ReactionsAllowed`, `ShowReactions`, `LinksAllowed`, `ShowLinks`, `AttachmentsAllowed`, `ShowAttachments`, `CommentsAllowed`, `ShowComments`, `BibleReferenceAllowed`, `ShowBibleReferences`, `LimitReactionsToLoveOnly`) are amendable.
+9. On every update the stored row must be loaded and the control fields above must not be permitted to change. This is the **foundation's** work rather than an orchestration's — it is a rule about one row (§ARC12.3, and rule 5 above) — and `ContentItemSettingService.ValidateAgainstStorageContentItemSettingOnModify` enforces it by comparing the incoming `ContentItemId`, `ContentType`, `CreatedWhen`, `CreatedBy` and `UpdatedWhen` against the stored values and refusing any that differ, for every caller including `Administrators` — it is what the row IS, not who may change it. Note that this REFUSES a changed control field rather than silently mapping around it, so a caller learns their write was rejected. Only the setting fields themselves (`TagsAllowed`, `ShowTags`, `ReactionsAllowed`, `ShowReactions`, `LinksAllowed`, `ShowLinks`, `AttachmentsAllowed`, `ShowAttachments`, `CommentsAllowed`, `ShowComments`, `BibleReferenceAllowed`, `ShowBibleReferences`, `LimitReactionsToLoveOnly`) are amendable.
 10. Review dismissal is not the responsibility of this orchestration. Publishing `ContentItemSettingUpdatedEvent` is sufficient — `ApprovalOrchestrationService` must handle dismissal when it receives that event.
 
 #### ARC12.5.3 ApprovalOrchestrationService *(formerly §12.5.3)*
