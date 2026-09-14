@@ -347,14 +347,6 @@ Business Rules:
    - `DeletedBy`
    - `DeletedWhen`
    - `DeletionReason`
-
-   **`ContentType` and `ContentItemId` are pinned against storage on a modify**, which is how this
-   rule is enforced for the two of them rather than merely stated. A row's scope is fixed at
-   creation: rules 3 and 4 make the two scopes different policies rather than two states of one,
-   so moving a row between them is authoring a different setting, not amending this one. The pin
-   applies to every caller, `Administrators` included — it is what the row IS, not who may change
-   it — and it is what stops rule 6's tier from being sidestepped by a publisher sending their own
-   override back with the field nulled.
    - `ContentHash`
    - `Slug` (§DOM19.3 — designed, not a column yet)
    - `ShortCode` (§DOM19.7 — designed, not a column yet)
@@ -528,7 +520,7 @@ Business Rules:
    - `ContentType` — **derived, not accepted**, on an item override: `ContentItemSettingOrchestrationService` reads the `ContentItem` the row names and overwrites whatever the caller sent (rule 6, #450), because the write gate composes the publisher tier from this value. The same service handles the `ContentItemSetting-Adding` event address for the same reason (#456); there it refuses a contradicting claim instead of overwriting it, because the claim is inside a signed envelope — see rule 6. On a per-type default there is no item to derive from and the field is the row's own subject, so it is caller-supplied and validated against the enum.
    - `ContentItemId` — **caller-supplied on add, by necessity**: it is how a caller names the item being configured. It is pinned on modify by rule 9, so a row can never be moved to another item, nor flattened into a default.
    - `ApprovalStatus`, `IsDeleted`, `CreatedBy`, `CreatedWhen`, `DeletedBy`, `DeletedWhen`, `DeletionReason` — never accepted from an external caller; set internally by the owning workflow.
-9. On every update the stored row must be loaded and the control fields above must not be permitted to change. This is the **foundation's** work rather than an orchestration's — it is a rule about one row (§ARC12.3, and rule 5 above) — and `ContentItemSettingService.ValidateAgainstStorageContentItemSettingOnModify` enforces it by comparing the incoming `ContentItemId`, `ContentType`, `CreatedWhen`, `CreatedBy` and `UpdatedWhen` against the stored values and refusing any that differ, for every caller including `Administrators`. Note that this REFUSES a changed control field rather than silently mapping around it, so a caller learns their write was rejected. Only the setting fields themselves (`TagsAllowed`, `ShowTags`, `ReactionsAllowed`, `ShowReactions`, `LinksAllowed`, `ShowLinks`, `AttachmentsAllowed`, `ShowAttachments`, `CommentsAllowed`, `ShowComments`, `BibleReferenceAllowed`, `ShowBibleReferences`, `LimitReactionsToLoveOnly`) are amendable.
+9. On every update the stored row must be loaded and the control fields above must not be permitted to change. This is the **foundation's** work rather than an orchestration's — it is a rule about one row (§ARC12.3, and rule 5 above) — and `ContentItemSettingService.ValidateAgainstStorageContentItemSettingOnModify` enforces it by comparing the incoming `ContentItemId`, `ContentType`, `CreatedWhen`, `CreatedBy` and `UpdatedWhen` against the stored values and refusing any that differ, for every caller including `Administrators` — it is what the row IS, not who may change it. Note that this REFUSES a changed control field rather than silently mapping around it, so a caller learns their write was rejected. Only the setting fields themselves (`TagsAllowed`, `ShowTags`, `ReactionsAllowed`, `ShowReactions`, `LinksAllowed`, `ShowLinks`, `AttachmentsAllowed`, `ShowAttachments`, `CommentsAllowed`, `ShowComments`, `BibleReferenceAllowed`, `ShowBibleReferences`, `LimitReactionsToLoveOnly`) are amendable.
 10. Review dismissal is not the responsibility of this orchestration. Publishing `ContentItemSettingUpdatedEvent` is sufficient — `ApprovalOrchestrationService` must handle dismissal when it receives that event.
 
 #### ARC12.5.3 ApprovalOrchestrationService *(formerly §12.5.3)*
