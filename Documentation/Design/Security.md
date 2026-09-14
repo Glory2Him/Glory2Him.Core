@@ -6,21 +6,19 @@ every layer, and the authentication, identity and role design that posture is
 built on.
 
 Section numbers below carry a **`SEC` prefix** and are otherwise the numbers
-these sections already had: an old `§14.N` is now `§SEC14.N` and an old
-`§18.N` is now `§SEC18.N`, and nothing was renumbered, reordered, merged or
-split in the move. That is the prefix-preserving rule of
-[`Documentation/Design/Split.md`](Split.md) §S1.2. It means this file jumps
+these sections already had: an old `§14.N` is now `§SEC14.N` and an old `§18.N`
+is now `§SEC18.N`, and nothing was renumbered, reordered, merged or split in
+the move. That is the prefix-preserving rule of §IDX1.5. It means this file jumps
 from `SEC14` straight to `SEC18` with nothing between, so its numbering is not
-contiguous with the other area files, and the contents list below is what
-makes that gap read as a table of contents rather than as missing content.
-**§SEC14.6.1 carries a gap of its own kind, at a different scale**: it stood
-as `### 14.6.1` — a third-level number at heading level 3 — in `G2H Design.md`,
+contiguous with the other area files, and the contents list below is what makes
+that gap read as a table of contents rather than as missing content.
+**§SEC14.6.1 carries a gap of its own kind, at a different scale**: it stood as
+`### 14.6.1` — a third-level number at heading level 3 — in `G2H Design.md`,
 and it stays at heading level 3 as `### SEC14.6.1` rather than being promoted
-to match its number; the anomaly is preserved, not tidied (`Split.md` §S1.2,
-the same precedent §S8 already applies to §ARC16.7.5). The other
-`Documentation/Design/*.md` files carry their own prefixes — `ARC`, `APR`,
-`DOM`, `EVN`, `UI` — so a bare `§SEC14.7` is unambiguous once they exist.
-Where this file cites one of them ahead of its own existence, the map at the
+to match its number; the anomaly is preserved, not tidied (§IDX1.5, the same
+precedent already applied to §ARC16.7.5). The other `Documentation/Design/*.md`
+files carry their own prefixes — `ARC`, `APR`, `DOM`, `EVN`, `UI` — so a bare
+`§SEC14.7` is unambiguous. Where this file cites one of them, the map at the
 top of [`G2H Design.md`](../G2H%20Design.md) is what resolves it.
 
 **`Events.md` is the one file a citation into it cannot be derived for.** It

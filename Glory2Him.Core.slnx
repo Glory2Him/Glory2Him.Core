@@ -35,7 +35,6 @@
     <File Path="Documentation/Design/Domain.md" />
     <File Path="Documentation/Design/Events.md" />
     <File Path="Documentation/Design/Security.md" />
-    <File Path="Documentation/Design/Split.md" />
     <File Path="Documentation/Design/UI.md" />
   </Folder>
   <Folder Name="/Documentation/Prompts/">

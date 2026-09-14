@@ -11,10 +11,11 @@ layout, and how a mockup becomes a design section, an issue, and merged code.
 - **The Standard** — `.claude/skills/the-standard-*`. These own the layer model,
   naming, testing discipline, and the commit, branch and PR formats. Load the
   skill for the layer you are working in rather than working from memory.
-- **The design** — `Documentation/G2H Design.md` on main is authoritative, with
-  event design split out into `Documentation/Design/Events.md`; §10 of the main
-  document is a pointer to it. An issue that disagrees with either is stale
-  intent, not an instruction; correct the issue.
+- **The design** — `Documentation/G2H Design.md` on main is the index and entry
+  point; the area files under `Documentation/Design/` are authoritative for their
+  areas, and the map at the top of the index says which area is in which file. An
+  issue that disagrees with the design is stale intent, not an instruction;
+  correct the issue.
 - **The CI gates** — `.github/workflows/prLinter.yml` holds the authoritative PR
   title prefixes and fails any PR whose body links no issue or task. `Closes
   #<n>` is the preferred form; `fixes`/`resolves` (and their past-tense

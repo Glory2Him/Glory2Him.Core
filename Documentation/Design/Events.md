@@ -4,8 +4,8 @@ Unifies `G2H Design.md` §10 "Event Design" and the standalone `EventSubstrate.m
 into one authoritative document, removing the duplication between them.
 
 Section numbers below carry an **`EVN` prefix** (`EVN1`, `EVN2`, ...) — flat,
-not restarted-with-decimals — so a bare `§EVN4` is unambiguous once other
-`Documentation/Design/*.md` files exist with their own prefixes (`APR`, `ARC`,
+not restarted-with-decimals — so a bare `§EVN4` is unambiguous: the other
+`Documentation/Design/*.md` files carry their own prefixes (`APR`, `ARC`,
 `DOM`, `SEC`, `UI`) and their own local numbering. This repository's C# comments cite
 design sections extensively — dozens of files outside `Documentation/` cite
 `§10.X` from this section's former life in `G2H Design.md` — so every section

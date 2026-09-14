@@ -7,23 +7,21 @@ Engine Optimisation" — the entity model: content, associations, supporting
 entities, settings, topic and feed, SEO.
 
 Section numbers below carry a **`DOM` prefix** and are otherwise the numbers
-these sections already had: an old `§2.N` is now `§DOM2.N`, an old `§3.N`
-is now `§DOM3.N`, an old `§4.N` is now `§DOM4.N`, an old `§5.N` is now
-`§DOM5.N`, an old `§6.N` is now `§DOM6.N`, an old `§11.N` is now
-`§DOM11.N`, and an old `§19.N` is now `§DOM19.N`, and nothing was
-renumbered, reordered, merged or split in the move. That is the
-prefix-preserving rule of [`Documentation/Design/Split.md`](Split.md) §S1.2.
-It means this file runs from `DOM2` to `DOM6` and then jumps to `DOM11` and
-then to `DOM19`, so its numbering is not contiguous with the other area files,
-and the contents list below is what makes those two gaps read as a table of
-contents rather than as missing content. **Unlike `Approval.md`,
-`Architecture.md` and `Security.md`, this file carries no heading-level
-anomaly to preserve** — every heading's level matches its number's depth
-throughout, `##` for `N`, `###` for `N.M` and `####` for `N.M.K`. The other
-`Documentation/Design/*.md` files carry their own prefixes — `APR`, `ARC`,
-`EVN`, `SEC`, `UI` — so a bare `§DOM4.2` is unambiguous once they exist.
-Where this file cites one of them, the map at the top of
-[`G2H Design.md`](../G2H%20Design.md) is what resolves it.
+these sections already had: an old `§2.N` is now `§DOM2.N`, an old `§3.N` is
+now `§DOM3.N`, an old `§4.N` is now `§DOM4.N`, an old `§5.N` is now `§DOM5.N`,
+an old `§6.N` is now `§DOM6.N`, an old `§11.N` is now `§DOM11.N`, and an old
+`§19.N` is now `§DOM19.N`, and nothing was renumbered, reordered, merged or
+split in the move. That is the prefix-preserving rule of §IDX1.5. It means this
+file runs from `DOM2` to `DOM6` and then jumps to `DOM11` and then to `DOM19`,
+so its numbering is not contiguous with the other area files, and the contents
+list below is what makes those two gaps read as a table of contents rather than
+as missing content. **Unlike `Approval.md`, `Architecture.md` and
+`Security.md`, this file carries no heading-level anomaly to preserve** — every
+heading's level matches its number's depth throughout, `##` for `N`, `###` for
+`N.M` and `####` for `N.M.K`. The other `Documentation/Design/*.md` files carry
+their own prefixes — `APR`, `ARC`, `EVN`, `SEC`, `UI` — so a bare `§DOM4.2` is
+unambiguous. Where this file cites one of them, the map at the
+top of [`G2H Design.md`](../G2H%20Design.md) is what resolves it.
 
 **`Events.md` is the one file a citation into it cannot be derived for.** It
 renumbered rather than prefix-preserved, so an into-Events citation is looked
