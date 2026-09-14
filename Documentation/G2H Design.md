@@ -56,16 +56,19 @@ The current source files are not complete. This document separates the design in
 
 **This document is the index.** Design is being split into area-scoped files
 under `Documentation/Design/`, each owning one area and numbering its sections
-with a prefix of its own. Five areas have moved so far: event design to
+with a prefix of its own. Six areas have moved so far: event design to
 [`Documentation/Design/Events.md`](Design/Events.md) (§10 below is the pointer),
 UI design to [`Documentation/Design/UI.md`](Design/UI.md) (§20), security
 design to [`Documentation/Design/Security.md`](Design/Security.md) (§14 and
 §18), architecture design to
 [`Documentation/Design/Architecture.md`](Design/Architecture.md) (§12, §16 and
-§17), and approval design to
-[`Documentation/Design/Approval.md`](Design/Approval.md) (§7, §8, §9 and §13).
-Everything else is still written here, in the section that already owns the
-subject, and is still cited as `§N.M` until its own file exists.
+§17), approval design to
+[`Documentation/Design/Approval.md`](Design/Approval.md) (§7, §8, §9 and §13),
+and domain design to
+[`Documentation/Design/Domain.md`](Design/Domain.md) (§2, §3, §4, §5, §6, §11
+and §19). Nothing else remains an area still written here: §1 is front matter
+for the whole design, not an area, and §15 and §21 are to-do lists that
+`Split.md` §S4 retires or relocates rather than extracts.
 
 The map immediately below says where every section lives, what to cite it as,
 and — for an area not yet extracted — where it is going. The rulings behind the
@@ -87,16 +90,16 @@ dangle until then; this map is what resolves it.
 | Old | Title | Lives in | Cite it as |
 | --- | --- | --- | --- |
 | §1 | Design Overview | This document — front matter for the whole design, not an area | `§1` |
-| §2 | Domain Model Overview | `Design/Domain.md` — not extracted yet, still in this document | `§DOM2` |
-| §3 | Content Design | `Design/Domain.md` — not extracted yet, still in this document | `§DOM3` |
-| §4 | Association Design | `Design/Domain.md` — not extracted yet, still in this document | `§DOM4` |
-| §5 | Supporting Content Entities | `Design/Domain.md` — not extracted yet, still in this document | `§DOM5` |
-| §6 | ContentItemSetting Design | `Design/Domain.md` — not extracted yet, still in this document | `§DOM6` |
+| §2 | Domain Model Overview | [`Design/Domain.md`](Design/Domain.md) — extracted; §2 below is the pointer stub | `§DOM2` |
+| §3 | Content Design | [`Design/Domain.md`](Design/Domain.md) — extracted; §3 below is the pointer stub | `§DOM3` |
+| §4 | Association Design | [`Design/Domain.md`](Design/Domain.md) — extracted; §4 below is the pointer stub | `§DOM4` |
+| §5 | Supporting Content Entities | [`Design/Domain.md`](Design/Domain.md) — extracted; §5 below is the pointer stub | `§DOM5` |
+| §6 | ContentItemSetting Design | [`Design/Domain.md`](Design/Domain.md) — extracted; §6 below is the pointer stub | `§DOM6` |
 | §7 | Approval Design | [`Design/Approval.md`](Design/Approval.md) — extracted; §7 below is the pointer stub | `§APR7` |
 | §8 | Approval Settings Design | [`Design/Approval.md`](Design/Approval.md) — extracted; §8 below is the pointer stub | `§APR8` |
 | §9 | Approval Lifecycle | [`Design/Approval.md`](Design/Approval.md) — extracted; §9 below is the pointer stub | `§APR9` |
 | §10 | Event Design | [`Design/Events.md`](Design/Events.md) — extracted; §10 below is the pointer stub | `§EVNn` — renumbered rather than prefixed, so look the old number up in that file's *(formerly §10.X)* annotations rather than deriving it |
-| §11 | Topic and Feed Design | `Design/Domain.md` — not extracted yet, still in this document | `§DOM11` |
+| §11 | Topic and Feed Design | [`Design/Domain.md`](Design/Domain.md) — extracted; §11 below is the pointer stub | `§DOM11` |
 | §12 | Component Architecture | [`Design/Architecture.md`](Design/Architecture.md) — extracted; §12 below is the pointer stub | `§ARC12` |
 | §13 | AI Content Analysis | [`Design/Approval.md`](Design/Approval.md) — extracted; §13 below is the pointer stub | `§APR13` |
 | §14 | Visibility Rules | [`Design/Security.md`](Design/Security.md) — extracted; §14 below is the pointer stub | `§SEC14` |
@@ -104,13 +107,13 @@ dangle until then; this map is what resolves it.
 | §16 | Recommended Service Responsibilities | [`Design/Architecture.md`](Design/Architecture.md) — extracted; §16 below is the pointer stub | `§ARC16` |
 | §17 | Recommended API Design | [`Design/Architecture.md`](Design/Architecture.md) — extracted; §17 below is the pointer stub | `§ARC17` |
 | §18 | Authentication and Authorisation | [`Design/Security.md`](Design/Security.md) — extracted; §18 below is the pointer stub | `§SEC18` |
-| §19 | Search Engine Optimisation | `Design/Domain.md` — not extracted yet, still in this document | `§DOM19` |
+| §19 | Search Engine Optimisation | [`Design/Domain.md`](Design/Domain.md) — extracted; §19 below is the pointer stub | `§DOM19` |
 | §20 | UI / UX Design | [`Design/UI.md`](Design/UI.md) — extracted; §20 below is the pointer stub | `§UI20` |
 | §21 | Summary | This document — §21.1 to be retired, §21.2 to be kept here as a roadmap (`Split.md` §S4.2, §S4.3) | — |
 
 The six area files, one line each:
 
-- `Design/Domain.md` — `DOM` — the entity model: content, associations, supporting entities, settings, topic and feed, SEO. *(planned)*
+- [`Design/Domain.md`](Design/Domain.md) — `DOM` — the entity model: content, associations, supporting entities, settings, topic and feed, SEO. **Exists.**
 - [`Design/Approval.md`](Design/Approval.md) — `APR` — the approval entity, its settings, its lifecycle, and AI content analysis. **Exists.**
 - [`Design/Architecture.md`](Design/Architecture.md) — `ARC` — the layer model, per-service responsibilities, and the API surface. **Exists.**
 - [`Design/Security.md`](Design/Security.md) — `SEC` — visibility, enforcement posture, authentication and authorisation. **Exists.**
