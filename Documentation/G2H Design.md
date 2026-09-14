@@ -52,29 +52,71 @@ The current source files are not complete. This document separates the design in
 4. Recommended design rules.
 5. Final agreed direction where this supersedes earlier diagram wording.
 
-### 1.5 How This Document Is Laid Out
+### 1.5 Numbering And The Citation Form
 
-**This document is the index.** Design is being split into area-scoped files
-under `Documentation/Design/`, each owning one area and numbering its sections
-with a prefix of its own. Six areas have moved so far: event design to
-[`Documentation/Design/Events.md`](Design/Events.md) (§10 below is the pointer),
-UI design to [`Documentation/Design/UI.md`](Design/UI.md) (§20), security
-design to [`Documentation/Design/Security.md`](Design/Security.md) (§14 and
-§18), architecture design to
-[`Documentation/Design/Architecture.md`](Design/Architecture.md) (§12, §16 and
-§17), approval design to
-[`Documentation/Design/Approval.md`](Design/Approval.md) (§7, §8, §9 and §13),
-and domain design to
-[`Documentation/Design/Domain.md`](Design/Domain.md) (§2, §3, §4, §5, §6, §11
-and §19). Nothing else remains an area still written here: §1 is front matter
-for the whole design, not an area, and §15 and §21 are to-do lists that
-`Split.md` §S4 retires or relocates rather than extracts.
+**Numbering — prefix-preserving, not renumbered**
 
-The map immediately below says where every section lives, what to cite it as,
-and — for an area not yet extracted — where it is going. The rulings behind the
-split, its filenames, prefixes, citation form and completeness gates, are in
-[`Documentation/Design/Split.md`](Design/Split.md), issue #481. `Split.md`
-retires once the split has landed.
+A relocated heading keeps its number exactly and gains its file's prefix:
+
+```
+## 8. Approval Settings Design            ->  ## APR8. Approval Settings Design *(formerly §8)*
+### 8.6 Self-Approval Rules               ->  ### APR8.6 Self-Approval Rules *(formerly §8.6)*
+#### 8.6.1 Where These Rules Are Enforced ->  #### APR8.6.1 Where These Rules Are Enforced *(formerly §8.6.1)*
+```
+
+Nothing renumbers. Section order within a file is the order the sections stand in
+today. Numbering within a file is therefore **not contiguous** — `Domain.md` runs
+DOM2–DOM6, DOM11, DOM19 — and that is accepted, not a defect to tidy. Each file
+**must** open with a contents list, so the gaps read as a table of contents
+rather than as missing content.
+
+Three reasons, in order of weight:
+
+1. **The transformation becomes mechanical and therefore checkable.** Old `§N.M`
+   maps to new `§<PREFIX>N.M` by a rule a script can apply and a script can
+   verify. The document carries 213 numbered headings, 192 of them subsections,
+   re-measured at the commit the split branches from; renumbering them into six
+   files by hand is a transformation with 213 chances to drop one, which is
+   precisely the incident class #481 names as its first non-negotiable. *(214 is
+   the count of heading **lines**, which includes the unnumbered `# G2H Design`
+   title — not a section, and it does not move. Gate G2 compares numbered
+   headings, so 213 and 192 are the figures it works from.)*
+2. **Old citations stay legible.** `§8.6.1` and `§APR8.6.1` are recognisably the
+   same section to a human reading a five-year-old comment, which no renumbering
+   scheme gives for free.
+3. **Ordering anomalies survive untouched.** `§16.7.5` currently stands between
+   `§16.7.2` and `§16.7.3`. Under prefix-preserving numbering it stays
+   `§ARC16.7.5` in its current position and nothing about it is a decision the
+   split has to make. **Do not reorder or renumber it** — that is a separate
+   change with its own citation consequences.
+
+**This deliberately diverges from `Events.md`, and the divergence is not an
+inconsistency to correct.** `Events.md` renumbered §10.X to §EVNx because it was a
+*merge* of two documents with new sections interleaved between them; the two
+sources numbered independently, so no scheme that preserved either source's
+numbers could have identified a section unambiguously. A split has no such
+forcing. What the split inherits from `Events.md` is the prefix idea and the
+`*(formerly §N.M)*` annotation, not the renumbering.
+
+**The citation form**
+
+A citation is the bare prefixed number and nothing else:
+
+```
+§DOM4.2      §APR8.6.1      §ARC12.5      §SEC14.7      §UI20.6.1      §EVN18
+```
+
+- **No filename.** `Domain.md §4.2` — the form issue #498 used — is **retired**.
+  A prefix already identifies the file uniquely, so a filename in a citation is a
+  second thing that can be wrong, and a stale path in a code comment is worse than
+  no path.
+- **No bare dotted number** inside `Documentation/`. A `§8.6.1` with no prefix
+  written after the split is a finding. Pre-split occurrences in code are left
+  alone.
+- **Lettered forms** follow `Events.md`: where comments cite `§10.17(a)`, the
+  heading annotation carries no letter, so the section body names the lettered
+  forms explicitly. `§ARC12.1 rule 2` and similar rule-number citations are
+  unaffected — the prefix goes on the section number only.
 
 ## Where Each Section Lives
 
