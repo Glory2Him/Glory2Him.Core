@@ -82,9 +82,9 @@ What you settle, in this order:
   An approved deviation is **recorded against the service it applies to**, with
   the reason and what was rejected, so a later reader can tell an argued exception
   from an overage nobody caught. In this repository that register is
-  `Documentation/G2H Design.md`; where this file is seeded into a repository that
-  has no such document, there are no approved deviations and every count over
-  three is a finding.
+  `Documentation/Design/Architecture.md` §ARC12.5; where this file is seeded
+  into a repository that has no such document, there are no approved
+  deviations and every count over three is a finding.
 
   **An existing deviation is never justification for another.** Not by analogy,
   not by precedent, and not because a sibling service carries one. Each is argued
@@ -104,9 +104,9 @@ What you settle, in this order:
   unable to log, and it forbids `IAccessBroker`, which would put §8.4's
   most-specific-wins back inside every service that asks a policy question — the
   duplication §8.6.1 rule 4 exists to prevent. Every built orchestration holds
-  brokers and none holds a storage broker; `Documentation/G2H Design.md` §12.5
-  records the rule and §16.7.1 why the Florance count excludes them (they oblige
-  no exception arm).
+  brokers and none holds a storage broker; `Documentation/Design/Architecture.md`
+  §ARC12.5 records the rule and §ARC16.7.1 why the Florance count excludes them
+  (they oblige no exception arm).
 
   This deliberately overrides `the-standard-orchestrations` 1.1/Don'ts#1, which
   forbids an orchestration from calling foundation services at all. In this
