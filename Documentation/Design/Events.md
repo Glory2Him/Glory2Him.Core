@@ -186,11 +186,11 @@ round**; there is none **and there will be none**, and §EVN18(e) says why.
 
 That is narrower than the flat "there is none" this paragraph used to carry, and
 the narrowing is §EVN18(e)'s amended boundary rather than a change of mind: a
-subscriber that reads no `G2H Design.md` §8.5 predicate and moves none is
+subscriber that reads no §APR8.5 predicate and moves none is
 admissible on those addresses, and two sit on exactly that footing —
 `ApprovalReviewerOrchestrationService`'s retirement sweep on `Approval-Modified`
-(`G2H Design.md` §12.5.4, built) and `AIReviewerOrchestrationService`'s automatic
-Berean assignment on both addresses (`G2H Design.md` §8.6.2.1, built). Neither is
+(§ARC12.5.4, built) and `AIReviewerOrchestrationService`'s automatic
+Berean assignment on both addresses (§APR8.6.2.1, built). Neither is
 what these rows describe. `ApprovalUpdatedEvent`'s stated
 purpose — propagating status to a denormalised field — remains something this
 system does through the transition verbs of §EVN18 rules 4–5 and not through a
@@ -1264,8 +1264,8 @@ processing service while `TagsController` binds a foundation service. A layer
 boundary is therefore not a trust boundary, and no service assumes an upstream
 layer already gated the caller.
 
-The duplication that follows is deliberate defence in depth — `G2H Design.md`
-§14.6 rule 2, either service must be safe when called alone — so
+The duplication that follows is deliberate defence in depth — §SEC14.6
+rule 2, either service must be safe when called alone — so
 `ContentItemService` and `ContentItemProcessingService` both ask the contribution
 gate, as do `LinkService` and `LinkProcessingService`, and `AssociationService`
 and `AssociationOrchestrationService`. A service that is exposed but that
@@ -1273,7 +1273,7 @@ nothing routes to today gates all the same, because a check that leans on
 current routing stops checking the moment a route is added, and stops silently.
 
 What varies by altitude is which rules are asked, not whether they are asked
-(`G2H Design.md` §14.6 rule 3). A foundation asks the row-level rules: authenticated, not blocked
+(§SEC14.6 rule 3). A foundation asks the row-level rules: authenticated, not blocked
 by a `ReadOnly` role, permitted to write this row, permitted to see it. A
 processing or orchestration service asks those again and adds the rules spanning
 rows or states that a single-table service cannot see to ask. The gate sits at
@@ -1384,7 +1384,7 @@ Rules:
    `SecurityContext` forward unchanged.
 4. Duplicate enforcement across layers is intended, never redundancy to be
    refactored away. Deleting a check because the layer above already makes it is
-   a regression (`G2H Design.md` §14.6 rules 1–3).
+   a regression (§SEC14.6 rules 1–3).
 
 ## EVN18. Approval Workflow Wiring *(formerly §10.17)*
 
@@ -1396,7 +1396,7 @@ specified here rather than left to the implementation.
 the layers it happens to have.**
 
 Every approvable `EntityType` declares one publication model in
-`EntityTypeVersioning`, mirroring `G2H Design.md` §7.5.1: **Versioned** if an amendment to a
+`EntityTypeVersioning`, mirroring §APR7.5.1: **Versioned** if an amendment to a
 terminal row forks a new row, **Single-Row** if the row that is edited is the
 published row. That declaration decides which tier the workflow listens on, and
 it is a lookup rather than a probe of the entity's runtime shape.
@@ -1479,7 +1479,7 @@ foundation, and the workflow still binds to its foundation facts.
 
 **Inbound — the workflow's own records.** `ApprovalReview` and `ApprovalComment`
 are a second inbound channel, and a different one: their facts do not
-*invalidate* an approval, they prompt the workflow to **re-test the `G2H Design.md` §8.5
+*invalidate* an approval, they prompt the workflow to **re-test the §APR8.5
 conditions** on an approval that may have been blocked. Both are foundation-tier
 subscriptions — neither is an approvable entity, neither is an `EntityType`, and
 `EntityTypeVersioning` has no row for either, so rules 1 and 2 do not apply and
@@ -1503,7 +1503,7 @@ earlier `(c)` and `(d)` are `(g)` and `(h)` here — a bare `§10.17(c)` or
 either.
 
 - (a) **Subscribe to every fact address on both records — not a subset.** The
-  `G2H Design.md` §8.5 evaluation reads comments through `IsDeleted is false && IsResolved is
+  §APR8.5 evaluation reads comments through `IsDeleted is false && IsResolved is
   false`, and reviews through `IsDeleted is false && Verdict != Dismissed`.
   Every published fact can move one of those predicates, so all of them
   re-test:
@@ -1539,7 +1539,7 @@ either.
   the publisher's composition inverted — rather than a single name, which would
   refuse half its traffic silently.
 - (b) **Re-test, do not assume.** No fact means "the approval may now complete"
-  — it means the inputs changed. The handler re-runs the whole `G2H Design.md` §8.5 evaluation.
+  — it means the inputs changed. The handler re-runs the whole §APR8.5 evaluation.
   Facts that move the gate *shut* matter as much as those that open it: a
   comment born outstanding, or a withdrawn approving review, can re-block an
   approval that was clear, which is exactly the case
@@ -1623,12 +1623,12 @@ either.
   **Amended — what this item did not distinguish is a subscriber that is not
   re-testing.** `ApprovalReviewerOrchestrationService` binds
   `Approval-Modified` to retire the invitations a closed round never answered
-  (`G2H Design.md` §7.9 rule 8, §12.5.4 business rule 4). It is admissible
+  (§APR7.9 rule 8, §ARC12.5.4 business rule 4). It is admissible
   under this item rather than an exception to it, and the boundary is stated
   so the next subscriber can be tested against it:
 
-  1. **It reads no §8.5 predicate and moves none.** §7.9's opening sentence
-     rules that request rows "appear in **no** §8.5 condition — the verdict,
+  1. **It reads no §APR8.5 predicate and moves none.** §APR7.9's opening sentence
+     rules that request rows "appear in **no** §APR8.5 condition — the verdict,
      the counts and the blocks never read it", so retiring one cannot change
      what any evaluation would answer.
   2. **It causes no approval write**, so item (h)'s cycle rule is not engaged:
@@ -1645,7 +1645,7 @@ either.
      `ApprovalId` and `IsDeleted` and never the status; an earlier draft of this
      item said otherwise and was wrong. The gate is load-bearing because only
      three of the workflow seam's six call sites close a round — the other
-     three publish `-Modified` on an OPEN one, including §8.6 HR-4's reset to
+     three publish `-Modified` on an OPEN one, including §APR8.6 HR-4's reset to
      `Submitted`, where an ungated sweep would retire the invitations a
      moderator had just re-issued. The public modify door and the live
      `Approval-Modifying` command address publish the same fact through the
@@ -1658,15 +1658,14 @@ either.
   **A SECOND subscriber sits on this boundary, and it was worked through
   here rather than assumed to pass. BUILT (#532).**
   `AIReviewerOrchestrationService` binds **both** addresses to assign Berean
-  automatically where the resolved policy asks for it (`G2H Design.md`
-  §8.6.2.1). The four conditions:
+  automatically where the resolved policy asks for it (§APR8.6.2.1). The four conditions:
 
-  1. **It reads no §8.5 predicate and moves none.** An `AIReviewerAssignment`
-     appears in no §8.5 condition — the formula reads reviews, comments and the
+  1. **It reads no §APR8.5 predicate and moves none.** An `AIReviewerAssignment`
+     appears in no §APR8.5 condition — the formula reads reviews, comments and the
      confidence score, and an assignment is none of those — so creating one
      cannot change what any evaluation would answer. The sharp edge is worth
      naming: Berean's eventual `ApprovalComment` **can** hold a round shut
-     (`G2H Design.md` §8.6.2), but that is a different write on a different
+     (§APR8.6.2), but that is a different write on a different
      address, arriving as `ApprovalComment-Added` where item (a) already
      governs it. The assignment is the invitation, not the verdict.
   2. **It causes no approval write.** It writes an `AIReviewerAssignment` and
@@ -1674,7 +1673,7 @@ either.
      back out as a `-Modified` on the record that triggered it.
   3. **Its own write terminates, and the argument is longer than the
      retirement's.** The seam publishes `AIReviewerAssignment-Added`, which
-     carries no subscriber today — but §8.6.2's open question 3 designs one,
+     carries no subscriber today — but §APR8.6.2's open question 3 designs one,
      the classification pass, and that pass writes an `ApprovalComment` and
      possibly an `ApprovalReview`. Those re-enter the round's re-test through
      items (a)–(b), and a re-test that decides publishes `Approval-Modified`,
@@ -1691,7 +1690,7 @@ either.
      answered by gate 6 rather than by a `ProcessedEvent` row (§EVN19 rules 1
      and 4). Two deliveries at once may both pass gate 6, and the filtered
      unique index on `ApprovalId` refuses the loser — the accepted posture of
-     `G2H Design.md` §12.5.4 business rule 4, not a new one.
+     §ARC12.5.4 business rule 4, not a new one.
 
   **RULE — a handler may bind an `Approval` fact only if all four hold.**
   Anything that would re-test, decide, or write the approval binds the entity
@@ -1711,13 +1710,13 @@ either.
 **Inbound — `ApprovalReviewerOrchestrationService`, two subscriptions.**
 
 Items (a)–(h) above are `ApprovalOrchestrationService`'s. The reviewer
-orchestration (`G2H Design.md` §12.5.4) binds two addresses of its own, both
-for §7.9's retirements and neither for a re-test:
+orchestration (§ARC12.5.4) binds two addresses of its own, both
+for §APR7.9's retirements and neither for a re-test:
 
 | Address | Rule | Reaction |
 | --- | --- | --- |
-| `ApprovalReview-Added` | §7.9 rule 6 | The invited person answered; their invitation is retired under the system identity. |
-| `Approval-Modified` | §7.9 rule 8 | The round may have closed; where the envelope's status says it did, every invitation still pending **and unanswered** is retired under the system identity. |
+| `ApprovalReview-Added` | §APR7.9 rule 6 | The invited person answered; their invitation is retired under the system identity. |
+| `Approval-Modified` | §APR7.9 rule 8 | The round may have closed; where the envelope's status says it did, every invitation still pending **and unanswered** is retired under the system identity. |
 
 **The two are independent and must stay independent — no delivery order is
 specified, and none may be relied on.** Rule 6 used to run as an
@@ -1731,7 +1730,7 @@ re-test's write publishes
 the reason "the approval round closed before this review was cast". So the rule 8
 gather **excludes any `RequestedUserId` holding a review that still STANDS** —
 `IsDeleted == false && Verdict != Dismissed`, the `ActiveReviewerUserIds`
-predicate (`G2H Design.md` §12.5.4 business rule 4(ii)) — which makes the order
+predicate (§ARC12.5.4 business rule 4(ii)) — which makes the order
 irrelevant rather than merely unlikely to bite. It is deliberately NOT the
 unfiltered recorded set: a dismissal makes a person invitable again, so keying
 on "ever reviewed" would skip their *second* invitation at every future close of
@@ -1761,7 +1760,7 @@ Three things about this pair, and each is a question a reviewer will ask:
    re-testing.
 2. **`Approval-Modified` is admissible under item (e)'s amended boundary** —
    see the four conditions there. It is deliberately the *only* trigger for
-   rule 8: a round closes three ways (§9.7.5, §9.7.7) and all three write the
+   rule 8: a round closes three ways (§APR9.7.5, §APR9.7.7) and all three write the
    outcome through `ModifyApprovalAsync`, so one subscription hears all three
    and no enumeration of the sites has to be kept in step.
 3. **Neither needs the fact to say why the round moved**, which is what keeps
@@ -1770,11 +1769,11 @@ Three things about this pair, and each is a question a reviewer will ask:
    an open-round write without a second address and without a second read (item
    (e) condition 4). Contrast the round's own dismissal, which cannot be
    driven this way: dismissing stale reviews is conditional on
-   `RequireReapprovalOnChange` on the edit path and unconditional on the §8.6
-   HR-4 reset (`G2H Design.md` §12.5.3 rule 12, §16.7.5), and a bare
+   `RequireReapprovalOnChange` on the edit path and unconditional on the §APR8.6
+   HR-4 reset (§ARC12.5.3 rule 12, §ARC16.7.5), and a bare
    `Approval-Modified` cannot tell those apart — which is why the dismissal and
    Berean's return-to-pending stay direct calls on the round's own service
-   (§12.5.3 rule 19). Introducing a discriminated `Approval-Reset` fact to move
+   (§ARC12.5.3 rule 19). Introducing a discriminated `Approval-Reset` fact to move
    them too was considered and **deferred**: it adds event surface to remove a
    dependency that is already inside the Florance count.
 
@@ -1804,20 +1803,20 @@ calling the handler.
 **Inbound — `AIReviewerOrchestrationService`, two subscriptions. BUILT
 (#532).**
 
-The AI reviewer orchestration (`G2H Design.md` §12.5 entry 4) binds two
+The AI reviewer orchestration (§ARC12.5 entry 4) binds two
 addresses of its own, both for the automatic Berean assignment of
-`G2H Design.md` §8.6.2.1 and neither for a re-test:
+§APR8.6.2.1 and neither for a re-test:
 
 | Address | Rule | Reaction |
 | --- | --- | --- |
-| `Approval-Added` | §8.6.2.1 | A round opened. Where it opened at `Submitted` and the six gates pass, Berean is assigned under the system identity. |
-| `Approval-Modified` | §8.6.2.1 | A round may have *reached* `Submitted` — a draft submitted, or §8.6 HR-4's reset re-opening a decided one. Same gates, same write. |
+| `Approval-Added` | §APR8.6.2.1 | A round opened. Where it opened at `Submitted` and the six gates pass, Berean is assigned under the system identity. |
+| `Approval-Modified` | §APR8.6.2.1 | A round may have *reached* `Submitted` — a draft submitted, or §APR8.6 HR-4's reset re-opening a decided one. Same gates, same write. |
 
 Four things about this pair:
 
 1. **Two addresses rather than one, because the round can open at `Submitted`
    or arrive there later**, and no single address hears both. `Approval-Added`
-   at `Submitted` is `G2H Design.md` §9.7.2 rule 1's create-at-`Submitted`
+   at `Submitted` is §APR9.7.2 rule 1's create-at-`Submitted`
    case; every other route to `Submitted` writes through
    `ModifyApprovalAsync` and lands on `Approval-Modified`, which is the same
    argument item (e) condition 4 already makes for the retirement — one
@@ -1875,7 +1874,7 @@ than something this design should solve locally.
    decision, so publication survives only where the target is `Approved` and the
    date is cleared with the flag; and the bypass pair is taken from the access
    verdict rather than from the caller. Nothing outside `IApproval` is widened
-   into — the `ShortCode` derivation `G2H Design.md` §19.7 places at a group's first publish is
+   into — the `ShortCode` derivation §DOM19.7 places at a group's first publish is
    designed and not built, and no column exists for it.
 
    `<Entity>-Submitted` is the one subscribed address the workflow can also
@@ -1895,7 +1894,7 @@ than something this design should solve locally.
    promotion (§EVN2). Both addresses exist so that a subscriber *could* be told
    the group-level work is done; neither has one today.
 
-   **An attachment does not yet ride on its host's approval.** `G2H Design.md` §5.6.5 rules that
+   **An attachment does not yet ride on its host's approval.** §DOM5.6.5 rules that
    an attachment's approval derives from the host that displays it — the host's
    purposefully-placed and inline-referenced attachments submitted and then
    approved with it, bypass-audited — and because that flow would use transition
@@ -1913,7 +1912,7 @@ than something this design should solve locally.
    `CreateNextAsync` with a **fresh** `EventId`, which the receiver has never
    seen. Under the inline dispatch of §EVN11 the repetition would be synchronous
    re-entry inside the original request.
-7. There is no changed-field gate behind rules 1 and 4. `G2H Design.md` §9.7.4
+7. There is no changed-field gate behind rules 1 and 4. §APR9.7.4
    rules that every `-Modified` fact reaching this workflow is a content change
    by construction: approval state is writable only through the transition verb
    of rules 4–5, and a general modify carries caller-editable content fields
@@ -1934,7 +1933,7 @@ than something this design should solve locally.
    for the entity's own layers to react to. An approval fact in its place would
    require every approvable entity's orchestration to subscribe to approval
    facts, which reintroduces the cycle at one remove. The `Approval` row is written first and the entity
-   follows, because `G2H Design.md` §9.8 names the approval the source of truth — so a repair
+   follows, because §APR9.8 names the approval the source of truth — so a repair
    pass can only ever mean "drive the entity to match the approval".
 
 ## EVN19. Write and Publish Atomicity — ruled, not built *(formerly §10.18)*
@@ -1991,7 +1990,7 @@ itself is at-least-once.**
    `AIReviewerAssignmentService.ReturnStaleAIReviewerAssignmentToPendingAsync`
    onto `AIReviewerAssignment-Modified`, and
    `AIReviewerAssignmentService.AddAutomaticAIReviewerAssignmentAsync` onto
-   `AIReviewerAssignment-Added` (`G2H Design.md` §8.6.2.1). Each is reached by a
+   `AIReviewerAssignment-Added` (§APR8.6.2.1). Each is reached by a
    direct in-process
    call from an orchestration, on an envelope the service mints for itself
    under the system identity, so **the seam itself** has no inbound delivery to
@@ -2003,7 +2002,7 @@ itself is at-least-once.**
    fact lands on.
 
    Three of the four facts carry no subscriber today — `AIReviewerAssignment-Added`
-   is designed to gain one, the classification pass of `G2H Design.md` §8.6.2's
+   is designed to gain one, the classification pass of §APR8.6.2's
    open question 3, and §EVN18(e)'s second amendment works through why that
    second hop still terminates;
    `ApprovalReview-Dismissed` carries the one §EVN18(a) requires, and re-entry
@@ -2015,10 +2014,10 @@ itself is at-least-once.**
    `ApprovalOrchestrationService`'s own flows. The two request retirements are
    called from `ApprovalReviewerOrchestrationService`'s subscriptions on
    `ApprovalReview-Added` and `Approval-Modified` (§EVN18's reviewer table,
-   `G2H Design.md` §12.5.4 business rule 4), and the automatic AI assignment is
+   §ARC12.5.4 business rule 4), and the automatic AI assignment is
    called from `AIReviewerOrchestrationService`'s subscriptions
    on `Approval-Added` and `Approval-Modified` (§EVN18's AI table,
-   `G2H Design.md` §8.6.2.1). An earlier version of this
+   §APR8.6.2.1). An earlier version of this
    paragraph had that handler record "the ordinary inbound `ProcessedEvent`
    against its own receiver name, exactly as every other substrate handler
    does". **That comparison named the wrong tier.** The `ProcessedEvent` pair is
@@ -2033,8 +2032,8 @@ itself is at-least-once.**
    and three things say so rather than one.
 
    1. **It has no storage broker to write one with, and may not acquire one.**
-      Both halves of the pair are `IStorageBroker` calls, and `G2H Design.md`
-      §12.5 bars an orchestration from holding a storage broker outright.
+      Both halves of the pair are `IStorageBroker` calls, and §ARC12.5
+      bars an orchestration from holding a storage broker outright.
       Writing the record would take either that broker or a new service
       invented to carry it.
    2. **There would be no transaction to put it in.** This rule commits the row,
@@ -2059,7 +2058,7 @@ itself is at-least-once.**
    and what the handler then reads has nothing left to act on — the retirement's
    gather returns no live rows once they are retired, and the automatic
    assignment's unfiltered presence check finds the row the first delivery wrote
-   (`G2H Design.md` §12.5.4 business rule 4(i) and §8.6.2.1 gates 3 and 6,
+   (§ARC12.5.4 business rule 4(i) and §APR8.6.2.1 gates 3 and 6,
    §EVN18(e) condition 4 of each amendment). §EVN18(d) already rests on the
    same footing — re-entry there is held off "rather than by a `ProcessedEvent`
    row" — so this is that shape stated generally, not a new one.
@@ -2110,7 +2109,7 @@ itself is at-least-once.**
    and safety is the handler's own, by one of two shapes:
 
    - **Re-evaluate rather than apply a delta.** `ApprovalOrchestrationService`'s
-     fact handlers re-run the whole `G2H Design.md` §8.5 evaluation from stored
+     fact handlers re-run the whole §APR8.5 evaluation from stored
      state, so a second delivery reaches the same conclusion (§EVN18(b)).
    - **Gate on signed state, then find nothing left to do.** The two
      non-re-testing subscriber sets of §EVN18(e) read the round's status out of
@@ -2452,29 +2451,29 @@ it into this one.
 
 §EVN11 dispatches inline and **contains** a handler that throws: the publish completes, and the failure surfaces in exactly one place — `EventDelivery<T>.IsFailure` on the returned `EventPublishResult<T>`. **`IsFailure`, not the inverse of `IsSuccess`:** four statuses exist and only one is success, so Pending and Replay are also "not successful" while neither is a failure, and a publisher written against the inverse would raise this section's Critical alarm on healthy traffic. That was measured rather than reasoned about (`HandlerFailureContainmentTests`, #298), because the shape of the code says nothing about which way it goes. Containment is the right half of the answer: the write that caused the fact is already committed by the time the fact goes out, so failing the publisher would report a committed write as failed — a reviewer's vote written, then a 500 because a bookkeeping row would not save. The other half is the obligation containment creates, and before this section nothing in the solution met it: **every publisher discarded its result**, so a contained failure was an unreported one. This section closes that for the two cases named in rule 7; rule 7 also names what is still owed.
 
-**A published fact with a state-writing subscriber is a required delivery, and a required delivery's result must be inspected.** The tense of the address does not decide this and must not be read as deciding it. `EventSubscriptionRegistration` subscribes roughly twenty-nine **past-tense fact** addresses to handlers that perform required writes in another aggregate — `Tag-Submitted` reaches `OnTagSubmittedAsync`, which moves the tag's approval to `Submitted` and re-evaluates the round (§EVN18). A dropped delivery there is not a lost notification; it is the §9.8 divergence, and for `-Submitted` there is no repair path at all: §16.7.2's read-triggered repair only opens a **missing** round and never reconciles an existing `Draft` round against an entity that has since moved on.
+**A published fact with a state-writing subscriber is a required delivery, and a required delivery's result must be inspected.** The tense of the address does not decide this and must not be read as deciding it. `EventSubscriptionRegistration` subscribes roughly twenty-nine **past-tense fact** addresses to handlers that perform required writes in another aggregate — `Tag-Submitted` reaches `OnTagSubmittedAsync`, which moves the tag's approval to `Submitted` and re-evaluates the round (§EVN18). A dropped delivery there is not a lost notification; it is the §APR9.8 divergence, and for `-Submitted` there is no repair path at all: §ARC16.7.2's read-triggered repair only opens a **missing** round and never reconciles an existing `Draft` round against an entity that has since moved on.
 
 1. **The subscription list decides, never the verb.** An address with no subscription returns an empty `Deliveries` collection, so inspecting it is a no-op and costs nothing; an address with a state-writing subscriber is a required delivery. The publisher therefore inspects unconditionally and lets the subscription list answer, rather than encoding a copy of that list — which belongs to `EventSubscriptionRegistration` — as a condition in a service.
 
 2. **Inspect, log, and do not throw.** A failed delivery is logged through `ILoggingBroker.LogCriticalAsync`, at the tier this solution already reserves for a dependency failure an operator has to act on. Throwing is refused on the same ground the containment behaviour exists for: the row, or the approval decision, is already committed, and the caller asked for that write rather than for its fact's onward delivery. The caller's answer is unchanged — the write succeeded, and it did. This is §EVN19 rule 6's posture applied one step further down the same path.
 
-   **And the report itself must not throw either — being last is not containment.** `LoggingBroker.LogCriticalAsync` has no try/catch of its own, so a faulting sink propagates and does precisely what this rule forbids: it reports a committed write as a failed one. Placing the report last only stops a throw skipping work that follows it *in the same method*, and where the report sits in a shared helper — `PublishCommandAsync`, reached by both the decision and the reset paths — work still follows it in the CALLER: `ResetApprovalAsync` still owes §8.6.2's stale-assignment reset, which a throw would skip after everything else had committed. So the report is wrapped, with an exception filter that lets `OperationCanceledException` through untouched — the same shape as `ResetStaleAIReviewerAssignmentAsync` and Substrate's `onVerified` hook, on the same argument: bookkeeping on somebody else's path does not get to decide that path's outcome. It differs from those two in swallowing rather than logging the secondary failure, because the sink that would carry that second message is the one that just threw; the delivery failure remains on the event store's own row, which the event id and subscription id locate. It catches CANCELLATION too, which those two deliberately do not: `ILoggingBroker.LogCriticalAsync(Exception)` takes no `CancellationToken`, so the caller's token cannot reach it and an `OperationCanceledException` raised there is the sink failing rather than the caller cancelling. Carving it out — as an earlier version did, copying the filter from guards whose calls do take a token — let the escape land in the service's `TryCatch`, whose cancellation arm matches an exception whose token is not cancelled, and report a committed write as a timeout. What it does NOT cover is composing the report: the exception is built BEFORE the guarded block, because `ForFailedDeliveries` carries its own precondition and a guard that can only ever be swallowed is not a guard. A fault composing the message is a defect in the publisher rather than a sink that is down, and it surfaces.
+   **And the report itself must not throw either — being last is not containment.** `LoggingBroker.LogCriticalAsync` has no try/catch of its own, so a faulting sink propagates and does precisely what this rule forbids: it reports a committed write as a failed one. Placing the report last only stops a throw skipping work that follows it *in the same method*, and where the report sits in a shared helper — `PublishCommandAsync`, reached by both the decision and the reset paths — work still follows it in the CALLER: `ResetApprovalAsync` still owes §APR8.6.2's stale-assignment reset, which a throw would skip after everything else had committed. So the report is wrapped, with an exception filter that lets `OperationCanceledException` through untouched — the same shape as `ResetStaleAIReviewerAssignmentAsync` and Substrate's `onVerified` hook, on the same argument: bookkeeping on somebody else's path does not get to decide that path's outcome. It differs from those two in swallowing rather than logging the secondary failure, because the sink that would carry that second message is the one that just threw; the delivery failure remains on the event store's own row, which the event id and subscription id locate. It catches CANCELLATION too, which those two deliberately do not: `ILoggingBroker.LogCriticalAsync(Exception)` takes no `CancellationToken`, so the caller's token cannot reach it and an `OperationCanceledException` raised there is the sink failing rather than the caller cancelling. Carving it out — as an earlier version did, copying the filter from guards whose calls do take a token — let the escape land in the service's `TryCatch`, whose cancellation arm matches an exception whose token is not cancelled, and report a committed write as a timeout. What it does NOT cover is composing the report: the exception is built BEFORE the guarded block, because `ForFailedDeliveries` carries its own precondition and a guard that can only ever be swallowed is not a guard. A fault composing the message is a defect in the publisher rather than a sink that is down, and it surfaces.
 
    **And it runs BEFORE any bookkeeping that can fail.** In the transition tails the outbound `RecordEventProcessedAsync` dedup write sits on the same path; a report placed after it is skipped whenever that write throws, so a dropped required delivery goes unreported while an unrelated bookkeeping fault takes the blame. The two failures are independent — a dedup row that would not save says nothing about whether the fact arrived — and the operator needs both, so the report is ordered ahead of it. Ordering it that way is only safe because the report is contained: before that, it sat last precisely so a faulting sink could not cost the event its dedup row.
 
-3. **The log line carries the substrate's diagnostics, not the payload.** The persisted event id, the composed event NAME, the subscription id, the status, and the response CODE — and explicitly **not** the response MESSAGE or the reply envelope. That message is the failed handler's own exception text, and the handlers on these addresses throw things like "User {id} does not hold a review role" and "Approval not found for {entityType} with id: {entityId}": rendering it would put caller identities and entity ids into a Critical line through the one field nobody thinks to check, and would make the line unbounded. The operator loses nothing they need — the event id and subscription id locate the delivery row, which holds the full message under the event store's own access rules. The name rather than the address, because they are not interchangeable: `HardRemoved` is published to `Removed`'s address and is distinguished purely by its composed name, so a line naming an address would announce one that was never registered. The name is also what the event store holds the row under (§EVN11). A delivery counts as failed only when the substrate reported ERROR, never merely "not Success": Pending and Replay are ordinary transient outcomes, and alarming on them would fire this Critical line on healthy traffic until an operator learned to skip it. And the line says a subscription reported an UNSUCCESSFUL delivery rather than that it never received the event — `IsSuccess` is the listener's own status, so the usual case is a handler that received the envelope and then threw, and blaming the substrate would send the operator to the wrong place. Never the envelope's content or its `SecurityContext`: the line exists so a divergence can be found and repaired, and an event's content in a log is a copy of the row with none of the visibility rules of §14.1 attached.
+3. **The log line carries the substrate's diagnostics, not the payload.** The persisted event id, the composed event NAME, the subscription id, the status, and the response CODE — and explicitly **not** the response MESSAGE or the reply envelope. That message is the failed handler's own exception text, and the handlers on these addresses throw things like "User {id} does not hold a review role" and "Approval not found for {entityType} with id: {entityId}": rendering it would put caller identities and entity ids into a Critical line through the one field nobody thinks to check, and would make the line unbounded. The operator loses nothing they need — the event id and subscription id locate the delivery row, which holds the full message under the event store's own access rules. The name rather than the address, because they are not interchangeable: `HardRemoved` is published to `Removed`'s address and is distinguished purely by its composed name, so a line naming an address would announce one that was never registered. The name is also what the event store holds the row under (§EVN11). A delivery counts as failed only when the substrate reported ERROR, never merely "not Success": Pending and Replay are ordinary transient outcomes, and alarming on them would fire this Critical line on healthy traffic until an operator learned to skip it. And the line says a subscription reported an UNSUCCESSFUL delivery rather than that it never received the event — `IsSuccess` is the listener's own status, so the usual case is a handler that received the envelope and then threw, and blaming the substrate would send the operator to the wrong place. Never the envelope's content or its `SecurityContext`: the line exists so a divergence can be found and repaired, and an event's content in a log is a copy of the row with none of the visibility rules of §SEC14.1 attached.
 
-4. **The inspection belongs to the publishing service's own layer** — the foundation for a foundation fact, the orchestration for a command it issues. It is not the broker's. `EventBroker` abstracts the substrate (§12.2) and, like a controller, carries no business logic (§10.12); deciding that a delivery matters and what its failure means is business logic, and a broker that swallowed the decision would also hide it from the layer whose invariant it is.
+4. **The inspection belongs to the publishing service's own layer** — the foundation for a foundation fact, the orchestration for a command it issues. It is not the broker's. `EventBroker` abstracts the substrate (§ARC12.2) and, like a controller, carries no business logic (§EVN13); deciding that a delivery matters and what its failure means is business logic, and a broker that swallowed the decision would also hide it from the layer whose invariant it is.
 
-5. **What is shared across publishers is a model, because a model is the only thing they may all depend on.** The predicate over the result and the exception type that carries the message live in `Models/Events`; the reaction — reading the flag and calling the logging broker — lives at each service's existing single publish point. Sharing the reaction itself would require a foundation to depend on something that is neither a broker nor a model, and §12.1 gives a foundation nothing else below it. The residual repetition is one call site per service, at the publish funnel that service already has.
+5. **What is shared across publishers is a model, because a model is the only thing they may all depend on.** The predicate over the result and the exception type that carries the message live in `Models/Events`; the reaction — reading the flag and calling the logging broker — lives at each service's existing single publish point. Sharing the reaction itself would require a foundation to depend on something that is neither a broker nor a model, and §ARC12.1 gives a foundation nothing else below it. The residual repetition is one call site per service, at the publish funnel that service already has.
 
 6. **There is no retry behind this today, which is why the log line is the whole of the report.** The substrate exposes a pending-event sweep and nothing in Core invokes it, so the dispatch-time snapshot is the final outcome rather than a first attempt. Earlier text in §EVN11 claiming a failed delivery may succeed later on retry described a mechanism that is configured but never run, and has been corrected. §EVN19 rules the other half of this pair — a fact that never went out at all — and neither ruling introduces a redelivery mechanism; both make the gap **visible** rather than silent.
 
-7. **The two cases ruled first are the two that already funnel through a single call site, which is a cost argument and not a severity one.** `ApprovalOrchestrationService`'s entity-approval command, and the `-Submitted` fact published by the shared transition tail of the seven approvable foundations. **They are not the only cases without a reconcile path, and this section must not be read as saying so.** `-Modified` on the seven approvable foundations reaches `ProcessEntityModifiedAsync`, which dismisses stale reviews and re-evaluates; `ApprovalReview-Dismissed` and `ApprovalComment-Resolved` reach handlers that write the round's verdict. None of those has a reconcile path either, and `-Modified` is the one that fails OPEN — a dropped delivery leaves approving reviews standing on content that has since changed, so the next evaluation can auto-approve off reviews for text nobody read, and the item stays approved and published. `-Submitted` by contrast fails CLOSED, stranding an entity at Submitted. The remaining subscribed-but-uninspected publish sites are owed and are tracked as #497, `-Modified` first; until they are done, a discarded result elsewhere in the solution is an unclosed gap and must not be read as sanctioned by this section. §16.7.1 already describes the sync as published *and observed*: inspecting the delivery outcome is the first half of that observation, and the reply envelope the command's handler returns is still discarded — named here as a residual rather than ruled on.
+7. **The two cases ruled first are the two that already funnel through a single call site, which is a cost argument and not a severity one.** `ApprovalOrchestrationService`'s entity-approval command, and the `-Submitted` fact published by the shared transition tail of the seven approvable foundations. **They are not the only cases without a reconcile path, and this section must not be read as saying so.** `-Modified` on the seven approvable foundations reaches `ProcessEntityModifiedAsync`, which dismisses stale reviews and re-evaluates; `ApprovalReview-Dismissed` and `ApprovalComment-Resolved` reach handlers that write the round's verdict. None of those has a reconcile path either, and `-Modified` is the one that fails OPEN — a dropped delivery leaves approving reviews standing on content that has since changed, so the next evaluation can auto-approve off reviews for text nobody read, and the item stays approved and published. `-Submitted` by contrast fails CLOSED, stranding an entity at Submitted. The remaining subscribed-but-uninspected publish sites are owed and are tracked as #497, `-Modified` first; until they are done, a discarded result elsewhere in the solution is an unclosed gap and must not be read as sanctioned by this section. §ARC16.7.1 already describes the sync as published *and observed*: inspecting the delivery outcome is the first half of that observation, and the reply envelope the command's handler returns is still discarded — named here as a residual rather than ruled on.
 
 ## EVN24. Constructing the Broker Touches No Database *(new)*
 
-**What was found.** `EventBroker`'s constructor builds an `EventHighwayClient`, and that constructor is not inert: it calls `InitializeClients`, which calls `Database.Migrate()` on the substrate's own store. The stack is `EventHighwayClient..ctor` → `InitializeClients` → `RelationalDatabaseFacadeExtensions.Migrate` → `Migrator.Migrate` → `SqlServerDatabaseCreator.Exists` → `SqlConnection.Open`, and it was observed directly rather than inferred. So **constructing the broker opens a SQL connection and applies the substrate's migrations, creating the catalogue if it is absent.** Every service the subscriptions bind to takes `IEventBroker`, so no Core object graph can be built at all without a reachable SQL Server, and building one writes DDL to whatever `EventHighwayConnectionString` names. That is a structural fact about the object graph, not a test problem — it happens to have surfaced as one (§12.10 rule 11).
+**What was found.** `EventBroker`'s constructor builds an `EventHighwayClient`, and that constructor is not inert: it calls `InitializeClients`, which calls `Database.Migrate()` on the substrate's own store. The stack is `EventHighwayClient..ctor` → `InitializeClients` → `RelationalDatabaseFacadeExtensions.Migrate` → `Migrator.Migrate` → `SqlServerDatabaseCreator.Exists` → `SqlConnection.Open`, and it was observed directly rather than inferred. So **constructing the broker opens a SQL connection and applies the substrate's migrations, creating the catalogue if it is absent.** Every service the subscriptions bind to takes `IEventBroker`, so no Core object graph can be built at all without a reachable SQL Server, and building one writes DDL to whatever `EventHighwayConnectionString` names. That is a structural fact about the object graph, not a test problem — it happens to have surfaced as one (§ARC12.10 rule 11).
 
 **The ruling: a broker constructor may read configuration and build options; it may not open a connection or issue DDL.** `EventBroker` creates its `EventHighwayClient` on **first use**, once per process. The singleton lifetime is unchanged and must stay — §EVN11's subscriptions bind handlers into that one instance — and nothing about this broker captures a caller, so `the-standard-brokers` 1.8 is not in play either way. The client field is private to `EventBroker.cs` and no `EventBroker.*` partial touches it, so every member already routes through one place.
 
