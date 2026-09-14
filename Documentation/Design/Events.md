@@ -1658,7 +1658,8 @@ either.
   **A SECOND subscriber sits on this boundary, and it was worked through
   here rather than assumed to pass. BUILT (#532).**
   `AIReviewerOrchestrationService` binds **both** addresses to assign Berean
-  automatically where the resolved policy asks for it (§APR8.6.2.1). The four conditions:
+  automatically where the resolved policy asks for it (§APR8.6.2.1).
+  The four conditions:
 
   1. **It reads no §APR8.5 predicate and moves none.** An `AIReviewerAssignment`
      appears in no §APR8.5 condition — the formula reads reviews, comments and the
