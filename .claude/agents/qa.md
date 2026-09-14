@@ -81,8 +81,8 @@ mocked-boundary blind spot, and reading the tests rather than their names.
    integrity brokers, and the approval ones hold `IAccessBroker` because a policy
    question asked anywhere else would resolve §8.4 a second time (§8.6.1 rule 4).
    This clause read "A broker dependency on an orchestration is a finding
-   regardless" until `Documentation/G2H Design.md` §12.5 ruled otherwise; do not
-   flag `IAccessBroker` on an orchestration.
+   regardless" until `Documentation/Design/Architecture.md` §ARC12.5 ruled
+   otherwise; do not flag `IAccessBroker` on an orchestration.
 
    Note that this overrides `the-standard-orchestrations` 1.1/Don'ts#1, which bars
    an orchestration from calling foundation services at all. In this solution that
@@ -111,11 +111,12 @@ mocked-boundary blind spot, and reading the tests rather than their names.
    **Where an approved deviation is capped, exceeding the cap is a finding again.**
    A ceiling that grows on contact was never a ceiling.
 
-   *In this repository the register is `Documentation/G2H Design.md`, and
-   `ApprovalReviewerOrchestrationService` at four is the one approved deviation —
-   capped at four, with a fifth dependency being a finding whose remedy is to split
-   the service. Seeded into a repository with no such document, there are no
-   approved deviations and every count over three is a finding.*
+   *In this repository the register is `Documentation/Design/Architecture.md`
+   §ARC12.5, and `ApprovalReviewerOrchestrationService` at four is the one
+   approved deviation — capped at four, with a fifth dependency being a finding
+   whose remedy is to split the service. Seeded into a repository with no such
+   document, there are no approved deviations and every count over three is a
+   finding.*
 
 4. **Entanglement through reuse.** Did the change share a *per-operation*
    composition where it should have shared only the leaf rules? A single
