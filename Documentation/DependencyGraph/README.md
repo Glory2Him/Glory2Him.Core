@@ -123,7 +123,7 @@ view you were on, and switching carries your current selection across.
   six approvable entities gained their `Submitting` / `Approving`
   subscriptions and their submit and approval-transition verbs, and
   `ApprovalOrchestrationService` was added with its 22 handlers.
-- **`FS.ApprovalReviewRequest` is new** (2026-08-28, design §7.9 / §16.7.4) —
+- **`FS.ApprovalReviewRequest` is new** (2026-08-28, design §7.9 / §ARC16.7.4) —
   the review INVITATIONS that let a moderation surface show who has been asked
   and has not yet answered. Three things make it unlike every other approval
   foundation, and all three are visible in the data: it has **no
@@ -135,7 +135,7 @@ view you were on, and switching carries your current selection across.
   withdrawal is open to the whole review tier rather than to the requester
   alone (§7.9 rule 5). Four subscriptions, four publishes, 37 direct calls.
   Its facts have no subscribers, so none of its edges are circular.
-- **`FS.IdentityUser` and `IdentityCoreStorageBroker` are new** (2026-08-28, design §12.7.1) —
+- **`FS.IdentityUser` and `IdentityCoreStorageBroker` are new** (2026-08-28, design §ARC12.7.1) —
   Core's first read into the SECURITY database, and the first time it has had two
   DbContexts. They exist because §7.9 rule 3 and the reviewer-candidates read both ask
   about ROLE MEMBERSHIP, which lives in the ASP.NET Identity store and nowhere else:
@@ -144,7 +144,7 @@ view you were on, and switching carries your current selection across.
   factory, no migrations), and `FS.IdentityUser` is the one foundation with **no**
   `EventEnvelopeBroker` and **no** `SecurityAuditBroker` edge — it writes nothing, publishes
   nothing, and who may enumerate users is decided by `ARO` before the call is made.
-- **`ARO` owns the invitation flow, and `AO` no longer does** (PR #535, design §12.5.4).
+- **`ARO` owns the invitation flow, and `AO` no longer does** (PR #535, design §ARC12.5.4).
   `RetrieveReviewerCandidatesAsync`, `RetrieveReviewerDisplayNamesAsync`,
   `RequestApprovalReviewAsync`, `RetrieveApprovalReviewRequestsAsync` and
   `WithdrawApprovalReviewRequestAsync` are `ApprovalReviewerOrchestrationService`'s. These are
@@ -161,7 +161,7 @@ view you were on, and switching carries your current selection across.
   gather is still drawn, and by this same component: §7.9 rule 6's subscription resolves its round
   by approval id off the envelope, so it needs no entity lookup ahead of it. It is the PAIR that
   is gone, not the read.
-- **`ARO` binds TWO subscriptions and publishes nothing** (issue #522, design §12.5.4 business
+- **`ARO` binds TWO subscriptions and publishes nothing** (issue #522, design §ARC12.5.4 business
   rule 4). `ApprovalReview.Added` carries §7.9 rule 6's retirement and `Approval.Modified`
   carries rule 8's — the first subscription in the solution on any of the `Approval` entity's
   own FACT addresses. It is no longer the only one: `SubscribeToApprovalEventAsync` is called
@@ -211,7 +211,7 @@ view you were on, and switching carries your current selection across.
   foundation for the other five. It has no `IStorageBroker`, so no
   ProcessedEvents dedupe — its substrate guard is `IEnvelopeIntegrityBroker`
   instead. It no longer holds `IApprovalCommentService` at all — that left with
-  §12.5.4's reviewer coordination in PR #535, and the only thing this service
+  §ARC12.5.4's reviewer coordination in PR #535, and the only thing this service
   reads a comment for is the §8.5 count, which arrives as a verdict.
 - **Circular event flows now exist, and the red edges are correct.** 14 of the
   114 subscriptions are on ENTITY fact addresses, all handled by `AO` — the two
@@ -441,7 +441,7 @@ view you were on, and switching carries your current selection across.
   changed consumer. `ARO` holds a fourth service dependency,
   `IApprovalWorkflowService`, drawn as its `FindApprovalByEntityAsync` and
   `AddApprovalAsync` edges — that is the §9.7.2 rule 1 repair, and it is the
-  approved Florance deviation §12.5's register records.
+  approved Florance deviation §ARC12.5's register records.
   **`ARO` draws two purple edges and no red ones** since issue #522: it binds
   the §7.9 rule 6 and rule 8 retirements as subscriptions and still publishes
   nothing of its own, because both cause their write through the foundation's
