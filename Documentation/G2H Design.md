@@ -1,8 +1,8 @@
 # G2H Design
 
-## 1. Design Overview
+## IDX1. Design Overview *(formerly §1)*
 
-### 1.1 Purpose
+### IDX1.1 Purpose *(formerly §1.1)*
 
 Glory 2 Him (G2H) is a content management system designed to allow users to contribute, organise, review, approve, publish, associate, and consume gospel-focused content.
 
@@ -16,7 +16,7 @@ The system is centred around `ContentItem`, which represents primary user-contri
 
 All user-contributed and configurable content is subject to an approval process before it is considered trusted, visible, or publishable.
 
-### 1.2 Core Design Principles
+### IDX1.2 Core Design Principles *(formerly §1.2)*
 
 The design follows these principles:
 
@@ -33,7 +33,7 @@ The design follows these principles:
 11. All deletes are soft deletes.
 12. Soft-deleted content must be excluded from public visibility.
 
-### 1.3 Source Inputs
+### IDX1.3 Source Inputs *(formerly §1.3)*
 
 This design is based on:
 
@@ -42,7 +42,7 @@ This design is based on:
 3. The current EF Core model snapshot.
 4. The supplied design direction for approval, settings, feed, topic, versioning, visibility, and soft delete behaviour.
 
-### 1.4 Current Model Completion Status
+### IDX1.4 Current Model Completion Status *(formerly §1.4)*
 
 The current source files are not complete. This document separates the design into:
 
@@ -52,16 +52,21 @@ The current source files are not complete. This document separates the design in
 4. Recommended design rules.
 5. Final agreed direction where this supersedes earlier diagram wording.
 
-### 1.5 Numbering And The Citation Form
+### IDX1.5 Numbering And The Citation Form *(formerly §1.5)*
 
 **Numbering — prefix-preserving, not renumbered**
 
 A relocated heading keeps its number exactly and gains its file's prefix:
 
+<!-- The three example lines are indented so that they are quoted heading syntax
+     rather than lines a line-based reader takes for headings. Do not dedent:
+     `Tools/design-split-audit.sh` gate G3 counts every `^#{1,6} ` line under
+     `Documentation/` as a heading, and at column 0 these three would make
+     §8, §8.6 and §8.6.1 resolve to two headings each. -->
 ```
-## 8. Approval Settings Design            ->  ## APR8. Approval Settings Design *(formerly §8)*
-### 8.6 Self-Approval Rules               ->  ### APR8.6 Self-Approval Rules *(formerly §8.6)*
-#### 8.6.1 Where These Rules Are Enforced ->  #### APR8.6.1 Where These Rules Are Enforced *(formerly §8.6.1)*
+  ## 8. Approval Settings Design            ->  ## APR8. Approval Settings Design *(formerly §8)*
+  ### 8.6 Self-Approval Rules               ->  ### APR8.6 Self-Approval Rules *(formerly §8.6)*
+  #### 8.6.1 Where These Rules Are Enforced ->  #### APR8.6.1 Where These Rules Are Enforced *(formerly §8.6.1)*
 ```
 
 Nothing renumbers. Section order within a file is the order the sections stand in
@@ -103,7 +108,7 @@ forcing. What the split inherits from `Events.md` is the prefix idea and the
 A citation is the bare prefixed number and nothing else:
 
 ```
-§DOM4.2      §APR8.6.1      §ARC12.5      §SEC14.7      §UI20.6.1      §EVN18
+§DOM4.2      §APR8.6.1      §ARC12.5      §SEC14.7      §UI20.6.1      §EVN18      §IDX1.5
 ```
 
 - **No filename.** `Domain.md §4.2` — the form issue #498 used — is **retired**.
@@ -113,6 +118,14 @@ A citation is the bare prefixed number and nothing else:
 - **No bare dotted number** inside `Documentation/`. A `§8.6.1` with no prefix
   written after the split is a finding. Pre-split occurrences in code are left
   alone.
+- **This document carries the `IDX` prefix, and so does a citation of it.** §IDX1
+  is front matter that governs every area file, so it is cited from them, and a
+  bare `§1.5` would be the one form this rule forbids. `§1.1.3` already stands in
+  sixteen code comments meaning The Standard rather than this document, which is
+  the ambiguity a prefix removes. The pointer stubs below keep their bare old
+  numbers — `## 8. Approval Settings Design` — because a stale deep link is what
+  they exist to catch; inside this document a prefixed heading is a home and is
+  citable, a bare-numbered one is a signpost and is not.
 - **Lettered forms** follow `Events.md`: where comments cite `§10.17(a)`, the
   heading annotation carries no letter, so the section body names the lettered
   forms explicitly. `§ARC12.1 rule 2` and similar rule-number citations are
@@ -126,7 +139,7 @@ it names the file the section is in now and the number to cite it by.
 
 | Old | Title | Lives in | Cite it as |
 | --- | --- | --- | --- |
-| §1 | Design Overview | This document — front matter for the whole design, not an area | `§1` |
+| §1 | Design Overview | This document — front matter for the whole design, not an area | `§IDX1` |
 | §2 | Domain Model Overview | [`Design/Domain.md`](Design/Domain.md) — extracted; §2 below is the pointer stub | `§DOM2` |
 | §3 | Content Design | [`Design/Domain.md`](Design/Domain.md) — extracted; §3 below is the pointer stub | `§DOM3` |
 | §4 | Association Design | [`Design/Domain.md`](Design/Domain.md) — extracted; §4 below is the pointer stub | `§DOM4` |
