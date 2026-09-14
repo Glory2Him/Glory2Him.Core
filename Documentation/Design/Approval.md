@@ -154,6 +154,7 @@ Instead:
 3. `Approval.EntityId` identifies the specific entity instance.
 4. Services enforce existence and consistency.
 5. The database enforces uniqueness for approval records by `(EntityType, EntityId)`.
+6. `ApprovalId` must not be placed on any approvable entity.
 
 ### APR7.5 Approvable Entities *(formerly §7.5)*
 

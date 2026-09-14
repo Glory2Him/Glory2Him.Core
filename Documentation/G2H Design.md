@@ -291,54 +291,6 @@ there carry a `SEC` prefix and otherwise keep the numbers they had here, so
 in code still resolves by grep even though the citable number itself is now
 prefixed.
 
-## 15. Recommended Corrections
-
-### 15.1 Correct Typographical Issues
-
-The draw.io model includes `ConentItemAssociation`.
-
-The correct name should be:
-
-```text
-Association
-```
-
-### 15.2 Remove ApprovalId from Approvable Entities
-
-The draw.io model included `ApprovalId` on `ContentItem` and `Association` as a direct foreign key to the `Approval` record. This has been resolved.
-
-Final direction:
-
-1. `ApprovalId` must not be placed on any approvable entity.
-2. Approval lookup is performed generically through `Approval.EntityType` and `Approval.EntityId`.
-3. `ApprovalId` on `Association` has been removed. Approval for an association is resolved through `Approval(EntityType = Association, EntityId = Association.Id)`.
-4. `ApprovalId` remains valid only on `ApprovalReview` and `ApprovalComment` as a direct foreign key to their parent `Approval` record, not as a lookup from approvable entities.
-
-### 15.3 Add Association to EntityType — done
-
-`EntityType` includes `Association = 7`.
-
-```csharp
-Association = 7
-```
-
-This allows association records themselves to be approved through the same approval mechanism.
-
-### 15.4 Add Topic Content Type
-
-`Topic` does not require a separate `EntityType` because it is represented as a `ContentItem` with `ContentType = Topic`.
-
-Recommended direction:
-
-1. Add `Topic` as a seeded `ContentType`.
-2. Use `EntityType.ContentItem` for topic parent/child associations.
-3. Use `Association` to connect topics to child content items.
-4. Exclude `Topic` from feed projections.
-
-### 15.5 ContentItemSetting Type Mismatch — done
-
-Resolved by converting `ContentType` from a database entity to a fixed enum (§3.6) rather than by changing `ContentItemSetting.ContentType` to a `Guid`. There is no `ContentType.Id` any more for the two sides to mismatch against — `ContentItem.ContentType`, `ContentItemSetting.ContentType`, and the nullable `ApprovalSetting.ContentType` (§8.4) are all typed `ContentType` and persisted as a string via `HasConversion<string>()`.
-
 ## 16. Recommended Service Responsibilities
 
 Moved to [`Documentation/Design/Architecture.md`](Design/Architecture.md). Sections
