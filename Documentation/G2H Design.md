@@ -56,14 +56,16 @@ The current source files are not complete. This document separates the design in
 
 **This document is the index.** Design is being split into area-scoped files
 under `Documentation/Design/`, each owning one area and numbering its sections
-with a prefix of its own. Four areas have moved so far: event design to
+with a prefix of its own. Five areas have moved so far: event design to
 [`Documentation/Design/Events.md`](Design/Events.md) (§10 below is the pointer),
 UI design to [`Documentation/Design/UI.md`](Design/UI.md) (§20), security
 design to [`Documentation/Design/Security.md`](Design/Security.md) (§14 and
-§18), and architecture design to
+§18), architecture design to
 [`Documentation/Design/Architecture.md`](Design/Architecture.md) (§12, §16 and
-§17). Everything else is still written here, in the section that already owns
-the subject, and is still cited as `§N.M` until its own file exists.
+§17), and approval design to
+[`Documentation/Design/Approval.md`](Design/Approval.md) (§7, §8, §9 and §13).
+Everything else is still written here, in the section that already owns the
+subject, and is still cited as `§N.M` until its own file exists.
 
 The map immediately below says where every section lives, what to cite it as,
 and — for an area not yet extracted — where it is going. The rulings behind the
@@ -90,13 +92,13 @@ dangle until then; this map is what resolves it.
 | §4 | Association Design | `Design/Domain.md` — not extracted yet, still in this document | `§DOM4` |
 | §5 | Supporting Content Entities | `Design/Domain.md` — not extracted yet, still in this document | `§DOM5` |
 | §6 | ContentItemSetting Design | `Design/Domain.md` — not extracted yet, still in this document | `§DOM6` |
-| §7 | Approval Design | `Design/Approval.md` — not extracted yet, still in this document | `§APR7` |
-| §8 | Approval Settings Design | `Design/Approval.md` — not extracted yet, still in this document | `§APR8` |
-| §9 | Approval Lifecycle | `Design/Approval.md` — not extracted yet, still in this document | `§APR9` |
+| §7 | Approval Design | [`Design/Approval.md`](Design/Approval.md) — extracted; §7 below is the pointer stub | `§APR7` |
+| §8 | Approval Settings Design | [`Design/Approval.md`](Design/Approval.md) — extracted; §8 below is the pointer stub | `§APR8` |
+| §9 | Approval Lifecycle | [`Design/Approval.md`](Design/Approval.md) — extracted; §9 below is the pointer stub | `§APR9` |
 | §10 | Event Design | [`Design/Events.md`](Design/Events.md) — extracted; §10 below is the pointer stub | `§EVNn` — renumbered rather than prefixed, so look the old number up in that file's *(formerly §10.X)* annotations rather than deriving it |
 | §11 | Topic and Feed Design | `Design/Domain.md` — not extracted yet, still in this document | `§DOM11` |
 | §12 | Component Architecture | [`Design/Architecture.md`](Design/Architecture.md) — extracted; §12 below is the pointer stub | `§ARC12` |
-| §13 | AI Content Analysis | `Design/Approval.md` — not extracted yet, still in this document | `§APR13` |
+| §13 | AI Content Analysis | [`Design/Approval.md`](Design/Approval.md) — extracted; §13 below is the pointer stub | `§APR13` |
 | §14 | Visibility Rules | [`Design/Security.md`](Design/Security.md) — extracted; §14 below is the pointer stub | `§SEC14` |
 | §15 | Recommended Corrections | This document — to be retired item by item, not relocated (`Split.md` §S4.1) | — |
 | §16 | Recommended Service Responsibilities | [`Design/Architecture.md`](Design/Architecture.md) — extracted; §16 below is the pointer stub | `§ARC16` |
@@ -109,7 +111,7 @@ dangle until then; this map is what resolves it.
 The six area files, one line each:
 
 - `Design/Domain.md` — `DOM` — the entity model: content, associations, supporting entities, settings, topic and feed, SEO. *(planned)*
-- `Design/Approval.md` — `APR` — the approval entity, its settings, its lifecycle, and AI content analysis. *(planned)*
+- [`Design/Approval.md`](Design/Approval.md) — `APR` — the approval entity, its settings, its lifecycle, and AI content analysis. **Exists.**
 - [`Design/Architecture.md`](Design/Architecture.md) — `ARC` — the layer model, per-service responsibilities, and the API surface. **Exists.**
 - [`Design/Security.md`](Design/Security.md) — `SEC` — visibility, enforcement posture, authentication and authorisation. **Exists.**
 - [`Design/UI.md`](Design/UI.md) — `UI` — the React application's pages, components, navigation and authentication. **Exists.**
