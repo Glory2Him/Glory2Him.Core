@@ -480,8 +480,8 @@ hop rather than to nothing.
    **None of this happens at #555.** It predates the split, the verbatim gate is
    the assurance mechanism for a 923-line move and deleting prose voids it, and
    turning a restatement into a link is a design decision needing its own review.
-   It is raised as its own issue on the #559 precedent. **No marker, tag or TODO is
-   written into `Domain.md`** — this ruling and that issue are the record, and a
+   It is raised as its own issue, #564, on the #559 precedent. **No marker, tag or
+   TODO is written into `Domain.md`** — this ruling and #564 are the record, and a
    note in the moved prose would be the fifth normalisation exception #555's
    criterion 2 refuses.
 6. **`UI.md` §UI20 does not cite `§DOM19.5` or `§DOM19.8`, and is not to be made
