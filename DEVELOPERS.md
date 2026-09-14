@@ -245,7 +245,7 @@ Documentation/
 
 ### The split, and why sections carry prefixes
 
-`G2H Design.md` is being broken into area-scoped files under
+`G2H Design.md` has been broken into area-scoped files under
 `Documentation/Design/` (issue #481). `Events.md` came first, then `UI.md`, then
 `Security.md`, then `Architecture.md`, then `Approval.md`, then `Domain.md`.
 Every area has now moved. `G2H Design.md` is the index: the map at the top of
@@ -253,8 +253,8 @@ it says, for every one of the 21 original sections, which file it is in and
 what to cite it as.
 
 Sections in a split file carry a **prefixed number** and never one that restarts
-at 1, so that a bare citation stays unambiguous once several `Design/*.md` files
-exist side by side. A relocated section keeps the number it already had and gains
+at 1, so that a bare citation stays unambiguous now that six `Design/*.md` files
+sit side by side. A relocated section keeps the number it already had and gains
 its file's prefix — `§20.6.1` became `§UI20.6.1` — and carries a
 `(formerly §20.6.1)` annotation naming its old position, so the dozens of C#
 comments that cite the old number still resolve by grep. `Events.md` is the one
