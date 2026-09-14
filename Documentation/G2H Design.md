@@ -61,8 +61,8 @@ A relocated heading keeps its number exactly and gains its file's prefix:
 <!-- The three example lines are indented so that they are quoted heading syntax
      rather than lines a line-based reader takes for headings. Do not dedent:
      `Tools/design-split-audit.sh` gate G3 counts every `^#{1,6} ` line under
-     `Documentation/` as a heading, and at column 0 these three would make
-     §8, §8.6 and §8.6.1 resolve to two headings each. -->
+     `Documentation/` as a heading, and at column 0 each of the three old
+     numbers below would resolve to two headings instead of one. -->
 ```
   ## 8. Approval Settings Design            ->  ## APR8. Approval Settings Design *(formerly §8)*
   ### 8.6 Self-Approval Rules               ->  ### APR8.6 Self-Approval Rules *(formerly §8.6)*
