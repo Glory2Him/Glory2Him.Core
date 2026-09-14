@@ -9,9 +9,10 @@ this repository has already paid for three times is a relocated rule going stale
 A move with no agreed target, numbering scheme or completeness gate is how that
 happens again.
 
-**Retire this file once the split has landed and the gates in §S6 are green.** Its
-durable content by then is the map in §S2, and the map's job is over the moment
-every file exists.
+**Retire this file once the split has landed and the gates in §S6 are green**, on
+the terms §S9 rules. The claim this paragraph carried until #556 — that its durable
+content by then is the map in §S2, whose job is over the moment every file exists —
+was measured and is false. Two of its rulings are carried into the index first.
 
 Measurements below were taken against `Documentation/G2H Design.md` at 4,036 lines,
 21 top-level sections, and re-verified rather than accepted from the analyst pass
@@ -515,3 +516,58 @@ hop rather than to nothing.
 - **Whether the split lands as one PR or six.** A sizing question for the analyst.
   Gate G2 is a whole-document check, so however it is staged, G2 runs against the
   final state rather than per file.
+
+---
+
+## S9. What survives this file's retirement
+
+Ruled for #556, against the measurement that issue takes: this file is named 24
+times across 9 files and its sections cited 26 times across 8 files. Two of its
+rulings are conventions of the design corpus rather than plan, and neither is spent
+when the last area file lands:
+
+- **§S1.2** is cited by the header block of every area file that prefix-preserved —
+  `Approval.md`, `Architecture.md`, `Domain.md`, `Security.md` and `UI.md`, eight
+  citations across the five — as the authority for why that file's numbering is not
+  contiguous, and by `DEVELOPERS.md` for why `Events.md` is the exception rather
+  than the pattern to copy. It governs every heading added to an area file from here
+  on, and every new area file.
+- **§S1.3** governs how every citation in this repository is written, and the comment
+  already posted on closed #498 names it as the ruling that retired the
+  `Domain.md §4.2` form.
+
+A rule whose authority is a deleted document is the staleness this file was written
+to prevent, and a second copy of that rule in a second file is the other half of it.
+So:
+
+1. **§S1.2 and §S1.3 are carried into `Documentation/G2H Design.md` verbatim, and
+   this file is then deleted.** They go to §1.5, which keeps its number and is
+   retitled to what it then holds. §1 is front matter for the whole design and not an
+   area (§S3 item 1); a convention that governs every area file is front matter, and a
+   numbered heading is what an area-file header can cite. §1.5's own prose — the
+   split-in-progress paragraph and the pointer to this file — is retired; the heading
+   and its number are not. The map stays where it is, under
+   `## Where Each Section Lives`, and remains the first content after §1 (§S3).
+2. **Verbatim, with one excision and no rewrite.** §S1.2 carries whole, its three
+   reasons keeping their numbers, so `Architecture.md`'s citation of "reason 3" still
+   resolves. §S1.3 carries whole except its closing paragraph, "**#498 is closed and
+   cannot be corrected in place** …", which is an instruction the split has already
+   performed. Nothing is reworded: what remains describes the split in the past and
+   reads as history, which is what it is.
+3. **No other §S section carries.** §S4, §S5, §S6 and §S8 are plan, gates that have
+   run, or open questions, so a citation of one of them takes one of the two shapes
+   #556 permits — deleted with the sentence that carried it, or the sentence stays and
+   loses only its authority citation. Citations of §S1.2 repoint to `§1.5`.
+4. **§S8's two open questions are filed as issues before this file is deleted**, on
+   the #564 precedent of §S7 item 5: whether `UI.md` should later absorb §DOM19.5 and
+   §DOM19.8, and whether §ARC16.7.5 is renumbered into position. Both are live design
+   questions and neither survives the deletion otherwise. §S7 item 5 is already #564,
+   §S7 item 6 is withdrawn, and §S4.1 and §S4.2's evidence checks are consumed by #556
+   itself.
+5. **#498 gets one more comment**, naming the new location of the citation form and
+   §S1.4's `design:` label names — #498 being the issue that applies both.
+6. **`Tools/design-split-audit.sh` is not modified, and is outside the deletion's
+   verification.** Its citations of this file are a tool's record of the gates it
+   implements, those gates have run, and rewriting a passing gate's corpus logic in
+   the PR that runs it is how a gate stops meaning anything. Whether the script itself
+   retires with the split is a separate question and not #556's.
