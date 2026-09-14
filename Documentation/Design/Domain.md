@@ -40,6 +40,20 @@ section also carries a *(formerly §2.X)*, *(formerly §3.X)*, *(formerly
 string still appears on the right heading, so an old citation resolves by grep
 even though the citable number is now prefixed.
 
+**§DOM19.5 and §DOM19.8 stay in this file, and the placement is settled rather
+than provisional.** Both are rendering consequences of stored `ContentItem`
+fields, so they live here with those fields. They are not `UI.md` subject
+matter: `UI.md` carries the React application, and §DOM19.8 is host middleware
+that exists because the React application cannot serve a crawler. The one
+trigger to revisit this: the head-injection middleware being replaced by
+server-side or pre-rendered rendering of the React application itself. Section
+growth alone is not a trigger — length is not a subject change. `UI.md` §UI20
+does not cite §DOM19.5 or §DOM19.8 and is not to be made to, because §UI20
+enumerates pages, components, services and brokers, and neither section is any
+of those. The cross-file link that exists points the other way, from
+§ARC17.6's endpoint table, which cites into §DOM19 for the crawler and share
+endpoints.
+
 **Contents**
 
 - [DOM2. Domain Model Overview](#dom2-domain-model-overview-formerly-2)
