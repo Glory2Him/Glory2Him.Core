@@ -189,7 +189,10 @@ today and `§APR13` links to it rather than restating it.
 and §14.5–§14.7 as enforcement, but §14.6 rule 3 and the §14.7 posture tables cite
 §14.1's predicate directly, and that predicate is what both halves rest on.
 Splitting would put the rule in one file and its enforcement in another.
-`Domain.md` §DOM11 (feed) links to `§SEC14.1` and `§SEC14.2`.
+**`Domain.md` §DOM11 does not link to `§SEC14.1` and `§SEC14.2` — it restates
+them**, and the split neither creates nor repairs that. Corrected in §S7 item 5,
+which rules where the single definition lives and routes the de-duplication to
+its own issue.
 
 **§16 Service Responsibilities — `Architecture.md`, whole, including §16.7.x.**
 §16.7 describes `ApprovalOrchestrationService` and reads approval-flavoured, but a
@@ -208,7 +211,8 @@ back.
 columns, filtered unique indexes and slug generation (§19.2, §19.3) — entity
 design. §19.5 structured data and §19.8 crawler head injection are rendering
 consequences of those stored fields rather than component design, so they travel
-with the fields. `UI.md` §UI20 links to `§DOM19.5` and `§DOM19.8`.
+with the fields. **`UI.md` §UI20 does not link to `§DOM19.5` or `§DOM19.8`, and
+no such link is to be added** — corrected in §S7 item 6.
 
 **§12 — `Architecture.md`, whole**, including §12.9 Content Analysis Service (a
 component, even though its subject matter is §APR13's) and §12.5, which
@@ -445,6 +449,57 @@ hop rather than to nothing.
    paragraph.
 4. **Resulting sizes.** Domain 923 (not 1,015), Approval 1,104, Architecture 1,007,
    Security 599, UI 252.
+5. **§DOM11 restates §SEC14 rather than linking to it, and the restatement has
+   already diverged.** The §S2.1 sentence claiming §DOM11 links to `§SEC14.1` and
+   `§SEC14.2` was never true of the prose. Measured at the commit #555 branches
+   from, §11 carries two numbered citations, both `§9.7.1`, and no `§14` citation
+   anywhere. What it has instead is a second copy of the rule: §11.3's `WHERE`
+   clause is §SEC14.1's predicate term for term plus §SEC14.2's two feed rules and
+   its ordering; §11.2's opening sentence is §SEC14.2 rule 2; §11.5 is §SEC14.4's
+   topic-page list with §SEC14.1 inlined; and §11.6 is §SEC14.4's topic-children
+   list with §SEC14.3 partly inlined. **This is duplication and not a coincidental
+   resemblance between a read projection and an access rule**: two such rules could
+   legitimately differ somewhere, and these cannot — §11.3 selects exactly the rows
+   §SEC14.1 and §SEC14.2 admit, and a feed carrying a row that visibility hides
+   would be a defect under either reading. **The drift has already fired.**
+   §SEC14.3 and §SEC14.4 were rewritten for symmetric endpoints — §SEC14.3 rules 3
+   and 4, its `Layer.` paragraph and its §DOM6.10 citation — and §11.6 was not; and
+   §11.4's field table (`ContentItemId` or `GroupId`, `EntityType`, `EntityId`) is
+   the retired one-sided association shape that §DOM4.2's six symmetric endpoint
+   fields replaced.
+
+   **Ruled: §SEC14 is the single definition of who may see what.** §DOM11 keeps
+   what a topic *is* — §11.1, the association shape of §11.4, the ordering of §11.7
+   and the subscriptions of §11.8 — and every visibility statement in it becomes a
+   citation of §SEC14. The stale §11.4 table is repaired against §DOM4.2 in the
+   same pass, being the same defect in the same section. One thing that work must
+   settle rather than transcribe: §SEC14.2 orders the feed on two columns while
+   §DOM11.7 rule 5 requires a total order so paging cannot skip or repeat a row,
+   and the merged rule cannot have it both ways.
+
+   **None of this happens at #555.** It predates the split, the verbatim gate is
+   the assurance mechanism for a 923-line move and deleting prose voids it, and
+   turning a restatement into a link is a design decision needing its own review.
+   It is raised as its own issue, #564, on the #559 precedent. **No marker, tag or
+   TODO is written into `Domain.md`** — this ruling and #564 are the record, and a
+   note in the moved prose would be the fifth normalisation exception #555's
+   criterion 2 refuses.
+6. **`UI.md` §UI20 does not cite `§DOM19.5` or `§DOM19.8`, and is not to be made
+   to.** Measured: `UI.md` carries one §DOM19 citation in the whole file,
+   `§DOM19.7`, in the `ShareBar` row of §UI20.6, and it earns its place because
+   §DOM19.7 rule 4 describes share buttons, which are a component. §DOM19.5 and
+   §DOM19.8 have no counterpart there: §DOM19.5 is JSON-LD derived from the typed
+   projection and injected by the middleware of §DOM19.8, and §DOM19.8 is host
+   middleware rewriting `<head>` before `index.html` is served. Neither is a page,
+   a component, a service or a broker, and those four are what §UI20 enumerates, so
+   adding the citations means writing a sentence into §UI20 about something §UI20
+   does not describe. The cross-file link those two sections need already exists
+   and points the other way: §ARC17.6 tabulates `§DOM19.6`–`§DOM19.8` against the
+   crawler, share and media endpoints. **The §S2.1 sentence was aspirational and is
+   withdrawn rather than scheduled** — nothing is owed at #555 and no follow-up
+   issue is raised. The §S8 bullet on whether `UI.md` should later absorb §DOM19.5
+   and §DOM19.8 stands untouched, and citations added now would be work that bullet
+   might delete.
 
 ## S8. Left open, deliberately
 
