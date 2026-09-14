@@ -335,34 +335,25 @@ Moved to [`Documentation/Design/UI.md`](Design/UI.md). Sections there carry a
 naming its old position, so a `§20.X` citation in code still resolves by grep
 even though the citable number itself is now prefixed.
 
-## 21. Summary
+## Roadmap — Immediate Next Changes
 
-### 21.1 Final Design Direction
-
-G2H should use `ContentItem` as the primary content model and represent different kinds of content through `ContentType`.
-
-All content and supporting entities should use a shared approval workflow based on `EntityType` and `EntityId`, rather than direct entity-specific database relationships.
-
-`Association` should be the generic relationship table that links content items to tags, reactions, comments, Bible references, links, attachments, and other content items.
-
-`Topic` should be implemented as a `ContentItem` of type `Topic`, with child content items attached using `Association`.
-
-The feed should not be a database entity. It should be a projection of visible, approved, published, non-deleted content items excluding `Topic`, ordered by publish date descending.
-
-### 21.2 Immediate Next Changes
+**This is a live work plan, not design.** Nothing under this heading is a rule,
+and nothing here is authoritative about what the system does — the area files
+under `Documentation/Design/` are. The split that turned this document into an
+index **verified none of these items**: they were moved here unaudited, and an
+item may already be built, abandoned or superseded.
 
 The next changes to look at, in dependency order (revised 2026-08-17 — the images, attachments and SEO workstream):
 
 1. Seed content types including `Quote`, `Story`, `Testimony`, and `Topic` — verify seeding exists in migrations or startup pipeline.
-2. The `Attachment` slice: exceptions, `AttachmentService` (§12.3 entry 12 — its approve operation must call `IAccessBroker`, §8.6.1), `AttachmentProcessingService` (§12.4 entry 3), registration and event subscriptions; the metadata columns (§5.6); `IBlobStorageBroker` with Azurite (§5.6.1). Update the dependency graph when the broker and services are built — its data is a snapshot of current source.
-3. Upload and media endpoints (§5.6.2, §5.6.3, §17.6) and paste-to-upload in the editor (§5.6.6).
-4. `Purpose` + `IsDefault` on `Association` (§4.9): columns, check constraints, index changes, foundation validation, `SetAssociationDefaultAsync`, the orchestration's `Attachment` endpoint arm, and the header-image picker UI. With it, the §5.6.5 derived approval on the host-approving publisher flow — the interim synchronous rule, moving to §12.5.3 responsibility 12 when the approval orchestration lands.
-5. Stored SEO fields on `ContentItem` — `Slug`, `MetaDescription`, `ShortCode` (§19.2) — with the filtered unique indexes of §19.3 rule 2 and §19.7 rule 2, slug generation in `ContentItemProcessingService` (§12.4.1 rule 12), and short-code derivation in the approve transition (§9.7.1 rule 3).
-6. `GET /api/content-items/by-slug/{contentType}/{slug}`, and feed fields including the resolved header-image media URL (§19.4).
-7. The crawler middleware and `/{ContentType}/{Slug}` route (§19.8 — carries the §19.5 JSON-LD), and `/s/{code}` (§19.7).
-8. Sitemap and `robots.txt` endpoints (§19.6).
-9. The unused-attachment sweep, purge and blob-orphan operations (§5.6.7).
-10. The replication proof: a `BibleReference` verse image end-to-end — the same upload (§5.6.3), an `Attachment` ↔ `BibleReference` association with `Purpose = Verse` (§4.9), derived approval (§5.6.5) and the same top-1 resolution, with zero `BibleReference` schema changes.
+2. The `Attachment` slice: exceptions, `AttachmentService` (§ARC12.3 entry 12 — its approve operation must call `IAccessBroker`, §APR8.6.1), `AttachmentProcessingService` (§ARC12.4 entry 3), registration and event subscriptions; the metadata columns (§DOM5.6); `IBlobStorageBroker` with Azurite (§DOM5.6.1). Update the dependency graph when the broker and services are built — its data is a snapshot of current source.
+3. Upload and media endpoints (§DOM5.6.2, §DOM5.6.3, §ARC17.6) and paste-to-upload in the editor (§DOM5.6.6).
+4. `Purpose` + `IsDefault` on `Association` (§DOM4.9): columns, check constraints, index changes, foundation validation, `SetAssociationDefaultAsync`, the orchestration's `Attachment` endpoint arm, and the header-image picker UI. With it, the §DOM5.6.5 derived approval on the host-approving publisher flow — the interim synchronous rule, moving to §ARC12.5.3 responsibility 12 when the approval orchestration lands.
+5. Stored SEO fields on `ContentItem` — `Slug`, `MetaDescription`, `ShortCode` (§DOM19.2) — with the filtered unique indexes of §DOM19.3 rule 2 and §DOM19.7 rule 2, slug generation in `ContentItemProcessingService` (§ARC12.4.1 rule 12), and short-code derivation in the approve transition (§APR9.7.1 rule 3).
+6. `GET /api/content-items/by-slug/{contentType}/{slug}`, and feed fields including the resolved header-image media URL (§DOM19.4).
+7. The crawler middleware and `/{ContentType}/{Slug}` route (§DOM19.8 — carries the §DOM19.5 JSON-LD), and `/s/{code}` (§DOM19.7).
+8. Sitemap and `robots.txt` endpoints (§DOM19.6).
+9. The unused-attachment sweep, purge and blob-orphan operations (§DOM5.6.7).
+10. The replication proof: a `BibleReference` verse image end-to-end — the same upload (§DOM5.6.3), an `Attachment` ↔ `BibleReference` association with `Purpose = Verse` (§DOM4.9), derived approval (§DOM5.6.5) and the same top-1 resolution, with zero `BibleReference` schema changes.
 
-Item 5 can proceed independently of items 2–4; item 6 needs both tracks (the §4.9 resolution from item 4 and the columns from item 5); items 7–8 follow 5–6; items 9–10 close the workstream. The portal rendering real content items (§20) is the surface items 6–8 exist for.
-
+Item 5 can proceed independently of items 2–4; item 6 needs both tracks (the §DOM4.9 resolution from item 4 and the columns from item 5); items 7–8 follow 5–6; items 9–10 close the workstream. The portal rendering real content items (§UI20) is the surface items 6–8 exist for.
