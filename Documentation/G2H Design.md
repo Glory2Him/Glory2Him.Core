@@ -124,11 +124,6 @@ A stale deep link into this file lands here, at the top, rather than at a
 heading that has moved. This map is the one hop back: find the old number, and
 it names the file the section is in now and the number to cite it by.
 
-An area with no link is **not extracted yet** — its section is still in this
-document under its existing number, and the prefixed form is what it will be
-cited as once its file lands. A forward citation to one of those is expected to
-dangle until then; this map is what resolves it.
-
 | Old | Title | Lives in | Cite it as |
 | --- | --- | --- | --- |
 | §1 | Design Overview | This document — front matter for the whole design, not an area | `§1` |
@@ -145,13 +140,13 @@ dangle until then; this map is what resolves it.
 | §12 | Component Architecture | [`Design/Architecture.md`](Design/Architecture.md) — extracted; §12 below is the pointer stub | `§ARC12` |
 | §13 | AI Content Analysis | [`Design/Approval.md`](Design/Approval.md) — extracted; §13 below is the pointer stub | `§APR13` |
 | §14 | Visibility Rules | [`Design/Security.md`](Design/Security.md) — extracted; §14 below is the pointer stub | `§SEC14` |
-| §15 | Recommended Corrections | This document — to be retired item by item, not relocated (`Split.md` §S4.1) | — |
+| §15 | Recommended Corrections | **Retired** — checked item by item against the repository and deleted rather than relocated. The one live rule it still carried, that `ApprovalId` must not be placed on any approvable entity, is now §APR7.4 item 6 | — |
 | §16 | Recommended Service Responsibilities | [`Design/Architecture.md`](Design/Architecture.md) — extracted; §16 below is the pointer stub | `§ARC16` |
 | §17 | Recommended API Design | [`Design/Architecture.md`](Design/Architecture.md) — extracted; §17 below is the pointer stub | `§ARC17` |
 | §18 | Authentication and Authorisation | [`Design/Security.md`](Design/Security.md) — extracted; §18 below is the pointer stub | `§SEC18` |
 | §19 | Search Engine Optimisation | [`Design/Domain.md`](Design/Domain.md) — extracted; §19 below is the pointer stub | `§DOM19` |
 | §20 | UI / UX Design | [`Design/UI.md`](Design/UI.md) — extracted; §20 below is the pointer stub | `§UI20` |
-| §21 | Summary | This document — §21.1 to be retired, §21.2 to be kept here as a roadmap (`Split.md` §S4.2, §S4.3) | — |
+| §21 | Summary | **Retired** — §21.1 restated rules that are defined elsewhere and was deleted sentence by sentence; §21.2 is in this document under *Roadmap — Immediate Next Changes*, which is a work plan rather than design | — |
 
 The six area files, one line each:
 
