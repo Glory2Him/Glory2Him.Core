@@ -73,8 +73,9 @@
 #   `§10.18`→`§EVN19`, collide on their output token with a pre-existing `§EVN18`
 #   / `§EVN19` that already stood in the body, so the two forms are byte-identical
 #   once written and a backward reversal cannot tell them apart by content alone.
-#   Forward normalisation has no such ambiguity — it only ever rewrites a literal
-#   `§10.x`, never a `§EVN...` that was already there — so it is used instead.
+#   Forward normalisation has no such ambiguity — it rewrites a literal `§10.x`
+#   (never a `§EVN...` that was already there) and the two `](Design/Events.md)`
+#   links (#553 criterion 2's fifth permitted difference) — so it is used instead.
 # ────────────────────────────────────────────────────────────────────────────────
 
 set -u
@@ -491,8 +492,9 @@ gate_verbatim() {
     # in the new file and a blind reversal cannot tell them apart by content.
     # Unlike the `sec` pairing above, this is resolved by normalising the
     # BASELINE forward rather than the new file backward: the forward direction
-    # only ever rewrites a literal `§10.x`, and a pre-existing `§EVN18` or
-    # `§EVN19` never matches that pattern, so it is never touched.
+    # rewrites a literal `§10.x` (a pre-existing `§EVN18` or `§EVN19` never
+    # matches that pattern, so it is never touched) and, separately below, the
+    # two relative `Events.md` links.
     new="$(sed -n '/^---$/,$p' "$file" \
         | tail -n +2 \
         | sed -e '/./,$!d' \
