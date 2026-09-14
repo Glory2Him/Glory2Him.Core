@@ -13,11 +13,12 @@
 # reported.
 #
 # Usage:
-#   Tools/design-split-audit.sh [--baseline <ref>] [--scope <20|sec|all>] [--gate <g1|g2|g3|g4|verbatim|all>]
+#   Tools/design-split-audit.sh [--baseline <ref>] [--scope <20|sec|arc|all>] [--gate <g1|g2|g3|g4|verbatim|all>]
 #
 # Examples:
 #   Tools/design-split-audit.sh                        # every gate, scoped to §20
 #   Tools/design-split-audit.sh --scope sec            # every gate, scoped to §14 and §18
+#   Tools/design-split-audit.sh --scope arc            # every gate, scoped to §12, §16 and §17
 #   Tools/design-split-audit.sh --scope all            # every gate, whole document
 #   Tools/design-split-audit.sh --gate g2 --scope all  # the completeness gate alone
 #   Tools/design-split-audit.sh --gate verbatim        # the prose-identity proof alone
@@ -35,6 +36,10 @@
 #                         issue #552's extraction — §14 and §18, both landing in
 #                         `Security.md` under the same `SEC` prefix, non-contiguous
 #                         with each other and with everything either side of them.
+#                         `arc` is issue #553's extraction — §12, §16 and §17,
+#                         landing in `Architecture.md` under the `ARC` prefix; §13
+#                         to §15 stand between §12 and §16 in `G2H Design.md` but
+#                         the three ranges are contiguous in `Architecture.md`.
 #                         `all` is the whole-document mode: it reports every
 #                         section not yet extracted and is expected to be
 #                         NON-EMPTY until the last extraction (#556) runs it to
@@ -58,6 +63,18 @@
 # - Greps for an old number are RIGHT-ANCHORED — `§20\.6($|[^0-9.])`. An
 #   unanchored `§20.6` matches the `§20.6.1` heading too, and every parent number
 #   then reports a false duplicate against its own children.
+# - `--scope arc`'s VERBATIM pairing normalises the BASELINE forward rather than
+#   the new file backward, unlike `--scope sec`. §12/§16/§17 carry 21 pre-split
+#   `§10.x` citations into event design (`§10.2`, `§10.4`, `§10.5`, `§10.7`,
+#   `§10.17`, `§10.18`) that this extraction resolves to their `Events.md`
+#   `(formerly §10.X)` anchors — but the same body already carries fifteen
+#   `§EVN` occurrences that were resolved that way by an earlier extraction and
+#   must not move again. Two of those six numbers, `§10.17`→`§EVN18` and
+#   `§10.18`→`§EVN19`, collide on their output token with a pre-existing `§EVN18`
+#   / `§EVN19` that already stood in the body, so the two forms are byte-identical
+#   once written and a backward reversal cannot tell them apart by content alone.
+#   Forward normalisation has no such ambiguity — it only ever rewrites a literal
+#   `§10.x`, never a `§EVN...` that was already there — so it is used instead.
 # ────────────────────────────────────────────────────────────────────────────────
 
 set -u
@@ -79,7 +96,7 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-case "$SCOPE" in 20|sec|all) ;; *) echo "--scope must be 20, sec or all" >&2; exit 2 ;; esac
+case "$SCOPE" in 20|sec|arc|all) ;; *) echo "--scope must be 20, sec, arc or all" >&2; exit 2 ;; esac
 case "$GATE" in g1|g2|g3|g4|verbatim|all) ;; *) echo "--gate must be g1, g2, g3, g4, verbatim or all" >&2; exit 2 ;; esac
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
@@ -156,7 +173,8 @@ FAILURES=0
 
 area_files() {
     # Every area file, rulings excluded. Scope 20 is UI.md alone; scope sec is
-    # Security.md alone (§14 and §18, issue #552).
+    # Security.md alone (§14 and §18, issue #552); scope arc is Architecture.md
+    # alone (§12, §16 and §17, issue #553).
     if [ "$SCOPE" = "20" ]; then
         [ -f "$AREA_DIR/UI.md" ] && echo "$AREA_DIR/UI.md"
         return
@@ -164,6 +182,11 @@ area_files() {
 
     if [ "$SCOPE" = "sec" ]; then
         [ -f "$AREA_DIR/Security.md" ] && echo "$AREA_DIR/Security.md"
+        return
+    fi
+
+    if [ "$SCOPE" = "arc" ]; then
+        [ -f "$AREA_DIR/Architecture.md" ] && echo "$AREA_DIR/Architecture.md"
         return
     fi
 
@@ -180,6 +203,7 @@ expected_area_file() {
     case "$SCOPE" in
         20)  echo "$AREA_DIR/UI.md" ;;
         sec) echo "$AREA_DIR/Security.md" ;;
+        arc) echo "$AREA_DIR/Architecture.md" ;;
         *)   echo "$AREA_DIR/*.md" ;;
     esac
 }
@@ -190,6 +214,8 @@ in_scope() {
         grep -E '^20($|\.)'
     elif [ "$SCOPE" = "sec" ]; then
         grep -E '^(14|18)($|\.)'
+    elif [ "$SCOPE" = "arc" ]; then
+        grep -E '^(12|16|17)($|\.)'
     else
         cat
     fi
@@ -287,6 +313,8 @@ gate_g3() {
         pattern='§20[0-9.]*'
     elif [ "$SCOPE" = "sec" ]; then
         pattern='§(14|18)(\.[0-9]+)*'
+    elif [ "$SCOPE" = "arc" ]; then
+        pattern='§(12|16|17)(\.[0-9]+)*'
     else
         pattern='§[0-9]+(\.[0-9]+)*'
     fi
@@ -298,11 +326,28 @@ gate_g3() {
     citations="$(git grep -I -h -o -E "$pattern" "$BASELINE" -- . ':(exclude)Documentation/' \
         | sort -u -V)"
 
+    if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "arc" ]; then
+        # §12.4.7 is G5's standing exemption (Split.md §S6): it dangled before
+        # the split and the split neither creates nor repairs it. §12.4.4 is a
+        # second, previously unrecorded dangle found by issue #553 — cited as
+        # "§12.4.4 BR14" / "§12.4.4 rule 11" from six files
+        # (`ApprovalEntityProbeReadTests.cs`,
+        # `AssociationServiceTests.TransitionApproval.Validations.cs`,
+        # `ApprovalEntityMatch.cs` twice, `IApprovalService.cs`,
+        # `IAssociationService.cs`) plus one more inside `G2H Design.md` §9.7.x —
+        # §12.4 has only §12.4.1 and §12.4.2, and no BR14 or rule 11 stands
+        # anywhere under it today. It is subtracted the same way as §12.4.7
+        # rather than reported, on the same §S4.1 precedent: a gate nobody can
+        # run green stops being run. The issue this raises is linked from the
+        # PR that introduced this subtraction.
+        citations="$(echo "$citations" | grep -Ev '^§(12\.4\.7|12\.4\.4)$')"
+    fi
+
     if [ "$SCOPE" = "all" ]; then
-        # §10 is out of G3's scope by design, and §12.4.7, §1.1.3 and §534 are the
-        # three exemptions verified in Split.md §S6 (gates G5 and G6).
+        # §10 is out of G3's scope by design, and §1.1.3 and §534 are the
+        # remaining exemptions verified in Split.md §S6 (gate G6).
         citations="$(echo "$citations" | grep -Ev '^§10($|\.)' \
-            | grep -Ev '^§(12\.4\.7|1\.1\.3|534)$')"
+            | grep -Ev '^§(1\.1\.3|534)$')"
     fi
 
     while IFS= read -r citation; do
@@ -355,16 +400,18 @@ gate_g4() {
 # its title line. Anything else is a rewrite hidden inside a move.
 #
 # It is defined per extraction rather than per document, so it runs under
-# --scope 20 or --scope sec, and each later extraction adds its own pairing.
+# --scope 20, --scope sec or --scope arc, and each later extraction adds its
+# own pairing.
 gate_verbatim() {
     local file old new difference
 
     case "$SCOPE" in
         20)  file="$AREA_DIR/UI.md" ;;
         sec) file="$AREA_DIR/Security.md" ;;
+        arc) file="$AREA_DIR/Architecture.md" ;;
         *)
             report "VERBATIM" "defined per extraction, not for the whole document" \
-                "run it with --scope 20 or --scope sec"
+                "run it with --scope 20, --scope sec or --scope arc"
             return
             ;;
     esac
@@ -398,32 +445,73 @@ gate_verbatim() {
         return
     fi
 
-    # SCOPE = sec. §14 and §18 are non-contiguous in G2H Design.md (§15-§17
-    # stand between them) but contiguous in Security.md, so the baseline body
-    # is two ranges concatenated rather than one.
+    if [ "$SCOPE" = "sec" ]; then
+        # §14 and §18 are non-contiguous in G2H Design.md (§15-§17 stand between
+        # them) but contiguous in Security.md, so the baseline body is two
+        # ranges concatenated rather than one.
+        old="$({
+            git show "$BASELINE:$DESIGN_DOC" | sed -n '/^## 14\. /,/^## 15\. /p' | sed '$d'
+            git show "$BASELINE:$DESIGN_DOC" | sed -n '/^## 18\. /,/^## 19\. /p' | sed '$d'
+        } | sed -e :a -e '/^[[:space:]]*$/{$d;N;ba' -e '}')"
+
+        # §14.6 already cited `Events.md` as `§EVN18(d)` at the baseline — Events
+        # had already been extracted, so that citation was never `§10.17` to begin
+        # with and must not be reversed alongside the ones that were. It is
+        # protected behind a placeholder for the run of the `§EVN18` -> `§10.17`
+        # reversal below, then restored.
+        new="$(sed -n '/^---$/,$p' "$file" \
+            | tail -n +2 \
+            | sed -e '/./,$!d' \
+            | sed -E 's/^(#{2,6} )SEC((14|18)[0-9.]*)( .*) \*\(formerly §[0-9][0-9.]*\)\*$/\1\2\4/' \
+            | sed -E 's/§(DOM|APR|ARC|SEC|UI)([0-9])/§\2/g' \
+            | sed -E 's/§EVN18\(d\)/§XEVN18DX/g' \
+            | sed -E 's/§EVN18/§10.17/g' \
+            | sed -E 's/§XEVN18DX/§EVN18(d)/g' \
+            | sed -e :a -e '/^[[:space:]]*$/{$d;N;ba' -e '}')"
+
+        difference="$(diff <(echo "$old") <(echo "$new") || true)"
+
+        report "VERBATIM" "normalised differences against the baseline §14/§18 body" "$difference"
+        return
+    fi
+
+    # SCOPE = arc. §12, §16 and §17 are non-contiguous in G2H Design.md (§13-§15
+    # stand between §12 and §16) but contiguous in Architecture.md, so the
+    # baseline body is three ranges concatenated rather than one.
     old="$({
-        git show "$BASELINE:$DESIGN_DOC" | sed -n '/^## 14\. /,/^## 15\. /p' | sed '$d'
-        git show "$BASELINE:$DESIGN_DOC" | sed -n '/^## 18\. /,/^## 19\. /p' | sed '$d'
+        git show "$BASELINE:$DESIGN_DOC" | sed -n '/^## 12\. /,/^## 13\. /p' | sed '$d'
+        git show "$BASELINE:$DESIGN_DOC" | sed -n '/^## 16\. /,/^## 17\. /p' | sed '$d'
+        git show "$BASELINE:$DESIGN_DOC" | sed -n '/^## 17\. /,/^## 18\. /p' | sed '$d'
     } | sed -e :a -e '/^[[:space:]]*$/{$d;N;ba' -e '}')"
 
-    # §14.6 already cited `Events.md` as `§EVN18(d)` at the baseline — Events
-    # had already been extracted, so that citation was never `§10.17` to begin
-    # with and must not be reversed alongside the ones that were. It is
-    # protected behind a placeholder for the run of the `§EVN18` -> `§10.17`
-    # reversal below, then restored.
+    # This body already carries fifteen `§EVN` occurrences resolved by an
+    # earlier extraction, alongside the twenty-one `§10.x` citations this
+    # extraction resolves the same way. Two of the six numbers this extraction
+    # converts — `§10.17` -> `§EVN18` and `§10.18` -> `§EVN19` — land on a token
+    # that a pre-existing citation already used, so the two are byte-identical
+    # in the new file and a blind reversal cannot tell them apart by content.
+    # Unlike the `sec` pairing above, this is resolved by normalising the
+    # BASELINE forward rather than the new file backward: the forward direction
+    # only ever rewrites a literal `§10.x`, and a pre-existing `§EVN18` or
+    # `§EVN19` never matches that pattern, so it is never touched.
     new="$(sed -n '/^---$/,$p' "$file" \
         | tail -n +2 \
         | sed -e '/./,$!d' \
-        | sed -E 's/^(#{2,6} )SEC((14|18)[0-9.]*)( .*) \*\(formerly §[0-9][0-9.]*\)\*$/\1\2\4/' \
+        | sed -E 's/^(#{2,6} )ARC((12|16|17)[0-9.]*)( .*) \*\(formerly §[0-9][0-9.]*\)\*$/\1\2\4/' \
         | sed -E 's/§(DOM|APR|ARC|SEC|UI)([0-9])/§\2/g' \
-        | sed -E 's/§EVN18\(d\)/§XEVN18DX/g' \
-        | sed -E 's/§EVN18/§10.17/g' \
-        | sed -E 's/§XEVN18DX/§EVN18(d)/g' \
         | sed -e :a -e '/^[[:space:]]*$/{$d;N;ba' -e '}')"
 
-    difference="$(diff <(echo "$old") <(echo "$new") || true)"
+    old_forward="$(printf '%s\n' "$old" \
+        | sed -E 's/§10\.2($|[^0-9])/§EVN2\1/g' \
+        | sed -E 's/§10\.4($|[^0-9])/§EVN4\1/g' \
+        | sed -E 's/§10\.5($|[^0-9])/§EVN5\1/g' \
+        | sed -E 's/§10\.7($|[^0-9])/§EVN7\1/g' \
+        | sed -E 's/§10\.17($|[^0-9])/§EVN18\1/g' \
+        | sed -E 's/§10\.18($|[^0-9])/§EVN19\1/g')"
 
-    report "VERBATIM" "normalised differences against the baseline §14/§18 body" "$difference"
+    difference="$(diff <(echo "$old_forward") <(echo "$new") || true)"
+
+    report "VERBATIM" "normalised differences against the baseline §12/§16/§17 body" "$difference"
 }
 
 echo "design-split-audit — baseline $BASELINE, scope §$SCOPE, gate $GATE"
