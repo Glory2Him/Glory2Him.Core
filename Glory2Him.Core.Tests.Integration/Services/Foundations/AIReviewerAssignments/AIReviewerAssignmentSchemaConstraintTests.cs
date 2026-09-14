@@ -83,6 +83,84 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.AIReviewerAssign
                 because: "the write was refused, so nothing may be left in the table");
         }
 
+        [Fact]
+        public async Task ShouldRefuseHardRemovingARoundThatStillCarriesAnAssignmentAsync()
+        {
+            // given: two rounds, one carrying a LIVE assignment and one carrying a WITHDRAWN
+            // (soft-deleted) one. The second case is the one a reader gets wrong: withdrawing
+            // the assignment frees UX_AIReviewerAssignments_ApprovalId's slot, but the foreign
+            // key does not read IsDeleted, so it does not free the round.
+            Approval roundWithLiveAssignment = await SeedApprovalAsync(isDeleted: false);
+            Approval roundWithWithdrawnAssignment = await SeedApprovalAsync(isDeleted: false);
+
+            AIReviewerAssignment liveAssignment =
+                await SeedAIReviewerAssignmentAsync(roundWithLiveAssignment.Id, isDeleted: false);
+
+            AIReviewerAssignment withdrawnAssignment =
+                await SeedAIReviewerAssignmentAsync(
+                    roundWithWithdrawnAssignment.Id, isDeleted: true);
+
+            // when
+            Exception liveOutcome = await this.broker.TryDeleteAsync(roundWithLiveAssignment);
+
+            Exception withdrawnOutcome =
+                await this.broker.TryDeleteAsync(roundWithWithdrawnAssignment);
+
+            // then
+            liveOutcome.Should().BeOfType<ForeignKeyConstraintConflictException>(
+                because: "the round still carries an assignment, so the hard delete is refused");
+
+            liveOutcome.Message.Should().Contain(ForeignKeyName);
+
+            withdrawnOutcome.Should().BeOfType<ForeignKeyConstraintConflictException>(
+                because: "the foreign key does not read IsDeleted — a withdrawn assignment "
+                    + "still points at the round");
+
+            withdrawnOutcome.Message.Should().Contain(ForeignKeyName);
+
+            await AssertStillPresentAndUnmodifiedAsync(roundWithLiveAssignment);
+            await AssertStillPresentAndUnmodifiedAsync(roundWithWithdrawnAssignment);
+            await AssertStillPresentAndUnmodifiedAsync(liveAssignment);
+            await AssertStillPresentAndUnmodifiedAsync(withdrawnAssignment);
+        }
+
+        private async Task AssertStillPresentAndUnmodifiedAsync(Approval approval)
+        {
+            Approval storedApproval =
+                await this.broker.ReadUntrackedAsync<Approval>(approval.Id);
+
+            storedApproval.Should().NotBeNull(
+                because: "a refused delete leaves the round where it was");
+
+            storedApproval.Should().BeEquivalentTo(approval);
+        }
+
+        private async Task AssertStillPresentAndUnmodifiedAsync(
+            AIReviewerAssignment aiReviewerAssignment)
+        {
+            AIReviewerAssignment storedAssignment =
+                await this.broker.ReadUntrackedAsync<AIReviewerAssignment>(
+                    aiReviewerAssignment.Id);
+
+            storedAssignment.Should().NotBeNull(
+                because: "a refused delete touches nothing at all, least of all the child");
+
+            storedAssignment.Should().BeEquivalentTo(aiReviewerAssignment);
+        }
+
+        private async Task<AIReviewerAssignment> SeedAIReviewerAssignmentAsync(
+            Guid approvalId,
+            bool isDeleted)
+        {
+            AIReviewerAssignment aiReviewerAssignment =
+                CreateAIReviewerAssignment(approvalId, isDeleted);
+
+            await this.broker.SeedAsync(aiReviewerAssignment);
+            this.seededAIReviewerAssignments.Add(aiReviewerAssignment);
+
+            return aiReviewerAssignment;
+        }
+
         private async Task<Approval> SeedApprovalAsync(bool isDeleted)
         {
             string actorUserId = Guid.NewGuid().ToString();
