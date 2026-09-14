@@ -392,10 +392,11 @@ Two mechanisms, deliberately different, answering two different questions.
 
 ### Heading tags — "what issue defines this section?"
 
-**Proposed, not yet applied.** This is #498's criterion 1 and no heading carries
-a tag today — every heading in `Events.md` and `UI.md` is still bare, the second
-of them deliberately: the split relocates headings without touching them.
-Adopt it as you touch sections; do not read it as an invariant you can rely on.
+**Proposed, not yet applied.** This is #498's criterion 1 and no heading under
+`Documentation/Design/` carries either of the two tags this section defines —
+every heading there is still bare, deliberately for relocated headings: the
+split relocates headings without touching them. Adopt it as you touch
+sections; do not read it as an invariant you can rely on.
 
 Every numbered heading in `Documentation/Design/*.md` should carry exactly one of
 two tags, never bare:
