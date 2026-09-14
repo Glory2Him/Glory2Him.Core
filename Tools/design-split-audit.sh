@@ -338,8 +338,7 @@ gate_g3() {
         # §12.4 has only §12.4.1 and §12.4.2, and no BR14 or rule 11 stands
         # anywhere under it today. It is subtracted the same way as §12.4.7
         # rather than reported, on the same §S4.1 precedent: a gate nobody can
-        # run green stops being run. The issue this raises is linked from the
-        # PR that introduced this subtraction.
+        # run green stops being run. Tracked as issue #559.
         citations="$(echo "$citations" | grep -Ev '^§(12\.4\.7|12\.4\.4)$')"
     fi
 
