@@ -123,21 +123,21 @@ view you were on, and switching carries your current selection across.
   six approvable entities gained their `Submitting` / `Approving`
   subscriptions and their submit and approval-transition verbs, and
   `ApprovalOrchestrationService` was added with its 22 handlers.
-- **`FS.ApprovalReviewRequest` is new** (2026-08-28, design §7.9 / §ARC16.7.4) —
+- **`FS.ApprovalReviewRequest` is new** (2026-08-28, design §APR7.9 / §ARC16.7.4) —
   the review INVITATIONS that let a moderation surface show who has been asked
   and has not yet answered. Three things make it unlike every other approval
   foundation, and all three are visible in the data: it has **no
   `IAccessBroker`** edge, because an invitation grants no eligibility and
-  enters no §8.5 condition, so there is no cross-entity invariant to defend;
+  enters no §APR8.5 condition, so there is no cross-entity invariant to defend;
   it has **no Modify** method or `-Modifying` address, because `ApprovalId` and
   `RequestedUserId` are the halves of its uniqueness index and are fixed at
   creation; and its **remove path takes no `GetUserIdAsync`**, because
   withdrawal is open to the whole review tier rather than to the requester
-  alone (§7.9 rule 5). Four subscriptions, four publishes, 37 direct calls.
+  alone (§APR7.9 rule 5). Four subscriptions, four publishes, 37 direct calls.
   Its facts have no subscribers, so none of its edges are circular.
 - **`FS.IdentityUser` and `IdentityCoreStorageBroker` are new** (2026-08-28, design §ARC12.7.1) —
   Core's first read into the SECURITY database, and the first time it has had two
-  DbContexts. They exist because §7.9 rule 3 and the reviewer-candidates read both ask
+  DbContexts. They exist because §APR7.9 rule 3 and the reviewer-candidates read both ask
   about ROLE MEMBERSHIP, which lives in the ASP.NET Identity store and nowhere else:
   `ISecurityClient.Users` reads a `ClaimsPrincipal`, so it only ever describes the
   current caller. The broker is read-only by interface (Select members only, no design-time
@@ -156,17 +156,17 @@ view you were on, and switching carries your current selection across.
   `AccessBroker.RetrieveApprovalReviewerScopeByEntityAsync`. The two-read shape the invitation
   flow used to draw (`FS.Approval.FindApprovalByEntityAsync` then
   `AccessBroker.RetrieveApprovalReviewerScopeByIdAsync`) is made by no method on any service
-  now. On a null it runs the §9.7.2 rule 1 repair — hence its `RetrieveEntityApprovalStatusAsync`,
+  now. On a null it runs the §APR9.7.2 rule 1 repair — hence its `RetrieveEntityApprovalStatusAsync`,
   `FindApprovalByEntityAsync` and `AddApprovalAsync` edges — and asks the gather again. The BY-ID
-  gather is still drawn, and by this same component: §7.9 rule 6's subscription resolves its round
+  gather is still drawn, and by this same component: §APR7.9 rule 6's subscription resolves its round
   by approval id off the envelope, so it needs no entity lookup ahead of it. It is the PAIR that
   is gone, not the read.
 - **`ARO` binds TWO subscriptions and publishes nothing** (issue #522, design §ARC12.5.4 business
-  rule 4). `ApprovalReview.Added` carries §7.9 rule 6's retirement and `Approval.Modified`
+  rule 4). `ApprovalReview.Added` carries §APR7.9 rule 6's retirement and `Approval.Modified`
   carries rule 8's — the first subscription in the solution on any of the `Approval` entity's
   own FACT addresses. It is no longer the only one: `SubscribeToApprovalEventAsync` is called
   EIGHT times now, five on command addresses and three on fact addresses — this retirement plus
-  §8.6.2.1's `Approval.Added`/`Approval.Modified` pair (#532), recorded further down this file.
+  §APR8.6.2.1's `Approval.Added`/`Approval.Modified` pair (#532), recorded further down this file.
   `ApprovalReview.Added` therefore has two subscribers, `AO`'s re-test and this retirement: two
   reactions on one address in two services, with `Deliveries` recorded per subscription, which
   is not the double-fire §EVN2 rule 6 forbids. `AO` lost its
@@ -179,13 +179,13 @@ view you were on, and switching carries your current selection across.
   the graph**, after `ApprovalReviewService.DismissStaleApprovalReviewAsync`,
   and it is drawn the same way: a `CreateSystemAsync` edge instead of
   `CreateAsync`, and no `InsertProcessedEventAsync` pair. It exists because
-  §7.9 rule 6 retires an answered invitation under the SYSTEM identity, and
+  §APR7.9 rule 6 retires an answered invitation under the SYSTEM identity, and
   `CreateSystemAsync` mints a context with no roles — so the public withdraw
   verb, whose gate asks for a review-tier role, cannot serve that rule. It
   publishes the ordinary `ApprovalReviewRequest.Removed` fact; what
   distinguishes a retirement from a withdrawal is recorded on the row, not on
   a separate address.
-- **`RetireClosedRoundApprovalReviewRequestAsync` sits beside it** (§7.9 rule
+- **`RetireClosedRoundApprovalReviewRequestAsync` sits beside it** (§APR7.9 rule
   8): a round that closes on an outcome retires every invitation it never
   answered, because a review can no longer be recorded against a decided round
   and the row would go on rendering an ask nobody can answer. It is drawn
@@ -212,7 +212,7 @@ view you were on, and switching carries your current selection across.
   ProcessedEvents dedupe — its substrate guard is `IEnvelopeIntegrityBroker`
   instead. It no longer holds `IApprovalCommentService` at all — that left with
   §ARC12.5.4's reviewer coordination in PR #535, and the only thing this service
-  reads a comment for is the §8.5 count, which arrives as a verdict.
+  reads a comment for is the §APR8.5 count, which arrives as a verdict.
 - **Circular event flows now exist, and the red edges are correct.** 14 of the
   114 subscriptions are on ENTITY fact addresses, all handled by `AO` — the two
   `ARO` gained in issue #522 are on WORKFLOW-RECORD and `Approval` fact
@@ -412,7 +412,7 @@ view you were on, and switching carries your current selection across.
   inconsistency for one service alone (see the bullet above).
 - **Berean's AUTOMATIC assignment is modelled as of 2026-09-13** — issue #532.
   No new component: `AIRO` gains two `On*Async` methods and two purple edges,
-  `Approval-Added` and `Approval-Modified`, for §8.6.2.1's assignment of Berean
+  `Approval-Added` and `Approval-Modified`, for §APR8.6.2.1's assignment of Berean
   to a round nobody asked about. It draws no red ones and still holds no
   `IEventBroker`, for `ARO`'s reason — both handlers verify an inbound envelope
   and cause their write through the foundation's workflow seam, which publishes
@@ -440,10 +440,10 @@ view you were on, and switching carries your current selection across.
   `IIdentityUserService`, so `AO` lost sixteen call edges and `FS.IdentityUser`
   changed consumer. `ARO` holds a fourth service dependency,
   `IApprovalWorkflowService`, drawn as its `FindApprovalByEntityAsync` and
-  `AddApprovalAsync` edges — that is the §9.7.2 rule 1 repair, and it is the
+  `AddApprovalAsync` edges — that is the §APR9.7.2 rule 1 repair, and it is the
   approved Florance deviation §ARC12.5's register records.
   **`ARO` draws two purple edges and no red ones** since issue #522: it binds
-  the §7.9 rule 6 and rule 8 retirements as subscriptions and still publishes
+  the §APR7.9 rule 6 and rule 8 retirements as subscriptions and still publishes
   nothing of its own, because both cause their write through the foundation's
   workflow seam, which publishes for itself — which is why it holds
   `IEnvelopeIntegrityBroker` but not `IEventBroker`. `AO`'s
