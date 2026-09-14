@@ -273,8 +273,14 @@ Check, in order:
 1. **Coverage.** Every design section this feature spans has an issue behind it.
    Work from the design, section by section, rather than from the issue list —
    the gap you are looking for is a section nobody logged, and it is invisible
-   from the issues. Where the design tags each heading with the issue that defined
-   it, a tag still reading `(needs issue)` is the fast path to the same answer.
+   from the issues. Where the design tags each heading with the issue that
+   defined it, a tag still reading `(needs issue)` is the fast path to the same
+   answer:
+
+   ```bash
+   grep -rnE "^#{2,3} .*\(needs issue\)" Documentation/Design/*.md
+   ```
+
    A section with no issue is BLOCKING.
 
 2. **Completeness.** The issues *together* capture the whole feature. Go
@@ -314,8 +320,8 @@ Check, in order:
    behaviour the design does not have. The design outranks the issue.
 
 6. **The label.** Every issue carries a `Model - Effort` line in its body and the
-   matching label, spelled out in full. Without one the issue is not ready to hand
-   over and the developer's session cannot be configured for it.
+   matching label, spelled out in full. Without one the issue is not ready to
+   hand over and the developer's session cannot be configured for it.
 
 You do not write criteria, open issues, split sections or edit the design.
 Findings about an issue route to the analyst, who owns it; findings about the
