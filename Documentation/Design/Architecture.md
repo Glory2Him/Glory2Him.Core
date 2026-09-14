@@ -14,8 +14,14 @@ with the other area files, and the contents list below is what makes those gaps
 read as a table of contents rather than as missing content. **§ARC16.7.5 stands
 between §ARC16.7.2 and §ARC16.7.3, out of numeric order, exactly as `16.7.5`
 stood between `16.7.2` and `16.7.3` before the move** — that position is
-preserved, not tidied (§IDX1.5 reason 3; the same kind of preservation
-`Security.md`'s header block names for §SEC14.6.1's heading-level anomaly). The
+accepted permanently, ruled in #568 rather than renumbered now or later:
+renumbering it, its ARC16.7.4 neighbour and the ARC16.7.3 named above would, as
+measured when this was ruled in September 2026, repoint 102 citations of the
+three of them (71 of them outside `Documentation/` in source and tests),
+leave two sections competing for the same *(formerly §16.7.N)* grep anchor,
+and §IDX1.5 reason 3 already forbids the reorder — the same kind of
+preservation `Security.md`'s header
+block names for §SEC14.6.1's heading-level anomaly. The
 other `Documentation/Design/*.md` files carry their own prefixes — `APR`,
 `DOM`, `EVN`, `SEC`, `UI` — so a bare `§ARC12.5` is unambiguous. Where this
 file cites one of them, the map at the top of
