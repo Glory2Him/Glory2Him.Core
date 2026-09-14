@@ -67,7 +67,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
         /// <c>{Entity}-Publishers</c> / <c>{Entity}-{ContentType}-Publishers</c> names (§18.6).
         /// That widening is the operation's reason to exist: the owner can equally flip the flag
         /// through modify, but nobody else can, because modify is owner-only and admitting them
-        /// there would hand them the author's words as well (§14.7 rule 5).</para>
+        /// there would hand them the author's words as well (§14.7 posture D rule 5).</para>
         ///
         /// <para><b>The publisher tier and not the review tier.</b> An outstanding comment holds
         /// the approval shut under <c>RequireReviewCommentResolutionBeforeApprovals</c>, and the

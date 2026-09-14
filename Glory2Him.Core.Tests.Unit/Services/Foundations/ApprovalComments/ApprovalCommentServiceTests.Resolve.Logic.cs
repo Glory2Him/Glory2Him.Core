@@ -138,11 +138,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
         {
             // given: the one comment operation somebody other than the author may run against
             // the row. Resolving records that a comment is settled, which changes no words —
-            // amending or withdrawing someone else's comment stays refused (§14.7 rule 5).
+            // amending or withdrawing someone else's comment stays refused (§14.7 posture D rule 5).
             //
             // The tier is the PUBLISHER tier at every §18.6 scope, because an outstanding comment
             // holds the APPROVAL shut and those are the people that block stops. Administrators
-            // is inside it, so §14.7 rule 5's route survives the widening.
+            // is inside it, so §14.7 posture D rule 5's route survives the widening.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(roles);
 
             ApprovalComment storageApprovalComment = CreateRandomApprovalComment();

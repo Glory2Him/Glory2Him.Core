@@ -1060,7 +1060,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
         {
             // given: no role widens the amend gate. This used to assert the opposite — that a
             // review role could write a row it did not own, reaching the CreatedBy pin instead of
-            // the ownership refusal — and that model is withdrawn (§14.7 rule 5).
+            // the ownership refusal — and that model is withdrawn (§14.7 posture D rule 5).
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(reviewRole);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string randomUserId = GetRandomString();

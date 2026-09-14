@@ -27,7 +27,7 @@ export type ContentItemSearchItem = {
     // carries it.
     contentType: ContentType;
 
-    // THE WINNING SETTING, resolved by the PROJECTION (§6.4 / §12.5.2 rules 1-2: this item's
+    // THE WINNING SETTING, resolved by the PROJECTION (§6.4 / §12.5.2 business rules 1-2: this item's
     // own override beats its type default, soft-deleted rows excluded §6.6) — so the card
     // gates every feature (ShowTags, ShowReactions, LimitReactionsToLoveOnly, ShowComments,
     // HasTitle, HasAuthor) off the one row that actually governs THIS item. Absent, the card

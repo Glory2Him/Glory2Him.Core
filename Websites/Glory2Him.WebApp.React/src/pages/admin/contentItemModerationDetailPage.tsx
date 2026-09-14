@@ -607,7 +607,7 @@ export const ContentItemModerationDetailPage = () => {
     };
 
     // Both directions ride one call: a comment settled prematurely must be able to block again
-    // (§14.7 rule 5), and the flag is always sent because the endpoint binds it [BindRequired].
+    // (§14.7 posture D rule 5), and the flag is always sent because the endpoint binds it [BindRequired].
     const resolveReviewCommentAsync = async (
         item: ReviewCommentItem,
         isResolved: boolean) => {

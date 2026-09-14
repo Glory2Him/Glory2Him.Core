@@ -179,7 +179,7 @@ namespace G2H.Security.Client.Services.Foundations.Access
             // approval. Creating a settled ask IS resolving one — done a moment earlier, through
             // a gate that never asks who may resolve — so it hands any caller a way past
             // RequireReviewCommentResolutionBeforeApprovals without touching the operation that
-            // owns the flag (§14.7 rule 5) or answering to its publisher tier. A remark born
+            // owns the flag (§14.7 posture D rule 5) or answering to its publisher tier. A remark born
             // outstanding is left alone: it blocks where nothing had to, which costs the round a
             // resolution and grants nobody anything.
             if (request.IsAsk && request.IsSettled)
@@ -304,7 +304,7 @@ namespace G2H.Security.Client.Services.Foundations.Access
         // reviewer is not held by the gate, so admitting them would hand the settling of somebody
         // else's ask to somebody the ask never blocked; a reviewer answering one writes a comment
         // of their own. HasPublisherTier already carries Administrators, so the administrator
-        // route §14.7 rule 5 opened is preserved rather than replaced.
+        // route §14.7 posture D rule 5 opened is preserved rather than replaced.
         private static AccessVerdict DecideMayResolveApprovalComment(
             ResolveApprovalCommentRequest request)
         {

@@ -177,7 +177,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
 
             // Owner only. This replaces "the author may edit their own comment and a review role
             // may write it too — reviewers flip IsResolved on a submitter's comment": that model is
-            // withdrawn (§14.7 rule 5). IsResolved now has its own operation, which an administrator may
+            // withdrawn (§14.7 posture D rule 5). IsResolved now has its own operation, which an administrator may
             // use on someone else's row; the wording itself belongs to whoever wrote it.
             if (isOwner is false)
             {

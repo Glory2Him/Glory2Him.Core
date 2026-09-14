@@ -103,7 +103,7 @@ export const approvalCommentService = {
     // WHERE THE TYPE DID NOT MOVE THE FLAG IS LEFT ALONE, and that is what makes this a
     // transition rather than a derivation: a settled ask may be edited by its author, and
     // re-deriving would silently re-open it — resolving and re-opening answer to their own
-    // operation and its tier (§14.7 rule 5).
+    // operation and its tier (§14.7 posture D rule 5).
     useModifyApprovalComment: () => {
         const approvalCommentBroker = new ApprovalCommentBroker();
         const queryClient = useQueryClient();
@@ -158,7 +158,7 @@ export const approvalCommentService = {
         });
     },
 
-    // THE SETTLED FLAG, both ways (§14.7 rule 5). Symmetric by design: a comment recorded as an
+    // THE SETTLED FLAG, both ways (§14.7 posture D rule 5). Symmetric by design: a comment recorded as an
     // observation may later turn out to need action, and one settled prematurely must be able to
     // block again.
     useResolveApprovalComment: () => {

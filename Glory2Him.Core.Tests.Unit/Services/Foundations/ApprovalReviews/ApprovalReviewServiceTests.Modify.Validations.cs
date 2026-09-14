@@ -569,7 +569,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             //
             // The caller is the review's own author. This used to arrange an administrator acting on
             // someone else's review, on the reasoning that "an administrator may legitimately amend
-            // anyone's review" — a model since withdrawn (§14.7 rule 5). The gate is owner-only
+            // anyone's review" — a model since withdrawn (§14.7 posture D rule 5). The gate is owner-only
             // now, so a non-owner is refused before reaching these pins; the owner tampering
             // with the payload is the route that remains, and the one worth pinning.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext();

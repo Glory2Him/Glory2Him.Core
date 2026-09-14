@@ -43,7 +43,7 @@ namespace Glory2Him.WebApp.Controllers.ApprovalComments
     /// <item>Modify and soft removal are the author and nobody else — not Publishers, not Administrators.</item>
     /// <item>Resolve is the author <b>or</b> an administrator. That widening is the operation's
     /// reason to exist: an administrator cannot reach the flag through modify without also being handed
-    /// the author's words (§14.7 rule 5).</item>
+    /// the author's words (§14.7 posture D rule 5).</item>
     /// </list>
     ///
     /// <para>A role list on any of those would lock the legitimate author out of their own comment,

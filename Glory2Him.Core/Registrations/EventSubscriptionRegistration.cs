@@ -1335,7 +1335,7 @@ namespace Glory2Him.Core.Registrations
                         .ApprovalOrchestrationOnApprovalCommentModifiedSubscriptionName,
 
                     Description = "Reacts to an amended comment: the general modify is one of the two "
-                        + "writers of IsResolved (§14.7 rule 5)."
+                        + "writers of IsResolved (§14.7 posture D rule 5)."
                 },
                 operation: ApprovalCommentEventOperation.Modified,
                 approvalCommentEventHandler:
@@ -1353,7 +1353,7 @@ namespace Glory2Him.Core.Registrations
                         .ApprovalOrchestrationOnApprovalCommentResolvedSubscriptionName,
 
                     Description = "Reacts to a settled comment: the resolve transition is the other of "
-                        + "the two writers of IsResolved (§14.7 rule 5)."
+                        + "the two writers of IsResolved (§14.7 posture D rule 5)."
                 },
                 operation: ApprovalCommentEventOperation.Resolved,
                 approvalCommentEventHandler:
@@ -1869,7 +1869,7 @@ namespace Glory2Him.Core.Registrations
             // Link complete their writes in a processing service, so their completion facts are
             // ContentItemProcessing-Added/-Modified and LinkProcessing-Added/-Modified; binding
             // to the foundation instead would react to the version fork's second row as if it
-            // were a second amendment (§10.17 rule 2, §12.4.1 rules 6-7). The other five have
+            // were a second amendment (§10.17 rule 2, §12.4.1 responsibilities 6-7). The other five have
             // no layer above their foundation, so the foundation fact is their top-layer fact.
             //
             // -Removed is absent by design, not by omission: a takedown is not a moderation

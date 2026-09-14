@@ -5,7 +5,7 @@ import {
     contentTypeLabels
 } from '../../../models/foundations/contentItemSettings/contentType';
 
-// THE EFFECTIVE SETTING, resolved as §6.4 and §12.5.2 rules 1-2 require: an item-level override
+// THE EFFECTIVE SETTING, resolved as §6.4 and §12.5.2 business rules 1-2 require: an item-level override
 // takes FULL precedence over the content type default, and the default applies when there is no
 // override. A soft-deleted row is excluded from active policy resolution entirely (§6.6).
 //

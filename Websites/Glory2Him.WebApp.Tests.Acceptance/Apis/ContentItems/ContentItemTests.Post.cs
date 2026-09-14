@@ -46,7 +46,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItems
 
                     // Derived, not echoed. ContentHash is computed from Content (§3.4.2), and
                     // GroupId and Version are assigned by the add because a new item is version
-                    // 1 of its own group (§12.4.1 rule 6, §3.4.1). Asserting them against the
+                    // 1 of its own group (§12.4.1 business rule 6, §3.4.1). Asserting them against the
                     // request would be asserting that the service ignored its own rules.
                     .Excluding(property => property.ContentHash)
                     .Excluding(property => property.GroupId)

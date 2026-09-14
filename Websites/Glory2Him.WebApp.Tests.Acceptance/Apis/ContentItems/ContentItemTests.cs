@@ -116,7 +116,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItems
                 .OnProperty(contentItem => contentItem.Content)
                     .Use(new Func<string>(GetRandomContent))
 
-                // Control fields (12.4.1 rule 6) - never accepted from a caller. Sent as their
+                // Control fields (12.4.1 business rule 6) - never accepted from a caller. Sent as their
                 // defaults so a request cannot be read as an attempt to set them.
                 .OnProperty(contentItem => contentItem.ContentHash).Use((string)null)
                 .OnProperty(contentItem => contentItem.GroupId).Use(Guid.Empty)
