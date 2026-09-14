@@ -108,7 +108,7 @@ view you were on, and switching carries your current selection across.
   `FS.Link.RetrieveLinksByGroupIdAsync`, not the foundation's collection read.
   The public group read also **mints no envelope of its own** any more: the
   group-keyed foundation read mints one to capture the ambient security
-  context, and a second here would re-run the same §14.7 filter, against the
+  context, and a second here would re-run the same §SEC14.7 filter, against the
   same context, over the set that filter already produced. That is why its
   `EventEnvelopeBroker`, `SecurityAuditBroker` and `DateTimeBroker` edges are
   gone from `CIP` and `LP` while the latest/published reads keep theirs — those
@@ -200,7 +200,7 @@ view you were on, and switching carries your current selection across.
   `FindRetirableApprovalReviewRequestIdsAsync` rather than the foundation's own
   round-keyed read, for the reason the dismissal's gather already carries: two
   of those routes run under the editor's or reviewer's identity, and the
-  caller-facing read is filtered by §14.7 posture D.
+  caller-facing read is filtered by §SEC14.7 posture D.
 - **`ApprovalOrchestrationService` (`AO`) is the approval workflow**, added on
   this branch (PR #289 and the workflow-record subscriptions that followed).
   It records human approve/reject decisions on the `Approval` row and

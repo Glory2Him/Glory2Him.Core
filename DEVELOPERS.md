@@ -232,6 +232,7 @@ Documentation/
   Design/                  area-scoped design documents, each with its own section prefix
     Events.md              §EVN0 … §EVN23  (event design)
     UI.md                  §UI20          (UI / UX design)
+    Security.md            §SEC14, §SEC18  (security design)
     Split.md               the rulings for the split itself, retired once it lands
   Mockups/                 Claude Design exports awaiting or feeding a design section
   Images/                  static visual assets referenced from issues and design docs
@@ -243,9 +244,9 @@ Documentation/
 ### The split, and why sections carry prefixes
 
 `G2H Design.md` is being broken into area-scoped files under
-`Documentation/Design/` (issue #481). `Events.md` came first and `UI.md`
-followed. The remaining areas — approval, architecture, domain, security — are
-planned and their prefixes are already reserved: `APR`, `ARC`, `DOM`, `SEC`.
+`Documentation/Design/` (issue #481). `Events.md` came first, then `UI.md`, then
+`Security.md`. The remaining areas — approval, architecture, domain — are
+planned and their prefixes are already reserved: `APR`, `ARC`, `DOM`.
 `G2H Design.md` is the index: the map at the top of it says, for every one of
 the 21 original sections, which file it is in and what to cite it as.
 
@@ -362,13 +363,14 @@ subject's area and names no file itself: the area file under
 `Documentation/Design/` where the area has one, and `Documentation/G2H Design.md`
 — in the section that already owns the subject — where it does not. The map at
 the top of `G2H Design.md` is what says which of the two, one row per section, so
-the instruction stays true as each remaining area moves. Two areas have their own
-file today: event design in `Design/Events.md` and UI design in `Design/UI.md`.
-Approval, architecture, domain and security are still written in the main
-document. What an extracted section leaves behind is a pointer stub, and design
-is never written into one. A section in an area file is numbered with that file's
-prefix; a section still in the main document keeps the number it has. Heading
-tags are a separate, not-yet-applied convention — see §6.
+the instruction stays true as each remaining area moves. Three areas have their
+own file today: event design in `Design/Events.md`, UI design in `Design/UI.md`
+and security design in `Design/Security.md`. Approval, architecture and domain
+are still written in the main document. What an extracted section leaves behind
+is a pointer stub, and design is never written into one. A section in an area
+file is numbered with that file's prefix; a section still in the main document
+keeps the number it has. Heading tags are a separate, not-yet-applied
+convention — see §6.
 
 ### 5.4 Then the analyst writes criteria in words
 
