@@ -43,8 +43,9 @@ even though the citable number is now prefixed.
 **§DOM19.5 and §DOM19.8 stay in this file, and the placement is settled rather
 than provisional.** Both are rendering consequences of stored `ContentItem`
 fields, so they live here with those fields. They are not `UI.md` subject
-matter: `UI.md` carries the React application, and §DOM19.8 is host middleware
-that exists because the React application cannot serve a crawler. The one
+matter: `UI.md` carries the React application, §DOM19.8 is host middleware
+that exists because the React application cannot serve a crawler, and §DOM19.5
+is a projection of those stored fields whose only consumer is §DOM19.8. The one
 trigger to revisit this: the head-injection middleware being replaced by
 server-side or pre-rendered rendering of the React application itself. Section
 growth alone is not a trigger — length is not a subject change. `UI.md` §UI20
