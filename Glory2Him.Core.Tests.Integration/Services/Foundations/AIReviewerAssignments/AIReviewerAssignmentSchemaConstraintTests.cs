@@ -84,6 +84,53 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.AIReviewerAssign
         }
 
         [Fact]
+        public async Task ShouldAcceptAnAssignmentNamingARoundThatExistsWhetherLiveOrSoftDeletedAsync()
+        {
+            // given: two rounds that DO exist — one live, one soft-deleted. The soft-deleted
+            // case is not an oversight and must never be "corrected" into a refusal: the key
+            // enforces that the round EXISTS, and whether it is live or open stays with
+            // IAccessBroker (§APR8.6.1). It is also the case the migration's anti-join must not
+            // delete, which is why a repair narrowed with AND p.[IsDeleted] = 0 would contradict
+            // this test.
+            Approval liveRound = await SeedApprovalAsync(isDeleted: false);
+            Approval softDeletedRound = await SeedApprovalAsync(isDeleted: true);
+
+            AIReviewerAssignment assignmentOnLiveRound =
+                CreateAIReviewerAssignment(liveRound.Id, isDeleted: false);
+
+            AIReviewerAssignment assignmentOnSoftDeletedRound =
+                CreateAIReviewerAssignment(softDeletedRound.Id, isDeleted: false);
+
+            this.seededAIReviewerAssignments.Add(assignmentOnLiveRound);
+            this.seededAIReviewerAssignments.Add(assignmentOnSoftDeletedRound);
+
+            // when
+            Exception liveOutcome = await this.broker.TryInsertAsync(assignmentOnLiveRound);
+
+            Exception softDeletedOutcome =
+                await this.broker.TryInsertAsync(assignmentOnSoftDeletedRound);
+
+            // then
+            liveOutcome.Should().BeNull(
+                because: "the round exists, which is the whole of what the key asks");
+
+            softDeletedOutcome.Should().BeNull(
+                because: "the key does not read IsDeleted on the parent either — a withdrawn "
+                    + "round still exists, and liveness is IAccessBroker's question");
+
+            AIReviewerAssignment storedOnLiveRound =
+                await this.broker.ReadUntrackedAsync<AIReviewerAssignment>(
+                    assignmentOnLiveRound.Id);
+
+            AIReviewerAssignment storedOnSoftDeletedRound =
+                await this.broker.ReadUntrackedAsync<AIReviewerAssignment>(
+                    assignmentOnSoftDeletedRound.Id);
+
+            storedOnLiveRound.Should().BeEquivalentTo(assignmentOnLiveRound);
+            storedOnSoftDeletedRound.Should().BeEquivalentTo(assignmentOnSoftDeletedRound);
+        }
+
+        [Fact]
         public async Task ShouldRefuseHardRemovingARoundThatStillCarriesAnAssignmentAsync()
         {
             // given: two rounds, one carrying a LIVE assignment and one carrying a WITHDRAWN
