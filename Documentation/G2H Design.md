@@ -129,7 +129,25 @@ A citation is the bare prefixed number and nothing else:
 - **Lettered forms** follow `Events.md`: where comments cite `§10.17(a)`, the
   heading annotation carries no letter, so the section body names the lettered
   forms explicitly. `§ARC12.1 rule 2` and similar rule-number citations are
-  unaffected — the prefix goes on the section number only.
+  unaffected — the prefix goes on the section number only. That citation is
+  also the worked counter-example for the rule-word convention below: §ARC12.1's
+  first numbered list names the eight layers and states no rule, so only the
+  rule list that follows is a candidate and its second item — the entity-count
+  definition of an orchestration — resolves once without a rule word.
+- **A citation names which list it means** only when the cited number appears at
+  the top level of two or more numbered lists whose items state rules —
+  requirements, responsibilities or prohibitions. A list nested inside another
+  list's item does not count as a second list, and a list whose items name
+  things rather than state rules — layers, brokers, resolution tiers — is not a
+  rule list, so a `rule N` citation cannot land on it and needs no list name.
+  Where this trigger is met, the form used is whichever word the cited section
+  itself gives its lists — `business rule N`, `responsibility N`,
+  `posture X rule N`, or the `BRN` short form — never an invented one. Going
+  forward, a citation written against a section that meets the trigger names its
+  list; a bare `rule N` written before this convention existed is not thereby a
+  defect. Where a section labels no list at all, the number is made to resolve
+  once by amending that **section**, not by respelling the citations that point
+  at it.
 
 ## Where Each Section Lives
 
