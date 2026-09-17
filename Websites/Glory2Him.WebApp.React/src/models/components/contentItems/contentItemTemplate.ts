@@ -115,7 +115,7 @@ export interface ContentItemTemplateProps
     extends ContentItemEvents, ContentItemText, ContentItemSectionToggles {
     contentItem: ContentItemSearchItem;
 
-    // The item's OWN effective setting, resolved by the panel (§6.4 / §12.5.2 rules 1-2), so a
+    // The item's OWN effective setting, resolved by the panel (§6.4 / §12.5.2 business rules 1-2), so a
     // template gates ShowTags, ShowBibleReferences, ShowComments and the title/author shaping
     // off one authoritative row.
     contentItemSetting?: ContentItemSetting;

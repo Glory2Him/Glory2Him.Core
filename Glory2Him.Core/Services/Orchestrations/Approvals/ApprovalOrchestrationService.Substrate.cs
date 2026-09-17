@@ -71,7 +71,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         // The verified name is the name the PUBLISHER signed, and the publisher composes it as
         // entityName + operation where entityName belongs to the tier that owns the address this
         // subscription binds. ContentItem and Link take their top-layer fact from the PROCESSING
-        // tier (§12.4.1 rules 6-7), and EventBroker.ContentItemProcessing/LinkProcessing sign
+        // tier (§12.4.1 responsibilities 6-7), and EventBroker.ContentItemProcessing/LinkProcessing sign
         // with "ContentItemProcessing"/"LinkProcessing" accordingly — so these four read
         // "...Processing..." while the five single-row entities below, whose fact comes from
         // their foundation, use the bare entity name.
@@ -302,7 +302,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         // case and moves nothing, which the re-test ESTABLISHES rather than assumes.
         //
         // Both comment resolution addresses are wired, and that is not belt-and-braces:
-        // IsResolved has two writers by design (§14.7 rule 5) — the owner through the general
+        // IsResolved has two writers by design (§14.7 posture D rule 5) — the owner through the general
         // modify, the owner or an administrator through the resolve transition — and which one carried a
         // change depends on nothing more than which control was clicked.
 

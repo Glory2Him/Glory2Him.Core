@@ -1873,7 +1873,7 @@ describe('ContentItemFormPanel', () => {
     });
 
     describe('effective setting resolution', () => {
-        // §6.4 / §12.5.2 rules 1-2: the item-level override takes FULL precedence over the
+        // §6.4 / §12.5.2 business rules 1-2: the item-level override takes FULL precedence over the
         // content type default, and a soft-deleted row is out of resolution altogether (§6.6).
         const overrideFor = (
             contentItemId: string,

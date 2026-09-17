@@ -20,7 +20,7 @@ using Glory2Him.Core.Models.Foundations.ApprovalComments;
 namespace Glory2Him.Core.Services.Foundations.ApprovalComments
 {
     /// <summary>
-    /// The narrow state-transition operation (design §9.7.1, §14.7 rule 5).
+    /// The narrow state-transition operation (design §9.7.1, §14.7 posture D rule 5).
     ///
     /// <para><c>IsResolved</c> records whether a comment is <b>settled</b> — whether it still
     /// requires something before the approval can proceed. Not every comment asks for anything:
@@ -32,7 +32,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
     /// may change <c>IsResolved</c> through the general modify as readily as through here — it is
     /// their row. What modify cannot express is somebody else settling a comment on the author's
     /// behalf: widening modify to admit them would have handed that tier the author's words too,
-    /// which §14.7 rule 5 withdraws. So resolution gets its own operation, owning exactly
+    /// which §14.7 posture D rule 5 withdraws. So resolution gets its own operation, owning exactly
     /// <c>IsResolved</c>, admitting the owner or the <b>publisher tier</b> for the entity behind
     /// the approval, and publishing its own fact.</para>
     ///

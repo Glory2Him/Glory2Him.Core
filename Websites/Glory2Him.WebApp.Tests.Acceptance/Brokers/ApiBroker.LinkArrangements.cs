@@ -32,7 +32,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
                 Id = Guid.NewGuid(),
 
                 // A version group of one. GroupId and Version are control fields the caller
-                // never supplies (§12.4.1 rule 6) — which is exactly why an arrangement that
+                // never supplies (§12.4.1 business rule 6) — which is exactly why an arrangement that
                 // writes them has to go through the storage broker rather than the endpoint.
                 GroupId = Guid.NewGuid(),
                 Version = 1,
@@ -80,7 +80,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
         /// Writes one version into a group, at whatever state the caller names.
         ///
         /// <para>Arranged beneath HTTP because it has to be: <c>GroupId</c> and <c>Version</c> are
-        /// control fields the add derives (§12.4.1 rule 6), and the approve transition that would
+        /// control fields the add derives (§12.4.1 business rule 6), and the approve transition that would
         /// publish a row arrives as an event rather than an endpoint. A suite that could only use
         /// the API could never build a group with more than one version, which is the only shape
         /// the group reads are interesting on.</para>

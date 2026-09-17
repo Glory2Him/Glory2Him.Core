@@ -431,7 +431,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalComments
         /// The tier branch of resolve, on a comment written by somebody else — the case modify
         /// deliberately cannot express. Both spellings of the publisher tier reach it: an outstanding
         /// comment holds the approval shut, and the people that block stops are the people who decide it.
-        /// <c>Administrators</c> is inside the tier, so §14.7 rule 5's original route survives the
+        /// <c>Administrators</c> is inside the tier, so §14.7 posture D rule 5's original route survives the
         /// widening rather than being replaced by it.
         /// </summary>
         [Theory]

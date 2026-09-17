@@ -46,7 +46,7 @@ namespace Glory2Him.WebApp.Controllers.ApprovalReviews
     /// <item>Modify and soft removal are the <b>owner alone</b> — not <c>Publishers</c>, not
     /// <c>Administrators</c>. A verdict belongs to the reviewer who recorded it; an administrator who needs past a
     /// standing rejection bypasses the block (§8.6.1) rather than editing the review out of the
-    /// way, which keeps the record of what was actually said intact (§14.7 rule 4).</item>
+    /// way, which keeps the record of what was actually said intact (§14.7 posture D rule 4).</item>
     /// <item>Hard removal is the global <c>Administrators</c> and nothing else — a closed, enumerable set
     /// with no owner branch, which is why it is the only one in the attribute.</item>
     /// </list>

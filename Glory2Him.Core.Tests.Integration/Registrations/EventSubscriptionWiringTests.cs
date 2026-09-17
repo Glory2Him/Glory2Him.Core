@@ -138,7 +138,7 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
             string entityName)
         {
             // given: the five single-row entities have no processing tier, so the workflow is
-            // routed from their foundation fact (design §12.4.1 rules 6-7)
+            // routed from their foundation fact (design §12.4.1 responsibilities 6-7)
 
             // when
             IReadOnlyList<Guid> subscriptionsReached =

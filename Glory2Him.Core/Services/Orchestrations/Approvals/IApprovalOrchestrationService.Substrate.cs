@@ -165,7 +165,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
 
         /// <summary>
         /// Re-tests the round when a comment is amended, which is one of the two ways
-        /// <c>IsResolved</c> is written (design §14.7 rule 5).
+        /// <c>IsResolved</c> is written (design §14.7 posture D rule 5).
         /// </summary>
         ValueTask<EventEnvelope<ApprovalComment>?> OnApprovalCommentModifiedAsync(
             EventEnvelope<ApprovalComment> envelope,
@@ -173,7 +173,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
 
         /// <summary>
         /// Re-tests the round when a comment is settled through the resolve transition — the
-        /// other of the two writers of <c>IsResolved</c> (design §14.7 rule 5).
+        /// other of the two writers of <c>IsResolved</c> (design §14.7 posture D rule 5).
         /// </summary>
         ValueTask<EventEnvelope<ApprovalComment>?> OnApprovalCommentResolvedAsync(
             EventEnvelope<ApprovalComment> envelope,

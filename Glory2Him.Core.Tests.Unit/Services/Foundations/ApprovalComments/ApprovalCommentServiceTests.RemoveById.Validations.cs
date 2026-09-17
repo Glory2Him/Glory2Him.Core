@@ -318,7 +318,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
         public async Task ShouldThrowValidationExceptionOnRemoveByIdIfUserIsAdminButNotOwnerAndLogItAsync()
         {
             // given: the administrator escape is closed. This used to assert the opposite — that an
-            // administrator could retract anyone's comment — and that is withdrawn (§14.7 rule 5). An
+            // administrator could retract anyone's comment — and that is withdrawn (§14.7 posture D rule 5). An
             // administrator who needs past a comment bypasses the block rather than deleting it.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             string randomActorUserId = GetRandomString();

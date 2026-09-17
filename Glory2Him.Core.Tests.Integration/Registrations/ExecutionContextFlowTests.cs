@@ -43,7 +43,7 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
     /// the workflow would re-test a round mid-teardown
     /// (<c>ApprovalOrchestrationServiceTests.DismissalReEntrancy.cs</c> holds the behaviour
     /// that rests on it).</item>
-    /// <item><c>IContentItemService.cs</c>'s internal envelope-taking read (§12.5.2 rule 6,
+    /// <item><c>IContentItemService.cs</c>'s internal envelope-taking read (§12.5.2 business rule 6,
     /// #456) — the OPPOSITE direction of the same property. There the flow is a hazard rather
     /// than a mechanism: <c>HttpContextAccessor</c> is itself an <c>AsyncLocal</c>, so an
     /// event-path read that minted its own envelope would inherit whoever PUBLISHED, who for a
@@ -127,7 +127,7 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
                 observedValues[0].Should().Be(announcedValue,
                     because: "delivery runs on the PUBLISHER's execution context, which is the " +
                         "whole mechanism the dismissal re-entrancy guard uses to recognise its " +
-                        "own work — and the same mechanism §12.5.2 rule 6 has to defend " +
+                        "own work — and the same mechanism §12.5.2 business rule 6 has to defend " +
                         "against on the identity path");
             }
             finally

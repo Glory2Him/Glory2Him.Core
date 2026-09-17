@@ -79,7 +79,7 @@ const savingSample = `
 //
 // REMOVE OVERRIDE hard-deletes the item's row, and the item goes back to its type
 // default. It renders only against an override — the server refuses to remove a
-// default, because every content type must always have a live one (§12.5.2 rule 5).
+// default, because every content type must always have a live one (§12.5.2 business rule 5).
 `;
 
 const settingFor = (

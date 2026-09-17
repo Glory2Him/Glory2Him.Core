@@ -65,7 +65,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
         // The publisher tier as a row-local check can see it: the two global names, and any
         // "{Entity}-Publishers" / "{Entity}-{ContentType}-Publishers" by the §18.6 capability-last
         // convention. Administrators is in the set because it clears every tier — dropping it here
-        // would withdraw the route §14.7 rule 5 opened.
+        // would withdraw the route §14.7 posture D rule 5 opened.
         private static bool HasPublisherRole(SecurityContext securityContext) =>
             securityContext.Roles.Contains(Roles.Administrators)
                 || securityContext.Roles.Contains(Roles.Publishers)

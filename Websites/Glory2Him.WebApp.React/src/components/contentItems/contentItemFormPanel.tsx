@@ -90,7 +90,7 @@ export interface ContentItemFormPanelProps {
     // Which fields exist is per content type and is PASSED IN, never fetched: the ContentItemSetting
     // rows the consumer already holds (hasTitle, hasAuthor, contentTypeName, contentTypeIconCssClass).
     //
-    // THE PANEL RESOLVES THE EFFECTIVE SETTING ITSELF, per §6.4 and §12.5.2 rules 1-2 — hand over
+    // THE PANEL RESOLVES THE EFFECTIVE SETTING ITSELF, per §6.4 and §12.5.2 business rules 1-2 — hand over
     // whatever rows you have and the most specific one wins. An item-level override (the row whose
     // ContentItemId is this item's) takes FULL precedence over the content type default; a
     // soft-deleted row is excluded from resolution entirely (§6.6). A mixed collection is
@@ -450,7 +450,7 @@ export function ContentItemFormPanel({
     const activeSettings =
         contentItemSettingCollection.filter((setting) => setting.isDeleted !== true);
 
-    // §6.4 / §12.5.2 rules 1-2 resolution, shared with the page above so the two cannot drift.
+    // §6.4 / §12.5.2 business rules 1-2 resolution, shared with the page above so the two cannot drift.
     // `add` passes no item id and so can only ever resolve a default, which is right: an override
     // cannot exist for an item that does not exist yet.
     // THE ITEM'S OWN EMBEDDED WINNER COMES FIRST: a projection handed over by a list surface

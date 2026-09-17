@@ -249,7 +249,7 @@ export function ReviewCommentPanelDoc() {
                         one of them decides <b>rendering</b> only.
                     </>
                 }>
-                <CodeSample code={gatesSample} caption="§12.3.1 rule 5, §14.7 rule 5, §18.6" />
+                <CodeSample code={gatesSample} caption="§12.3.1 rule 5, §14.7 posture D rule 5, §18.6" />
             </DocSection>
 
             <DocSection

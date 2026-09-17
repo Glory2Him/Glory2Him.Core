@@ -70,7 +70,7 @@ class ApprovalCommentBroker {
         return result.data as ApprovalComment;
     }
 
-    // THE SETTLED FLAG, and nothing else (§14.7 rule 5). The value is ALWAYS sent: the endpoint
+    // THE SETTLED FLAG, and nothing else (§14.7 posture D rule 5). The value is ALWAYS sent: the endpoint
     // binds it [BindRequired] precisely because an absent bool would bind to false with a valid
     // model state and quietly UN-resolve a comment that had been settled — a 200 on a route
     // reading /Resolve, re-blocking an approval that had been cleared.

@@ -144,7 +144,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
         {
             // given: the Administrators route to IsResolved is Resolve, and only Resolve. Modify stays
             // owner-only for every field — an administrator who could reach it here would have the
-            // author's words as well, which is exactly what §14.7 rule 5 withdraws.
+            // author's words as well, which is exactly what §14.7 posture D rule 5 withdraws.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string randomUserId = GetRandomString();

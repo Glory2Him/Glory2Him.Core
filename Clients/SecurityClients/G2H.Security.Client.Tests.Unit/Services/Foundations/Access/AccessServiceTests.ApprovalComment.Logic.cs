@@ -121,7 +121,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
         /// earlier and through a gate that never asks who may resolve — so without this any caller
         /// could file a question that holds nothing shut and walk past
         /// <c>RequireReviewCommentResolutionBeforeApprovals</c> without answering to the publisher
-        /// tier the resolve operation gates on (§14.7 rule 5).
+        /// tier the resolve operation gates on (§14.7 posture D rule 5).
         /// </summary>
         [Fact]
         public async Task ShouldRefuseRecordingAnAskThatIsAlreadySettledAsync()
@@ -624,7 +624,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
         {
             // given: resolving records that a comment is settled, which changes no words — the
             // one comment operation somebody other than the author may perform on the row.
-            // Administrators sits inside the publisher tier, so the §14.7 rule 5 route survives
+            // Administrators sits inside the publisher tier, so the §14.7 posture D rule 5 route survives
             // the widening rather than being replaced by it.
             ResolveApprovalCommentRequest resolveApprovalCommentRequest =
                 CreateRandomResolveApprovalCommentRequest(

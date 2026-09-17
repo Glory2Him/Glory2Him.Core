@@ -53,7 +53,7 @@ export function ReviewCommentEditPanel({
     // is refused.
     //
     // isResolved is NOT touched here. Whether a comment is settled is a different decision with a
-    // different tier (§14.7 rule 5), and moving it under cover of an edit would let an author
+    // different tier (§14.7 posture D rule 5), and moving it under cover of an edit would let an author
     // clear a §8.5 gate through a control that says nothing about gates.
     const save = () => {
         if (canSave === false) {

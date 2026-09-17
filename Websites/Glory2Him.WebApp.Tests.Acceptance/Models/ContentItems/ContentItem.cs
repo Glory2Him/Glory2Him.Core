@@ -24,7 +24,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Models.ContentItems
         // processing service's permitted map — defence in depth rather than one gate.
         public ContentType ContentType { get; set; }
 
-        // The caller-editable content (§12.4.1 rule 7). Title and Author are optional.
+        // The caller-editable content (§12.4.1 business rule 7). Title and Author are optional.
         public string Title { get; set; }
         public string Author { get; set; }
         public string Content { get; set; }
@@ -35,7 +35,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Models.ContentItems
         public ShareabilityBasis ShareabilityBasis { get; set; }
         public string SharePermission { get; set; }
 
-        // Control fields the caller never supplies (§12.4.1 rule 6). They appear here because the
+        // Control fields the caller never supplies (§12.4.1 business rule 6). They appear here because the
         // API RETURNS them and the assertions read them — not because a request may carry them.
         // ContentHash is derived from Content, and GroupId plus Version name the row within its
         // version group; the tip is the highest non-deleted Version rather than a stored flag
