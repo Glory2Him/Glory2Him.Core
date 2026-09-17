@@ -171,7 +171,7 @@ it names the file the section is in now and the number to cite it by.
 | §12 | Component Architecture | [`Design/Architecture.md`](Design/Architecture.md) — extracted; §12 below is the pointer stub | `§ARC12` |
 | §13 | AI Content Analysis | [`Design/Approval.md`](Design/Approval.md) — extracted; §13 below is the pointer stub | `§APR13` |
 | §14 | Visibility Rules | [`Design/Security.md`](Design/Security.md) — extracted; §14 below is the pointer stub | `§SEC14` |
-| §15 | Recommended Corrections | **Retired** — checked item by item against the repository and deleted rather than relocated. The one live rule it still carried, that `ApprovalId` must not be placed on any approvable entity, is now §APR7.4 item 6 | — |
+| §15 | Recommended Corrections | **Retired** — checked item by item against the repository and deleted rather than relocated. The two live rules it still carried, that `ApprovalId` must not be placed on any approvable entity and the direction by which an approvable entity's round is instead reached, are now §APR7.4 items 6 and 7 | — |
 | §16 | Recommended Service Responsibilities | [`Design/Architecture.md`](Design/Architecture.md) — extracted; §16 below is the pointer stub | `§ARC16` |
 | §17 | Recommended API Design | [`Design/Architecture.md`](Design/Architecture.md) — extracted; §17 below is the pointer stub | `§ARC17` |
 | §18 | Authentication and Authorisation | [`Design/Security.md`](Design/Security.md) — extracted; §18 below is the pointer stub | `§SEC18` |

@@ -153,6 +153,7 @@ Instead:
 4. Services enforce existence and consistency.
 5. The database enforces uniqueness for approval records by `(EntityType, EntityId)`.
 6. `ApprovalId` must not be placed on any approvable entity.
+7. `ApprovalId` is valid on a record of an approval round — a row whose own existence is bounded by a single `Approval`, which is never itself approvable and is never the subject of an `Approval` — where it is the key to that parent `Approval` round, and never a lookup from an approvable entity, as §APR7.5 defines that set and item 6 forbids. The route from an approvable entity to its round is `(EntityType, EntityId)` (items 2 and 3), never a stored key. The rule is stated as a property rather than a list because the list it replaces was already false of the design the moment it was retired.
 
 ### APR7.5 Approvable Entities *(formerly §7.5)*
 
