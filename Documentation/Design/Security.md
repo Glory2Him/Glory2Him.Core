@@ -90,12 +90,9 @@ The feed is a projection of visible content items.
 A content item appears in the feed only when:
 
 1. The content item is visible according to canonical content visibility.
-2. The content item `ContentType` is not `Topic`.
+2. The content item's `ContentType` is not one that §DOM3.8 rule 2 excludes from the feed.
 
-The feed is ordered by:
-
-1. `PublishDate DESC`, if present.
-2. `CreatedWhen DESC` as fallback.
+The feed's order is defined at §DOM11.3.
 
 ### SEC14.3 Association Visibility *(formerly §14.3)*
 

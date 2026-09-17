@@ -396,7 +396,7 @@ Each endpoint carries the same six fields:
 
 Plus `UserId`, set only where the association is personal rather than editorial — today a `Reaction` endpoint. Null means editorial.
 
-`Association` also implements `ISortOrder` (§DOM11.7) and `IConfidence` (§APR9.7.1 rule 5), and carries `Purpose` and `IsDefault` for purposeful attachment placements (§DOM4.9) — row-level fields like `UserId` and `SortOrder`, not part of either endpoint block.
+`Association` also implements `ISortOrder` (§DOM11.7) and `IConfidence` (§APR9.7.1 rule 5), and carries `Purpose` and `IsDefault` for purposeful attachment placements (§DOM4.9) and a nullable `PublishDate` consumed by §SEC14.3 rule 5 — row-level fields like `UserId` and `SortOrder`, not part of either endpoint block.
 
 ### DOM4.3 Scope Rules *(formerly §4.3)*
 
@@ -854,7 +854,7 @@ Example:
 
 ### DOM11.2 Topic Is Not a Feed Item *(formerly §11.2)*
 
-A `Topic` must not appear directly in the feed.
+§SEC14.2 rule 2 excludes a topic from the feed.
 
 A topic acts as:
 
@@ -868,7 +868,7 @@ A topic acts as:
 
 The feed is not a database entity.
 
-The feed is a domain projection of visible content ordered by publish date descending.
+The feed is a domain projection of visible content, ordered by effective publication moment descending.
 
 Conceptually:
 
@@ -876,51 +876,29 @@ Conceptually:
 SELECT *
 FROM ContentItems
 WHERE
-    ContentType <> 'Topic'
-    AND DeletedWhen IS NULL
-    AND ApprovalStatus = 'Approved'
-    AND IsPublished = 1
-    AND (
-        PublishDate IS NULL
-        OR PublishDate <= SYSUTCDATETIME()
-    )
-ORDER BY PublishDate DESC, CreatedWhen DESC;
+    -- canonical content visibility (§SEC14.1) and feed membership (§SEC14.2)
+ORDER BY COALESCE(PublishDate, CreatedWhen) DESC, Id DESC;
 ```
+
+The feed orders by effective publication moment descending — the `PublishDate` where one is supplied, the `CreatedWhen` moment where none is — with `Id` descending as the terminator that makes the order total, the same role `Id` plays as the terminator of §DOM11.7 rule 5's ordering ladder. A published content item with no `PublishDate` is visible immediately under §SEC14.1, so it takes its `CreatedWhen` as its effective moment and interleaves among the dated items at that moment; it does not sink below every dated item.
 
 ### DOM11.4 Topic Parent/Child Relationship *(formerly §11.4)*
 
 Topics use `Association` for parent/child relationships.
 
-A child item is associated to the topic by creating a `Association` where:
+A topic-child relationship is an `Association` whose two endpoints are the topic `ContentItem` and the child. The endpoint field shape is at §DOM4.2 and the scope rules are at §DOM4.3; neither is restated here.
 
-| Field | Value |
-| --- | --- |
-| `ContentItemId` or `GroupId` | The parent topic content item or topic group. |
-| `EntityType` | `ContentItem` |
-| `EntityId` | The child content item or child content item group. |
-| `Scope` | Whether the association applies to one version or all versions. |
-| `PublishDate` | Optional date/time from which the child association becomes visible. |
+An `Association` row is symmetric and stores no direction. "Parent" and "child" are a reading of that row, not a stored column: the topic is whichever endpoint carries `ContentType = Topic`, the two endpoints having been placed in canonical order on add (§DOM4.4).
 
 ### DOM11.5 Topic Visibility *(formerly §11.5)*
 
-A topic can have its own visibility as a landing page or subscription target, but it does not appear in the feed.
+A topic can have its own visibility as a landing page or subscription target, but it does not appear in the feed (§DOM11.2).
 
-A topic page is visible only when:
-
-1. The topic content item is not soft deleted.
-2. The topic content item is approved.
-3. The topic content item is published.
-4. The topic `PublishDate` is null or has passed.
+A topic page's visibility is governed by §SEC14.4's topic-page rules.
 
 ### DOM11.6 Topic Child Visibility *(formerly §11.6)*
 
-A child item is visible under a topic only when:
-
-1. The topic is visible.
-2. The child content item is visible.
-3. The `Association` between the topic and child is approved if approval is required.
-4. The `Association.PublishDate` is null or has passed.
-5. The effective `ContentItemSetting` allows the relationship or associated content to be shown.
+A child item's visibility under a topic is governed by §SEC14.4's topic-children rules.
 
 ### DOM11.7 Topic Ordering *(formerly §11.7)*
 
