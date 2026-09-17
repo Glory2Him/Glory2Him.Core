@@ -84,6 +84,63 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
             }
         }
 
+        /// <summary>
+        /// Attempts a HARD delete of an approval and returns the exception the database raised,
+        /// or <c>null</c> when the row went.
+        ///
+        /// <para>Detaching on failure for the same reason <see cref="TryInsertAsync(Approval)"/>
+        /// does: a refused <c>SaveChanges</c> leaves the entity tracked in the <c>Deleted</c>
+        /// state, and the next save in this shared context would retry it.</para>
+        /// </summary>
+        public async ValueTask<Exception> TryDeleteAsync(Approval approval)
+        {
+            try
+            {
+                await this.storageBroker.DeleteApprovalAsync(approval, CancellationToken.None);
+
+                return null;
+            }
+            catch (Exception exception)
+            {
+                this.storageBroker.Entry(approval).State = EntityState.Detached;
+
+                return exception;
+            }
+        }
+
+        /// <summary>
+        /// Attempts an insert and returns the exception the database raised, or <c>null</c> when
+        /// the row was accepted — the assignment counterpart of
+        /// <see cref="TryInsertAsync(Approval)"/>, and detaching on failure for the same reason.
+        /// </summary>
+        public async ValueTask<Exception> TryInsertAsync(AIReviewerAssignment aiReviewerAssignment)
+        {
+            try
+            {
+                await this.storageBroker.InsertAIReviewerAssignmentAsync(
+                    aiReviewerAssignment, CancellationToken.None);
+
+                return null;
+            }
+            catch (Exception exception)
+            {
+                this.storageBroker.Entry(aiReviewerAssignment).State = EntityState.Detached;
+
+                return exception;
+            }
+        }
+
+        /// <summary>
+        /// Reads a row straight from the database rather than from the change tracker, so a test
+        /// asserting that a refused write left the stored row alone is reading the row and not
+        /// the in-memory copy it just tried to change.
+        /// </summary>
+        public async ValueTask<TEntity> ReadUntrackedAsync<TEntity>(Guid id)
+            where TEntity : class =>
+            await this.storageBroker.Set<TEntity>()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(entity => EF.Property<Guid>(entity, "Id") == id);
+
         public async ValueTask SeedAsync(params Approval[] approvals)
         {
             foreach (Approval approval in approvals)

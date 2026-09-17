@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using Glory2Him.Core.Models.Foundations.AIReviewerAssignments;
+using Glory2Him.Core.Models.Foundations.Approvals;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -26,9 +27,6 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             // Key
             model.HasKey(aiReviewerAssignment => aiReviewerAssignment.Id);
 
-            // A plain column, deliberately with no HasOne/WithMany/HasForeignKey — see
-            // AIReviewerAssignment.ApprovalId for why. The filtered unique index below is what
-            // actually enforces the one-live-assignment invariant.
             model.Property(aiReviewerAssignment => aiReviewerAssignment.ApprovalId).IsRequired();
 
             model
@@ -90,6 +88,30 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                 .IsUnique()
                 .HasFilter($"[{nameof(AIReviewerAssignment.IsDeleted)}] = 0")
                 .HasDatabaseName("UX_AIReviewerAssignments_ApprovalId");
+
+            // The round has to EXIST. That is a different question from the index above, which
+            // says at most one LIVE assignment per round — neither substitutes for the other,
+            // and without this one nothing between a fabricated ApprovalId on the
+            // AIReviewerAssignment-Adding address and the table refuses it:
+            // AIReviewerAssignmentService holds no IAccessBroker and checks ApprovalId with
+            // IsInvalid only.
+            //
+            // NAVIGATIONLESS ON BOTH SIDES, and that is the point rather than a shortcut. The
+            // generic HasOne<Approval>() with an argumentless WithMany() declares the constraint
+            // and leaves Approval byte for byte as it was — no reverse collection, which is the
+            // cost this relationship was once thought to carry. The three sibling carriers
+            // (ApprovalComment, ApprovalReview, ApprovalReviewRequest) keep their navigations;
+            // they are not harmonised to this shape, and this one is not harmonised to theirs.
+            //
+            // NoAction, matching those three: destroying a round never destroys what hangs off
+            // it. The key says nothing about whether the round is LIVE — an assignment against a
+            // soft-deleted round is still accepted, because liveness stays with IAccessBroker
+            // (§APR8.6.1).
+            model.HasOne<Approval>()
+                .WithMany()
+                .HasForeignKey(aiReviewerAssignment => aiReviewerAssignment.ApprovalId)
+                .OnDelete(DeleteBehavior.NoAction)
+                .IsRequired();
         }
     }
 }

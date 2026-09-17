@@ -44,11 +44,21 @@ namespace Glory2Him.Core.Models.Foundations.AIReviewerAssignments
         /// <summary>
         /// Identifier of the approval round Berean has been assigned to review.
         ///
-        /// <para>A plain column, deliberately without a foreign key or navigation property —
-        /// unlike its <c>ApprovalReviewRequest</c> sibling. Establishing one here would require
-        /// adding a reverse collection to <c>Approval</c>, a model this entity has no other
-        /// reason to touch; the filtered unique index below is what actually enforces the
-        /// one-live-assignment invariant, and it needs no relationship to do it.</para>
+        /// <para>A declared foreign key to <c>Approval</c>, so the round has to exist: the
+        /// database refuses an assignment naming one that does not, and refuses to destroy a
+        /// round that still carries one. That is a different guarantee from the filtered unique
+        /// index on this column, which says at most one LIVE assignment per round — neither
+        /// substitutes for the other.</para>
+        ///
+        /// <para>The relationship is declared navigationless on both sides
+        /// (<c>HasOne&lt;Approval&gt;().WithMany()</c>), unlike its <c>ApprovalReviewRequest</c>
+        /// sibling: this entity gets no <c>Approval</c> property and <c>Approval</c> gets no
+        /// reverse collection. It costs nothing on either model, which is why the omission it
+        /// replaced was never the trade it was thought to be.</para>
+        ///
+        /// <para>The key says nothing about whether the round is LIVE. An assignment against a
+        /// soft-deleted round is accepted — liveness is <c>IAccessBroker</c>'s question, not the
+        /// schema's.</para>
         /// </summary>
         public Guid ApprovalId { get; set; }
 

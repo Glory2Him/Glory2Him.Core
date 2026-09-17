@@ -12,6 +12,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using EFxceptions.Models.Exceptions;
 using FluentAssertions;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.Approvals.Exceptions;
@@ -277,6 +278,85 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                     SameExceptionAs(expectedApprovalDependencyValidationException))),
                 Times.Once);
 
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowDependencyValidationExceptionOnHardRemoveByIdIfForeignKeyErrorOccursAndLogItAsync()
+        {
+            // given: the round still carries a child row, so
+            // FK_AIReviewerAssignments_Approvals_ApprovalId refuses the hard delete. Until the
+            // AIReviewerAssignment relationship was declared this was the answer for an
+            // ApprovalComment, an ApprovalReview or an ApprovalReviewRequest only; the fourth
+            // carrier now gives it too, and the caller has to be told which kind of failure it
+            // is — a dependency VALIDATION error, which callers in this solution handle
+            // differently from a dependency error.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
+            Guid someApprovalId = Guid.NewGuid();
+            Approval someApproval = CreateRandomApproval();
+            string someMessage = GetRandomString();
+
+            var foreignKeyConstraintConflictException =
+                new ForeignKeyConstraintConflictException(someMessage);
+
+            var invalidApprovalReferenceException = new InvalidApprovalReferenceException(
+                message: "Invalid approval reference error occurred.",
+                innerException: foreignKeyConstraintConflictException,
+                data: foreignKeyConstraintConflictException.Data);
+
+            var expectedApprovalDependencyValidationException = new ApprovalDependencyValidationException(
+                message: "Approval dependency validation error occurred, fix the errors and try again.",
+                innerException: invalidApprovalReferenceException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectApprovalByIdAsync(
+                    someApprovalId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(someApproval);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.DeleteApprovalAsync(
+                    someApproval,
+                    TestContext.Current.CancellationToken))
+                        .ThrowsAsync(foreignKeyConstraintConflictException);
+
+            // when
+            ValueTask<Approval> hardRemoveApprovalByIdTask =
+                this.approvalService.HardRemoveApprovalByIdAsync(
+                    someApprovalId,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalDependencyValidationException actualApprovalDependencyValidationException =
+                await Assert.ThrowsAsync<ApprovalDependencyValidationException>(
+                    hardRemoveApprovalByIdTask.AsTask);
+
+            // then
+            actualApprovalDependencyValidationException.Should().BeEquivalentTo(
+                expectedApprovalDependencyValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectApprovalByIdAsync(
+                    someApprovalId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.DeleteApprovalAsync(
+                    someApproval,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalDependencyValidationException))),
+                Times.Once);
+
+            // no removal event is published — the round is still there, so nothing happened to
+            // announce. VerifyNoOtherCalls on the event broker is what says so.
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
