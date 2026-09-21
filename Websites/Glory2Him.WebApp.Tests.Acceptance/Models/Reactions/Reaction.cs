@@ -20,7 +20,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Models.Reactions
         public string Name { get; set; }
 
         // The second caller-editable content field, and the one thing that makes this model
-        // more than a renamed Tag (design §12.3.1 rule 2, §5.2). Required, capped at 16.
+        // more than a renamed Tag (design §12.3.1 shared rule 2, §5.2). Required, capped at 16.
         public string UnicodeEmoji { get; set; }
 
         public string CreatedBy { get; set; }

@@ -148,7 +148,7 @@ export function ReviewCommentPanel({
         && (item.authorId ?? '').length > 0
         && item.authorId === (user?.userId ?? '');
 
-    // ADDING carries no tier at all: §12.3.1 rule 5 — submitters converse in review threads, so
+    // ADDING carries no tier at all: §SEC14.7 posture D rule 5 — submitters converse in review threads, so
     // any authenticated caller who is not globally sanctioned may speak. With no approval there
     // is nothing to speak about, so the box is withheld from everyone.
     const mayComment =
@@ -156,7 +156,7 @@ export function ReviewCommentPanel({
 
     // AMENDING AND WITHDRAWING are the author's alone. No role widens them — a comment belongs to
     // whoever wrote it, and somebody who needs past an outstanding one settles it rather than
-    // editing another person's words (§12.3.1 rule 5).
+    // editing another person's words (§SEC14.7 posture D rule 5).
     const mayAmend = (item: ReviewCommentItem): boolean =>
         isBlockedFromCommenting === false && viewerOwns(item);
 

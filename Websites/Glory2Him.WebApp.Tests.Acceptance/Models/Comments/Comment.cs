@@ -18,7 +18,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Models.Comments
     {
         public Guid Id { get; set; }
 
-        // The ONLY caller-editable content field (design §12.3.1 rule 2, §5.3). Required, and
+        // The ONLY caller-editable content field (design §12.3.1 shared rule 2, §5.3). Required, and
         // uncapped — unlike Tag.Name and Reaction.Name there is no length rule and no unique
         // index, so this entity has no natural key at all.
         public string Content { get; set; }
