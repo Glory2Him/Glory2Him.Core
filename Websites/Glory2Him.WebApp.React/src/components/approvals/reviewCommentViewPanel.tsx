@@ -19,7 +19,7 @@ export interface ReviewCommentViewPanelProps
     reviewComment: ReviewCommentItem;
 
     // Whether Edit and Delete render. The author's alone — no role widens amending or
-    // withdrawing somebody else's words (§12.3.1 rule 5).
+    // withdrawing somebody else's words (§SEC14.7 posture D rule 5).
     showsAmendActions?: boolean;
 
     // Whether the settled tick renders. A QUESTION only, and only for the author or the publisher

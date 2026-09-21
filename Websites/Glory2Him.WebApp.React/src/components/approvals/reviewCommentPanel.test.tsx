@@ -484,7 +484,7 @@ describe('ReviewCommentPanel', () => {
         });
 
         it('should offer neither to an administrator on somebody else\'s row', () => {
-            // no role widens amending or withdrawing another person's words (§12.3.1 rule 5)
+            // no role widens amending or withdrawing another person's words (§SEC14.7 posture D rule 5)
             signInAs(authState, ['Administrators']);
 
             renderPanel(

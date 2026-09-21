@@ -24,7 +24,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Models.BibleReferences
         // because Scripture is translation-specific.
         public string USFM { get; set; }
 
-        // The caller-editable content fields (§12.3.1 rule 2). Reference and Translation
+        // The caller-editable content fields (§12.3.1 shared rule 2). Reference and Translation
         // are required, capped at 255 and 50; Scripture and ScriptureHtml are optional.
         public string Reference { get; set; }
         public string Translation { get; set; }

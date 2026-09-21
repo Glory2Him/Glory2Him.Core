@@ -77,7 +77,7 @@ const gatesSample = `
 // EVERY GATE DECIDES WHAT TO RENDER AND NOTHING MORE. The foundation re-decides add,
 // modify, remove and resolve against the stored row (§14.6).
 //
-//   add               any authenticated reader (§12.3.1 rule 5 — submitters converse
+//   add               any authenticated reader (§SEC14.7 posture D rule 5 — submitters converse
 //                     in review threads), blocked only by the GLOBAL ReadOnly
 //   edit / delete     the AUTHOR alone. No role widens amending somebody else's words
 //   resolve           the author, OR the publisher tier for this entity —
@@ -249,7 +249,7 @@ export function ReviewCommentPanelDoc() {
                         one of them decides <b>rendering</b> only.
                     </>
                 }>
-                <CodeSample code={gatesSample} caption="§12.3.1 rule 5, §14.7 posture D rule 5, §18.6" />
+                <CodeSample code={gatesSample} caption="§14.7 posture D rule 5, §18.6" />
             </DocSection>
 
             <DocSection

@@ -248,6 +248,8 @@ Current intended foundation services:
 
 **Associating them with a content item is not their work.** The withdrawn subsections gave each entity a responsibility to "associate an approved X with a content item by creating an `Association`, validating that X is permitted by resolving the effective `ContentItemSetting`". Creating the link is `Association`'s own flow (§DOM4, §ARC12.5 entry 1), and the rules that governed it survive there rather than here:
 
+**Association rules — `Tag`, `Reaction`, `Comment`, `BibleReference`; cited as `§ARC12.3.1 association rule N`:**
+
 1. A link may only be created when the effective `ContentItemSetting` permits that association type — `TagsAllowed`, `ReactionsAllowed`, `CommentsAllowed`, `BibleReferenceAllowed` (§DOM6.10) — and `LimitReactionsToLoveOnly` further narrows the reaction case.
 2. The association carries its own approval according to the effective `ApprovalSetting` for its `EntityType` (§APR8.4).
 3. An entity is visible on a content item only when both it and the association satisfy §SEC14.3.
