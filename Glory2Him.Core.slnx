@@ -26,8 +26,6 @@
     <Project Path="Glory2Him.Core/Glory2Him.Core.csproj" />
   </Folder>
   <Folder Name="/Documentation/">
-    <File Path="Documentation/G2H Design.md" />
-    <File Path="Documentation/Glory 2 Him.drawio" />
     <Project Path="Documentation/Glory2Him.Documentation.csproj" />
   </Folder>
   <Folder Name="/Documentation/Prompts/">
