@@ -1,29 +1,34 @@
 #!/bin/bash
 # ────────────────────────────────────────────────────────────────────────────────
-# Completeness audit for the area-scoped design-document split (issue #481).
+# Standing two-gate check for the area-scoped design documents under
+# `Documentation/Design/`.
 #
-# `Documentation/G2H Design.md` was broken into area files under
-# `Documentation/Design/`, one extraction per issue (#481, #552-#556). The split
-# is complete. A move of load-bearing prose has exactly one failure mode worth
-# automating against: a section that is dropped, or one that is invented. A
-# read-through does not catch either, so this script remains the proof the
-# split's gates asked for, re-runnable against a named baseline as an audit
-# record of a completed migration.
+# The split of `Documentation/G2H Design.md` into area files is finished, and
+# the baseline-relative proofs that a relocation was faithful (G2, symmetric
+# heading difference; G3, citation resolution; VERBATIM, prose-identity diff)
+# have outlived their subject — they get louder with every legitimate later
+# edit, not quieter, so they were retired rather than kept as an audit record.
+# Retired in issue #586; #562 records the reasoning for VERBATIM and the four
+# extraction issues (#481, #552-#555) it once proved.
 #
-# The surviving authority for the rules this script implements is
-# `Documentation/G2H Design.md` §IDX1.5 (which area is in which file) and
-# `DEVELOPERS.md`'s "The split, and why sections carry prefixes". The former
-# rulings file that predated those two was deleted at `838ba82e`, and this
-# script names none of its numbering below — every rule it stated that this
-# script still needs has been restated here against the surviving authority.
+# Two gates remain, of different kinds, and neither reads a baseline:
 #
-# G1-G4 prove that no section was dropped or invented; G3's citation check is
-# PARTIAL rather than exhaustive — see the `--gate` note below for why. G5 and
-# G6 are standing exemptions, verified where G3's subtraction list is defined
-# in code, and are subtracted by G3 rather than reported.
+#   G1 — heading PROVENANCE. Every heading in a non-exempt area file must
+#        declare where it came from: a relocation, `*(formerly §N.M)*`, or a
+#        new section, `*(new; <source or reason>)*` or bare `*(new)*`. This
+#        reads the tree as it stands today; it needs no history and no
+#        `origin/main`.
+#   G4 — citation FORM. Inside a non-exempt area file, a `§N.M` citation must
+#        carry its area prefix (`§UI20.6`, never bare `§20.6`) — the rule
+#        `Documentation/G2H Design.md` §IDX1.5 states. HEAD-only, no baseline.
+#
+# The surviving authority for what each gate checks is
+# `Documentation/G2H Design.md` §IDX1.5 (which area is in which file, and the
+# citation-prefix rule) and `DEVELOPERS.md`'s "The split, and why sections
+# carry prefixes".
 #
 # Usage:
-#   Tools/design-split-audit.sh [--baseline <ref>] [--scope <20|sec|arc|apr|dom|all>] [--gate <g1|g2|g3|g4|verbatim|all>]
+#   Tools/design-split-audit.sh [--scope <20|sec|arc|apr|dom|all>] [--gate <g1|g4|all>]
 #
 # Examples:
 #   Tools/design-split-audit.sh                        # every gate, scoped to §20
@@ -31,29 +36,12 @@
 #   Tools/design-split-audit.sh --scope arc            # every gate, scoped to §12, §16 and §17
 #   Tools/design-split-audit.sh --scope apr            # every gate, scoped to §7, §8, §9 and §13
 #   Tools/design-split-audit.sh --scope dom            # every gate, scoped to §2, §3, §4, §5, §6, §11, §19
-#   Tools/design-split-audit.sh --scope all --baseline 854515f2
-#                                                       # every gate but VERBATIM, whole document; --scope all
-#                                                       # NEEDS the pre-split baseline passed explicitly (see
-#                                                       # the --scope all note below) rather than the resolved
-#                                                       # default, which drifts with every extraction that
-#                                                       # landed. Now that the split is complete this is
-#                                                       # expected to print an all-clear and exit 0.
-#   Tools/design-split-audit.sh --gate g2 --scope all --baseline 854515f2
-#                                                       # the whole-document completeness gate alone
-#   Tools/design-split-audit.sh --gate verbatim --scope apr
-#                                                       # the prose-identity proof alone, for one extraction
+#   Tools/design-split-audit.sh --gate g4 --scope all  # citation form alone, whole document
+#   Tools/design-split-audit.sh --gate g1 --scope all  # heading provenance alone, whole document
 #
 # Defaults:
-#   --baseline  resolved  `git merge-base origin/main HEAD` — the commit the split
-#                         branches from. It is RESOLVED and never pinned: a pinned
-#                         SHA is orphaned by any history rewrite, and then resolves
-#                         on the machine that pinned it and nowhere else. Override
-#                         to re-baseline a later extraction. A purely local `main`
-#                         is refused rather than used, and a `main` that disagrees
-#                         with `origin/main` is reported; the header prints the
-#                         baseline's date and subject so a stale one is visible.
-#   --scope     20        §20 is the extraction issue #481 performs. `sec` is
-#                         issue #552's extraction — §14 and §18, both landing in
+#   --scope     20        §20 is the extraction #481 performed. `sec` is issue #552's
+#                         extraction — §14 and §18, both landing in
 #                         `Security.md` under the same `SEC` prefix, non-contiguous
 #                         with each other and with everything either side of them.
 #                         `arc` is issue #553's extraction — §12, §16 and §17,
@@ -68,131 +56,26 @@
 #                         §11 and §19, landing in `Domain.md` under the `DOM`
 #                         prefix; §7 to §10 stand between §6 and §11, and §12 to
 #                         §18 stand between §11 and §19, in `G2H Design.md`, but
-#                         the seven ranges are contiguous in `Domain.md`. This is
-#                         the first scope whose section numbers are proper
-#                         prefixes of other sections' numbers (`2` of `20`/`21`,
-#                         `5` of `534`), so its G3 citation pattern is
-#                         right-anchored against a following digit — see the note
-#                         below.
-#                         `all` is the whole-document mode. The split is
-#                         complete, so `--scope all --baseline 854515f2` is now
-#                         expected to report nothing and exit 0. It still needs
-#                         the PRE-SPLIT baseline passed explicitly — the
-#                         resolved default moves with `origin/main`, and once an
-#                         extraction has merged its sections no longer stand in
-#                         the "old" heading set a later baseline would read, so
-#                         each already-extracted section would report as
-#                         `invented` instead of the gate running clean. `all`
-#                         also SKIPS VERBATIM rather than counting it as a
-#                         failure: VERBATIM is defined per extraction (one
-#                         baseline range against one area file), not for the
-#                         whole document, so under `--scope all` there is
-#                         nothing for it to diff. It still prints a line saying
-#                         why it did not run, but that line does not add to the
-#                         failure total.
-#   --gate      all       G1-G4 prove that no section was dropped or invented.
-#                         `verbatim` is the extra check #481 criterion 2 asks
-#                         for — that no sentence was reworded inside the move —
-#                         which no section-level gate can see. VERBATIM is now a
-#                         DATED MOVE-TIME RECORD rather than a live gate: it
-#                         proved each of the five moves at the time of that
-#                         move, and all five extractions ran it green at their
-#                         own scope; it is deliberately NOT re-baselined (that
-#                         would diff the design against itself and report OK
-#                         forever); a difference it reports from here on is a
-#                         later legitimate edit to the area file, not a rewrite
-#                         smuggled into a move; and the differences standing at
-#                         any moment are not an inventory kept in this header —
-#                         area files keep being edited below their `---` rule,
-#                         so the set grows, and a reader who wants today's set
-#                         runs the narrow scope rather than reading this file.
+#                         the seven ranges are contiguous in `Domain.md`.
+#                         `all` is the whole-document mode: every `*.md` under
+#                         `Documentation/Design/`. Both gates skip
+#                         `Documentation/Design/Events.md` regardless of scope —
+#                         see the note below — and that skip lives inside each
+#                         gate, not in file selection.
+#   --gate      all       G1 is heading provenance, G4 is citation form. Neither
+#                         reads a baseline or `origin/main`.
 #
-#                         G3's citation check is PARTIAL, not exhaustive: it
-#                         builds its citation corpus by grepping the BASELINE
-#                         tree, so a citation written after that baseline is
-#                         invisible to it, and G1/G2/G4 compare against the
-#                         pre-split snapshot at that same baseline. A green run
-#                         is evidence that the split preserved meaning, not
-#                         evidence that every citation in the repository
-#                         resolves today.
-#
-# Exit code: 0 when every gate in scope reports nothing, 1 otherwise.
+# Exit code: 0 when every gate in scope reports nothing, 1 otherwise. An
+# invocation naming a retired gate (`g2`, `g3`, `verbatim`) or the retired
+# `--baseline` argument is refused with exit code 2 and a message naming what
+# was retired, rather than quietly succeeding.
 #
 # Notes:
-# - `Tools/design-split-audit.sh` excludes ITSELF from G3's citation grep. Its
-#   own header and comments name section numbers in prose — "§12, §16 and §17",
-#   "the seven ranges are contiguous" — and G3 greps every tracked, non-binary
-#   file outside `Documentation/` for a citation-shaped token, which would
-#   otherwise include this file. The instrument is not a consumer of the design
-#   it audits.
 # - `Documentation/Design/Events.md` IS an area file, but it renumbered rather
 #   than prefix-preserving, and it carries sections (`EVN0`, `EVN10`, `EVN20`,
-#   `EVN21`, `EVN22`) that had no former life in `G2H Design.md`. It therefore
-#   counts for G2 and is exempt from G1 and G4.
-# - KNOWN LIMITATION: a heading's `*(formerly §N)*` / `*(new; ...)*` annotation
-#   can cite ANOTHER document's numbering, and G3's anchored resolution pattern
-#   cannot tell that citation apart from an own-number anchor. `Events.md`
-#   carries four annotations of this kind — `EVN10` (`*(new; corrects
-#   EventSubstrate.md §5.10)*`), `EVN20` (`*(new; from EventSubstrate.md §2-3,
-#   §30)*`), `EVN21` (`*(new; from EventSubstrate.md §34)*`) and `EVN23`
-#   (`*(new; added as §10.19 before §10 moved here)*`). Between them they carry
-#   five section-signed tokens — `§5.10`, `§2`, `§30`, `§34`, `§10.19` — and
-#   exactly one, `§2`, also resolves against a real anchor of this design
-#   (`## DOM2. Domain Model Overview *(formerly §2)*`). `DOM2` is the one
-#   collision; the other four each resolve to exactly one heading too (the
-#   `EVN` annotation itself, or nothing), so a citation of one of them would
-#   pass while pointing at the wrong section — a silent failure this gate
-#   cannot detect. None of the five is cited from outside `Documentation/`
-#   today, so nothing fails at `--baseline 854515f2`. This is accepted rather
-#   than fixed: the repair, the day one does bite, is to move the foreign
-#   citation off the heading line into the body, not to add a branch to the
-#   gate.
-# - Greps for an old number are RIGHT-ANCHORED — `§20\.6($|[^0-9.])`. An
-#   unanchored `§20.6` matches the `§20.6.1` heading too, and every parent number
-#   then reports a false duplicate against its own children.
-# - `--scope dom`'s G3 citation-extraction pattern is ALSO right-anchored against
-#   a following DIGIT (`git grep -P`, a lookahead), which none of the other four
-#   scopes needed. `2`, `3`, `4`, `5`, `6`, `11` and `19` are the first section
-#   numbers in this split that are themselves proper prefixes of other sections'
-#   numbers — no number in `20|14|18|12|16|17|7|8|9|13` is a prefix of a longer
-#   one, so those four scopes were right by luck rather than by anchoring.
-#   Unanchored, `§2` matches inside `§20` and `§21`, and `§5` matches inside
-#   `§534` (the mis-sigiled issue number G6 already exempts) — phantom tokens
-#   that still resolve to exactly one heading each, so this is a correctness fix
-#   to what the gate measures, not a red-to-green fix for a prior finding.
-# - `--scope arc`'s VERBATIM pairing normalises the BASELINE forward rather than
-#   the new file backward, unlike `--scope sec`. §12/§16/§17 carry 21 pre-split
-#   `§10.x` citations into event design (`§10.2`, `§10.4`, `§10.5`, `§10.7`,
-#   `§10.17`, `§10.18`) that this extraction resolves to their `Events.md`
-#   `(formerly §10.X)` anchors — but the same body already carries fifteen
-#   `§EVN` occurrences that were resolved that way by an earlier extraction and
-#   must not move again. Two of those six numbers, `§10.17`→`§EVN18` and
-#   `§10.18`→`§EVN19`, collide on their output token with a pre-existing `§EVN18`
-#   / `§EVN19` that already stood in the body, so the two forms are byte-identical
-#   once written and a backward reversal cannot tell them apart by content alone.
-#   Forward normalisation has no such ambiguity — it rewrites a literal `§10.x`
-#   (never a `§EVN...` that was already there) and the two `](Design/Events.md)`
-#   links (#553 criterion 2's fifth permitted difference) — so it is used instead.
-# - `--scope apr`'s VERBATIM pairing normalises the BASELINE forward for the same
-#   reason. §7/§8/§9/§13 carry thirteen pre-split `§10.x` citations into event
-#   design (`§10.2`, `§10.5`, `§10.7`, `§10.17`, and the lettered `§10.17(a)`)
-#   alongside six `§EVN` occurrences (`§EVN2`, `§EVN18`, `§EVN18(e)`, `§EVN19`,
-#   `§EVN23` twice) that an earlier extraction already resolved. Two of the four
-#   numbers this extraction converts — `§10.2`→`§EVN2` and `§10.17`→`§EVN18` —
-#   land on a token a pre-existing citation already used, so the two forms are
-#   byte-identical once written and a backward reversal cannot tell them apart.
-#   Unlike `--scope arc`, this body carries no markdown link at all, so the
-#   link-target rewrite that pairing needs has no counterpart here.
-# - `--scope dom`'s VERBATIM pairing also normalises the BASELINE forward, for
-#   consistency with `--scope arc` and `--scope apr` rather than necessity: the
-#   DOM body carries exactly one `§10.x` citation (`§10.4`, in §5.6.4) and no
-#   pre-existing `§EVN` occurrence, so there is no output-token collision and a
-#   backward reversal would be unambiguous too. `§10.4` resolves to `§EVN4` —
-#   looked up in `Events.md`'s own *(formerly §10.4)* annotation, never derived.
-#   The body carries one markdown link (`](/media/{attachmentId})`, §5.6.6, an
-#   absolute site path inside inline code), which needs no rewrite: it is
-#   unaffected by the prose moving one directory down, so this pairing needs no
-#   link-target rule.
+#   `EVN21`, `EVN22`, `EVN24`, ...) that had no former life in `G2H Design.md`.
+#   It is exempt from both G1 and G4 — see each gate's own comment for why the
+#   exemption is permanent.
 # ────────────────────────────────────────────────────────────────────────────────
 
 set -u
@@ -275,8 +158,8 @@ area_files() {
 }
 
 expected_area_file() {
-    # The one file a narrow scope resolves to, named for a "not extracted yet"
-    # message. Meaningless under --scope all, which resolves to every area file.
+    # The one file a narrow scope resolves to, named when it is missing.
+    # Meaningless under --scope all, which resolves to every area file.
     case "$SCOPE" in
         20)  echo "$AREA_DIR/UI.md" ;;
         sec) echo "$AREA_DIR/Security.md" ;;
@@ -286,7 +169,6 @@ expected_area_file() {
         *)   echo "$AREA_DIR/*.md" ;;
     esac
 }
-
 
 report() {
     local gate="$1" finding="$2" body="$3"
@@ -300,26 +182,38 @@ report() {
     fi
 }
 
-
-# ── G1 — every relocated heading carries its former number literally ────────────
+# ── G1 — every heading declares its provenance, a relocation or a new section ───
 gate_g1() {
     local files body=""
     files="$(area_files)"
 
     if [ -z "$files" ]; then
-        report "G1" "no area file in scope exists yet" "expected $(expected_area_file)"
+        report "G1" "area file in scope is missing" "expected $(expected_area_file)"
         return
     fi
 
     while IFS= read -r file; do
         [ "$file" = "$EVENTS" ] && continue
         local hits
-        hits="$(grep -nE '^#{2,6} ' "$file" | grep -v '(formerly §' || true)"
+        # A heading declares its provenance one of two ways: a relocation,
+        # `*(formerly §N.M)*` — the anchor by which 103 of the 106 distinct
+        # pre-split section numbers still cited outside `Documentation/` (3,502
+        # of 3,522 occurrences; §1.1.3, §1.8 and §12.4.7 are pre-existing
+        # dangling citations, not resolved by any heading, and this comment
+        # does not claim otherwise) resolve to a heading, and in every closed
+        # issue and merged PR body, which can never be swept — or a new
+        # section, in either spelling already in use in `Events.md`:
+        # `*(new; <source or reason>)*` where there is something to name, and
+        # bare `*(new)*` where there is not. Measured at `eca067e1`: 224
+        # headings across the six area files, 217 carrying `(formerly §`, 5
+        # carrying `(new;` or `(new)` (all in `Events.md`), and 2 (`EVN0`,
+        # `EVN22`, both in the exempt file) carrying neither.
+        hits="$(grep -nE '^#{2,6} ' "$file" | grep -v '(formerly §' | grep -v '(new[;,)]' || true)"
         [ -n "$hits" ] && body="$body$(echo "$hits" | sed "s|^|$file:|")
 "
     done <<< "$files"
 
-    report "G1" "headings carrying no *(formerly §N.M)* annotation" "$(echo "$body" | sed '/^$/d')"
+    report "G1" "headings carrying no relocation or new-section annotation" "$(echo "$body" | sed '/^$/d')"
 }
 
 # ── G4 — inside Documentation/, citations are prefixed ──────────────────────────
@@ -328,15 +222,27 @@ gate_g4() {
     files="$(area_files)"
 
     if [ -z "$files" ]; then
-        report "G4" "no area file in scope exists yet" "expected $(expected_area_file)"
+        report "G4" "area file in scope is missing" "expected $(expected_area_file)"
         return
     fi
 
     while IFS= read -r file; do
+        # `Events.md` legitimately holds bare dotted numbers — in fenced
+        # quotations, in prose whose subject IS a number, and in
+        # `EventSubstrate.md`'s own numbering — so ending this exemption would
+        # cost new strips for one file, and it therefore never ends.
         [ "$file" = "$EVENTS" ] && continue
         local hits
-        # The *(formerly §N.M)* annotation is an anchor for code and closed issues,
-        # not a citation, so it is stripped before the line is judged.
+        # Both the strip below and the citation grep after it are literal-digit
+        # patterns: neither can tell an annotation-shaped token
+        # (`*(formerly §N.M)*`) apart from a genuine citation by anything other
+        # than the digits, so a heading annotation citing a number that also
+        # happens to look like a bare citation would silently confuse the two
+        # in either direction. The *(formerly §N.M)* annotation is an anchor
+        # for code and closed issues, not a citation, so it is stripped before
+        # the line is judged. The repair for a false positive here is to
+        # REWORD THE PROSE, never to widen the strip — widening it risks
+        # hiding a real bare citation the same way.
         hits="$(grep -n '' "$file" \
             | sed -E 's/\*?\(formerly §[0-9][0-9.]*\)\*?//g' \
             | grep -E '§[0-9]+\.[0-9]' || true)"
