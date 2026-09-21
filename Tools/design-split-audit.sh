@@ -223,6 +223,10 @@ gate_g1() {
         #       | grep -oE '§[0-9]+(\.[0-9]+)*' | sort -u > /tmp/annotated
         #   $ comm -23 /tmp/all-106 /tmp/annotated
         #   §1.1.3  §1.8  §12.4.7                    # the 3 that do not resolve
+        #   $ git grep -hoIE '§[0-9]+(\.[0-9]+)+' eca067e1 -- . \
+        #       ':(exclude)Documentation/*' ':(exclude)Tools/design-split-audit.sh' \
+        #       | grep -cE '^§(1\.1\.3|1\.8|12\.4\.7)$'
+        #   20                                       # occurrences of the 3 non-resolving numbers
         # 103 of the 106 resolve; at the occurrence level that is 3,502 of the
         # 3,522 (3,522 minus the 20 occurrences of those three numbers).
         # Measured at `eca067e1`: 224 headings across the six area files, 217
@@ -230,7 +234,7 @@ gate_g1() {
         # `Events.md`), and 2 (`EVN0`, `EVN22`, both in the exempt file)
         # carrying neither.
         #   $ git grep -cE '^#{2,6} ' eca067e1 -- Documentation/Design/*.md | \
-        #       awk -F: '{s+=$2} END {print s}'
+        #       awk -F: '{s+=$3} END {print s}'
         #   224                                      # total headings
         #   $ git grep -hE '^#{2,6} ' eca067e1 -- Documentation/Design/*.md | \
         #       grep -c '(formerly §'
