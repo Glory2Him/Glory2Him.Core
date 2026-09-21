@@ -28,14 +28,7 @@
   <Folder Name="/Documentation/">
     <File Path="Documentation/G2H Design.md" />
     <File Path="Documentation/Glory 2 Him.drawio" />
-  </Folder>
-  <Folder Name="/Documentation/Design/">
-    <File Path="Documentation/Design/Approval.md" />
-    <File Path="Documentation/Design/Architecture.md" />
-    <File Path="Documentation/Design/Domain.md" />
-    <File Path="Documentation/Design/Events.md" />
-    <File Path="Documentation/Design/Security.md" />
-    <File Path="Documentation/Design/UI.md" />
+    <Project Path="Documentation/Glory2Him.Documentation.csproj" />
   </Folder>
   <Folder Name="/Documentation/Prompts/">
     <File Path="Documentation/Prompt-CreateFoundationService.md" />
