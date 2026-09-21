@@ -200,13 +200,16 @@ set -u
 export MSYS_NO_PATHCONV=1
 export MSYS2_ARG_CONV_EXCL='*'
 
-BASELINE=""
 SCOPE="20"
 GATE="all"
 
 while [ $# -gt 0 ]; do
     case "$1" in
-        --baseline) BASELINE="$2"; shift 2 ;;
+        --baseline)
+            echo "--baseline was retired in issue #586: neither surviving gate (G1, G4)" >&2
+            echo "reads a baseline, so the argument has nothing left to satisfy." >&2
+            exit 2
+            ;;
         --scope)    SCOPE="$2";    shift 2 ;;
         --gate)     GATE="$2";     shift 2 ;;
         -h|--help)  awk 'NR == 1 { next } /^# [^A-Za-z0-9]*$/ { if (++rule == 2) exit; next } { print }' "$0"; exit 0 ;;
@@ -215,74 +218,20 @@ while [ $# -gt 0 ]; do
 done
 
 case "$SCOPE" in 20|sec|arc|apr|dom|all) ;; *) echo "--scope must be 20, sec, arc, apr, dom or all" >&2; exit 2 ;; esac
-case "$GATE" in g1|g2|g3|g4|verbatim|all) ;; *) echo "--gate must be g1, g2, g3, g4, verbatim or all" >&2; exit 2 ;; esac
+case "$GATE" in
+    g1|g4|all) ;;
+    g2|g3|verbatim)
+        echo "--gate $GATE was retired in issue #586, along with G2, G3 and VERBATIM —" >&2
+        echo "the baseline-relative proofs that a relocation was faithful. They get louder" >&2
+        echo "with every legitimate later edit, and the split they proved is finished." >&2
+        exit 2
+        ;;
+    *) echo "--gate must be g1, g4 or all" >&2; exit 2 ;;
+esac
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT" || exit 2
 
-# The baseline is resolved, not pinned. A pinned SHA survives only in the object
-# store of the machine that pinned it: reword the branch, clone it, or run a
-# `git gc`, and the pin dangles while every gate reports the whole extraction as a
-# difference. The merge base is the same commit by construction and stays correct
-# for each later extraction without being re-pinned.
-#
-# Resolution is, however, the one part of this script that depends on the machine
-# it runs on. `origin/main` is a local pointer, and a clone, a stale fetch or a
-# fork can leave it behind the real main. A baseline a few commits early still
-# passes every gate whose sections those commits did not touch, so the audit then
-# reports success about the wrong commit and says nothing about it. Nothing inside
-# a repository can prove that pointer is current, so this does the three things
-# that are possible: it refuses a purely local `main`, it says so when the two
-# candidates disagree, and it prints the baseline's subject and date so a wrong
-# one is recognisable on sight rather than only as a SHA.
-BASELINE_SOURCE="the --baseline argument"
-
-if [ -z "$BASELINE" ]; then
-    REMOTE_BASE=""
-    LOCAL_BASE=""
-
-    if git rev-parse --verify --quiet "origin/main^{commit}" >/dev/null; then
-        REMOTE_BASE="$(git merge-base origin/main HEAD)"
-    fi
-
-    if git rev-parse --verify --quiet "main^{commit}" >/dev/null; then
-        LOCAL_BASE="$(git merge-base main HEAD)"
-    fi
-
-    if [ -n "$REMOTE_BASE" ]; then
-        BASELINE="$REMOTE_BASE"
-        BASELINE_SOURCE="git merge-base origin/main HEAD"
-
-        if [ -n "$LOCAL_BASE" ] && [ "$LOCAL_BASE" != "$REMOTE_BASE" ]; then
-            echo "WARNING: origin/main and main disagree about the baseline." >&2
-            echo "         origin/main -> $REMOTE_BASE  (used)" >&2
-            echo "         main        -> $LOCAL_BASE" >&2
-            echo "         One of the two is stale. Fetch, or pass --baseline <ref>." >&2
-            echo >&2
-        fi
-    elif [ -n "$LOCAL_BASE" ]; then
-        echo "Refusing to baseline on a local 'main': there is no origin/main to check it" >&2
-        echo "against. A local branch pointer is not evidence of where this work branches" >&2
-        echo "from, and a baseline even a few commits early passes every gate whose sections" >&2
-        echo "those commits did not touch. Pass the commit explicitly:" >&2
-        echo >&2
-        echo "    Tools/design-split-audit.sh --baseline $LOCAL_BASE" >&2
-        exit 2
-    fi
-fi
-
-if [ -z "$BASELINE" ]; then
-    echo "Could not resolve a baseline: no origin/main to take a merge base from." >&2
-    echo "Pass one explicitly with --baseline <ref>." >&2
-    exit 2
-fi
-
-if ! git rev-parse --verify --quiet "$BASELINE^{commit}" >/dev/null; then
-    echo "Baseline '$BASELINE' does not resolve to a commit in this repository." >&2
-    exit 2
-fi
-
-DESIGN_DOC="Documentation/G2H Design.md"
 AREA_DIR="Documentation/Design"
 EVENTS="$AREA_DIR/Events.md"
 
@@ -338,22 +287,6 @@ expected_area_file() {
     esac
 }
 
-in_scope() {
-    # Filters a stream of heading numbers down to the scope.
-    if [ "$SCOPE" = "20" ]; then
-        grep -E '^20($|\.)'
-    elif [ "$SCOPE" = "sec" ]; then
-        grep -E '^(14|18)($|\.)'
-    elif [ "$SCOPE" = "arc" ]; then
-        grep -E '^(12|16|17)($|\.)'
-    elif [ "$SCOPE" = "apr" ]; then
-        grep -E '^(7|8|9|13)($|\.)'
-    elif [ "$SCOPE" = "dom" ]; then
-        grep -E '^(2|3|4|5|6|11|19)($|\.)'
-    else
-        cat
-    fi
-}
 
 report() {
     local gate="$1" finding="$2" body="$3"
@@ -367,27 +300,6 @@ report() {
     fi
 }
 
-# The heading numbers that stood in G2H Design.md at the baseline commit.
-baseline_heading_numbers() {
-    git show "$BASELINE:$DESIGN_DOC" \
-        | grep -E '^#{2,6} [0-9]+' \
-        | sed -E 's/^#+ ([0-9]+(\.[0-9]+)*)\.?[[:space:]].*/\1/' \
-        | sort -u
-}
-
-# The old numbers the area files claim, read off their *(formerly §N.M)* annotations.
-relocated_heading_numbers() {
-    local files
-    files="$(area_files)"
-    [ -z "$files" ] && return
-
-    echo "$files" | while IFS= read -r file; do
-        grep -hE '^#+ ' "$file"
-    done \
-        | grep -oE '\(formerly §[0-9][0-9.]*\)' \
-        | sed -E 's/\(formerly §([0-9][0-9.]*)\)/\1/' \
-        | sort -u
-}
 
 # ── G1 — every relocated heading carries its former number literally ────────────
 gate_g1() {
@@ -408,126 +320,6 @@ gate_g1() {
     done <<< "$files"
 
     report "G1" "headings carrying no *(formerly §N.M)* annotation" "$(echo "$body" | sed '/^$/d')"
-}
-
-# ── G2 — the old set and the new set are the same set ───────────────────────────
-gate_g2() {
-    local old new only_old only_new body=""
-
-    old="$(baseline_heading_numbers | in_scope)"
-    new="$(relocated_heading_numbers | in_scope)"
-
-    if [ "$SCOPE" = "all" ]; then
-        # §1 and §10 are retained in the index; §15 and §21 are retired.
-        # Both sides are filtered, not just the old one: §10's subsections left
-        # G2H Design.md before the baseline and live in Events.md under their own
-        # annotations, so allowing for §10 means allowing for it in both sets.
-        local retained='^(1|10|15|21)($|\.)'
-        old="$(echo "$old" | grep -Ev "$retained")"
-        new="$(echo "$new" | grep -Ev "$retained")"
-    fi
-
-    only_old="$(comm -23 <(echo "$old" | sed '/^$/d') <(echo "$new" | sed '/^$/d'))"
-    only_new="$(comm -13 <(echo "$old" | sed '/^$/d') <(echo "$new" | sed '/^$/d'))"
-
-    [ -n "$only_old" ] && body="$body$(echo "$only_old" | sort -V | sed 's/^/dropped  §/')
-"
-    [ -n "$only_new" ] && body="$body$(echo "$only_new" | sort -V | sed 's/^/invented §/')
-"
-
-    report "G2" "symmetric difference between the baseline headings and the relocated ones" \
-        "$(echo "$body" | sed '/^$/d')"
-}
-
-# ── G3 — every old citation from code still resolves, to exactly one heading ────
-gate_g3() {
-    local pattern citations body="" grep_flag="-E"
-
-    if [ "$SCOPE" = "20" ]; then
-        pattern='§20[0-9.]*'
-    elif [ "$SCOPE" = "sec" ]; then
-        pattern='§(14|18)(\.[0-9]+)*'
-    elif [ "$SCOPE" = "arc" ]; then
-        pattern='§(12|16|17)(\.[0-9]+)*'
-    elif [ "$SCOPE" = "apr" ]; then
-        pattern='§(7|8|9|13)(\.[0-9]+)*'
-    elif [ "$SCOPE" = "dom" ]; then
-        # 2, 3, 4, 5, 6, 11 and 19 are proper prefixes of other section numbers
-        # (20, 21, 534, ...), which the other four scopes never had to be safe
-        # against. A `-E` alternation stops at the first matching alternative —
-        # `§2` inside `§20` — rather than continuing to consume the trailing
-        # digit, so extraction here needs a real lookahead: `-P`, checked
-        # against a following digit.
-        pattern='§(2|3|4|5|6|11|19)(\.[0-9]+)*(?![0-9])'
-        grep_flag="-P"
-    else
-        pattern='§[0-9]+(\.[0-9]+)*'
-    fi
-
-    # `-I` excludes binary files. Without it `git grep` emits a `Binary file
-    # <rev>:<path> matches` line into the citation stream, each of which is then
-    # judged as a citation and reported as resolving to no heading — a finding the
-    # whole-document mode could never be run to empty.
-    #
-    # `Tools/design-split-audit.sh` is excluded too. It is not a consumer of
-    # the design it audits, but its own header and inline comments name
-    # section numbers in prose — "§12, §16 and §17", "the seven ranges are
-    # contiguous" — which would otherwise pollute this corpus with tokens that
-    # cite nothing but this file's own commentary.
-    citations="$(git grep -I -h -o "$grep_flag" "$pattern" "$BASELINE" -- . \
-            ':(exclude)Documentation/' ':(exclude)Tools/design-split-audit.sh' \
-        | sort -u -V)"
-
-    if [ "$SCOPE" = "all" ] || [ "$SCOPE" = "arc" ]; then
-        # §12.4.7 dangled before the split, and the split neither creates nor
-        # repairs it. §12.4.4 was `ApprovalOrchestrationService`; commit
-        # 757a8100 renumbered that section to §ARC12.5.3, and its citers
-        # (`ApprovalEntityProbeReadTests.cs`,
-        # `AssociationServiceTests.TransitionApproval.Validations.cs`,
-        # `ApprovalEntityMatch.cs` twice, `IApprovalService.cs`,
-        # `IAssociationService.cs`, and `G2H Design.md` §9.7.x) were repointed
-        # to §ARC12.5.3 at issue #559 — but this scope's corpus is built from
-        # `$BASELINE`, the pre-split tree, where §12.4.4 still appears, so the
-        # number survives here regardless of the repointing. Both are
-        # subtracted rather than reported: a gate nobody can run green stops
-        # being run.
-        citations="$(echo "$citations" | grep -Ev '^§(12\.4\.7|12\.4\.4)$')"
-    fi
-
-    if [ "$SCOPE" = "all" ]; then
-        # §10 is out of G3's scope by design. §1.1.3, §1.8 and §534 are G6
-        # exemptions: none of the three cites this design.
-        #
-        # §1.1.3 is The Standard's exception rule.
-        #
-        # §1.8 is `exposer skill §1.8` at three sites —
-        # `ApprovalReviewTests.NestedNavigation.cs:29`,
-        # `ApprovalReviewTests.OwnerOnly.cs:182` and
-        # `ApiBroker.ApprovalReviews.cs:49` — citing
-        # `.claude/skills/the-standard-exposers/SKILL.md` 1.8, not this
-        # document. §1 runs §1.1 to §1.5 here (§IDX1.1-§IDX1.5) and has no
-        # §1.8 of its own, so there is nothing for the split to have preserved
-        # or broken. All three sites stand byte-identical at baseline
-        # `854515f2`, so this is pre-existing rather than caused by the split.
-        #
-        # §534 is a mis-sigiled issue number.
-        citations="$(echo "$citations" | grep -Ev '^§10($|\.)' \
-            | grep -Ev '^§(1\.1\.3|1\.8|534)$')"
-    fi
-
-    while IFS= read -r citation; do
-        [ -z "$citation" ] && continue
-        local number anchored count
-        number="${citation#§}"
-        anchored="§$(echo "$number" | sed 's/\./\\./g')(\$|[^0-9.])"
-        count="$(grep -rIE '^#{1,6} ' --include='*.md' "Documentation/" \
-            | grep -cE "$anchored" || true)"
-        [ "$count" = "1" ] || body="$body$citation resolves to $count headings, expected 1
-"
-    done <<< "$citations"
-
-    report "G3" "old citations that do not resolve to exactly one heading" \
-        "$(echo "$body" | sed '/^$/d')"
 }
 
 # ── G4 — inside Documentation/, citations are prefixed ──────────────────────────
@@ -555,235 +347,11 @@ gate_g4() {
     report "G4" "bare unprefixed §N.M citations" "$(echo "$body" | sed '/^$/d')"
 }
 
-# ── VERBATIM — the relocated prose is the prose that was there ──────────────────
-# G1 to G4 prove that no SECTION was lost. They say nothing about whether a
-# sentence inside one was reworded, and a read-through is not a substitute for
-# knowing. This normalises the extracted file back towards the baseline body and
-# diffs the two, permitting exactly the four differences #481 criterion 2 allows:
-# a heading gaining its prefix and its *(formerly §N.M)* annotation, a citation
-# token gaining its prefix, the file's own header block and contents list, and
-# its title line. Anything else is a rewrite hidden inside a move.
-#
-# It is defined per extraction rather than per document, so it runs under
-# --scope 20, --scope sec, --scope arc or --scope apr, and each later
-# extraction adds its own pairing.
-gate_verbatim() {
-    local file old new difference
-
-    case "$SCOPE" in
-        20)  file="$AREA_DIR/UI.md" ;;
-        sec) file="$AREA_DIR/Security.md" ;;
-        arc) file="$AREA_DIR/Architecture.md" ;;
-        apr) file="$AREA_DIR/Approval.md" ;;
-        dom) file="$AREA_DIR/Domain.md" ;;
-        *)
-            # `--scope all` deliberately does NOT call `report` here: VERBATIM
-            # is defined per extraction, not for the whole document, so there
-            # is nothing to diff at this scope — not running is not a finding,
-            # and must not add to FAILURES the way an empty `body` given to
-            # `report` would.
-            echo "VERBATIM: not applicable at --scope all"
-            echo "    defined per extraction, not for the whole document — run it with" \
-                "--scope 20, --scope sec, --scope arc, --scope apr or --scope dom"
-            return
-            ;;
-    esac
-
-    if [ ! -f "$file" ]; then
-        report "VERBATIM" "no area file in scope exists yet" "expected $file"
-        return
-    fi
-
-    if [ "$SCOPE" = "20" ]; then
-        old="$(git show "$BASELINE:$DESIGN_DOC" \
-            | sed -n '/^## 20\. /,/^## 21\. /p' \
-            | sed '$d' \
-            | sed -e :a -e '/^[[:space:]]*$/{$d;N;ba' -e '}')"
-
-        # Everything below the rule closing the header block is the relocated
-        # body. The heading annotation is dropped rather than checked here,
-        # because G1 and G2 have already proved every one of them carries the
-        # right old number.
-        new="$(sed -n '/^---$/,$p' "$file" \
-            | tail -n +2 \
-            | sed -e '/./,$!d' \
-            | sed -E 's/^(#{2,6} )UI(20[0-9.]*)( .*) \*\(formerly §[0-9][0-9.]*\)\*$/\1\2\3/' \
-            | sed -E 's/§(DOM|APR|ARC|SEC|UI)([0-9])/§\2/g' \
-            | sed -E 's/§EVN18/§10.17/g' \
-            | sed -e :a -e '/^[[:space:]]*$/{$d;N;ba' -e '}')"
-
-        difference="$(diff <(echo "$old") <(echo "$new") || true)"
-
-        report "VERBATIM" "normalised differences against the baseline §20 body" "$difference"
-        return
-    fi
-
-    if [ "$SCOPE" = "sec" ]; then
-        # §14 and §18 are non-contiguous in G2H Design.md (§15-§17 stand between
-        # them) but contiguous in Security.md, so the baseline body is two
-        # ranges concatenated rather than one.
-        old="$({
-            git show "$BASELINE:$DESIGN_DOC" | sed -n '/^## 14\. /,/^## 15\. /p' | sed '$d'
-            git show "$BASELINE:$DESIGN_DOC" | sed -n '/^## 18\. /,/^## 19\. /p' | sed '$d'
-        } | sed -e :a -e '/^[[:space:]]*$/{$d;N;ba' -e '}')"
-
-        # §14.6 already cited `Events.md` as `§EVN18(d)` at the baseline — Events
-        # had already been extracted, so that citation was never `§10.17` to begin
-        # with and must not be reversed alongside the ones that were. It is
-        # protected behind a placeholder for the run of the `§EVN18` -> `§10.17`
-        # reversal below, then restored.
-        new="$(sed -n '/^---$/,$p' "$file" \
-            | tail -n +2 \
-            | sed -e '/./,$!d' \
-            | sed -E 's/^(#{2,6} )SEC((14|18)[0-9.]*)( .*) \*\(formerly §[0-9][0-9.]*\)\*$/\1\2\4/' \
-            | sed -E 's/§(DOM|APR|ARC|SEC|UI)([0-9])/§\2/g' \
-            | sed -E 's/§EVN18\(d\)/§XEVN18DX/g' \
-            | sed -E 's/§EVN18/§10.17/g' \
-            | sed -E 's/§XEVN18DX/§EVN18(d)/g' \
-            | sed -e :a -e '/^[[:space:]]*$/{$d;N;ba' -e '}')"
-
-        difference="$(diff <(echo "$old") <(echo "$new") || true)"
-
-        report "VERBATIM" "normalised differences against the baseline §14/§18 body" "$difference"
-        return
-    fi
-
-    if [ "$SCOPE" = "apr" ]; then
-        # §7, §8, §9 and §13 are non-contiguous in G2H Design.md (§10-§12
-        # stand between §9 and §13) but contiguous in Approval.md, so the
-        # baseline body is four ranges concatenated rather than one.
-        old="$({
-            git show "$BASELINE:$DESIGN_DOC" | sed -n '/^## 7\. /,/^## 8\. /p'   | sed '$d'
-            git show "$BASELINE:$DESIGN_DOC" | sed -n '/^## 8\. /,/^## 9\. /p'   | sed '$d'
-            git show "$BASELINE:$DESIGN_DOC" | sed -n '/^## 9\. /,/^## 10\. /p'  | sed '$d'
-            git show "$BASELINE:$DESIGN_DOC" | sed -n '/^## 13\. /,/^## 14\. /p' | sed '$d'
-        } | sed -e :a -e '/^[[:space:]]*$/{$d;N;ba' -e '}')"
-
-        new="$(sed -n '/^---$/,$p' "$file" \
-            | tail -n +2 \
-            | sed -e '/./,$!d' \
-            | sed -E 's/^(#{2,6} )APR((7|8|9|13)[0-9.]*)( .*) \*\(formerly §[0-9][0-9.]*\)\*$/\1\2\4/' \
-            | sed -E 's/§(DOM|APR|ARC|SEC|UI)([0-9])/§\2/g' \
-            | sed -e :a -e '/^[[:space:]]*$/{$d;N;ba' -e '}')"
-
-        # As with --scope arc, the four `§10.x` conversions are normalised on
-        # the BASELINE side rather than reversed on the new side: `§10.2` ->
-        # `§EVN2` and `§10.17` -> `§EVN18` both land on a token this body
-        # already carried before the extraction, so a backward reversal
-        # cannot tell the two forms apart. The right anchor is `($|[^0-9])`
-        # rather than `($|[^0-9.])` so that the lettered `§10.17(a)` is
-        # converted too rather than left behind. This body carries no
-        # markdown link, so it needs no link-target rule.
-        old_forward="$(printf '%s\n' "$old" \
-            | sed -E 's/§10\.2($|[^0-9])/§EVN2\1/g' \
-            | sed -E 's/§10\.5($|[^0-9])/§EVN5\1/g' \
-            | sed -E 's/§10\.7($|[^0-9])/§EVN7\1/g' \
-            | sed -E 's/§10\.17($|[^0-9])/§EVN18\1/g')"
-
-        difference="$(diff <(echo "$old_forward") <(echo "$new") || true)"
-
-        report "VERBATIM" "normalised differences against the baseline §7/§8/§9/§13 body" "$difference"
-        return
-    fi
-
-    if [ "$SCOPE" = "dom" ]; then
-        # §2, §3, §4, §5, §6, §11 and §19 are non-contiguous in G2H Design.md
-        # (§7-§10 stand between §6 and §11, §12-§18 between §11 and §19) but
-        # contiguous in Domain.md, so the baseline body is seven ranges
-        # concatenated rather than one, in section order.
-        old="$({
-            git show "$BASELINE:$DESIGN_DOC" | sed -n '/^## 2\. /,/^## 3\. /p'   | sed '$d'
-            git show "$BASELINE:$DESIGN_DOC" | sed -n '/^## 3\. /,/^## 4\. /p'   | sed '$d'
-            git show "$BASELINE:$DESIGN_DOC" | sed -n '/^## 4\. /,/^## 5\. /p'   | sed '$d'
-            git show "$BASELINE:$DESIGN_DOC" | sed -n '/^## 5\. /,/^## 6\. /p'   | sed '$d'
-            git show "$BASELINE:$DESIGN_DOC" | sed -n '/^## 6\. /,/^## 7\. /p'   | sed '$d'
-            git show "$BASELINE:$DESIGN_DOC" | sed -n '/^## 11\. /,/^## 12\. /p' | sed '$d'
-            git show "$BASELINE:$DESIGN_DOC" | sed -n '/^## 19\. /,/^## 20\. /p' | sed '$d'
-        } | sed -e :a -e '/^[[:space:]]*$/{$d;N;ba' -e '}')"
-
-        new="$(sed -n '/^---$/,$p' "$file" \
-            | tail -n +2 \
-            | sed -e '/./,$!d' \
-            | sed -E 's/^(#{2,6} )DOM((2|3|4|5|6|11|19)[0-9.]*)( .*) \*\(formerly §[0-9][0-9.]*\)\*$/\1\2\4/' \
-            | sed -E 's/§(DOM|APR|ARC|SEC|UI)([0-9])/§\2/g' \
-            | sed -e :a -e '/^[[:space:]]*$/{$d;N;ba' -e '}')"
-
-        # Only one pre-split `§10.x` citation stands in this body — `§10.4`, in
-        # §5.6.4 — and no pre-existing `§EVN` occurrence, so unlike `--scope arc`
-        # and `--scope apr` there is no output-token collision here; forward
-        # normalisation is used anyway, for consistency with those two rather
-        # than necessity. This body carries no relative `Events.md` link either,
-        # so it needs no link-target rule.
-        old_forward="$(printf '%s\n' "$old" \
-            | sed -E 's/§10\.4($|[^0-9])/§EVN4\1/g')"
-
-        difference="$(diff <(echo "$old_forward") <(echo "$new") || true)"
-
-        report "VERBATIM" "normalised differences against the baseline §2/§3/§4/§5/§6/§11/§19 body" "$difference"
-        return
-    fi
-
-    # SCOPE = arc. §12, §16 and §17 are non-contiguous in G2H Design.md (§13-§15
-    # stand between §12 and §16) but contiguous in Architecture.md, so the
-    # baseline body is three ranges concatenated rather than one.
-    old="$({
-        git show "$BASELINE:$DESIGN_DOC" | sed -n '/^## 12\. /,/^## 13\. /p' | sed '$d'
-        git show "$BASELINE:$DESIGN_DOC" | sed -n '/^## 16\. /,/^## 17\. /p' | sed '$d'
-        git show "$BASELINE:$DESIGN_DOC" | sed -n '/^## 17\. /,/^## 18\. /p' | sed '$d'
-    } | sed -e :a -e '/^[[:space:]]*$/{$d;N;ba' -e '}')"
-
-    # This body already carries fifteen `§EVN` occurrences resolved by an
-    # earlier extraction, alongside the twenty-one `§10.x` citations this
-    # extraction resolves the same way. Two of the six numbers this extraction
-    # converts — `§10.17` -> `§EVN18` and `§10.18` -> `§EVN19` — land on a token
-    # that a pre-existing citation already used, so the two are byte-identical
-    # in the new file and a blind reversal cannot tell them apart by content.
-    # Unlike the `sec` pairing above, this is resolved by normalising the
-    # BASELINE forward rather than the new file backward: the forward direction
-    # rewrites a literal `§10.x` (a pre-existing `§EVN18` or `§EVN19` never
-    # matches that pattern, so it is never touched) and, separately below, the
-    # two relative `Events.md` links.
-    new="$(sed -n '/^---$/,$p' "$file" \
-        | tail -n +2 \
-        | sed -e '/./,$!d' \
-        | sed -E 's/^(#{2,6} )ARC((12|16|17)[0-9.]*)( .*) \*\(formerly §[0-9][0-9.]*\)\*$/\1\2\4/' \
-        | sed -E 's/§(DOM|APR|ARC|SEC|UI)([0-9])/§\2/g' \
-        | sed -e :a -e '/^[[:space:]]*$/{$d;N;ba' -e '}')"
-
-    # The body also carries two relative links to `Events.md`. At the baseline
-    # they resolved from `Documentation/`, so they read `](Design/Events.md)`;
-    # the prose now sits one directory down in `Documentation/Design/`, so the
-    # identical target would 404, and the corrected file reads `](Events.md)`
-    # instead (#553 criterion 2's fifth permitted difference). The baseline
-    # carries no occurrence of the bare `](Events.md)` form, so — as with the
-    # `§10.17`/`§10.18` collision above — this is resolved by normalising the
-    # baseline forward rather than the new file backward, and the direction is
-    # unambiguous either way. This matches the link target only, never the link
-    # text or an anchor, so a rewrite of either still fails the diff below.
-    old_forward="$(printf '%s\n' "$old" \
-        | sed -E 's/§10\.2($|[^0-9])/§EVN2\1/g' \
-        | sed -E 's/§10\.4($|[^0-9])/§EVN4\1/g' \
-        | sed -E 's/§10\.5($|[^0-9])/§EVN5\1/g' \
-        | sed -E 's/§10\.7($|[^0-9])/§EVN7\1/g' \
-        | sed -E 's/§10\.17($|[^0-9])/§EVN18\1/g' \
-        | sed -E 's/§10\.18($|[^0-9])/§EVN19\1/g' \
-        | sed -E 's/\]\(Design\/Events\.md\)/](Events.md)/g')"
-
-    difference="$(diff <(echo "$old_forward") <(echo "$new") || true)"
-
-    report "VERBATIM" "normalised differences against the baseline §12/§16/§17 body" "$difference"
-}
-
-echo "design-split-audit — baseline $BASELINE, scope §$SCOPE, gate $GATE"
-echo "  $(git log -1 --format='%ad  %s' --date=short "$BASELINE")"
-echo "  resolved by $BASELINE_SOURCE; $(git rev-list --count "$BASELINE..HEAD") commit(s) under audit"
+echo "design-split-audit — scope §$SCOPE, gate $GATE"
 echo
 
 [ "$GATE" = "g1" ] || [ "$GATE" = "all" ] && gate_g1
-[ "$GATE" = "g2" ] || [ "$GATE" = "all" ] && gate_g2
-[ "$GATE" = "g3" ] || [ "$GATE" = "all" ] && gate_g3
 [ "$GATE" = "g4" ] || [ "$GATE" = "all" ] && gate_g4
-[ "$GATE" = "verbatim" ] || [ "$GATE" = "all" ] && gate_verbatim
 
 echo
 if [ "$FAILURES" -eq 0 ]; then
