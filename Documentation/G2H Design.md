@@ -149,6 +149,38 @@ A citation is the bare prefixed number and nothing else:
   once by amending that **section**, not by respelling the citations that point
   at it.
 
+**A retired section has no citable number.** The `—` in the *Cite it as* column
+of the *Where Each Section Lives* map is that answer, not a missing value:
+nothing under `Documentation/Design/` refers to a retired section, or to any
+number beneath it, by number, in any of five shapes — with the section sign and
+a dotted subsection (`§N.M`), with the section sign and no dot (`§N`), bare
+with no section sign (`N.M`), qualified by a filename, or written with the HTML
+entity `&sect;` (`&sect;N.M`).
+
+A retired number may still stand only in `Documentation/G2H Design.md`, and
+nowhere else under `Documentation/`. The permitted set is exhaustive and differs
+by depth. For the section's own number, exactly two homes: the map's *Old*
+column, and prose whose subject is the number itself. For any number beneath
+it, exactly one home: prose whose subject is the number itself — the *Old*
+column carries one row per section and has no cell for a subsection. **A
+pointer stub is a home for neither.** A stub hands a stale deep link forward to
+a new home, and a retired section has none, so an unresolved anchor lands at
+the top of the file, where the map already is.
+
+The map row is the register: a change that resurfaces content from a retired
+section amends that row in the same change. The hop that matters runs one way
+only — a reader arriving with an old number goes forward to where the content
+lives now; the reverse hop, from the new home back to the dead number, points
+at nothing and is not provided.
+
+An area file that needs the history states it without an address: it may say
+that a rule was retired and what shape that rule had, but it may not give it a
+number, a filename or a section sign.
+
+This governs every retired section and every number beneath it, not a single
+one alone — the rule's scope is every retired section, never one section taken
+as an illustration.
+
 ## Where Each Section Lives
 
 A stale deep link into this file lands here, at the top, rather than at a
