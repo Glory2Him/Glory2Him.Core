@@ -193,6 +193,9 @@ gate_g1() {
     fi
 
     while IFS= read -r file; do
+        # `Events.md` renumbered rather than prefix-preserving and carries
+        # sections with no former life in `G2H Design.md` — see the header
+        # note above for why the exemption is permanent.
         [ "$file" = "$EVENTS" ] && continue
         local hits
         # A heading declares its provenance one of two ways: a relocation,
@@ -204,10 +207,25 @@ gate_g1() {
         # issue and merged PR body, which can never be swept — or a new
         # section, in either spelling already in use in `Events.md`:
         # `*(new; <source or reason>)*` where there is something to name, and
-        # bare `*(new)*` where there is not. Measured at `eca067e1`: 224
-        # headings across the six area files, 217 carrying `(formerly §`, 5
-        # carrying `(new;` or `(new)` (all in `Events.md`), and 2 (`EVN0`,
-        # `EVN22`, both in the exempt file) carrying neither.
+        # bare `*(new)*` where there is not. Measured at `f28ed080`, with the
+        # commands below run at that commit:
+        #   $ git grep -oIE '§[0-9]+(\.[0-9]+)+' f28ed080 -- . \
+        #       ':(exclude)Documentation/*' ':(exclude)Tools/design-split-audit.sh' | wc -l
+        #   3522                                     # bare-citation occurrences
+        #   $ git grep -hoIE '§[0-9]+(\.[0-9]+)+' f28ed080 -- . \
+        #       ':(exclude)Documentation/*' ':(exclude)Tools/design-split-audit.sh' \
+        #       | grep -oE '§[0-9]+(\.[0-9]+)+' | sort -u | wc -l
+        #   106                                      # distinct pre-split numbers
+        #   $ git grep -hoIE 'formerly §[0-9]+(\.[0-9]+)*\)' f28ed080 -- Documentation/ \
+        #       | grep -oE '§[0-9]+(\.[0-9]+)*' | sort -u > /tmp/annotated
+        #   $ comm -23 <(above 106 list) /tmp/annotated
+        #   §1.1.3  §1.8  §12.4.7                    # the 3 that do not resolve
+        # 103 of the 106 resolve; at the occurrence level that is 3,502 of the
+        # 3,522 (3,522 minus the 20 occurrences of those three numbers).
+        # Measured at `eca067e1`: 224 headings across the six area files, 217
+        # carrying `(formerly §`, 5 carrying `(new;` or `(new)` (all in
+        # `Events.md`), and 2 (`EVN0`, `EVN22`, both in the exempt file)
+        # carrying neither.
         hits="$(grep -nE '^#{2,6} ' "$file" | grep -v '(formerly §' | grep -v '(new[;,)]' || true)"
         [ -n "$hits" ] && body="$body$(echo "$hits" | sed "s|^|$file:|")
 "
