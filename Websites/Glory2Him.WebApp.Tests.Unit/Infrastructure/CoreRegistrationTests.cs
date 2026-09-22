@@ -82,6 +82,13 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
             descriptor.Lifetime.Should().Be(ServiceLifetime.Scoped);
 
             descriptor.ImplementationType.Should().Be(typeof(AssociationOrchestrationService));
+
+            // and the interface is public, so a PUBLIC controller constructor can take it —
+            // a less-accessible parameter type is CS0051 and #318 would not compile. The
+            // implementation stays internal and reaches this host through InternalsVisibleTo,
+            // per the ITagService / IApprovalOrchestrationService precedent.
+            typeof(IAssociationOrchestrationService).IsPublic.Should().BeTrue();
+            typeof(AssociationOrchestrationService).IsPublic.Should().BeFalse();
         }
 
         [Fact]
