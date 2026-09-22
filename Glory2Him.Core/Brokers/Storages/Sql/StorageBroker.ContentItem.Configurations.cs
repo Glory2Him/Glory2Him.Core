@@ -163,7 +163,6 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             })
                  .HasDatabaseName("IX_ContentItems_Feed");
 
-            // §SEC14.1 — visibility predicate term 1
             model.HasIndex(contentItem => contentItem.DeletedWhen)
                  .HasDatabaseName("IX_ContentItems_DeletedWhen");
 
