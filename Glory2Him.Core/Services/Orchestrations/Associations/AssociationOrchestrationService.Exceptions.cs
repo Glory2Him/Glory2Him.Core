@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -12,7 +12,6 @@
 using System;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.Associations.Exceptions;
-using Glory2Him.Core.Models.Orchestrations.Associations;
 using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
 using Xeptions;
 
@@ -20,14 +19,17 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
 {
     internal partial class AssociationOrchestrationService
     {
-        private delegate ValueTask<AssociationSuggestionResult> ReturningAssociationSuggestionResultFunction();
+        // ONE chain for every shape this service returns — the suggestion result, an entity, and
+        // the collection read's queryable. A second chain per return type is the kind of
+        // duplication that drifts: a family added to one and forgotten on the other surfaces as a
+        // raw foundation exception escaping the layer (§ARC12.2), and nothing fails until it does.
+        private delegate ValueTask<T> ReturningValueFunction<T>();
 
-        private async ValueTask<AssociationSuggestionResult> TryCatch(
-            ReturningAssociationSuggestionResultFunction returningAssociationSuggestionResultFunction)
+        private async ValueTask<T> TryCatch<T>(ReturningValueFunction<T> returningValueFunction)
         {
             try
             {
-                return await returningAssociationSuggestionResultFunction();
+                return await returningValueFunction();
             }
             catch (OperationCanceledException operationCanceledException)
                 when (operationCanceledException.CancellationToken.IsCancellationRequested is false)

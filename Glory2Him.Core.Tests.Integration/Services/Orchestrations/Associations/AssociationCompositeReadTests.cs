@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -162,7 +162,9 @@ namespace Glory2Him.Core.Tests.Integration.Services.Orchestrations.Associations
             return new Tag
             {
                 Id = Guid.NewGuid(),
-                Name = $"seeded-{Guid.NewGuid():N}",
+                // the column caps at 30, so the uniqueness suffix is trimmed rather than
+                // carrying a whole guid
+                Name = $"seeded-{Guid.NewGuid():N}"[..20],
                 ApprovalStatus = ApprovalStatus.Draft,
                 CreatedBy = actorUserId,
                 CreatedWhen = now,

@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.Associations;
@@ -48,6 +49,28 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         /// </summary>
         ValueTask<AssociationSuggestionResult> AddAssociationAsync(
             Association association,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// The association collection read, and the first place §SEC14.3's composite is actually
+        /// evaluated. It composes rules 3 and 4 — an association is visible only while <b>both</b>
+        /// of its endpoints are — above the foundation's self-only filter over rules 1, 2 and 5,
+        /// by resolving each endpoint through that endpoint entity's own collection read. The
+        /// caller clause therefore lives in the endpoint's read rather than in the composite: a
+        /// moderator keeps the pairing on the <c>Submitted</c> item they moderate because that
+        /// item's read admits them, and a soft-deleted endpoint drops the pairing for everyone,
+        /// <c>Administrators</c> included (§SEC14.5 rule 3).
+        ///
+        /// <para>A row the caller may not see is <b>absent from the set</b> rather than an error,
+        /// and the answer reveals no count of what was dropped (§SEC14.5 rule 4). There is no
+        /// gate of its own on this path — a read is filtered, never refused.</para>
+        ///
+        /// <para>The queryable comes back <b>unenumerated</b> and issues no endpoint round trip
+        /// of its own, whatever the row count: the composite composes into the association query
+        /// instead of resolving anything above it. Composing it further is the caller's to do.
+        /// </para>
+        /// </summary>
+        ValueTask<IQueryable<Association>> RetrieveAllAssociationsAsync(
             CancellationToken cancellationToken = default);
     }
 }
