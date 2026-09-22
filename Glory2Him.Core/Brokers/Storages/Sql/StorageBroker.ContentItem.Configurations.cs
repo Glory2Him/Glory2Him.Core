@@ -163,9 +163,6 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             })
                  .HasDatabaseName("IX_ContentItems_Feed");
 
-            model.HasIndex(contentItem => contentItem.DeletedWhen)
-                 .HasDatabaseName("IX_ContentItems_DeletedWhen");
-
             // §3.4.2 — duplicate content detection. Deliberately NOT unique: rows within one
             // group may legitimately share a hash (e.g. a later version reverting to earlier
             // wording); uniqueness is enforced application-side by the orchestration.
