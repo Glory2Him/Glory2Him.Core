@@ -1019,6 +1019,35 @@ describe('ContentItemPanel', () => {
             expect(screen.getByRole('button', { name: 'Reaction counts' })).toBeInTheDocument();
             expect(screen.getByText('142')).toBeInTheDocument();
         });
+
+        it('should send a signed-out reader to sign in instead of writing the reaction',
+            async () => {
+            // given
+            signOut(authState);
+            const onReactionSelected = vi.fn();
+
+            renderCard(
+                <ContentItemPanel
+                    contentItem={quoteItem}
+                    reactionOptions={reactionOptions}
+                    onReactionSelected={onReactionSelected} />);
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+            await userEvent.click(screen.getByRole('menuitem', { name: 'Love' }));
+
+            // then
+            expect(navigate)
+                .toHaveBeenCalledWith(expect.stringContaining('/Account/Login'));
+
+            // the click navigates: no write is attempted, and nothing is put in front of the
+            // reader first - no prompt, no modal, no toast
+            expect(onReactionSelected).not.toHaveBeenCalled();
+            expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+            expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+            expect(screen.queryByRole('status')).not.toBeInTheDocument();
+            expect(screen.queryByText(/sign in/i)).not.toBeInTheDocument();
+        });
     });
 
     describe('honest figures', () => {
