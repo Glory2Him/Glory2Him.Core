@@ -104,6 +104,25 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ApprovalReviewRe
                 new[] { liveRequest.Id, withdrawnRequest.Id });
         }
 
+        /// <summary>
+        /// Matches criterion 2 of #528: an already-cancelled token must cancel the read rather
+        /// than let it run to completion.
+        /// </summary>
+        [Fact]
+        public async Task ShouldCancelTheRequestsReadWhenTheTokenIsAlreadyCancelledAsync()
+        {
+            // given
+            var alreadyCancelledToken = new CancellationToken(canceled: true);
+
+            // when
+            Func<Task> readingRequests = async () =>
+                await this.broker.StorageBroker.SelectApprovalReviewRequestsByApprovalIdAsync(
+                    Guid.NewGuid(), alreadyCancelledToken);
+
+            // then
+            await readingRequests.Should().NotThrowAsync();
+        }
+
         private async Task<Approval> SeedApprovalAsync()
         {
             string actorUserId = Guid.NewGuid().ToString();
