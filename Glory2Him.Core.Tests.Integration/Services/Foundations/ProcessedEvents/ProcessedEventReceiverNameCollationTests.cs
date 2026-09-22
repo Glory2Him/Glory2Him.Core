@@ -86,20 +86,62 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ProcessedEvents
                     + "decides, not the writer");
         }
 
+        [Fact]
+        public async Task ShouldPermitADifferentlyCasedReceiverNameOnTheSameEventAsync()
+        {
+            // given: the same event already recorded under one casing of a receiver name
+            Guid eventId = Guid.NewGuid();
+            string receiverName = CreateRandomReceiverName();
+            string differentlyCasedReceiverName = receiverName.ToUpperInvariant();
+
+            await SeedProcessedEventAsync(eventId, receiverName);
+
+            ProcessedEvent differentlyCasedProcessedEvent =
+                CreateProcessedEvent(eventId, differentlyCasedReceiverName);
+
+            // registered for teardown BEFORE the attempt, so the row is cleared whether the
+            // index accepts it or refuses it
+            this.seededProcessedEvents.Add(differentlyCasedProcessedEvent);
+
+            // when
+            Exception outcome = await this.broker.TryInsertAsync(differentlyCasedProcessedEvent);
+
+            // then: this is the half that proves the index and the probe have not drifted
+            // apart. The probe calls the differently-cased name a different receiver, so the
+            // index must let that receiver record the event — if it refused here, the handler
+            // would have already run its side effect before the insert failed.
+            outcome.Should().BeNull(
+                because: "the index is keyed under the same binary collation the probe compares "
+                    + "under, so a differently-cased receiver name is a different key");
+
+            ProcessedEvent storedProcessedEvent =
+                await this.broker.ReadUntrackedAsync<ProcessedEvent>(
+                    differentlyCasedProcessedEvent.Id);
+
+            storedProcessedEvent.Should().NotBeNull(
+                because: "the write was accepted, so the row must be in the table");
+
+            storedProcessedEvent.ReceiverName.Should().Be(differentlyCasedReceiverName,
+                because: "the casing written is the casing stored — nothing normalises it");
+        }
+
         private static string CreateRandomReceiverName() =>
             $"ReceiverCollationProbe_{Guid.NewGuid():N}";
 
-        private async ValueTask<ProcessedEvent> SeedProcessedEventAsync(
-            Guid eventId,
-            string receiverName)
-        {
-            var processedEvent = new ProcessedEvent
+        private static ProcessedEvent CreateProcessedEvent(Guid eventId, string receiverName) =>
+            new ProcessedEvent
             {
                 Id = Guid.NewGuid(),
                 EventId = eventId,
                 ReceiverName = receiverName,
                 ProcessedAt = DateTimeOffset.UtcNow
             };
+
+        private async ValueTask<ProcessedEvent> SeedProcessedEventAsync(
+            Guid eventId,
+            string receiverName)
+        {
+            ProcessedEvent processedEvent = CreateProcessedEvent(eventId, receiverName);
 
             this.seededProcessedEvents.Add(processedEvent);
             await this.broker.SeedAsync(processedEvent);
