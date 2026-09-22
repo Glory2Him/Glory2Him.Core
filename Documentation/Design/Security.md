@@ -257,12 +257,16 @@ rather than a live justification**, which is said of that sentence by name becau
 prohibition sits between it and this one and must not be swept up in it. There is no host,
 present or hypothetical, for which a singleton over the identity chain is the correct
 arrangement. The helpers themselves still register singletons — measured, and `Add*Service()` is
-unchanged — so **whether every one of them should now be scoped is a wider question, named here
-and deliberately not ruled**; what is ruled is that no design or comment may cite the method-group
-trade to justify one, because the mechanism it names is gone. **Sixteen source files still assert
-that mechanism and `CoreRegistration` still contradicts itself about whether this host wires
-subscriptions; closing both is #659's**, and that issue carries the boundary above as its own
-out-of-scope line so the sweep does not turn into the wider ruling by accident. Only the genuinely stateless brokers
+unchanged — so **whether the OTHER `Add*Service()` helpers should now be scoped is a wider
+question, named here and deliberately not ruled**. *Other* is exact rather than loose:
+`AddAssociationOrchestrationService()`'s own disposition **is** ruled, at §ARC12.5 entry 1, because
+that service composes an identity-chain broker and the rule above is unconditional. What is ruled
+generally is only that no design or comment may cite the method-group trade to justify a
+singleton, because the mechanism it names is gone. **Three things follow from that and all three
+are #659's**: the sixteen source files still asserting the mechanism, `CoreRegistration`
+contradicting itself about whether this host wires subscriptions, and that one extension's
+lifetime — corrected to `AddScoped` or deleted. That issue carries the *other helpers* boundary as
+its own out-of-scope line, so the sweep does not turn into the wider ruling by accident. Only the genuinely stateless brokers
 (`IDateTimeBroker`, `IIdentifierBroker`, `IHashBroker`, `IEnvelopeIntegrityBroker`,
 `IEventBroker`) stay singletons there.
 
