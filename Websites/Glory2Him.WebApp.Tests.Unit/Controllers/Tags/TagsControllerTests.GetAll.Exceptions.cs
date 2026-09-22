@@ -41,7 +41,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Tags
 
             // when
             ActionResult<IQueryable<Tag>> actualActionResult =
-                await this.tagsController.Get(default);
+                await this.tagsController.Get(TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -70,7 +70,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Tags
 
             // when
             ActionResult<IQueryable<Tag>> actualActionResult =
-                await this.tagsController.Get(default);
+                await this.tagsController.Get(TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

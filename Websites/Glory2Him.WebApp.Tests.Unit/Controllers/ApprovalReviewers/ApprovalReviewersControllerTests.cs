@@ -178,7 +178,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalReviewers
                     randomEntityType,
                     randomEntityId,
                     randomRequestedUserId,
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.Result.Should().BeOfType<NoContentResult>();
@@ -217,7 +217,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalReviewers
                     GetRandomEntityType(),
                     Guid.NewGuid(),
                     Guid.NewGuid().ToString(),
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.Result.Should().BeOfType<NoContentResult>();
@@ -268,7 +268,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalReviewers
                     GetRandomEntityType(),
                     Guid.NewGuid(),
                     Guid.NewGuid().ToString(),
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -315,7 +315,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalReviewers
                 await this.approvalReviewersController.GetReviewRequestsAsync(
                     randomEntityType,
                     randomEntityId,
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.Result.Should().BeOfType<OkObjectResult>();
@@ -378,7 +378,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalReviewers
                 await this.approvalReviewersController.GetReviewerDisplayNamesAsync(
                     randomEntityType,
                     randomEntityId,
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.Result.Should().BeOfType<OkObjectResult>();
@@ -431,7 +431,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalReviewers
                 await this.approvalReviewersController.GetReviewerDisplayNamesAsync(
                     GetRandomEntityType(),
                     Guid.NewGuid(),
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -476,7 +476,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalReviewers
                 await this.approvalReviewersController.GetReviewerDisplayNamesAsync(
                     GetRandomEntityType(),
                     Guid.NewGuid(),
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -531,7 +531,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalReviewers
                 await this.approvalReviewersController.GetReviewerDisplayNamesAsync(
                     GetRandomEntityType(),
                     Guid.NewGuid(),
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -572,7 +572,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalReviewers
                 await this.approvalReviewersController.GetReviewerDisplayNamesAsync(
                     GetRandomEntityType(),
                     Guid.NewGuid(),
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -613,7 +613,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalReviewers
                 await this.approvalReviewersController.GetReviewerDisplayNamesAsync(
                     GetRandomEntityType(),
                     Guid.NewGuid(),
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -658,7 +658,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalReviewers
                     randomEntityId,
                     randomRequestedUserId,
                     randomDeletionReason,
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.Result.Should().BeOfType<NoContentResult>();
@@ -700,7 +700,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalReviewers
                     Guid.NewGuid(),
                     Guid.NewGuid().ToString(),
                     deletionReason: null,
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.Result.Should().BeOfType<NoContentResult>();
@@ -751,7 +751,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalReviewers
                 await this.approvalReviewersController.GetReviewRequestsAsync(
                     GetRandomEntityType(),
                     Guid.NewGuid(),
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -806,7 +806,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalReviewers
                 await this.approvalReviewersController.GetReviewRequestsAsync(
                     GetRandomEntityType(),
                     Guid.NewGuid(),
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -846,7 +846,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalReviewers
                 await this.approvalReviewersController.GetReviewRequestsAsync(
                     GetRandomEntityType(),
                     Guid.NewGuid(),
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -886,7 +886,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalReviewers
                 await this.approvalReviewersController.GetReviewRequestsAsync(
                     GetRandomEntityType(),
                     Guid.NewGuid(),
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -926,7 +926,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalReviewers
                 await this.approvalReviewersController.GetReviewRequestsAsync(
                     GetRandomEntityType(),
                     Guid.NewGuid(),
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -978,7 +978,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalReviewers
                     Guid.NewGuid(),
                     Guid.NewGuid().ToString(),
                     deletionReason: null,
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -1032,7 +1032,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalReviewers
                     Guid.NewGuid(),
                     Guid.NewGuid().ToString(),
                     deletionReason: null,
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -1083,7 +1083,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalReviewers
                     Guid.NewGuid(),
                     Guid.NewGuid().ToString(),
                     deletionReason: null,
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -1128,7 +1128,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalReviewers
                     Guid.NewGuid(),
                     Guid.NewGuid().ToString(),
                     deletionReason: null,
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -1174,7 +1174,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalReviewers
                     Guid.NewGuid(),
                     Guid.NewGuid().ToString(),
                     deletionReason: null,
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

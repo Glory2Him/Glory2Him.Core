@@ -43,7 +43,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Reactions
 
             // when
             ActionResult<Reaction> actualActionResult =
-                await this.reactionsController.PostReactionAsync(someReaction, default);
+                await this.reactionsController.PostReactionAsync(someReaction, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -75,7 +75,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Reactions
 
             // when
             ActionResult<Reaction> actualActionResult =
-                await this.reactionsController.PostReactionAsync(someReaction, default);
+                await this.reactionsController.PostReactionAsync(someReaction, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -115,7 +115,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Reactions
 
             // when
             ActionResult<Reaction> actualActionResult =
-                await this.reactionsController.PostReactionAsync(someReaction, default);
+                await this.reactionsController.PostReactionAsync(someReaction, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -158,7 +158,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Reactions
 
             // when
             ActionResult<Reaction> actualActionResult =
-                await this.reactionsController.PostReactionAsync(someReaction, default);
+                await this.reactionsController.PostReactionAsync(someReaction, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -189,7 +189,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Reactions
 
             // when
             ActionResult<Reaction> actualActionResult =
-                await this.reactionsController.PostReactionAsync(someReaction, default);
+                await this.reactionsController.PostReactionAsync(someReaction, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

@@ -43,7 +43,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Links
 
             // when
             ActionResult<Link> actualActionResult =
-                await this.linksController.PutLinkAsync(someLink, default);
+                await this.linksController.PutLinkAsync(someLink, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -75,7 +75,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Links
 
             // when
             ActionResult<Link> actualActionResult =
-                await this.linksController.PutLinkAsync(someLink, default);
+                await this.linksController.PutLinkAsync(someLink, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -115,7 +115,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Links
 
             // when
             ActionResult<Link> actualActionResult =
-                await this.linksController.PutLinkAsync(someLink, default);
+                await this.linksController.PutLinkAsync(someLink, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -155,7 +155,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Links
 
             // when
             ActionResult<Link> actualActionResult =
-                await this.linksController.PutLinkAsync(someLink, default);
+                await this.linksController.PutLinkAsync(someLink, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -188,7 +188,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Links
 
             // when
             ActionResult<Link> actualActionResult =
-                await this.linksController.PutLinkAsync(someLink, default);
+                await this.linksController.PutLinkAsync(someLink, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

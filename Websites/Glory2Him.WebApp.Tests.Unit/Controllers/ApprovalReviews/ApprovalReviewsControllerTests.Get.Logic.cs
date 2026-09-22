@@ -46,7 +46,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalReviews
             ActionResult<ApprovalReview> actualActionResult =
                 await approvalReviewsController.GetApprovalReviewByIdAsync(
                     randomApprovalReview.Id,
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

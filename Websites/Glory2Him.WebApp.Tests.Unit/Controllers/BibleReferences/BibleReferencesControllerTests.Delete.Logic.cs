@@ -46,7 +46,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.BibleReferences
 
             // when
             ActionResult<BibleReference> actualActionResult =
-                await bibleReferencesController.DeleteBibleReferenceByIdAsync(randomBibleReference.Id, inputDeletionReason, default);
+                await bibleReferencesController.DeleteBibleReferenceByIdAsync(randomBibleReference.Id, inputDeletionReason, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

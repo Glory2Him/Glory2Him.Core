@@ -43,7 +43,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalComments
 
             // when
             ActionResult<IQueryable<ApprovalComment>> actualActionResult =
-                await this.approvalCommentsController.Get(default);
+                await this.approvalCommentsController.Get(TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -75,7 +75,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalComments
 
             // when
             ActionResult<IQueryable<ApprovalComment>> actualActionResult =
-                await this.approvalCommentsController.Get(default);
+                await this.approvalCommentsController.Get(TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

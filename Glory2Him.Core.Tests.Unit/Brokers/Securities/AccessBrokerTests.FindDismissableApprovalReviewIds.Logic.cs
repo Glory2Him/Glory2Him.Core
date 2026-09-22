@@ -78,7 +78,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             List<Guid> actualDismissableReviewIds =
                 await this.accessBroker.FindDismissableApprovalReviewIdsAsync(
                     approvalId: approvalId,
-                    cancellationToken: default);
+                    cancellationToken: TestContext.Current.CancellationToken);
 
             // then
             actualDismissableReviewIds.Should().Equal(new[] { activeReview.Id },
@@ -101,7 +101,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             List<Guid> actualDismissableReviewIds =
                 await this.accessBroker.FindDismissableApprovalReviewIdsAsync(
                     approvalId: Guid.NewGuid(),
-                    cancellationToken: default);
+                    cancellationToken: TestContext.Current.CancellationToken);
 
             // then
             actualDismissableReviewIds.Should().BeEmpty(

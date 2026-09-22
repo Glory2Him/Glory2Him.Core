@@ -94,7 +94,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             Guid? actualResettableAssignmentId =
                 await this.accessBroker.FindResettableAIReviewerAssignmentIdAsync(
                     approvalId: approvalId,
-                    cancellationToken: default);
+                    cancellationToken: TestContext.Current.CancellationToken);
 
             // then
             actualResettableAssignmentId.Should().Be(
@@ -118,7 +118,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             Guid? actualResettableAssignmentId =
                 await this.accessBroker.FindResettableAIReviewerAssignmentIdAsync(
                     approvalId: approvalId,
-                    cancellationToken: default);
+                    cancellationToken: TestContext.Current.CancellationToken);
 
             // then
             actualResettableAssignmentId.Should().BeNull(
@@ -164,7 +164,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             Guid? actualResettableAssignmentId =
                 await this.accessBroker.FindResettableAIReviewerAssignmentIdAsync(
                     approvalId: approvalId,
-                    cancellationToken: default);
+                    cancellationToken: TestContext.Current.CancellationToken);
 
             // then
             actualResettableAssignmentId.Should().Be(completedAssignment.Id);

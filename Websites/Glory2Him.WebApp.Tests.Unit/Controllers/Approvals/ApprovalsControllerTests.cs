@@ -136,7 +136,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
                 await this.approvalsController.GetApprovalVerdictAsync(
                     randomEntityType,
                     randomEntityId,
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -178,7 +178,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
                 await this.approvalsController.GetApprovalVerdictAsync(
                     someEntityType,
                     someEntityId,
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -228,7 +228,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
                 await this.approvalsController.GetApprovalVerdictAsync(
                     someEntityType,
                     someEntityId,
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -284,7 +284,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
                 await this.approvalsController.GetApprovalVerdictAsync(
                     someEntityType,
                     someEntityId,
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -326,7 +326,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
                 await this.approvalsController.GetApprovalVerdictAsync(
                     someEntityType,
                     someEntityId,
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -368,7 +368,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
                 await this.approvalsController.GetApprovalVerdictAsync(
                     someEntityType,
                     someEntityId,
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -426,7 +426,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
                     randomDecision,
                     randomIsBypassRequested,
                     randomBypassReason,
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

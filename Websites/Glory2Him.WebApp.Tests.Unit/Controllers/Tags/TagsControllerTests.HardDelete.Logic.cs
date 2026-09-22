@@ -44,7 +44,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Tags
 
             // when
             ActionResult<Tag> actualActionResult =
-                await tagsController.HardDeleteTagByIdAsync(randomTag.Id, default);
+                await tagsController.HardDeleteTagByIdAsync(randomTag.Id, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

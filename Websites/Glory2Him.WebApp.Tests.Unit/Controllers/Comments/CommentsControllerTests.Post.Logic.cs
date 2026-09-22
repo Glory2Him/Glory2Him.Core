@@ -42,7 +42,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Comments
                     .ReturnsAsync(addedComment);
 
             // when
-            ActionResult<Comment> actualActionResult = await commentsController.PostCommentAsync(randomComment, default);
+            ActionResult<Comment> actualActionResult = await commentsController.PostCommentAsync(randomComment, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

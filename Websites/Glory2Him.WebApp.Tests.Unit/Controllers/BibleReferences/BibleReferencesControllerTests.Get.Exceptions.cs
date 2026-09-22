@@ -43,7 +43,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.BibleReferences
 
             // when
             ActionResult<BibleReference> actualActionResult =
-                await this.bibleReferencesController.GetBibleReferenceByIdAsync(someId, default);
+                await this.bibleReferencesController.GetBibleReferenceByIdAsync(someId, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -75,7 +75,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.BibleReferences
 
             // when
             ActionResult<BibleReference> actualActionResult =
-                await this.bibleReferencesController.GetBibleReferenceByIdAsync(someId, default);
+                await this.bibleReferencesController.GetBibleReferenceByIdAsync(someId, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -115,7 +115,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.BibleReferences
 
             // when
             ActionResult<BibleReference> actualActionResult =
-                await this.bibleReferencesController.GetBibleReferenceByIdAsync(someId, default);
+                await this.bibleReferencesController.GetBibleReferenceByIdAsync(someId, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -146,7 +146,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.BibleReferences
 
             // when
             ActionResult<BibleReference> actualActionResult =
-                await this.bibleReferencesController.GetBibleReferenceByIdAsync(someId, default);
+                await this.bibleReferencesController.GetBibleReferenceByIdAsync(someId, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

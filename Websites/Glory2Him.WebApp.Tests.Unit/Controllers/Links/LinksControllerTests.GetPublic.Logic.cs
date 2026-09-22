@@ -41,7 +41,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Links
 
             // when
             ActionResult<IQueryable<Link>> actualActionResult =
-                await linksController.GetPublicLinks(default);
+                await linksController.GetPublicLinks(TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

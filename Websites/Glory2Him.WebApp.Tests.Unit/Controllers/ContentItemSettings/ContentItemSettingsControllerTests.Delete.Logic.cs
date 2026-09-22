@@ -46,7 +46,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ContentItemSettings
 
             // when
             ActionResult<ContentItemSetting> actualActionResult =
-                await contentItemSettingsController.DeleteContentItemSettingByIdAsync(randomContentItemSetting.Id, inputDeletionReason, default);
+                await contentItemSettingsController.DeleteContentItemSettingByIdAsync(randomContentItemSetting.Id, inputDeletionReason, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

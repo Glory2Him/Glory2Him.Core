@@ -46,7 +46,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Links
 
             // when
             ActionResult<Link> actualActionResult =
-                await linksController.DeleteLinkByIdAsync(randomLink.Id, inputDeletionReason, default);
+                await linksController.DeleteLinkByIdAsync(randomLink.Id, inputDeletionReason, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

@@ -72,7 +72,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
 
             // when
             await this.contentItemProcessingService.ModifyContentItemAsync(
-                inputContentItem, default);
+                inputContentItem, TestContext.Current.CancellationToken);
 
             // then: the caller's Submitted reaches the foundation, which is what rules on it
             this.contentItemServiceMock.Verify(service =>

@@ -42,7 +42,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ContentItemSettings
                     .ReturnsAsync(addedContentItemSetting);
 
             // when
-            ActionResult<ContentItemSetting> actualActionResult = await contentItemSettingsController.PostContentItemSettingAsync(randomContentItemSetting, default);
+            ActionResult<ContentItemSetting> actualActionResult = await contentItemSettingsController.PostContentItemSettingAsync(randomContentItemSetting, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

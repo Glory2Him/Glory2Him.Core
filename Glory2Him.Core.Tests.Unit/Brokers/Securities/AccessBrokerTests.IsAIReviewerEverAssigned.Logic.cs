@@ -53,7 +53,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             // when
             bool isEverAssigned = await this.accessBroker.IsAIReviewerEverAssignedAsync(
                 approvalId: approvalId,
-                cancellationToken: default);
+                cancellationToken: TestContext.Current.CancellationToken);
 
             // then
             isEverAssigned.Should().BeTrue(
@@ -92,7 +92,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             // when
             bool isEverAssigned = await this.accessBroker.IsAIReviewerEverAssignedAsync(
                 approvalId: approvalId,
-                cancellationToken: default);
+                cancellationToken: TestContext.Current.CancellationToken);
 
             // then
             isEverAssigned.Should().BeFalse(

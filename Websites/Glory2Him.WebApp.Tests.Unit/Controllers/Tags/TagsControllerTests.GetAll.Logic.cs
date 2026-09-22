@@ -42,7 +42,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Tags
 
             // when
             ActionResult<IQueryable<Tag>> actualActionResult =
-                await tagsController.Get(default);
+                await tagsController.Get(TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

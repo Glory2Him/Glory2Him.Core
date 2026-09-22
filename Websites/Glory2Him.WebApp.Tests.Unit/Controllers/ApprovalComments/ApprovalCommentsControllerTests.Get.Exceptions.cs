@@ -46,7 +46,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalComments
 
             // when
             ActionResult<ApprovalComment> actualActionResult =
-                await this.approvalCommentsController.GetApprovalCommentByIdAsync(someId, default);
+                await this.approvalCommentsController.GetApprovalCommentByIdAsync(someId, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -82,7 +82,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalComments
 
             // when
             ActionResult<ApprovalComment> actualActionResult =
-                await this.approvalCommentsController.GetApprovalCommentByIdAsync(someId, default);
+                await this.approvalCommentsController.GetApprovalCommentByIdAsync(someId, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -126,7 +126,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalComments
 
             // when
             ActionResult<ApprovalComment> actualActionResult =
-                await this.approvalCommentsController.GetApprovalCommentByIdAsync(someId, default);
+                await this.approvalCommentsController.GetApprovalCommentByIdAsync(someId, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -162,7 +162,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalComments
 
             // when
             ActionResult<ApprovalComment> actualActionResult =
-                await this.approvalCommentsController.GetApprovalCommentByIdAsync(someId, default);
+                await this.approvalCommentsController.GetApprovalCommentByIdAsync(someId, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

@@ -69,7 +69,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             AIReviewerPolicyVerdict actualVerdict =
                 await this.accessBroker.ResolveAIReviewerPolicyByIdAsync(
                     approvalId: approvalId,
-                    cancellationToken: default);
+                    cancellationToken: TestContext.Current.CancellationToken);
 
             // then
             actualVerdict.IsOffered.Should().BeTrue();
@@ -91,7 +91,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             AIReviewerPolicyVerdict actualVerdict =
                 await this.accessBroker.ResolveAIReviewerPolicyByIdAsync(
                     approvalId: unknownApprovalId,
-                    cancellationToken: default);
+                    cancellationToken: TestContext.Current.CancellationToken);
 
             // then
             actualVerdict.Should().BeNull();
@@ -173,7 +173,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             // when
             await this.accessBroker.ResolveAIReviewerPolicyByIdAsync(
                 approvalId: approvalId,
-                cancellationToken: default);
+                cancellationToken: TestContext.Current.CancellationToken);
 
             // then
             capturedRequest.EntityType.Should().Be("ContentItem");
@@ -231,7 +231,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             // when
             await this.accessBroker.ResolveAIReviewerPolicyByIdAsync(
                 approvalId: approvalId,
-                cancellationToken: default);
+                cancellationToken: TestContext.Current.CancellationToken);
 
             // then
             capturedRequest.EntityType.Should().Be("Association");
@@ -267,7 +267,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             // when
             await this.accessBroker.ResolveAIReviewerPolicyByIdAsync(
                 approvalId: approvalId,
-                cancellationToken: default);
+                cancellationToken: TestContext.Current.CancellationToken);
 
             // then
             this.storageBrokerMock.Verify(broker =>

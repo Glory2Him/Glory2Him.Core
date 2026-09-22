@@ -88,7 +88,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
                 eventBroker: eventBrokerMock.Object,
                 serviceScopeFactory: recordingScopeFactory);
 
-            await registration.RegisterAsync();
+            await registration.RegisterAsync(TestContext.Current.CancellationToken);
 
             // The handlers are taken off the broker's own invocations rather than listed here,
             // so this set is whatever the registration class actually bound — it cannot drift

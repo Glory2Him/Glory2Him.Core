@@ -42,7 +42,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Reactions
 
             // when
             ActionResult<IQueryable<Reaction>> actualActionResult =
-                await reactionsController.Get(default);
+                await reactionsController.Get(TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

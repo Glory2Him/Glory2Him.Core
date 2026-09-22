@@ -100,7 +100,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             ApprovalReviewerScope actualScope =
                 await this.accessBroker.RetrieveApprovalReviewerScopeByIdAsync(
                     approvalId: approvalId,
-                    cancellationToken: default);
+                    cancellationToken: TestContext.Current.CancellationToken);
 
             // then
             actualScope.ActiveReviewerUserIds.Should().BeEquivalentTo(
@@ -149,7 +149,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             ApprovalReviewerScope actualScope =
                 await this.accessBroker.RetrieveApprovalReviewerScopeByIdAsync(
                     approvalId: approvalId,
-                    cancellationToken: default);
+                    cancellationToken: TestContext.Current.CancellationToken);
 
             // then: the gather still answers, and it answered without asking about Berean
             actualScope.Should().NotBeNull();

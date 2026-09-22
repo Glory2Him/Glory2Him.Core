@@ -43,7 +43,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Comments
 
             // when
             ActionResult<Comment> actualActionResult =
-                await this.commentsController.PutCommentAsync(someComment, default);
+                await this.commentsController.PutCommentAsync(someComment, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -75,7 +75,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Comments
 
             // when
             ActionResult<Comment> actualActionResult =
-                await this.commentsController.PutCommentAsync(someComment, default);
+                await this.commentsController.PutCommentAsync(someComment, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -115,7 +115,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Comments
 
             // when
             ActionResult<Comment> actualActionResult =
-                await this.commentsController.PutCommentAsync(someComment, default);
+                await this.commentsController.PutCommentAsync(someComment, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -155,7 +155,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Comments
 
             // when
             ActionResult<Comment> actualActionResult =
-                await this.commentsController.PutCommentAsync(someComment, default);
+                await this.commentsController.PutCommentAsync(someComment, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -198,7 +198,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Comments
 
             // when
             ActionResult<Comment> actualActionResult =
-                await this.commentsController.PutCommentAsync(someComment, default);
+                await this.commentsController.PutCommentAsync(someComment, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -241,7 +241,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Comments
 
             // when
             ActionResult<Comment> actualActionResult =
-                await this.commentsController.PutCommentAsync(someComment, default);
+                await this.commentsController.PutCommentAsync(someComment, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -272,7 +272,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Comments
 
             // when
             ActionResult<Comment> actualActionResult =
-                await this.commentsController.PutCommentAsync(someComment, default);
+                await this.commentsController.PutCommentAsync(someComment, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

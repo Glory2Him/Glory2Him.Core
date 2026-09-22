@@ -41,7 +41,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ContentItemSettings
 
             // when
             ActionResult<IQueryable<ContentItemSetting>> actualActionResult =
-                await this.contentItemSettingsController.Get(default);
+                await this.contentItemSettingsController.Get(TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -70,7 +70,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ContentItemSettings
 
             // when
             ActionResult<IQueryable<ContentItemSetting>> actualActionResult =
-                await this.contentItemSettingsController.Get(default);
+                await this.contentItemSettingsController.Get(TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

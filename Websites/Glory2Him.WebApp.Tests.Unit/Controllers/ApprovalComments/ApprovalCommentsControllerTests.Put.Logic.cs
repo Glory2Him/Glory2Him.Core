@@ -44,7 +44,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalComments
 
             // when
             ActionResult<ApprovalComment> actualActionResult =
-                await approvalCommentsController.PutApprovalCommentAsync(randomApprovalComment, default);
+                await approvalCommentsController.PutApprovalCommentAsync(randomApprovalComment, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

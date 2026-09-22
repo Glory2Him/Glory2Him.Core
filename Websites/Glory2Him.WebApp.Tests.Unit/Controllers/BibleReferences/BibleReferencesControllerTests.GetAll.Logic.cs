@@ -42,7 +42,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.BibleReferences
 
             // when
             ActionResult<IQueryable<BibleReference>> actualActionResult =
-                await bibleReferencesController.Get(default);
+                await bibleReferencesController.Get(TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

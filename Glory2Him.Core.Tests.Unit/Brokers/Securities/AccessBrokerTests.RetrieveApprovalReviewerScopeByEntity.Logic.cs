@@ -68,13 +68,13 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             ApprovalReviewerScope actualScopeById =
                 await this.accessBroker.RetrieveApprovalReviewerScopeByIdAsync(
                     approvalId: approvalId,
-                    cancellationToken: default);
+                    cancellationToken: TestContext.Current.CancellationToken);
 
             ApprovalReviewerScope actualScopeByEntity =
                 await this.accessBroker.RetrieveApprovalReviewerScopeByEntityAsync(
                     entityType: entityType,
                     entityId: entityId,
-                    cancellationToken: default);
+                    cancellationToken: TestContext.Current.CancellationToken);
 
             // then
             actualScopeByEntity.Should().BeEquivalentTo(actualScopeById,
@@ -98,7 +98,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                 await this.accessBroker.RetrieveApprovalReviewerScopeByEntityAsync(
                     entityType: EntityType.ContentItem,
                     entityId: Guid.NewGuid(),
-                    cancellationToken: default);
+                    cancellationToken: TestContext.Current.CancellationToken);
 
             // then
             actualScope.Should().BeNull(
@@ -139,7 +139,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                 await this.accessBroker.RetrieveApprovalReviewerScopeByEntityAsync(
                     entityType: entityType,
                     entityId: entityId,
-                    cancellationToken: default);
+                    cancellationToken: TestContext.Current.CancellationToken);
 
             // then
             actualScope.Should().NotBeNull(

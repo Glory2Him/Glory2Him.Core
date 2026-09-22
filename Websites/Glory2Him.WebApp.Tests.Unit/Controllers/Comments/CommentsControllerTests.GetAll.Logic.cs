@@ -42,7 +42,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Comments
 
             // when
             ActionResult<IQueryable<Comment>> actualActionResult =
-                await commentsController.Get(default);
+                await commentsController.Get(TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

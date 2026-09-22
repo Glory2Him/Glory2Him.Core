@@ -49,7 +49,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalComments
                 await approvalCommentsController.ResolveApprovalCommentAsync(
                     randomApprovalComment.Id,
                     isResolved: inputIsResolved,
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

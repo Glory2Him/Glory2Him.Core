@@ -44,7 +44,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Reactions
 
             // when
             ActionResult<Reaction> actualActionResult =
-                await reactionsController.HardDeleteReactionByIdAsync(randomReaction.Id, default);
+                await reactionsController.HardDeleteReactionByIdAsync(randomReaction.Id, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

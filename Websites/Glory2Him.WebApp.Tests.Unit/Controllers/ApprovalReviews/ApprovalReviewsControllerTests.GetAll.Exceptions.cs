@@ -43,7 +43,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalReviews
 
             // when
             ActionResult<IQueryable<ApprovalReview>> actualActionResult =
-                await this.approvalReviewsController.Get(default);
+                await this.approvalReviewsController.Get(TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -75,7 +75,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalReviews
 
             // when
             ActionResult<IQueryable<ApprovalReview>> actualActionResult =
-                await this.approvalReviewsController.Get(default);
+                await this.approvalReviewsController.Get(TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

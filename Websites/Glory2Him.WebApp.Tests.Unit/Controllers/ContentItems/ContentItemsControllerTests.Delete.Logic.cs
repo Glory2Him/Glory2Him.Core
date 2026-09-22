@@ -46,7 +46,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ContentItems
 
             // when
             ActionResult<ContentItem> actualActionResult =
-                await contentItemsController.DeleteContentItemByIdAsync(randomContentItem.Id, inputDeletionReason, default);
+                await contentItemsController.DeleteContentItemByIdAsync(randomContentItem.Id, inputDeletionReason, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
