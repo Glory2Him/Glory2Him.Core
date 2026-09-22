@@ -10,9 +10,11 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.Associations.Exceptions;
 using Glory2Him.Core.Models.Foundations.ContentItems;
@@ -129,8 +131,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
-        [Fact]
-        public async Task ShouldThrowNotFoundRatherThanDependencyOnRetrieveByIdIfAnEndpointIsNotVisibleAsync()
+        [Theory]
+        [InlineData(Scope.AllVersions)]
+        [InlineData(Scope.ThisVersionOnly)]
+        public async Task ShouldThrowNotFoundRatherThanDependencyOnRetrieveByIdIfAnEndpointIsNotVisibleAsync(
+            Scope contentItemEndpointScope)
         {
             // given: the association row is visible to this caller but one of its endpoints is
             // not. Answering that with a 424 would report a visibility rule as a failed
@@ -145,19 +150,35 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             Association storedAssociation =
                 CreateStoredAssociation(contentItemEndpoint, tagEndpoint);
 
+            storedAssociation.EntityAScope = contentItemEndpointScope;
+
             this.associationServiceMock.Setup(service =>
                 service.RetrieveAssociationByIdAsync(
                     storedAssociation.Id,
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(storedAssociation);
 
-            this.contentItemServiceMock.Setup(service =>
-                service.RetrieveContentItemByIdAsync(
-                    storedAssociation.EntityAKeyId,
-                    It.IsAny<CancellationToken>()))
-                        .ThrowsAsync(new ContentItemValidationException(
-                            message: "not found",
-                            innerException: new Xeption()));
+            // Each scope's own way of saying "not visible", in that foundation's own terms: an
+            // empty group slice, which the group-keyed read returns when the group holds nothing
+            // this caller may see, and a validation-shaped not-found from the by-id read.
+            if (contentItemEndpointScope == Scope.AllVersions)
+            {
+                this.contentItemServiceMock.Setup(service =>
+                    service.RetrieveContentItemsByGroupIdAsync(
+                        storedAssociation.EntityAGroupId,
+                        It.IsAny<CancellationToken>()))
+                            .ReturnsAsync(new List<ContentItem>());
+            }
+            else
+            {
+                this.contentItemServiceMock.Setup(service =>
+                    service.RetrieveContentItemByIdAsync(
+                        storedAssociation.EntityAKeyId,
+                        It.IsAny<CancellationToken>()))
+                            .ThrowsAsync(new ContentItemValidationException(
+                                message: "not found",
+                                innerException: new Xeption()));
+            }
 
             var notFoundAssociationOrchestrationException =
                 new NotFoundAssociationOrchestrationException(

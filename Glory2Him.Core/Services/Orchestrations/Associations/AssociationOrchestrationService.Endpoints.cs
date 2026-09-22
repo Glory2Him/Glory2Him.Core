@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -43,25 +43,38 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             public Scope Scope { get; }
         }
 
-        private async ValueTask ResolveEndpointAsync(
+        // The ADD's resolver: it is handed raw key ids and reads each endpoint to DERIVE the
+        // scope, group and content type from it, so there is no stored scope to answer at yet.
+        // The read paths' resolver is a different question and lives in the .Reads partial; both
+        // go through the one conversion below.
+        private ValueTask ResolveEndpointAsync(
             EntityType entityType,
             Guid keyId,
             Action<ResolvedEndpoint> onResolved,
             string endpointName,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken) =>
+            ConvertEndpointValidationFailureToNotFoundAsync(
+                resolveEndpointAsync: async () =>
+                    onResolved(await ResolveEndpointCoreAsync(entityType, keyId, cancellationToken)),
+                endpointName: endpointName);
+
+        // The conversion, written ONCE and shared by both resolvers. The endpoint's own service
+        // reports a missing or non-visible row as a validation failure; to the association it
+        // means the endpoint could not be resolved. The real reason has already been logged
+        // inside that service (§SEC14.5 rules 5-7).
+        //
+        // Reaching the closing catch (Xeption) arm instead would answer "this endpoint is not
+        // visible" with a 424 — a visibility rule reported as a failed dependency.
+        private static async ValueTask ConvertEndpointValidationFailureToNotFoundAsync(
+            Func<ValueTask> resolveEndpointAsync,
+            string endpointName)
         {
             try
             {
-                ResolvedEndpoint resolved = await ResolveEndpointCoreAsync(
-                    entityType, keyId, cancellationToken);
-
-                onResolved(resolved);
+                await resolveEndpointAsync();
             }
             catch (Xeption endpointException) when (IsEndpointNotFound(endpointException))
             {
-                // The endpoint's own service reports a missing or non-visible row as a validation
-                // failure; to the association it means the endpoint could not be resolved. The
-                // real reason has already been logged inside that service.
                 throw new NotFoundAssociationOrchestrationException(
                     message: $"The {endpointName} endpoint was not found.");
             }
