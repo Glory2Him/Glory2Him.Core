@@ -120,5 +120,23 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         ValueTask<Association> ModifyAssociationAsync(
             Association association,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// The reversible takedown. The gate splits by layer exactly as modify's does: this layer
+        /// runs authentication and the global <c>ReadOnly</c> block and refuses an anonymous or
+        /// globally blocked caller <b>unauthorized</b> — a write denial, not a not-found — with
+        /// <b>no read against the <c>Associations</c> table at all</b>, so the surface cannot be
+        /// used to probe which association ids exist (§SEC14.7 posture A′ rule 4).
+        ///
+        /// <para>The owner-or-<c>Administrators</c> test, checked before the idempotent
+        /// already-deleted short-circuit, and both ends of the <c>ReadOnly</c> veto are composed
+        /// from the stored row and belong to the foundation; their refusals arrive as
+        /// <c>AssociationOrchestrationDependencyValidationException</c>. This member composes
+        /// nothing and issues no second read to duplicate them.</para>
+        /// </summary>
+        ValueTask<Association> RemoveAssociationByIdAsync(
+            Guid associationId,
+            string? deletionReason = null,
+            CancellationToken cancellationToken = default);
     }
 }

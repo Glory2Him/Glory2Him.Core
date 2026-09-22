@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Events;
@@ -43,6 +44,42 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
 
                 return await this.associationService.ModifyAssociationAsync(
                     association,
+                    cancellationToken);
+            });
+
+        // The reversible takedown, and the same split as modify. The orchestration runs
+        // authentication and the global block BEFORE anything touches the Associations table,
+        // which is what keeps this surface from being used to probe which association ids exist;
+        // the owner-or-Administrators test and both ends of the veto are composed from the stored
+        // row and belong to the foundation (§SEC14.7 posture A′ rule 4). No second read is issued
+        // to duplicate them.
+        //
+        // The deletion reason is forwarded verbatim rather than dropped: it is the audit stamp of
+        // WHY a row came down, and this is the only layer #318's controller can reach it through.
+        public ValueTask<Association> RemoveAssociationByIdAsync(
+            Guid associationId,
+            string? deletionReason = null,
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // the envelope exists to capture the ambient security context the row-free half
+                // of the gate runs against — the request payload carries only the id and reason
+                EventEnvelope<Association> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(
+                        content: new Association
+                        {
+                            Id = associationId,
+                            DeletionReason = deletionReason,
+                        });
+
+                ValidateUserMayWriteWithoutTheStoredRow(envelope.SecurityContext);
+                ValidateAssociationId(associationId);
+
+                return await this.associationService.RemoveAssociationByIdAsync(
+                    associationId,
+                    deletionReason,
                     cancellationToken);
             });
     }
