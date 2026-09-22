@@ -64,6 +64,21 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.AIReviewerAssign
             actualAssignment.Id.Should().Be(requestedAssignment.Id);
         }
 
+        [Fact]
+        public async Task ShouldReturnNullForAnApprovalWithNoAssignmentAsync()
+        {
+            // given: a round nobody has ever assigned Berean to
+            Approval approvalWithNoAssignment = await SeedApprovalAsync();
+
+            // when
+            AIReviewerAssignment actualAssignment =
+                await this.broker.StorageBroker.SelectAIReviewerAssignmentByApprovalIdAsync(
+                    approvalWithNoAssignment.Id, TestContext.Current.CancellationToken);
+
+            // then: the empty answer, not a fault
+            actualAssignment.Should().NotBeNull();
+        }
+
         private async Task<Approval> SeedApprovalAsync()
         {
             string actorUserId = Guid.NewGuid().ToString();
