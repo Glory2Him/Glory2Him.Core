@@ -62,7 +62,8 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ApprovalComments
                     requestedApproval.Id, TestContext.Current.CancellationToken);
 
             // then
-            actualComments.Should().BeEmpty();
+            actualComments.Select(comment => comment.Id)
+                .Should().Equal(new[] { requestedComment.Id });
         }
 
         private async Task<Approval> SeedApprovalAsync()
