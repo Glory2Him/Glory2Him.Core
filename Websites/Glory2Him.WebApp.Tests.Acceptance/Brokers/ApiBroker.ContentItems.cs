@@ -76,6 +76,15 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
             return await this.httpClient.GetAsync(url);
         }
 
+        // The raw response for a content-item read, for the assertions that are about the
+        // PAYLOAD'S OWN PROPERTY NAMES or about a query option being REFUSED rather than about
+        // a deserialised model. A typed read cannot answer either question: it drops any
+        // property the model does not declare, and it throws on a non-success status instead of
+        // reporting it.
+        public async ValueTask<HttpResponseMessage> GetContentItemsResponseAsync(
+            string relativeUrl) =>
+            await this.httpClient.GetAsync(relativeUrl);
+
         public async ValueTask<List<ContentItem>> GetContentItemsByGroupIdAsync(Guid groupId) =>
             await this.apiFactoryClient.GetContentAsync<List<ContentItem>>(
                 $"{contentItemsRelativeUrl}/Groups/{groupId}");
