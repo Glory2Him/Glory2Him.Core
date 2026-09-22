@@ -81,6 +81,29 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ApprovalComments
             actualComments.Should().BeEmpty();
         }
 
+        [Fact]
+        public async Task ShouldIncludeASoftDeletedCommentAsync()
+        {
+            // given: a live comment and a withdrawn one on the same round — the read is
+            // deliberately unfiltered beyond the approval id, so both must come back
+            Approval approval = await SeedApprovalAsync();
+
+            ApprovalComment liveComment =
+                await SeedApprovalCommentAsync(approval.Id, isDeleted: false);
+
+            ApprovalComment deletedComment =
+                await SeedApprovalCommentAsync(approval.Id, isDeleted: true);
+
+            // when
+            List<ApprovalComment> actualComments =
+                await this.broker.StorageBroker.SelectApprovalCommentsByApprovalIdAsync(
+                    approval.Id, TestContext.Current.CancellationToken);
+
+            // then
+            actualComments.Select(comment => comment.Id).Should().BeEquivalentTo(
+                new[] { liveComment.Id });
+        }
+
         private async Task<Approval> SeedApprovalAsync()
         {
             string actorUserId = Guid.NewGuid().ToString();
