@@ -126,5 +126,47 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItems
                 }
             }
         }
+
+        /// <summary>
+        /// Criterion 1, second half: NOTHING INSIDE §SEC14.1 IS MISSING FROM THE HEAD. Stated
+        /// over the page rather than over the catalogue, because the read is capped at 50 and
+        /// no answer can carry a larger visible catalogue than that. This fixture states its own
+        /// size — five rows — which is inside the cap, and pins its own dates so those five ARE
+        /// the head of the order.
+        /// </summary>
+        [Fact]
+        public async Task ShouldServeEveryCanonicallyVisibleContentItemOnTheFeedsFirstPageAsync()
+        {
+            // given
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            var arrangedContentItems = new List<CoreContentItem>();
+
+            try
+            {
+                for (int index = 0; index < 5; index++)
+                {
+                    arrangedContentItems.Add(
+                        await this.apiBroker.InsertFeedContentItemAsync(
+                            createdWhen: now.AddMinutes(-index),
+                            publishDate: now.AddMinutes(-index)));
+                }
+
+                // when
+                List<ContentItem> firstFeedPage =
+                    await this.apiBroker.GetContentItemFeedAsync(skip: 0, take: 10);
+
+                // then
+                firstFeedPage.Select(contentItem => contentItem.Id)
+                    .Should().BeEquivalentTo(
+                        arrangedContentItems.Select(contentItem => contentItem.Id));
+            }
+            finally
+            {
+                foreach (CoreContentItem arrangedContentItem in arrangedContentItems)
+                {
+                    await this.apiBroker.RemoveCoreContentItemByIdAsync(arrangedContentItem.Id);
+                }
+            }
+        }
     }
 }
