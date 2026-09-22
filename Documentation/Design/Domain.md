@@ -416,7 +416,7 @@ A is the endpoint with the lower `(EntityType name, GroupId)` tuple; B is the ot
 1. **Order on the enum name, not its numeric value**, using `string.CompareOrdinal`. The name is what SQL stores and what the §DOM4.4 check constraint compares. A rename then breaks loudly at the constraint; a renumber would silently reorder existing rows.
 2. **Order on `GroupId`, not the effective id.** `GroupId` never changes, so a scope toggle can never force A and B to swap columns — which would otherwise turn a set-scope operation into a repoint.
 3. **Guid comparison must use SQL Server's ordering, not .NET's.** SQL Server orders `uniqueidentifier` by bytes 10–15 first; .NET compares the leading `_a`/`_b`/`_c` fields as integers. The two disagree on most pairs, so `Guid.CompareTo` would produce an order the database's own canonical-order constraint rejects. Use `new SqlGuid(a).CompareTo(new SqlGuid(b))`.
-4. **Normalisation runs inside `DoAddAssociationAsync`, before the storage call** — not in the public method and not in an orchestration. `Association-Adding` is a public event address whose substrate handler enters `DoAdd` directly, so anything layered above it is bypassed.
+4. **Normalisation runs inside the foundation's own write path, before the storage call** — `DoAddAssociationAsync` today, and `UpsertPersonalAssociationAsync` when §ARC16.2.2 is built — **not in the public method and not in an orchestration.** `Association-Adding` is a public event address whose substrate handler enters `DoAdd` directly, so anything layered above it is bypassed.
 
 ### DOM4.5 Derived and Pinned Endpoint Fields *(formerly §4.5)*
 
