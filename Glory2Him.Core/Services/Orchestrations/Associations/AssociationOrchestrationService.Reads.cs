@@ -76,10 +76,17 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         // the list and not found when it is opened — and that is not a theory, it is what this
         // method did before #657's second round.
         //
-        // The message is normalised to the association's own not-found. On the ADD path naming
-        // the endpoint costs nothing, because the caller supplied those ids themselves; here they
-        // supplied only an association id, so naming an endpoint would report one of the row's
-        // columns and make this miss distinguishable from the other four (§SEC14.5 rules 1 and 2).
+        // The message is normalised to the association's own not-found — the SAME message the
+        // foundation answers its three misses with, because §SEC14.5 rule 1 measures what an
+        // unprivileged probe can tell apart and a probe sees a body. Naming an endpoint here
+        // would report one of the row's columns and make this miss distinguishable from the other
+        // four (rules 1 and 2). On the ADD path naming it costs nothing, because the caller
+        // supplied those ids themselves.
+        //
+        // The id in the message is the caller's own input and is none of the three things rule 2
+        // bars. The two exception FAMILIES stay two — this one and the foundation's — because
+        // they record which layer refused, which is a different question from what the caller is
+        // told.
         private async ValueTask ValidateEndpointsAreVisibleAsync(
             Association association,
             CancellationToken cancellationToken)
@@ -105,7 +112,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             catch (NotFoundAssociationOrchestrationException)
             {
                 throw new NotFoundAssociationOrchestrationException(
-                    message: "Content item association not found.");
+                    message: $"Content item association not found with id: {association.Id}.");
             }
 
             // AN ENDPOINT TYPE WITH NO FOUNDATION SERVICE IS A NOT-FOUND ON THIS PATH, AND AN
@@ -123,7 +130,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             catch (InvalidAssociationOrchestrationException)
             {
                 throw new NotFoundAssociationOrchestrationException(
-                    message: "Content item association not found.");
+                    message: $"Content item association not found with id: {association.Id}.");
             }
         }
 

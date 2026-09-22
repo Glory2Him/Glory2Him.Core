@@ -348,7 +348,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
 
             var notFoundAssociationOrchestrationException =
                 new NotFoundAssociationOrchestrationException(
-                    message: "Content item association not found.");
+                    message: FoundationNotFoundMessageFor(storedAssociation.Id));
 
             var expectedValidationException =
                 new AssociationOrchestrationValidationException(
@@ -436,7 +436,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
 
             var notFoundAssociationOrchestrationException =
                 new NotFoundAssociationOrchestrationException(
-                    message: "Content item association not found.");
+                    message: FoundationNotFoundMessageFor(storedAssociation.Id));
 
             var expectedValidationException =
                 new AssociationOrchestrationValidationException(
@@ -458,9 +458,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             actualException.Should().BeEquivalentTo(expectedValidationException);
 
             // the caller-facing answer names no reason, no state and no identity — not even
-            // WHICH endpoint refused, which on this path the caller never supplied
+            // WHICH endpoint refused, which on this path the caller never supplied — and it is
+            // word for word the answer the foundation gives its own three misses
             actualException.InnerException!.Message.Should()
-                .Be("Content item association not found.");
+                .Be(FoundationNotFoundMessageFor(storedAssociation.Id));
 
             actualException.InnerException.Message.Should().NotContain("endpoint");
             actualException.Data.Count.Should().Be(0);
