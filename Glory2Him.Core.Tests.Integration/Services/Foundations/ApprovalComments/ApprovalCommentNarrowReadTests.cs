@@ -101,7 +101,7 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ApprovalComments
 
             // then
             actualComments.Select(comment => comment.Id).Should().BeEquivalentTo(
-                new[] { liveComment.Id });
+                new[] { liveComment.Id, deletedComment.Id });
         }
 
         private async Task<Approval> SeedApprovalAsync()
