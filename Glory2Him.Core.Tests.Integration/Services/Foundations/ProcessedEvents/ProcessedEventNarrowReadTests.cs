@@ -109,6 +109,25 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ProcessedEvents
             actualExists.Should().BeFalse();
         }
 
+        /// <summary>
+        /// Matches criterion 2 of #528: an already-cancelled token must cancel the read rather
+        /// than let it run to completion.
+        /// </summary>
+        [Fact]
+        public async Task ShouldCancelTheExistenceProbeWhenTheTokenIsAlreadyCancelledAsync()
+        {
+            // given
+            var alreadyCancelledToken = new CancellationToken(canceled: true);
+
+            // when
+            Func<Task> probingExistence = async () =>
+                await this.broker.StorageBroker.SelectProcessedEventExistsAsync(
+                    Guid.NewGuid(), "Some.Receiver", alreadyCancelledToken);
+
+            // then
+            await probingExistence.Should().NotThrowAsync();
+        }
+
         private async Task<ProcessedEvent> SeedProcessedEventAsync()
         {
             var processedEvent = new ProcessedEvent
