@@ -177,11 +177,12 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                  .HasComputedColumnSql("COALESCE([PublishDate], [CreatedWhen])", stored: true);
 
             // §DOM11.3 — feed order, over the column above and with that order's Id terminator;
-            // §SEC14.1 — visibility predicate terms 1, 2, 3 and 4, and §DOM3.8 rule 2 — the
-            // feed's ContentType exclusion, carried as includes.
+            // §SEC14.1 — visibility predicate term 1 as the filter; §SEC14.1 terms 1, 2, 3 and 4
+            // and §DOM3.8 rule 2 — the feed's ContentType exclusion, carried as includes.
             model.HasIndex(EffectivePublishedWhen, nameof(ContentItem.Id))
                  .HasDatabaseName("IX_ContentItems_FeedEffective")
                  .IsDescending(true, true)
+                 .HasFilter("[IsDeleted] = 0")
                  .IncludeProperties(
                      nameof(ContentItem.IsDeleted),
                      nameof(ContentItem.ApprovalStatus),
