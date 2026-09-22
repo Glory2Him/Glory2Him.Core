@@ -128,6 +128,87 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItems
         }
 
         /// <summary>
+        /// Criterion 2: A TOPIC OR A SERIES NEVER APPEARS IN THE FEED, AND IS NOT THEREBY MADE
+        /// UNREACHABLE. §DOM3.8 rule 2 excludes both from THIS read and from this read only, so
+        /// the fixture asserts the other half too — the excluded rows still answer on
+        /// <c>GET api/ContentItems/Public</c>. A test asserting only absence could not tell
+        /// "filtered out of one projection" from "not there at all", and the second is the
+        /// failure that would make every topic unsearchable.
+        ///
+        /// <para>The non-zero-skip arm is here for criterion 1's reason: an exclusion composed
+        /// AFTER Skip serves a topic on page two while page one looks clean.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldExcludeTopicAndSeriesContentItemsFromTheFeedAsync()
+        {
+            // given
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            var arrangedContentItems = new List<CoreContentItem>();
+
+            try
+            {
+                for (int index = 0; index < 4; index++)
+                {
+                    arrangedContentItems.Add(
+                        await this.apiBroker.InsertFeedContentItemAsync(
+                            createdWhen: now.AddMinutes(-index),
+                            publishDate: now.AddMinutes(-index)));
+                }
+
+                // Canonically visible in every respect — only the content type keeps them out.
+                CoreContentItem topicContentItem =
+                    await this.apiBroker.InsertFeedContentItemAsync(
+                        createdWhen: now,
+                        publishDate: now,
+                        contentType: ContentType.Topic);
+
+                CoreContentItem seriesContentItem =
+                    await this.apiBroker.InsertFeedContentItemAsync(
+                        createdWhen: now,
+                        publishDate: now,
+                        contentType: ContentType.Series);
+
+                arrangedContentItems.Add(topicContentItem);
+                arrangedContentItems.Add(seriesContentItem);
+
+                var excludedContentItemIds = new List<Guid>
+                {
+                    topicContentItem.Id,
+                    seriesContentItem.Id
+                };
+
+                // when
+                List<ContentItem> firstFeedPage =
+                    await this.apiBroker.GetContentItemFeedAsync(skip: 0, take: 2);
+
+                List<ContentItem> laterFeedPage =
+                    await this.apiBroker.GetContentItemFeedAsync(skip: 2, take: 4);
+
+                List<ContentItem> publicContentItems =
+                    await this.apiBroker.GetPublicContentItemsAsync();
+
+                // then
+                firstFeedPage.Select(contentItem => contentItem.Id)
+                    .Should().NotIntersectWith(excludedContentItemIds);
+
+                laterFeedPage.Select(contentItem => contentItem.Id)
+                    .Should().NotIntersectWith(excludedContentItemIds);
+
+                // FILTERED OUT OF ONE PROJECTION, not gone: the same rows keep answering on the
+                // public read, which is where a reader narrowing by category finds them.
+                publicContentItems.Select(contentItem => contentItem.Id)
+                    .Should().Contain(excludedContentItemIds);
+            }
+            finally
+            {
+                foreach (CoreContentItem arrangedContentItem in arrangedContentItems)
+                {
+                    await this.apiBroker.RemoveCoreContentItemByIdAsync(arrangedContentItem.Id);
+                }
+            }
+        }
+
+        /// <summary>
         /// Criterion 1, second half: NOTHING INSIDE §SEC14.1 IS MISSING FROM THE HEAD. Stated
         /// over the page rather than over the catalogue, because the read is capped at 50 and
         /// no answer can carry a larger visible catalogue than that. This fixture states its own
