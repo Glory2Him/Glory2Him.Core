@@ -192,10 +192,17 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ContentItems
 
         /// <summary>
         /// Criterion 5: THE FOURTEEN SOFT-DELETE FILTERED INDEXES ARE OUT OF SCOPE AND STAY
-        /// THAT WAY. Read catalogue-wide rather than per table, and as the (name, filter) PAIRS
-        /// SQL Server stored rather than as a count of them: a count survives a diff that
-        /// renames one index or rewrites one filter into a different filter still carrying the
-        /// term, which is exactly the diff this criterion exists to refuse.
+        /// THAT WAY, AND EXACTLY ONE FILTERED INDEX JOINS THEM. Read catalogue-wide rather
+        /// than per table, and as the (name, filter) PAIRS SQL Server stored rather than as a
+        /// count of them: a count survives a diff that renames one index or rewrites one
+        /// filter into a different filter still carrying the term, which is exactly the diff
+        /// this criterion exists to refuse.
+        ///
+        /// <para><b>Catalogue-wide and not an allowlist of the fourteen.</b> An allowlist
+        /// cannot see a name it does not already list, so a stray fifteenth filtered index —
+        /// or the ruled one misspelled, or the ruled one carrying the wrong filter — would
+        /// pass unseen. The whole selection is read and the single permitted addition is named
+        /// here instead.</para>
         /// </summary>
         [Fact]
         public async Task ShouldLeaveTheFourteenSoftDeleteFilteredIndexesUnchanged_AfterTheMigrationAsync()
@@ -204,6 +211,11 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ContentItems
             var expectedPairs = new[]
             {
                 "IX_ContentItem_IsPublished	([IsPublished]=(1) AND [IsDeleted]=(0))",
+
+                // The one permitted addition, named rather than counted: the ruled feed index
+                // and nothing else, carrying §SEC14.1's first term as its filter.
+                "IX_ContentItems_FeedEffective	([IsDeleted]=(0))",
+
                 "UX_AIReviewerAssignments_ApprovalId	([IsDeleted]=(0))",
                 "UX_ApprovalReviewRequests_ApprovalId_RequestedUserId	([IsDeleted]=(0))",
                 "UX_ApprovalReviews_ApprovalId_CreatedBy	([StatusId]<>(4) AND [IsDeleted]=(0))",
@@ -234,8 +246,9 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ContentItems
             // then
             deployedPairs.Should().Equal(
                 expectedPairs,
-                because: "every soft-delete filtered index is out of this change's scope, "
-                    + "name and filter text alike");
+                because: "every one of the fourteen baseline filtered indexes is out of this "
+                    + "change's scope, name and filter text alike, and the only addition is "
+                    + "the ruled feed index under exactly that name and filter");
         }
 
         private static string DescribeKey(DeployedIndexColumn indexColumn) =>
