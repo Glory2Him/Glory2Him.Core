@@ -83,6 +83,7 @@ resolves by grep even though the citable number is now prefixed.
     - [ARC16.7.5 Resetting a decided round](#arc1675-resetting-a-decided-round-formerly-1675)
     - [ARC16.7.3 What is deliberately not built](#arc1673-what-is-deliberately-not-built-formerly-1673)
     - [ARC16.7.4 Review requests and reviewer candidates](#arc1674-review-requests-and-reviewer-candidates-formerly-1674)
+  - [ARC16.8 AssociationOrchestrationService](#arc168-associationorchestrationservice)
 - [ARC17. Recommended API Design](#arc17-recommended-api-design-formerly-17)
   - [ARC17.1 Content Endpoints](#arc171-content-endpoints-formerly-171)
   - [ARC17.2 Feed Endpoints](#arc172-feed-endpoints-formerly-172)
@@ -277,7 +278,7 @@ Current intended foundation services:
 3. An entity is visible on a content item only when both it and the association satisfy §SEC14.3.
 4. The same `Tag`, `Reaction`, `Comment` or `BibleReference` may be associated with multiple content items independently — each link is its own `Association` row with its own approval state.
 
-**Neither gate is implemented today.** `AssociationOrchestrationService` takes no `IContentItemSettingService`, so the §DOM6.10 settings gate is unenforced, exactly as the §SEC14.3 composite visibility rule is unenforced (§ARC12.5 entry 1). Moving these rules here does not implement them; it records where they belong.
+**Where each gate belongs, and neither is built.** The §SEC14.3 composite visibility rule belongs to §ARC16.8's reaction summary read on `AssociationOrchestrationService`, which composes rules 3, 4 and 6 above the foundation's self-only filter over rules 1, 2 and 5. The §DOM6.10 settings gate on the write path belongs to §ARC16.2.1, and it reaches its effective setting through `IAccessBroker` rather than through an `IContentItemSettingService` dependency — a broker arm an orchestration may hold at no Florance cost, which is why the older wording naming that service dependency was wrong about the gate as well as about the state. **Both are designed and neither is built, so both gates are unenforced today.** Moving these rules into this section did not implement them; it recorded where they belong, and §ARC16.8 and §ARC16.2.1 are where they are designed to be honoured.
 
 **`ApprovalReview`** — `ApprovalReviewService` owns the decision record, dismissal retention for audit (a dismissed review is never deleted), and a new review permitted after a dismissal. It publishes five facts on four addresses: `-Added`, `-Modified`, `-Removed` (shared by `-HardRemoved`, distinguished by event name) and `-Dismissed`, which is the fact the approval workflow most needs and which the dismiss transition publishes **instead of** `-Modified` (§APR9.7.1).
 
@@ -429,7 +430,7 @@ Current intended orchestrations:
 
 | Number | Name | Purpose |
 | --- | --- | --- |
-| 1 | `AssociationOrchestrationService` | Resolves an association's two endpoints against their respective entity services and runs the retrieve-or-add suggestion on add. Its only operation today is `AddAssociationAsync`; it has **no read surface**, so the §SEC14.3 composite visibility rule is *not* implemented anywhere yet. |
+| 1 | `AssociationOrchestrationService` | Resolves an association's two endpoints against their respective entity services and runs the retrieve-or-add suggestion on add. Its only operation today is `AddAssociationAsync`. **Its read surface is designed and not built: §ARC16.8's content item reaction summary read, which is where the §SEC14.3 composite visibility rule is designed to be implemented** — rules 3, 4 and 6 composed above the foundation's self-only filter over rules 1, 2 and 5, per §SEC14.3's Layer paragraph. **Until that read is built the composite rule is implemented nowhere**, which is a recorded open gate rather than a closed one. Its caller-facing write surface is §ARC16.8.1's, likewise designed and not built. |
 | 2 | `ContentItemSettingOrchestrationService` | **Built.** It spans two entity types: an override's `ContentType` is derived from the `ContentItem` it names rather than accepted from the caller, because the write gate composes the publisher tier from that value (§ARC12.5.2 business rule 6). Reading a second entity is §ARC12.1 rule 2's definition of an orchestration. An earlier note here struck this entry out as single-entity; that held only while every flow stayed inside `ContentItemSetting`, and one does not. A `ContentItemSettingsProcessingService` may still be earned for the effective-setting merge, which reads two rows of ONE entity — per §ARC12.1 it would sit under this orchestration rather than replace it. |
 | 3 | `ApprovalOrchestrationService` | Orchestrates the approval **round** — submission, review decisions, policy outcomes, and the denormalized state on the owning entity. Reviewer coordination is entry 5's and the AI reviewer's own lifecycle is entry 4's; see §ARC12.5.3's banner for the split. |
 | 4 | `AIReviewerOrchestrationService` | **Built** (#474). Asking Berean, asking again, withdrawing it, and reporting where it stands (§APR8.6.2). Spans `Approval` and `AIReviewerAssignment`. Absent from this table until now, which was drift rather than a ruling. **Extended by #532 and #534 — it holds two subscriptions and a second seam** (§APR8.6.2.1): `Approval-Added` and `Approval-Modified` for automatic assignment, and `IAIReviewerAssignmentWorkflowService` beside the caller-facing `IAIReviewerAssignmentService` it already held. It still maps **two** exception families, `Approval*` and `AIReviewerAssignment*` — the seam is a second door on the foundation class and shares its `TryCatch`, so §ARC16.7.1 finding 2 counts the pair once. The subscriptions bring `IEnvelopeIntegrityBroker` and **not** `IEventBroker`, for the reason §ARC12.5.4 business rule 1 gives: both handlers verify an inbound envelope and cause their write through a seam that publishes for itself. |
@@ -445,7 +446,7 @@ Current intended orchestrations:
 >
 > **Entries 4 and 5 are entry 3's decomposition, not new features.** Entry 3 grew to seven service references over six foundation objects, against the two-to-three the Florance guidance allows, and §ARC16.7.1 went on recording "three dependencies, not ten" while the constructor carried more than twice that. What follows §ARC12.5.3 splits it along the seams the design already drew — §ARC16.7.4 says in as many words that review requests "compose beside" the round rather than into it, and §APR8.6.2's caller-facing trio had already left for entry 4. Nothing here changes a rule about approval; it changes which service holds which rule.
 
-**RULE — an orchestration holds brokers, and the Florance count does not count them.** Every orchestration in this solution holds `ILoggingBroker`, and every one that takes part in the event substrate holds `IEventEnvelopeBroker` and `IEnvelopeIntegrityBroker`, plus `IEventBroker` **where it publishes** — `ApprovalOrchestrationService` does, and `ApprovalReviewerOrchestrationService` after #522 does not, because its two subscriptions verify and then cause their write through a workflow seam that publishes for itself (§ARC12.5.4 business rule 1); `ApprovalOrchestrationService`, `AIReviewerOrchestrationService` and `ApprovalReviewerOrchestrationService` additionally hold `IAccessBroker`, which is the whole reason a service spanning several entity types can ask a policy question without resolving policy itself (§ARC12.3.1, §APR8.6.1 rule 4). The count §ARC12.1 and the Florance guidance are about is the count of **exception families a service must catch and map** (§ARC16.7.1), and a broker obliges none: it holds no logic to validate (§ARC12.2), so it raises no family of its own and its raw failures are what the closing `catch (Exception)` is for. That is why brokers sit outside the count — the reason is the arm, not the layer, and a broker that ever did raise a family would count like any other contract.
+**RULE — an orchestration holds brokers, and the Florance count does not count them.** Every orchestration in this solution holds `ILoggingBroker`, and every one that takes part in the event substrate holds `IEventEnvelopeBroker` and `IEnvelopeIntegrityBroker`, plus `IEventBroker` **where it publishes** — `ApprovalOrchestrationService` does, and `ApprovalReviewerOrchestrationService` after #522 does not, because its two subscriptions verify and then cause their write through a workflow seam that publishes for itself (§ARC12.5.4 business rule 1); `ApprovalOrchestrationService`, `AIReviewerOrchestrationService` and `ApprovalReviewerOrchestrationService` additionally hold `IAccessBroker`, which is the whole reason a service spanning several entity types can ask a policy question without resolving policy itself (§ARC12.3.1, §APR8.6.1 rule 4). §ARC16.8's reaction summary read and §ARC16.2.1's write gate both design a fourth holder, `AssociationOrchestrationService`; neither is built, so the enumeration above is what holds one today. The count §ARC12.1 and the Florance guidance are about is the count of **exception families a service must catch and map** (§ARC16.7.1), and a broker obliges none: it holds no logic to validate (§ARC12.2), so it raises no family of its own and its raw failures are what the closing `catch (Exception)` is for. That is why brokers sit outside the count — the reason is the arm, not the layer, and a broker that ever did raise a family would count like any other contract.
 
 > **Three instruction files stated this the other way, and all three are corrected in the same change as this rule.** The clause was written as the tail of the same-kind rule, whose real subject is that an orchestration must not mix processing services with foundation services. Read literally it forbids `ILoggingBroker`, which would leave an orchestration unable to log, and it forbids `IAccessBroker`, which would put §APR8.4's most-specific-wins back inside every service that asks a policy question — the exact duplication §APR8.6.1 rule 4 exists to prevent. Each now bars a **storage** broker, which is the boundary actually being protected: an orchestration reaching storage directly skips every layer beneath it at once.
 >
@@ -828,7 +829,7 @@ Responsible for:
 2. Validating scope consistency.
 3. Validating supported `EntityType`.
 4. Applying publish date rules.
-5. Reading associations for content item display.
+5. Reading associations for content item display — the **self-only** filter §SEC14.3's Layer paragraph assigns the foundation, covering rules 1, 2 and 5. The composite read that adds rules 3, 4 and 6 is §ARC16.8's, on the orchestration.
 6. Reading topic children.
 7. Applying soft delete fields.
 
@@ -1033,6 +1034,174 @@ Five operations serve §APR7.9 and §ARC16.7.2's naming, each spanning the appro
 
 The request rows change no §APR8.5 outcome, so nothing here touches the evaluation, the verdict or the decision paths — the whole feature composes beside §ARC16.7.1–§ARC16.7.2 rather than into them. **That sentence is what licenses §ARC12.5.4**: a feature that composes beside another is a service beside it, and the only reason it was not one from the start is that it was built while §ARC16.7.1's dependency count was still believed to read three.
 
+### ARC16.8 AssociationOrchestrationService
+
+`IAssociationOrchestrationService.RetrieveContentItemReactionSummariesAsync` answers, for a set of content items, which reactions each has actually been given, how many of each, and which one the calling reader holds.
+
+```csharp
+ValueTask<IReadOnlyList<ContentItemReactionSummary>> RetrieveContentItemReactionSummariesAsync(
+    IReadOnlyList<Guid> contentItemIds,
+    CancellationToken cancellationToken = default);
+```
+
+**Why the read sits on the orchestration.** §SEC14.3's **Layer** paragraph is the rule: rules 3, 4 and 6 span more than one entity, so "the composite rule belongs to an orchestration or aggregation service that can resolve both endpoints. A public read surface must therefore bind to that service, not to the foundation's collection read." The foundation keeps the self-only filter over rules 1, 2 and 5, and this read composes the rest above it. §ARC12.1 rule 2 is the second input and agrees: the flow spans `Association`, `Reaction`, `ContentItem` and `ContentItemSetting`, which is an orchestration's definition. **§EVN18 rule 3 is deliberately not the citation** — `Association` is a Single-Row type, for which that rule says a foundation binding is correct, so it argues the other way. The argument that reaches upward here is §SEC14.3's alone.
+
+The read adds **no service dependency**: `IAssociationService`, `IReactionService` and `IContentItemService` are already held, and `IAccessBroker` is a broker, which §ARC12.5 puts outside the Florance count — "a broker obliges none: it holds no logic to validate, so it raises no family of its own". No Florance deviation is sought and none is granted — and none is implied: the service's existing seven entity services already break the dependency-count guidance, which §ARC12.5 entry 1's provisional note records and which the deviation register explicitly refuses to accept as a precedent. This read neither worsens that count nor regularises it.
+
+**Three subsections carry this service's rules, and none restates another.**
+
+- **§ARC16.2.1** — the §DOM6.10 facet gate on the **write** path, and the rule that exposers do not interact directly with the association foundation service. Recorded there, not here.
+- **§ARC16.8** — this section: the **read**.
+- **§ARC16.8.1** — the caller-facing **write surface**: the upsert that adds, replaces or revives a reader's reaction, and the pair-keyed removal with its signature, its route and its response codes. Recorded there, not here.
+
+Both neighbours are pointed at rather than copied; a rule stated twice is a rule that will eventually disagree with itself. **Neither exists yet, and they land in opposite directions**: §ARC16.2.1 nests under §ARC16.2, well above this section, so **the pointer to it is a backward reference**; §ARC16.8.1 nests under this section, so **the pointer to it is a forward one**. Reference by section number rather than by position is this document's house style for both, which is why neither pointer names a direction.
+
+#### The projection
+
+`ContentItemReactionSummary`, one per answerable id:
+
+| Field | Type | Origin |
+| --- | --- | --- |
+| `ContentItemId` | `Guid` | **Carried** — **the id the caller supplied, echoed back verbatim**, so the client keys its cards on what it already holds. It is deliberately **not** `Association.EntityAEffectiveId`: the caller supplies a version's id, the orchestration resolves it to that version group's effective id to run the count, and it maps the answer back onto the id it was given. A card rendering v2 holds v2's id and nothing else, so echoing the group id would leave every amended item unable to match its own summary. |
+| `Reactions` | `IReadOnlyList<ContentItemReactionCount>` | **Aggregate** — over the counted set defined below, grouped by `Association.EntityBKeyId`. |
+| `ViewerReactionId` | `Guid?` | **Carried** — `Association.EntityBKeyId` of the caller's own live row for this host; `null` where there is none, and for an anonymous caller. |
+| `ViewerReactionName` | `string?` | **Carried** — `Reaction.Name` (§DOM5.2) of the reaction that id names; `null` on the same terms. |
+
+`ContentItemReactionCount`:
+
+| Field | Type | Origin |
+| --- | --- | --- |
+| `ReactionId` | `Guid` | **Carried** — `Association.EntityBKeyId`, which for a Single-Row far end equals `Reaction.Id`. |
+| `Name` | `string` | **Carried** — `Reaction.Name` (§DOM5.2). |
+| `UnicodeEmoji` | `string` | **Carried** — `Reaction.UnicodeEmoji` (§DOM5.2). |
+| `Count` | `int` | **Aggregate** — over the counted set below, which is the `Association` rows satisfying all six §SEC14.3 rules for this host, **grouped by `(EntityAEffectiveId, EntityBKeyId)`**: one result row per reaction per host. |
+
+**The wire carries the entity's names, not the view's** — `Name` and `UnicodeEmoji` per §DOM5.2, never `label` or `glyph`. Renaming into the view's vocabulary is the view service's job.
+
+**The total is a client sum and is not a carried field.** The sum of the returned counts *is* the total by construction, since every counted row belongs to exactly one reaction, so carrying one would be a second source of truth for a derived number — and two independently computed numbers eventually disagree. The client already sums, at `contentItemDefaultPanel.tsx:136-137`.
+
+**A reaction with a zero count does not appear.** The read counts rows; where no row exists there is nothing to count and the entry is simply absent. **`contentItemDefaultPanel.tsx:389` and `:399` therefore need no zero filter and are correct as written** — they render every row they are handed, and no zero is ever handed to them. An item nobody has reacted to returns `Reactions` empty and renders no cluster.
+
+One case is ruled explicitly rather than left to be discovered: **a reaction given before an item was narrowed to love-only still counts and still renders.** The narrowing governs the write — §ARC12.3.1 association rule 1, where `LimitReactionsToLoveOnly` narrows what may be *created* — and not history; unwinding history on a settings change would silently delete readers' reactions.
+
+#### Which rows are counted
+
+All six §SEC14.3 rules are inside the answer. Where each is evaluated:
+
+| §SEC14.3 rule | Where it is evaluated |
+| --- | --- |
+| 1 — the association is not soft deleted | The query-shaping function `AssociationService` authors for its narrow read (§ARC12.2.1 rule 3), awaited by the storage client. |
+| 2 — `Approved` if approval is required | The same shaping function, as `ApprovalStatus == Approved`. |
+| 3 and 4, far end (`Reaction`) | The orchestration. It resolves the canonically visible `Reaction` vocabulary through `IReactionService`, then closes over those ids and passes them into the foundation's grouped read as an `IN (...)` set — so the foundation's read still touches only its own table. |
+| 3 and 4, near end (`ContentItem`) | The orchestration, at **group** level: the summary answers for a host whose version group has at least one canonically visible version under §SEC14.1. Group level and not row level, because these associations are written `AllVersions` and belong to the group (§DOM4.3). |
+| 5 — `Association.PublishDate` null or passed | The same shaping function. |
+| 6 — the effective settings permit it (§DOM6.10) | The orchestration, and **inside the count**. Resolved for the `ContentItem` end **only**: §DOM6.10 rule 4 makes `Reaction` a far-end-only type with no settings entity, and rule 3 says an endpoint type with no settings entity imposes no restriction. Where the host's winning setting carries `ShowReactions = false`, that host's summary is returned with `Reactions` empty and the count is not run. |
+
+**Rule 6 is inside the count deliberately, and the alternative is named.** Leaving it to the client would be cheaper — the card already holds its winning setting and gates on it — but it would mean a public route answering counts §SEC14.3 says are not visible, and would make this design's one visibility composite true of every consumer except the one that matters. The client's own gate stays, as the component's contract with whoever supplies it a summary rather than as a second copy of this rule.
+
+**The two resolution rules sit on two different axes, and collapsing them gets the override backwards.**
+
+| Axis | Rule | Where |
+| --- | --- | --- |
+| **Which tier governs one host** — the type default versus that item's own override | **Narrowest scope wins: full precedence.** A rule keyed on `(ContentType, ContentItemId)` has a smaller scope than one keyed on `ContentType` alone, and the smaller scope wins outright. The tiers are not merged, and the override wins whether it tightens **or loosens**. | §DOM6.4, §DOM6.9 rule 4 |
+| **Which hosts must agree** — endpoint A's switch versus endpoint B's | **Restrictive union.** Where **both** endpoints resolve a switch, the association is permitted only when both allow it: "Denials union restrictively." | §DOM6.10 rule 2 |
+
+The first **selects a row** within one host; the second **combines two already-selected answers** across two hosts. One is tier selection, the other is agreement between hosts, and they cannot be collapsed into a single sentence.
+
+#### The predicate, and what pins it
+
+The predicate pins the host on endpoint **A** and the reaction on endpoint **B**, over the effective id:
+
+```
+EntityAType = ContentItem  AND  EntityAEffectiveId IN (...)  AND  EntityBType = Reaction
+```
+
+`EntityAEffectiveId` and not `EntityAKeyId`: `ContentItem` is versioned, so the key id names **one version**, and counting on it would reset every count to zero the moment an approved item is amended and forks. §DOM4.6 rule 1 names the effective id "the read predicate" in as many words, and for a non-versioned host the two columns hold the same value, so naming it costs nothing.
+
+**What the predicate rests on is the ordinal fact `"ContentItem" < "Reaction"`, and what pins that fact is a named database constraint rather than a service convention.** The pin is **`CK_Association_CanonicalOrder`**, declared at `Glory2Him.Core/Brokers/Storages/Sql/StorageBroker.Association.Configurations.cs:60-68`, applied by the merged migration `20260806225353_AddAssociationPairUniquenessAndCanonicalOrder` and live in the model snapshot. It compares the two stored type **names** under **`Latin1_General_BIN2`** — a **binary** collation, so the comparison is **ordinal**: the same order `CompareEndpoints` produces through `string.CompareOrdinal` (§DOM4.4 rule 1), and deliberately not the database's own case-insensitive default. Because `'ContentItem'` sorts before `'Reaction'`, **a `ContentItem` ↔ `Reaction` row carrying the reaction on endpoint A cannot be written — by any layer, on any entry path, including a write made straight at the storage broker.** That is what makes the host reliably endpoint A and grouping on `EntityBKeyId` safe. §DOM4.6 rule 2 already names the constraint as the pair index's partner.
+
+**§DOM4.4's prose alone would not pin it.** §DOM4.4 rule 4 places `NormalizeEndpointOrder` inside `DoAddAssociationAsync` — a service-level normalisation binding **one method on one flow** — and that rule itself records why that is not enough: `Association-Adding` is a public event address whose substrate handler enters `DoAdd` directly, so anything layered above it is bypassed. §DOM4.4 is the right rule for *how* a row is canonicalised and the wrong one for *what guarantees* it. A read's predicate may rest on a database guarantee; it may not rest on a convention a caller can route around.
+
+**The claim is scoped to this pair, and is not "a reaction is always endpoint B".** The constraint pins the *canonical order*, not `Reaction`'s column: `'Reaction'` sorts **before** `'Tag'`, so a `Reaction` ↔ `Tag` row would put the reaction on A. What is pinned is the `ContentItem` ↔ `Reaction` pair.
+
+**Standing condition, in §DOM4.9 rule 6's form.** The ordinal order of the `EntityType` names is `Association`, `Attachment`, `BibleReference`, `Comment`, `ContentItem`, `Link`, `Reaction`, `Tag`. A future far-end type for a `ContentItem` host whose name sorts **before** `ContentItem` lands on A and puts the host on B; equally, a future `EntityType` that both sorts after `"Reaction"` and is itself a host for reactions inverts this predicate. Either would make this read's grouping on `EntityBKeyId` read the wrong column, so whoever adds such a member revisits this section. A symmetric predicate — `(A = host AND B = Reaction) OR (B = host AND A = Reaction)` — is refused: it forfeits the index seek §DOM4.6 rule 1 exists to provide, on the query that runs on every page render, to guard against a pair that cannot exist.
+
+**The residual hazard is a rename, and it belongs to #201.** Renaming an `EntityType` member changes the ordinal order, and SQL Server does not re-validate a `CHECK` constraint against rows already written — so a rename breaks loudly for **new** writes only, and splits old and new rows across the two columns. **The constraint does not protect rows already stored**, and nothing here claims it does.
+
+**Scope fields.** `EntityAScope = AllVersions` (the host is `ContentItem`, versioned) and `EntityBScope = ThisVersionOnly` (`Reaction` is Single-Row), both derived and never caller-supplied (§DOM4.5 rule 1). `UserId` is a row-level field (§DOM4.2), orthogonal to `Scope`; no personal-association carve-out on `Scope` exists or is created. An approved content item edited into v2 therefore keeps its reactions: they are keyed on the group, so the reader who reacted to v1 still holds it, v2's card shows it, and it is counted once and not twice.
+
+**What a reader sees when their own reaction is not yet `Approved`.** Under the seeded `(Association, IsPersonal = true)` tier it always is, because that tier closes the round on submission. Under a **tightened** tier it is not, and the rule is: **the caller's own reaction is identified in `ViewerReactionId` and `ViewerReactionName` regardless of its approval status, while the counts include only `Approved` rows.** A reader whose reaction is awaiting review therefore sees their glyph **pressed and the number unmoved**. That is the honest rendering of a moderated reaction: showing the click as unrecorded would invite a second click, and counting an unreviewed row would defeat the tier. It is the one caller-dependent member of the response, it names only the caller's own row, and it widens nothing.
+
+> **Where the `GROUP BY` runs, and which §ARC12.2.1 shape carries it.** No fourth terminal shape is earned and nothing is grouped in memory. `AssociationService` authors the whole shaped query — the predicate above, then a grouping on `(EntityAEffectiveId, EntityBKeyId)` projected to the pair plus its count — as the §ARC12.2.1 rule 3 query-shaping function, in `System.Linq` only; the storage broker hands it down and the storage client awaits rule 3's **first** shape, the matching rows optionally projected, with the caller's `CancellationToken`. The aggregate therefore lives in the **projection**, not in the terminal operator: `Count()` inside a `Select` is part of the expression tree EF translates, never an operator Core runs over a materialised set, so §ARC12.2.1 rule 7 is not engaged and rule 4 holds unchanged. Counting above the read is refused by that same rule 4 — it would materialise every reaction row of up to twenty-five hosts on an `[AllowAnonymous]` route that renders on every page, and the per-page cost recorded below under *What a rendered page costs* assumes the aggregate executes in SQL. The unit test applies the function to an in-memory set, where the grouping and the counts evaluate identically (rule 5); that the grouped projection **translates** is exactly rule 6's case and is proven against the real catalogue in the integration suite. What comes back is a narrow native row — host effective id, reaction key id, count — and `Name` and `UnicodeEmoji` are joined above it from the vocabulary the orchestration already holds.
+
+#### Anonymity, and what a signed-out caller receives
+
+The route is **`[AllowAnonymous]`**, and **the counted set is caller-independent**. The same content item returns the identical counts to an anonymous caller, to its own contributor, to a narrow reviewer, to a publisher and to an administrator. A count that changes when you sign in is a visible oddity and this design refuses it.
+
+**The caller-independence is not attributed to §SEC14.3, which carries no caller term across any of its six rules.** The sections that do carry one are §SEC14.5 rule 4 and §SEC14.7's owner and reviewer widening, and neither reaches these counts: §SEC14.7 widens what a caller may see **of an entity row**, and this read returns no entity row, only an aggregate over rows no caller reads individually through it. The consequence, because it is easy to get wrong: the orchestration resolves its hosts through a **caller-independent** canonically-visible by-ids read — the §SEC14.1 predicate over a closed-over id list — and never through a by-id read whose posture widens for owners and reviewers.
+
+**What a signed-out caller receives**, as a concrete payload: one `ContentItemReactionSummary` per answerable id, carrying `ContentItemId`, `Reactions` with the full counts, and `ViewerReactionId` and `ViewerReactionName` both **`null`**. That payload is deliberately **indistinguishable from "signed in and has not reacted"**: the client already knows whether it is signed in, and a second copy of the session state on every summary would be a second source of truth for it. The distinction that *is* needed — an unset viewer member versus an empty `Reactions` list — is a different pair of cases and is preserved.
+
+**An id the read cannot answer for is ABSENT from the response** — a group with no canonically visible version, or an id naming nothing. Not an empty summary, and not a `404`. §SEC14.5 rule 4: collection reads apply the same posture by **filtering**, so rows the caller may not see silently drop out of the set rather than producing an error. Because the counted set is caller-independent, "absent" means the item is not canonically visible to **anybody**, so absence reveals only what §SEC14.1 already makes public.
+
+#### The reader's own reaction, and what a withdrawal is keyed on
+
+**The reader's own reaction is identified pair-keyed, not row-keyed, so the response carries no association id.** It carries `ViewerReactionId` and `ViewerReactionName`, and the caller already holds the other half — the card's content item. The justification is **§DOM4.6 rule 2**, which makes the reader's one personal row for a host unique on its endpoints together with `UserId`: the pair already *is* the row's key, so an id would be a second handle on something already addressable, and one that could be probed with. That rule is cited **by section number and never by index name**, because the index behind it is replaced within this same feature while the section is rewritten in place.
+
+**A withdrawal is therefore keyed on (content item, reaction, caller).** The caller supplies no user id at all — it is derived from the inbound envelope — so a pair-keyed withdrawal cannot address another reader's row.
+
+**A withdrawal publishes `Association-Removed`** (§EVN2), through the foundation's soft delete, and **mints no orchestration address**. `AssociationOrchestrationService` holds no `IEventBroker` and owns no event address, and this read does not give it one.
+
+**The member that performs the withdrawal — its signature, its route and its response codes — is §ARC16.8.1's**, not this section's. It is a write, and §ARC16.8.1 is the write surface.
+
+#### The set, its bounds, and what a page costs
+
+The read **takes a set**, bounded at **1 to 25 ids**. An empty set and a set over 25 are both a `400`, raised by the layer's validation before any storage call. The bound is a **server-side guard on a public read against a hand-formed request**, not a client-side budget: 25 GUIDs in a query string is roughly 1.4 KB, comfortably inside IIS's default `maxQueryString`, so the route needs no host configuration change. Duplicate ids are de-duplicated rather than refused, and the response carries one entry per distinct answerable id.
+
+**The set is keyed on the ids of the page just delivered, never on the accumulated list.** Every list surface renders the accumulated list — `home.tsx:78`, `posts.tsx:67`, `myPosts.tsx:74` and `admin/contentItemModerationPage.tsx:73`, each `(data?.pages ?? []).flatMap((page) => page.items)` — so a read keyed on what is *rendered* asks for 8 ids, then 16, then 24, then 32: a `400` on the fourth press of *load more*, and quadratic in presses before that. Keyed on the delivered page it is one request per page at a constant 8, so **every rendered card's cluster shows at any scroll depth** and the bound never binds. Summaries accumulate in the client the way the cards do, cached per content item id. **A caller ever holding more than 25 ids in one ask chunks at 25** — `contentItemService.ts:69` lets a caller override `pageSize`, so the chunking must exist even though today's four surfaces never reach 25.
+
+Capping what the client asks for instead is refused: a card whose engagement row is absent for a reason no setting explains is an invisible second switch. Raising the ceiling is refused too — it makes the re-request worse and leaves the same `400` waiting at a larger number.
+
+**What a rendered page costs.** At **N = 8**, the card page size (`contentItemService.ts:30`), one rendered page costs **one HTTP request and four database round trips** for an anonymous caller:
+
+1. `IReactionService` — the canonically visible `Reaction` vocabulary.
+2. `IContentItemService` — the canonically visible subset of the eight ids, resolved to group ids.
+3. `IAccessBroker` — the winning `ContentItemSetting` per host, for §SEC14.3 rule 6.
+4. `IAssociationService` — the grouped counts, `GROUP BY EntityAEffectiveId, EntityBKeyId`.
+
+An **authenticated** caller costs a **fifth** round trip: the caller's own rows across the eight hosts, read regardless of approval status, which is what makes the pressed-but-uncounted rule above possible. So the cost is one request and four round trips anonymous, one request and five authenticated, per rendered page of eight cards. A per-item read at the same N would be 8 HTTP requests and 32 or 40 round trips.
+
+**This read is NOT folded into the content item feed read (#591), and #591's criterion 5 is therefore not amended.** Folding the viewer's own reaction in would contradict that criterion directly — it forbids the feed read resolving a `SecurityContext`, a user id or a role at all; folding only the counts would leave the viewer half needing a second route anyway — the whole cost of the fold with none of the saving. The summary is its own route, and §ARC17.2's feed table gains nothing.
+
+#### The route
+
+Served literal: **`GET api/Associations/ReactionSummaries`**, on `AssociationsController`.
+
+- Binding: `[FromQuery] Guid[] contentItemIds`, on `[HttpGet("ReactionSummaries")]`.
+- **`[AllowAnonymous]`**, consistent with the caller-independent counts above.
+- **No `[EnableQuery]`, and the query surface is closed rather than allow-listed.** A route with no OData surface cannot take an ordinal `$filter` and cannot have its generated SQL un-capped. A caller supplying `$filter`, `$orderby`, `$top`, `$skip`, `$select`, `$expand`, `$search`, `$compute`, `$apply`, `$format`, `$skiptoken` or `$deltatoken` gets **the same answer as the same request without them** — the parameter is off-surface and ignored.
+- The set bound is **1 to 25 ids**, as above.
+
+The §ARC17.4 row for this endpoint carries its **shape** rather than this literal, because that is the convention every row in the §ARC17 tables follows; the served literal lives here, beside the binding it belongs to.
+
+#### Where each shared rule lives, and what must not re-derive it
+
+Recorded so a later implementer meets it rather than rediscovering it.
+
+| The rule | Its single home |
+| --- | --- |
+| §DOM6.10 effective-setting precedence | **Designed, not built — §ARC12.2.1 is itself ruled and unbuilt, and `IAccessBroker` carries no content-item-setting arm today.** The **query-shaping function `AccessBroker` authors for its gather** — §ARC12.2.1 rule 3, which names `AccessBroker` as a condition author for its gathers and leaves §APR8.6.1's placement unreopened. It is **not** a storage-broker predicate: §ARC12.2.1 rule 1 makes *"which row wins when two match"* a decision the broker may not compose, and §DOM6.4 precedence — a **selection, not a merge** — is that decision. The function shapes one set-keyed query over all the `(ContentType, ContentItemId)` keys asked for, excluding soft-deleted rows (§DOM6.6); the storage broker hands it straight down as a pass-through and the storage client applies it and awaits the terminal operator with the caller's `CancellationToken`, so the selection still runs in SQL in **one** round trip and no unresolved list is picked over above it (§ARC12.2.1 rules 3-4). **§ARC12.2.1 rule 5 binds it: the unit test executes the condition.** `AccessBroker`'s gathers are unit-tested today — fifteen `AccessBrokerTests.*.Logic.cs` files — and this one is tested the same way, over an in-memory set seeded with a matching row and, per term, a row that misses on that term alone, so dropping or inverting a tier term fails a test. Integration is **additional** and not a substitute (rule 6): only the real catalogue proves that the per-key tier selection translates. **The one-round-trip claim made earlier in this cell, and the per-page cost recorded earlier under *What a rendered page costs*, are design intent rather than anything rule 6 proves** — rule 6 names translation, collation and an index's claim, and **establishes no round-trip count**. The arm returns the winning **row** per key and decides nothing further. This read's §SEC14.3 rule 6 term reaches it through that one arm. §ARC16.3 responsibility 3 and §ARC12.5.2 responsibility 5 answer the same question for their own callers, **and this issue does not settle where either reaches it** — §ARC16.3's is the foundation service for the entity, which §ARC12.2.1 rule 3 admits as a condition author for its own rows **generally — which is not licence to author THIS condition, whose single home is the shaping function named earlier in this cell**; §ARC12.5.2's is an orchestration, which that rule's *Layer placement* admits as neither, so its route to the rule is an open question and not a licence. **What is settled is that the precedence rule has ONE implementation and none of the three authors a second**, which is the whole point of this row. Separately, and not corrected by this issue: several passages in this file still call that resolution a **merge**, which §DOM6.9 rule 4 contradicts (*the tiers are not merged*) since §DOM6.4 precedence selects a row rather than combining two. Every one of them is corrected together, wherever that wording is next revisited. Should §ARC12.5 entry 2's `ContentItemSettingsProcessingService` ever be earned, it becomes another caller of this one function, never a second copy of the rule. |
+| §SEC14.3 rules 1, 2 and 5 | The query-shaping function `AssociationService` authors for its narrow read — **authored in the service and never in the storage broker** (§ARC12.2.1 rule 1), and awaited by the storage client. The orchestration must **not** re-test them in memory after the read returns. |
+| §SEC14.3 rules 3, 4 and 6 | One private composite evaluator on `AssociationOrchestrationService` — **#310's to write and #616's to consume**, in whichever order they land. Neither `RetrieveAllAssociationsAsync` nor `RetrieveContentItemReactionSummariesAsync` writes its own. |
+| "Which pair do these endpoints denote" | `ResolveEndpointAsync` together with §DOM4.4's `NormalizeEndpointOrder`, reused by the withdrawal rather than re-derived — which is what stops the add and the withdrawal drifting apart. |
+| `UserId` from the envelope, and `ApprovalStatus.Submitted` on create | **#188**, in the orchestration's endpoint step, once. **#618 criterion 5 and #620 criterion 1 reference the rule; neither implements it**, and `UserId` is never read from the request. |
+| The reaction total | `contentItemDefaultPanel.tsx:136-137`, client-side, once. **Nothing server-side computes one**, not even for logging. |
+| Which reaction this viewer holds | This read's `ViewerReactionName`. `useContentItemEngagement.ts`'s per-visit `viewerReactions` record is an **optimistic overlay discarded on the next read**, never a parallel store — and the same rule governs optimistic counts, which mutate the element's own summary and are replaced wholesale by the next read. One tally, not a server tally and a client tally being kept in step. |
+
+**One second implementation is permitted, and two conditions bind it.** The client's `resolveContentItemSetting.ts` stays: it resolves the winning row for the **whole card** — title, author, every facet — from a collection the page has already fetched, which no server route replaces. It **must cite §DOM6.4**, and it must **never be copied a second time on the client**; every surface resolves through that one function. Converge only if a per-item winning-setting route is ever shipped — a condition recorded, not an action taken.
+
+Two reads of the reaction vocabulary are **both** needed and are not each other's copy: the client's approved-reactions read feeds the **picker**, the options nobody has chosen yet, while `IReactionService` inside this read names the **counts**. The summary carries `Name` and `UnicodeEmoji` per row so the client never joins the two.
+
 ## ARC17. Recommended API Design *(formerly §17)*
 
 ### ARC17.1 Content Endpoints *(formerly §17.1)*
@@ -1080,6 +1249,7 @@ Recommended endpoints:
 | `POST` | `/api/content-item-groups/{groupId}/associations` | Associate entity to all content item versions. |
 | `GET` | `/api/content-items/{id}/associations` | Retrieve visible associations for a content item. |
 | `DELETE` | `/api/content-item-associations/{id}` | Soft delete an association. |
+| `GET` | `/api/associations/reaction-summaries` | The reaction counts for up to 25 content items, with the caller's own reaction where they have one (§ARC16.8). Anonymous and caller-independent; no `[EnableQuery]`, so no query option changes the answer. |
 
 ### ARC17.5 Approval Endpoints *(formerly §17.5)*
 
