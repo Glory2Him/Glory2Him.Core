@@ -74,7 +74,7 @@ though the citable number is now prefixed.
 A content item is visible only when:
 
 ```csharp
-contentItem.DeletedWhen is null
+contentItem.IsDeleted == false
 && contentItem.ApprovalStatus == ApprovalStatus.Approved
 && contentItem.IsPublished
 && (
@@ -82,6 +82,10 @@ contentItem.DeletedWhen is null
     || contentItem.PublishDate <= utcNow
 )
 ```
+
+`DeletedBy`, `DeletedWhen` and `DeletionReason` are the audit stamp for the
+removal, not a second predicate — see §EVN4 for the full four-field set and why
+`IsDeleted` is the one a read tests.
 
 ### SEC14.2 Feed Visibility *(formerly §14.2)*
 
