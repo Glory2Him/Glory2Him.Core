@@ -86,6 +86,7 @@ resolves by grep even though the citable number is now prefixed.
     - [ARC16.7.3 What is deliberately not built](#arc1673-what-is-deliberately-not-built-formerly-1673)
     - [ARC16.7.4 Review requests and reviewer candidates](#arc1674-review-requests-and-reviewer-candidates-formerly-1674)
   - [ARC16.8 AssociationOrchestrationService](#arc168-associationorchestrationservice)
+    - [ARC16.8.1 The reaction write surface](#arc1681-the-reaction-write-surface)
 - [ARC17. Recommended API Design](#arc17-recommended-api-design-formerly-17)
   - [ARC17.1 Content Endpoints](#arc171-content-endpoints-formerly-171)
   - [ARC17.2 Feed Endpoints](#arc172-feed-endpoints-formerly-172)
@@ -1288,6 +1289,49 @@ Recorded so a later implementer meets it rather than rediscovering it.
 **One second implementation is permitted, and two conditions bind it.** The client's `resolveContentItemSetting.ts` stays: it resolves the winning row for the **whole card** — title, author, every facet — from a collection the page has already fetched, which no server route replaces. It **must cite §DOM6.4**, and it must **never be copied a second time on the client**; every surface resolves through that one function. Converge only if a per-item winning-setting route is ever shipped — a condition recorded, not an action taken.
 
 Two reads of the reaction vocabulary are **both** needed and are not each other's copy: the client's approved-reactions read feeds the **picker**, the options nobody has chosen yet, while `IReactionService` inside this read names the **counts**. The summary carries `Name` and `UnicodeEmoji` per row so the client never joins the two.
+
+#### ARC16.8.1 The reaction write surface
+
+**Status: designed, not built.** The caller-facing **write** half of `AssociationOrchestrationService`: how a reader gives, changes and withdraws a reaction. §ARC16.8 above is the read and §ARC16.2.1 is the facet gate on the write path; both are pointed at rather than copied. The foundation transition beneath this surface, its field scope and its facts are §ARC16.2.2's. **This section is the SINGLE HOME of `RemoveAssociationByPairAsync`** — its signature, its route and its response codes are recorded here and nowhere else, because it is a **write** and this is the write surface.
+
+**The add becomes an upsert, and `AddAssociationAsync` is replaced rather than joined.**
+
+```csharp
+ValueTask<AssociationSuggestionResult> UpsertAssociationAsync(
+    Association association,
+    CancellationToken cancellationToken = default);
+```
+
+It takes the same caller shape the add takes — **two endpoints and nothing else** — and runs the same flow up to the branch: it resolves both endpoints, derives `Scope`, `GroupId`, `Entity{A,B}ContentType` and `UserId` (§DOM4.10; `UserId` from the inbound envelope, never from the request), normalises canonical order (§DOM4.4 rule 4), runs the §ARC16.2.1 facet gate, and only then branches on personality. **One member rather than two, and that is the no-duplication constraint applied**: the caller sends the same thing either way and everything up to the branch is identical, so two members would duplicate all of it. Route: **`POST api/Associations`** (#318), the body carrying the two endpoints.
+
+**The two personalities branch, and only one of them may repoint.**
+
+- **Editorial** (`UserId` null) — exactly today's behaviour, unchanged. A free pair inserts; a live row is returned as it stands; a takedown is refused. **It never repoints**, because §DOM4.5 rule 4's exception is personal-only. The general **editorial** add-vs-resurrect question is **#189's** and is untouched here.
+- **Personal** (`UserId` set) — the caller's one row for that (host, far-end type) is resolved through §DOM4.6 rule 2's personal index and is then **created, revived, repointed, or returned unchanged** (§DOM4.10). The result carries the outcome reached and the row's id and nothing else, as `AssociationSuggestionResult` already does; a **moderator takedown is refused and reported as `AlreadyPending`**, which tells the caller nothing.
+
+**A reaction row is created at `Submitted`, never at `Draft`.** §ARC12.3.1's shared rule permits either on add and §APR9.2 opens the round at whichever the row carries, so the choice is the create arm's to make and it is made here. §APR8.4 rule 1's operative sentence (`Approval.md:440`) is why it matters: `RequireApprovals = false` with `AutoApproveIfAllApprovalRequirementsMet = true` *"open the round and close it on submission"*, and the seed applies exactly that pair to `(Association, IsPersonal = true)` (`ApprovalSettingSeedData.cs:205-206`). A row created at `Draft` sits at `Draft` for ever and is never counted.
+
+**The withdrawal stays a separate member and is not folded into the upsert.**
+
+```csharp
+ValueTask<AssociationRemovalResult> RemoveAssociationByPairAsync(
+    Association association,
+    CancellationToken cancellationToken = default);
+```
+
+An upsert cannot express *"the reader now holds nothing"*, which is the withdrawal's whole outcome. It takes the **same caller shape** as the upsert and runs the **same** `ResolveEndpointAsync` and the same `UserId` derivation before resolving the pair — which is what stops the add and the withdrawal drifting apart — then calls the foundation's soft delete by id. `AssociationRemovalResult` carries a `Status` of `Removed` or `NothingToRemove` and the removed row's id or `null`: **status and id and nothing else**, exactly as `AssociationSuggestionResult` does, because the row body would leak authorship. It is **idempotent**: nothing to withdraw is `NothingToRemove` and never a not-found.
+
+- Route: **`DELETE api/Associations/Pair`** (#318), keyed on (content item, reaction, caller) — the caller supplies no user id at all, so a pair-keyed withdrawal cannot address another reader's row (§ARC16.8).
+- **`204` on BOTH outcomes** — `Removed` and `NothingToRemove` alike. The end state the caller asked for is the same in both cases, and answering `404` for the second would turn the withdrawal into a probe for which rows exist.
+- It publishes **`Association-Removed`** through that foundation soft delete and **mints no orchestration address** (§ARC16.8).
+
+**The member does not exist in the codebase** — nor does `AssociationsController`, which is #318's — so a grep for either finds nothing. It is minted by #614 and **built by #618**.
+
+**No reaction-specific member is introduced, and that is §DOM4.1's no-discriminator rule applied to the API.** A reaction is an `Association` whose far endpoint is a `Reaction`, and it is written by the one member that writes associations; a `GiveReactionAsync` beside `UpsertAssociationAsync` would be a second source of truth for what the endpoint pair already says.
+
+**The owner's `ModifyOrAddAssociationAsync` is adopted in behaviour and refused in name**, and the reasoning is recorded so the name is not reinstated as a simplification. A member is named for **the single act it performs**, not for the branches inside it, so *"X or Y"* names the implementation. **`Modify` is the most confusable word available here**: `ModifyAssociationAsync` already exists on the foundation and is the operation that pins the endpoints and **refuses exactly this repoint**, so reusing the verb would leave two members whose names promise the same thing and whose behaviour is contradictory. And **`Upsert` is already this repository's word for this act** — `IStorageBroker.BulkUpsertAssociationsAsync` — so it is vocabulary this solution has rather than a coinage.
+
+**`RestoreAssociationByIdAsync` is WITHDRAWN.** #614's second addendum specified it as a separate primitive; under §DOM4.10 the revive is one arm of the foundation's `UpsertPersonalAssociationAsync` (§ARC16.2.2), and a separate restore would be a second code path performing the same write — and would resolve the endpoints a second time, which §ARC12.3.1 rule 5 requires on a revive and this flow has already done. The general **editorial** restore stays **#189's** and is unaffected.
 
 ## ARC17. Recommended API Design *(formerly §17)*
 
