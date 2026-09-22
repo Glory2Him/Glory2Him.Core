@@ -107,6 +107,24 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 throw new NotFoundAssociationOrchestrationException(
                     message: "Content item association not found.");
             }
+
+            // AN ENDPOINT TYPE WITH NO FOUNDATION SERVICE IS A NOT-FOUND ON THIS PATH, AND AN
+            // ORDINARY VALIDATION FAILURE ON THE ADD. The test is who supplied the value. On the
+            // add the caller named the endpoint type, so refusing it by name discloses only their
+            // own input; here they supplied an association id and nothing else, so the same
+            // sentence confirms the row exists and reports one of its columns — the entity's
+            // state under §SEC14.5 rule 2 — and makes this miss one a probe can tell from the
+            // other four under rule 1.
+            //
+            // It is also the right ANSWER rather than only the safe wording: there is no read
+            // that could show such an endpoint visible, so §SEC14.3 rule 4 cannot be satisfied,
+            // and an undecidable visibility input fails closed. The collection read already drops
+            // the row for exactly that reason, and the two paths agree.
+            catch (InvalidAssociationOrchestrationException)
+            {
+                throw new NotFoundAssociationOrchestrationException(
+                    message: "Content item association not found.");
+            }
         }
 
         // The READ paths' resolver, through the SAME conversion the add's resolver uses: an
