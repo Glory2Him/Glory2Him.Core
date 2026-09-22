@@ -60,7 +60,8 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.AIReviewerAssign
                     requestedApproval.Id, TestContext.Current.CancellationToken);
 
             // then
-            actualAssignment.Should().BeNull();
+            actualAssignment.Should().NotBeNull();
+            actualAssignment.Id.Should().Be(requestedAssignment.Id);
         }
 
         private async Task<Approval> SeedApprovalAsync()
