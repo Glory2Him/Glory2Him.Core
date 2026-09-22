@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -16,7 +16,17 @@ using Glory2Him.Core.Models.Orchestrations.Associations;
 
 namespace Glory2Him.Core.Services.Orchestrations.Associations
 {
-    internal partial interface IAssociationOrchestrationService
+    /// <summary>
+    /// The top layer of the <c>Association</c> stack, and the one an exposer binds to: §SEC14.3's
+    /// composite visibility rule spans both endpoints, so a public read surface must bind here
+    /// rather than to the foundation's collection read, and §EVN13 rule 3 binds an approvable
+    /// entity's exposer to its top-layer service. Public — unlike the implementation behind it —
+    /// because a public controller constructor cannot take an internal parameter type (CS0051);
+    /// <c>AssociationOrchestrationService</c> and the outer exception types stay internal and
+    /// reach the host through <c>InternalsVisibleTo</c>, per the <c>ITagService</c> /
+    /// <c>IApprovalOrchestrationService</c> precedent.
+    /// </summary>
+    public partial interface IAssociationOrchestrationService
     {
         /// <summary>
         /// Suggests an association between two endpoints — the retrieve-or-add flow of design
