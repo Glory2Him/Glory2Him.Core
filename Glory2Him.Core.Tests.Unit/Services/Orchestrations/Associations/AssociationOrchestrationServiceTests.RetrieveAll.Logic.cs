@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -108,33 +108,54 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 .Which.Id.Should().Be(survivingAssociation.Id);
         }
 
-        [Fact]
-        public async Task ShouldIncludeAnAssociationOnASubmittedContentItemForItsReviewerOnRetrieveAllAsync()
+        /// <summary>
+        /// §SEC14.7 posture A rule 4 for a <c>Submitted</c> <c>ContentItem</c>, stated as data:
+        /// the review roles are admitted to a non-public row and nobody else is. The first member
+        /// of each pair is the caller, the second is what THAT ENTITY'S OWN READ hands back for
+        /// them.
+        /// </summary>
+        public static TheoryData<string[], bool> SubmittedEndpointCallers() =>
+            new TheoryData<string[], bool>
+            {
+                { new[] { Roles.ReviewersFor(EntityType.ContentItem) }, true },
+                { new[] { Roles.Reviewers }, true },
+                { Array.Empty<string>(), false },
+
+                // a review role on the FAR end buys nothing on the near one
+                { new[] { Roles.ReviewersFor(EntityType.Tag) }, false },
+            };
+
+        [Theory]
+        [MemberData(nameof(SubmittedEndpointCallers))]
+        public async Task ShouldIncludeAnAssociationOnASubmittedContentItemForItsReviewerOnRetrieveAllAsync(
+            string[] callerRoles,
+            bool theContentItemReadAdmitsThisCaller)
         {
-            // given: the caller term is the ENDPOINT read's, not the composite's (§SEC14.3, the
-            // paragraph after its Layer note). A reviewer keeps the pairing on the Submitted item
-            // they moderate because that item's own read admits them to it — so the composite
-            // makes no exception for them, and the row that item's read does NOT hand back still
-            // drops.
-            this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.ReviewersFor(EntityType.ContentItem));
+            // given: ONE association row, asked for by two kinds of caller. The composite reads
+            // no role of its own and cannot — the caller term is the ENDPOINT read's (§SEC14.3,
+            // the paragraph after its Layer note), so a moderator keeps the pairing on the
+            // Submitted item they moderate because that item's read admits them, not because the
+            // composite makes an exception for them.
+            //
+            // THE ROLES BELOW ARE THEREFORE INERT AT THIS LAYER, and saying so is the point
+            // rather than an apology for it. What grips is the pairing: the same row, the same
+            // evaluator, two different answers, decided by nothing but what the endpoint read
+            // returned. A composite that admitted or refused on its own account would answer both
+            // callers alike and red one of these cases.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(callerRoles);
 
             ContentItem submittedContentItemUnderReview = CreateEndpointContentItem();
-            ContentItem contentItemOutsideTheReviewersRead = CreateEndpointContentItem();
             Tag sharedTag = CreateEndpointTag();
 
-            Association associationOnTheReviewedItem =
+            Association associationOnTheSubmittedItem =
                 CreateStoredAssociation(submittedContentItemUnderReview, sharedTag);
 
-            Association associationOnAnUnreadableItem =
-                CreateStoredAssociation(contentItemOutsideTheReviewersRead, sharedTag);
+            SetupVisibleAssociations(associationOnTheSubmittedItem);
 
-            SetupVisibleAssociations(associationOnTheReviewedItem, associationOnAnUnreadableItem);
-
-            // the reviewer's ContentItem read admits the Submitted item they moderate and
-            // nothing else
             SetupEndpointCollectionReads(
-                contentItems: new[] { submittedContentItemUnderReview },
+                contentItems: theContentItemReadAdmitsThisCaller
+                    ? new[] { submittedContentItemUnderReview }
+                    : Array.Empty<ContentItem>(),
                 tags: new[] { sharedTag });
 
             // when
@@ -145,8 +166,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             List<Association> actualAssociations = actualQuery.ToList();
 
             // then
-            actualAssociations.Should().ContainSingle()
-                .Which.Id.Should().Be(associationOnTheReviewedItem.Id);
+            if (theContentItemReadAdmitsThisCaller)
+            {
+                actualAssociations.Should().ContainSingle()
+                    .Which.Id.Should().Be(associationOnTheSubmittedItem.Id);
+            }
+            else
+            {
+                actualAssociations.Should().BeEmpty();
+            }
         }
 
         [Fact]

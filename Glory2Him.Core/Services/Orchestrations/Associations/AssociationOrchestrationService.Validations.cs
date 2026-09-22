@@ -34,17 +34,28 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             ValidateUserIsNotGloballyBlocked(securityContext);
         }
 
-        // The orchestration's half of the gate on modify, remove and hard remove: the part that
-        // needs NO row (§SEC14.7 posture A′ rule 4). Each of the three is handed an id or an
-        // untrusted Association, so nothing composed from the STORED endpoints is decidable here
-        // — that half runs in the foundation, and this layer issues no second read to duplicate
-        // it. Running these two first is what stops the three surfaces being used to probe which
-        // association ids exist.
+        // ── ONE COMPOSITION PER OPERATION, over shared leaves ─────────────────────────
         //
-        // Deliberately NOT the same method as the add's gate above, though the two compose the
-        // same leaves today. They compose them for different reasons, and a rule added to one
-        // must not silently bind the other.
-        private static void ValidateUserMayWriteWithoutTheStoredRow(SecurityContext securityContext)
+        // The three below are the orchestration's half of the gate on modify, remove and hard
+        // remove: the part that needs NO row (§SEC14.7 posture A′ rule 4). Each of the three
+        // members is handed an id or an untrusted Association, so nothing composed from the
+        // STORED endpoints is decidable here — that half runs in the foundation, and this layer
+        // issues no second read to duplicate it. Running these leaves first is what stops the
+        // three surfaces being used to probe which association ids exist.
+        //
+        // MODIFY AND REMOVE COMPOSE THE SAME TWO LEAVES TODAY AND STILL GET A METHOD EACH, for
+        // the reason the add's gate above gets its own: a shared composition cannot give one
+        // operation a rule without giving it to the other, so the day modify needs something
+        // remove must not have, the sharing is what makes the asymmetry unexpressible. The
+        // duplication is three lines; the entanglement would be a rule arriving somewhere nobody
+        // was looking. The leaves are shared freely — they carry no operation's policy.
+        private static void ValidateUserMayModifyAssociation(SecurityContext securityContext)
+        {
+            ValidateUserIsAuthenticated(securityContext);
+            ValidateUserIsNotGloballyBlocked(securityContext);
+        }
+
+        private static void ValidateUserMayRemoveAssociation(SecurityContext securityContext)
         {
             ValidateUserIsAuthenticated(securityContext);
             ValidateUserIsNotGloballyBlocked(securityContext);
@@ -54,7 +65,8 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         // itself decidable with no row, so it joins this layer's half rather than the
         // foundation's (§SEC14.7 posture A′ rule 4). The endpoint veto is NOT here; it needs the
         // stored row and stays one layer down, where a block refuses even an administrator
-        // (§SEC18.6 rule 2).
+        // (§SEC18.6 rule 2). This one is visibly not its neighbours' equal, which is the case the
+        // rule above exists for.
         //
         // The global block is asked BEFORE the Administrators grant, because a veto is asked
         // ahead of any grant and is overridden by none of them.

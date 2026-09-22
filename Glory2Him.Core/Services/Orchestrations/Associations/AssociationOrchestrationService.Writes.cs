@@ -49,7 +49,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 EventEnvelope<Association> envelope =
                     await this.eventEnvelopeBroker.CreateAsync(content: association);
 
-                ValidateUserMayWriteWithoutTheStoredRow(envelope.SecurityContext);
+                ValidateUserMayModifyAssociation(envelope.SecurityContext);
 
                 return await this.associationService.ModifyAssociationAsync(
                     association,
@@ -83,7 +83,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                             DeletionReason = deletionReason,
                         });
 
-                ValidateUserMayWriteWithoutTheStoredRow(envelope.SecurityContext);
+                ValidateUserMayRemoveAssociation(envelope.SecurityContext);
                 ValidateAssociationId(associationId);
 
                 return await this.associationService.RemoveAssociationByIdAsync(
