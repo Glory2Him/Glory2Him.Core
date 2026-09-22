@@ -710,6 +710,39 @@ inventory: the category labels the PR linter applies are separate, and so is
 
 There is no `Opus 5 - Low`, no `Sonnet 5 - Max`, no `Fable 5 - Extra`.
 
+**Choosing the label.** The default for developer work is `Sonnet 5 - High`, not
+Opus. Most implementation follows a pattern that already exists in the solution,
+and the phase is fenced on both sides — the criteria are approved before it
+starts and QA verifies adversarially after it finishes. Spend the Opus budget
+where there is no oracle: the architect's layer decisions, the analyst's
+criteria, QA's verification. A wrong call in any of those produces no failing
+test. Reach for Opus in the developer seat only on one of these:
+
+1. **First of its kind** — a service, layer or component with no sibling in the
+   solution to pattern-match against.
+2. **Breadth sweeps** — where the risk is whether every site was found, not
+   whether any one of them was changed correctly.
+3. **The security boundary** — envelope identity, access decisions. A miss here
+   usually has no failing test to catch it.
+4. **Migrations and SQL** — deploy-path, hard to reverse, and the traps survive a
+   passing test.
+5. **Thin criteria** — if the analyst left open questions, the developer is doing
+   analyst work and needs analyst budget.
+
+Trivial work — a rename, a config change, a doc relocation — is `Fable 5` or
+`Sonnet 5 - Low`. Between two tiers, take the cheaper one and let the
+escalate-on-scope-discovered rule correct it. Over-spending is invisible and
+nobody else is watching for it.
+
+**The body line is the budget; the label is the record.** The `Model - Effort`
+line in the issue body is what was budgeted before anyone had read the code, and
+it does not change. The label is corrected to what actually ran, by the
+developer, when the PR is opened. Nothing in this repository reads either one
+automatically, so the label is the only durable record of what a piece of work
+actually cost — and QA's verdict comment on the PR is the only durable record of
+what that cost bought. Keep both honest or the next review of this policy has
+nothing to measure. `Documentation/ModelBudget/tally.py` is that review.
+
 **Never add AI or assistant attribution** to a commit message or PR description.
 It trips the unattributed-changes rule and blocks the merge.
 

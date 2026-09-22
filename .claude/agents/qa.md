@@ -225,7 +225,10 @@ mocked-boundary blind spot, and reading the tests rather than their names.
 10. **Gate compliance.** Run the suite yourself. Check for skipped tests, leftover
    TODOs, commented-out code, and uncovered new lines. Check the PR body carries
    `Closes #<n>` and that no AI attribution reached a commit message — either one
-   blocks the merge in CI.
+   blocks the merge in CI. Check the issue's `Model - Effort` **label** was
+   corrected to what actually ran, per `DEVELOPERS.md` §10; a label still
+   reporting the budget as the outcome is ADVISORY, not BLOCKING, but it is
+   never nothing — it is the only record that survives the session.
 
 11. **Regression risk.** What existing behaviour could this plausibly have broken,
      and is there a test that would have caught it?
@@ -368,6 +371,43 @@ line** — nothing has been built, so whether the work is done is not a question
 can answer. Say instead which issues you consider ready to hand to a
 developer, and label each of those — see "The label is your mandatory
 outcome" below.
+
+## The verdict goes on the pull request
+
+Your report lives in a session transcript that nobody will ever read again. Post
+it to the PR in the same run that produced it, PASS or FAIL alike, so the finding
+outlives the session:
+
+```bash
+gh pr comment <PR#> --body-file <report>
+```
+
+Open the comment with one greppable line, then the findings exactly as the output
+format above has them:
+
+```
+QA round 1: FAIL — BLOCKING 3, ADVISORY 2 — MERGE READY: NO
+```
+
+That header is the point of the exercise. Findings-per-PR is the only measure of
+what a model budget actually bought, and it is the one thing a passing suite
+cannot tell you — a test that goes green while proving nothing leaves no other
+trace. Four of the last 272 merged pull requests carry a verdict; that is why the
+model policy had to be argued from commit counts instead.
+
+Number the round, and post a **new** comment each pass rather than editing the
+last one. Unlike `QA - Merge Ready`, which is current state and comes off when a
+later pass withdraws it, these comments are a history: round 1 is not wrong once
+round 3 has ruled, it is superseded. Anything reading them takes the highest
+round and treats the rest as the record of how the change got there. Editing an
+earlier comment destroys exactly that.
+
+Say nothing in the comment about which model ran or who ran it. The label on the
+issue already carries that, and a PR comment is not the place to discover whether
+the attribution rule reaches this far.
+
+**In issue-review mode there is no pull request**, so there is nothing to post.
+The labels are your whole durable outcome there.
 
 ## The label is your mandatory outcome
 
