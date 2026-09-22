@@ -584,8 +584,16 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
             int? take,
             CancellationToken cancellationToken)
         {
-            int requestedSkip = skip.GetValueOrDefault();
-            int requestedTake = take.GetValueOrDefault();
+            // NULL STOPS HERE. Defaulting is a decision and the exposer holds none, so the
+            // route binds two nullables and passes them through untouched; below this line
+            // nothing can be asked "which page?" and receive no answer.
+            //
+            // Absent is NOT zero, and the distance between them is the whole reason the
+            // parameters are nullable: take = 0 is a caller asking for a page of nothing and
+            // answers 400, while an absent take is a caller who named no page and answers the
+            // first one at the cap.
+            int requestedSkip = skip ?? 0;
+            int requestedTake = take ?? MaximumFeedPageSize;
 
             ValidateFeedPageOnRetrieve(skip: requestedSkip, take: requestedTake);
 
