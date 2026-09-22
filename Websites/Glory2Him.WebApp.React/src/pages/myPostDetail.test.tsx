@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -237,6 +237,21 @@ describe('MyPostDetail', () => {
             expect(offered).toHaveLength(1);
             expect(offered[0]).toHaveAccessibleName('Love');
         });
+
+    // ONLY THE LIKE CONTROL. Taking the engagement hook for its reaction members does not wire
+    // its Share and Save members, and the card keeps both off the row because no handler was
+    // passed. Share copies the item's /posts/{id} address, which answers nothing for a Draft or
+    // for an item still under moderation; Save is a different entity and a different outcome.
+    it('should add only the like control to the newly wired pages', () => {
+        // when
+        const { container } = renderPage();
+        const card = container.querySelector('.g2h-content-item-card') as HTMLElement;
+
+        // then
+        expect(within(card).getByRole('button', { name: /Like/ })).toBeInTheDocument();
+        expect(within(card).queryByRole('button', { name: /Share/ })).not.toBeInTheDocument();
+        expect(within(card).queryByRole('button', { name: /Save/ })).not.toBeInTheDocument();
+    });
 
     it('should send the whole row with the amendment over it', async () => {
         // given
