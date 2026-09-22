@@ -269,7 +269,10 @@ All four move together. `ApplyRemoveAuditValuesAsync` stamps `DeletedBy`,
 only when the caller supplied one — a null there means "the caller gave no
 reason", not "clear the reason already on the row". The approval workflow's
 in-place reinstatement clears all four rather than only the flag, so a restored
-row carries no residue of the removal that was undone.
+row carries no residue of the removal that was undone. This agreement is held
+by `ApplyRemoveAuditValuesAsync` and by the approval workflow's reinstatement
+alone — no database constraint enforces it — which is why a read must never
+substitute `DeletedWhen` for `IsDeleted`.
 
 Soft-deleted entities:
 
