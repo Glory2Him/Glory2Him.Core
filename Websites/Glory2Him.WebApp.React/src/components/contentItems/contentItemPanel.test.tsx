@@ -45,9 +45,13 @@ vi.mock('react-router-dom', async () => {
     return { ...actual, useNavigate: () => navigate };
 });
 
-const renderCard = (ui: ReactElement) => {
+// The path is a PARAMETER, because the return address the card computes is only proven to
+// track the page if more than one page is exercised: pinned to a single entry, a hard-coded
+// constant is indistinguishable from `location.pathname`. The default is kept for the
+// renders that do not care.
+const renderCard = (ui: ReactElement, path: string = '/myposts/devotional-1') => {
     const rendered = render(
-        <MemoryRouter initialEntries={['/myposts/devotional-1']}>
+        <MemoryRouter initialEntries={[path]}>
             <AuthProvider>{ui}</AuthProvider>
         </MemoryRouter>);
 
@@ -57,7 +61,7 @@ const renderCard = (ui: ReactElement) => {
         ...rendered,
         rerender: (nextUi: ReactElement) =>
             rendered.rerender(
-                <MemoryRouter initialEntries={['/myposts/devotional-1']}>
+                <MemoryRouter initialEntries={[path]}>
                     {nextUi}
                 </MemoryRouter>)
     };
@@ -1093,24 +1097,41 @@ describe('ContentItemPanel', () => {
                 .toHaveAttribute('aria-pressed', 'false');
         });
 
+        // TWO PAGES, because one cannot tell a computed address apart from a constant. Both
+        // are PUBLIC paths — `/posts` and `/posts/{id}` — which is where a signed-out reader
+        // can actually be; `/myposts/{id}` is wrapped in a SecuredRoute and is not.
         it('should send the reader to sign in with a return address for the page they were '
             + 'reading', async () => {
-            // given: the card is rendered at /myposts/devotional-1
+            // given
             signOut(authState);
 
-            renderCard(
+            const card = (
                 <ContentItemPanel
                     contentItem={quoteItem}
                     reactionOptions={reactionOptions}
                     onReactionSelected={vi.fn()} />);
+
+            const listing = renderCard(card, '/posts');
 
             // when
             await userEvent.click(screen.getByRole('button', { name: /Like/ }));
             await userEvent.click(screen.getByRole('menuitem', { name: 'Love' }));
 
             // then: the path alone, URI-encoded — the shape every redirect in this app uses
+            expect(navigate).toHaveBeenCalledWith('/Account/Login?returnUrl=%2Fposts');
+
+            // when: the same card on a different public page
+            listing.unmount();
+            navigate.mockClear();
+
+            renderCard(card, '/posts/quote-1');
+
+            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+            await userEvent.click(screen.getByRole('menuitem', { name: 'Love' }));
+
+            // then: the address moved with the page, so it is read rather than fixed
             expect(navigate)
-                .toHaveBeenCalledWith('/Account/Login?returnUrl=%2Fmyposts%2Fdevotional-1');
+                .toHaveBeenCalledWith('/Account/Login?returnUrl=%2Fposts%2Fquote-1');
         });
 
         it('should not apply the pre-sign-in choice automatically', async () => {
