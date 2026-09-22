@@ -53,6 +53,22 @@ vi.mock('../services/foundations/contentItemSettingService', () => ({
     }
 }));
 
+// The reaction vocabulary behind the Like control, the same read the list at /myposts makes.
+vi.mock('../services/foundations/reactionService', () => ({
+    reactionService: {
+        useGetApprovedReactions: () => ({
+            data: [{
+                id: 'reaction-1',
+                name: 'Amen',
+                unicodeEmoji: '🙏',
+                isPublished: true,
+                approvalStatus: 2,
+                isDeleted: false
+            }]
+        })
+    }
+}));
+
 const draftQuote: ContentItem = {
     id: 'quote-1',
     contentType: ContentType.Quote,
@@ -158,6 +174,16 @@ describe('MyPostDetail', () => {
     /// somebody remembered to list. That list held the content fields and not approvalStatus,
     /// so a contributor offering a draft for review watched the card go on saying Draft. The
     /// write now goes to the server and the row is re-read, status and all.
+    // THE LIKE CONTROL, on the contributor's own detail surface. /myposts already offers it on
+    // the card for this very item, so one item read two ways answered two different things.
+    it("should offer the like control on my own post's detail page", () => {
+        // when
+        renderPage();
+
+        // then
+        expect(screen.getByRole('button', { name: /Like/ })).toBeInTheDocument();
+    });
+
     it('should send the whole row with the amendment over it', async () => {
         // given
         renderPage();
