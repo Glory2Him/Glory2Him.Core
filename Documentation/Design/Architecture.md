@@ -861,7 +861,7 @@ Responsible for:
 
 **#209 is not a blocker of this gate.** The gate's dependency is the broker arm whether or not that member exists; if #209 lands, the arm reads through it rather than around it, and this section is unchanged by that.
 
-**RULE — ONE gate covers every association type, and the far end names the switch while the host names the settings entity** (§DOM6.10 rule 1). The mapping carries all six §DOM6.5 pairs (`Domain.md:754-759`); there is no per-type gate and no per-type copy of one.
+**RULE — ONE gate covers every association type: the host names the settings entity and the far end names the switch asked of it.** The two halves have two sources and neither covers the other. The host half is §DOM6.10 rule 1 (`Domain.md:836`) — the switches "are resolved per endpoint, from that endpoint's own settings entity" — over §DOM6.10's host table. The far-end half is §ARC12.3.1 association rule 1 (`Architecture.md:277`), which is where the association types are mapped onto their switches. The mapping carries all six §DOM6.5 pairs (`Domain.md:754-759`); there is no per-type gate and no per-type copy of one.
 
 | Far endpoint type | Switch asked on the host's winning setting |
 | --- | --- |
