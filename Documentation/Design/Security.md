@@ -1,4 +1,4 @@
-# Security
+﻿# Security
 
 Carries `G2H Design.md` §14 "Visibility Rules" and §18 "Authentication and
 Authorisation" — the read-visibility rules, the enforcement posture applied at
@@ -320,7 +320,7 @@ Sort takes an anchor and a side rather than a target index, because a pairwise s
 
 **`ApprovalReview` has since closed this on its own paths**: tier 2 resolves the entity behind the approval and matches the exact composed role for it, so the suffix match is now the coarse first half of a two-tier check rather than the whole of it (§APR8.6.1, §ARC12.3.1). The gap survives wherever a write is **not** routed through `IAccessBroker` — including `ApprovalReviewService`'s own hard-remove path, which takes no access decision at all. Recorded here rather than fixed with the endpoint rules.
 
-**A″. `Attachment` — the referencing-host variant of posture A** *(designed, not built — §DOM5.6)*. Writes follow posture A unchanged. Reads widen rule 4 by one admit: a non-public attachment additionally answers to reviewers or publishers of an entity whose row references it — through a §DOM4.9 purposeful association or a §DOM5.6.6 inline body reference — so a host's reviewer sees its draft images in context (§DOM5.6.2 rule 2). The referencing host's state is read directly from the host row, never inferred from an association row's existence or approval — §SEC14.3's composite rule is implemented nowhere yet (§ARC12.5 entry 1), and this gate must not repeat that gap.
+**A″. `Attachment` — the referencing-host variant of posture A** *(designed, not built — §DOM5.6)*. Writes follow posture A unchanged. Reads widen rule 4 by one admit: a non-public attachment additionally answers to reviewers or publishers of an entity whose row references it — through a §DOM4.9 purposeful association or a §DOM5.6.6 inline body reference — so a host's reviewer sees its draft images in context (§DOM5.6.2 rule 2). The referencing host's state is read directly from the host row, never inferred from an association row's existence or approval — §SEC14.3's composite rule is only partly implemented — #310 landed rules 3 and 4 on `AssociationOrchestrationService`'s association reads and rule 6 is still nowhere (§ARC12.5 entry 1) — and this gate must not lean on it in any case.
 
 **B. Reference data** — `ContentType`:
 

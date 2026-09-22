@@ -30,10 +30,20 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
     /// <summary>
     /// Coordinates the endpoint-aware association flows that no single foundation service can own,
     /// because the foundation keeps its self-only visibility filter as the dependency-free
-    /// primitive and touches only its own entity (design §14.6 layer note). This service resolves
-    /// an association's endpoints against their foundation services, runs the retrieve-or-add
+    /// primitive and touches only its own entity (design §SEC14.3 Layer, §SEC14.6). It resolves an
+    /// association's endpoints against their foundation services, runs the retrieve-or-add
     /// suggestion over the unfiltered canonical-pair probe, and returns a status projection that
     /// never leaks the row body.
+    ///
+    /// <para><b>It is also the layer an exposer binds to for the whole CRUD surface</b>, because
+    /// §SEC14.3's composite spans both endpoints and so cannot live in the foundation's own-table
+    /// read. The two reads carry that composite — one shared private evaluator, in
+    /// <c>.EndpointVisibility.cs</c>. The three writes carry <b>only</b> the half of the §SEC14.7
+    /// posture A′ gate that needs no row — authentication, the global <c>ReadOnly</c> block, and
+    /// <c>Administrators</c> on hard removal — and then forward; everything composed from the
+    /// STORED endpoints stays in the foundation, and no second read duplicates it. The add is the
+    /// one write that resolves both endpoints as its own first act, so it is the one that decides
+    /// the endpoint veto for itself.</para>
     /// </summary>
     internal partial class AssociationOrchestrationService : IAssociationOrchestrationService
     {
