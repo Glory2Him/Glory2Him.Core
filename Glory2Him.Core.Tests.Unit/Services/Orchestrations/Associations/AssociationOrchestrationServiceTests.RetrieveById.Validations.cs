@@ -132,6 +132,92 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
         }
 
         [Theory]
+        [InlineData(EntityType.Attachment)]
+        [InlineData(EntityType.Association)]
+        public async Task ShouldThrowNotFoundOnRetrieveByIdIfAnEndpointTypeHasNoFoundationServiceAsync(
+            EntityType unsupportedEndpointType)
+        {
+            // given: on the ADD the caller supplied the endpoint type, so refusing it by name
+            // discloses only their own input and stays an ordinary validation failure. HERE the
+            // caller supplied an association id and nothing else, so the same sentence — "Entity
+            // type Attachment is not supported as an association endpoint" — confirms the row
+            // exists and reports one of its columns: the entity's state under §SEC14.5 rule 2,
+            // and a miss a probe can tell from the other four under rule 1.
+            //
+            // An endpoint type with no foundation service also cannot satisfy §SEC14.3 rule 4 —
+            // there is no read that could show it visible — and an undecidable visibility input
+            // fails closed. So the row is not visible, and this answers not-found on the same
+            // terms as any other unresolvable endpoint, matching the collection read, which
+            // already drops it.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+
+            Tag tagEndpoint = CreateEndpointTag();
+
+            var storedAssociation = new Association
+            {
+                Id = Guid.NewGuid(),
+                EntityAType = unsupportedEndpointType,
+                EntityAKeyId = Guid.NewGuid(),
+                EntityAGroupId = Guid.NewGuid(),
+                EntityAScope = Scope.ThisVersionOnly,
+                EntityBType = EntityType.Tag,
+                EntityBKeyId = tagEndpoint.Id,
+                EntityBGroupId = tagEndpoint.Id,
+                EntityBScope = Scope.ThisVersionOnly,
+            };
+
+            this.associationServiceMock.Setup(service =>
+                service.RetrieveAssociationByIdAsync(
+                    storedAssociation.Id,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storedAssociation);
+
+            this.tagServiceMock.Setup(service =>
+                service.RetrieveTagByIdAsync(
+                    tagEndpoint.Id,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(tagEndpoint);
+
+            var notFoundAssociationOrchestrationException =
+                new NotFoundAssociationOrchestrationException(
+                    message: "Content item association not found.");
+
+            var expectedValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: "Content item association orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: notFoundAssociationOrchestrationException);
+
+            // when
+            ValueTask<Association> retrieveTask =
+                this.associationOrchestrationService.RetrieveAssociationByIdAsync(
+                    storedAssociation.Id,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(
+                    retrieveTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedValidationException);
+
+            // nothing in the answer names the type, or says it is unsupported
+            actualException.InnerException!.Message.Should()
+                .NotContain(unsupportedEndpointType.ToString());
+
+            actualException.InnerException.Message.Should().NotContain("not supported");
+            actualException.InnerException.Message.Should().NotContain("Entity type");
+            actualException.Data.Count.Should().Be(0);
+            actualException.InnerException.Data.Count.Should().Be(0);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
         [InlineData(Scope.AllVersions)]
         [InlineData(Scope.ThisVersionOnly)]
         public async Task ShouldThrowNotFoundRatherThanDependencyOnRetrieveByIdIfAnEndpointIsNotVisibleAsync(
