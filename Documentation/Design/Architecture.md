@@ -74,6 +74,7 @@ resolves by grep even though the citable number is now prefixed.
   - [ARC16.1 ContentItemService](#arc161-contentitemservice-formerly-161)
   - [ARC16.2 AssociationService](#arc162-associationservice-formerly-162)
     - [ARC16.2.1 The §DOM6.10 Facet Gate On The Association Write](#arc1621-the-dom610-facet-gate-on-the-association-write)
+    - [ARC16.2.2 UpsertPersonalAssociationAsync, Its Facts And Their Subscribers](#arc1622-upsertpersonalassociationasync-its-facts-and-their-subscribers)
   - [ARC16.3 ContentItemSettingsService](#arc163-contentitemsettingsservice-formerly-163)
   - [ARC16.4 ApprovalService](#arc164-approvalservice-formerly-164)
   - [ARC16.5 ApprovalReviewService](#arc165-approvalreviewservice-formerly-165)
@@ -889,6 +890,35 @@ Responsible for:
 **The gate never falls open.** A settings read that fails is a dependency failure of the layer it happened in and surfaces as that layer's dependency exception; it is never read as permission granted, and an unresolved setting refuses rather than admits.
 
 **§SEC14.5's no-existence-leak posture does not apply to these two refusals, and the endpoint-existence half is unchanged by this gate.** That posture exists so that an unprivileged probe cannot distinguish a non-public entity from one that does not exist. This gate runs **after** endpoint resolution has already established that the caller may see both endpoints, so there is no existence left to hide, and naming the switch that refused discloses a policy on a row the caller can already see rather than anything about a row they cannot. Endpoint existence and visibility keep the not-found posture exactly as resolution already gives it — a non-existent or non-visible endpoint still surfaces as not-found, before this gate runs at all.
+
+#### ARC16.2.2 UpsertPersonalAssociationAsync, Its Facts And Their Subscribers
+
+**Status: designed, not built.** The foundation half of the reaction write surface. The caller-facing half — `UpsertAssociationAsync` and `RemoveAssociationByPairAsync` — is §ARC16.8.1's and is pointed at rather than copied.
+
+**The member.** `UpsertPersonalAssociationAsync(Association, CancellationToken)`, a new narrow state transition in the §SEC14.7 posture A′ family beside set-scope and set-confidence. **Its field scope is enumerated and closed: `EntityBKeyId`, `EntityBGroupId`, `IsDeleted`, `DeletedBy`, `DeletedWhen`, `ApprovalStatus` — and nothing else.** `ApprovalStatus` is in scope for the **create** arm alone, which opens the row at `Submitted` (§ARC16.8.1); the **revive** arm writes no status at all and preserves what the row was withdrawn at (§DOM4.10 rule 8), and the **repoint** arm leaves it alone so that `RequireReapprovalOnChange` decides (§DOM4.5 rule 4). It **refuses a row whose `UserId` is null**: the repoint exception is personal-only, so an editorial row must never reach this member at all.
+
+**Why a non-CRUD verb, under §EVN2 rule 7** (`Events.md:154-161`): the personal path has three operations CRUD cannot tell apart — insert a new row, revive a withdrawn one, repoint a held one — which are **one act from the caller's side and must be one write from the row's**, because §DOM4.6 rule 2's personal index permits the reader exactly one live row. `Association-Adding` cannot express two of the three, and `Association-Modifying` refuses all three by pinning the endpoints. That is rule 7's own test: one service, operations a general modify cannot tell apart, a narrower field scope than the general modify, therefore a separate method and a separate verb.
+
+**Three facts, naming the outcome reached rather than the operation invoked.**
+
+| Outcome | Fact |
+| --- | --- |
+| The pair was free and a row was created | **`Association-Added`** *(exists)* |
+| The reader's own withdrawn row was revived | **`Association-Restored`** *(new)* |
+| The reader's live row was repointed to another reaction | **`Association-Repointed`** *(new)* |
+
+This is §EVN2's transition form — a request whose facts name outcomes, as `Association-Approving` publishes `-Approved`, `-Rejected` or `-Submitted`. **They may not be collapsed into one `Association-Upserted`:** a subscriber must open a round on a create and re-test one on a repoint, and a fact that cannot tell a create from a change is exactly what §ARC12.3.1 rule 7 exists to prevent.
+
+**Two members therefore publish `Association-Added`** — this one's create arm, and `AddAssociationAsync` — **and that is reconciled against §EVN2 rule 5 rather than left for a subscriber to discover.** Rule 5 (`Events.md:141-146`) forbids *"two publishers of the same fact"* in one specific sense, and its own words say which: it is about a **foundation** fact and an **orchestration** republishing it — *"a foundation `-Added` means a row was written; an orchestration `-Added` means that orchestrated process completed"*. Both publishers here are the **same layer** reporting the **same unit of work**: a row was written. Nothing is republished and no subscriber sees one act twice.
+
+**`Association-Upserting` binds `IAssociationOrchestrationService` when it is minted, and never the foundation.** Its handler would resolve both endpoints, derive `UserId` and derive `Entity{A,B}ContentType` — authorization inputs under §DOM4.5 rule 3 — and would have to run the §ARC16.2.1 facet gate; **RULE — an address whose handler derives an authorization input binds the layer that derives it** (`Architecture.md:535`) therefore binds it upward. Binding it to the foundation would recreate, **on a brand-new address on day one**, the exact hole #631 exists to close, with the deferral argument no longer available to it. **It is not minted under #618** — nothing publishes to it — but the binding is ruled here so it is not rediscovered at minting time. Nothing in this section may be read as the **foundation** member serving `Association-Upserting` directly.
+
+**`Association-Adding` is unchanged in two senses and changed in a third, and this section says which.** The **foundation member `AddAssociationAsync`** is unchanged, and the **address string** is unchanged — the event name sits inside the HMAC and can never change. What **does** change is the **binding layer**, under **#631**: the address comes to bind `IAssociationOrchestrationService`, `AssociationService.OnAddingAssociationAsync` is removed and the foundation no longer subscribes (§ARC16.2.1). The claim must not be written unscoped.
+
+**Who hears the two new facts, and who deliberately does not.**
+
+- **`Association-Repointed` gets ONE ear, on `ApprovalOrchestrationService`, delegating to the existing `ProcessEntityModifiedAsync`.** Its only job is to give the tier's `RequireReapprovalOnChange` its chance to fire on the new pair: under a tightened tier that re-opens the round and dismisses active reviews, and under the seeded `(Association, IsPersonal = true)` tier there is nothing to dismiss and the round simply re-closes. **It is not a new flow, not a new dependency and not a new decision** on that service — it is one more subscription onto a handler it already runs for `Association-Modified`. **#618 builds it**, inside its criterion 8; today `ApprovalOrchestrationService` subscribes to exactly three `Association` facts — `Association-Added`, `-Modified` and `-Submitted` (`EventSubscriptionRegistration.cs:2058`, `:2075`, `:2206`) — and neither new address exists yet among the seventeen that do (`EventBrokerIdentifiers.Association.cs:122-138`).
+- **`Association-Restored` is published and deliberately NOT subscribed**, and this section states that rather than leaving the silence to be read as an omission. A revive changes no content and returns to a pair that was already reviewed, and it **preserves the `ApprovalStatus` the row was withdrawn at** (§DOM4.10 rule 8), so the round is already consistent with the row and there is no work for the approval workflow to do. **#618's criterion 8 therefore builds one ear, not two.** An ear that forced the row to `Submitted` would be worse than useless: the round is already `Approved`, no existing flow can move it back out of `Approved`, and the result would be the §APR9.8 divergence (`Approval.md:1117`) with no reconcile pass — the reader's reaction never counted again. The fact stays published because it is a public address with its own subscribers-to-be, not because anything listens today.
 
 ### ARC16.3 ContentItemSettingsService *(formerly §16.3)*
 
