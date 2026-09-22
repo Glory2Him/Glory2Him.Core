@@ -872,7 +872,8 @@ template):
 - **Event path** (the `.Substrate` partial): one `On<Verb><Entity>Async`
   handler per request address, with any tail of the verb following the entity
   (`OnAdding…`, `OnModifying…`, `OnRemoving…ById`, `OnRetrieving…ById`) → validate the envelope → dedup mutating handlers via the
-  `ProcessedEvents` table (unique on EventId + ReceiverName; a deduplicated
+  `ProcessedEvents` table (unique on EventId + ReceiverName, the receiver half
+  comparing exactly per §EVN25; a deduplicated
   delivery replies `null`) → converge on the same `DoXAsync` methods → reply
   with the outcome envelope on the delivery.
 
@@ -2104,7 +2105,9 @@ itself is at-least-once.**
 4. **The guarantee becomes at-least-once, and receivers are already safe for
    it.** A foundation request handler checks `ProcessedEvents`, unique on
    `EventId` + `ReceiverName`, and a deduplicated delivery replies `null`, so a
-   redelivered envelope is a no-op there. **Above the foundation nothing checks
+   redelivered envelope is a no-op there. How the receiver half of that key
+   compares is ruled by §EVN25 rather than left to the catalogue's collation.
+   **Above the foundation nothing checks
    that table and nothing writes it** — the tier rule of rule 1, not a tally of
    the services that happen to exist — so a redelivered fact is handled again
    and safety is the handler's own, by one of two shapes:
@@ -2485,3 +2488,21 @@ it into this one.
 **The general rule, so this is not re-litigated per broker.** No broker constructor in this solution connects, migrates or otherwise performs work against an external resource; a third-party client that does is created behind first use rather than in the constructor. `the-standard-brokers` 1.8/#1 already requires following the chain into referenced packages to judge what a constructor *captures*; this applies the same reading to what a constructor *does*.
 
 **Nothing else changes.** No event address, no envelope field, no subscription, no registration lifetime, no table, no migration owned by Core. Identity is untouched: nothing here reads a caller (§EVN7). **Risk:** an unreachable event store is now discovered at the first substrate call rather than at container build — in this host the same startup moment, and one that already has a retry and a defined non-fatal posture. Reversible in one commit.
+
+## EVN25. A Receiver Name Is an Identifier, and Identifiers Compare Exactly *(new)*
+
+**What was found.** Two things compare a receiver name, and **neither decides how**. The idempotency probe behind §EVN19 rule 4 — `SelectProcessedEventExistsAsync`, whose condition is `EventId == eventId && ReceiverName == receiverName` — and the unique index on `(EventId, ReceiverName)` that backs it both read a column declared `nvarchar(255)` with **no collation of its own**, so both inherit the catalogue's. Here that is `SQL_Latin1_General_CP1_CI_AS`, which is case-insensitive; the same comparison evaluated in memory would be ordinal. The behaviour is therefore an accident of the server the catalogue was created on, and a restore onto a differently-collated one changes it with nothing failing to announce the change. This is the class of accident `CK_Association_CanonicalOrder` already spends a `COLLATE Latin1_General_BIN2` to avoid, where SQL's default comparison and `string.CompareOrdinal` would otherwise disagree about which pairs are canonical (§DOM4).
+
+**The ruling: a receiver name is an IDENTIFIER rather than data, and identifiers compare exactly. A name differing only in case names a DIFFERENT receiver.**
+
+Receiver names are a closed, compile-time set — `public const string` members of `EventBrokerIdentifiers.*`, each naming a C# member path such as `"ContentItemService.OnAddingContentItem"`, handed to the dedup pair by the handler that owns them. No caller supplies one, and no two of them differ only in case. C# is case-sensitive, so `Foo` and `foo` **are** two members and two receivers.
+
+**The probe and the index must agree, and that is sharper than either semantics on its own.** If they ever disagreed, the probe would answer *"not processed"*, the handler would run its side effect, and the insert of the record would then violate the unique index — a failure **after** the effect, which is the one outcome worse than either answer taken alone.
+
+**Which failure the design prefers, which is the part worth writing down.** The permissive direction collapses two genuinely different receivers onto one ledger row, so the second **never runs** — and that failure is **silent**: nothing throws, nothing logs, and no backstop exists anywhere for it. The strict direction lets one receiver process an event twice under two casings, and that failure is **loud**, landing in defences this system already carries: the §DOM3.4.2 duplicate-content probe, the unique indexes on the entities being written, and the re-derivation arguments §SEC14.6 rule 4 records for the receivers that keep no ledger row at all. A guard whose failure mode is silence is worse than one whose failure mode is noise at equal probability, and here the probabilities are equal because **both** require the same state the system cannot reach: two constants differing only in case, which is two distinct C# members and a code review away.
+
+**What pins it is the COLUMN's collation.** `ReceiverName` takes `Latin1_General_BIN2` on the column, so the probe and the unique index inherit one rule by construction rather than agreeing by coincidence — which is exactly the property that must hold. It also makes the probe's condition testable in memory: under §ARC12.2.1 rules 5 and 6 a condition is unit-tested over LINQ-to-Objects, which compares ordinally, and a binary column is what makes that test and SQL give the same answer. An **expression** `COLLATE` is the instrument `CK_Association_CanonicalOrder` uses and is wrong here: it suits a check constraint, cannot be expressed in a LINQ condition portably, and in an index key would make the index a computed one. **Normalising on write** is refused because it would put the rule in two places — every writer and every reader — which is the duplication this design refuses.
+
+**Migration shape and risk.** Drop the unique index, `ALTER COLUMN [ReceiverName] nvarchar(255) COLLATE Latin1_General_BIN2 NOT NULL`, recreate the unique index over `([EventId], [ReceiverName])` — three statements in one batch, in a new migration, since applied migrations are never edited. The direction is the safe one: moving from a case-insensitive collation to a binary one **relaxes** uniqueness, so keys that collided before stay distinct and no existing row can violate the recreated index; the reverse change would be the dangerous one. Reversible. #639 carries the migration and the case tests, which mean nothing until the collation is pinned.
+
+**Nothing else changes.** No event address, no envelope field, no receiver name, no subscription and no handler behaviour. With no case-only pair in the identifier set, no delivery was decided differently before this ruling than after it — this is a determinism and portability fix, not a repair of a live defect.
