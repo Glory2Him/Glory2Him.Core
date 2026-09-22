@@ -110,7 +110,8 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
         /// surfaces should prefer <see cref="RetrieveAllPublicContentItemsAsync"/>, which
         /// never widens with the caller's privileges. Being a read, no completion fact is
         /// published. The feed is a separate projection (§14.2) and is deliberately not
-        /// served here.
+        /// served here — <see cref="RetrieveContentItemFeedAsync"/> is the member that serves
+        /// it, and it excludes what §DOM3.8 rule 2 excludes while this read does not.
         /// </summary>
         ValueTask<IQueryable<ContentItem>> RetrieveAllContentItemsAsync(
             CancellationToken cancellationToken = default);

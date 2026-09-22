@@ -43,12 +43,16 @@ namespace Glory2Him.WebApp.Controllers.ContentItems
     /// dependency; binding to it would let an HTTP caller amend an item without the approval
     /// workflow ever hearing about it.</para>
     ///
-    /// <para><b>All six reads are <c>[AllowAnonymous]</c>, each for its own documented reason</b>
-    /// — the service interface states the posture per member and this controller does not restate
-    /// it. What matters here is that two of them are NOT interchangeable: <c>Get</c> widens with
-    /// the caller (owner sees their own drafts, a review role sees everything) while
-    /// <c>GetPublicContentItems</c> consults no security context at all. The first is a moderation
-    /// surface, the second is the public one.</para>
+    /// <para><b>All seven reads are <c>[AllowAnonymous]</c>, each for its own documented
+    /// reason</b> — the service interface states the posture per member and this controller does
+    /// not restate it. What matters here is that three of them are NOT interchangeable:
+    /// <c>Get</c> widens with the caller (owner sees their own drafts, a review role sees
+    /// everything), while <c>GetPublicContentItems</c> and <c>GetContentItemFeed</c> consult no
+    /// security context at all. The first is a moderation surface; the other two are the public
+    /// ones, and they differ from each other in WHAT they project rather than in who may read
+    /// it — the feed excludes <c>Topic</c> and <c>Series</c> (§DOM3.8 rule 2) and the public read
+    /// deliberately does not, because that exclusion on a narrowing read would make every topic
+    /// unsearchable.</para>
     ///
     /// <para><b>Submit and hard removal are absent, and it is a gap rather than a design.</b>
     /// <c>IContentItemProcessingService</c> has neither; both exist only on
