@@ -43,6 +43,7 @@ import { BreadcrumbItem } from '../../models/coreUI/breadcrumbItem';
 import { contentItemService } from '../../services/foundations/contentItemService';
 import { contentItemSettingService } from '../../services/foundations/contentItemSettingService';
 import { contributorService } from '../../services/foundations/contributorService';
+import { useContentItemEngagement } from '../../hooks/useContentItemEngagement';
 import { useDocumentTitle } from '../useDocumentTitle';
 
 import {
@@ -178,6 +179,13 @@ export const ContentItemModerationDetailPage = () => {
 
     const modifyContentItem = contentItemService.useModifyContentItem();
     const removeContentItem = contentItemService.useRemoveContentItem();
+
+    // THE LIKE CONTROL, and only it. The queue offers the reaction picker on the card for this
+    // very item, so a moderator who opened the item lost a control by reading it — and a page
+    // that passes no handler is a second switch no ShowReactions setting can reach (§DOM6.5).
+    // Share and Save are deliberately NOT taken: an item under moderation is by definition not
+    // approved, so the /posts/{id} address Share copies answers nothing for it.
+    const { reactionOptions, onReactionSelected } = useContentItemEngagement();
 
     // A TAKEDOWN LEAVES NOWHERE TO STAND. The row this page is about is gone, so staying on
     // its address would show a removed item; the moderator goes back to the queue they came
@@ -710,6 +718,8 @@ export const ContentItemModerationDetailPage = () => {
                                     showTagSection={false}
                                     showBibleReferenceSection={false}
                                     onModerateClick={() => setIsEditing(true)}
+                                    reactionOptions={reactionOptions}
+                                    onReactionSelected={onReactionSelected}
                                     contentItemSettingCollection={contentItemSettings ?? []} />
                             )}
 
