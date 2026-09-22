@@ -239,21 +239,30 @@ This collides with `ServiceRegistration.Add*Service()`, which registers services
 the singleton `IEventBroker` as method groups. That trade was only sound in a host that actually
 wires those subscriptions. **A host that exposes a service over HTTP and wires no subscriptions
 must not use those helpers** — it registers the service and its request-bound brokers scoped
-itself, as `CoreRegistration.AddCoreServices` does.
+itself, as `CoreRegistration.AddCoreServices` does. **That conditional is a corollary and not the
+operative rule**, and the paragraph below is why it must not be read as one: the rule above is
+unconditional, and `CoreRegistration.AddCoreServices` is cited for what it **does** — register
+scoped, by hand — and no longer for satisfying the condition, because that host wires 109
+subscriptions.
 
 **The trade itself has since been bought out, and the rule that rested on it now rests on
 something else.** `EventSubscriptionRegistration` no longer binds a method group on a held
 service: *"Every handler below is bound through here rather than as a method group on a held
 service"*, and its `Scoped<TService, TEntity>` helper opens an `AsyncServiceScope` **per
-delivery** — *"which is what lets the host register them scoped and still bind them here"*. The
+delivery** — *"This is what lets the host register them scoped and still bind them here"*. The
 reason was a measured thread-safety defect, eight concurrent publishes sharing one `DbContext`,
 not a lifetime preference. So a singleton registration **no longer buys what it was traded for**,
-and the sentence above should be read as history rather than as a live justification: there is no
-host, present or hypothetical, for which a singleton over the identity chain is the correct
+and **the trade sentence that opens this subsection — the one naming method groups — is history
+rather than a live justification**, which is said of that sentence by name because the bolded
+prohibition sits between it and this one and must not be swept up in it. There is no host,
+present or hypothetical, for which a singleton over the identity chain is the correct
 arrangement. The helpers themselves still register singletons — measured, and `Add*Service()` is
 unchanged — so **whether every one of them should now be scoped is a wider question, named here
-and deliberately not ruled**; what is ruled is that no design may cite the method-group trade to
-justify one, because the mechanism it names is gone. Only the genuinely stateless brokers
+and deliberately not ruled**; what is ruled is that no design or comment may cite the method-group
+trade to justify one, because the mechanism it names is gone. **Sixteen source files still assert
+that mechanism and `CoreRegistration` still contradicts itself about whether this host wires
+subscriptions; closing both is #659's**, and that issue carries the boundary above as its own
+out-of-scope line so the sweep does not turn into the wider ruling by accident. Only the genuinely stateless brokers
 (`IDateTimeBroker`, `IIdentifierBroker`, `IHashBroker`, `IEnvelopeIntegrityBroker`,
 `IEventBroker`) stay singletons there.
 
