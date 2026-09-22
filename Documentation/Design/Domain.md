@@ -116,6 +116,7 @@ endpoints.
   - [DOM11.6 Topic Child Visibility](#dom116-topic-child-visibility-formerly-116)
   - [DOM11.7 Topic Ordering](#dom117-topic-ordering-formerly-117)
   - [DOM11.8 Future Topic Subscriptions](#dom118-future-topic-subscriptions-formerly-118)
+  - [DOM11.9 Feed Index Position](#dom119-feed-index-position-new-581-measurement)
 - [DOM19. Search Engine Optimisation](#dom19-search-engine-optimisation-formerly-19)
   - [DOM19.1 Purpose](#dom191-purpose-formerly-191)
   - [DOM19.2 ContentItem SEO Fields](#dom192-contentitem-seo-fields-formerly-192)
@@ -931,6 +932,14 @@ A future subscription system may record:
 A topic subscription means the user subscribes to a topic and receives associated child content according to subscription delivery rules.
 
 Subscriptions should not control whether content is visible on the public UI.
+
+### DOM11.9 Feed Index Position *(new; #581 measurement)*
+
+§DOM11.3 states the feed's order, and that expression is not sargable against a plain index on the bare `PublishDate` column. This position records whether a persisted computed column is warranted to serve that order and which of the feed's two candidate indexes it expects to survive. §DOM11.3 remains the feed's single statement of the order; it is cited here, never restated.
+
+**The persisted computed column is warranted, with the feed's ordering expression unchanged.** A candidate column defined verbatim as `COALESCE(PublishDate, CreatedWhen)`, `PERSISTED`, with an index on it, eliminates the sort the baseline plan otherwise performs at every page request — the plan shapes, at 200,000 seeded rows with a 60% match rate, are recorded in [the criterion 3 re-take](https://github.com/Glory2Him/Glory2Him.Core/issues/581#issuecomment-5768025253): the first page moves from 35,105 logical reads with a `TopN Sort` and an estimated subtree cost of 194.102, to 251 logical reads with no sort operator at all and a cost of 0.168216, matched by the optimiser without the query naming the column. The measured write cost, recorded in [the original `Plan measurement` comment](https://github.com/Glory2Him/Glory2Him.Core/issues/581#issuecomment-5767767821), is real and one-sided toward updates touching `PublishDate` — inserts cost roughly 17-18% more elapsed time, updates roughly 45-69% more, and the candidate index adds 11.70 MB over 180,000 filtered rows — and is accepted against the read saving on the front page's `[AllowAnonymous]` route. This verdict does not depend on the feed read being rewritten to name the column; the feed goes on composing `COALESCE(PublishDate, CreatedWhen)` exactly as §DOM11.3 states it.
+
+**`IX_ContentItems_PublishDate` and `IX_ContentItems_Feed` are both undecided.** Neither is touched by the baseline plan measured for the feed's own query, at either page position — the same comment's evidence for the computed column shows this directly rather than by inference. That measurement bears only on the one predicate shape and one selectivity #581 took a plan for; it says nothing about whichever other query, if any, evaluates `IX_ContentItems_PublishDate`'s or `IX_ContentItems_Feed`'s cited purpose outside the feed's own read, and this position does not extend past what was measured to guess at one. No index changes as part of this position; **#592** applies whatever fate a later measurement settles, gated on **#591**. This position says nothing about `IX_ContentItems_DeletedWhen`.
 
 ## DOM19. Search Engine Optimisation *(formerly §19)*
 
