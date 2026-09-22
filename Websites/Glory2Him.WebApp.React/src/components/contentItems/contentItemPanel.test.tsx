@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ContentItemPanel } from './contentItemPanel';
 import { AuthProvider } from '../securitys/authProvider';
-import { createAuthState, signInAs, signOut } from '../../tests/testAuth';
+import { createAuthState, setLoading, signInAs, signOut } from '../../tests/testAuth';
 import { ContentItemSetting } from '../../models/foundations/contentItemSettings/contentItemSetting';
 import { ContentType } from '../../models/foundations/contentItemSettings/contentType';
 
@@ -21,11 +21,17 @@ import {
 // collection, so every gate below is exercised by varying the element itself, which is exactly
 // how a consumer changes one card without refetching a list.
 //
-// No router wrapper on purpose: every affordance is an EVENT, not a link. The auth double IS
-// here, because two of the card's decisions are identity decisions: Edit belongs to the item's
-// own submitter, Moderate to the moderation tier. Render gates only — the server re-decides
-// both against the stored row.
+// A router stands over every render, because one affordance is not an event: a signed-out
+// reader choosing a reaction is sent to sign in, and the card performs that navigation itself.
+// The auth double IS here, because three of the card's decisions are identity decisions: Edit
+// belongs to the item's own submitter, Moderate to the moderation tier, and a reaction to a
+// reader who is signed in at all. Render gates only — the server re-decides every write
+// against the stored row.
 const authState = createAuthState();
+
+// The sign-in redirect a signed-out reader's reaction triggers is a navigation, so the router's
+// navigate is doubled here and asserted directly - the same double the pages already use.
+const navigate = vi.fn();
 
 vi.mock('../../services/foundations/accountService', () => ({
     accountService: {
@@ -33,11 +39,33 @@ vi.mock('../../services/foundations/accountService', () => ({
     }
 }));
 
-const renderCard = (ui: ReactElement) =>
-    render(
-        <MemoryRouter initialEntries={['/myposts/devotional-1']}>
+vi.mock('react-router-dom', async () => {
+    const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
+
+    return { ...actual, useNavigate: () => navigate };
+});
+
+// The path is a PARAMETER, because the return address the card computes is only proven to
+// track the page if more than one page is exercised: pinned to a single entry, a hard-coded
+// constant is indistinguishable from `location.pathname`. The default is kept for the
+// renders that do not care.
+const renderCard = (ui: ReactElement, path: string = '/myposts/devotional-1') => {
+    const rendered = render(
+        <MemoryRouter initialEntries={[path]}>
             <AuthProvider>{ui}</AuthProvider>
         </MemoryRouter>);
+
+    // A rerender replaces the whole tree, so the router has to be put back with it — the card
+    // reads the location it would send a signed-out reader back to.
+    return {
+        ...rendered,
+        rerender: (nextUi: ReactElement) =>
+            rendered.rerender(
+                <MemoryRouter initialEntries={[path]}>
+                    {nextUi}
+                </MemoryRouter>)
+    };
+};
 
 const settingFor = (
     contentType: ContentType,
@@ -135,6 +163,7 @@ const reactionOptions: ReadonlyArray<ContentItemReactionOption> = [
 describe('ContentItemPanel', () => {
     beforeEach(() => {
         signOut(authState);
+        navigate.mockClear();
     });
 
     describe('template dispatch', () => {
@@ -910,6 +939,9 @@ describe('ContentItemPanel', () => {
 
     describe('giving a reaction', () => {
         it('should open the choices from Like and raise the selection', async () => {
+            // A signed-in reader: choosing is a write, and a signed-out reader is sent to sign
+            // in instead of raising it. Bryan submitted this quote, not the test user.
+            signInAs(authState);
             const onReactionSelected = vi.fn();
 
             renderCard(
@@ -993,6 +1025,210 @@ describe('ContentItemPanel', () => {
             expect(screen.getByRole('menuitem', { name: 'Love' })).toBeInTheDocument();
             expect(screen.queryByRole('menuitem', { name: 'Amen' })).not.toBeInTheDocument();
             expect(screen.queryByRole('menuitem', { name: 'Joy' })).not.toBeInTheDocument();
+        });
+    });
+
+    describe('the signed-out reader', () => {
+        it('should show the reaction counts to a signed-out reader', () => {
+            // given
+            signOut(authState);
+
+            // when
+            renderCard(<ContentItemPanel contentItem={quoteItem} />);
+
+            // then
+            expect(screen.getByRole('button', { name: 'Reaction counts' })).toBeInTheDocument();
+            expect(screen.getByText('142')).toBeInTheDocument();
+        });
+
+        it('should send a signed-out reader to sign in instead of writing the reaction',
+            async () => {
+            // given
+            signOut(authState);
+            const onReactionSelected = vi.fn();
+
+            renderCard(
+                <ContentItemPanel
+                    contentItem={quoteItem}
+                    reactionOptions={reactionOptions}
+                    onReactionSelected={onReactionSelected} />);
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+            await userEvent.click(screen.getByRole('menuitem', { name: 'Love' }));
+
+            // then
+            expect(navigate)
+                .toHaveBeenCalledWith(expect.stringContaining('/Account/Login'));
+
+            // the click navigates: no write is attempted, and nothing is put in front of the
+            // reader first - no prompt, no modal, no toast
+            expect(onReactionSelected).not.toHaveBeenCalled();
+            expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+            expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+            expect(screen.queryByRole('status')).not.toBeInTheDocument();
+            expect(screen.queryByText(/sign in/i)).not.toBeInTheDocument();
+        });
+
+        // VACUOUS UNTIL #620 BUILDS AN OPTIMISTIC COUNT, and kept deliberately: it is the
+        // regression guard that keeps one from appearing for a reader whose reaction was
+        // never recorded. It earns a re-run when #620 lands.
+        it('should move no count when a signed-out reader chooses a reaction', async () => {
+            // given
+            signOut(authState);
+
+            renderCard(
+                <ContentItemPanel
+                    contentItem={quoteItem}
+                    reactionOptions={reactionOptions}
+                    onReactionSelected={vi.fn()} />);
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+            await userEvent.click(screen.getByRole('menuitem', { name: 'Love' }));
+
+            // then: the counts stand where they stood, and no glyph is marked as given
+            expect(screen.getByText('142')).toBeInTheDocument();
+            expect(screen.queryByText('143')).not.toBeInTheDocument();
+
+            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+
+            expect(screen.getByRole('menuitem', { name: 'Love' }))
+                .toHaveAttribute('aria-pressed', 'false');
+        });
+
+        // TWO PAGES, because one cannot tell a computed address apart from a constant. Both
+        // are PUBLIC paths — `/posts` and `/posts/{id}` — which is where a signed-out reader
+        // can actually be; `/myposts/{id}` is wrapped in a SecuredRoute and is not.
+        it('should send the reader to sign in with a return address for the page they were '
+            + 'reading', async () => {
+            // given
+            signOut(authState);
+
+            const card = (
+                <ContentItemPanel
+                    contentItem={quoteItem}
+                    reactionOptions={reactionOptions}
+                    onReactionSelected={vi.fn()} />);
+
+            const listing = renderCard(card, '/posts');
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+            await userEvent.click(screen.getByRole('menuitem', { name: 'Love' }));
+
+            // then: the path alone, URI-encoded — the shape every redirect in this app uses
+            expect(navigate).toHaveBeenCalledWith('/Account/Login?returnUrl=%2Fposts');
+
+            // when: the same card on a different public page
+            listing.unmount();
+            navigate.mockClear();
+
+            renderCard(card, '/posts/quote-1');
+
+            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+            await userEvent.click(screen.getByRole('menuitem', { name: 'Love' }));
+
+            // then: the address moved with the page, so it is read rather than fixed
+            expect(navigate)
+                .toHaveBeenCalledWith('/Account/Login?returnUrl=%2Fposts%2Fquote-1');
+        });
+
+        it('should not apply the pre-sign-in choice automatically', async () => {
+            // given
+            signOut(authState);
+            const onReactionSelected = vi.fn();
+
+            sessionStorage.clear();
+            localStorage.clear();
+
+            const card = (
+                <ContentItemPanel
+                    contentItem={quoteItem}
+                    reactionOptions={reactionOptions}
+                    onReactionSelected={onReactionSelected} />);
+
+            const rendered = renderCard(card);
+
+            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+            await userEvent.click(screen.getByRole('menuitem', { name: 'Love' }));
+
+            // then: the choice was kept NOWHERE — not in browser storage, and not in the
+            // return address the reader carries to the sign-in page
+            expect(sessionStorage.length).toBe(0);
+            expect(localStorage.length).toBe(0);
+
+            expect(navigate)
+                .toHaveBeenCalledWith('/Account/Login?returnUrl=%2Fmyposts%2Fdevotional-1');
+
+            // when: the reader comes back signed in
+            signInAs(authState);
+            rendered.rerender(<AuthProvider>{card}</AuthProvider>);
+
+            // then: nothing is replayed — the reader chooses again
+            expect(onReactionSelected).not.toHaveBeenCalled();
+
+            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+
+            expect(screen.getByRole('menuitem', { name: 'Love' }))
+                .toHaveAttribute('aria-pressed', 'false');
+        });
+
+        // NOT SIGNED OUT — NOT YET KNOWN. `isAuthenticated` collapses "no session" and "we
+        // have not read one yet" into false, and every full page load starts in the second
+        // state with the cards already on screen. Deciding a navigation there sends a reader
+        // holding a valid session to the sign-in screen, so the card refuses to decide while
+        // the read is unresolved, exactly as SecuredRoute does.
+        it('should not send a reader to sign in while the sign-in state is still unknown',
+            async () => {
+            // given
+            setLoading(authState);
+            const onReactionSelected = vi.fn();
+
+            renderCard(
+                <ContentItemPanel
+                    contentItem={quoteItem}
+                    reactionOptions={reactionOptions}
+                    onReactionSelected={onReactionSelected} />,
+                '/posts/quote-1');
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+            await userEvent.click(screen.getByRole('menuitem', { name: 'Love' }));
+
+            // then
+            expect(navigate).not.toHaveBeenCalled();
+
+            expect(onReactionSelected).toHaveBeenCalledWith(
+                quoteItem, expect.objectContaining({ label: 'Love' }));
+        });
+
+        // THE READER IS NOT THE SUBMITTER: quoteItem was submitted by account-bryan and
+        // signInAs mints user-1, so the two arms of this comparison differ in ONE thing —
+        // whether the reader is signed in — rather than also in the submitter-only
+        // affordances an owned fixture would switch on.
+        it("should pass a signed-in reader's choice to the handler without redirecting",
+            async () => {
+            // given
+            signInAs(authState);
+            const onReactionSelected = vi.fn();
+
+            renderCard(
+                <ContentItemPanel
+                    contentItem={quoteItem}
+                    reactionOptions={reactionOptions}
+                    onReactionSelected={onReactionSelected} />);
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+            await userEvent.click(screen.getByRole('menuitem', { name: 'Love' }));
+
+            // then
+            expect(onReactionSelected).toHaveBeenCalledWith(
+                quoteItem, expect.objectContaining({ label: 'Love' }));
+
+            expect(navigate).not.toHaveBeenCalled();
+            expect(screen.queryByText(/sign in/i)).not.toBeInTheDocument();
         });
     });
 

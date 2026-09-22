@@ -1,5 +1,6 @@
 import { ReactElement } from 'react';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render as renderBare, screen, waitFor, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ContentItemListPanel } from './contentItemListPanel';
@@ -16,7 +17,11 @@ import {
 
 // The composition: the bar, the results and the filter semantics of the card hooks. The card's
 // own rendering is contentItemPanel.test.tsx's subject; here the cards matter only as the
-// places the filter clicks come from. No router — the family navigates nowhere itself.
+// places the filter clicks come from. A router stands over every render: the card sends a
+// signed-out reader to sign in when they choose a reaction, which is a navigation.
+const render = (ui: ReactElement) =>
+    renderBare(<MemoryRouter>{ui}</MemoryRouter>);
+
 const settingFor = (
     contentType: ContentType,
     contentTypeName: string,
