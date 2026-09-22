@@ -27,11 +27,21 @@ import {
 // both against the stored row.
 const authState = createAuthState();
 
+// The sign-in redirect a signed-out reader's reaction triggers is a navigation, so the router's
+// navigate is doubled here and asserted directly - the same double the pages already use.
+const navigate = vi.fn();
+
 vi.mock('../../services/foundations/accountService', () => ({
     accountService: {
         useGetCurrentUser: () => authState
     }
 }));
+
+vi.mock('react-router-dom', async () => {
+    const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
+
+    return { ...actual, useNavigate: () => navigate };
+});
 
 const renderCard = (ui: ReactElement) =>
     render(
@@ -135,6 +145,7 @@ const reactionOptions: ReadonlyArray<ContentItemReactionOption> = [
 describe('ContentItemPanel', () => {
     beforeEach(() => {
         signOut(authState);
+        navigate.mockClear();
     });
 
     describe('template dispatch', () => {
@@ -993,6 +1004,20 @@ describe('ContentItemPanel', () => {
             expect(screen.getByRole('menuitem', { name: 'Love' })).toBeInTheDocument();
             expect(screen.queryByRole('menuitem', { name: 'Amen' })).not.toBeInTheDocument();
             expect(screen.queryByRole('menuitem', { name: 'Joy' })).not.toBeInTheDocument();
+        });
+    });
+
+    describe('the signed-out reader', () => {
+        it('should show the reaction counts to a signed-out reader', () => {
+            // given
+            signOut(authState);
+
+            // when
+            renderCard(<ContentItemPanel contentItem={quoteItem} />);
+
+            // then
+            expect(screen.getByRole('button', { name: 'Reaction counts' })).toBeInTheDocument();
+            expect(screen.getByText('142')).toBeInTheDocument();
         });
     });
 
