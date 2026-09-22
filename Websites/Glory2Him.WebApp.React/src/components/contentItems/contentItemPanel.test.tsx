@@ -1112,6 +1112,46 @@ describe('ContentItemPanel', () => {
             expect(navigate)
                 .toHaveBeenCalledWith('/Account/Login?returnUrl=%2Fmyposts%2Fdevotional-1');
         });
+
+        it('should not apply the pre-sign-in choice automatically', async () => {
+            // given
+            signOut(authState);
+            const onReactionSelected = vi.fn();
+
+            sessionStorage.clear();
+            localStorage.clear();
+
+            const card = (
+                <ContentItemPanel
+                    contentItem={quoteItem}
+                    reactionOptions={reactionOptions}
+                    onReactionSelected={onReactionSelected} />);
+
+            const rendered = renderCard(card);
+
+            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+            await userEvent.click(screen.getByRole('menuitem', { name: 'Love' }));
+
+            // then: the choice was kept NOWHERE — not in browser storage, and not in the
+            // return address the reader carries to the sign-in page
+            expect(sessionStorage.length).toBe(0);
+            expect(localStorage.length).toBe(0);
+
+            expect(navigate)
+                .toHaveBeenCalledWith('/Account/Login?returnUrl=%2Fmyposts%2Fdevotional-1');
+
+            // when: the reader comes back signed in
+            signInAs(authState);
+            rendered.rerender(<AuthProvider>{card}</AuthProvider>);
+
+            // then: nothing is replayed — the reader chooses again
+            expect(onReactionSelected).not.toHaveBeenCalled();
+
+            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+
+            expect(screen.getByRole('menuitem', { name: 'Love' }))
+                .toHaveAttribute('aria-pressed', 'false');
+        });
     });
 
     describe('honest figures', () => {
