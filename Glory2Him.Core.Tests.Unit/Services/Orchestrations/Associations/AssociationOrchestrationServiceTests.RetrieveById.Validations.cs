@@ -131,6 +131,174 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        /// <summary>
+        /// §SEC14.5 rule 1's test is what an unprivileged probe can tell apart, and a probe sees
+        /// a status code and a body. All five misses therefore carry the SAME outward message,
+        /// with no reason, no state and no identity in it.
+        ///
+        /// <para>The two exception families stay two and are asserted here as such: misses 1-3
+        /// are the foundation's own not-found and leave as a dependency validation failure,
+        /// misses 4-5 are raised locally and leave as a validation failure. Collapsing them would
+        /// misreport which layer refused; #318 maps both to one status code and one body.</para>
+        ///
+        /// <para><b>What this pins and what it does not.</b> The foundation's message template is
+        /// written out once below and used both to drive the simulated foundation misses and as
+        /// the expected value of the two this service raises itself — so it pins THIS service's
+        /// messages to the foundation's. It would not catch the foundation changing its own
+        /// wording, which is not this service's to pin. Misses 1-3 are simulated as one shape
+        /// because that is what they are by the time they reach this layer: the foundation
+        /// converges its three reasons onto one message before throwing, which is the whole point
+        /// of rule 1.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldCarryTheSameOutwardMessageForEveryMissOnRetrieveByIdAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+
+            var noRowId = Guid.NewGuid();
+            var softDeletedRowId = Guid.NewGuid();
+            var notVisibleToCallerId = Guid.NewGuid();
+
+            Guid[] foundationMissIds = { noRowId, softDeletedRowId, notVisibleToCallerId };
+
+            foreach (Guid foundationMissId in foundationMissIds)
+            {
+                Guid missId = foundationMissId;
+
+                this.associationServiceMock.Setup(service =>
+                    service.RetrieveAssociationByIdAsync(missId, It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(new AssociationValidationException(
+                            message: "Content item association validation error occurred, " +
+                                "fix the errors and try again.",
+                            innerException: new NotFoundAssociationException(
+                                message: FoundationNotFoundMessageFor(missId))));
+            }
+
+            // miss 4 — the row is visible, its endpoint is not
+            ContentItem invisibleEndpointContentItem = CreateEndpointContentItem();
+            Tag sharedTag = CreateEndpointTag();
+
+            Association associationOnAnInvisibleEndpoint =
+                CreateStoredAssociation(invisibleEndpointContentItem, sharedTag);
+
+            this.associationServiceMock.Setup(service =>
+                service.RetrieveAssociationByIdAsync(
+                    associationOnAnInvisibleEndpoint.Id,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(associationOnAnInvisibleEndpoint);
+
+            this.contentItemServiceMock.Setup(service =>
+                service.RetrieveContentItemsByGroupIdAsync(
+                    associationOnAnInvisibleEndpoint.EntityAGroupId,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(new List<ContentItem>());
+
+            // miss 5 — the row is visible, its endpoint type has no foundation service
+            var associationOnAnUnreadableType = new Association
+            {
+                Id = Guid.NewGuid(),
+                EntityAType = EntityType.Attachment,
+                EntityAKeyId = Guid.NewGuid(),
+                EntityAGroupId = Guid.NewGuid(),
+                EntityAScope = Scope.ThisVersionOnly,
+                EntityBType = EntityType.Tag,
+                EntityBKeyId = sharedTag.Id,
+                EntityBGroupId = sharedTag.Id,
+                EntityBScope = Scope.ThisVersionOnly,
+            };
+
+            this.associationServiceMock.Setup(service =>
+                service.RetrieveAssociationByIdAsync(
+                    associationOnAnUnreadableType.Id,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(associationOnAnUnreadableType);
+
+            this.tagServiceMock.Setup(service =>
+                service.RetrieveTagByIdAsync(sharedTag.Id, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(sharedTag);
+
+            // when
+            Xeption noRowMiss = await CaptureRetrieveByIdMissAsync(noRowId);
+            Xeption softDeletedMiss = await CaptureRetrieveByIdMissAsync(softDeletedRowId);
+            Xeption notVisibleMiss = await CaptureRetrieveByIdMissAsync(notVisibleToCallerId);
+
+            Xeption invisibleEndpointMiss =
+                await CaptureRetrieveByIdMissAsync(associationOnAnInvisibleEndpoint.Id);
+
+            Xeption unreadableTypeMiss =
+                await CaptureRetrieveByIdMissAsync(associationOnAnUnreadableType.Id);
+
+            // then: one message, five misses
+            noRowMiss.InnerException!.Message.Should().Be(FoundationNotFoundMessageFor(noRowId));
+
+            softDeletedMiss.InnerException!.Message.Should()
+                .Be(FoundationNotFoundMessageFor(softDeletedRowId));
+
+            notVisibleMiss.InnerException!.Message.Should()
+                .Be(FoundationNotFoundMessageFor(notVisibleToCallerId));
+
+            invisibleEndpointMiss.InnerException!.Message.Should()
+                .Be(FoundationNotFoundMessageFor(associationOnAnInvisibleEndpoint.Id));
+
+            unreadableTypeMiss.InnerException!.Message.Should()
+                .Be(FoundationNotFoundMessageFor(associationOnAnUnreadableType.Id));
+
+            // the families stay two, and which layer refused is what they record
+            noRowMiss.Should().BeOfType<AssociationOrchestrationDependencyValidationException>();
+            softDeletedMiss.Should().BeOfType<AssociationOrchestrationDependencyValidationException>();
+            notVisibleMiss.Should().BeOfType<AssociationOrchestrationDependencyValidationException>();
+            invisibleEndpointMiss.Should().BeOfType<AssociationOrchestrationValidationException>();
+            unreadableTypeMiss.Should().BeOfType<AssociationOrchestrationValidationException>();
+
+            // nothing anywhere in any of them names a reason, a state or an identity
+            Xeption[] allMisses =
+            {
+                noRowMiss, softDeletedMiss, notVisibleMiss, invisibleEndpointMiss, unreadableTypeMiss,
+            };
+
+            string[] disclosures =
+            {
+                "endpoint", "Entity type", "not supported", "visible", "deleted",
+                "role", "authenticated", "owner",
+            };
+
+            foreach (Xeption miss in allMisses)
+            {
+                foreach (string disclosure in disclosures)
+                {
+                    miss.Message.Should().NotContain(disclosure);
+                    miss.InnerException!.Message.Should().NotContain(disclosure);
+                }
+
+                miss.Data.Count.Should().Be(0);
+                miss.InnerException!.Data.Count.Should().Be(0);
+            }
+        }
+
+        // The foundation's own not-found wording, in one place. The id in it is the caller's own
+        // input, which §SEC14.5 rule 2 does not bar — it is neither the reason, the state, nor an
+        // identity.
+        private static string FoundationNotFoundMessageFor(Guid associationId) =>
+            $"Content item association not found with id: {associationId}.";
+
+        private async ValueTask<Xeption> CaptureRetrieveByIdMissAsync(Guid associationId)
+        {
+            try
+            {
+                await this.associationOrchestrationService.RetrieveAssociationByIdAsync(
+                    associationId,
+                    TestContext.Current.CancellationToken);
+            }
+            catch (Xeption miss)
+            {
+                return miss;
+            }
+
+            throw new InvalidOperationException(
+                $"Expected a miss for association {associationId} and the read returned a row.");
+        }
+
         [Theory]
         [InlineData(EntityType.Attachment)]
         [InlineData(EntityType.Association)]
