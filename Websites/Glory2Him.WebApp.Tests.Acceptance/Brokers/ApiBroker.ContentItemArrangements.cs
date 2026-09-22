@@ -78,11 +78,15 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
             ApprovalStatus approvalStatus = ApprovalStatus.Approved,
             bool isPublished = true,
             bool isDeleted = false,
-            string authorUserId = "acceptance-feed")
+            string authorUserId = "acceptance-feed",
+            Guid? contentItemId = null)
         {
             var contentItem = new CoreContentItem
             {
-                Id = Guid.NewGuid(),
+                // Named by the caller only where the ID ITSELF is under test - the feed's
+                // Id DESC terminator, whose direction cannot be asserted against a value the
+                // fixture drew at random.
+                Id = contentItemId ?? Guid.NewGuid(),
                 GroupId = Guid.NewGuid(),
                 Version = 1,
                 ContentType = contentType,

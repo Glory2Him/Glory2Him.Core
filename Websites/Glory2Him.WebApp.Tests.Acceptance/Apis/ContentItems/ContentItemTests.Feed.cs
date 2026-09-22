@@ -11,6 +11,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Data.SqlTypes;
 using System.Linq;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -273,6 +274,129 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItems
                 }
             }
         }
+
+        /// <summary>
+        /// Criterion 4: PAGING THE FEED NEITHER SKIPS NOR REPEATS A ROW, and the two pages
+        /// concatenated are the head of §DOM11.3's sequence — ASSERTED AS A SEQUENCE, not as a
+        /// set. A disjointness-only test passes under an ordering that has been re-keyed behind
+        /// the read's back, which is precisely what criterion 6's mutation check produces.
+        ///
+        /// <para>Two rows share an effective publication moment TO THE TICK and they straddle
+        /// the page boundary, which is the case the <c>Id</c> terminator exists for: with no
+        /// total order, <c>OFFSET</c>/<c>FETCH</c> may place either of them in either page and a
+        /// row can be served twice or not at all.</para>
+        ///
+        /// <para>The expected sequence is read back from the feed's own unpaged answer rather
+        /// than computed here. <c>Id DESC</c> breaks the tie in SQL Server's ordering of
+        /// <c>uniqueidentifier</c>, which is not .NET's, so a hand-computed expectation would be
+        /// asserting this test's opinion of that collation rather than the read's behaviour.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldPageTheFeedWithoutSkippingOrRepeatingARowAsync()
+        {
+            // given
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            DateTimeOffset sharedMoment = now.AddMinutes(-3);
+            var arrangedContentItems = new List<CoreContentItem>();
+
+            try
+            {
+                // Positions 0 and 1 of the order.
+                arrangedContentItems.Add(await this.apiBroker.InsertFeedContentItemAsync(
+                    createdWhen: now.AddMinutes(-1), publishDate: now.AddMinutes(-1)));
+
+                arrangedContentItems.Add(await this.apiBroker.InsertFeedContentItemAsync(
+                    createdWhen: now.AddMinutes(-2), publishDate: now.AddMinutes(-2)));
+
+                // Positions 2 and 3 - the tie, and it lands either side of the boundary
+                // between a first page of three and a second page of three.
+                //
+                // THE LOWER ID IS INSERTED FIRST, deliberately: Id DESC must then serve the
+                // HIGHER one first, which is the opposite of the order the rows were written
+                // in. Without that the assertion below would be satisfied by a read carrying
+                // no terminator at all, whose tie order is whatever the plan happened to
+                // produce. "Lower" is SQL Server's ordering of uniqueidentifier, which is not
+                // .NET's - SqlGuid is the comparison the database will apply.
+                (Guid lowerTiedId, Guid higherTiedId) = OrderIdsAsSqlServerWould(
+                    Guid.NewGuid(), Guid.NewGuid());
+
+                CoreContentItem lowerTiedContentItem =
+                    await this.apiBroker.InsertFeedContentItemAsync(
+                        createdWhen: sharedMoment,
+                        publishDate: sharedMoment,
+                        contentItemId: lowerTiedId);
+
+                CoreContentItem higherTiedContentItem =
+                    await this.apiBroker.InsertFeedContentItemAsync(
+                        createdWhen: sharedMoment,
+                        publishDate: sharedMoment,
+                        contentItemId: higherTiedId);
+
+                arrangedContentItems.Add(lowerTiedContentItem);
+                arrangedContentItems.Add(higherTiedContentItem);
+
+                // Positions 4 and 5.
+                arrangedContentItems.Add(await this.apiBroker.InsertFeedContentItemAsync(
+                    createdWhen: now.AddMinutes(-4), publishDate: now.AddMinutes(-4)));
+
+                arrangedContentItems.Add(await this.apiBroker.InsertFeedContentItemAsync(
+                    createdWhen: now.AddMinutes(-5), publishDate: now.AddMinutes(-5)));
+
+
+                // when
+                List<ContentItem> wholeSequence =
+                    await this.apiBroker.GetContentItemFeedAsync(skip: 0, take: 6);
+
+                List<ContentItem> firstPage =
+                    await this.apiBroker.GetContentItemFeedAsync(skip: 0, take: 3);
+
+                List<ContentItem> secondPage =
+                    await this.apiBroker.GetContentItemFeedAsync(skip: 3, take: 3);
+
+                // then
+                List<Guid> pagedIds = firstPage.Concat(secondPage)
+                    .Select(contentItem => contentItem.Id)
+                    .ToList();
+
+                // No row twice, and no row missing.
+                pagedIds.Should().OnlyHaveUniqueItems();
+
+                pagedIds.Should().BeEquivalentTo(
+                    arrangedContentItems.Select(contentItem => contentItem.Id));
+
+                // THE SEQUENCE, not the set: the two pages concatenated are the head of the
+                // order, in the order.
+                pagedIds.Should().Equal(
+                    wholeSequence.Select(contentItem => contentItem.Id));
+
+                // THE TERMINATOR ITSELF. The tie straddles the boundary - so the assertions
+                // above were exercising the case they were arranged for - and it is broken by
+                // Id DESCENDING, the higher id first, which is the reverse of the order the two
+                // rows were written in.
+                firstPage.Last().Id.Should().Be(higherTiedId);
+                secondPage.First().Id.Should().Be(lowerTiedId);
+            }
+            finally
+            {
+                foreach (CoreContentItem arrangedContentItem in arrangedContentItems)
+                {
+                    await this.apiBroker.RemoveCoreContentItemByIdAsync(arrangedContentItem.Id);
+                }
+            }
+        }
+
+        /// <summary>
+        /// The two ids as SQL SERVER would order them, ascending. <c>uniqueidentifier</c> is
+        /// compared on its last six bytes first and .NET's <c>Guid.CompareTo</c> is not that
+        /// comparison, so a test reasoning about <c>ORDER BY Id</c> has to use the database's
+        /// own semantics — which is what <see cref="SqlGuid"/> implements.
+        /// </summary>
+        private static (Guid Lower, Guid Higher) OrderIdsAsSqlServerWould(
+            Guid firstId,
+            Guid secondId) =>
+            new SqlGuid(firstId).CompareTo(new SqlGuid(secondId)) < 0
+                ? (firstId, secondId)
+                : (secondId, firstId);
 
         /// <summary>
         /// Criterion 1, second half: NOTHING INSIDE §SEC14.1 IS MISSING FROM THE HEAD. Stated
