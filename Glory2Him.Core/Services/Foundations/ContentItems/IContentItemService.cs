@@ -57,9 +57,15 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
 
         /// <summary>
         /// ONE PAGE OF THE FEED (§DOM11.3), already materialised. This is where the decision
-        /// that the feed IS the §SEC14.1 set is recorded, because this is the layer that names
-        /// the read; the storage broker composes the predicate and the page into one awaited
+        /// that the feed is the §SEC14.1 set MINUS the content types §DOM3.8 rule 2 excludes —
+        /// <c>Topic</c> and <c>Series</c> — is recorded, because this is the layer that names
+        /// the read; the storage broker composes that predicate and the page into one awaited
         /// expression and holds no decision of its own.
+        ///
+        /// <para>The exclusion belongs to THIS read and to no other. A topic keeps answering on
+        /// the public collection read, on the by-id read and on the group reads, because being
+        /// filtered out of one projection is a different outcome from not existing — applying it
+        /// where a reader narrows by category would make every topic unsearchable.</para>
         ///
         /// <para><b>CALLER-INDEPENDENT, and that is the read's whole shape.</b> No envelope is
         /// minted, no <c>SecurityContext</c> is resolved and no role is consulted — a publisher

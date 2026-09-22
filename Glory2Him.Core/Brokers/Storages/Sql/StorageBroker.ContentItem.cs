@@ -102,7 +102,9 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                         && contentItem.ApprovalStatus == ApprovalStatus.Approved
                         && contentItem.IsPublished
                         && (contentItem.PublishDate == null
-                            || contentItem.PublishDate <= asOfDateTime))
+                            || contentItem.PublishDate <= asOfDateTime)
+                        && contentItem.ContentType != ContentType.Topic
+                        && contentItem.ContentType != ContentType.Series)
                 .Skip(skip)
                 .Take(take)
                 .ToListAsync(cancellationToken);
