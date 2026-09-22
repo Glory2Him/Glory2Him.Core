@@ -13,6 +13,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using EFxceptions.Models.Exceptions;
 using FluentAssertions;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
 using Glory2Him.Core.Tests.Integration.Brokers;
@@ -39,6 +40,8 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ProcessedEvents
     [Collection(NarrowReadIntegrationCollection.Name)]
     public sealed class ProcessedEventReceiverNameCollationTests : IAsyncDisposable
     {
+        private const string UniqueIndexName = "IX_ProcessedEvents_EventId_ReceiverName";
+
         private readonly NarrowReadQueryBroker broker;
         private readonly List<ProcessedEvent> seededProcessedEvents;
 
@@ -123,6 +126,44 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ProcessedEvents
 
             storedProcessedEvent.ReceiverName.Should().Be(differentlyCasedReceiverName,
                 because: "the casing written is the casing stored — nothing normalises it");
+        }
+
+        [Fact]
+        public async Task ShouldStillRefuseAnExactDuplicateProcessedEventAsync()
+        {
+            // given: the same event already recorded under a receiver name, and a second row
+            // carrying that SAME name in the SAME casing
+            Guid eventId = Guid.NewGuid();
+            string receiverName = CreateRandomReceiverName();
+
+            await SeedProcessedEventAsync(eventId, receiverName);
+
+            ProcessedEvent duplicateProcessedEvent =
+                CreateProcessedEvent(eventId, receiverName);
+
+            // registered for teardown BEFORE the attempt: if the refusal ever stops happening,
+            // the row that should not exist is still cleared rather than left behind
+            this.seededProcessedEvents.Add(duplicateProcessedEvent);
+
+            // when
+            Exception outcome = await this.broker.TryInsertAsync(duplicateProcessedEvent);
+
+            // then: relaxing the collation must not relax the dedup guarantee itself. Moving a
+            // case-insensitive key to a binary one only ever SPLITS keys that used to collide —
+            // it can never merge two that did not — so the exact duplicate stays refused.
+            outcome.Should().BeOfType<DuplicateKeyWithUniqueIndexException>(
+                because: "the same event recorded twice for the same receiver is what the "
+                    + "unique index exists to refuse, and the binary collation does not touch "
+                    + "that case");
+
+            outcome.Message.Should().Contain(UniqueIndexName);
+
+            ProcessedEvent storedDuplicate =
+                await this.broker.ReadUntrackedAsync<ProcessedEvent>(
+                    duplicateProcessedEvent.Id);
+
+            storedDuplicate.Should().BeNull(
+                because: "the write was refused, so nothing may be left in the table");
         }
 
         private static string CreateRandomReceiverName() =>
