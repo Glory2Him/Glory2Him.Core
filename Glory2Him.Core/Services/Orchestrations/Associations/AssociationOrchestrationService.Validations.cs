@@ -21,7 +21,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
 {
     internal partial class AssociationOrchestrationService
     {
-        // The orchestration enforces the contribution gate itself (§14.6): an exposer may bind
+        // The orchestration enforces the contribution gate itself (§SEC14.6): an exposer may bind
         // to it directly, so it never assumes an upstream layer already gated the caller.
         //
         // The ADD's composition: the two row-free leaves, and then — once both endpoints have
