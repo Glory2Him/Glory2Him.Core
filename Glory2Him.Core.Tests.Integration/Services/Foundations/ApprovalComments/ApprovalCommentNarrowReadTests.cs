@@ -78,7 +78,7 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ApprovalComments
                     approvalWithNoComments.Id, TestContext.Current.CancellationToken);
 
             // then: the empty answer, not a fault
-            actualComments.Should().NotBeEmpty();
+            actualComments.Should().BeEmpty();
         }
 
         private async Task<Approval> SeedApprovalAsync()
