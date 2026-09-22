@@ -55,6 +55,20 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ProcessedEvents
             actualExists.Should().BeTrue();
         }
 
+        [Fact]
+        public async Task ShouldReturnFalseForAKeyNobodyHasProcessedAsync()
+        {
+            // given: nothing seeded — a key nobody has ever recorded
+
+            // when
+            bool actualExists = await this.broker.StorageBroker.SelectProcessedEventExistsAsync(
+                Guid.NewGuid(), $"Unknown.Receiver.{Guid.NewGuid():N}",
+                TestContext.Current.CancellationToken);
+
+            // then: the empty answer, not a fault
+            actualExists.Should().BeTrue();
+        }
+
         private async Task<ProcessedEvent> SeedProcessedEventAsync()
         {
             var processedEvent = new ProcessedEvent
