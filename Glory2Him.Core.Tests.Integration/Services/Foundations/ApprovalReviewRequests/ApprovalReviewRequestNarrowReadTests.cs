@@ -81,6 +81,29 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ApprovalReviewRe
             actualRequests.Should().BeEmpty();
         }
 
+        [Fact]
+        public async Task ShouldIncludeAWithdrawnRequestAsync()
+        {
+            // given: a live invitation and a withdrawn one on the same round — the read is
+            // deliberately unfiltered beyond the approval id, so both must come back
+            Approval approval = await SeedApprovalAsync();
+
+            ApprovalReviewRequest liveRequest =
+                await SeedApprovalReviewRequestAsync(approval.Id, isDeleted: false);
+
+            ApprovalReviewRequest withdrawnRequest =
+                await SeedApprovalReviewRequestAsync(approval.Id, isDeleted: true);
+
+            // when
+            List<ApprovalReviewRequest> actualRequests =
+                await this.broker.StorageBroker.SelectApprovalReviewRequestsByApprovalIdAsync(
+                    approval.Id, TestContext.Current.CancellationToken);
+
+            // then
+            actualRequests.Select(request => request.Id).Should().BeEquivalentTo(
+                new[] { liveRequest.Id });
+        }
+
         private async Task<Approval> SeedApprovalAsync()
         {
             string actorUserId = Guid.NewGuid().ToString();
