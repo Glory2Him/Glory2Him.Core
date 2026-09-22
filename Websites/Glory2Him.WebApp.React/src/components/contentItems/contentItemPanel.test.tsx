@@ -1152,6 +1152,34 @@ describe('ContentItemPanel', () => {
             expect(screen.getByRole('menuitem', { name: 'Love' }))
                 .toHaveAttribute('aria-pressed', 'false');
         });
+
+        // THE READER IS NOT THE SUBMITTER: quoteItem was submitted by account-bryan and
+        // signInAs mints user-1, so the two arms of this comparison differ in ONE thing —
+        // whether the reader is signed in — rather than also in the submitter-only
+        // affordances an owned fixture would switch on.
+        it("should pass a signed-in reader's choice to the handler without redirecting",
+            async () => {
+            // given
+            signInAs(authState);
+            const onReactionSelected = vi.fn();
+
+            renderCard(
+                <ContentItemPanel
+                    contentItem={quoteItem}
+                    reactionOptions={reactionOptions}
+                    onReactionSelected={onReactionSelected} />);
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+            await userEvent.click(screen.getByRole('menuitem', { name: 'Love' }));
+
+            // then
+            expect(onReactionSelected).toHaveBeenCalledWith(
+                quoteItem, expect.objectContaining({ label: 'Love' }));
+
+            expect(navigate).not.toHaveBeenCalled();
+            expect(screen.queryByText(/sign in/i)).not.toBeInTheDocument();
+        });
     });
 
     describe('honest figures', () => {
