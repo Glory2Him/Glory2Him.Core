@@ -131,11 +131,21 @@ with the entire suite still green, because those callers are testing against a
 mock. When you tighten or add a validation, find the callers and check them.
 
 **Brokers get no unit tests.** They hold no logic, so there is nothing to assert.
-A narrow read is proven by asserting the arguments the broker was called with in
-the caller's unit test, and by the exposer-level acceptance test that exercises
-the path for real. The only broker-side check is the disposable wire-up probe
-described below. Note that Moq's default return for `IReadOnlyList` is null, not
-an empty list — set it up explicitly.
+The only broker-side check is the disposable wire-up probe described below. Note
+that Moq's default return for `IReadOnlyList` is null, not an empty list — set it
+up explicitly.
+
+**A keyed read is proven by executing its condition** (§ARC12.2.1, ruled
+2026-09-22). The condition is authored in the caller as a query-shaping function,
+so the caller's unit test mocks the broker and **applies the function it was
+handed** to an in-memory set seeded with a matching row and, for each term of the
+condition, a row that misses on that term alone — dropping or inverting any term
+must red a test. Asserting only that *some* function was passed is refused; so is
+asserting the arguments alone. Integration tests remain for what LINQ-to-Objects
+cannot stand in for: SQL translation, collation, and index guarantees. **Not yet
+built:** reads on `main` still carry their predicates in the broker, so follow
+this shape for new and converted reads, and do not rewrite an unconverted one
+unless your criteria say to.
 
 **Fillers.** Random `ContentItem` values all share the default `ContentType`, so a
 test that compares a caller-supplied type against a stored type proves nothing
