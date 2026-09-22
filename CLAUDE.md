@@ -50,7 +50,10 @@ spelled out in full, such as `Opus 5 - Medium`.
   `{TestName} -> FAIL` before the implementation.
 - Identity travels on the signed event envelope, never an ambient accessor, and an
   identity-filtered read never decides an invariant.
-- Brokers hold no logic and get no unit tests.
+- Brokers hold no logic and get no unit tests. A storage broker also authors no
+  query condition and never queries through its `DbContext` — the caller writes
+  the condition as a query-shaping function and the storage client awaits the
+  terminal operator (§ARC12.2.1, ruled 2026-09-22, conversion not yet built).
 - No layer calls two layers below it — **except** an orchestration depending
   only on foundation services (never a mix of foundation and processing, and
   never a *storage* broker). `Documentation/Design/Architecture.md` §ARC12.1
