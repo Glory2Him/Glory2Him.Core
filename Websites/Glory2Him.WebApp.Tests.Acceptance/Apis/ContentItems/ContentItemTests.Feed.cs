@@ -16,6 +16,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Securities;
 using Glory2Him.WebApp.Tests.Acceptance.Models.ContentItems;
 using CoreContentItem = Glory2Him.Core.Models.Foundations.ContentItems.ContentItem;
 
@@ -397,6 +398,104 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItems
             new SqlGuid(firstId).CompareTo(new SqlGuid(secondId)) < 0
                 ? (firstId, secondId)
                 : (secondId, firstId);
+
+        /// <summary>
+        /// Criterion 5: THE SAME FEED TO EVERY CALLER. Read anonymously, as the draft's own
+        /// contributor, as a narrow reviewer, as a publisher and as an administrator, the
+        /// answer is the identical set in the identical order.
+        ///
+        /// <para>The contributor's own draft is the load-bearing row: <c>GET api/ContentItems</c>
+        /// deliberately DOES show it to them, so a feed wired to that caller-widening read would
+        /// serve it here and every other assertion in this file would still pass. Nobody is
+        /// refused and nobody is told a row was withheld — the row is simply not in the
+        /// projection (§SEC14.5 rule 4).</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldServeTheSameFeedToEveryCallerRegardlessOfRoleAsync()
+        {
+            // given
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            string contributorUserId = Guid.NewGuid().ToString();
+            var arrangedContentItems = new List<CoreContentItem>();
+
+            try
+            {
+                for (int index = 0; index < 3; index++)
+                {
+                    arrangedContentItems.Add(
+                        await this.apiBroker.InsertFeedContentItemAsync(
+                            createdWhen: now.AddMinutes(-index),
+                            publishDate: now.AddMinutes(-index)));
+                }
+
+                CoreContentItem ownDraftContentItem =
+                    await this.apiBroker.InsertFeedContentItemAsync(
+                        createdWhen: now,
+                        publishDate: null,
+                        approvalStatus: ApprovalStatus.Draft,
+                        isPublished: false,
+                        authorUserId: contributorUserId);
+
+                arrangedContentItems.Add(ownDraftContentItem);
+
+                var expectedFeedIds = arrangedContentItems
+                    .Where(contentItem => contentItem.Id != ownDraftContentItem.Id)
+                    .Select(contentItem => contentItem.Id)
+                    .ToList();
+
+                // when
+                this.apiBroker.ActAsAnonymous();
+
+                List<ContentItem> anonymousFeed =
+                    await this.apiBroker.GetContentItemFeedAsync(skip: 0, take: 10);
+
+                this.apiBroker.ActAs(contributorUserId);
+
+                List<ContentItem> contributorFeed =
+                    await this.apiBroker.GetContentItemFeedAsync(skip: 0, take: 10);
+
+                this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.ContentItemReviewers);
+
+                List<ContentItem> narrowReviewerFeed =
+                    await this.apiBroker.GetContentItemFeedAsync(skip: 0, take: 10);
+
+                this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Publishers);
+
+                List<ContentItem> publisherFeed =
+                    await this.apiBroker.GetContentItemFeedAsync(skip: 0, take: 10);
+
+                this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Administrators);
+
+                List<ContentItem> administratorFeed =
+                    await this.apiBroker.GetContentItemFeedAsync(skip: 0, take: 10);
+
+                // then
+                anonymousFeed.Select(contentItem => contentItem.Id)
+                    .Should().Equal(expectedFeedIds);
+
+                // IDENTICAL, in order - not merely "also excludes the draft".
+                contributorFeed.Select(contentItem => contentItem.Id)
+                    .Should().Equal(anonymousFeed.Select(contentItem => contentItem.Id));
+
+                narrowReviewerFeed.Select(contentItem => contentItem.Id)
+                    .Should().Equal(anonymousFeed.Select(contentItem => contentItem.Id));
+
+                publisherFeed.Select(contentItem => contentItem.Id)
+                    .Should().Equal(anonymousFeed.Select(contentItem => contentItem.Id));
+
+                administratorFeed.Select(contentItem => contentItem.Id)
+                    .Should().Equal(anonymousFeed.Select(contentItem => contentItem.Id));
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+
+                foreach (CoreContentItem arrangedContentItem in arrangedContentItems)
+                {
+                    await this.apiBroker.RemoveCoreContentItemByIdAsync(arrangedContentItem.Id);
+                }
+            }
+        }
 
         /// <summary>
         /// Criterion 1, second half: NOTHING INSIDE §SEC14.1 IS MISSING FROM THE HEAD. Stated

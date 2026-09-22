@@ -102,6 +102,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ContentItems
                 nameof(ContentItemsController.PutContentItemAsync),
                 nameof(ContentItemsController.DeleteContentItemByIdAsync),
                 nameof(ContentItemsController.GetPublicContentItems),
+                nameof(ContentItemsController.GetContentItemFeed),
                 nameof(ContentItemsController.GetContentItemsByGroupId),
                 nameof(ContentItemsController.GetLatestContentItemByGroupIdAsync),
                 nameof(ContentItemsController.GetPublishedContentItemByGroupIdAsync)
