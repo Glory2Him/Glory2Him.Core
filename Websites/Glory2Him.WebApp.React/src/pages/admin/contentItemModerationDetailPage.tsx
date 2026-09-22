@@ -117,7 +117,15 @@ export const ContentItemModerationDetailPage = () => {
     const { data: contributor } = contributorService.useGetContributorById(
         contentItem?.createdBy ?? '');
 
-    const searchItem = useMemo(
+    // THE LIKE CONTROL, and only it. The queue offers the reaction picker on the card for this
+    // very item, so a moderator who opened the item lost a control by reading it — and a page
+    // that passes no handler is a second switch no ShowReactions setting can reach (§DOM6.5).
+    // Share and Save are deliberately NOT taken: an item under moderation is by definition not
+    // approved, so the /posts/{id} address Share copies answers nothing for it.
+    const { reactionOptions, onReactionSelected, withViewerReactions } =
+        useContentItemEngagement();
+
+    const readItem = useMemo(
         () => contentItem == null
             ? undefined
             : {
@@ -126,6 +134,12 @@ export const ContentItemModerationDetailPage = () => {
                 submittedByImageUrl: contributor?.imageUrl ?? undefined
             },
         [contentItem, contentItemSettings, contributor]);
+
+    // The visit's chosen reaction, folded over the projection — and deliberately NOT memoised,
+    // for the reason postDetail records: withViewerReactions closes over the choices and is
+    // rebuilt every render, so a memo listing it recomputes every render and buys nothing,
+    // while a memo keyed on readItem alone would go stale the moment the moderator chose.
+    const searchItem = readItem == null ? undefined : withViewerReactions([readItem])[0];
 
     // The same resolver the panel asks, against the same rows: a type whose effective setting
     // carries no title must not have one shouted as the heading while the panel hides it.
@@ -179,13 +193,6 @@ export const ContentItemModerationDetailPage = () => {
 
     const modifyContentItem = contentItemService.useModifyContentItem();
     const removeContentItem = contentItemService.useRemoveContentItem();
-
-    // THE LIKE CONTROL, and only it. The queue offers the reaction picker on the card for this
-    // very item, so a moderator who opened the item lost a control by reading it — and a page
-    // that passes no handler is a second switch no ShowReactions setting can reach (§DOM6.5).
-    // Share and Save are deliberately NOT taken: an item under moderation is by definition not
-    // approved, so the /posts/{id} address Share copies answers nothing for it.
-    const { reactionOptions, onReactionSelected } = useContentItemEngagement();
 
     // A TAKEDOWN LEAVES NOWHERE TO STAND. The row this page is about is gone, so staying on
     // its address would show a removed item; the moderator goes back to the queue they came
