@@ -52,7 +52,7 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ProcessedEvents
                 TestContext.Current.CancellationToken);
 
             // then
-            actualExists.Should().BeFalse();
+            actualExists.Should().BeTrue();
         }
 
         private async Task<ProcessedEvent> SeedProcessedEventAsync()
