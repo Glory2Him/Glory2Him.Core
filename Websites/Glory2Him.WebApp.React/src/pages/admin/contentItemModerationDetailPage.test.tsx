@@ -107,6 +107,22 @@ vi.mock('../../services/foundations/contentItemSettingService', () => ({
     }
 }));
 
+// The reaction vocabulary behind the Like control, the same read the moderation queue makes.
+vi.mock('../../services/foundations/reactionService', () => ({
+    reactionService: {
+        useGetApprovedReactions: () => ({
+            data: [{
+                id: 'reaction-1',
+                name: 'Amen',
+                unicodeEmoji: '👍',
+                isPublished: true,
+                approvalStatus: 2,
+                isDeleted: false
+            }]
+        })
+    }
+}));
+
 vi.mock('../../services/foundations/contributorService', () => ({
     contributorService: {
         useGetContributorById: () => ({ data: undefined })
@@ -363,6 +379,17 @@ describe('ContentItemModerationDetailPage', () => {
 
         expect(screen.getByRole('link', { name: 'Posts' }))
             .toHaveAttribute('href', '/Admin/Posts');
+    });
+
+    // THE LIKE CONTROL, on the read face. The queue offers the picker on the card for this very
+    // item, so a moderator who clicked into it lost a control by opening it. The edit face is a
+    // form and carries no engagement row at all — that is unchanged.
+    it("should offer the like control on the moderation detail page's read face", () => {
+        // when
+        renderPage();
+
+        // then
+        expect(screen.getByRole('button', { name: /Like/ })).toBeInTheDocument();
     });
 
     it('should walk back to the bare queue when no origin was carried', async () => {
