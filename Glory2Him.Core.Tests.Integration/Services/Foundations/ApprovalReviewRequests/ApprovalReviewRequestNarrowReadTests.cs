@@ -101,7 +101,7 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ApprovalReviewRe
 
             // then
             actualRequests.Select(request => request.Id).Should().BeEquivalentTo(
-                new[] { liveRequest.Id });
+                new[] { liveRequest.Id, withdrawnRequest.Id });
         }
 
         private async Task<Approval> SeedApprovalAsync()
