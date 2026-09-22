@@ -44,24 +44,37 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.AIReviewerAssign
         [Fact]
         public async Task ShouldReturnOnlyTheRequestedApprovalsAssignmentAsync()
         {
-            // given: two rounds, each carrying its own LIVE assignment — the requested round's
-            // key must reach SQL rather than the read answering with whichever row it finds first
+            // given: two rounds, each carrying its own LIVE assignment. Querying only one key
+            // and asserting a match is not enough — with no ORDER BY, FirstOrDefaultAsync can
+            // return either live row by physical read order even if the ApprovalId conjunct is
+            // dropped entirely, so a single-sided assertion would pass or fail on luck. Reading
+            // BOTH keys and requiring each to answer with its OWN row is what a dropped conjunct
+            // cannot satisfy: with two candidate rows and no filter, both reads would collapse
+            // onto whichever row happens to be read first, so at most one of the two assertions
+            // below could ever hold.
             Approval requestedApproval = await SeedApprovalAsync();
             Approval otherApproval = await SeedApprovalAsync();
 
             AIReviewerAssignment requestedAssignment =
                 await SeedAIReviewerAssignmentAsync(requestedApproval.Id, isDeleted: false);
 
-            await SeedAIReviewerAssignmentAsync(otherApproval.Id, isDeleted: false);
+            AIReviewerAssignment otherAssignment =
+                await SeedAIReviewerAssignmentAsync(otherApproval.Id, isDeleted: false);
 
             // when
-            AIReviewerAssignment actualAssignment =
+            AIReviewerAssignment actualRequestedAssignment =
                 await this.broker.StorageBroker.SelectAIReviewerAssignmentByApprovalIdAsync(
                     requestedApproval.Id, TestContext.Current.CancellationToken);
 
+            AIReviewerAssignment actualOtherAssignment =
+                await this.broker.StorageBroker.SelectAIReviewerAssignmentByApprovalIdAsync(
+                    otherApproval.Id, TestContext.Current.CancellationToken);
+
             // then
-            actualAssignment.Should().NotBeNull();
-            actualAssignment.Id.Should().Be(requestedAssignment.Id);
+            actualRequestedAssignment.Should().NotBeNull();
+            actualRequestedAssignment.Id.Should().Be(requestedAssignment.Id);
+            actualOtherAssignment.Should().NotBeNull();
+            actualOtherAssignment.Id.Should().Be(otherAssignment.Id);
         }
 
         [Fact]
