@@ -120,7 +120,7 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ApprovalComments
                     Guid.NewGuid(), alreadyCancelledToken);
 
             // then
-            await readingComments.Should().NotThrowAsync();
+            await readingComments.Should().ThrowAsync<OperationCanceledException>();
         }
 
         private async Task<Approval> SeedApprovalAsync()
