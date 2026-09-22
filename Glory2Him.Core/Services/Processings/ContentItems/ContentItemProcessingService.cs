@@ -188,8 +188,8 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
             });
 
         public ValueTask<IReadOnlyList<ContentItem>> RetrieveContentItemFeedAsync(
-            int skip,
-            int take,
+            int? skip,
+            int? take,
             CancellationToken cancellationToken = default) =>
             TryCatchList(async () =>
             {
@@ -580,18 +580,21 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
         }
 
         private async ValueTask<IReadOnlyList<ContentItem>> DoRetrieveContentItemFeedAsync(
-            int skip,
-            int take,
+            int? skip,
+            int? take,
             CancellationToken cancellationToken)
         {
-            ValidateFeedPageOnRetrieve(skip: skip, take: take);
+            int requestedSkip = skip.GetValueOrDefault();
+            int requestedTake = take.GetValueOrDefault();
+
+            ValidateFeedPageOnRetrieve(skip: requestedSkip, take: requestedTake);
 
             // Straight through. The feed's membership rules are the FOUNDATION's, recorded where
             // the read is named, and running a second filter over the page they produced would
             // give one rule two homes to drift between.
             return await this.contentItemService.RetrieveContentItemFeedAsync(
-                skip: skip,
-                take: take,
+                skip: requestedSkip,
+                take: requestedTake,
                 cancellationToken: cancellationToken);
         }
 

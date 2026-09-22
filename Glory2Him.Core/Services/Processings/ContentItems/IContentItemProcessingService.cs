@@ -137,8 +137,8 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
         /// <c>SecurityContext</c> is resolved, so privilege widens this by nothing.</para>
         /// </summary>
         ValueTask<IReadOnlyList<ContentItem>> RetrieveContentItemFeedAsync(
-            int skip,
-            int take,
+            int? skip,
+            int? take,
             CancellationToken cancellationToken = default);
 
         /// <summary>
