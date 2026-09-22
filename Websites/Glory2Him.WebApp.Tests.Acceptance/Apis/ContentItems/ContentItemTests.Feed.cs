@@ -535,6 +535,110 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItems
         }
 
         /// <summary>
+        /// Criterion 6: A CALLER-SUPPLIED QUERY OPTION CHANGES NOTHING. The feed route carries
+        /// no <c>[EnableQuery]</c>, so every one of the ten options below is an off-surface
+        /// query parameter and is ignored, exactly as it would be on any other non-OData route
+        /// in the solution.
+        ///
+        /// <para>This is stronger than the 400 an allow-list would give: a caller
+        /// <c>$orderby</c> is not merely refused, NO CODE PATH COULD HONOUR IT — and with the
+        /// OData surface go the recorded ordinal-collation trap and the
+        /// <c>EnsureStableOrdering</c> trap alike.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldIgnoreCallerSuppliedODataOptionsOnTheFeedAsync()
+        {
+            // given
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            var arrangedContentItems = new List<CoreContentItem>();
+
+            try
+            {
+                for (int index = 0; index < 4; index++)
+                {
+                    arrangedContentItems.Add(
+                        await this.apiBroker.InsertFeedContentItemAsync(
+                            createdWhen: now.AddMinutes(-index),
+                            publishDate: now.AddMinutes(-index)));
+                }
+
+                // Every option criterion 6 names. $orderby ASCENDING and $skip/$top that
+                // disagree with the page asked for, so an honoured option could not possibly
+                // produce the same answer.
+                const string oDataOptions =
+                    "$orderby=createdWhen%20asc"
+                    + "&$filter=contains(title,'nothing-matches-this')"
+                    + "&$select=id"
+                    + "&$expand=nothing"
+                    + "&$search=nothing"
+                    + "&$compute=1%20as%20one"
+                    + "&$apply=aggregate($count%20as%20total)"
+                    + "&$format=json"
+                    + "&$skiptoken=nothing"
+                    + "&$deltatoken=nothing"
+                    + "&$skip=3"
+                    + "&$top=1";
+
+                // when
+                List<ContentItem> plainFeedPage =
+                    await this.apiBroker.GetContentItemFeedAsync("skip=0&take=4");
+
+                List<ContentItem> optionLadenFeedPage =
+                    await this.apiBroker.GetContentItemFeedAsync($"skip=0&take=4&{oDataOptions}");
+
+                // then
+                optionLadenFeedPage.Select(contentItem => contentItem.Id)
+                    .Should().Equal(plainFeedPage.Select(contentItem => contentItem.Id));
+
+                plainFeedPage.Select(contentItem => contentItem.Id)
+                    .Should().Equal(arrangedContentItems.Select(contentItem => contentItem.Id));
+            }
+            finally
+            {
+                foreach (CoreContentItem arrangedContentItem in arrangedContentItems)
+                {
+                    await this.apiBroker.RemoveCoreContentItemByIdAsync(arrangedContentItem.Id);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Criterion 6: A BARE <c>GET api/ContentItems/Feed</c> ANSWERS 200 WITH A PAGE. It is a
+        /// completely addressed request — the front page of the feed — and the request §ARC17.2
+        /// tables, so refusing it would be a contract the design contradicts.
+        /// </summary>
+        [Fact]
+        public async Task ShouldAnswerTheBareFeedUrlWithAPageAsync()
+        {
+            // given
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+
+            CoreContentItem arrangedContentItem =
+                await this.apiBroker.InsertFeedContentItemAsync(
+                    createdWhen: now,
+                    publishDate: now);
+
+            try
+            {
+                // when: no query string at all
+                HttpResponseMessage response =
+                    await this.apiBroker.GetContentItemFeedResponseAsync();
+
+                List<ContentItem> feedPage = await this.apiBroker.GetContentItemFeedAsync();
+
+                // then
+                response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+                feedPage.Select(contentItem => contentItem.Id)
+                    .Should().Contain(arrangedContentItem.Id);
+            }
+            finally
+            {
+                await this.apiBroker.RemoveCoreContentItemByIdAsync(arrangedContentItem.Id);
+            }
+        }
+
+        /// <summary>
         /// Criterion 1, second half: NOTHING INSIDE §SEC14.1 IS MISSING FROM THE HEAD. Stated
         /// over the page rather than over the catalogue, because the read is capped at 50 and
         /// no answer can carry a larger visible catalogue than that. This fixture states its own
