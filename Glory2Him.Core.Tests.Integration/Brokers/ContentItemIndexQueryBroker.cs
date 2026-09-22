@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -62,6 +62,7 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
                 @"SELECT i.name AS IndexName,
                          c.name AS ColumnName,
                          ic.key_ordinal AS KeyOrdinal,
+                         ic.index_column_id AS ColumnOrdinal,
                          ic.is_descending_key AS IsDescending,
                          ic.is_included_column AS IsIncluded,
                          i.is_unique AS IsUnique,
@@ -72,7 +73,7 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
                   INNER JOIN sys.columns AS c
                       ON c.object_id = ic.object_id AND c.column_id = ic.column_id
                   WHERE i.object_id = OBJECT_ID(@tableName)
-                  ORDER BY i.name, ic.is_included_column, ic.key_ordinal, c.name;";
+                  ORDER BY i.name, ic.is_included_column, ic.key_ordinal, ic.index_column_id;";
 
             var indexColumns = new List<DeployedIndexColumn>();
 
@@ -83,10 +84,11 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
                     IndexName = reader.GetString(0),
                     ColumnName = reader.GetString(1),
                     KeyOrdinal = reader.GetByte(2),
-                    IsDescending = reader.GetBoolean(3),
-                    IsIncluded = reader.GetBoolean(4),
-                    IsUnique = reader.GetBoolean(5),
-                    FilterDefinition = reader.GetString(6)
+                    ColumnOrdinal = reader.GetInt32(3),
+                    IsDescending = reader.GetBoolean(4),
+                    IsIncluded = reader.GetBoolean(5),
+                    IsUnique = reader.GetBoolean(6),
+                    FilterDefinition = reader.GetString(7)
                 }),
                 ("@tableName", tableName));
 
@@ -204,6 +206,7 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
         public string IndexName { get; set; }
         public string ColumnName { get; set; }
         public byte KeyOrdinal { get; set; }
+        public int ColumnOrdinal { get; set; }
         public bool IsDescending { get; set; }
         public bool IsIncluded { get; set; }
         public bool IsUnique { get; set; }

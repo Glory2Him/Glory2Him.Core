@@ -104,6 +104,44 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ContentItems
         }
 
         /// <summary>
+        /// THE INCLUDED COLUMNS ARE PINNED, in their declaration order, and they are pinned
+        /// because nothing else pins them: deleting the whole <c>INCLUDE</c> list leaves every
+        /// other check here green. The columns are the §SEC14.1 terms the filter does not
+        /// already carry, plus §DOM3.8 rule 2's <c>ContentType</c> exclusion, so the rows the
+        /// ordered scan walks are decided against the same data rather than after a lookup.
+        ///
+        /// <para><c>IsDeleted</c> is deliberately NOT among them. The filter carries
+        /// §SEC14.1's first term, so an included copy would pay to store the answer "no" for
+        /// rows the index does not hold in the first place.</para>
+        ///
+        /// <para>Order is asserted as well as membership. <c>sys.index_columns</c> records the
+        /// declaration order in <c>index_column_id</c>, so an equivalence check alone would
+        /// pass a reordering, and a reordering is an edit nobody made on purpose.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldCarryExactlyThePredicateColumnsAsIncludes_OnTheFeedEffectiveIndexAsync()
+        {
+            // given
+            List<DeployedIndexColumn> indexColumns =
+                await this.broker.GetIndexColumnsAsync(ContentItemsTable);
+
+            // when
+            List<string> includedColumns = indexColumns
+                .Where(indexColumn =>
+                    indexColumn.IndexName == FeedEffectiveIndex
+                        && indexColumn.IsIncluded)
+                .OrderBy(indexColumn => indexColumn.ColumnOrdinal)
+                .Select(indexColumn => indexColumn.ColumnName)
+                .ToList();
+
+            // then
+            includedColumns.Should().Equal(
+                new[] { "ApprovalStatus", "IsPublished", "PublishDate", "ContentType" },
+                because: "the index covers the §SEC14.1 terms its filter does not carry and "
+                    + "§DOM3.8 rule 2's exclusion, in that order, and nothing beyond them");
+        }
+
+        /// <summary>
         /// Criterion 4: NOTHING INDEXES DeletedWhen ANY MORE. Nothing in the solution filters
         /// that column — every soft-delete predicate, including all fourteen filtered indexes,
         /// tests <c>IsDeleted</c> — so the only index on it earns nothing and is dropped.
