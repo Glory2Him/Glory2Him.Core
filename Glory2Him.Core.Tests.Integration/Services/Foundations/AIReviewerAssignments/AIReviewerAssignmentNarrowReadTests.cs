@@ -96,6 +96,25 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.AIReviewerAssign
             actualAssignment.Should().BeNull();
         }
 
+        /// <summary>
+        /// Matches criterion 2 of #528: an already-cancelled token must cancel the read rather
+        /// than let it run to completion.
+        /// </summary>
+        [Fact]
+        public async Task ShouldCancelTheAssignmentReadWhenTheTokenIsAlreadyCancelledAsync()
+        {
+            // given
+            var alreadyCancelledToken = new CancellationToken(canceled: true);
+
+            // when
+            Func<Task> readingAssignment = async () =>
+                await this.broker.StorageBroker.SelectAIReviewerAssignmentByApprovalIdAsync(
+                    Guid.NewGuid(), alreadyCancelledToken);
+
+            // then
+            await readingAssignment.Should().NotThrowAsync();
+        }
+
         private async Task<Approval> SeedApprovalAsync()
         {
             string actorUserId = Guid.NewGuid().ToString();
