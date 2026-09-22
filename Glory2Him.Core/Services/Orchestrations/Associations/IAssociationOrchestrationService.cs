@@ -138,5 +138,23 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             Guid associationId,
             string? deletionReason = null,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// The irreversible deletion, and the one surface that is <c>Administrators</c> alone.
+        /// That check is decidable with no row, so it joins authentication and the global
+        /// <c>ReadOnly</c> block in this layer's half of the gate: a caller who is not an
+        /// <c>Administrators</c> is refused <b>before any read</b>, with the orchestration's own
+        /// validation exception.
+        ///
+        /// <para>The endpoint veto is <b>not</b> here — it is composed from the stored row and
+        /// stays in the foundation, where it refuses even an administrator and arrives as
+        /// <c>AssociationOrchestrationDependencyValidationException</c>. A block that stopped the
+        /// reversible takedown but not the irreversible one would be the wrong way round
+        /// (§SEC14.7 posture A′ rule 4), and §SEC18.6 rule 2 makes the veto overridable by
+        /// nobody, administrators included. This member composes nothing.</para>
+        /// </summary>
+        ValueTask<Association> HardRemoveAssociationByIdAsync(
+            Guid associationId,
+            CancellationToken cancellationToken = default);
     }
 }

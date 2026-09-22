@@ -50,6 +50,26 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             ValidateUserIsNotGloballyBlocked(securityContext);
         }
 
+        // HARD REMOVE's composition: the same two row-free leaves, plus Administrators — which is
+        // itself decidable with no row, so it joins this layer's half rather than the
+        // foundation's (§SEC14.7 posture A′ rule 4). The endpoint veto is NOT here; it needs the
+        // stored row and stays one layer down, where a block refuses even an administrator
+        // (§SEC18.6 rule 2).
+        //
+        // The global block is asked BEFORE the Administrators grant, because a veto is asked
+        // ahead of any grant and is overridden by none of them.
+        private static void ValidateUserMayHardRemoveAssociation(SecurityContext securityContext)
+        {
+            ValidateUserIsAuthenticated(securityContext);
+            ValidateUserIsNotGloballyBlocked(securityContext);
+
+            if (securityContext.Roles.Contains(Roles.Administrators) is false)
+            {
+                throw new UnauthorizedAssociationOrchestrationException(
+                    message: "The current user is not permitted to permanently delete a content item association.");
+            }
+        }
+
         private static void ValidateUserIsAuthenticated(SecurityContext securityContext)
         {
             if (securityContext is null || securityContext.IsAuthenticated is false)

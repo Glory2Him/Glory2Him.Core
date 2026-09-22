@@ -82,5 +82,30 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                     deletionReason,
                     cancellationToken);
             });
+
+        // The irreversible deletion. Administrators is decidable with NO row, so it joins
+        // authentication and the global block in this layer's half of the gate and is answered
+        // before any read. The endpoint veto is not: it is composed from the stored row and stays
+        // in the foundation, where it refuses even an administrator — a block that stopped the
+        // reversible takedown but not the irreversible one would be the wrong way round
+        // (§SEC14.7 posture A′ rule 4, §SEC18.6 rule 2). This member composes nothing either.
+        public ValueTask<Association> HardRemoveAssociationByIdAsync(
+            Guid associationId,
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                EventEnvelope<Association> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(
+                        content: new Association { Id = associationId });
+
+                ValidateUserMayHardRemoveAssociation(envelope.SecurityContext);
+                ValidateAssociationId(associationId);
+
+                return await this.associationService.HardRemoveAssociationByIdAsync(
+                    associationId,
+                    cancellationToken);
+            });
     }
 }
