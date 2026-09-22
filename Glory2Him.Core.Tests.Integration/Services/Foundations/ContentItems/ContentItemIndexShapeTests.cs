@@ -190,6 +190,54 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ContentItems
                 because: "neither feed index was filtered at the branch point");
         }
 
+        /// <summary>
+        /// Criterion 5: THE FOURTEEN SOFT-DELETE FILTERED INDEXES ARE OUT OF SCOPE AND STAY
+        /// THAT WAY. Read catalogue-wide rather than per table, and as the (name, filter) PAIRS
+        /// SQL Server stored rather than as a count of them: a count survives a diff that
+        /// renames one index or rewrites one filter into a different filter still carrying the
+        /// term, which is exactly the diff this criterion exists to refuse.
+        /// </summary>
+        [Fact]
+        public async Task ShouldLeaveTheFourteenSoftDeleteFilteredIndexesUnchanged_AfterTheMigrationAsync()
+        {
+            // given
+            var expectedPairs = new[]
+            {
+                "IX_ContentItem_IsPublished	([IsPublished]=(1) AND [IsDeleted]=(0))",
+                "UX_AIReviewerAssignments_ApprovalId	([IsDeleted]=(0))",
+                "UX_ApprovalReviewRequests_ApprovalId_RequestedUserId	([IsDeleted]=(0))",
+                "UX_ApprovalReviews_ApprovalId_CreatedBy	([StatusId]<>(4) AND [IsDeleted]=(0))",
+                "UX_ApprovalSettings_AssociationPersonality	([IsPersonal] IS NOT NULL AND [IsDeleted]=(0))",
+                "UX_ApprovalSettings_EntityTypeContentType	([ContentType] IS NOT NULL AND [IsDeleted]=(0))",
+                "UX_ApprovalSettings_EntityTypeDefault	([EntityType] IS NOT NULL AND [ContentType] IS NULL AND [IsPersonal] IS NULL AND [IsDeleted]=(0))",
+                "UX_ApprovalSettings_GlobalDefault	([EntityType] IS NULL AND [IsDeleted]=(0))",
+                "UX_Associations_Pair	([IsDeleted]=(0))",
+                "UX_Attachments_GroupId_IsPublished	([IsPublished]=(1) AND [IsDeleted]=(0))",
+                "UX_BibleReferences_USFM	([IsDeleted]=(0))",
+                "UX_ContentItemSettings_DefaultPerType	([ContentItemId] IS NULL AND [IsDeleted]=(0))",
+                "UX_ContentItemSettings_OverridePerEntity	([ContentItemId] IS NOT NULL AND [IsDeleted]=(0))",
+                "UX_Links_GroupId_IsPublished	([IsPublished]=(1) AND [IsDeleted]=(0))"
+            };
+
+            List<DeployedFilteredIndex> filteredIndexes =
+                await this.broker.GetFilteredIndexesAsync();
+
+            // when
+            List<string> deployedPairs = filteredIndexes
+                .Where(filteredIndex =>
+                    filteredIndex.FilterDefinition.Contains("[IsDeleted]=(0)"))
+                .Select(filteredIndex =>
+                    $"{filteredIndex.IndexName}	{filteredIndex.FilterDefinition}")
+                .OrderBy(pair => pair, System.StringComparer.Ordinal)
+                .ToList();
+
+            // then
+            deployedPairs.Should().Equal(
+                expectedPairs,
+                because: "every soft-delete filtered index is out of this change's scope, "
+                    + "name and filter text alike");
+        }
+
         private static string DescribeKey(DeployedIndexColumn indexColumn) =>
             $"{indexColumn.ColumnName} {(indexColumn.IsDescending ? "DESC" : "ASC")}";
     }
