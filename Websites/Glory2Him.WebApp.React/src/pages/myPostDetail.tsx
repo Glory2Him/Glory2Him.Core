@@ -23,6 +23,7 @@ import {
     resolveContentItemSetting
 } from '../services/views/contentItems/resolveContentItemSetting';
 
+import { useContentItemEngagement } from '../hooks/useContentItemEngagement';
 import { useDocumentTitle } from './useDocumentTitle';
 
 // ONE OF MY POSTS, read on its own surface — where /posts/contribute lands a fresh submission
@@ -60,6 +61,14 @@ export function MyPostDetail() {
     // Nothing is merged now: the write invalidates the row and the card re-renders from what
     // storage actually holds, status included.
     const modifyContentItem = contentItemService.useModifyContentItem();
+
+    // THE LIKE CONTROL, and only it. /myposts offers the reaction picker on the card for this
+    // very item, so a contributor who clicked into the item lost a control by reading it on its
+    // own surface — and a page that passes no handler is a second switch no ShowReactions
+    // setting can reach (§DOM6.5). Share and Save are deliberately NOT taken: this page reads
+    // items that may be Drafts, and the address Share copies is /posts/{id}, which answers
+    // nothing for one.
+    const { reactionOptions, onReactionSelected } = useContentItemEngagement();
 
     const [validationIssues, setValidationIssues] =
         useState<ContentItemValidationIssues | undefined>();
@@ -174,6 +183,8 @@ export function MyPostDetail() {
                                 onModified={saveChangesAsync}
                                 validationIssues={validationIssues}
                                 isSubmitting={modifyContentItem.isPending}
+                                reactionOptions={reactionOptions}
+                                onReactionSelected={onReactionSelected}
                                 contentItemSettingCollection={contentItemSettings ?? []} />
                         </div>
 
