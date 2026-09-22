@@ -22,10 +22,10 @@ Two caveats the output cannot carry on its own:
 
 A pull request reviewed more than once carries one QA verdict comment per round.
 They are append-only, so the earlier ones are superseded rather than corrected —
-the last verdict is the live one and the ones before it are history. `medBlocking`
-reports the live verdict, never a sum across rounds, and a pull request with no
-verdict at all is silent rather than clean: it is left out of the finding columns
-instead of counted as a zero.
+the highest round is the live verdict and the ones before it are history.
+`medBlocking` reports that verdict, never a sum across rounds, and a pull request
+with no verdict at all is silent rather than clean: it is left out of the finding
+columns instead of counted as a zero.
 """
 
 import argparse
@@ -147,18 +147,34 @@ def measure(pr, label):
             rounds += 1
         previous = when
 
-    # One verdict per review pass, and the last one is the only live one. Read
-    # each comment on its own and keep the latest: a pull request that failed
-    # round 1 and passed round 3 passed, and counting round 1 would report the
-    # opposite. Ordered by timestamp rather than by position, because comments
-    # and reviews are two separate lists interleaved in time.
+    # One verdict per review pass, and only the last round is live. Read each
+    # comment on its own rather than joining them: a pull request that failed
+    # round 1 and passed round 3 passed, and a pattern spanning two comments can
+    # match a verdict that was never written. Sorted by timestamp because
+    # comments and reviews are two lists interleaved in time, which the fallback
+    # below depends on.
     verdicts = []
     for node in list(pr["comments"]["nodes"]) + list(pr["reviews"]["nodes"]):
         found = VERDICT.search(node["bodyText"] or "")
         if found:
             verdicts.append((moment(node["createdAt"]), found))
     verdicts.sort(key=lambda pair: pair[0])
-    live = verdicts[-1][1] if verdicts else None
+
+    # Take the highest round, not the latest comment. Those agree in the ordinary
+    # case and diverge exactly when comments land out of order, which is the case
+    # the round number was added to settle — so reading the timestamp instead
+    # would ignore the field that exists to answer this. Headers written before
+    # the round number was required carry none; fall back to the timestamp only
+    # for those.
+    numbered = [(int(found.group(1)), when, found)
+                for when, found in verdicts if found.group(1)]
+    if numbered:
+        live = max(numbered, key=lambda row: (row[0], row[1]))[2]
+        # Distinct rounds, so a reposted header does not inflate the count.
+        qa_round_count = len({number for number, _, _ in numbered})
+    else:
+        live = verdicts[-1][1] if verdicts else None
+        qa_round_count = len(verdicts)
 
     return dict(
         pr=pr["number"],
@@ -175,10 +191,10 @@ def measure(pr, label):
         verdict=live.group(2).upper() if live else None,
         blocking=int(live.group(3)) if live else None,
         advisory=int(live.group(4)) if live else None,
-        # How many times QA had to look at it. Once verdicts are landing this is
-        # a cleaner rework signal than the commit bursts above, which only guess
-        # at where a round started.
-        qa_rounds=len(verdicts),
+        # How many times QA had to look at it, counted in distinct rounds. Once
+        # verdicts are landing this is a cleaner rework signal than the commit
+        # bursts above, which only guess at where a round started.
+        qa_rounds=qa_round_count,
     )
 
 
