@@ -857,7 +857,7 @@ Responsible for:
 1. The `IAccessBroker` arm this gate calls.
 2. `IContentItemSettingsService` — §ARC16.3 responsibility 3, "Resolving effective settings" (`Architecture.md:899`).
 3. The processing member **#209** is to build.
-4. §ARC16.8's §SEC14.3 rule 6 term (`Architecture.md:1153`), which asks `Show<Facet>` of the same resolution.
+4. §ARC16.8's §SEC14.3 rule 6 term (`Architecture.md:1155`), which asks `Show<Facet>` of the same resolution.
 
 **#209 is not a blocker of this gate.** The gate's dependency is that one resolution whether or not the member exists; if #209 lands it becomes another consumer of it and never a second copy of the rule, and this section is unchanged by that.
 
