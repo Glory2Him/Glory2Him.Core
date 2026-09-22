@@ -54,7 +54,7 @@ export const contentItemService = {
     useSearchContentItems: (
         criteria: ContentItemSearchCriteria,
         options: {
-            scope?: 'public' | 'caller';
+            scope?: 'feed' | 'public' | 'caller';
             submittedById?: string | null;
             defaultApprovalStatuses?: ReadonlyArray<ApprovalStatus>;
             pageSize?: number;

@@ -11,12 +11,16 @@ import { ShareabilityBasis } from '../../components/contentItems/contentItemForm
 // and drops it: the extra row is the only thing that separates a full last page from a page with
 // more behind it.
 export type ContentItemSearchQuery = {
-    // WHICH read serves the page, and it is the page's decision. 'public' is
-    // GET api/ContentItems/Public — caller-INDEPENDENT, exactly the §14.1 canonical set, so no
-    // role change elsewhere can leak a draft onto a surface built on it. 'caller' is
-    // GET api/ContentItems, which widens with whoever is asking: their own rows, and everything
-    // a review role covers.
-    scope: 'public' | 'caller';
+    // WHICH read serves the page, and it is the page's decision. 'feed' is
+    // GET api/ContentItems/Feed — the design's feed (§DOM11.3): the §14.1 canonical set in
+    // effective publication order, with Topic and Series excluded (§DOM3.8 rule 2). It takes NO
+    // OData option at all: its page travels as plain `skip` and `take`, and anything
+    // dollar-prefixed sent there is ignored rather than refused. 'public' is
+    // GET api/ContentItems/Public — caller-INDEPENDENT too, exactly the §14.1 canonical set and
+    // nothing excluded from it, which is why a NARROWING search uses it: the feed's exclusion
+    // would make every topic unsearchable. 'caller' is GET api/ContentItems, which widens with
+    // whoever is asking: their own rows, and everything a review role covers.
+    scope: 'feed' | 'public' | 'caller';
 
     // Free text, matched server-side against the title, the content and the author.
     searchTerm: string;
