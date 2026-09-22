@@ -1080,6 +1080,26 @@ describe('ContentItemPanel', () => {
             expect(screen.getByRole('menuitem', { name: 'Love' }))
                 .toHaveAttribute('aria-pressed', 'false');
         });
+
+        it('should send the reader to sign in with a return address for the page they were '
+            + 'reading', async () => {
+            // given: the card is rendered at /myposts/devotional-1
+            signOut(authState);
+
+            renderCard(
+                <ContentItemPanel
+                    contentItem={quoteItem}
+                    reactionOptions={reactionOptions}
+                    onReactionSelected={vi.fn()} />);
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+            await userEvent.click(screen.getByRole('menuitem', { name: 'Love' }));
+
+            // then: the path alone, URI-encoded — the shape every redirect in this app uses
+            expect(navigate)
+                .toHaveBeenCalledWith('/Account/Login?returnUrl=%2Fmyposts%2Fdevotional-1');
+        });
     });
 
     describe('honest figures', () => {
