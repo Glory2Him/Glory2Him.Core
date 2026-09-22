@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -57,6 +57,14 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 (Rule: IsInvalid(association.EntityBType), Parameter: nameof(Association.EntityBType)),
                 (Rule: IsInvalid(association.EntityAKeyId), Parameter: nameof(Association.EntityAKeyId)),
                 (Rule: IsInvalid(association.EntityBKeyId), Parameter: nameof(Association.EntityBKeyId)));
+
+        // The id-keyed surfaces' own validation. Kept separate from ValidateOnAddAssociation
+        // rather than folded into a shared validator: they compose different rules today and
+        // sharing the composition would mean a rule added for one silently binds the other.
+        private static void ValidateAssociationId(Guid associationId) =>
+            Validate(
+                message: "Content item association is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(associationId), Parameter: nameof(Association.Id)));
 
         private static dynamic IsInvalid(Guid id) => new
         {

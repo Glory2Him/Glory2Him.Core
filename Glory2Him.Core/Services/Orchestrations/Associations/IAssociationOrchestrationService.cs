@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -71,6 +72,28 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         /// </para>
         /// </summary>
         ValueTask<IQueryable<Association>> RetrieveAllAssociationsAsync(
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// The single-row read. It denies by <b>not-found</b>, never by unauthorized and never by
+        /// a dependency error, and it answers the same way to all four misses: an id that occupies
+        /// no row, an id naming a soft-deleted row, an id naming a row the caller may not see
+        /// under the foundation's posture, and an id naming a row whose endpoint is not visible
+        /// to this caller.
+        ///
+        /// <para>The last of those resolves its two endpoints directly and reuses the conversion
+        /// <c>ResolveEndpointAsync</c> already performs on the add path. Letting it surface as a
+        /// dependency failure instead would answer "this endpoint is not visible" with a 424,
+        /// which reports a visibility rule as a broken dependency and leaks through the status
+        /// code exactly what §SEC14.5 rule 2 keeps out of the message.</para>
+        ///
+        /// <para>The caller-facing exception carries <b>no reason, no state and no identity</b>
+        /// in its message or its <c>Data</c>. The true reason is logged server-side by the layer
+        /// that knows it — a warning for a privilege denial, information for a state-based miss
+        /// (§SEC14.5 rules 5-7) — immediately before the generic answer is thrown.</para>
+        /// </summary>
+        ValueTask<Association> RetrieveAssociationByIdAsync(
+            Guid associationId,
             CancellationToken cancellationToken = default);
     }
 }
