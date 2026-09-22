@@ -236,7 +236,7 @@ export function ContentItemPanel({
     onExpandCollapse,
     ...eventsAndText
 }: ContentItemPanelProps) {
-    const { isAuthenticated, user, userRoles } = useAuth();
+    const { isAuthenticated, isLoading: isAuthenticationLoading, user, userRoles } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -460,7 +460,12 @@ export function ContentItemPanel({
                 // A SIGNED-OUT READER IS SENT TO SIGN IN, and the choice is not written. The
                 // click navigates on its own - no prompt, no modal, no toast, and nothing about
                 // the choice is kept for afterwards: the reader chooses again once signed in.
-                if (isAuthenticated === false) {
+                // NOT WHILE THE READ IS UNRESOLVED. `isAuthenticated` reports false both for
+                // a reader with no session and for one whose session has not been read back
+                // yet, and every full page load passes through the second with the cards
+                // already on screen — so deciding there would send a signed-in reader to sign
+                // in. SecuredRoute refuses to decide while loading and so does this.
+                if (isAuthenticationLoading === false && isAuthenticated === false) {
                     // The path alone, URI-encoded: the one return address this application
                     // carries (securedRoutes.tsx), so the reader lands back on this page.
                     navigate(
