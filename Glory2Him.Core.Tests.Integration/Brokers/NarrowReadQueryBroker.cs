@@ -21,6 +21,7 @@ using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.Links;
+using Glory2Him.Core.Models.Foundations.ProcessedEvents;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 
@@ -131,6 +132,28 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
         }
 
         /// <summary>
+        /// Attempts an insert and returns the exception the database raised, or <c>null</c> when
+        /// the row was accepted — the ledger counterpart of
+        /// <see cref="TryInsertAsync(Approval)"/>, and detaching on failure for the same reason.
+        /// </summary>
+        public async ValueTask<Exception> TryInsertAsync(ProcessedEvent processedEvent)
+        {
+            try
+            {
+                await this.storageBroker.InsertProcessedEventAsync(
+                    processedEvent, CancellationToken.None);
+
+                return null;
+            }
+            catch (Exception exception)
+            {
+                this.storageBroker.Entry(processedEvent).State = EntityState.Detached;
+
+                return exception;
+            }
+        }
+
+        /// <summary>
         /// Reads a row straight from the database rather than from the change tracker, so a test
         /// asserting that a refused write left the stored row alone is reading the row and not
         /// the in-memory copy it just tried to change.
@@ -190,6 +213,15 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
             foreach (ContentItem contentItem in contentItems)
             {
                 await this.storageBroker.InsertContentItemAsync(contentItem, CancellationToken.None);
+            }
+        }
+
+        public async ValueTask SeedAsync(params ProcessedEvent[] processedEvents)
+        {
+            foreach (ProcessedEvent processedEvent in processedEvents)
+            {
+                await this.storageBroker.InsertProcessedEventAsync(
+                    processedEvent, CancellationToken.None);
             }
         }
 
@@ -315,6 +347,26 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
                     await this.storageBroker.DeleteLinkAsync(stored, CancellationToken.None);
                 }
             }
+        }
+
+        // The ledger carries no delete on IStorageBroker, because nothing in production ever
+        // removes a ProcessedEvent row — that is the whole point of a ledger. Teardown therefore
+        // goes through the context directly rather than adding a production method no production
+        // caller wants.
+        public async ValueTask ClearAsync(IEnumerable<ProcessedEvent> processedEvents)
+        {
+            foreach (ProcessedEvent processedEvent in processedEvents)
+            {
+                ProcessedEvent stored =
+                    await ReadUntrackedAsync<ProcessedEvent>(processedEvent.Id);
+
+                if (stored is not null)
+                {
+                    this.storageBroker.Remove(stored);
+                }
+            }
+
+            await this.storageBroker.SaveChangesAsync();
         }
 
         // xUnit disposes a collection fixture once, after the last test in the collection
