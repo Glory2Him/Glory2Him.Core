@@ -45,11 +45,23 @@ vi.mock('react-router-dom', async () => {
     return { ...actual, useNavigate: () => navigate };
 });
 
-const renderCard = (ui: ReactElement) =>
-    render(
+const renderCard = (ui: ReactElement) => {
+    const rendered = render(
         <MemoryRouter initialEntries={['/myposts/devotional-1']}>
             <AuthProvider>{ui}</AuthProvider>
         </MemoryRouter>);
+
+    // A rerender replaces the whole tree, so the router has to be put back with it — the card
+    // reads the location it would send a signed-out reader back to.
+    return {
+        ...rendered,
+        rerender: (nextUi: ReactElement) =>
+            rendered.rerender(
+                <MemoryRouter initialEntries={['/myposts/devotional-1']}>
+                    {nextUi}
+                </MemoryRouter>)
+    };
+};
 
 const settingFor = (
     contentType: ContentType,
