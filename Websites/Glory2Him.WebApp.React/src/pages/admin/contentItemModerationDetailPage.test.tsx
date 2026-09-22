@@ -461,6 +461,23 @@ describe('ContentItemModerationDetailPage', () => {
         expect(within(card).queryByRole('button', { name: /Save/ })).not.toBeInTheDocument();
     });
 
+    // THE CHOICE HAS TO SHOW. Choosing closes the picker - the panel's own behaviour - so the
+    // mark is read back by reopening it, the same way /posts/{id} proves the fold.
+    it("should mark the reader's chosen reaction as pressed on the moderation detail page",
+        async () => {
+            // given
+            renderPage();
+            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+            await userEvent.click(screen.getByRole('menuitem', { name: 'Amen' }));
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+
+            // then
+            expect(screen.getByRole('menuitem', { name: 'Amen' }))
+                .toHaveAttribute('aria-pressed', 'true');
+        });
+
     it('should walk back to the bare queue when no origin was carried', async () => {
         // given
         renderPage();
