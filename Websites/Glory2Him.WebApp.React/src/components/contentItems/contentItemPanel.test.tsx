@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ContentItemPanel } from './contentItemPanel';
 import { AuthProvider } from '../securitys/authProvider';
-import { createAuthState, signInAs, signOut } from '../../tests/testAuth';
+import { createAuthState, setLoading, signInAs, signOut } from '../../tests/testAuth';
 import { ContentItemSetting } from '../../models/foundations/contentItemSettings/contentItemSetting';
 import { ContentType } from '../../models/foundations/contentItemSettings/contentType';
 
@@ -1172,6 +1172,35 @@ describe('ContentItemPanel', () => {
 
             expect(screen.getByRole('menuitem', { name: 'Love' }))
                 .toHaveAttribute('aria-pressed', 'false');
+        });
+
+        // NOT SIGNED OUT — NOT YET KNOWN. `isAuthenticated` collapses "no session" and "we
+        // have not read one yet" into false, and every full page load starts in the second
+        // state with the cards already on screen. Deciding a navigation there sends a reader
+        // holding a valid session to the sign-in screen, so the card refuses to decide while
+        // the read is unresolved, exactly as SecuredRoute does.
+        it('should not send a reader to sign in while the sign-in state is still unknown',
+            async () => {
+            // given
+            setLoading(authState);
+            const onReactionSelected = vi.fn();
+
+            renderCard(
+                <ContentItemPanel
+                    contentItem={quoteItem}
+                    reactionOptions={reactionOptions}
+                    onReactionSelected={onReactionSelected} />,
+                '/posts/quote-1');
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+            await userEvent.click(screen.getByRole('menuitem', { name: 'Love' }));
+
+            // then
+            expect(navigate).not.toHaveBeenCalled();
+
+            expect(onReactionSelected).toHaveBeenCalledWith(
+                quoteItem, expect.objectContaining({ label: 'Love' }));
         });
 
         // THE READER IS NOT THE SUBMITTER: quoteItem was submitted by account-bryan and
