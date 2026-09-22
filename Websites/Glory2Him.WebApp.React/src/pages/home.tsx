@@ -10,6 +10,10 @@ import {
 } from '../services/views/contentItems/contentItemFeedNavigation';
 
 import {
+    resolveContentItemFeedScope
+} from '../services/views/contentItems/contentItemFeedScope';
+
+import {
     toContentItemSearchCriteria,
     toContentItemSearchParams
 } from '../services/views/contentItems/contentItemSearchCriteriaUrl';
@@ -29,14 +33,20 @@ import { verseOfTheDay } from './sampleContent';
 import { useDocumentTitle } from './useDocumentTitle';
 
 // THE PUBLIC HOME PAGE: the verse of the day, then what has actually been contributed — the
-// ContentItemListPanel family over the PUBLIC read, replacing the Blogzine sample feed that
-// stood here.
+// ContentItemListPanel family, replacing the Blogzine sample feed that stood here.
 //
-// GET api/ContentItems/Public IS THE POINT of this page's wiring. It is caller-INDEPENDENT by
-// construction — exactly the §14.1 canonical set: approved, published, past its publish date —
-// so a privileged visitor sees what an anonymous one does, and no role change anywhere can leak
-// a draft onto the front page. The caller-widened surfaces are /posts, /MyPosts and
-// /Admin/Posts; the front door deliberately is not one.
+// TWO READS, AND WHICH ONE ANSWERS IS THIS PAGE'S DECISION. With no criteria supplied it reads
+// the design's FEED (§DOM11.3): effective publication order — the PublishDate where there is
+// one, the CreatedWhen where there is none — with topics and series excluded (§DOM3.8 rule 2).
+// The moment the reader narrows anything it reads GET api/ContentItems/Public with a $filter,
+// exactly as it always has, topics included: the feed takes no filter, and applying its
+// exclusion to a narrowing read would make every topic unsearchable. The rule itself lives in
+// resolveContentItemFeedScope.
+//
+// BOTH READS ARE CALLER-INDEPENDENT by construction — each is the §14.1 canonical set, and
+// neither consults a security context — so a privileged visitor sees what an anonymous one
+// does and no role change anywhere can leak a draft onto the front page. The caller-widened
+// surfaces are /posts, /MyPosts and /Admin/Posts; the front door deliberately is not one.
 //
 // The criteria live in the URL, so the header's search and a shared link land with the results
 // already showing.
@@ -51,6 +61,10 @@ export const Home = () => {
         () => toContentItemSearchCriteria(searchParams),
         [searchParams]);
 
+    const scope = useMemo(
+        () => resolveContentItemFeedScope(criteria),
+        [criteria]);
+
     const {
         data,
         isLoading,
@@ -58,7 +72,7 @@ export const Home = () => {
         isFetchingNextPage,
         hasNextPage,
         fetchNextPage
-    } = contentItemService.useSearchContentItems(criteria, { scope: 'public' });
+    } = contentItemService.useSearchContentItems(criteria, { scope });
 
     const loadedContentItems = useMemo(
         () => (data?.pages ?? []).flatMap((page) => page.items),
