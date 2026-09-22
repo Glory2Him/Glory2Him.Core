@@ -43,12 +43,16 @@ namespace Glory2Him.WebApp.Controllers.ContentItems
     /// dependency; binding to it would let an HTTP caller amend an item without the approval
     /// workflow ever hearing about it.</para>
     ///
-    /// <para><b>All six reads are <c>[AllowAnonymous]</c>, each for its own documented reason</b>
-    /// — the service interface states the posture per member and this controller does not restate
-    /// it. What matters here is that two of them are NOT interchangeable: <c>Get</c> widens with
-    /// the caller (owner sees their own drafts, a review role sees everything) while
-    /// <c>GetPublicContentItems</c> consults no security context at all. The first is a moderation
-    /// surface, the second is the public one.</para>
+    /// <para><b>All seven reads are <c>[AllowAnonymous]</c>, each for its own documented
+    /// reason</b> — the service interface states the posture per member and this controller does
+    /// not restate it. What matters here is that three of them are NOT interchangeable:
+    /// <c>Get</c> widens with the caller (owner sees their own drafts, a review role sees
+    /// everything), while <c>GetPublicContentItems</c> and <c>GetContentItemFeed</c> consult no
+    /// security context at all. The first is a moderation surface; the other two are the public
+    /// ones, and they differ from each other in WHAT they project rather than in who may read
+    /// it — the feed excludes <c>Topic</c> and <c>Series</c> (§DOM3.8 rule 2) and the public read
+    /// deliberately does not, because that exclusion on a narrowing read would make every topic
+    /// unsearchable.</para>
     ///
     /// <para><b>Submit and hard removal are absent, and it is a gap rather than a design.</b>
     /// <c>IContentItemProcessingService</c> has neither; both exist only on
@@ -410,6 +414,79 @@ namespace Glory2Him.WebApp.Controllers.ContentItems
                         .RetrieveAllPublicContentItemsAsync(cancellationToken);
 
                 return Ok(retrievedContentItems);
+            }
+            catch (ContentItemProcessingDependencyException contentItemProcessingDependencyException)
+            {
+                return FailedDependency(contentItemProcessingDependencyException.InnerException);
+            }
+            catch (ContentItemProcessingServiceException contentItemProcessingServiceException)
+            {
+                return InternalServerError(contentItemProcessingServiceException);
+            }
+        }
+
+        /// <summary>
+        /// THE FEED (§DOM11.3) — the front page's default listing, and a different read from
+        /// <see cref="GetPublicContentItems"/> rather than a view over it. It excludes
+        /// <c>Topic</c> and <c>Series</c> (§DOM3.8 rule 2), which the public read must not do:
+        /// applying that exclusion there would make every topic unsearchable.
+        ///
+        /// <para><b>No <see cref="EnableQueryAttribute"/>, and its absence is the contract.</b>
+        /// The page is an ARGUMENT of the read, composed into the same SQL as the predicate and
+        /// the order, so the two are mutually exclusive on one route: the attribute would apply
+        /// <c>$skip</c> a second time to an already-paged list. With the OData surface go both
+        /// of the traps the sibling <c>Groups/{groupId}</c> route has to manage — the ordinal
+        /// in-memory <c>$filter</c>, and <c>EnsureStableOrdering</c> discarding the order the
+        /// read applied. A caller-supplied query option here is off-surface and ignored, as it
+        /// is on every other non-OData route in the solution.</para>
+        ///
+        /// <para><b>The page travels as two OPTIONAL parameters, and neither carries
+        /// <c>[BindRequired]</c>.</b> <c>Program.cs</c> reserves that attribute for a parameter
+        /// that must be present to ADDRESS the operation — the cases where the framework's zero
+        /// value is harmful, an absent <c>decision</c> binding to <c>Approve</c> and an absent
+        /// <c>isResolved</c> un-resolving a comment. This is the counter-case the same comment
+        /// names on <c>isBypassRequested</c>: absent means the first page of a read, nothing is
+        /// mutated, and the safe reading is the obvious one.</para>
+        ///
+        /// <para><b>They are nullable for a reason that is not stylistic.</b> A non-nullable
+        /// <c>int take</c> binds an absent parameter to <c>0</c>, and a <c>take</c> of zero is
+        /// a validation failure — so plain <c>int</c> would collapse "asked for nothing" into
+        /// "said nothing" and turn the bare URL into a 400. The nulls pass through UNTOUCHED:
+        /// defaulting is a decision and this layer holds none, so the processing service is
+        /// what resolves them to the first page at the cap.</para>
+        /// </summary>
+        [HttpGet("Feed")]
+        [AllowAnonymous]
+        public async ValueTask<ActionResult<IReadOnlyList<ContentItem>>> GetContentItemFeed(
+            [FromQuery] int? skip,
+            [FromQuery] int? take,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                IReadOnlyList<ContentItem> feedContentItems =
+                    await this.contentItemProcessingService.RetrieveContentItemFeedAsync(
+                        skip: skip,
+                        take: take,
+                        cancellationToken: cancellationToken);
+
+                return Ok(feedContentItems);
+            }
+            // A BAD PAGE IS THE CALLER'S, so it answers 400. skip and take are the only things
+            // a caller supplies to this read - a take of zero, a take above the cap, a negative
+            // skip - and without these two arms the service's validation exception escapes the
+            // action and ASP.NET files a server fault for bad input.
+            //
+            // A skip past the end is deliberately NOT among them: that is a valid page which
+            // happens to be empty, the same answer an unknown group id gets on the sibling
+            // route. There is no not-found arm here for the same reason.
+            catch (ContentItemProcessingValidationException contentItemProcessingValidationException)
+            {
+                return BadRequest(contentItemProcessingValidationException.InnerException);
+            }
+            catch (ContentItemProcessingDependencyValidationException contentItemProcessingDependencyValidationException)
+            {
+                return BadRequest(contentItemProcessingDependencyValidationException.InnerException);
             }
             catch (ContentItemProcessingDependencyException contentItemProcessingDependencyException)
             {

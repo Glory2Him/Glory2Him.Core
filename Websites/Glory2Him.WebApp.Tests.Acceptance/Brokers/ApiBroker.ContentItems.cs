@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -11,6 +11,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Threading.Tasks;
 using Glory2Him.WebApp.Tests.Acceptance.Models.ContentItems;
 
@@ -45,6 +46,35 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
         public async ValueTask<List<ContentItem>> GetPublicContentItemsAsync() =>
             await this.apiFactoryClient.GetContentAsync<List<ContentItem>>(
                 $"{contentItemsRelativeUrl}/Public");
+
+        // THE FEED, and it is a different read from /Public rather than a view of it
+        // (§DOM11.3 + §DOM3.8 rule 2). The route carries no [EnableQuery], so the page travels
+        // as two plain parameters the read itself accepts — which is why there is no
+        // odataQuery overload here and a caller asking for one gets the odd one below, whose
+        // whole purpose is to prove the options are ignored.
+        public async ValueTask<List<ContentItem>> GetContentItemFeedAsync() =>
+            await this.apiFactoryClient.GetContentAsync<List<ContentItem>>(
+                $"{contentItemsRelativeUrl}/Feed");
+
+        public async ValueTask<List<ContentItem>> GetContentItemFeedAsync(int skip, int take) =>
+            await this.apiFactoryClient.GetContentAsync<List<ContentItem>>(
+                $"{contentItemsRelativeUrl}/Feed?skip={skip}&take={take}");
+
+        public async ValueTask<List<ContentItem>> GetContentItemFeedAsync(string queryString) =>
+            await this.apiFactoryClient.GetContentAsync<List<ContentItem>>(
+                $"{contentItemsRelativeUrl}/Feed?{queryString}");
+
+        // The raw response, for the assertions that are about the STATUS rather than the body -
+        // a bare URL answering 200 rather than 400, and the validation arms answering 400.
+        public async ValueTask<HttpResponseMessage> GetContentItemFeedResponseAsync(
+            string queryString = "")
+        {
+            string url = string.IsNullOrEmpty(queryString)
+                ? $"{contentItemsRelativeUrl}/Feed"
+                : $"{contentItemsRelativeUrl}/Feed?{queryString}";
+
+            return await this.httpClient.GetAsync(url);
+        }
 
         public async ValueTask<List<ContentItem>> GetContentItemsByGroupIdAsync(Guid groupId) =>
             await this.apiFactoryClient.GetContentAsync<List<ContentItem>>(

@@ -22,8 +22,11 @@ import {
     resolveContentItemSearchApprovalStatuses
 } from '../../models/components/contentItems/contentItemSearchItem';
 
-// Comfortably under the host's OData:PageSize cap of 50, which the +1 probe row also rides
-// inside. Small enough that a first page arrives quickly and the scroll has somewhere to go.
+// Comfortably under the cap of 50 every read behind this hook applies, which the +1 probe row
+// also rides inside. The cap has two owners rather than one: the host's OData:PageSize on the
+// [EnableQuery] search routes, and the processing service's own constant on the feed, which is
+// not configuration at all. Small enough that a first page arrives quickly and the scroll has
+// somewhere to go.
 export const contentItemSearchPageSize = 8;
 
 export const contentItemService = {
@@ -54,7 +57,7 @@ export const contentItemService = {
     useSearchContentItems: (
         criteria: ContentItemSearchCriteria,
         options: {
-            scope?: 'public' | 'caller';
+            scope?: 'feed' | 'public' | 'caller';
             submittedById?: string | null;
             defaultApprovalStatuses?: ReadonlyArray<ApprovalStatus>;
             pageSize?: number;

@@ -128,15 +128,57 @@ describe('The content item feed pages', () => {
     });
 
     describe('Home', () => {
-        // §14.1 by construction: the front page builds on the caller-INDEPENDENT read, so no
-        // role change anywhere can leak a draft onto it.
-        it('should feed the panel from the public read', () => {
+        // THE FRONT PAGE'S DEFAULT LISTING IS THE FEED (§DOM11.3): effective publication order,
+        // with topics and series excluded. This replaces the assertion that the page always read
+        // /Public — it now reads the public route only when the reader has actually narrowed
+        // something, because the feed route takes no $filter at all.
+        //
+        // Both reads are caller-INDEPENDENT (§14.1), so neither can be widened by anybody's
+        // roles; which of the two answers is the page's decision, not the reader's identity.
+        // (homePageReadsTheFeedWhenNoCriteriaAreSupplied)
+        it('should feed the panel from the feed read when no criteria are supplied', () => {
             // when
             renderPage(<Home />);
 
             // then
-            expect(searchedOptions).toEqual(expect.objectContaining({ scope: 'public' }));
+            expect(searchedOptions).toEqual(expect.objectContaining({ scope: 'feed' }));
         });
+
+        // THE SIX CRITERIA THAT PUT A $filter ON THE WIRE, each on its own. The moment one is
+        // set the page goes back to the public read exactly as it behaves today — complete with
+        // its topics, because filtering them out of a NARROWING read would make every topic
+        // unsearchable.
+        // (homePageReadsThePublicReadWhenACriterionIsSupplied)
+        it.each([
+            ['free text', '/?q=grace'],
+            ['a content type', '/?type=Devotional'],
+            ['an author', '/?author=Temple'],
+            ['a submitter', '/?by=user-9'],
+            ['a shareability basis', '/?shareability=PublicDomain'],
+            ['chosen approval statuses', '/?status=Approved']
+        ])('should feed the panel from the public read when the reader supplied %s',
+            (_criterion, initialUrl) => {
+                // when
+                renderPage(<Home />, initialUrl);
+
+                // then
+                expect(searchedOptions).toEqual(expect.objectContaining({ scope: 'public' }));
+            });
+
+        // TAGS AND BIBLE REFERENCES NARROW NOTHING YET — no read is filtered on them until
+        // #318 — so treating them as criteria would cost the feed's order and re-admit topics
+        // in exchange for no narrowing at all.
+        it.each([
+            ['a tag', '/?tags=grace'],
+            ['a Bible reference', '/?refs=John+3:16']
+        ])('should stay on the feed when the reader supplied only %s',
+            (_criterion, initialUrl) => {
+                // when
+                renderPage(<Home />, initialUrl);
+
+                // then
+                expect(searchedOptions).toEqual(expect.objectContaining({ scope: 'feed' }));
+            });
 
         // The button is a courtesy, never a boundary — the server re-decides against the stored
         // row — but a visitor with no account has nothing to edit, so they get no button. It
