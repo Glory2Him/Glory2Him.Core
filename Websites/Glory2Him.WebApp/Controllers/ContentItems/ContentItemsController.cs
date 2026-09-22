@@ -435,12 +435,27 @@ namespace Glory2Him.WebApp.Controllers.ContentItems
         /// in-memory <c>$filter</c>, and <c>EnsureStableOrdering</c> discarding the order the
         /// read applied. A caller-supplied query option here is off-surface and ignored, as it
         /// is on every other non-OData route in the solution.</para>
+        ///
+        /// <para><b>The page travels as two OPTIONAL parameters, and neither carries
+        /// <c>[BindRequired]</c>.</b> <c>Program.cs</c> reserves that attribute for a parameter
+        /// that must be present to ADDRESS the operation — the cases where the framework's zero
+        /// value is harmful, an absent <c>decision</c> binding to <c>Approve</c> and an absent
+        /// <c>isResolved</c> un-resolving a comment. This is the counter-case the same comment
+        /// names on <c>isBypassRequested</c>: absent means the first page of a read, nothing is
+        /// mutated, and the safe reading is the obvious one.</para>
+        ///
+        /// <para><b>They are nullable for a reason that is not stylistic.</b> A non-nullable
+        /// <c>int take</c> binds an absent parameter to <c>0</c>, and a <c>take</c> of zero is
+        /// a validation failure — so plain <c>int</c> would collapse "asked for nothing" into
+        /// "said nothing" and turn the bare URL into a 400. The nulls pass through UNTOUCHED:
+        /// defaulting is a decision and this layer holds none, so the processing service is
+        /// what resolves them to the first page at the cap.</para>
         /// </summary>
         [HttpGet("Feed")]
         [AllowAnonymous]
         public async ValueTask<ActionResult<IReadOnlyList<ContentItem>>> GetContentItemFeed(
-            [FromQuery] int skip,
-            [FromQuery] int take,
+            [FromQuery] int? skip,
+            [FromQuery] int? take,
             CancellationToken cancellationToken)
         {
             try
