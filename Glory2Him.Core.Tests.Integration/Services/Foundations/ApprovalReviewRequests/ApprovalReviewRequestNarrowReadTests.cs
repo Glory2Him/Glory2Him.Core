@@ -62,7 +62,8 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ApprovalReviewRe
                     requestedApproval.Id, TestContext.Current.CancellationToken);
 
             // then
-            actualRequests.Should().BeEmpty();
+            actualRequests.Select(request => request.Id)
+                .Should().Equal(new[] { requestedRequest.Id });
         }
 
         private async Task<Approval> SeedApprovalAsync()
