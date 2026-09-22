@@ -133,6 +133,63 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ContentItems
                     + "nothing in the solution filters that column");
         }
 
+        /// <summary>
+        /// Criterion 3: §DOM11.9 LEAVES BOTH FEED INDEXES UNDECIDED, so both survive exactly
+        /// as they stood at the branch point. Undecided is not "drop" and this change does not
+        /// guess; the position measured one predicate shape on one selectivity and says nothing
+        /// about whichever other query evaluates either index's cited purpose.
+        ///
+        /// <para>Keys and key order alone do not settle "unchanged": an index that keeps both
+        /// while becoming unique, or while gaining an <c>INCLUDE</c>, is a different index with
+        /// a different write cost. Uniqueness, includes and the filter are asserted too.</para>
+        /// </summary>
+        [Theory]
+        [InlineData("IX_ContentItems_PublishDate", "PublishDate ASC")]
+        [InlineData(
+            "IX_ContentItems_Feed",
+            "ApprovalStatus ASC|IsPublished ASC|PublishDate ASC")]
+        public async Task ShouldLeaveEachFeedIndexInTheStateTheRecordedPositionNames_AfterTheMigrationAsync(
+            string indexName,
+            string expectedKeys)
+        {
+            // given
+            List<DeployedIndexColumn> indexColumns =
+                await this.broker.GetIndexColumnsAsync(ContentItemsTable);
+
+            // when
+            List<DeployedIndexColumn> declaredColumns = indexColumns
+                .Where(indexColumn => indexColumn.IndexName == indexName)
+                .ToList();
+
+            List<DeployedIndexColumn> keys = declaredColumns
+                .Where(indexColumn => indexColumn.IsIncluded == false)
+                .OrderBy(indexColumn => indexColumn.KeyOrdinal)
+                .ToList();
+
+            // then
+            keys.Should().NotBeEmpty(
+                because: $"§DOM11.9 leaves {indexName} undecided, so it survives");
+
+            string.Join("|", keys.Select(DescribeKey)).Should().Be(
+                expectedKeys,
+                because: "an undecided index keeps the keys and the key order it had at the "
+                    + "branch point");
+
+            declaredColumns.Where(indexColumn => indexColumn.IsIncluded)
+                .Should().BeEmpty(
+                    because: "an index that gains an INCLUDE is a different index with a "
+                        + "different write cost");
+
+            declaredColumns.Should().OnlyContain(
+                indexColumn => indexColumn.IsUnique == false,
+                because: "an index that becomes unique is a different index and a new "
+                    + "constraint on the rows");
+
+            declaredColumns.Should().OnlyContain(
+                indexColumn => indexColumn.FilterDefinition == string.Empty,
+                because: "neither feed index was filtered at the branch point");
+        }
+
         private static string DescribeKey(DeployedIndexColumn indexColumn) =>
             $"{indexColumn.ColumnName} {(indexColumn.IsDescending ? "DESC" : "ASC")}";
     }
