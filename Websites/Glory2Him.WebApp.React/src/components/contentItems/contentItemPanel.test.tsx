@@ -1053,6 +1053,33 @@ describe('ContentItemPanel', () => {
             expect(screen.queryByRole('status')).not.toBeInTheDocument();
             expect(screen.queryByText(/sign in/i)).not.toBeInTheDocument();
         });
+
+        // VACUOUS UNTIL #620 BUILDS AN OPTIMISTIC COUNT, and kept deliberately: it is the
+        // regression guard that keeps one from appearing for a reader whose reaction was
+        // never recorded. It earns a re-run when #620 lands.
+        it('should move no count when a signed-out reader chooses a reaction', async () => {
+            // given
+            signOut(authState);
+
+            renderCard(
+                <ContentItemPanel
+                    contentItem={quoteItem}
+                    reactionOptions={reactionOptions}
+                    onReactionSelected={vi.fn()} />);
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+            await userEvent.click(screen.getByRole('menuitem', { name: 'Love' }));
+
+            // then: the counts stand where they stood, and no glyph is marked as given
+            expect(screen.getByText('142')).toBeInTheDocument();
+            expect(screen.queryByText('143')).not.toBeInTheDocument();
+
+            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+
+            expect(screen.getByRole('menuitem', { name: 'Love' }))
+                .toHaveAttribute('aria-pressed', 'false');
+        });
     });
 
     describe('honest figures', () => {
