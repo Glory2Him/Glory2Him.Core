@@ -89,6 +89,26 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ProcessedEvents
             actualExists.Should().BeFalse();
         }
 
+        /// <summary>
+        /// The other half of criterion 5's two-part key: the right <c>ReceiverName</c> with a
+        /// DIFFERENT <c>EventId</c> must not answer true for an event that receiver never saw.
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnFalseWhenOnlyTheReceiverNameMatchesAsync()
+        {
+            // given
+            ProcessedEvent seededProcessedEvent = await SeedProcessedEventAsync();
+
+            // when
+            bool actualExists = await this.broker.StorageBroker.SelectProcessedEventExistsAsync(
+                Guid.NewGuid(),
+                seededProcessedEvent.ReceiverName,
+                TestContext.Current.CancellationToken);
+
+            // then
+            actualExists.Should().BeTrue();
+        }
+
         private async Task<ProcessedEvent> SeedProcessedEventAsync()
         {
             var processedEvent = new ProcessedEvent
