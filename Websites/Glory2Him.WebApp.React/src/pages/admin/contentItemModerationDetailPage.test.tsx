@@ -13,6 +13,10 @@ import { createAuthState, signInAs } from '../../tests/testAuth';
 import { testContentItemSetting } from '../../tests/testContentItemSettings';
 
 import {
+    ContentItemSetting
+} from '../../models/foundations/contentItemSettings/contentItemSetting';
+
+import {
     AIReviewerStatus,
     ApprovalReview,
     ApprovalReviewRequest,
@@ -92,10 +96,14 @@ const quoteSetting =
 const createOrUpdateContentItemSettingMock = vi.fn();
 const hardRemoveContentItemSettingMock = vi.fn();
 
+// What the type's effective row says, which a test about the reaction gate rewrites - the
+// setting is the only thing that decides whether the card offers a Like (§DOM6.5).
+let effectiveSettings: ContentItemSetting[] = [quoteSetting];
+
 vi.mock('../../services/foundations/contentItemSettingService', () => ({
     contentItemSettingService: {
-        useGetDefaults: () => ({ data: [quoteSetting] }),
-        useGetEffectiveSettingsFor: () => ({ data: [quoteSetting] }),
+        useGetDefaults: () => ({ data: effectiveSettings }),
+        useGetEffectiveSettingsFor: () => ({ data: effectiveSettings }),
         useCreateOrUpdateContentItemSettingOverride: () => ({
             mutateAsync: createOrUpdateContentItemSettingMock,
             isPending: false
@@ -103,6 +111,34 @@ vi.mock('../../services/foundations/contentItemSettingService', () => ({
         useHardRemoveContentItemSetting: () => ({
             mutateAsync: hardRemoveContentItemSettingMock,
             isPending: false
+        })
+    }
+}));
+
+// The reaction vocabulary behind the Like control, the same read the moderation queue makes.
+vi.mock('../../services/foundations/reactionService', () => ({
+    reactionService: {
+        useGetApprovedReactions: () => ({
+            data: [
+                {
+                    id: 'reaction-1',
+                    name: 'Amen',
+                    unicodeEmoji: '👍',
+                    isPublished: true,
+                    approvalStatus: 2,
+                    isDeleted: false
+                },
+                {
+                    // WHICH ONE IS LOVE is a case-insensitive match on the NAME - the rows
+                    // carry no flag of their own - so the fixture has to be named for it.
+                    id: 'reaction-2',
+                    name: 'Love',
+                    unicodeEmoji: '❤️',
+                    isPublished: true,
+                    approvalStatus: 2,
+                    isDeleted: false
+                }
+            ]
         })
     }
 }));
@@ -350,6 +386,7 @@ describe('ContentItemModerationDetailPage', () => {
         toastErrorSpy.mockReset();
         toastSuccessSpy.mockReset();
 
+        effectiveSettings = [quoteSetting];
         signInAs(authState, ['Administrators']);
     });
 
@@ -364,6 +401,82 @@ describe('ContentItemModerationDetailPage', () => {
         expect(screen.getByRole('link', { name: 'Posts' }))
             .toHaveAttribute('href', '/Admin/Posts');
     });
+
+    // THE LIKE CONTROL, on the read face. The queue offers the picker on the card for this very
+    // item, so a moderator who clicked into it lost a control by opening it. The edit face is a
+    // form and carries no engagement row at all — that is unchanged.
+    it("should offer the like control on the moderation detail page's read face", () => {
+        // when
+        renderPage();
+
+        // then
+        expect(screen.getByRole('button', { name: /Like/ })).toBeInTheDocument();
+    });
+
+    // THE WIRING DOES NOT OVERRIDE THE GATE - it makes the gate the only thing deciding. A
+    // type whose setting refuses reactions offers nothing here, exactly as it does everywhere
+    // else the rule is asked (contentItemPanel.tsx).
+    it('should show no like control on the newly wired pages for a type whose setting '
+        + 'refuses reactions', () => {
+        // given
+        effectiveSettings = [{ ...quoteSetting, reactionsAllowed: false }];
+
+        // when
+        renderPage();
+
+        // then
+        expect(screen.queryByRole('button', { name: /Like/ })).not.toBeInTheDocument();
+    });
+
+    // LIMITREACTIONSTOLOVEONLY NARROWS THE PICKER to the one option (§DOM6.5). No seeded type
+    // carries it, so the fixture is constructed rather than found.
+    it('should offer only the love option on a love-only type on the newly wired pages',
+        async () => {
+            // given
+            effectiveSettings = [{ ...quoteSetting, limitReactionsToLoveOnly: true }];
+            renderPage();
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+
+            // then
+            const offered = screen.getAllByRole('menuitem');
+
+            expect(offered).toHaveLength(1);
+            expect(offered[0]).toHaveAccessibleName('Love');
+        });
+
+    // ONLY THE LIKE CONTROL. Taking the engagement hook for its reaction members does not wire
+    // its Share and Save members, and the card keeps both off the row because no handler was
+    // passed. Share copies the item's /posts/{id} address, which answers nothing for a Draft or
+    // for an item still under moderation; Save is a different entity and a different outcome.
+    it('should add only the like control to the newly wired pages', () => {
+        // when
+        const { container } = renderPage();
+        const card = container.querySelector('.g2h-content-item-card') as HTMLElement;
+
+        // then
+        expect(within(card).getByRole('button', { name: /Like/ })).toBeInTheDocument();
+        expect(within(card).queryByRole('button', { name: /Share/ })).not.toBeInTheDocument();
+        expect(within(card).queryByRole('button', { name: /Save/ })).not.toBeInTheDocument();
+    });
+
+    // THE CHOICE HAS TO SHOW. Choosing closes the picker - the panel's own behaviour - so the
+    // mark is read back by reopening it, the same way /posts/{id} proves the fold.
+    it("should mark the reader's chosen reaction as pressed on the moderation detail page",
+        async () => {
+            // given
+            renderPage();
+            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+            await userEvent.click(screen.getByRole('menuitem', { name: 'Amen' }));
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+
+            // then
+            expect(screen.getByRole('menuitem', { name: 'Amen' }))
+                .toHaveAttribute('aria-pressed', 'true');
+        });
 
     it('should walk back to the bare queue when no origin was carried', async () => {
         // given

@@ -23,6 +23,7 @@ import {
     resolveContentItemSetting
 } from '../services/views/contentItems/resolveContentItemSetting';
 
+import { useContentItemEngagement } from '../hooks/useContentItemEngagement';
 import { useDocumentTitle } from './useDocumentTitle';
 
 // ONE OF MY POSTS, read on its own surface — where /posts/contribute lands a fresh submission
@@ -61,6 +62,15 @@ export function MyPostDetail() {
     // storage actually holds, status included.
     const modifyContentItem = contentItemService.useModifyContentItem();
 
+    // THE LIKE CONTROL, and only it. /myposts offers the reaction picker on the card for this
+    // very item, so a contributor who clicked into the item lost a control by reading it on its
+    // own surface — and a page that passes no handler is a second switch no ShowReactions
+    // setting can reach (§DOM6.5). Share and Save are deliberately NOT taken: this page reads
+    // items that may be Drafts, and the address Share copies is /posts/{id}, which answers
+    // nothing for one.
+    const { reactionOptions, onReactionSelected, withViewerReactions } =
+        useContentItemEngagement();
+
     const [validationIssues, setValidationIssues] =
         useState<ContentItemValidationIssues | undefined>();
 
@@ -88,11 +98,17 @@ export function MyPostDetail() {
     // The SAME self-contained element a list surface would carry — one projection for the
     // whole family. showContentExpanded on the panel keeps the full content standing: a cut
     // with a read-more that leads here would point at itself.
-    const searchItem = useMemo(
+    const readItem = useMemo(
         () => contentItem == null
             ? undefined
             : toContentItemSearchItem(contentItem, contentItemSettings ?? []),
         [contentItem, contentItemSettings]);
+
+    // The visit's chosen reaction, folded over the projection — and deliberately NOT memoised,
+    // for the reason postDetail records: withViewerReactions closes over the choices and is
+    // rebuilt every render, so a memo listing it recomputes every render and buys nothing,
+    // while a memo keyed on readItem alone would go stale the moment the contributor chose.
+    const searchItem = readItem == null ? undefined : withViewerReactions([readItem])[0];
 
     // The same resolver and hasTitle rule the panel applies — see postDetail, which this page
     // mirrors: an earlier hand-rolled copy of this logic drifted immediately.
@@ -174,6 +190,8 @@ export function MyPostDetail() {
                                 onModified={saveChangesAsync}
                                 validationIssues={validationIssues}
                                 isSubmitting={modifyContentItem.isPending}
+                                reactionOptions={reactionOptions}
+                                onReactionSelected={onReactionSelected}
                                 contentItemSettingCollection={contentItemSettings ?? []} />
                         </div>
 

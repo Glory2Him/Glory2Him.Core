@@ -965,6 +965,22 @@ describe('ContentItemPanel', () => {
             expect(screen.queryByRole('button', { name: /Like/ })).not.toBeInTheDocument();
         });
 
+        // THE ADD FACE HAS NOTHING TO REACT TO. No item means the panel IS the contribution
+        // form, and it early-returns before the engagement row exists at all - so handing it
+        // the reaction members changes nothing. Asserted HERE because it is the only place the
+        // guard can discriminate: a page-level test cannot, since the page it guards passes no
+        // contentItem either and would stay green with the members wired straight in.
+        it('should render no engagement row on the add face even when reaction members are '
+            + 'supplied', () => {
+            renderCard(
+                <ContentItemPanel
+                    reactionOptions={reactionOptions}
+                    onReactionSelected={vi.fn()}
+                    contentItemSettingCollection={[devotionalSetting]} />);
+
+            expect(screen.queryByRole('button', { name: /Like/ })).not.toBeInTheDocument();
+        });
+
         it('should keep only the love option where its setting limits to it', async () => {
             renderCard(
                 <ContentItemPanel
