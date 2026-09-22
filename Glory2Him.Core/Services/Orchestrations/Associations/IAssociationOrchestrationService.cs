@@ -66,6 +66,14 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         /// and the answer reveals no count of what was dropped (§SEC14.5 rule 4). There is no
         /// gate of its own on this path — a read is filtered, never refused.</para>
         ///
+        /// <para><b>Which row is asked about is decided by the endpoint's scope.</b> An endpoint
+        /// written <c>AllVersions</c> is answered at its <b>group</b> — §DOM4.6 rule 1 makes the
+        /// effective id the read predicate, and such an association belongs to the group rather
+        /// than to the version current when it was written — and one written
+        /// <c>ThisVersionOnly</c> at its row. <see cref="RetrieveAssociationByIdAsync"/> answers
+        /// the same question the same way: two resolvers are allowed, two predicates are
+        /// not.</para>
+        ///
         /// <para>The queryable comes back <b>unenumerated</b> and issues no endpoint round trip
         /// of its own, whatever the row count: the composite composes into the association query
         /// instead of resolving anything above it. Composing it further is the caller's to do.
@@ -76,20 +84,40 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
 
         /// <summary>
         /// The single-row read. It denies by <b>not-found</b>, never by unauthorized and never by
-        /// a dependency error, and it answers the same way to all four misses: an id that occupies
-        /// no row, an id naming a soft-deleted row, an id naming a row the caller may not see
-        /// under the foundation's posture, and an id naming a row whose endpoint is not visible
-        /// to this caller.
+        /// a dependency error, and it answers <b>five</b> misses: an id that occupies no row; an
+        /// id naming a soft-deleted row; an id naming a row the caller may not see under the
+        /// foundation's posture; an id naming a row whose endpoint is not visible to this caller;
+        /// and an id naming a row whose endpoint is of a type with <b>no foundation service</b>
+        /// (<c>Attachment</c>, <c>Association</c>).
         ///
-        /// <para>The last of those resolves its two endpoints directly and reuses the conversion
+        /// <para>The fourth resolves its two endpoints directly and reuses the conversion
         /// <c>ResolveEndpointAsync</c> already performs on the add path. Letting it surface as a
         /// dependency failure instead would answer "this endpoint is not visible" with a 424,
         /// which reports a visibility rule as a broken dependency and leaks through the status
         /// code exactly what §SEC14.5 rule 2 keeps out of the message.</para>
         ///
-        /// <para>The caller-facing exception carries <b>no reason, no state and no identity</b>
-        /// in its message or its <c>Data</c>. The true reason is logged server-side by the layer
-        /// that knows it — a warning for a privilege denial, information for a state-based miss
+        /// <para>The fifth is a not-found <b>here</b> and an ordinary validation failure on the
+        /// add, and the difference is who supplied the value: there the caller named the endpoint
+        /// type, here they supplied only an association id, so naming it back would report one of
+        /// the row's columns. It is also the right answer rather than only the safe wording — no
+        /// read can show such an endpoint visible, so §SEC14.3 rule 4 cannot be satisfied and an
+        /// undecidable visibility input fails closed.</para>
+        ///
+        /// <para><b>Which row is asked about follows the endpoint's scope, and matches the
+        /// collection read term for term</b> (§SEC14.3: two resolvers are allowed, two predicates
+        /// are not). A <c>ContentItem</c> or <c>Link</c> endpoint written <c>AllVersions</c> is
+        /// answered at its <b>group</b>, through the group-keyed read its own foundation already
+        /// exposes; everything else is answered at its row. Resolving on the key id for every
+        /// type puts a row in the list that is not found when it is opened.</para>
+        ///
+        /// <para>Every one of the five carries the <b>same outward message</b> — the foundation's
+        /// own not-found wording — with no reason, no state and no identity in it or in
+        /// <c>Data</c>. The two exception families stay two, because they record which layer
+        /// refused: misses 1-3 leave as
+        /// <c>AssociationOrchestrationDependencyValidationException</c> and misses 4-5 as
+        /// <c>AssociationOrchestrationValidationException</c>, and an exposer maps both to one
+        /// status code and one body. The true reason is logged server-side by the layer that
+        /// knows it — a warning for a privilege denial, information for a state-based miss
         /// (§SEC14.5 rules 5-7) — immediately before the generic answer is thrown.</para>
         /// </summary>
         ValueTask<Association> RetrieveAssociationByIdAsync(

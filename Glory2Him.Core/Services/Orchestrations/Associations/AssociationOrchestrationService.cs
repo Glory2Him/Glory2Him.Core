@@ -40,10 +40,16 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
     /// read. The two reads carry that composite — one shared private evaluator, in
     /// <c>.EndpointVisibility.cs</c>. The three writes carry <b>only</b> the half of the §SEC14.7
     /// posture A′ gate that needs no row — authentication, the global <c>ReadOnly</c> block, and
-    /// <c>Administrators</c> on hard removal — and then forward; everything composed from the
-    /// STORED endpoints stays in the foundation, and no second read duplicates it. The add is the
-    /// one write that resolves both endpoints as its own first act, so it is the one that decides
-    /// the endpoint veto for itself.</para>
+    /// <c>Administrators</c> on hard removal — and then forward; every rule that needs the stored
+    /// endpoints belongs to the foundation, and no second read duplicates it. The add is the one
+    /// write that resolves both endpoints as its own first act, so it is the one that decides the
+    /// endpoint veto for itself.</para>
+    ///
+    /// <para>Whether the foundation in fact composes each of those from the stored row is its
+    /// own business and is not uniform today: on <c>ModifyAssociationAsync</c> the four
+    /// <c>ReadOnly</c> names come off the caller's copy ahead of the storage read, which
+    /// §SEC14.7 posture A′ rule 4 records as a gap and #658 closes. No member here moves with
+    /// it.</para>
     /// </summary>
     internal partial class AssociationOrchestrationService : IAssociationOrchestrationService
     {
