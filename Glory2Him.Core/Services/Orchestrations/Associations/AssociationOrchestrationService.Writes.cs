@@ -26,6 +26,15 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         // which is why modify sits with the two removals rather than with the add. Adding
         // endpoint resolution to this member is a finding, not an improvement.
         //
+        // WHAT THE FOUNDATION BENEATH IT COMPOSES FROM THE STORED ROW, exactly: the
+        // endpoint-derived Publishers tier, the owner test, the terminal bar, and the pin that
+        // holds all eight endpoint fields against storage. NOT the four ReadOnly names — on this
+        // one write path they are composed from the caller's copy, ahead of the storage read, and
+        // nothing after that read re-runs them. The pin makes the admitted set identical either
+        // way, so what the order costs is the refusal's identity rather than an admitted write;
+        // it is a foundation change tracked as #658 and no member here moves with it.
+        // §SEC14.7 posture A′ rule 4 carries both the rule and the gap.
+        //
         // It exists because §EVN13 rule 3 binds an exposer to the entity's top-layer service
         // while the exposer guidance caps a controller at one injected service, not because there
         // is anything here to orchestrate.

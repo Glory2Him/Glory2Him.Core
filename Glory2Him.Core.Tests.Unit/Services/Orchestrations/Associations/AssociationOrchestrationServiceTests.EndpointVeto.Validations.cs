@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -213,9 +213,18 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
         {
             // given: on modify, remove and hard remove the caller hands over an id or an
             // untrusted row, so there is no resolved endpoint for this layer to compose from —
-            // the veto runs in the foundation against the STORED endpoints and arrives here as a
-            // DEPENDENCY VALIDATION failure. Same rule, different layer, different family; both
-            // 4xx and neither a 424.
+            // the veto is the foundation's and arrives here as a DEPENDENCY VALIDATION failure.
+            // Same rule, different layer, different family; both 4xx and neither a 424.
+            //
+            // WHAT THE MODIFY LEG PROVES TODAY, so the theory is not read as proving more. On
+            // remove and hard remove the foundation composes the four ReadOnly names from the
+            // STORED row. On modify it composes them from the caller's copy, ahead of the storage
+            // read, so a sanctioned caller is in fact refused by the endpoint PIN rather than by
+            // the veto — no write a stored-row veto would have refused is admitted, because the
+            // pin holds all eight endpoint fields against storage, but the refusal's identity
+            // differs. That is #658's to correct, on behaviour predating this surface, and no
+            // member here moves with it (§SEC14.7 posture A′ rule 4). Until it lands this leg
+            // asserts the refusal and not which gate produced it.
             //
             // Hard removal additionally needs Administrators just to reach the foundation at all,
             // which is criterion 7's half of the split. That is the point of running it in this

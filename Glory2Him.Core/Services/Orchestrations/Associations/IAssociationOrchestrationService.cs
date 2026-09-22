@@ -103,19 +103,35 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         /// the whole effective payload is <c>ApprovalStatus</c> moving between <c>Draft</c> and
         /// <c>Submitted</c>, the carve-out of §APR9.2 rules 4-6.
         ///
-        /// <para>A caller who supplies a changed endpoint, scope, confidence, sort order,
-        /// <c>IsPublished</c> or <c>PublishDate</c> gets the stored value back unchanged rather
-        /// than an error. A stored <c>Approved</c> or <c>Rejected</c> row refuses the write
-        /// outright: an association never forks, so refusing <b>is</b> the enforcement
-        /// (§APR7.5.1 rule 3). The carve-out is gated on ownership — the owner, or the
-        /// endpoint-derived <c>Publishers</c> tier — and never a reviewer (§APR9.2 rule 4).</para>
+        /// <para><b>Pinned means REFUSED, not absorbed.</b> A caller who supplies a
+        /// <b>changed</b> endpoint type, key id or group id, endpoint content type,
+        /// <c>EntityAScope</c> / <c>EntityBScope</c>, <c>SortOrder</c>, any <c>IConfidence</c>
+        /// field, <c>UserId</c>, <c>IsPublished</c>, <c>PublishDate</c> or the bypass pair is
+        /// <b>rejected</b> — one rule per field into <c>InvalidAssociationException</c>, each
+        /// offending field named in the exception's <c>Data</c>, reaching the caller through this
+        /// service as <c>AssociationOrchestrationDependencyValidationException</c>. Echoing a
+        /// stored value back unchanged is not a change and passes. A stored <c>Approved</c> or
+        /// <c>Rejected</c> row refuses the write outright: an association never forks, so
+        /// refusing <b>is</b> the enforcement (§APR7.5.1 rule 3). The carve-out is gated on
+        /// ownership — the owner, or the endpoint-derived <c>Publishers</c> tier — and never a
+        /// reviewer (§APR9.2 rule 4).</para>
         ///
         /// <para><b>This member composes nothing.</b> It runs the half of the gate that needs no
-        /// row — authentication and the global <c>ReadOnly</c> block — and forwards. Everything
-        /// composed from the stored endpoints, including the <c>Publishers</c> tier and each
-        /// end's <c>ReadOnly</c> veto, runs in the foundation beneath it and reaches the caller
-        /// as <c>AssociationOrchestrationDependencyValidationException</c>. Adding endpoint
-        /// resolution here is a finding (§SEC14.7 posture A′ rule 4).</para>
+        /// row — authentication and the global <c>ReadOnly</c> block — and forwards. Adding
+        /// endpoint resolution here is a finding (§SEC14.7 posture A′ rule 4). Beneath it the
+        /// foundation composes the endpoint-derived <c>Publishers</c> tier and the endpoint pin
+        /// from the <b>stored</b> row, and both reach the caller as
+        /// <c>AssociationOrchestrationDependencyValidationException</c>.</para>
+        ///
+        /// <para><b>The four <c>ReadOnly</c> names are the exception, and on this path today they
+        /// are composed from the caller's copy</b> before the storage read — not from the stored
+        /// row as §SEC14.7 posture A rule 1 requires and as remove and hard remove already do.
+        /// No write a stored-row veto would have refused is admitted, because the pin above holds
+        /// all eight endpoint fields against storage; what differs is the refusal's identity — a
+        /// sanctioned caller is refused by the pin as an invalid-field failure rather than by the
+        /// veto as an unauthorized one. It is a foundation change on behaviour that predates this
+        /// surface, tracked as #658, and no member here moves with it. §SEC14.7 posture A′
+        /// rule 4 carries both the rule and the gap.</para>
         /// </summary>
         ValueTask<Association> ModifyAssociationAsync(
             Association association,

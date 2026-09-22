@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -35,9 +35,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             //
             // What is provable at THIS layer is exactly that: the caller's object reaches the
             // foundation untouched, no endpoint is consulted on the way, and the foundation's
-            // answer is what the caller gets. The pinning itself is the foundation's rule and has
-            // its own coverage there — re-asserting it over a mock here would only re-read the
-            // mock's own return value.
+            // answer is what the caller gets.
+            //
+            // THIS TEST PROVES NOTHING ABOUT THE PIN and must not be read as doing so. The pin
+            // REFUSES a changed field rather than absorbing it, and what this service owes it is
+            // that the refusal is neither swallowed nor re-mapped — which is
+            // ShouldThrowDependencyValidationExceptionOnModifyIfAPinnedFieldIsChangedAsync's, in
+            // the .Validations partial.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
 
             ContentItem storedContentItemEndpoint =

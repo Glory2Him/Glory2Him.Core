@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -26,6 +27,112 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
 {
     public partial class AssociationOrchestrationServiceTests
     {
+        /// <summary>
+        /// PINNED MEANS REFUSED, NOT ABSORBED. §APR7.5.1 rule 4 pins every non-audit property
+        /// against storage, and the foundation enforces that with one rule per field feeding
+        /// <c>InvalidAssociationException</c> — it does not quietly return the stored value. An
+        /// earlier wording of criterion 5, and the XML doc written from it, said the opposite.
+        ///
+        /// <para>What this proves at THIS layer, which is the part that is this service's: the
+        /// refusal is neither swallowed nor re-mapped. It arrives as the foundation's validation
+        /// failure and leaves as <c>AssociationOrchestrationDependencyValidationException</c> —
+        /// criterion 6's layer split, because the pin is composed from the stored row — with
+        /// every offending field still named in <c>Data</c>. The mapping builds a NEW exception
+        /// around the foundation's inner, so carrying that <c>Data</c> across is a property of
+        /// this service and not of the one below it.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldThrowDependencyValidationExceptionOnModifyIfAPinnedFieldIsChangedAsync()
+        {
+            // given: a caller who changes several pinned fields at once
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+
+            ContentItem contentItemEndpoint = CreateEndpointContentItem();
+            Tag tagEndpoint = CreateEndpointTag();
+
+            Association callerSuppliedAssociation =
+                CreateStoredAssociation(contentItemEndpoint, tagEndpoint);
+
+            callerSuppliedAssociation.EntityAType = EntityType.BibleReference;
+            callerSuppliedAssociation.EntityAKeyId = Guid.NewGuid();
+            callerSuppliedAssociation.EntityAScope = Scope.ThisVersionOnly;
+            callerSuppliedAssociation.EntityAContentType = ContentType.Testimony;
+            callerSuppliedAssociation.SortOrder = 999;
+            callerSuppliedAssociation.ConfidenceScore = 0.99m;
+            callerSuppliedAssociation.IsPublished = true;
+
+            callerSuppliedAssociation.PublishDate =
+                new DateTimeOffset(2026, 9, 23, 0, 0, 0, TimeSpan.Zero);
+
+            string[] pinnedFieldNames =
+            {
+                nameof(Association.EntityAType),
+                nameof(Association.EntityAKeyId),
+                nameof(Association.EntityAScope),
+                nameof(Association.EntityAContentType),
+                nameof(Association.SortOrder),
+                nameof(Association.ConfidenceScore),
+                nameof(Association.IsPublished),
+                nameof(Association.PublishDate),
+            };
+
+            var invalidAssociationException =
+                new InvalidAssociationException(
+                    message: "Content item association is invalid, fix the errors and try again.");
+
+            foreach (string pinnedFieldName in pinnedFieldNames)
+            {
+                invalidAssociationException.UpsertDataList(
+                    key: pinnedFieldName,
+                    value: "Value is not the same as the stored value");
+            }
+
+            var associationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: invalidAssociationException);
+
+            var expectedDependencyValidationException =
+                new AssociationOrchestrationDependencyValidationException(
+                    message: "Content item association orchestration dependency validation error " +
+                        "occurred, fix the errors and try again.",
+                    innerException: invalidAssociationException);
+
+            this.associationServiceMock.Setup(service =>
+                service.ModifyAssociationAsync(
+                    callerSuppliedAssociation,
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(associationValidationException);
+
+            // when
+            ValueTask<Association> modifyTask =
+                this.associationOrchestrationService.ModifyAssociationAsync(
+                    callerSuppliedAssociation,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationDependencyValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationDependencyValidationException>(
+                    modifyTask.AsTask);
+
+            // then: refused, not absorbed
+            actualException.Should().BeEquivalentTo(expectedDependencyValidationException);
+
+            // and every offending field is still named, so a caller can see WHICH pin refused
+            // them rather than only that something did
+            foreach (string pinnedFieldName in pinnedFieldNames)
+            {
+                actualException.InnerException!.Data.Contains(pinnedFieldName)
+                    .Should().BeTrue($"the {pinnedFieldName} pin must survive the layer mapping");
+            }
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedDependencyValidationException))),
+                Times.Once);
+
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         [Fact]
         public async Task ShouldThrowOnModifyIfTheStoredAssociationIsTerminalAsync()
         {
