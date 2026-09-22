@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -122,6 +122,13 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 },
                 endpointName: "B",
                 cancellationToken: cancellationToken);
+
+            // The endpoint half of the veto, decidable HERE and nowhere else above the foundation:
+            // the add is the one write that resolves both endpoints from storage as its own first
+            // act, so §SEC14.7 posture A′ rule 4's split puts this half on the orchestration
+            // rather than below it. Asked before the pair probe, so a blocked caller cannot use
+            // the add to learn which pairings already exist.
+            ValidateUserIsNotBlockedFromEndpoints(inboundEnvelope.SecurityContext, association);
 
             // UserId is not the caller's to set. It partitions BOTH the canonical-pair probe and
             // the unique index, so a caller-supplied value would evade the probe — missing a

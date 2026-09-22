@@ -88,6 +88,58 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             }
         }
 
+        // §SEC14.7 posture A′ rule 1's veto, composed from the endpoints this service has just
+        // RESOLVED from storage — never from the caller's copy, which is why the content type may
+        // be trusted here at all. Four scoped names in all, two per end.
+        //
+        // THE `OR` IS LOAD-BEARING. Under an AND, a user holding Tag-ReadOnly alongside
+        // BibleReference-Reviewers could pair a tag with an entity type they are not banned from
+        // and land it on a public scripture page — exactly what Tag-ReadOnly exists to prevent.
+        // One end admits on the grant side; one end bars on the block side.
+        //
+        // THIS IS THE ADD'S ALONE. Modify, remove and hard remove are handed an id or an
+        // untrusted row, so there is no resolved endpoint for this layer to compose from and the
+        // veto belongs one layer down (§SEC14.7 posture A′ rule 4). §SEC14.6 rule 2 makes the
+        // duplicate with the foundation's own gate intended rather than redundant.
+        private static void ValidateUserIsNotBlockedFromEndpoints(
+            SecurityContext securityContext,
+            Association association)
+        {
+            bool isBlocked =
+                IsBlockedFromEndpoint(
+                    securityContext,
+                    association.EntityAType,
+                    association.EntityAContentType)
+                || IsBlockedFromEndpoint(
+                    securityContext,
+                    association.EntityBType,
+                    association.EntityBContentType);
+
+            if (isBlocked)
+            {
+                throw new UnauthorizedAssociationOrchestrationException(
+                    message: "The current user is blocked from contributing content item associations.");
+            }
+        }
+
+        // Both block tiers for ONE endpoint. A null content type costs that endpoint its narrow
+        // tier and widens nothing: only ContentItem carries one (§SEC18.6 rule 5), and on this
+        // path a ContentItem endpoint always has one, because resolution derived it.
+        private static bool IsBlockedFromEndpoint(
+            SecurityContext securityContext,
+            EntityType entityType,
+            ContentType? contentType)
+        {
+            if (securityContext.Roles.Contains(Roles.ReadOnlyFor(entityType)))
+            {
+                return true;
+            }
+
+            return contentType.HasValue
+                && securityContext.Roles.Contains(
+                    Roles.ReadOnlyFor(entityType, contentType.Value));
+        }
+
         private static void ValidateAssociationIsNotNull(Association association)
         {
             if (association is null)
