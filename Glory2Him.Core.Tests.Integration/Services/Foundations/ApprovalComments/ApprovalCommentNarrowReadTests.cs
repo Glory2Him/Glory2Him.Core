@@ -66,6 +66,21 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ApprovalComments
                 .Should().Equal(new[] { requestedComment.Id });
         }
 
+        [Fact]
+        public async Task ShouldReturnAnEmptyListForAnApprovalWithNoCommentsAsync()
+        {
+            // given: a round nobody has commented on
+            Approval approvalWithNoComments = await SeedApprovalAsync();
+
+            // when
+            List<ApprovalComment> actualComments =
+                await this.broker.StorageBroker.SelectApprovalCommentsByApprovalIdAsync(
+                    approvalWithNoComments.Id, TestContext.Current.CancellationToken);
+
+            // then: the empty answer, not a fault
+            actualComments.Should().NotBeEmpty();
+        }
+
         private async Task<Approval> SeedApprovalAsync()
         {
             string actorUserId = Guid.NewGuid().ToString();
