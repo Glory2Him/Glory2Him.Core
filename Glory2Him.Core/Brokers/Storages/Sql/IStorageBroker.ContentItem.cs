@@ -102,6 +102,22 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             Guid? excludedGroupId = null,
             CancellationToken cancellationToken = default);
 
+        /// <summary>
+        /// ONE PAGE OF THE FEED, composed and awaited HERE — the §SEC14.1 predicate, the page,
+        /// and (as the feed's other rules land) its order, all in the one expression EF turns
+        /// into a single statement with OFFSET/FETCH in it.
+        ///
+        /// <para>The clock arrives as an ARGUMENT rather than being read here. §SEC14.1's fourth
+        /// term compares <c>PublishDate</c> against now, and a broker never calls another broker
+        /// — so the service that owns <c>IDateTimeBroker</c> resolves the moment and passes it
+        /// down. That also makes the moment one a test can pin.</para>
+        /// </summary>
+        ValueTask<List<ContentItem>> SelectContentItemFeedPageAsync(
+            DateTimeOffset asOfDateTime,
+            int skip,
+            int take,
+            CancellationToken cancellationToken = default);
+
         ValueTask<ContentItem> SelectContentItemByIdAsync(
             Guid contentItemId,
             CancellationToken cancellationToken = default);

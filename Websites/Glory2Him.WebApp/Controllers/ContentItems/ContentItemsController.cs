@@ -422,6 +422,48 @@ namespace Glory2Him.WebApp.Controllers.ContentItems
         }
 
         /// <summary>
+        /// THE FEED (§DOM11.3) — the front page's default listing, and a different read from
+        /// <see cref="GetPublicContentItems"/> rather than a view over it. It excludes
+        /// <c>Topic</c> and <c>Series</c> (§DOM3.8 rule 2), which the public read must not do:
+        /// applying that exclusion there would make every topic unsearchable.
+        ///
+        /// <para><b>No <see cref="EnableQueryAttribute"/>, and its absence is the contract.</b>
+        /// The page is an ARGUMENT of the read, composed into the same SQL as the predicate and
+        /// the order, so the two are mutually exclusive on one route: the attribute would apply
+        /// <c>$skip</c> a second time to an already-paged list. With the OData surface go both
+        /// of the traps the sibling <c>Groups/{groupId}</c> route has to manage — the ordinal
+        /// in-memory <c>$filter</c>, and <c>EnsureStableOrdering</c> discarding the order the
+        /// read applied. A caller-supplied query option here is off-surface and ignored, as it
+        /// is on every other non-OData route in the solution.</para>
+        /// </summary>
+        [HttpGet("Feed")]
+        [AllowAnonymous]
+        public async ValueTask<ActionResult<IReadOnlyList<ContentItem>>> GetContentItemFeed(
+            [FromQuery] int skip,
+            [FromQuery] int take,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                IReadOnlyList<ContentItem> feedContentItems =
+                    await this.contentItemProcessingService.RetrieveContentItemFeedAsync(
+                        skip: skip,
+                        take: take,
+                        cancellationToken: cancellationToken);
+
+                return Ok(feedContentItems);
+            }
+            catch (ContentItemProcessingDependencyException contentItemProcessingDependencyException)
+            {
+                return FailedDependency(contentItemProcessingDependencyException.InnerException);
+            }
+            catch (ContentItemProcessingServiceException contentItemProcessingServiceException)
+            {
+                return InternalServerError(contentItemProcessingServiceException);
+            }
+        }
+
+        /// <summary>
         /// Every version of one group (§17.1 <c>/groups/{groupId}</c>), under the same per-caller
         /// filter as <see cref="Get"/>.
         /// </summary>

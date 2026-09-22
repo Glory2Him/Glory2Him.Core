@@ -56,6 +56,29 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// ONE PAGE OF THE FEED (§DOM11.3), already materialised. This is where the decision
+        /// that the feed IS the §SEC14.1 set is recorded, because this is the layer that names
+        /// the read; the storage broker composes the predicate and the page into one awaited
+        /// expression and holds no decision of its own.
+        ///
+        /// <para><b>CALLER-INDEPENDENT, and that is the read's whole shape.</b> No envelope is
+        /// minted, no <c>SecurityContext</c> is resolved and no role is consulted — a publisher
+        /// and an anonymous visitor receive the identical page. The §SEC14.1 predicate is the
+        /// strictest posture this service has, so applying it unconditionally is the security
+        /// enforcement rather than an absence of it: there is no caller for whom it widens.</para>
+        ///
+        /// <para>Contrast <see cref="RetrieveAllContentItemsAsync"/>, which hands back a LIVE
+        /// queryable for a caller above to narrow and enumerate. A page of the feed cannot be
+        /// served that way: a deferred queryable enumerates in the response formatter, after the
+        /// exposer's catch arms have returned, so a storage fault or a cancelled token on that
+        /// path reaches nobody able to report it.</para>
+        /// </summary>
+        ValueTask<IReadOnlyList<ContentItem>> RetrieveContentItemFeedAsync(
+            int skip,
+            int take,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Answers whether any non-deleted content item of the given type already carries
         /// the given content hash, optionally ignoring one group (the duplicate-content
         /// rule of design §3.4.2). Deliberately computed over the UNFILTERED store —

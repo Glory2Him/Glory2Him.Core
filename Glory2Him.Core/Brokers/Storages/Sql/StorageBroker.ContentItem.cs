@@ -91,6 +91,22 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                                 || contentItem.GroupId != excludedGroupId),
                     cancellationToken);
 
+        public async ValueTask<List<ContentItem>> SelectContentItemFeedPageAsync(
+            DateTimeOffset asOfDateTime,
+            int skip,
+            int take,
+            CancellationToken cancellationToken = default) =>
+            await ContentItems
+                .Where(contentItem =>
+                    contentItem.IsDeleted == false
+                        && contentItem.ApprovalStatus == ApprovalStatus.Approved
+                        && contentItem.IsPublished
+                        && (contentItem.PublishDate == null
+                            || contentItem.PublishDate <= asOfDateTime))
+                .Skip(skip)
+                .Take(take)
+                .ToListAsync(cancellationToken);
+
         public async ValueTask<IQueryable<ContentItem>> SelectAllContentItemsAsync(
             CancellationToken cancellationToken = default) =>
             await SelectAllAsync<ContentItem>(cancellationToken);

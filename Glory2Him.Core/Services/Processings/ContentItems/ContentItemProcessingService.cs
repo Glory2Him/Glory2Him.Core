@@ -172,6 +172,23 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
                 return await DoRetrieveAllPublicContentItemsAsync(cancellationToken);
             });
 
+        public ValueTask<IReadOnlyList<ContentItem>> RetrieveContentItemFeedAsync(
+            int skip,
+            int take,
+            CancellationToken cancellationToken = default) =>
+            TryCatchList(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // caller-independent, exactly as the public projection above is: no envelope is
+                // minted because there is no security context to capture and nothing below
+                // reads one
+                return await DoRetrieveContentItemFeedAsync(
+                    skip: skip,
+                    take: take,
+                    cancellationToken: cancellationToken);
+            });
+
         public ValueTask<IReadOnlyList<ContentItem>> RetrieveContentItemsByGroupIdAsync(
             Guid groupId,
             CancellationToken cancellationToken = default) =>
@@ -545,6 +562,20 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
             return await ApplyCollectionReadVisibilityFilterAsync(
                 contentItems: allContentItems,
                 securityContext: null);
+        }
+
+        private async ValueTask<IReadOnlyList<ContentItem>> DoRetrieveContentItemFeedAsync(
+            int skip,
+            int take,
+            CancellationToken cancellationToken)
+        {
+            // Straight through. The feed's membership rules are the FOUNDATION's, recorded where
+            // the read is named, and running a second filter over the page they produced would
+            // give one rule two homes to drift between.
+            return await this.contentItemService.RetrieveContentItemFeedAsync(
+                skip: skip,
+                take: take,
+                cancellationToken: cancellationToken);
         }
 
         private async ValueTask<IReadOnlyList<ContentItem>> DoRetrieveContentItemsByGroupIdAsync(
