@@ -483,7 +483,7 @@ Approval is unaffected either way: `ApprovalSetting` is keyed on `(EntityType, C
 
 | Field | Shape | Ownership |
 | --- | --- | --- |
-| `Purpose` | Nullable enum, persisted as a string via `HasConversion<string>()`, like the association's string-converted enum columns — `EntityAType` / `EntityBType`, the two `Scope`s and the two `ContentType`s — rather than its `int`-persisted `ApprovalStatus` (§DOM3.7). Members are append-only: `Header = 0`, `Verse = 1`, `Gallery = 2` *(reserved)*. | Caller-chosen on add, then pinned against storage like the endpoints — re-purposing a row is remove + add, for the §DOM4.5 rule 4 reason. |
+| `Purpose` | Nullable enum, persisted as a string via `HasConversion<string>()`, like the association's string-converted enum columns — `EntityAType` / `EntityBType`, the two `Scope`s and the two `ContentType`s — rather than its `int`-persisted `ApprovalStatus` (§DOM3.7). Members are append-only: `Header = 0`, `Verse = 1`, `Gallery = 2` *(reserved)*. | Caller-chosen on add, then pinned against storage like the endpoints — re-purposing a row is remove + add, for the §DOM4.5 rule 4 reason. **That rule now carries one narrow exception and it does not reach `Purpose`:** the exception repoints `EntityBKeyId` / `EntityBGroupId` on a **personal** association only, and `EntityTypePersonalisation` (§DOM4.10) marks every `EntityType` but `Reaction` non-personal, `Attachment` included — so an attachment association never carries a `UserId` and re-purposing stays remove + add. |
 | `IsDefault` | `bit NOT NULL DEFAULT 0`. Marks the preferred row among same-purpose candidates. | Refused on add; written only by the set-default operation (rule 4); pinned on the general modify. |
 
 Rules:
