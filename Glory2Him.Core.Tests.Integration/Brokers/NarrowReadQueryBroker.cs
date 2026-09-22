@@ -15,6 +15,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Models.Foundations.AIReviewerAssignments;
+using Glory2Him.Core.Models.Foundations.ApprovalComments;
 using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.Approvals;
@@ -191,6 +192,15 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
             }
         }
 
+        public async ValueTask SeedAsync(params ApprovalComment[] approvalComments)
+        {
+            foreach (ApprovalComment approvalComment in approvalComments)
+            {
+                await this.storageBroker.InsertApprovalCommentAsync(
+                    approvalComment, CancellationToken.None);
+            }
+        }
+
         public async ValueTask SeedAsync(params ApprovalReview[] approvalReviews)
         {
             foreach (ApprovalReview approvalReview in approvalReviews)
@@ -285,6 +295,25 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
                 if (stored is not null)
                 {
                     await this.storageBroker.DeleteAIReviewerAssignmentAsync(
+                        stored, CancellationToken.None);
+                }
+            }
+        }
+
+        // Cleared BEFORE the approvals they hang off, since the FK refuses the other order —
+        // matching ApprovalReviewRequest's own teardown beside it. PHYSICAL, on rows a test may
+        // have seeded already soft-deleted: the unfiltered read this fixture hosts is precisely
+        // the one that still sees them.
+        public async ValueTask ClearAsync(IEnumerable<ApprovalComment> approvalComments)
+        {
+            foreach (ApprovalComment approvalComment in approvalComments)
+            {
+                ApprovalComment stored = await this.storageBroker.SelectApprovalCommentByIdAsync(
+                    approvalComment.Id, CancellationToken.None);
+
+                if (stored is not null)
+                {
+                    await this.storageBroker.DeleteApprovalCommentAsync(
                         stored, CancellationToken.None);
                 }
             }
