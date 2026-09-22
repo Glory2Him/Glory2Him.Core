@@ -209,6 +209,72 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItems
         }
 
         /// <summary>
+        /// Criterion 3: ORDERED BY EFFECTIVE PUBLICATION MOMENT DESCENDING —
+        /// <c>COALESCE(PublishDate, CreatedWhen) DESC</c> (§DOM11.3).
+        ///
+        /// <para>The fixture distinguishes that order from BOTH orders it replaces, which is
+        /// what makes it worth running. The undated row's <c>CreatedWhen</c> falls BETWEEN the
+        /// two dated rows' publish moments, and the two dated rows were written in the opposite
+        /// order to the one they publish in. So <c>CreatedWhen DESC</c> answers
+        /// oldest-published-first, and <c>PublishDate DESC, CreatedWhen DESC</c> sinks the
+        /// undated row to the bottom (SQL Server sorts NULL last under DESC). Only §DOM11.3's
+        /// order interleaves it.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldOrderTheFeedByEffectivePublicationMomentDescendingAsync()
+        {
+            // given
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            var arrangedContentItems = new List<CoreContentItem>();
+
+            try
+            {
+                // Published an hour ago, WRITTEN ten hours ago - the newest by effective
+                // moment and the oldest by CreatedWhen.
+                CoreContentItem recentlyPublishedContentItem =
+                    await this.apiBroker.InsertFeedContentItemAsync(
+                        createdWhen: now.AddHours(-10),
+                        publishDate: now.AddHours(-1));
+
+                // NO PUBLISH DATE, so its created moment is its effective one - and that
+                // moment sits between the two dated rows.
+                CoreContentItem undatedContentItem =
+                    await this.apiBroker.InsertFeedContentItemAsync(
+                        createdWhen: now.AddHours(-2),
+                        publishDate: null);
+
+                // Published three hours ago, WRITTEN half an hour ago - the oldest by
+                // effective moment and the newest by CreatedWhen.
+                CoreContentItem earlierPublishedContentItem =
+                    await this.apiBroker.InsertFeedContentItemAsync(
+                        createdWhen: now.AddMinutes(-30),
+                        publishDate: now.AddHours(-3));
+
+                arrangedContentItems.Add(recentlyPublishedContentItem);
+                arrangedContentItems.Add(undatedContentItem);
+                arrangedContentItems.Add(earlierPublishedContentItem);
+
+                // when
+                List<ContentItem> feedPage =
+                    await this.apiBroker.GetContentItemFeedAsync(skip: 0, take: 3);
+
+                // then
+                feedPage.Select(contentItem => contentItem.Id)
+                    .Should().ContainInOrder(
+                        recentlyPublishedContentItem.Id,
+                        undatedContentItem.Id,
+                        earlierPublishedContentItem.Id);
+            }
+            finally
+            {
+                foreach (CoreContentItem arrangedContentItem in arrangedContentItems)
+                {
+                    await this.apiBroker.RemoveCoreContentItemByIdAsync(arrangedContentItem.Id);
+                }
+            }
+        }
+
+        /// <summary>
         /// Criterion 1, second half: NOTHING INSIDE §SEC14.1 IS MISSING FROM THE HEAD. Stated
         /// over the page rather than over the catalogue, because the read is capped at 50 and
         /// no answer can carry a larger visible catalogue than that. This fixture states its own
