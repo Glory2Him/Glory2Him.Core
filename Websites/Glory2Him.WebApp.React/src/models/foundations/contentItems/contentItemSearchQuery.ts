@@ -7,9 +7,10 @@ import { ShareabilityBasis } from '../../components/contentItems/contentItemForm
 // paged the same way for the same reason.
 //
 // api/ContentItems is an ordinary MVC route carrying [EnableQuery], not an OData route, so there
-// is no @odata.count and $count adds no total. A page therefore asks for ONE ROW BEYOND the page
-// and drops it: the extra row is the only thing that separates a full last page from a page with
-// more behind it.
+// is no @odata.count and $count adds no total. api/ContentItems/Feed carries no [EnableQuery] at
+// all and so has no total either. A page therefore asks for ONE ROW BEYOND the page and drops
+// it, on every path: the extra row is the only thing that separates a full last page from a page
+// with more behind it.
 export type ContentItemSearchQuery = {
     // WHICH read serves the page, and it is the page's decision. 'feed' is
     // GET api/ContentItems/Feed — the design's feed (§DOM11.3): the §14.1 canonical set in
@@ -48,8 +49,11 @@ export type ContentItemSearchQuery = {
     // from zero. ContentItemSettingQuery counts from one because an admin table shows the number.
     pageIndex: number;
 
-    // The host caps [EnableQuery] reads at OData:PageSize (50), and the +1 probe row rides inside
-    // that cap, so anything approaching it would silently lose the probe and never page again.
+    // Every read behind this query is capped at 50 and the +1 probe row rides inside that cap,
+    // so anything approaching it would silently lose the probe and never page again. WHOSE 50
+    // differs by path: the host's OData:PageSize on the [EnableQuery] search routes, and the
+    // processing service's own constant on the feed — which is not configuration and is not
+    // raised by anything that raises the host's.
     pageSize: number;
 };
 

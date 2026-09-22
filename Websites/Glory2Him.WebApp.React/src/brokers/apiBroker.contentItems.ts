@@ -84,9 +84,12 @@ class ContentItemBroker {
         return result.data as ContentItem;
     }
 
-    // ONE PAGE of the list, searched, filtered, ordered and paged SERVER-SIDE through
-    // [EnableQuery]. The host caps a collection read at OData:PageSize, so a client that paged in
-    // memory would silently stop at that cap once the table outgrew it.
+    // ONE PAGE of the list, resolved SERVER-SIDE either way — a client that paged in memory
+    // would silently stop at whatever cap the server applies once the table outgrew it.
+    //
+    // The two shapes differ in WHERE the page is decided. The search paths compose it as OData
+    // options over an [EnableQuery] route, capped by the host at OData:PageSize; the feed path
+    // sends it as arguments the read itself accepts, capped by that read at its own 50.
     //
     // WHICH ROUTE answers is the query's `scope`, because it is the PAGE's decision what a
     // surface shows. 'feed' is the design's feed (§DOM11.3) and takes a different shape
