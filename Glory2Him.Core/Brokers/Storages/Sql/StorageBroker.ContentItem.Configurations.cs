@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Microsoft.EntityFrameworkCore;
@@ -18,6 +19,10 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
 {
     internal partial class StorageBroker
     {
+        // The EF shadow property holding the effective publication moment. Named once so the
+        // declaration and the index that reads it cannot drift apart.
+        private const string EffectivePublishedWhen = "EffectivePublishedWhen";
+
         private static void AddContentItemConfigurations(EntityTypeBuilder<ContentItem> model)
         {
             model
@@ -162,6 +167,30 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                 contentItem.PublishDate
             })
                  .HasDatabaseName("IX_ContentItems_Feed");
+
+            // §DOM11.3 — the effective publication moment the feed is ordered by, materialised
+            // as a column and carrying that order's Id terminator, so the order the index
+            // supplies is total. The moment is a SHADOW property: it is declared here, it is
+            // named by no expression in the solution and it is carried on no API contract
+            // (§DOM19.2 — a derivable value is not stored contract), and the optimiser reaches it
+            // by matching the feed's own COALESCE(PublishDate, CreatedWhen). COALESCE and never
+            // ISNULL: the two do not normalise to the same tree, so an ISNULL column matches no
+            // COALESCE query.
+            model.Property<DateTimeOffset?>(EffectivePublishedWhen)
+                 .HasComputedColumnSql("COALESCE([PublishDate], [CreatedWhen])", stored: true);
+
+            // §SEC14.1 — visibility predicate terms 1, 2, 3 and 4; §DOM3.8 rule 2 — the feed's
+            // ContentType exclusion. Carried as includes, so the rows the order walks are
+            // decided against the same data.
+            model.HasIndex(EffectivePublishedWhen, nameof(ContentItem.Id))
+                 .HasDatabaseName("IX_ContentItems_FeedEffective")
+                 .IsDescending(true, true)
+                 .IncludeProperties(
+                     nameof(ContentItem.IsDeleted),
+                     nameof(ContentItem.ApprovalStatus),
+                     nameof(ContentItem.IsPublished),
+                     nameof(ContentItem.PublishDate),
+                     nameof(ContentItem.ContentType));
 
             // §3.4.2 — duplicate content detection. Deliberately NOT unique: rows within one
             // group may legitimately share a hash (e.g. a later version reverting to earlier
