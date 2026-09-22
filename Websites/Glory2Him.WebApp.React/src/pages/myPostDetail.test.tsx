@@ -60,7 +60,7 @@ vi.mock('../services/foundations/reactionService', () => ({
             data: [{
                 id: 'reaction-1',
                 name: 'Amen',
-                unicodeEmoji: '🙏',
+                unicodeEmoji: '👍',
                 isPublished: true,
                 approvalStatus: 2,
                 isDeleted: false
