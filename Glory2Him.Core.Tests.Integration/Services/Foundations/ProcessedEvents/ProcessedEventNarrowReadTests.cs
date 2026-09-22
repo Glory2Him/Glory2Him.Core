@@ -66,7 +66,7 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ProcessedEvents
                 TestContext.Current.CancellationToken);
 
             // then: the empty answer, not a fault
-            actualExists.Should().BeTrue();
+            actualExists.Should().BeFalse();
         }
 
         private async Task<ProcessedEvent> SeedProcessedEventAsync()
