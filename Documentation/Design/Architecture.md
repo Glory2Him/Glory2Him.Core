@@ -274,7 +274,7 @@ Current intended foundation services:
 
 **Association rules — `Tag`, `Reaction`, `Comment`, `BibleReference`; cited as `§ARC12.3.1 association rule N`:**
 
-1. A link may only be created when the effective `ContentItemSetting` permits that association type — `TagsAllowed`, `ReactionsAllowed`, `CommentsAllowed`, `BibleReferenceAllowed` (§DOM6.10) — and `LimitReactionsToLoveOnly` further narrows the reaction case.
+1. A link may only be created when the effective `ContentItemSetting` permits that association type — `TagsAllowed`, `ReactionsAllowed`, `CommentsAllowed`, `BibleReferenceAllowed` (§DOM6.10) — and `LimitReactionsToLoveOnly` further narrows the reaction case. **Where that gate runs, on which acts, and what it refuses is §ARC16.2.1's** — this rule states the constraint and that section states its enforcement, so neither is a copy of the other.
 2. The association carries its own approval according to the effective `ApprovalSetting` for its `EntityType` (§APR8.4).
 3. An entity is visible on a content item only when both it and the association satisfy §SEC14.3.
 4. The same `Tag`, `Reaction`, `Comment` or `BibleReference` may be associated with multiple content items independently — each link is its own `Association` row with its own approval state.
