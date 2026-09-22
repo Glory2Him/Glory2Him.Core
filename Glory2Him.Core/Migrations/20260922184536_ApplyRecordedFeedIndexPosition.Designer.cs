@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Glory2Him.Core.Migrations
 {
     [DbContext(typeof(StorageBroker))]
-    [Migration("20260922162644_ApplyRecordedFeedIndexPosition")]
+    [Migration("20260922184536_ApplyRecordedFeedIndexPosition")]
     partial class ApplyRecordedFeedIndexPosition
     {
         /// <inheritdoc />
@@ -1209,9 +1209,10 @@ namespace Glory2Him.Core.Migrations
 
                     b.HasIndex("EffectivePublishedWhen", "Id")
                         .IsDescending()
-                        .HasDatabaseName("IX_ContentItems_FeedEffective");
+                        .HasDatabaseName("IX_ContentItems_FeedEffective")
+                        .HasFilter("[IsDeleted] = 0");
 
-                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("EffectivePublishedWhen", "Id"), new[] { "IsDeleted", "ApprovalStatus", "IsPublished", "PublishDate", "ContentType" });
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("EffectivePublishedWhen", "Id"), new[] { "ApprovalStatus", "IsPublished", "PublishDate", "ContentType" });
 
                     b.HasIndex("GroupId", "Version")
                         .IsUnique()
