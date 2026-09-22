@@ -13,6 +13,8 @@ using System;
 using System.Collections.Generic;
 using System.Data.SqlTypes;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Enums;
@@ -494,6 +496,41 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItems
                 {
                     await this.apiBroker.RemoveCoreContentItemByIdAsync(arrangedContentItem.Id);
                 }
+            }
+        }
+
+        /// <summary>
+        /// Criterion 9's validation row: A SKIP PAST THE END IS NOT A VALIDATION FAILURE. It is
+        /// a valid page that happens to be empty, the way an unknown group id is an empty list
+        /// rather than an error — so this answers 200 with nothing in it, never 400.
+        /// </summary>
+        [Fact]
+        public async Task ShouldServeAnEmptyFeedPageIfSkipIsPastTheEndAsync()
+        {
+            // given
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+
+            CoreContentItem arrangedContentItem =
+                await this.apiBroker.InsertFeedContentItemAsync(
+                    createdWhen: now,
+                    publishDate: now);
+
+            try
+            {
+                // when
+                HttpResponseMessage response =
+                    await this.apiBroker.GetContentItemFeedResponseAsync("skip=1000&take=10");
+
+                List<ContentItem> feedPage =
+                    await this.apiBroker.GetContentItemFeedAsync(skip: 1000, take: 10);
+
+                // then
+                response.StatusCode.Should().Be(HttpStatusCode.OK);
+                feedPage.Should().BeEmpty();
+            }
+            finally
+            {
+                await this.apiBroker.RemoveCoreContentItemByIdAsync(arrangedContentItem.Id);
             }
         }
 
