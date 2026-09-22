@@ -11,6 +11,10 @@ import { ShareabilityBasis } from '../models/components/contentItems/contentItem
 import { createAuthState, signInAs } from '../tests/testAuth';
 import { testContentItemSetting } from '../tests/testContentItemSettings';
 
+import {
+    ContentItemSetting
+} from '../models/foundations/contentItemSettings/contentItemSetting';
+
 // The contributor's own detail surface: the way back to their list, the item on the left, and
 // the association surfaces beside it. The reads are mocked at their own boundary; what this
 // suite pins is the LAYOUT contract the page owns — the back button, the 7/5 split, and the
@@ -46,10 +50,14 @@ vi.mock('../services/foundations/contentItemService', () => ({
 const quoteSetting =
     testContentItemSetting(ContentType.Quote, 'Quote', { hasTitle: false });
 
+// What the type's effective row says, which a test about the reaction gate rewrites - the
+// setting is the only thing that decides whether the card offers a Like (§DOM6.5).
+let effectiveSettings: ContentItemSetting[] = [quoteSetting];
+
 vi.mock('../services/foundations/contentItemSettingService', () => ({
     contentItemSettingService: {
-        useGetDefaults: () => ({ data: [quoteSetting] }),
-        useGetEffectiveSettingsFor: () => ({ data: [quoteSetting] })
+        useGetDefaults: () => ({ data: effectiveSettings }),
+        useGetEffectiveSettingsFor: () => ({ data: effectiveSettings })
     }
 }));
 
@@ -109,6 +117,7 @@ describe('MyPostDetail', () => {
         contentItem = draftQuote;
         modifiedWith.mockReset();
         modifiedWith.mockResolvedValue(undefined);
+        effectiveSettings = [quoteSetting];
         signInAs(authState, ['Users']);
     });
 
@@ -182,6 +191,21 @@ describe('MyPostDetail', () => {
 
         // then
         expect(screen.getByRole('button', { name: /Like/ })).toBeInTheDocument();
+    });
+
+    // THE WIRING DOES NOT OVERRIDE THE GATE - it makes the gate the only thing deciding. A
+    // type whose setting refuses reactions offers nothing here, exactly as it does everywhere
+    // else the rule is asked (contentItemPanel.tsx).
+    it('should show no like control on the newly wired pages for a type whose setting '
+        + 'refuses reactions', () => {
+        // given
+        effectiveSettings = [{ ...quoteSetting, reactionsAllowed: false }];
+
+        // when
+        renderPage();
+
+        // then
+        expect(screen.queryByRole('button', { name: /Like/ })).not.toBeInTheDocument();
     });
 
     it('should send the whole row with the amendment over it', async () => {

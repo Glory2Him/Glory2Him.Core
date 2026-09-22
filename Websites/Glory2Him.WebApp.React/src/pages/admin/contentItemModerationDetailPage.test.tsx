@@ -13,6 +13,10 @@ import { createAuthState, signInAs } from '../../tests/testAuth';
 import { testContentItemSetting } from '../../tests/testContentItemSettings';
 
 import {
+    ContentItemSetting
+} from '../../models/foundations/contentItemSettings/contentItemSetting';
+
+import {
     AIReviewerStatus,
     ApprovalReview,
     ApprovalReviewRequest,
@@ -92,10 +96,14 @@ const quoteSetting =
 const createOrUpdateContentItemSettingMock = vi.fn();
 const hardRemoveContentItemSettingMock = vi.fn();
 
+// What the type's effective row says, which a test about the reaction gate rewrites - the
+// setting is the only thing that decides whether the card offers a Like (§DOM6.5).
+let effectiveSettings: ContentItemSetting[] = [quoteSetting];
+
 vi.mock('../../services/foundations/contentItemSettingService', () => ({
     contentItemSettingService: {
-        useGetDefaults: () => ({ data: [quoteSetting] }),
-        useGetEffectiveSettingsFor: () => ({ data: [quoteSetting] }),
+        useGetDefaults: () => ({ data: effectiveSettings }),
+        useGetEffectiveSettingsFor: () => ({ data: effectiveSettings }),
         useCreateOrUpdateContentItemSettingOverride: () => ({
             mutateAsync: createOrUpdateContentItemSettingMock,
             isPending: false
@@ -366,6 +374,7 @@ describe('ContentItemModerationDetailPage', () => {
         toastErrorSpy.mockReset();
         toastSuccessSpy.mockReset();
 
+        effectiveSettings = [quoteSetting];
         signInAs(authState, ['Administrators']);
     });
 
@@ -390,6 +399,21 @@ describe('ContentItemModerationDetailPage', () => {
 
         // then
         expect(screen.getByRole('button', { name: /Like/ })).toBeInTheDocument();
+    });
+
+    // THE WIRING DOES NOT OVERRIDE THE GATE - it makes the gate the only thing deciding. A
+    // type whose setting refuses reactions offers nothing here, exactly as it does everywhere
+    // else the rule is asked (contentItemPanel.tsx).
+    it('should show no like control on the newly wired pages for a type whose setting '
+        + 'refuses reactions', () => {
+        // given
+        effectiveSettings = [{ ...quoteSetting, reactionsAllowed: false }];
+
+        // when
+        renderPage();
+
+        // then
+        expect(screen.queryByRole('button', { name: /Like/ })).not.toBeInTheDocument();
     });
 
     it('should walk back to the bare queue when no origin was carried', async () => {
