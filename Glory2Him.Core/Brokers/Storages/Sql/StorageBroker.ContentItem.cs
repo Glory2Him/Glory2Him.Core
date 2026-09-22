@@ -105,6 +105,8 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                             || contentItem.PublishDate <= asOfDateTime)
                         && contentItem.ContentType != ContentType.Topic
                         && contentItem.ContentType != ContentType.Series)
+                .OrderByDescending(contentItem =>
+                    contentItem.PublishDate ?? contentItem.CreatedWhen)
                 .Skip(skip)
                 .Take(take)
                 .ToListAsync(cancellationToken);
