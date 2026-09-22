@@ -79,6 +79,23 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.AIReviewerAssign
             actualAssignment.Should().BeNull();
         }
 
+        [Fact]
+        public async Task ShouldExcludeASoftDeletedAssignmentAsync()
+        {
+            // given: the round's only assignment has been withdrawn — the filtered unique index
+            // leaves this round free for a fresh assignment, and the read must agree
+            Approval approval = await SeedApprovalAsync();
+            await SeedAIReviewerAssignmentAsync(approval.Id, isDeleted: true);
+
+            // when
+            AIReviewerAssignment actualAssignment =
+                await this.broker.StorageBroker.SelectAIReviewerAssignmentByApprovalIdAsync(
+                    approval.Id, TestContext.Current.CancellationToken);
+
+            // then
+            actualAssignment.Should().NotBeNull();
+        }
+
         private async Task<Approval> SeedApprovalAsync()
         {
             string actorUserId = Guid.NewGuid().ToString();
