@@ -234,12 +234,26 @@ fields from its assertions will notice.
 or `Transient`, never `Singleton`. A longer-lived consumer of a scoped identity broker is the
 same defect wearing a different hat.
 
-This collides with `ServiceRegistration.Add*Service()`, which registers foundation services as
-**singletons** deliberately, so `EventSubscriptionRegistration` can bind substrate handlers into
-the singleton `IEventBroker` as method groups. That trade is only sound in a host that actually
+This collides with `ServiceRegistration.Add*Service()`, which registers services as
+**singletons** deliberately, so `EventSubscriptionRegistration` could bind substrate handlers into
+the singleton `IEventBroker` as method groups. That trade was only sound in a host that actually
 wires those subscriptions. **A host that exposes a service over HTTP and wires no subscriptions
 must not use those helpers** — it registers the service and its request-bound brokers scoped
-itself, as `CoreRegistration.AddCoreServices` does. Only the genuinely stateless brokers
+itself, as `CoreRegistration.AddCoreServices` does.
+
+**The trade itself has since been bought out, and the rule that rested on it now rests on
+something else.** `EventSubscriptionRegistration` no longer binds a method group on a held
+service: *"Every handler below is bound through here rather than as a method group on a held
+service"*, and its `Scoped<TService, TEntity>` helper opens an `AsyncServiceScope` **per
+delivery** — *"which is what lets the host register them scoped and still bind them here"*. The
+reason was a measured thread-safety defect, eight concurrent publishes sharing one `DbContext`,
+not a lifetime preference. So a singleton registration **no longer buys what it was traded for**,
+and the sentence above should be read as history rather than as a live justification: there is no
+host, present or hypothetical, for which a singleton over the identity chain is the correct
+arrangement. The helpers themselves still register singletons — measured, and `Add*Service()` is
+unchanged — so **whether every one of them should now be scoped is a wider question, named here
+and deliberately not ruled**; what is ruled is that no design may cite the method-group trade to
+justify one, because the mechanism it names is gone. Only the genuinely stateless brokers
 (`IDateTimeBroker`, `IIdentifierBroker`, `IHashBroker`, `IEnvelopeIntegrityBroker`,
 `IEventBroker`) stay singletons there.
 
