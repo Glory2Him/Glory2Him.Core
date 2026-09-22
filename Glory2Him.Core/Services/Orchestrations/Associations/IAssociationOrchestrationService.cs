@@ -95,5 +95,30 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         ValueTask<Association> RetrieveAssociationByIdAsync(
             Guid associationId,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// The general modify. <b>There is no field map, and looking for one is looking for
+        /// something that does not exist.</b> <c>Association</c> has no caller-editable content
+        /// at all (§APR7.5.1 rule 4) — every non-audit property is pinned against storage — so
+        /// the whole effective payload is <c>ApprovalStatus</c> moving between <c>Draft</c> and
+        /// <c>Submitted</c>, the carve-out of §APR9.2 rules 4-6.
+        ///
+        /// <para>A caller who supplies a changed endpoint, scope, confidence, sort order,
+        /// <c>IsPublished</c> or <c>PublishDate</c> gets the stored value back unchanged rather
+        /// than an error. A stored <c>Approved</c> or <c>Rejected</c> row refuses the write
+        /// outright: an association never forks, so refusing <b>is</b> the enforcement
+        /// (§APR7.5.1 rule 3). The carve-out is gated on ownership — the owner, or the
+        /// endpoint-derived <c>Publishers</c> tier — and never a reviewer (§APR9.2 rule 4).</para>
+        ///
+        /// <para><b>This member composes nothing.</b> It runs the half of the gate that needs no
+        /// row — authentication and the global <c>ReadOnly</c> block — and forwards. Everything
+        /// composed from the stored endpoints, including the <c>Publishers</c> tier and each
+        /// end's <c>ReadOnly</c> veto, runs in the foundation beneath it and reaches the caller
+        /// as <c>AssociationOrchestrationDependencyValidationException</c>. Adding endpoint
+        /// resolution here is a finding (§SEC14.7 posture A′ rule 4).</para>
+        /// </summary>
+        ValueTask<Association> ModifyAssociationAsync(
+            Association association,
+            CancellationToken cancellationToken = default);
     }
 }

@@ -23,14 +23,44 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
     {
         // The orchestration enforces the contribution gate itself (§14.6): an exposer may bind
         // to it directly, so it never assumes an upstream layer already gated the caller.
+        //
+        // The ADD's composition: the two row-free leaves, and then — once both endpoints have
+        // been resolved from storage — the endpoint half of the veto, which this member is the
+        // one write able to decide for itself (§SEC14.7 posture A′ rule 4, "the add is the
+        // exception that proves the rule").
         private static void ValidateUserIsAllowedToContribute(SecurityContext securityContext)
+        {
+            ValidateUserIsAuthenticated(securityContext);
+            ValidateUserIsNotGloballyBlocked(securityContext);
+        }
+
+        // The orchestration's half of the gate on modify, remove and hard remove: the part that
+        // needs NO row (§SEC14.7 posture A′ rule 4). Each of the three is handed an id or an
+        // untrusted Association, so nothing composed from the STORED endpoints is decidable here
+        // — that half runs in the foundation, and this layer issues no second read to duplicate
+        // it. Running these two first is what stops the three surfaces being used to probe which
+        // association ids exist.
+        //
+        // Deliberately NOT the same method as the add's gate above, though the two compose the
+        // same leaves today. They compose them for different reasons, and a rule added to one
+        // must not silently bind the other.
+        private static void ValidateUserMayWriteWithoutTheStoredRow(SecurityContext securityContext)
+        {
+            ValidateUserIsAuthenticated(securityContext);
+            ValidateUserIsNotGloballyBlocked(securityContext);
+        }
+
+        private static void ValidateUserIsAuthenticated(SecurityContext securityContext)
         {
             if (securityContext is null || securityContext.IsAuthenticated is false)
             {
                 throw new UnauthorizedAssociationOrchestrationException(
                     message: "The current user is not authenticated.");
             }
+        }
 
+        private static void ValidateUserIsNotGloballyBlocked(SecurityContext securityContext)
+        {
             if (securityContext.Roles.Contains(Roles.ReadOnly))
             {
                 throw new UnauthorizedAssociationOrchestrationException(
