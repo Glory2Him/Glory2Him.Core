@@ -15,12 +15,14 @@ using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Models.Foundations.AIReviewerAssignments;
+using Glory2Him.Core.Models.Foundations.ApprovalComments;
 using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.Links;
+using Glory2Him.Core.Models.Foundations.ProcessedEvents;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 
@@ -168,6 +170,24 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
             }
         }
 
+        public async ValueTask SeedAsync(params ApprovalComment[] approvalComments)
+        {
+            foreach (ApprovalComment approvalComment in approvalComments)
+            {
+                await this.storageBroker.InsertApprovalCommentAsync(
+                    approvalComment, CancellationToken.None);
+            }
+        }
+
+        public async ValueTask SeedAsync(params ProcessedEvent[] processedEvents)
+        {
+            foreach (ProcessedEvent processedEvent in processedEvents)
+            {
+                await this.storageBroker.InsertProcessedEventAsync(
+                    processedEvent, CancellationToken.None);
+            }
+        }
+
         public async ValueTask SeedAsync(params ApprovalReview[] approvalReviews)
         {
             foreach (ApprovalReview approvalReview in approvalReviews)
@@ -254,6 +274,44 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
                 {
                     await this.storageBroker.DeleteAIReviewerAssignmentAsync(
                         stored, CancellationToken.None);
+                }
+            }
+        }
+
+        // Cleared BEFORE the approvals they hang off, since the FK refuses the other order —
+        // matching ApprovalReviewRequest's own teardown beside it. PHYSICAL, on rows a test may
+        // have seeded already soft-deleted: the unfiltered read this fixture hosts is precisely
+        // the one that still sees them.
+        public async ValueTask ClearAsync(IEnumerable<ApprovalComment> approvalComments)
+        {
+            foreach (ApprovalComment approvalComment in approvalComments)
+            {
+                ApprovalComment stored = await this.storageBroker.SelectApprovalCommentByIdAsync(
+                    approvalComment.Id, CancellationToken.None);
+
+                if (stored is not null)
+                {
+                    await this.storageBroker.DeleteApprovalCommentAsync(
+                        stored, CancellationToken.None);
+                }
+            }
+        }
+
+        // ProcessedEvent carries no delete or select-by-id member on IStorageBroker — nothing in
+        // production ever removes one — so cleanup goes straight through the DbContext the
+        // fixture already wraps, the same way ReadUntrackedAsync reaches it for an untracked read.
+        public async ValueTask ClearAsync(IEnumerable<ProcessedEvent> processedEvents)
+        {
+            foreach (ProcessedEvent processedEvent in processedEvents)
+            {
+                ProcessedEvent stored = await this.storageBroker.Set<ProcessedEvent>()
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(entity => entity.Id == processedEvent.Id);
+
+                if (stored is not null)
+                {
+                    this.storageBroker.Set<ProcessedEvent>().Remove(stored);
+                    await this.storageBroker.SaveChangesAsync();
                 }
             }
         }
