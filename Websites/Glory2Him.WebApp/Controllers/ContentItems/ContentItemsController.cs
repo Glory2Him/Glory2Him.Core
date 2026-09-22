@@ -468,6 +468,22 @@ namespace Glory2Him.WebApp.Controllers.ContentItems
 
                 return Ok(feedContentItems);
             }
+            // A BAD PAGE IS THE CALLER'S, so it answers 400. skip and take are the only things
+            // a caller supplies to this read - a take of zero, a take above the cap, a negative
+            // skip - and without these two arms the service's validation exception escapes the
+            // action and ASP.NET files a server fault for bad input.
+            //
+            // A skip past the end is deliberately NOT among them: that is a valid page which
+            // happens to be empty, the same answer an unknown group id gets on the sibling
+            // route. There is no not-found arm here for the same reason.
+            catch (ContentItemProcessingValidationException contentItemProcessingValidationException)
+            {
+                return BadRequest(contentItemProcessingValidationException.InnerException);
+            }
+            catch (ContentItemProcessingDependencyValidationException contentItemProcessingDependencyValidationException)
+            {
+                return BadRequest(contentItemProcessingDependencyValidationException.InnerException);
+            }
             catch (ContentItemProcessingDependencyException contentItemProcessingDependencyException)
             {
                 return FailedDependency(contentItemProcessingDependencyException.InnerException);

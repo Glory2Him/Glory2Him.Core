@@ -639,6 +639,26 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItems
         }
 
         /// <summary>
+        /// Criterion 9's validation row, END TO END: each refused page answers 400 from the
+        /// route rather than 500. The mapping is the point — before the action carried its
+        /// validation arms the same requests came back as server faults, which files a
+        /// server-fault log for a caller's mistake.
+        /// </summary>
+        [Theory]
+        [InlineData("skip=0&take=0")]
+        [InlineData("skip=0&take=51")]
+        [InlineData("skip=-1&take=10")]
+        public async Task ShouldRefuseAnInvalidFeedPageWithBadRequestAsync(string queryString)
+        {
+            // when
+            HttpResponseMessage response =
+                await this.apiBroker.GetContentItemFeedResponseAsync(queryString);
+
+            // then
+            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        }
+
+        /// <summary>
         /// Criterion 1, second half: NOTHING INSIDE §SEC14.1 IS MISSING FROM THE HEAD. Stated
         /// over the page rather than over the catalogue, because the read is capped at 50 and
         /// no answer can carry a larger visible catalogue than that. This fixture states its own
