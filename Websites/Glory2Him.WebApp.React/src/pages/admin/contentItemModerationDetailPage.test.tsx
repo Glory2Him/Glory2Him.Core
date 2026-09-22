@@ -119,14 +119,26 @@ vi.mock('../../services/foundations/contentItemSettingService', () => ({
 vi.mock('../../services/foundations/reactionService', () => ({
     reactionService: {
         useGetApprovedReactions: () => ({
-            data: [{
-                id: 'reaction-1',
-                name: 'Amen',
-                unicodeEmoji: '👍',
-                isPublished: true,
-                approvalStatus: 2,
-                isDeleted: false
-            }]
+            data: [
+                {
+                    id: 'reaction-1',
+                    name: 'Amen',
+                    unicodeEmoji: '👍',
+                    isPublished: true,
+                    approvalStatus: 2,
+                    isDeleted: false
+                },
+                {
+                    // WHICH ONE IS LOVE is a case-insensitive match on the NAME - the rows
+                    // carry no flag of their own - so the fixture has to be named for it.
+                    id: 'reaction-2',
+                    name: 'Love',
+                    unicodeEmoji: '❤️',
+                    isPublished: true,
+                    approvalStatus: 2,
+                    isDeleted: false
+                }
+            ]
         })
     }
 }));
@@ -415,6 +427,24 @@ describe('ContentItemModerationDetailPage', () => {
         // then
         expect(screen.queryByRole('button', { name: /Like/ })).not.toBeInTheDocument();
     });
+
+    // LIMITREACTIONSTOLOVEONLY NARROWS THE PICKER to the one option (§DOM6.5). No seeded type
+    // carries it, so the fixture is constructed rather than found.
+    it('should offer only the love option on a love-only type on the newly wired pages',
+        async () => {
+            // given
+            effectiveSettings = [{ ...quoteSetting, limitReactionsToLoveOnly: true }];
+            renderPage();
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: /Like/ }));
+
+            // then
+            const offered = screen.getAllByRole('menuitem');
+
+            expect(offered).toHaveLength(1);
+            expect(offered[0]).toHaveAccessibleName('Love');
+        });
 
     it('should walk back to the bare queue when no origin was carried', async () => {
         // given
