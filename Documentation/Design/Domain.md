@@ -82,6 +82,7 @@ endpoints.
   - [DOM4.7 Associated Entity Types](#dom47-associated-entity-types-formerly-47)
   - [DOM4.8 Association Approval](#dom48-association-approval-formerly-48)
   - [DOM4.9 Purposeful Placements — Purpose and IsDefault](#dom49-purposeful-placements--purpose-and-isdefault-formerly-49)
+  - [DOM4.10 Personal Associations — Ownership, Replacement and Revival](#dom410-personal-associations--ownership-replacement-and-revival)
 - [DOM5. Supporting Content Entities](#dom5-supporting-content-entities-formerly-5)
   - [DOM5.1 Tag](#dom51-tag-formerly-51)
   - [DOM5.2 Reaction](#dom52-reaction-formerly-52)
@@ -516,6 +517,30 @@ Rules:
 7. **Scope needs nothing new.** §DOM4.5 rule 1's defaults are correct here: `AllVersions` on both sides for `ContentItem` ↔ `Attachment` means one candidate set per content group, resolving to the attachment group's newest published bytes (§DOM5.6.4); a non-versioned host such as `BibleReference` derives `ThisVersionOnly` as always.
 8. **The orchestration add flow threads `Purpose` through** — the add and both probes match on it — and refuses a caller-supplied `IsDefault`. The `Attachment` arm of endpoint resolution is unblocked by the `AttachmentService` of §ARC12.3 entry 12; until that exists the arm keeps throwing, exactly as today.
 9. **Approval of the attachment itself derives from the host** — §DOM5.6.5. Nothing here changes association approval (§DOM4.8): a purposeful association is approvable like any other.
+
+### DOM4.10 Personal Associations — Ownership, Replacement and Revival
+
+**Status: designed, not built.** A **personal** association is one whose `UserId` is set (§DOM4.2) — today a reader's reaction and nothing else; an **editorial** association is one whose `UserId` is null. Every rule in this section is personal-only, and none of them reaches an editorial row. The members that perform these writes are recorded in §ARC16.8.1 (the caller-facing surface) and §ARC16.2.2 (the foundation transition and its facts); this section rules what is true of the row, and points at those two rather than copying them.
+
+**`UserId` is derived, and the null-forcing gate survives.**
+
+1. **`UserId` is derived from the inbound envelope's `SecurityContext` where the association is personal, and forced to `null` where it is editorial.** It is never read from the request on either arm. Identity travels on the signed envelope, so a request-supplied value is not a weaker claim to the same fact — it is a different fact, about a person the caller merely named.
+2. **A caller-supplied `UserId` is silently overwritten, never refused — and on BOTH arms**, personal and editorial alike. This is the house rule §DOM4.5 rules 1 and 3 already set for `Scope` and `ContentType`: a derived field takes its value from the derivation and the caller's copy is discarded without comment. Refusing instead would publish a new failure mode for a field no caller has business sending, and would answer differently depending on what the caller guessed — which is a probe. Overwriting one arm and refusing on the other is refused for the same reason: two behaviours for one rule.
+3. **The null-forcing is load-bearing, not dead code, and may not be removed as such.** SQL Server treats `NULL = NULL` as a duplicate in a unique index, and that null is what made *"exactly one of these globally"* and *"exactly one per user"* the same index while there was one. Under §DOM4.6 rule 2 the two uniqueness rules are **two** indexes, and `UserId` is the column that **routes a row to one or the other** — so a stray caller-supplied value no longer merely mislabels a row, it files it under the wrong constraint, where the rule that should have refused it never sees it.
+4. **"Personal" is a declared lookup, never an inline enum test.** **`EntityTypePersonalisation`**, shaped like `EntityTypeVersioning` (§APR7.5.1): one entry per `EntityType`, `Reaction` true and every other member false, and **a missing member is a hard error rather than a `false` default**. A discriminator written inline as a test against `EntityType.Reaction` is refused — §DOM4.5 rule 1 already insists on the same discipline for `Scope`, taking the answer from the lookup *"never from probing the entity… at runtime, which this repository has already proved unreliable twice"*. A silent `false` default is what makes a forgotten member land as an editorial row under the wrong index and the wrong approval tier, with nothing raised anywhere.
+5. **One chain, and no second source.** The lookup decides whether `UserId` is set; `UserId != null` decides `IsPersonal`; `IsPersonal` selects the §APR8.4 approval tier (§DOM4.8, `Domain.md:496`) **and** selects which of §DOM4.6 rule 2's two indexes governs the row. Nothing else decides any of the three.
+
+**One personal row for the life of the relationship.**
+
+6. **A reader holds exactly one live personal association per (content item, far-end type).** Changing from Love to Moved **repoints that row** under §DOM4.5 rule 4's narrow exception; withdrawing **soft-deletes** it; re-giving **revives** it. It is never one row soft-deleted and another inserted, and there is no tail of dormant per-reaction rows. §DOM4.6 rule 2's `UX_Associations_PersonalPair` makes that a database guarantee rather than a mental model. What the shape costs is any record of what a reader previously reacted with — a history no read, no rule and no surface asks for, and one that would otherwise accumulate up to one row per reaction per (item, reader) for ever.
+7. **The revive's discriminator is `DeletedBy == Association.UserId`, and nothing else.** A row the reader withdrew themselves is revived; **a moderator takedown is never revived**, and the attempt is refused and reported as `AlreadyPending`, which tells the reader nothing about why. *"Always clearing `IsDeleted` and `DeletedBy`"* is adopted **only** under that discriminator — blanket clearing would launder a takedown into a reaction the reader simply re-gave.
+8. **The revive PRESERVES the `ApprovalStatus` the row was withdrawn at, and writes no status of its own.** There is nothing to restore, because the removal never changed one: §APR9.7.6 rules that *"a takedown leaves the approval record and the entity's denormalised `ApprovalStatus` alone"* (`Approval.md:707`) and that a restored entity *"resumes at its stored status with its review history intact"* (`Approval.md:1087`). So under the seeded `(Association, IsPersonal = true)` tier the row comes back **`Approved`** over a round already `Approved`, and it is counted again the moment it returns, with no fact having to be heard by anybody. **It is not restored to `Submitted`, and not to any status at all.** Forcing one would put a `Submitted` entity under an `Approved` round that nothing can reconcile — neither the entry-status flow nor the evaluation will act on a closed round — which is the §APR9.8 divergence (`Approval.md:1117`) made permanent, and the reader's count lost for good.
+
+**What the reader sees.**
+
+- **Withdraw, then re-give the same reaction** — their one row is revived at the status it was withdrawn at, under the seeded tier `Approved`, so they hold it once and the count returns to where it was, in the same act.
+- **Change from Love to Moved** — the same row is repointed, and `RequireReapprovalOnChange` decides whether its round re-opens (§DOM4.5 rule 4); Love's count falls by one and Moved's rises by one in the same act.
+- **A moderator takedown, then they react again** — refused, and it looks to them exactly like a reaction already pending.
 
 ## DOM5. Supporting Content Entities *(formerly §5)*
 
