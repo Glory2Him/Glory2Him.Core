@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -110,7 +110,8 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
         /// surfaces should prefer <see cref="RetrieveAllPublicContentItemsAsync"/>, which
         /// never widens with the caller's privileges. Being a read, no completion fact is
         /// published. The feed is a separate projection (§14.2) and is deliberately not
-        /// served here.
+        /// served here — <see cref="RetrieveContentItemFeedAsync"/> is the member that serves
+        /// it, and it excludes what §DOM3.8 rule 2 excludes while this read does not.
         /// </summary>
         ValueTask<IQueryable<ContentItem>> RetrieveAllContentItemsAsync(
             CancellationToken cancellationToken = default);
@@ -125,6 +126,20 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
         /// own or reviewable rows. Being a read, no completion fact is published.
         /// </summary>
         ValueTask<IQueryable<ContentItem>> RetrieveAllPublicContentItemsAsync(
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// ONE PAGE OF THE FEED (§DOM11.3) — the front page's read, and a different one from
+        /// <see cref="RetrieveAllPublicContentItemsAsync"/> rather than a view over it. The feed
+        /// excludes <c>Topic</c> and <c>Series</c> (§DOM3.8 rule 2) and the public read must not:
+        /// applying the exclusion there would make every topic unsearchable.
+        ///
+        /// <para>Caller-independent, exactly as the public read is: no envelope is minted and no
+        /// <c>SecurityContext</c> is resolved, so privilege widens this by nothing.</para>
+        /// </summary>
+        ValueTask<IReadOnlyList<ContentItem>> RetrieveContentItemFeedAsync(
+            int? skip,
+            int? take,
             CancellationToken cancellationToken = default);
 
         /// <summary>

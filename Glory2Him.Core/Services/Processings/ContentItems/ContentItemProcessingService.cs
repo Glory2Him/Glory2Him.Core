@@ -33,6 +33,21 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
 {
     internal partial class ContentItemProcessingService : IContentItemProcessingService
     {
+        /// <summary>
+        /// THE FEED'S PAGE CAP, and it is this service's own number rather than the host's.
+        /// <c>OData:PageSize</c> is documented in the host's <c>appsettings.json</c> as the page
+        /// size "for the [EnableQuery] collection reads", and the feed is not one of those — it
+        /// carries no OData surface at all, so borrowing that key would tie this read's contract
+        /// to a posture that does not describe it. Nor is it read from configuration: this is a
+        /// library, its host owns <c>appsettings.json</c>, and a business service reaching for a
+        /// configuration key is an infrastructure concern in the wrong layer. It EQUALS 50 by
+        /// agreement with the host's posture, not by sharing its source.
+        ///
+        /// <para>It is also the default: a caller who names no page is answered with the first
+        /// one AT THE CAP, so the read carries one number rather than two.</para>
+        /// </summary>
+        private const int MaximumFeedPageSize = 50;
+
         private readonly IContentItemService contentItemService;
         private readonly IDateTimeBroker dateTimeBroker;
         private readonly IHashBroker hashBroker;
@@ -170,6 +185,23 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
                 // the public projection is caller-independent, so no envelope is minted —
                 // there is no security context to capture and nothing downstream reads one
                 return await DoRetrieveAllPublicContentItemsAsync(cancellationToken);
+            });
+
+        public ValueTask<IReadOnlyList<ContentItem>> RetrieveContentItemFeedAsync(
+            int? skip,
+            int? take,
+            CancellationToken cancellationToken = default) =>
+            TryCatchList(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // caller-independent, exactly as the public projection above is: no envelope is
+                // minted because there is no security context to capture and nothing below
+                // reads one
+                return await DoRetrieveContentItemFeedAsync(
+                    skip: skip,
+                    take: take,
+                    cancellationToken: cancellationToken);
             });
 
         public ValueTask<IReadOnlyList<ContentItem>> RetrieveContentItemsByGroupIdAsync(
@@ -545,6 +577,33 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
             return await ApplyCollectionReadVisibilityFilterAsync(
                 contentItems: allContentItems,
                 securityContext: null);
+        }
+
+        private async ValueTask<IReadOnlyList<ContentItem>> DoRetrieveContentItemFeedAsync(
+            int? skip,
+            int? take,
+            CancellationToken cancellationToken)
+        {
+            // NULL STOPS HERE. Defaulting is a decision and the exposer holds none, so the
+            // route binds two nullables and passes them through untouched; below this line
+            // nothing can be asked "which page?" and receive no answer.
+            //
+            // Absent is NOT zero, and the distance between them is the whole reason the
+            // parameters are nullable: take = 0 is a caller asking for a page of nothing and
+            // answers 400, while an absent take is a caller who named no page and answers the
+            // first one at the cap.
+            int requestedSkip = skip ?? 0;
+            int requestedTake = take ?? MaximumFeedPageSize;
+
+            ValidateFeedPageOnRetrieve(skip: requestedSkip, take: requestedTake);
+
+            // Straight through. The feed's membership rules are the FOUNDATION's, recorded where
+            // the read is named, and running a second filter over the page they produced would
+            // give one rule two homes to drift between.
+            return await this.contentItemService.RetrieveContentItemFeedAsync(
+                skip: requestedSkip,
+                take: requestedTake,
+                cancellationToken: cancellationToken);
         }
 
         private async ValueTask<IReadOnlyList<ContentItem>> DoRetrieveContentItemsByGroupIdAsync(

@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -392,6 +392,36 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
             Validate(
                 message: "Content item is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(contentItemId), Parameter: nameof(ContentItem.Id)));
+
+        /// <summary>
+        /// THE FEED'S PAGE, and this service is the only thing that caps it.
+        /// <c>ODataPageSizeConvention</c> assigns <c>EnableQueryAttribute.PageSize</c> on the
+        /// application model and therefore never visits an action without that attribute — the
+        /// feed route carries none, by design, so an uncapped <c>take</c> would serve the whole
+        /// visible catalogue to whoever asked for it.
+        ///
+        /// <para>A <c>take</c> above the maximum is REFUSED rather than clamped: a caller handed
+        /// 50 rows for a request for 200 cannot tell a capped page from the end of the
+        /// catalogue. A <c>skip</c> past the end is NOT refused — that is a valid page which
+        /// happens to be empty, the same answer an unknown group id gets.</para>
+        /// </summary>
+        private static void ValidateFeedPageOnRetrieve(int skip, int take) =>
+            Validate(
+                message: "Content item feed page is invalid, fix the errors and try again.",
+                (Rule: IsNegative(skip), Parameter: "skip"),
+                (Rule: IsOutsideFeedPageSizeRange(take), Parameter: "take"));
+
+        private static dynamic IsNegative(int value) => new
+        {
+            Condition = value < 0,
+            Message = "Value must be 0 or greater"
+        };
+
+        private static dynamic IsOutsideFeedPageSizeRange(int take) => new
+        {
+            Condition = take < 1 || take > MaximumFeedPageSize,
+            Message = $"Value must be between 1 and {MaximumFeedPageSize}"
+        };
 
         private static dynamic IsInvalid(Guid id) => new
         {

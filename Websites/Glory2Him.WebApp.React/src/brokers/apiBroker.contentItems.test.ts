@@ -229,6 +229,85 @@ describe('ContentItemBroker.SearchContentItemsAsync', () => {
         expect(page.hasNextPage).toBe(false);
     });
 
+    // THE FEED PATH. GET api/ContentItems/Feed carries no [EnableQuery], so it has no OData
+    // surface to compose against: the page is an ARGUMENT of the read. A dollar-prefixed
+    // parameter left behind here would be worse than an error, because it would be silently
+    // ignored and a stale $orderby would look honoured.
+    describe('on the feed path', () => {
+        it('should read the feed route when the page scoped itself to the feed', async () => {
+            // when
+            await new ContentItemBroker().SearchContentItemsAsync(
+                queryFor({ scope: 'feed' }));
+
+            // then
+            expect(requestedUrl().split('?')[0]).toBe('/api/contentitems/Feed');
+        });
+
+        // contentItemBrokerSendsSkipAndTakeOnTheFeedRequest
+        it('should send the page as skip and take and no dollar-prefixed parameter', async () => {
+            // when
+            await new ContentItemBroker().SearchContentItemsAsync(
+                queryFor({ scope: 'feed', pageIndex: 3, pageSize: 8 }));
+
+            // then
+            expect(parameterOf('skip')).toBe('24');
+
+            // THE PROBE ROW RIDES INSIDE THE PAGE, unchanged: one row beyond the page is what
+            // separates a full last page from a page with more behind it.
+            expect(parameterOf('take')).toBe('9');
+
+            const parameterNames = Array.from(
+                new URLSearchParams(requestedUrl().split('?')[1] ?? '').keys());
+
+            expect(parameterNames.filter((name) => name.startsWith('$'))).toEqual([]);
+        });
+
+        // Even when the reader HAS narrowed something. The page decides which route answers
+        // (criterion 7), so a criterion arriving here alongside scope 'feed' must not smuggle
+        // a $filter onto a route that would ignore it.
+        it('should send no filter even when the query carries criteria', async () => {
+            // when
+            await new ContentItemBroker().SearchContentItemsAsync(
+                queryFor({
+                    scope: 'feed',
+                    searchTerm: 'grace',
+                    contentType: ContentType.Devotional,
+                    approvalStatuses: [ApprovalStatus.Approved]
+                }));
+
+            // then
+            expect(parameterOf('$filter')).toBeNull();
+        });
+
+        it('should drop the probe row and say there is another page', async () => {
+            // given
+            getAsync.mockResolvedValue({ data: rowsOf(9) } as never);
+
+            // when
+            const page = await new ContentItemBroker().SearchContentItemsAsync(
+                queryFor({ scope: 'feed', pageSize: 8 }));
+
+            // then
+            expect(page.items).toHaveLength(8);
+            expect(page.hasNextPage).toBe(true);
+        });
+    });
+
+    // THE PUBLIC PATH LOSES NOTHING. Removing anything there is a different change from this
+    // one: /Public is still an [EnableQuery] route and still the read a narrowing search uses.
+    it('should keep every OData parameter on the public path', async () => {
+        // when
+        await new ContentItemBroker().SearchContentItemsAsync(
+            queryFor({ scope: 'public', pageIndex: 2, pageSize: 8, searchTerm: 'grace' }));
+
+        // then
+        expect(requestedUrl().split('?')[0]).toBe('/api/contentitems/Public');
+        expect(parameterOf('$orderby')).toBe('createdWhen desc');
+        expect(parameterOf('$skip')).toBe('16');
+        expect(parameterOf('$top')).toBe('9');
+        expect(parameterOf('$filter')).not.toBeNull();
+    });
+
     it('should carry the page it answered for back to the caller', async () => {
         // given
         getAsync.mockResolvedValue({ data: rowsOf(2) } as never);

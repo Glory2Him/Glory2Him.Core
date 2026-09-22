@@ -84,19 +84,62 @@ class ContentItemBroker {
         return result.data as ContentItem;
     }
 
-    // ONE PAGE of the list, searched, filtered, ordered and paged SERVER-SIDE through
-    // [EnableQuery]. The host caps a collection read at OData:PageSize, so a client that paged in
-    // memory would silently stop at that cap once the table outgrew it.
+    // ONE PAGE of the list, resolved SERVER-SIDE either way — a client that paged in memory
+    // would silently stop at whatever cap the server applies once the table outgrew it.
+    //
+    // The two shapes differ in WHERE the page is decided. The search paths compose it as OData
+    // options over an [EnableQuery] route, capped by the host at OData:PageSize; the feed path
+    // sends it as arguments the read itself accepts, capped by that read at its own 50.
     //
     // WHICH ROUTE answers is the query's `scope`, because it is the PAGE's decision what a
-    // surface shows. 'public' is caller-independent by construction (§14.1 canonical set only) —
-    // the home feed builds on it so no role change elsewhere can leak a draft there. 'caller'
-    // widens with whoever asks — their own rows, everything a review role covers — which is what
-    // "my posts" and the moderation queue are made of. Either way the FOUNDATION decides
-    // visibility against the stored row; the filters below only ever narrow within it.
+    // surface shows. 'feed' is the design's feed (§DOM11.3) and takes a different shape
+    // entirely — see GetFeedPageAsync. 'public' is caller-independent by construction (§14.1
+    // canonical set only), and is what a NARROWING search reads, the feed having no $filter to
+    // narrow with. 'caller' widens with whoever asks — their own rows, everything a review role
+    // covers — which is what "my posts" and the moderation queue are made of. Either way the
+    // FOUNDATION decides visibility against the stored row; the filters below only ever narrow
+    // within it.
     //
     // One row beyond the page is asked for and then dropped — see ContentItemSearchQuery.
     async SearchContentItemsAsync(query: ContentItemSearchQuery): Promise<ContentItemPage> {
+        const rows = query.scope === 'feed'
+            ? await this.GetFeedPageAsync(query)
+            : await this.GetSearchPageAsync(query);
+
+        return {
+            items: rows.slice(0, query.pageSize),
+            pageIndex: query.pageIndex,
+            pageSize: query.pageSize,
+            hasNextPage: rows.length > query.pageSize
+        };
+    }
+
+    // THE FEED PAGE, and it carries no OData option at all. GET api/ContentItems/Feed has no
+    // [EnableQuery] on it, so there is no surface to compose against: the page is an ARGUMENT
+    // of the read, and $orderby, $skip and $top would be off-surface parameters the route
+    // silently ignored - which is worse than an error, because a left-behind $orderby would
+    // look honoured.
+    //
+    // The order is the READ'S: COALESCE(PublishDate, CreatedWhen) DESC, Id DESC (§DOM11.3).
+    // Nothing here asks for it, and nothing here could change it.
+    //
+    // No filter either, for the same reason, and none is wanted: the page moves itself onto
+    // the public read the moment the reader narrows anything.
+    private async GetFeedPageAsync(query: ContentItemSearchQuery): Promise<ContentItem[]> {
+        const parameters = new URLSearchParams();
+        parameters.set('skip', String(query.pageIndex * query.pageSize));
+
+        // One row beyond the page, exactly as the search paths ask for it - the probe row is
+        // still the only thing separating a full last page from one with more behind it.
+        parameters.set('take', String(query.pageSize + 1));
+
+        const url = `${this.relativeContentItemsUrl}/Feed?${parameters.toString()}`;
+        const result = await this.apiBroker.GetAsync(url);
+
+        return result.data as ContentItem[];
+    }
+
+    private async GetSearchPageAsync(query: ContentItemSearchQuery): Promise<ContentItem[]> {
         const filters: string[] = [];
         const searchTerm = query.searchTerm.trim();
 
@@ -162,14 +205,8 @@ class ContentItemBroker {
 
         const url = `${routeUrl}?${parameters.toString()}`;
         const result = await this.apiBroker.GetAsync(url);
-        const rows = result.data as ContentItem[];
 
-        return {
-            items: rows.slice(0, query.pageSize),
-            pageIndex: query.pageIndex,
-            pageSize: query.pageSize,
-            hasNextPage: rows.length > query.pageSize
-        };
+        return result.data as ContentItem[];
     }
 }
 
