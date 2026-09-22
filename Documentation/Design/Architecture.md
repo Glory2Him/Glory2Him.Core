@@ -1109,7 +1109,7 @@ The read adds **no service dependency**: `IAssociationService`, `IReactionServic
 - **§ARC16.8** — this section: the **read**.
 - **§ARC16.8.1** — the caller-facing **write surface**: the upsert that adds, replaces or revives a reader's reaction, and the pair-keyed removal with its signature, its route and its response codes. Recorded there, not here.
 
-Both neighbours are pointed at rather than copied; a rule stated twice is a rule that will eventually disagree with itself. **Neither exists yet, and they land in opposite directions**: §ARC16.2.1 nests under §ARC16.2, well above this section, so **the pointer to it is a backward reference**; §ARC16.8.1 nests under this section, so **the pointer to it is a forward one**. Reference by section number rather than by position is this document's house style for both, which is why neither pointer names a direction.
+Both neighbours are pointed at rather than copied; a rule stated twice is a rule that will eventually disagree with itself. **§ARC16.2.1 exists, §ARC16.8.1 does not yet, and they land in opposite directions**: §ARC16.2.1 nests under §ARC16.2, well above this section, so **the pointer to it is a backward reference**; §ARC16.8.1 nests under this section, so **the pointer to it is a forward one**. Reference by section number rather than by position is this document's house style for both, which is why neither pointer names a direction.
 
 #### The projection
 
