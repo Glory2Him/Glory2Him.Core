@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -39,6 +39,11 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItems
     /// </summary>
     public partial class ContentItemApiTests
     {
+        // The name the catalogue carries for the effective publication moment. Nothing in the
+        // solution names it — it is written here precisely so an attempt to USE it can be made
+        // and refused.
+        private const string EffectivePublicationMomentName = "EffectivePublishedWhen";
+
         // Every property a content item carried on the wire at the branch point. Hardcoded
         // rather than derived from the model, because a list derived from the CLR type would
         // grow with the type and pass the very change this refuses.
@@ -120,5 +125,49 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItems
             }
         }
 
+        /// <summary>
+        /// Criterion 10, second half: THE EFFECTIVE PUBLICATION MOMENT IS NOT A QUERY TARGET, on
+        /// any <c>[EnableQuery]</c> content-item route. One request per route per option, each
+        /// of which must be REFUSED rather than silently honoured.
+        /// </summary>
+        [Theory]
+        [InlineData("api/contentItems")]
+        [InlineData("api/contentItems/Public")]
+        [InlineData("api/contentItems/Groups/{groupId}")]
+        public async Task ShouldRejectTheEffectivePublicationMomentAsAQueryTarget_ForAnAnonymousCallerAsync(
+            string routeTemplate)
+        {
+            // given
+            string route = routeTemplate.Replace("{groupId}", Guid.NewGuid().ToString());
+
+            this.apiBroker.ActAsAnonymous();
+
+            try
+            {
+                // when
+                HttpResponseMessage orderByResponse =
+                    await this.apiBroker.GetContentItemsResponseAsync(
+                        $"{route}?$orderby={EffectivePublicationMomentName} desc");
+
+                HttpResponseMessage filterResponse =
+                    await this.apiBroker.GetContentItemsResponseAsync(
+                        $"{route}?$filter={EffectivePublicationMomentName} ne null");
+
+                // then
+                orderByResponse.IsSuccessStatusCode.Should().BeFalse(
+                    because: $"{EffectivePublicationMomentName} is a shadow property and is on "
+                        + "no query surface, so ordering by it is not a request this route "
+                        + "can honour");
+
+                filterResponse.IsSuccessStatusCode.Should().BeFalse(
+                    because: $"{EffectivePublicationMomentName} is a shadow property and is on "
+                        + "no query surface, so filtering on it is not a request this route "
+                        + "can honour");
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+            }
+        }
     }
 }
