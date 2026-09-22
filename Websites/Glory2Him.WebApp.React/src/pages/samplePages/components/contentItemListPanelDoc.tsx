@@ -543,7 +543,9 @@ export function ContentItemListPanelDoc() {
                         The panel never filters, never decides visibility and never turns a
                         search into a request: it raises <code>onSearch</code> and renders
                         whatever comes back. The page chooses the read —{' '}
-                        <code>GET api/ContentItems/Public</code> for the home feed,{' '}
+                        <code>GET api/ContentItems/Feed</code> for the front page's default
+                        listing and <code>GET api/ContentItems/Public</code> once the reader has
+                        narrowed something,{' '}
                         <code>GET api/ContentItems</code> pinned to the caller for /MyPosts,
                         pinned to Draft + Submitted for the moderation queue — and the server
                         decides what that caller may see against the stored row.

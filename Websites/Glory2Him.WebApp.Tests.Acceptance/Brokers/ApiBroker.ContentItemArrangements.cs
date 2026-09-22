@@ -59,6 +59,56 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
             return await this.storageBroker.InsertContentItemAsync(contentItem);
         }
 
+        /// <summary>
+        /// One row placed EXACTLY where a feed assertion needs it — its content type, its
+        /// approval state, its publish window and its created moment all named by the caller.
+        ///
+        /// <para>Arranged beneath HTTP for the reason its sibling above is: <c>GroupId</c>,
+        /// <c>Version</c>, <c>IsPublished</c> and <c>PublishDate</c> are control fields the add
+        /// derives, and no endpoint publishes a row. It differs from
+        /// <see cref="InsertContentItemVersionAsync"/> in the two members the feed's ORDER is
+        /// built from: <c>PublishDate</c> and <c>CreatedWhen</c> are taken from the caller
+        /// rather than both stamped <c>now</c>, because a fixture in which every row shares one
+        /// moment cannot tell §DOM11.3's order from the two orders it replaces.</para>
+        /// </summary>
+        public async ValueTask<CoreContentItem> InsertFeedContentItemAsync(
+            DateTimeOffset createdWhen,
+            DateTimeOffset? publishDate = null,
+            ContentType contentType = ContentType.Story,
+            ApprovalStatus approvalStatus = ApprovalStatus.Approved,
+            bool isPublished = true,
+            bool isDeleted = false,
+            string authorUserId = "acceptance-feed",
+            Guid? contentItemId = null)
+        {
+            var contentItem = new CoreContentItem
+            {
+                // Named by the caller only where the ID ITSELF is under test - the feed's
+                // Id DESC terminator, whose direction cannot be asserted against a value the
+                // fixture drew at random.
+                Id = contentItemId ?? Guid.NewGuid(),
+                GroupId = Guid.NewGuid(),
+                Version = 1,
+                ContentType = contentType,
+                Title = $"Feed fixture {Guid.NewGuid():N}",
+                Author = "Acceptance suite",
+                Content = $"Feed fixture body {Guid.NewGuid():N}",
+                ContentHash = Guid.NewGuid().ToString("N"),
+                ApprovalStatus = approvalStatus,
+                IsPublished = isPublished,
+                PublishDate = publishDate,
+                IsDeleted = isDeleted,
+                DeletedBy = isDeleted ? authorUserId : null,
+                DeletedWhen = isDeleted ? createdWhen : null,
+                CreatedBy = authorUserId,
+                CreatedWhen = createdWhen,
+                UpdatedBy = authorUserId,
+                UpdatedWhen = createdWhen
+            };
+
+            return await this.storageBroker.InsertContentItemAsync(contentItem);
+        }
+
         public async ValueTask<CoreContentItem> GetCoreContentItemByIdAsync(Guid contentItemId) =>
             await this.storageBroker.SelectContentItemByIdAsync(contentItemId);
 

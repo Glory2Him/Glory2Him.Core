@@ -146,6 +146,32 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             });
 
 
+        public ValueTask<IReadOnlyList<ContentItem>> RetrieveContentItemFeedAsync(
+            int skip,
+            int take,
+            CancellationToken cancellationToken = default) =>
+            TryCatchList(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // NO ENVELOPE, and none is missing. Every other read on this service mints one
+                // to capture the ambient security context its visibility filter runs against.
+                // This read has no branch to run one through: §SEC14.1 is applied to every
+                // caller identically, so a context would be resolved and then ignored.
+                DateTimeOffset currentDateTime =
+                    await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
+
+                // THE WHOLE READ IS THE BROKER'S ONE EXPRESSION - predicate and page together,
+                // awaited there. Materialising the visible catalogue and paging it here would
+                // cost the catalogue to serve eight rows, and the feed has no invariant
+                // bounding its size the way a version lineage does.
+                return await this.storageBroker.SelectContentItemFeedPageAsync(
+                    asOfDateTime: currentDateTime,
+                    skip: skip,
+                    take: take,
+                    cancellationToken: cancellationToken);
+            });
+
         public ValueTask<IReadOnlyList<ContentItem>> RetrieveContentItemsByGroupIdAsync(
             Guid groupId,
             CancellationToken cancellationToken = default) =>
