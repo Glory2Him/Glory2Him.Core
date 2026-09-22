@@ -191,10 +191,6 @@ describe('MyPostDetail', () => {
             .toBeInTheDocument();
     });
 
-    /// THE SAVE IS REAL, and it replaced a local merge that could only ever carry the fields
-    /// somebody remembered to list. That list held the content fields and not approvalStatus,
-    /// so a contributor offering a draft for review watched the card go on saying Draft. The
-    /// write now goes to the server and the row is re-read, status and all.
     // THE LIKE CONTROL, on the contributor's own detail surface. /myposts already offers it on
     // the card for this very item, so one item read two ways answered two different things.
     it("should offer the like control on my own post's detail page", () => {
@@ -270,6 +266,10 @@ describe('MyPostDetail', () => {
                 .toHaveAttribute('aria-pressed', 'true');
         });
 
+    /// THE SAVE IS REAL, and it replaced a local merge that could only ever carry the fields
+    /// somebody remembered to list. That list held the content fields and not approvalStatus,
+    /// so a contributor offering a draft for review watched the card go on saying Draft. The
+    /// write now goes to the server and the row is re-read, status and all.
     it('should send the whole row with the amendment over it', async () => {
         // given
         renderPage();
