@@ -8,7 +8,8 @@ question and no other: is a cheaper budget costing us more fix rounds?
     python Documentation/ModelBudget/tally.py --cached   # reuse the last fetch
 
 Requires `gh`, authenticated against the repository. Reads nothing but GitHub;
-writes nothing but its cache.
+writes nothing but its cache. The repository is whatever `origin` points at, so
+the same file works unchanged in the template and in anything generated from it.
 
 Two caveats the output cannot carry on its own:
 
@@ -39,8 +40,7 @@ import sys
 import tempfile
 from datetime import datetime
 
-OWNER, REPO = "Glory2Him", "Glory2Him.Core"
-CACHE = os.path.join(tempfile.gettempdir(), "g2h-model-tally")
+CACHE_ROOT = os.path.join(tempfile.gettempdir(), "g2h-model-tally")
 
 # A fix round is a burst of commits landing after the pull request opened. QA runs
 # after the pull request is opened, so post-open commits are the rework signal.
@@ -76,7 +76,16 @@ query($endCursor: String) {
     }
   }
 }
-""" % (OWNER, REPO)
+"""
+
+
+def repository():
+    """owner/name of the repository this checkout points at."""
+    remote = run(["git", "remote", "get-url", "origin"]).strip()
+    found = re.search(r"[:/]([^/:]+)/([^/]+?)(?:\.git)?$", remote)
+    if not found:
+        sys.exit("could not read an owner/repo out of origin: " + remote)
+    return found.group(1), found.group(2)
 
 
 def run(args):
@@ -100,13 +109,17 @@ def concatenated(text):
 
 
 def fetch(cached):
-    os.makedirs(CACHE, exist_ok=True)
-    prs_path = os.path.join(CACHE, "prs.json")
-    issues_path = os.path.join(CACHE, "issues.json")
+    # Cache per repository, so running this in the template and in Core does not
+    # have one overwrite the other's fetch.
+    cache = os.path.join(CACHE_ROOT, "-".join(repository()))
+    os.makedirs(cache, exist_ok=True)
+    prs_path = os.path.join(cache, "prs.json")
+    issues_path = os.path.join(cache, "issues.json")
 
     if not (cached and os.path.exists(prs_path) and os.path.exists(issues_path)):
         # --paginate substitutes the cursor only into a variable named $endCursor.
-        raw = run(["gh", "api", "graphql", "--paginate", "-f", "query=" + PR_QUERY])
+        query = PR_QUERY % repository()
+        raw = run(["gh", "api", "graphql", "--paginate", "-f", "query=" + query])
         with open(prs_path, "w", encoding="utf-8") as handle:
             handle.write(raw)
         raw = run(["gh", "issue", "list", "--state", "all", "--limit", "1000",
