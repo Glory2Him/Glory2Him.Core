@@ -33,6 +33,21 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
 {
     internal partial class ContentItemProcessingService : IContentItemProcessingService
     {
+        /// <summary>
+        /// THE FEED'S PAGE CAP, and it is this service's own number rather than the host's.
+        /// <c>OData:PageSize</c> is documented in the host's <c>appsettings.json</c> as the page
+        /// size "for the [EnableQuery] collection reads", and the feed is not one of those — it
+        /// carries no OData surface at all, so borrowing that key would tie this read's contract
+        /// to a posture that does not describe it. Nor is it read from configuration: this is a
+        /// library, its host owns <c>appsettings.json</c>, and a business service reaching for a
+        /// configuration key is an infrastructure concern in the wrong layer. It EQUALS 50 by
+        /// agreement with the host's posture, not by sharing its source.
+        ///
+        /// <para>It is also the default: a caller who names no page is answered with the first
+        /// one AT THE CAP, so the read carries one number rather than two.</para>
+        /// </summary>
+        private const int MaximumFeedPageSize = 50;
+
         private readonly IContentItemService contentItemService;
         private readonly IDateTimeBroker dateTimeBroker;
         private readonly IHashBroker hashBroker;
@@ -569,6 +584,8 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
             int take,
             CancellationToken cancellationToken)
         {
+            ValidateFeedPageOnRetrieve(skip: skip, take: take);
+
             // Straight through. The feed's membership rules are the FOUNDATION's, recorded where
             // the read is named, and running a second filter over the page they produced would
             // give one rule two homes to drift between.
