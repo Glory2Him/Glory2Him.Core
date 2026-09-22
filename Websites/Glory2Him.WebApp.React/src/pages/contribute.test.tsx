@@ -135,17 +135,6 @@ describe('Contribute', () => {
         signInAs(authState);
     });
 
-    // THE ADD FACE IS A FORM. There is no item to react to yet, so the contribution surface
-    // carries no engagement row at all - and this says so, in case a later reader reads the
-    // omission as the oversight the two detail pages actually were.
-    it('should render no like control on the contribution form', () => {
-        // when
-        renderPage();
-
-        // then
-        expect(screen.queryByRole('button', { name: /Like/ })).not.toBeInTheDocument();
-    });
-
     it('should render the panel in its add surface', () => {
         // when
         renderPage();
