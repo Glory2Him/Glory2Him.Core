@@ -168,20 +168,17 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             })
                  .HasDatabaseName("IX_ContentItems_Feed");
 
-            // §DOM11.3 — the effective publication moment the feed is ordered by, materialised
-            // as a column and carrying that order's Id terminator, so the order the index
-            // supplies is total. The moment is a SHADOW property: it is declared here, it is
-            // named by no expression in the solution and it is carried on no API contract
-            // (§DOM19.2 — a derivable value is not stored contract), and the optimiser reaches it
-            // by matching the feed's own COALESCE(PublishDate, CreatedWhen). COALESCE and never
-            // ISNULL: the two do not normalise to the same tree, so an ISNULL column matches no
-            // COALESCE query.
+            // The effective publication moment as a materialised column. A SHADOW property:
+            // it is declared here, it is named by no expression in the solution and it is
+            // carried on no API contract, and the optimiser reaches it by matching the feed's
+            // own COALESCE(PublishDate, CreatedWhen). COALESCE and never ISNULL — the two do
+            // not normalise to the same tree, so an ISNULL column matches no COALESCE query.
             model.Property<DateTimeOffset?>(EffectivePublishedWhen)
                  .HasComputedColumnSql("COALESCE([PublishDate], [CreatedWhen])", stored: true);
 
-            // §SEC14.1 — visibility predicate terms 1, 2, 3 and 4; §DOM3.8 rule 2 — the feed's
-            // ContentType exclusion. Carried as includes, so the rows the order walks are
-            // decided against the same data.
+            // §DOM11.3 — feed order, over the column above and with that order's Id terminator;
+            // §SEC14.1 — visibility predicate terms 1, 2, 3 and 4, and §DOM3.8 rule 2 — the
+            // feed's ContentType exclusion, carried as includes.
             model.HasIndex(EffectivePublishedWhen, nameof(ContentItem.Id))
                  .HasDatabaseName("IX_ContentItems_FeedEffective")
                  .IsDescending(true, true)
