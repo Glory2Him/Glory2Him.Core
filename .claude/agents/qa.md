@@ -68,7 +68,16 @@ mocked-boundary blind spot, and reading the tests rather than their names.
 
 3. **Layer discipline.** Does any layer call two layers below it — skip even one
    level, e.g. Processing reaching straight for a broker? Did a decision land in
-   a broker? Does the entity count match the layer — one entity,
+   a broker? Where the change **adds or converts** a keyed read, §ARC12.2.1
+   applies: the storage broker must compose no `Where`/`Select`/`OrderBy`, call no
+   predicate-taking terminal operator, and never query through its `DbContext`;
+   the condition belongs to the caller as a query-shaping function using
+   `System.Linq` only, and a service importing `Microsoft.EntityFrameworkCore` to
+   shape a query is a finding. The matching test must **execute** that function
+   against a seeded set with a near-miss row per term — a test that only asserts
+   the arguments or that some function was passed does not prove the condition and
+   is a gap. Reads the diff did not touch are exempt; see *What is never a
+   finding*. Does the entity count match the layer — one entity,
    or more than three, in an orchestration, or two in a foundation, is a
    structural finding. Does an event's tense match its direction and its
    subject match its layer — present participle for a request, past tense for a
@@ -250,9 +259,11 @@ into the event envelope and become indistinguishable from a genuine one.
 
 - **Missing broker tests of any kind.** Brokers hold no logic, so there is nothing
   to assert and their absence is correct — including the absence of a wire-up
-  probe, which is throw-away by design. A narrow read is proven by the caller
-  asserting the arguments and by the exposer-level acceptance test that exercises
-  the path for real.
+  probe, which is throw-away by design.
+- **An unconverted keyed read.** §ARC12.2.1 (ruled 2026-09-22) moves the condition
+  out of the storage broker, but is **not yet built** — the reads on `main` still
+  carry their predicates. That is a conversion backlog item, not a finding against
+  a diff that did not touch it.
 - **An orchestration depending only on foundation services.** Permitted here; only
   a *mixed* processing-and-foundation list is a finding.
 - Style, naming and formatting.

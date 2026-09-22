@@ -62,9 +62,17 @@ What you settle, in this order:
   envelope. It is never read from an ambient accessor, and an identity-filtered
   read must never be what decides an invariant — a read that returns nothing
   because the caller cannot see it is not the same as a row that does not exist.
-- **Brokers hold no logic** (`the-standard-brokers`). Narrow reads are still the
-  broker's job: the predicate and the await both live there, not a materialised
-  list filtered above.
+- **Brokers hold no logic** (`the-standard-brokers`), and a storage broker authors
+  no query condition (§ARC12.2.1, ruled 2026-09-22). It composes no
+  `Where`/`Select`/`OrderBy`, calls no predicate-taking terminal operator, and
+  never queries through its `DbContext` — a `DbSet<T>` is model registration, not
+  a query source. The caller (foundation service, or `AccessBroker` for its
+  gathers) authors the condition as a query-shaping function using `System.Linq`
+  only and passes it down; the storage client applies it and awaits the terminal
+  operator with the caller's token. The query still runs in SQL — a materialised
+  list filtered above is still wrong. **Not yet built:** the reads on `main` still
+  carry their predicates, so an unconverted read is a conversion backlog item, not
+  a fresh finding.
 - **Never skip a layer — with one named exception.** A layer depends only on the
   layer directly below it, except that an orchestration may depend on foundation
   services directly, under the same-kind rule two bullets below. Nowhere else in
