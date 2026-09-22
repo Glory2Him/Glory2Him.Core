@@ -863,6 +863,8 @@ Responsible for:
 
 **RULE — ONE gate covers every association type: the host names the settings entity and the far end names the switch asked of it.** The two halves have two sources and neither covers the other. The host half is §DOM6.10 rule 1 (`Domain.md:836`) — the switches "are resolved per endpoint, from that endpoint's own settings entity" — over §DOM6.10's host table. The far-end half is §ARC12.3.1 association rule 1 (`Architecture.md:277`), which is where the association types are mapped onto their switches. The mapping carries all six §DOM6.5 pairs (`Domain.md:754-759`); there is no per-type gate and no per-type copy of one.
 
+**Host: `ContentItem`.** These rows are the `ContentItem` column of a host × far-end matrix rather than the whole matrix, because both of their sources are `ContentItem`-host sources: the rows are §DOM6.5's `ContentItemSetting` settings table, and the far-end half is §ARC12.3.1 association rule 1, which says "the effective `ContentItemSetting`" in the same sentence. **A `BibleReference` host is deliberately not tabled**, and the two Bible-reference switch names are both correct for different cases rather than one being a mistake for the other: `BibleReferenceAllowed` is the switch for a `BibleReference` far end on a **`ContentItem`** host, while `RelatedBibleReferencesAllowed` is the switch for one on a **`BibleReference`** host (§DOM6.10 rule 2, `Domain.md:837`). Three of a `BibleReference`-host row's six cells are unruled, so writing that row would invent three rules — see the gap paragraph below.
+
 | Far endpoint type | Switch asked on the host's winning setting |
 | --- | --- |
 | `Tag` | `TagsAllowed` |
