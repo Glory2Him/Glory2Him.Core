@@ -21,10 +21,12 @@ import {
 // collection, so every gate below is exercised by varying the element itself, which is exactly
 // how a consumer changes one card without refetching a list.
 //
-// No router wrapper on purpose: every affordance is an EVENT, not a link. The auth double IS
-// here, because two of the card's decisions are identity decisions: Edit belongs to the item's
-// own submitter, Moderate to the moderation tier. Render gates only — the server re-decides
-// both against the stored row.
+// A router stands over every render, because one affordance is not an event: a signed-out
+// reader choosing a reaction is sent to sign in, and the card performs that navigation itself.
+// The auth double IS here, because three of the card's decisions are identity decisions: Edit
+// belongs to the item's own submitter, Moderate to the moderation tier, and a reaction to a
+// reader who is signed in at all. Render gates only — the server re-decides every write
+// against the stored row.
 const authState = createAuthState();
 
 // The sign-in redirect a signed-out reader's reaction triggers is a navigation, so the router's
@@ -921,6 +923,9 @@ describe('ContentItemPanel', () => {
 
     describe('giving a reaction', () => {
         it('should open the choices from Like and raise the selection', async () => {
+            // A signed-in reader: choosing is a write, and a signed-out reader is sent to sign
+            // in instead of raising it. Bryan submitted this quote, not the test user.
+            signInAs(authState);
             const onReactionSelected = vi.fn();
 
             renderCard(

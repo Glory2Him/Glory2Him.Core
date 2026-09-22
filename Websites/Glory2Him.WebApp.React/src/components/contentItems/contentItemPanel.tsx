@@ -1,4 +1,5 @@
 import { ComponentType, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../securitys/authProvider';
 import { ContentItemAddPanel } from './contentItemAddPanel';
 import { ContentItemDefaultPanel } from './contentItemDefaultPanel';
@@ -236,6 +237,7 @@ export function ContentItemPanel({
     ...eventsAndText
 }: ContentItemPanelProps) {
     const { isAuthenticated, user, userRoles } = useAuth();
+    const navigate = useNavigate();
 
     // The per-card render toggles, and whether the reader has taken Edit in place. Local state
     // is right even in a presentation component: which face is showing is nothing the consumer
@@ -453,6 +455,16 @@ export function ContentItemPanel({
             onReactionClick={() => setIsReactionPickerOpen(!isReactionPickerOpen)}
             onReactionSelected={(item, reaction) => {
                 setIsReactionPickerOpen(false);
+
+                // A SIGNED-OUT READER IS SENT TO SIGN IN, and the choice is not written. The
+                // click navigates on its own - no prompt, no modal, no toast, and nothing about
+                // the choice is kept for afterwards: the reader chooses again once signed in.
+                if (isAuthenticated === false) {
+                    navigate('/Account/Login');
+
+                    return;
+                }
+
                 onReactionSelected?.(item, reaction);
             }}
             {...eventsAndText} />
