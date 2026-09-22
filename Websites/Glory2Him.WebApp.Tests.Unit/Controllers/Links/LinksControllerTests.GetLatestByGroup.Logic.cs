@@ -39,7 +39,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Links
 
             // when
             ActionResult<Link> actualActionResult =
-                await linksController.GetLatestLinkByGroupIdAsync(inputGroupId, default);
+                await linksController.GetLatestLinkByGroupIdAsync(inputGroupId, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

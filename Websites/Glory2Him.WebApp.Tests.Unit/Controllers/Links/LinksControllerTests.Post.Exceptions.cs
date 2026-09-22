@@ -43,7 +43,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Links
 
             // when
             ActionResult<Link> actualActionResult =
-                await this.linksController.PostLinkAsync(someLink, default);
+                await this.linksController.PostLinkAsync(someLink, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -75,7 +75,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Links
 
             // when
             ActionResult<Link> actualActionResult =
-                await this.linksController.PostLinkAsync(someLink, default);
+                await this.linksController.PostLinkAsync(someLink, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -115,7 +115,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Links
 
             // when
             ActionResult<Link> actualActionResult =
-                await this.linksController.PostLinkAsync(someLink, default);
+                await this.linksController.PostLinkAsync(someLink, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -147,7 +147,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Links
 
             // when
             ActionResult<Link> actualActionResult =
-                await this.linksController.PostLinkAsync(someLink, default);
+                await this.linksController.PostLinkAsync(someLink, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

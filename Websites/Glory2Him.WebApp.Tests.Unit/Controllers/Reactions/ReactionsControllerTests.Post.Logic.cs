@@ -42,7 +42,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Reactions
                     .ReturnsAsync(addedReaction);
 
             // when
-            ActionResult<Reaction> actualActionResult = await reactionsController.PostReactionAsync(randomReaction, default);
+            ActionResult<Reaction> actualActionResult = await reactionsController.PostReactionAsync(randomReaction, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

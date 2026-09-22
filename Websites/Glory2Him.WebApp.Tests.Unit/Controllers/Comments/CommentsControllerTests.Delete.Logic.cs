@@ -46,7 +46,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Comments
 
             // when
             ActionResult<Comment> actualActionResult =
-                await commentsController.DeleteCommentByIdAsync(randomComment.Id, inputDeletionReason, default);
+                await commentsController.DeleteCommentByIdAsync(randomComment.Id, inputDeletionReason, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

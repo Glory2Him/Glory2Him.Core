@@ -45,7 +45,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ContentItemSettings
 
             // when
             ActionResult<ContentItemSetting> actualActionResult =
-                await this.contentItemSettingsController.HardDeleteContentItemSettingByIdAsync(someId, default);
+                await this.contentItemSettingsController.HardDeleteContentItemSettingByIdAsync(someId, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -77,7 +77,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ContentItemSettings
 
             // when
             ActionResult<ContentItemSetting> actualActionResult =
-                await this.contentItemSettingsController.HardDeleteContentItemSettingByIdAsync(someId, default);
+                await this.contentItemSettingsController.HardDeleteContentItemSettingByIdAsync(someId, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -117,7 +117,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ContentItemSettings
 
             // when
             ActionResult<ContentItemSetting> actualActionResult =
-                await this.contentItemSettingsController.HardDeleteContentItemSettingByIdAsync(someId, default);
+                await this.contentItemSettingsController.HardDeleteContentItemSettingByIdAsync(someId, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -157,7 +157,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ContentItemSettings
 
             // when
             ActionResult<ContentItemSetting> actualActionResult =
-                await this.contentItemSettingsController.HardDeleteContentItemSettingByIdAsync(someId, default);
+                await this.contentItemSettingsController.HardDeleteContentItemSettingByIdAsync(someId, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -200,7 +200,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ContentItemSettings
 
             // when
             ActionResult<ContentItemSetting> actualActionResult =
-                await this.contentItemSettingsController.HardDeleteContentItemSettingByIdAsync(someId, default);
+                await this.contentItemSettingsController.HardDeleteContentItemSettingByIdAsync(someId, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -231,7 +231,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ContentItemSettings
 
             // when
             ActionResult<ContentItemSetting> actualActionResult =
-                await this.contentItemSettingsController.HardDeleteContentItemSettingByIdAsync(someId, default);
+                await this.contentItemSettingsController.HardDeleteContentItemSettingByIdAsync(someId, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -273,7 +273,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ContentItemSettings
 
             // when
             ActionResult<ContentItemSetting> actualActionResult =
-                await this.contentItemSettingsController.HardDeleteContentItemSettingByIdAsync(someId, default);
+                await this.contentItemSettingsController.HardDeleteContentItemSettingByIdAsync(someId, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

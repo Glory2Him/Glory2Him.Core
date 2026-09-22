@@ -44,7 +44,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.BibleReferences
 
             // when
             ActionResult<BibleReference> actualActionResult =
-                await bibleReferencesController.SubmitBibleReferenceByIdAsync(randomBibleReference.Id, default);
+                await bibleReferencesController.SubmitBibleReferenceByIdAsync(randomBibleReference.Id, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

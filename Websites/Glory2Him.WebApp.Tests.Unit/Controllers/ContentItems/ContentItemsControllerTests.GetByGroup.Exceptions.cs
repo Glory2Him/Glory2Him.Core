@@ -60,7 +60,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ContentItems
 
             // when
             ActionResult<IReadOnlyList<ContentItem>> actualActionResult =
-                await this.contentItemsController.GetContentItemsByGroupId(someGroupId, default);
+                await this.contentItemsController.GetContentItemsByGroupId(someGroupId, TestContext.Current.CancellationToken);
 
             // then: 400, not the 500 this route used to answer
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

@@ -41,7 +41,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Tags
                     .ReturnsAsync(storageTag);
 
             // when
-            ActionResult<Tag> actualActionResult = await tagsController.PutTagAsync(randomTag, default);
+            ActionResult<Tag> actualActionResult = await tagsController.PutTagAsync(randomTag, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

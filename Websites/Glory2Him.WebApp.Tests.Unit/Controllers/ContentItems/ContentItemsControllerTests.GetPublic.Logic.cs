@@ -41,7 +41,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ContentItems
 
             // when
             ActionResult<IQueryable<ContentItem>> actualActionResult =
-                await contentItemsController.GetPublicContentItems(default);
+                await contentItemsController.GetPublicContentItems(TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

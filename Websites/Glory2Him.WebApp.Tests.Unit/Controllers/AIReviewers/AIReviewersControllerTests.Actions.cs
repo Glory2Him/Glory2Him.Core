@@ -48,7 +48,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.AIReviewers
                 await this.aiReviewersController.GetAIReviewerAsync(
                     randomEntityType,
                     randomEntityId,
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.Result.Should().BeOfType<OkObjectResult>();
@@ -92,7 +92,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.AIReviewers
                 await this.aiReviewersController.GetAIReviewerAsync(
                     GetRandomEntityType(),
                     Guid.NewGuid(),
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -136,7 +136,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.AIReviewers
                 await this.aiReviewersController.GetAIReviewerAsync(
                     GetRandomEntityType(),
                     Guid.NewGuid(),
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -183,7 +183,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.AIReviewers
                 await this.aiReviewersController.GetAIReviewerAsync(
                     GetRandomEntityType(),
                     Guid.NewGuid(),
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -222,7 +222,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.AIReviewers
                 await this.aiReviewersController.GetAIReviewerAsync(
                     GetRandomEntityType(),
                     Guid.NewGuid(),
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -261,7 +261,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.AIReviewers
                 await this.aiReviewersController.GetAIReviewerAsync(
                     GetRandomEntityType(),
                     Guid.NewGuid(),
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -301,7 +301,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.AIReviewers
                 await this.aiReviewersController.PostAIReviewerAsync(
                     randomEntityType,
                     randomEntityId,
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.Result.Should().BeOfType<OkObjectResult>();
@@ -343,7 +343,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.AIReviewers
                 await this.aiReviewersController.PostAIReviewerAsync(
                     GetRandomEntityType(),
                     Guid.NewGuid(),
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -407,7 +407,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.AIReviewers
                 await this.aiReviewersController.PostAIReviewerAsync(
                     GetRandomEntityType(),
                     Guid.NewGuid(),
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -464,7 +464,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.AIReviewers
                 await this.aiReviewersController.DeleteAIReviewerAsync(
                     GetRandomEntityType(),
                     Guid.NewGuid(),
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -508,7 +508,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.AIReviewers
                 await this.aiReviewersController.PostAIReviewerAsync(
                     GetRandomEntityType(),
                     Guid.NewGuid(),
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -555,7 +555,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.AIReviewers
                 await this.aiReviewersController.PostAIReviewerAsync(
                     GetRandomEntityType(),
                     Guid.NewGuid(),
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -594,7 +594,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.AIReviewers
                 await this.aiReviewersController.PostAIReviewerAsync(
                     GetRandomEntityType(),
                     Guid.NewGuid(),
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -633,7 +633,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.AIReviewers
                 await this.aiReviewersController.PostAIReviewerAsync(
                     GetRandomEntityType(),
                     Guid.NewGuid(),
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -668,7 +668,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.AIReviewers
                 await this.aiReviewersController.DeleteAIReviewerAsync(
                     randomEntityType,
                     randomEntityId,
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.Result.Should().BeOfType<OkObjectResult>();
@@ -706,7 +706,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.AIReviewers
                 await this.aiReviewersController.DeleteAIReviewerAsync(
                     GetRandomEntityType(),
                     Guid.NewGuid(),
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.Result.Should().BeOfType<NoContentResult>();
@@ -736,7 +736,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.AIReviewers
                 await this.aiReviewersController.DeleteAIReviewerAsync(
                     GetRandomEntityType(),
                     Guid.NewGuid(),
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -780,7 +780,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.AIReviewers
                 await this.aiReviewersController.DeleteAIReviewerAsync(
                     GetRandomEntityType(),
                     Guid.NewGuid(),
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -827,7 +827,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.AIReviewers
                 await this.aiReviewersController.DeleteAIReviewerAsync(
                     GetRandomEntityType(),
                     Guid.NewGuid(),
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -866,7 +866,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.AIReviewers
                 await this.aiReviewersController.DeleteAIReviewerAsync(
                     GetRandomEntityType(),
                     Guid.NewGuid(),
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -905,7 +905,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.AIReviewers
                 await this.aiReviewersController.DeleteAIReviewerAsync(
                     GetRandomEntityType(),
                     Guid.NewGuid(),
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

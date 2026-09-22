@@ -41,7 +41,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Links
                     .ReturnsAsync(storageLink);
 
             // when
-            ActionResult<Link> actualActionResult = await linksController.PutLinkAsync(randomLink, default);
+            ActionResult<Link> actualActionResult = await linksController.PutLinkAsync(randomLink, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

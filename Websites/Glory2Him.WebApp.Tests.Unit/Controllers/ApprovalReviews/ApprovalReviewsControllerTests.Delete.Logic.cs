@@ -49,7 +49,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalReviews
                 await approvalReviewsController.DeleteApprovalReviewByIdAsync(
                     randomApprovalReview.Id,
                     inputDeletionReason,
-                    default);
+                    TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

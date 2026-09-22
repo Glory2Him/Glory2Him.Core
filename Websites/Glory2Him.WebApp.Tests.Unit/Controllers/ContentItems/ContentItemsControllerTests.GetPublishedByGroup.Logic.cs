@@ -39,7 +39,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ContentItems
 
             // when
             ActionResult<ContentItem> actualActionResult =
-                await contentItemsController.GetPublishedContentItemByGroupIdAsync(inputGroupId, default);
+                await contentItemsController.GetPublishedContentItemByGroupIdAsync(inputGroupId, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

@@ -43,7 +43,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Reactions
 
             // when
             ActionResult<Reaction> actualActionResult =
-                await this.reactionsController.GetReactionByIdAsync(someId, default);
+                await this.reactionsController.GetReactionByIdAsync(someId, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -75,7 +75,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Reactions
 
             // when
             ActionResult<Reaction> actualActionResult =
-                await this.reactionsController.GetReactionByIdAsync(someId, default);
+                await this.reactionsController.GetReactionByIdAsync(someId, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -115,7 +115,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Reactions
 
             // when
             ActionResult<Reaction> actualActionResult =
-                await this.reactionsController.GetReactionByIdAsync(someId, default);
+                await this.reactionsController.GetReactionByIdAsync(someId, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -146,7 +146,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Reactions
 
             // when
             ActionResult<Reaction> actualActionResult =
-                await this.reactionsController.GetReactionByIdAsync(someId, default);
+                await this.reactionsController.GetReactionByIdAsync(someId, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

@@ -43,7 +43,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Tags
 
             // when
             ActionResult<Tag> actualActionResult =
-                await this.tagsController.PostTagAsync(someTag, default);
+                await this.tagsController.PostTagAsync(someTag, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -75,7 +75,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Tags
 
             // when
             ActionResult<Tag> actualActionResult =
-                await this.tagsController.PostTagAsync(someTag, default);
+                await this.tagsController.PostTagAsync(someTag, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -115,7 +115,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Tags
 
             // when
             ActionResult<Tag> actualActionResult =
-                await this.tagsController.PostTagAsync(someTag, default);
+                await this.tagsController.PostTagAsync(someTag, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -158,7 +158,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Tags
 
             // when
             ActionResult<Tag> actualActionResult =
-                await this.tagsController.PostTagAsync(someTag, default);
+                await this.tagsController.PostTagAsync(someTag, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -189,7 +189,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Tags
 
             // when
             ActionResult<Tag> actualActionResult =
-                await this.tagsController.PostTagAsync(someTag, default);
+                await this.tagsController.PostTagAsync(someTag, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

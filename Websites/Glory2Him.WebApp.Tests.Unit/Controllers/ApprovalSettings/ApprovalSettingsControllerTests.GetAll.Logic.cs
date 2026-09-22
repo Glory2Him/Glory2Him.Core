@@ -42,7 +42,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalSettings
 
             // when
             ActionResult<IQueryable<ApprovalSetting>> actualActionResult =
-                await approvalSettingsController.Get(default);
+                await approvalSettingsController.Get(TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

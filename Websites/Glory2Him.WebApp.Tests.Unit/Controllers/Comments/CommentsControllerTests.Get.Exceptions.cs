@@ -43,7 +43,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Comments
 
             // when
             ActionResult<Comment> actualActionResult =
-                await this.commentsController.GetCommentByIdAsync(someId, default);
+                await this.commentsController.GetCommentByIdAsync(someId, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -75,7 +75,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Comments
 
             // when
             ActionResult<Comment> actualActionResult =
-                await this.commentsController.GetCommentByIdAsync(someId, default);
+                await this.commentsController.GetCommentByIdAsync(someId, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -115,7 +115,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Comments
 
             // when
             ActionResult<Comment> actualActionResult =
-                await this.commentsController.GetCommentByIdAsync(someId, default);
+                await this.commentsController.GetCommentByIdAsync(someId, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -146,7 +146,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Comments
 
             // when
             ActionResult<Comment> actualActionResult =
-                await this.commentsController.GetCommentByIdAsync(someId, default);
+                await this.commentsController.GetCommentByIdAsync(someId, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

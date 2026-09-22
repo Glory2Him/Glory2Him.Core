@@ -41,7 +41,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalSettings
                     .ReturnsAsync(storageApprovalSetting);
 
             // when
-            ActionResult<ApprovalSetting> actualActionResult = await approvalSettingsController.PutApprovalSettingAsync(randomApprovalSetting, default);
+            ActionResult<ApprovalSetting> actualActionResult = await approvalSettingsController.PutApprovalSettingAsync(randomApprovalSetting, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

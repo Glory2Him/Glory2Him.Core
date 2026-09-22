@@ -44,7 +44,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Tags
 
             // when
             ActionResult<Tag> actualActionResult =
-                await this.tagsController.HardDeleteTagByIdAsync(someId, default);
+                await this.tagsController.HardDeleteTagByIdAsync(someId, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -76,7 +76,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Tags
 
             // when
             ActionResult<Tag> actualActionResult =
-                await this.tagsController.HardDeleteTagByIdAsync(someId, default);
+                await this.tagsController.HardDeleteTagByIdAsync(someId, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -116,7 +116,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Tags
 
             // when
             ActionResult<Tag> actualActionResult =
-                await this.tagsController.HardDeleteTagByIdAsync(someId, default);
+                await this.tagsController.HardDeleteTagByIdAsync(someId, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -156,7 +156,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Tags
 
             // when
             ActionResult<Tag> actualActionResult =
-                await this.tagsController.HardDeleteTagByIdAsync(someId, default);
+                await this.tagsController.HardDeleteTagByIdAsync(someId, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -199,7 +199,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Tags
 
             // when
             ActionResult<Tag> actualActionResult =
-                await this.tagsController.HardDeleteTagByIdAsync(someId, default);
+                await this.tagsController.HardDeleteTagByIdAsync(someId, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -230,7 +230,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Tags
 
             // when
             ActionResult<Tag> actualActionResult =
-                await this.tagsController.HardDeleteTagByIdAsync(someId, default);
+                await this.tagsController.HardDeleteTagByIdAsync(someId, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -272,7 +272,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Tags
 
             // when
             ActionResult<Tag> actualActionResult =
-                await this.tagsController.HardDeleteTagByIdAsync(someId, default);
+                await this.tagsController.HardDeleteTagByIdAsync(someId, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

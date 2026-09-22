@@ -79,7 +79,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             List<Guid> actualRetirableRequestIds =
                 await this.accessBroker.FindRetirableApprovalReviewRequestIdsAsync(
                     approvalId: approvalId,
-                    cancellationToken: default);
+                    cancellationToken: TestContext.Current.CancellationToken);
 
             // then
             actualRetirableRequestIds.Should().Equal(new[] { outstandingRequest.Id },
@@ -154,7 +154,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             List<Guid> actualRetirableRequestIds =
                 await this.accessBroker.FindRetirableApprovalReviewRequestIdsAsync(
                     approvalId: approvalId,
-                    cancellationToken: default);
+                    cancellationToken: TestContext.Current.CancellationToken);
 
             // then
             actualRetirableRequestIds.Should().Equal(
@@ -248,7 +248,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             List<Guid> actualRetirableRequestIds =
                 await this.accessBroker.FindRetirableApprovalReviewRequestIdsAsync(
                     approvalId: approvalId,
-                    cancellationToken: default);
+                    cancellationToken: TestContext.Current.CancellationToken);
 
             // then
             actualRetirableRequestIds.Should().BeEquivalentTo(
@@ -301,7 +301,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             List<Guid> actualRetirableRequestIds =
                 await this.accessBroker.FindRetirableApprovalReviewRequestIdsAsync(
                     approvalId: approvalId,
-                    cancellationToken: default);
+                    cancellationToken: TestContext.Current.CancellationToken);
 
             // then
             actualRetirableRequestIds.Should().BeEquivalentTo(
@@ -349,7 +349,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             List<Guid> actualRetirableRequestIds =
                 await this.accessBroker.FindRetirableApprovalReviewRequestIdsAsync(
                     approvalId: approvalId,
-                    cancellationToken: default);
+                    cancellationToken: TestContext.Current.CancellationToken);
 
             // then
             actualRetirableRequestIds.Should().BeEquivalentTo(
@@ -396,7 +396,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             List<Guid> actualRetirableRequestIds =
                 await this.accessBroker.FindRetirableApprovalReviewRequestIdsAsync(
                     approvalId: approvalId,
-                    cancellationToken: default);
+                    cancellationToken: TestContext.Current.CancellationToken);
 
             // then
             actualRetirableRequestIds.Should().Equal(
@@ -417,7 +417,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             List<Guid> actualRetirableRequestIds =
                 await this.accessBroker.FindRetirableApprovalReviewRequestIdsAsync(
                     approvalId: Guid.NewGuid(),
-                    cancellationToken: default);
+                    cancellationToken: TestContext.Current.CancellationToken);
 
             // then
             actualRetirableRequestIds.Should().BeEmpty(

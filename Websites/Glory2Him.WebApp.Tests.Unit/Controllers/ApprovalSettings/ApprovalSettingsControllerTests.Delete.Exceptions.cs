@@ -46,7 +46,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalSettings
 
             // when
             ActionResult<ApprovalSetting> actualActionResult =
-                await this.approvalSettingsController.DeleteApprovalSettingByIdAsync(someId, null, default);
+                await this.approvalSettingsController.DeleteApprovalSettingByIdAsync(someId, null, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -84,7 +84,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalSettings
 
             // when
             ActionResult<ApprovalSetting> actualActionResult =
-                await this.approvalSettingsController.DeleteApprovalSettingByIdAsync(someId, null, default);
+                await this.approvalSettingsController.DeleteApprovalSettingByIdAsync(someId, null, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -130,7 +130,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalSettings
 
             // when
             ActionResult<ApprovalSetting> actualActionResult =
-                await this.approvalSettingsController.DeleteApprovalSettingByIdAsync(someId, null, default);
+                await this.approvalSettingsController.DeleteApprovalSettingByIdAsync(someId, null, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -176,7 +176,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalSettings
 
             // when
             ActionResult<ApprovalSetting> actualActionResult =
-                await this.approvalSettingsController.DeleteApprovalSettingByIdAsync(someId, null, default);
+                await this.approvalSettingsController.DeleteApprovalSettingByIdAsync(someId, null, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -225,7 +225,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalSettings
 
             // when
             ActionResult<ApprovalSetting> actualActionResult =
-                await this.approvalSettingsController.DeleteApprovalSettingByIdAsync(someId, null, default);
+                await this.approvalSettingsController.DeleteApprovalSettingByIdAsync(someId, null, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -259,7 +259,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalSettings
 
             // when
             ActionResult<ApprovalSetting> actualActionResult =
-                await this.approvalSettingsController.DeleteApprovalSettingByIdAsync(someId, null, default);
+                await this.approvalSettingsController.DeleteApprovalSettingByIdAsync(someId, null, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -303,7 +303,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalSettings
 
             // when
             ActionResult<ApprovalSetting> actualActionResult =
-                await this.approvalSettingsController.DeleteApprovalSettingByIdAsync(someId, null, default);
+                await this.approvalSettingsController.DeleteApprovalSettingByIdAsync(someId, null, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

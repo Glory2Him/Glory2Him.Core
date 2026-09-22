@@ -43,7 +43,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Links
 
             // when
             ActionResult<IReadOnlyList<Link>> actualActionResult =
-                await linksController.GetLinksByGroupId(inputGroupId, default);
+                await linksController.GetLinksByGroupId(inputGroupId, TestContext.Current.CancellationToken);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

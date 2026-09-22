@@ -60,7 +60,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Links
 
             // when
             ActionResult<IReadOnlyList<Link>> actualActionResult =
-                await this.linksController.GetLinksByGroupId(someGroupId, default);
+                await this.linksController.GetLinksByGroupId(someGroupId, TestContext.Current.CancellationToken);
 
             // then: 400, not the 500 this route used to answer
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

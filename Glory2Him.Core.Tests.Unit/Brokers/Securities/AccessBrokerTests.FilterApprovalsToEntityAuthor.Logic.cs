@@ -74,7 +74,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                 await this.accessBroker.FilterApprovalsToEntityAuthorAsync(
                     approvals: approvals,
                     authorUserId: actorUserId,
-                    cancellationToken: default);
+                    cancellationToken: TestContext.Current.CancellationToken);
 
             // then
             actualApprovals.Should().Equal(new[] { ownApproval },
@@ -105,7 +105,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                 await this.accessBroker.FilterApprovalsToEntityAuthorAsync(
                     approvals: approvals,
                     authorUserId: actorUserId,
-                    cancellationToken: default);
+                    cancellationToken: TestContext.Current.CancellationToken);
 
             // then
             actualApprovals.Should().BeEmpty(
@@ -136,7 +136,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                 await this.accessBroker.FilterApprovalsToEntityAuthorAsync(
                     approvals: approvals,
                     authorUserId: unresolvableUserId,
-                    cancellationToken: default);
+                    cancellationToken: TestContext.Current.CancellationToken);
 
             // then
             actualApprovals.Should().BeEmpty(
@@ -167,7 +167,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                 await this.accessBroker.FilterApprovalsToEntityAuthorAsync(
                     approvals: approvals,
                     authorUserId: "author-" + GetRandomString(),
-                    cancellationToken: default);
+                    cancellationToken: TestContext.Current.CancellationToken);
 
             // then
             actualApprovals.Should().BeEmpty(
