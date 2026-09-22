@@ -125,7 +125,7 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ProcessedEvents
                     Guid.NewGuid(), "Some.Receiver", alreadyCancelledToken);
 
             // then
-            await probingExistence.Should().NotThrowAsync();
+            await probingExistence.Should().ThrowAsync<OperationCanceledException>();
         }
 
         private async Task<ProcessedEvent> SeedProcessedEventAsync()
