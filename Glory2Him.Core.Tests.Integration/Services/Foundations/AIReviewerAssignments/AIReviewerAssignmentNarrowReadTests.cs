@@ -76,7 +76,7 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.AIReviewerAssign
                     approvalWithNoAssignment.Id, TestContext.Current.CancellationToken);
 
             // then: the empty answer, not a fault
-            actualAssignment.Should().NotBeNull();
+            actualAssignment.Should().BeNull();
         }
 
         private async Task<Approval> SeedApprovalAsync()
