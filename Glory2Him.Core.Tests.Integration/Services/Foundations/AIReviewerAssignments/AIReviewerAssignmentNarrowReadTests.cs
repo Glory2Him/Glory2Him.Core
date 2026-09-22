@@ -112,7 +112,7 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.AIReviewerAssign
                     Guid.NewGuid(), alreadyCancelledToken);
 
             // then
-            await readingAssignment.Should().NotThrowAsync();
+            await readingAssignment.Should().ThrowAsync<OperationCanceledException>();
         }
 
         private async Task<Approval> SeedApprovalAsync()
