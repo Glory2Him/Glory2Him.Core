@@ -13,6 +13,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
@@ -151,6 +152,95 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.contentItemServiceMock.VerifyNoOtherCalls();
             this.tagServiceMock.VerifyNoOtherCalls();
             this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // Claims that contradict what the endpoints resolve to — a Story on A, a Tag (no content
+        // type) on B. Omitting A's value is a contradiction too: the derived value governs, and an
+        // omission handed down would reach the foundation's gate as "undecidable" rather than as
+        // what the endpoint is.
+        public static TheoryData<ContentType?, ContentType?, string> ContradictingContentTypeClaims() =>
+            new TheoryData<ContentType?, ContentType?, string>
+            {
+                { ContentType.Testimony, null, nameof(Association.EntityAContentType) },
+                { null, null, nameof(Association.EntityAContentType) },
+                { ContentType.Story, ContentType.Story, nameof(Association.EntityBContentType) },
+            };
+
+        // REFUSED, NOT OVERWRITTEN (Architecture.md, "the derivation REFUSES a contradicting
+        // claim"). The claim sits inside a signed envelope whose HMAC covers the content, and the
+        // property that signature buys is that no receiver silently edits a part the rules read.
+        // So the derived value still governs, and a request that contradicts it never reaches the
+        // foundation. An honest publisher — anything that resolved the endpoints — is unaffected.
+        [Theory]
+        [MemberData(nameof(ContradictingContentTypeClaims))]
+        public async Task ShouldRefuseAContradictingContentTypeOnTheEventPathAsync(
+            ContentType? claimedEntityAContentType,
+            ContentType? claimedEntityBContentType,
+            string contradictedParameter)
+        {
+            // given
+            Association addRequest = CreateHonestAddRequest();
+            addRequest.EntityAContentType = claimedEntityAContentType;
+            addRequest.EntityBContentType = claimedEntityBContentType;
+            EventEnvelope<Association> inputEnvelope = CreateRequestEnvelope(addRequest);
+            SetupEventPathEndpointReads(addRequest, inputEnvelope);
+
+            var invalidAssociationOrchestrationException =
+                new InvalidAssociationOrchestrationException(
+                    message: "Content item association is invalid, fix the errors and try again.");
+
+            invalidAssociationOrchestrationException.AddData(
+                key: contradictedParameter,
+                values: "Value must be the content type its endpoint resolves to");
+
+            var expectedValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: "Content item association orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: invalidAssociationOrchestrationException);
+
+            // when
+            ValueTask<EventEnvelope<Association>> onAddingTask =
+                this.associationOrchestrationService.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(
+                    onAddingTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
+            // the derivation ran — both reads, as the signed caller — and the write never did
+            this.contentItemServiceMock.Verify(service =>
+                service.RetrieveContentItemByIdAsync(
+                    addRequest.EntityAKeyId,
+                    inputEnvelope,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.tagServiceMock.Verify(service =>
+                service.RetrieveTagByIdAsync(
+                    addRequest.EntityBKeyId,
+                    inputEnvelope,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.associationServiceMock.Verify(service =>
+                service.HasAlreadyAddedAssociationAsync(
+                    inputEnvelope,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.tagServiceMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
     }
