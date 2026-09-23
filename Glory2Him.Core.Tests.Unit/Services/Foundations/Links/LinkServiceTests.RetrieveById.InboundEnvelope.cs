@@ -124,5 +124,84 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        // A MISS ON THIS OVERLOAD MUST READ AS A MISS. The association orchestration recognises an
+        // unresolvable endpoint by its *ValidationException shape; a raw NotFoundLinkException
+        // escaping here would reach its dependency clause instead and report "this endpoint does
+        // not exist" as a failed dependency.
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnRetrieveByIdAsTheInboundEnvelopesCallerIfLinkNotFoundAndLogItAsync()
+        {
+            // given
+            Guid someLinkId = Guid.NewGuid();
+            Link nullLink = null;
+
+            var inboundEnvelope = new EventEnvelope<Association>
+            {
+                Content = new Association { Id = Guid.NewGuid() },
+                SecurityContext = CreateAuthenticatedSecurityContext(),
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateNextAsync(
+                    It.IsAny<EventEnvelope<Association>>(),
+                    It.IsAny<Link>()))
+                        .Returns((EventEnvelope<Association> source, Link content) =>
+                            new ValueTask<EventEnvelope<Link>>(
+                                new EventEnvelope<Link>
+                                {
+                                    Content = content,
+                                    SecurityContext = source.SecurityContext,
+                                    Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+                                }));
+
+            var notFoundLinkException =
+                new NotFoundLinkException(
+                    message: $"Link not found with id: {someLinkId}.");
+
+            var expectedLinkValidationException =
+                new LinkValidationException(
+                    message: "Link validation error occurred, fix the errors and try again.",
+                    innerException: notFoundLinkException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectLinkByIdAsync(
+                    someLinkId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(nullLink);
+
+            // when
+            ValueTask<Link> retrieveLinkByIdTask =
+                this.linkService.RetrieveLinkByIdAsync(
+                    someLinkId,
+                    inboundEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            LinkValidationException actualLinkValidationException =
+                await Assert.ThrowsAsync<LinkValidationException>(
+                    retrieveLinkByIdTask.AsTask);
+
+            // then
+            actualLinkValidationException.Should().BeEquivalentTo(
+                expectedLinkValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectLinkByIdAsync(
+                    someLinkId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedLinkValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
