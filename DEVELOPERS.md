@@ -505,14 +505,9 @@ field on that command. Use the REST endpoint above.
 
 Issue #512, "add a saved-searches panel". UI work, so it starts with a picture.
 
-**1 — Issue first.** Open it and describe the behaviour in prose. First line of
-the body:
-
-```markdown
-**Model - Effort:** Opus 5 - Medium
-```
-
-Apply the matching `Opus 5 - Medium` label. The issue comes first because the
+**1 — Issue first.** Open it and describe the behaviour in prose, and apply the
+`Opus 5 - Medium` label. The label is the whole of the budget decision; do not
+restate it in the body. The issue comes first because the
 mockup's README has to name it, and a raw-URL embed has to name a commit that
 already exists.
 
@@ -696,8 +691,9 @@ is the only PR-linter job that fails on the pull request's own content. The
 labelling job can still red for its own reasons, as above. `Build` is the only
 status check the branch ruleset requires green.
 
-**Issue labels.** Every issue carries a `Model - Effort` line as the first line of
-the body and the matching label. The `Model - Effort` set is not a tidy matrix —
+**Issue labels.** Every issue carries a `Model - Effort` label. The body does not
+repeat it — the label is the decision, and the body is where what actually ran is
+recorded afterwards. The `Model - Effort` set is not a tidy matrix —
 these eleven exist and no other pairing of the two does. It is not the whole label
 inventory: the category labels the PR linter applies are separate, and so is
 `DESIGN` below.
@@ -734,13 +730,14 @@ Trivial work — a rename, a config change, a doc relocation — is `Fable 5` or
 escalate-on-scope-discovered rule correct it. Over-spending is invisible and
 nobody else is watching for it.
 
-**The label is the decision.** It duplicates the `Model - Effort` line in the
-issue body for one reason: the label shows in the issue list and the line does
-not, so whoever is about to pick the issue up can see what to set their session
-to without opening it. That is what the label is for, so it is chosen when the
-issue is written and it does not change afterwards. The agent that writes the
-issue must get it right; a wrong label sends the next person to the wrong model
-before anyone has read a line of code.
+**The label is the decision, and it is the only place the decision lives.** It
+shows in the issue list, so whoever is about to pick the issue up can see what to
+set their session to without opening anything — which is the whole reason it is a
+label rather than a line of prose. The body does not carry a copy: a second
+statement of the same thing only creates the question of which one is right. It
+is chosen when the issue is written and it does not change afterwards, so the
+agent writing the issue must get it right; a wrong label sends the next person to
+the wrong model before anyone has read a line of code.
 
 **The body records what it actually cost.** When the pull request opens, the
 developer appends a line under a `## Model usage` heading at the end of the

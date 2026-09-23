@@ -41,8 +41,9 @@ Failed QA goes back to whoever owns the finding: implementation to the developer
 missing or contradictory criteria to the analyst, a crossed boundary or a wrong
 layer to the architect.
 
-Every issue carries a `Model - Effort` line in its body and the matching label
-spelled out in full, such as `Opus 5 - Medium`.
+Every issue carries a `Model - Effort` label, spelled out in full, such as
+`Opus 5 - Medium`. It is the decision and the issue body does not repeat it; what
+actually ran is appended to the body under `## Model usage` when the PR opens.
 
 ## Non-negotiables
 
