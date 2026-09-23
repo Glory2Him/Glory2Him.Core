@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -85,6 +86,70 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.bibleReferenceServiceMock.VerifyNoOtherCalls();
             this.commentServiceMock.VerifyNoOtherCalls();
             this.linkServiceMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // Nothing to verify, nothing to deduplicate on and nothing to derive from. Refused ahead
+        // of the verify, so a shapeless delivery never reaches the integrity broker at all.
+        public static TheoryData<EventEnvelope<Association>> IncompleteAddingEnvelopes() =>
+            new TheoryData<EventEnvelope<Association>>
+            {
+                null,
+
+                new EventEnvelope<Association>
+                {
+                    Content = null,
+                    SecurityContext = CreateAuthenticatedSecurityContext(),
+                    Metadata = new EventMetadata { EventId = Guid.NewGuid() },
+                },
+
+                new EventEnvelope<Association>
+                {
+                    Content = CreateHonestAddRequest(),
+                    SecurityContext = CreateAuthenticatedSecurityContext(),
+                    Metadata = null,
+                },
+            };
+
+        [Theory]
+        [MemberData(nameof(IncompleteAddingEnvelopes))]
+        public async Task ShouldThrowValidationExceptionOnAddingIfTheEnvelopeIsIncompleteAndLogItAsync(
+            EventEnvelope<Association> incompleteEnvelope)
+        {
+            // given
+            var invalidAssociationOrchestrationException =
+                new InvalidAssociationOrchestrationException(
+                    message: "Invalid content item association event. " +
+                        "The event envelope, its content and metadata are required.");
+
+            var expectedValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: "Content item association orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: invalidAssociationOrchestrationException);
+
+            // when
+            ValueTask<EventEnvelope<Association>> onAddingTask =
+                this.associationOrchestrationService.OnAddingAssociationAsync(
+                    incompleteEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(
+                    onAddingTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.tagServiceMock.VerifyNoOtherCalls();
             this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
