@@ -199,6 +199,43 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
         }
 
         [Fact]
+        public async Task ShouldPermitTwoReadersOnOneItemAsync()
+        {
+            // given: the personal key dropped the far end, so it is (item, far-end type,
+            // reader) that must now keep reactions apart. Two readers giving the SAME reaction
+            // to one item differ only by reader, and one reader reacting to two items differs
+            // only by item — each is a distinct key and must be accepted.
+            Guid firstGroupId = Guid.NewGuid();
+            Guid secondGroupId = Guid.NewGuid();
+            Guid loveGroupId = Guid.NewGuid();
+            string firstReaderUserId = Guid.NewGuid().ToString();
+            string secondReaderUserId = Guid.NewGuid().ToString();
+
+            Association firstReaderAssociation =
+                CreateReaction(firstGroupId, loveGroupId, firstReaderUserId);
+
+            Association secondReaderAssociation =
+                CreateReaction(firstGroupId, loveGroupId, secondReaderUserId);
+
+            Association secondItemAssociation =
+                CreateReaction(secondGroupId, loveGroupId, firstReaderUserId);
+
+            // when
+            Exception firstReaderOutcome = await SeedAsync(firstReaderAssociation);
+            Exception secondReaderOutcome = await SeedAsync(secondReaderAssociation);
+            Exception secondItemOutcome = await SeedAsync(secondItemAssociation);
+
+            // then
+            firstReaderOutcome.Should().BeNull();
+
+            secondReaderOutcome.Should().BeNull(
+                because: "a second reader's reaction on the same item is a different key");
+
+            secondItemOutcome.Should().BeNull(
+                because: "the same reader's reaction on a different item is a different key");
+        }
+
+        [Fact]
         public async Task ShouldRejectAPairWhoseEndpointsShareAGroupAsync()
         {
             // given: an entity associated with itself
