@@ -261,7 +261,13 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ContentItems
                 "UX_ApprovalSettings_EntityTypeContentType	([ContentType] IS NOT NULL AND [IsDeleted]=(0))",
                 "UX_ApprovalSettings_EntityTypeDefault	([EntityType] IS NOT NULL AND [ContentType] IS NULL AND [IsPersonal] IS NULL AND [IsDeleted]=(0))",
                 "UX_ApprovalSettings_GlobalDefault	([EntityType] IS NULL AND [IsDeleted]=(0))",
-                "UX_Associations_Pair	([IsDeleted]=(0))",
+
+                // One baseline index became two: #627 replaced the single association pair
+                // index with an editorial and a personal one (§DOM4.6 rule 2), each carrying
+                // its own UserId term beside the soft-delete term.
+                "UX_Associations_EditorialPair	([IsDeleted]=(0) AND [UserId] IS NULL)",
+                "UX_Associations_PersonalPair	([IsDeleted]=(0) AND [UserId] IS NOT NULL)",
+
                 "UX_Attachments_GroupId_IsPublished	([IsPublished]=(1) AND [IsDeleted]=(0))",
                 "UX_BibleReferences_USFM	([IsDeleted]=(0))",
                 "UX_ContentItemSettings_DefaultPerType	([ContentItemId] IS NULL AND [IsDeleted]=(0))",
