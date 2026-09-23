@@ -42,7 +42,7 @@ missing or contradictory criteria to the analyst, a crossed boundary or a wrong
 layer to the architect.
 
 Every issue carries a `Model - Effort` label, spelled out in full, such as
-`Opus 5 - Medium`. It is the decision and the issue body does not repeat it; what
+`Opus 5.5 - Medium`. It is the decision and the issue body does not repeat it; what
 actually ran is appended to the body under `## Model usage` when the PR opens.
 
 ## Non-negotiables

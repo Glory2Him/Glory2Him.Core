@@ -30,7 +30,7 @@ shared foundation that should be built first, and a recommendation on which to
 start with. Then stop and ask which to proceed with.
 
 Every issue you propose needs a `Model - Effort` label applied, spelled out in
-full — `Opus 5 - Medium`, `Sonnet 5 - High`. The label is the decision and the
+full — `Opus 5.5 - Medium`, `Sonnet 5 - High`. The label is the decision and the
 body does not repeat it. An issue without one is not ready to hand over.
 
 Choose the tier by the rules in `DEVELOPERS.md` §10 under *Choosing the label*.
