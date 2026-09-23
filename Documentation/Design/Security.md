@@ -247,18 +247,21 @@ or `Transient`, never `Singleton`. A longer-lived consumer of a scoped identity 
 same defect wearing a different hat.
 
 This collides with `ServiceRegistration.Add*Service()`, which registers services as
-**singletons** deliberately, so `EventSubscriptionRegistration` could bind substrate handlers into
-the singleton `IEventBroker` as method groups. That trade was only sound in a host that actually
-wires those subscriptions. **A host that exposes a service over HTTP and wires no subscriptions
-must not use those helpers** — it registers the service and its request-bound brokers scoped
-itself, as `CoreRegistration.AddCoreServices` does. **That conditional is a corollary and not the
-operative rule**, and the paragraph below is why it must not be read as one: the rule above is
-unconditional, and `CoreRegistration.AddCoreServices` is cited for what it **does** — register
-scoped, by hand — and no longer for satisfying the condition, because that host wires 109
-subscriptions. Only the genuinely stateless brokers (`IDateTimeBroker`, `IIdentifierBroker`,
-`IHashBroker`, `IEnvelopeIntegrityBroker`, `IEventBroker`) stay singletons **in that host** — the
-word was *there* until the paragraphs below were inserted between it and its referent, at which
-point it read as the `Add*Service()` helpers, which is the opposite of what it says.
+**singletons** deliberately, so `EventSubscriptionRegistration` could bind substrate handlers
+into the singleton `IEventBroker` as method groups. That trade was only sound in a host that
+actually wires those subscriptions. **A host that exposes a service over HTTP and wires no
+subscriptions must not use those helpers** — it registers the service and its request-bound
+brokers scoped itself, as `CoreRegistration.AddCoreServices` does. **That conditional is a
+corollary and not the operative rule**: the rule above is unconditional, and
+`CoreRegistration.AddCoreServices` is cited for what it **does** — register scoped, by hand — and
+not for satisfying the condition, because that host wires **123** subscriptions. *(Counted as the
+`expectedSubscriptionId:` verifications in
+`EventSubscriptionRegistrationTests.ShouldRegisterParticipantAddressesAndAllSubscriptionsAsync`,
+which ends in `VerifyNoOtherCalls` and so pins the number exactly rather than as a floor; it
+agrees with the 123 `await this.eventBroker.SubscribeTo…` calls in
+`EventSubscriptionRegistration.cs`.)* Only the genuinely stateless brokers (`IDateTimeBroker`,
+`IIdentifierBroker`, `IHashBroker`, `IEnvelopeIntegrityBroker`, `IEventBroker`) stay singletons
+**in that host**.
 
 **The trade itself has since been bought out, and the rule that rested on it now rests on
 something else.** `EventSubscriptionRegistration` no longer binds a method group on a held
@@ -267,22 +270,38 @@ service"*, and its `Scoped<TService, TEntity>` helper opens an `AsyncServiceScop
 delivery** — *"This is what lets the host register them scoped and still bind them here"*. The
 reason was a measured thread-safety defect, eight concurrent publishes sharing one `DbContext`,
 not a lifetime preference. So a singleton registration **no longer buys what it was traded for**,
-and **the trade sentence that opens this subsection — the one naming method groups — is history
-rather than a live justification**, which is said of that sentence by name because the bolded
-prohibition sits between it and this one and must not be swept up in it. There is no host,
-present or hypothetical, for which a singleton over the identity chain is the correct
-arrangement. The helpers themselves still register singletons — measured, and `Add*Service()` is
-unchanged — so **whether the OTHER `Add*Service()` helpers should now be scoped is a wider
-question, named here and deliberately not ruled**. *Other* is exact rather than loose:
-`AddAssociationOrchestrationService()`'s singleton **is** already ruled out, at §ARC12.5 entry 1,
-because that service composes an identity-chain broker and the rule above is unconditional. The
-decision is made; only carrying it out is open, and that is #659's. What is ruled
-generally is only that no design or comment may cite the method-group trade to justify a
-singleton, because the mechanism it names is gone. **Three things follow from that and all three
-are #659's**: the sixteen source files still asserting the mechanism, `CoreRegistration`
-contradicting itself about whether this host wires subscriptions, and that one extension's
-lifetime — corrected to `AddScoped` or deleted. That issue carries the *other helpers* boundary as
-its own out-of-scope line, so the sweep does not turn into the wider ruling by accident.
+and **the first sentence of the paragraph above — the one naming method groups — is history
+rather than a live justification**; the bolded prohibition between the two is not. There is no
+host, present or hypothetical, for which a singleton over the identity chain is the correct
+arrangement, and no design or comment may cite the method-group trade to justify one.
+
+**RULED — the rule above applies to every `Add*Service()` helper whose service composes the
+identity chain, which is 21 of the 22.** The ground is the one that already rules out
+`AddAssociationOrchestrationService()`: its service composes `IEventEnvelopeBroker`, the broker
+this subsection names as capturing identity in its constructor, and the rule is unconditional.
+That ground does not distinguish the association helper from its siblings, so it is applied to
+all of them rather than to one. *(Measured by listing every registration each helper makes and
+checking each registered class for a `private readonly IEventEnvelopeBroker` field, directly or
+through a dependency the helpers also register: all 22 call `AddSingleton`; 20 register a service
+holding the broker directly — all fourteen foundations, both processing services, and the
+approval, AI-reviewer, approval-reviewer and association orchestrations — and
+`ContentItemSettingOrchestrationService` composes `IContentItemSettingService` and
+`IContentItemService`, both of which hold it.)* **The one exception is
+`AddIdentityUserService`**, whose `IdentityUserService` and `IdentityCoreStorageBroker` compose
+no identity-chain broker at all. This rule does not reach it. It does register a
+`DbContext`-bearing broker as a singleton, which is the thread-safety hazard the paragraph above
+measured — but that is a different question from identity capture, and it is **named here and not
+ruled**.
+
+**The decision is made for all 21; carrying it out is #659's.** No host calls these helpers today
+— only their own unit tests do — so nothing is live, and each helper is corrected to `AddScoped`
+or deleted, whichever #659 finds is right for it. #659 also owns the **16** source files still
+asserting the retired mechanism *(counted with `git grep -l -e "as a method group" -e "as method
+groups" -- '*.cs'`, which searches tracked files only and so excludes `obj/` and `bin/` by
+construction: 18 match, and two of them — `EventSubscriptionRegistration.cs` and
+`ServiceRegistration.ApprovalReview.cs` — already state the retirement, leaving 16 that assert
+it)* and `CoreRegistration` contradicting itself about whether this host wires subscriptions.
+`AddIdentityUserService` is outside #659, for the reason above.
 
 Because the failure is invisible to behavioural tests, **the guard is a registration test that
 asserts the lifetime directly** — see `CoreRegistrationTests.ShouldRegisterRequestBoundServicesAsScoped`.
@@ -338,6 +357,13 @@ The §SEC14.6 mandate is applied per entity according to what the entity is. Fou
    **The refusal's exception family follows the layer that raised it.** The orchestration's own half refuses with `UnauthorizedAssociationOrchestrationException`, mapped by its `TryCatch` to `AssociationOrchestrationValidationException`. The foundation's half arrives as `AssociationValidationException` and leaves as `AssociationOrchestrationDependencyValidationException` — a routine refusal mapped as a dependency **validation** failure, never as a dependency error. Both are a caller-facing 4xx and neither is a 424; which codes an exposer maps them to is that exposer's.
 5. **The collection read filter resolves its sets in memory first.** It composes an expression tree and has no row to inspect, so the caller's reviewable entity types and content types are resolved in C# and the resulting sets are closed over; `Contains` over a local collection translates to `IN (...)`, and both enums persist as strings so the converted values are parameterised. A caller with no scoped roles gets two empty sets and the query degrades to exactly the public-plus-own predicate.
 6. **The narrow tier tests the endpoint type as well as the content type — on both read paths.** Only `ContentItem` carries a content type (§SEC18.6 rule 5), and the foundation refuses one on any other endpoint, so it is tempting to match the content type alone. That rule lives in the service, not the schema: no check constraint ties the column to an `EntityType` of `ContentItem`, so a row arriving by migration, backfill or direct SQL is not bound by it. Matching on the content type alone would hand a `ContentItem-Testimony-Reviewers` a `Tag` endpoint carrying `Testimony`, while the single read — which composes the role from both halves of the endpoint, and so asks for the never-granted `Tag-Testimony-Reviewers` — refuses the same row. The bulk path must not be the more permissive of the two.
+7. **A personal association is visible only to its owner and the review tier, on both read paths — reaction authorship is not published.** A row with `UserId` set (§DOM4.2) is admitted to its owner and to the review tier of rule 2, and to nobody else: not to an anonymous caller, and not to an authenticated caller who is neither, **whatever its approval and publication state**. To everyone else a reaction exists only as §ARC16.8's aggregate. This narrows rule 4's *public* for one kind of row and changes nothing for an editorial row, whose `CreatedBy` this rule does not decide.
+
+   **Why.** §ARC16.8 already withholds reaction authorship on its anonymous route by design — counts only, *"it names only the caller's own row"*, and no association id because one *"could be probed with"*. A sibling route on the same controller returning whole rows would publish exactly what that read withholds, and with `[EnableQuery]` over it a `$filter` on `UserId` lists one reader's reactions in a single request. A design that hides a fact on one route and publishes it on the route beside it has not hidden it. No section anywhere shows who reacted to what, so nothing depends on the opposite.
+
+   **How it is closed, and how it is not.** It is closed by **filtering the row out**, in the foundation's collection filter and its by-id read, which is where rules 5 and 6 already sit: the rule needs only the row's `UserId` and the caller, so it is a self-only term and not a composite one. **Projecting `UserId` and `CreatedBy` away is refused**, because a `$filter` on a column the response does not carry still executes, so the probe would survive the projection. Both read paths apply it, because a row the collection read drops must answer not-found when opened by id (§SEC14.5 rule 1), and that agreement is already required of these two reads.
+
+   **Built behaviour does not yet match this rule**: the foundation's collection filter and by-id read both return a public personal row to any caller today. Closing that is #671's.
 
 **Approval and publication now have a code path.** `TransitionAssociationApprovalAsync` owns the whole of `IApproval` — `ApprovalStatus`, `IsPublished` and `PublishDate` move together, so approve and publish are one operation and there is no separate publish verb. It is the **only** path that writes the three fields: add still refuses a caller-supplied `IsPublished`, `PublishDate` or non-`Draft`/`Submitted` status, and the general modify still pins all three against storage. The public clause on both read paths is therefore reachable, and rules 3 and 5 above describe live behaviour rather than a caveat.
 
