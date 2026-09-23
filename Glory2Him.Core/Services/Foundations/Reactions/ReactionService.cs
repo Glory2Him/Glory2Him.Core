@@ -133,6 +133,12 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
                     cancellationToken: cancellationToken);
             });
 
+        public ValueTask<Reaction> RetrieveReactionByIdAsync<TSource>(
+            Guid reactionId,
+            EventEnvelope<TSource> inboundEnvelope,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
         public ValueTask<Reaction> ModifyReactionAsync(
             Reaction reaction,
             CancellationToken cancellationToken = default) =>
