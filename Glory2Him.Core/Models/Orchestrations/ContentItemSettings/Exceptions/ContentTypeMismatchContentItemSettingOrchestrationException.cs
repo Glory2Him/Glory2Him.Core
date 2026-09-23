@@ -29,7 +29,7 @@ namespace Glory2Him.Core.Models.Orchestrations.ContentItemSettings.Exceptions
     /// contradicting it is rejected rather than quietly corrected.</para>
     ///
     /// <para>The message names neither type. A caller who guessed at an item's id learns only that
-    /// their claim was refused, never what the item actually is — the same posture §16.6 takes on
+    /// their claim was refused, never what the item actually is — the same posture §SEC14.7 posture A rule 4 takes on
     /// the resolution itself.</para>
     /// </summary>
     public class ContentTypeMismatchContentItemSettingOrchestrationException : Xeption

@@ -147,9 +147,9 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
         }
 
         /// <summary>
-        /// THE ROLE GATE ITSELF, over HTTP. Its sibling above stops at §16.6 — a caller who cannot
+        /// THE ROLE GATE ITSELF, over HTTP. Its sibling above stops at §SEC14.7 posture A rule 4 — a caller who cannot
         /// see the item is refused before any role is read — which is correct but leaves the narrow
-        /// tier's own refusal unproven end to end. Here the caller OWNS the item, so §16.6 lets them
+        /// tier's own refusal unproven end to end. Here the caller OWNS the item, so §SEC14.7 posture A rule 4 lets them
         /// read it, the derivation runs and sets the row's type to the item's, and what turns them
         /// away is the tier: they publish quotes and this is a devotional.
         /// </summary>
@@ -218,7 +218,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
         ///
         /// <para><b>The refusal arrives as a 400, not a 401, and that is the stronger answer.</b>
         /// Since #450 the orchestration derives the row's content type by READING the item, and
-        /// that read carries §16.6's visibility posture: a caller outside the item's own
+        /// that read carries §SEC14.7 posture A rule 4's visibility posture: a caller outside the item's own
         /// moderation tier cannot see a draft of it at all. So the attempt fails at "no such
         /// content item" before any role is consulted, and the caller learns nothing about
         /// whether the item exists or what type it is. A caller who CAN see the item — it is

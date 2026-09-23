@@ -710,7 +710,7 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
                 securityContext: inboundEnvelope.SecurityContext);
         }
 
-        // the shared read posture of design §14.1/§16.6 for single-row reads: a publicly
+        // the shared read posture of design §SEC14.1/§SEC14.7 posture A rule 4 for single-row reads: a publicly
         // visible version is readable by anyone — reads carry no contribution gate and the
         // block roles only block contributions; a non-public version answers not-found —
         // never unauthorized — to everyone but the owner and the review roles
