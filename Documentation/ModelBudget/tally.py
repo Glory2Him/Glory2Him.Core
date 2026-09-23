@@ -56,7 +56,7 @@ CLOSES = re.compile(r"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s*:?\s*#(\d+)"
 
 # What the developer appends to the issue body under `## Model usage`, one line
 # per pull request:
-#   "- PR #663 — Opus 5 - High"
+#   "- PR #42 — Opus 5 - High"
 # The label is the decision and stays the decision, so a comparison of what the
 # models actually cost has to read this and never the label. Any of hyphen, en
 # dash or em dash separates the two halves, because all three get typed.
