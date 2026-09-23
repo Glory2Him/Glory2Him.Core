@@ -84,6 +84,14 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             }
         }
 
+        // WHOSE read each branch makes is the one thing the entry path decides. With no read
+        // envelope the endpoint's service mints its own, capturing the AMBIENT caller — right on
+        // an HTTP request, where the ambient caller is the caller. The Association-Adding event
+        // path hands the inbound envelope instead, so every branch reads as the SIGNED caller: a
+        // delivery runs synchronously inside a publish and HttpContextAccessor flows on an
+        // AsyncLocal, so a minted envelope there would inherit whoever PUBLISHED (§ARC12.5.2,
+        // "a read whose answer depends on who is asking is passed the envelope it is being made
+        // under", #631).
         private async ValueTask<ResolvedEndpoint> ResolveEndpointCoreAsync(
             EntityType entityType,
             Guid keyId,
@@ -109,8 +117,10 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                     return DeriveEndpoint(entityType, keyId, contentItem, contentItem.ContentType);
 
                 case EntityType.Link:
-                    Link link =
-                        await this.linkService.RetrieveLinkByIdAsync(keyId, cancellationToken);
+                    Link link = readEnvelope is null
+                        ? await this.linkService.RetrieveLinkByIdAsync(keyId, cancellationToken)
+                        : await this.linkService.RetrieveLinkByIdAsync(
+                            keyId, readEnvelope, cancellationToken);
 
                     return DeriveEndpoint(entityType, keyId, link, contentType: null);
 
@@ -123,16 +133,28 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                     return DeriveEndpoint(entityType, keyId, versionedEndpoint: null, contentType: null);
 
                 case EntityType.Reaction:
-                    await this.reactionService.RetrieveReactionByIdAsync(keyId, cancellationToken);
+                    _ = readEnvelope is null
+                        ? await this.reactionService.RetrieveReactionByIdAsync(keyId, cancellationToken)
+                        : await this.reactionService.RetrieveReactionByIdAsync(
+                            keyId, readEnvelope, cancellationToken);
+
                     return DeriveEndpoint(entityType, keyId, versionedEndpoint: null, contentType: null);
 
                 case EntityType.BibleReference:
-                    await this.bibleReferenceService.RetrieveBibleReferenceByIdAsync(
-                        keyId, cancellationToken);
+                    _ = readEnvelope is null
+                        ? await this.bibleReferenceService.RetrieveBibleReferenceByIdAsync(
+                            keyId, cancellationToken)
+                        : await this.bibleReferenceService.RetrieveBibleReferenceByIdAsync(
+                            keyId, readEnvelope, cancellationToken);
+
                     return DeriveEndpoint(entityType, keyId, versionedEndpoint: null, contentType: null);
 
                 case EntityType.Comment:
-                    await this.commentService.RetrieveCommentByIdAsync(keyId, cancellationToken);
+                    _ = readEnvelope is null
+                        ? await this.commentService.RetrieveCommentByIdAsync(keyId, cancellationToken)
+                        : await this.commentService.RetrieveCommentByIdAsync(
+                            keyId, readEnvelope, cancellationToken);
+
                     return DeriveEndpoint(entityType, keyId, versionedEndpoint: null, contentType: null);
 
                 default:
