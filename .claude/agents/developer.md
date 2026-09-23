@@ -18,7 +18,7 @@ for the developer, once running, to change its own model mid-session.
 
 What this file's prompt CAN do is check, after the fact, whether that
 prerequisite was met: read the label and compare it to the session you are
-actually running in. If they don't match — `Opus 5 - High` on an issue running
+actually running in. If they don't match — `Opus 5.5 - High` on an issue running
 under a weaker session — say so and stop rather than quietly doing hard work
 with less than was budgeted for it. That is a detection, not a fix. An issue
 carrying no label is not ready to start.
@@ -362,7 +362,7 @@ round of review fixes.
 
 Two different things can be wrong, and they get different responses.
 
-**The session does not match the label** — the issue says `Opus 5 - High` and the
+**The session does not match the label** — the issue says `Opus 5.5 - High` and the
 session is running something weaker. That is a configuration error, not a
 judgement call: say so and stop, as the top of this file requires. Doing the work
 anyway spends less than was budgeted on an issue someone deliberately sized.
