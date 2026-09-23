@@ -143,6 +143,8 @@ namespace Glory2Him.Core.Services.Foundations.Tags
             CancellationToken cancellationToken = default) =>
             TryCatch(async () =>
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 EventEnvelope<Tag> readEnvelope =
                     await this.eventEnvelopeBroker.CreateNextAsync(
                         sourceEnvelope: inboundEnvelope,
