@@ -137,21 +137,22 @@ namespace Glory2Him.Core.Services.Foundations.Comments
         // evaluated against the envelope the reader is already acting under rather than a minted
         // one. CreateNextAsync copies the security context forward and keeps causation linked; it
         // does not mint a context, which is the whole difference from the overload above (#631).
-        public async ValueTask<Comment> RetrieveCommentByIdAsync<TSource>(
+        public ValueTask<Comment> RetrieveCommentByIdAsync<TSource>(
             Guid commentId,
             EventEnvelope<TSource> inboundEnvelope,
-            CancellationToken cancellationToken = default)
-        {
-            EventEnvelope<Comment> readEnvelope =
-                await this.eventEnvelopeBroker.CreateNextAsync(
-                    sourceEnvelope: inboundEnvelope,
-                    content: new Comment { Id = commentId });
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                EventEnvelope<Comment> readEnvelope =
+                    await this.eventEnvelopeBroker.CreateNextAsync(
+                        sourceEnvelope: inboundEnvelope,
+                        content: new Comment { Id = commentId });
 
-            return await DoRetrieveCommentByIdAsync(
-                commentId: commentId,
-                inboundEnvelope: readEnvelope,
-                cancellationToken: cancellationToken);
-        }
+                return await DoRetrieveCommentByIdAsync(
+                    commentId: commentId,
+                    inboundEnvelope: readEnvelope,
+                    cancellationToken: cancellationToken);
+            });
 
         public ValueTask<Comment> ModifyCommentAsync(
             Comment comment,
