@@ -260,12 +260,18 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             // one item are two rows. EntityBType stays, so the rule is one personal
             // association per far-end TYPE rather than one of any kind per item.
             //
-            // Both filters are written out in full and REPLACE the one EF would generate.
-            // Left to itself, EF filters a unique index over a nullable column with
-            // "WHERE [UserId] IS NOT NULL", which on the editorial index would exempt every
-            // editorial row from the uniqueness it most needs, and on either index would drop
-            // the IsDeleted term, so a withdrawn row would hold its key for ever. The
-            // personal filter needs its UserId term just as much: SQL Server — unlike the SQL
+            // Both filters are written out in full, because neither can be left to EF.
+            //
+            // Editorial: every key column is non-nullable, so left to itself EF would put NO
+            // filter on this index. It would then take in every personal row as well — two
+            // readers giving the same reaction to one item share every editorial key column,
+            // so the second would collide — and it would lose the IsDeleted term, so a
+            // removed row would hold its pair for ever.
+            //
+            // Personal: UserId is a nullable key column, so left to itself EF would filter the
+            // index with "WHERE [UserId] IS NOT NULL" and nothing else. That drops the
+            // IsDeleted term, so a withdrawn reaction would stop the reader ever holding one
+            // again. The UserId term is needed just as much: SQL Server — unlike the SQL
             // standard — treats NULL as equal to NULL in a unique index, so without it every
             // editorial row would enter the personal index too and an item could carry only
             // one editorial Tag.
