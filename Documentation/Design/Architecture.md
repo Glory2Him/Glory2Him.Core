@@ -1362,8 +1362,16 @@ Recommended endpoints:
 
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
-| `GET` | `/api/feed` | Retrieve visible published content excluding topics. |
-| `GET` | `/api/feed?contentType={name}` | Retrieve visible published content by content type. |
+| `GET` | `/api/feed` | Retrieve visible published content, excluding `Topic` and `Series` (§DOM3.8 rule 2). |
+| `GET` | `/api/feed?contentType={name}` | *Retired — no longer a servable feed capability.* Narrowing by content type now lives at `api/ContentItems/Public` with a `$filter`, because applying the feed's `Topic`/`Series` exclusion (§DOM3.8 rule 2) to a narrowing read would make every topic unsearchable. |
+
+**This row states a shape, not the served literal.** The feed is served by `GetContentItemFeed` on `ContentItemsController` — the exposer for `ContentItem`, not a `FeedController`, because the feed is not a database entity (§DOM11.3) and has no exposer of its own to sit on. The served route is the literal `api/ContentItems/Feed`, reached through `[Route("api/[controller]")]` plus `[HttpGet("Feed")]` rather than the `/api/feed` this table's row names.
+
+**The §ARC17 tables generally state a read's shape; the controller states its served literal.** Every §ARC17 row answered by a controller carrying the `[Route("api/[controller]")]` convention token names the shape, not the literal path a caller actually hits — the exposer skill's `contracts.json` requires that token on every controller, and §ARC17 predates the skill, so the table and the controller diverge on spelling by convention rather than by accident. §ARC17.1's `/api/content-items/groups/{groupId}` row is the standing instance: it is served as `api/ContentItems/Groups/{groupId}`. This rule is recorded once, here; it is not restated at each table. **§ARC17.5's last five rows are the one exception** — the `ReviewerCandidates` and `ReviewerDisplayNames` reads and the three `ReviewRequests` verbs state the served literal exactly, because `ApprovalReviewersController` carries `[Route("api/Approvals")]` explicitly rather than by convention (§ARC12.5.4 business rule 6, §ARC12.6 entry 3a).
+
+**The feed route carries no OData query surface at all — no `[EnableQuery]`.** Any `$`-prefixed option (`$orderby`, `$filter`, `$select`, `$expand`, `$search`, `$compute`, `$apply`, `$format`, `$skiptoken`, `$deltatoken`) is off-surface on this route: it is silently IGNORED, not refused with a `400`, the same as every other non-OData route in the solution.
+
+**The page is two optional query parameters, `skip` and `take`, not an OData page.** Both default when absent: `skip` to `0` and `take` to `50`, giving the first page at the cap. `50` is also the maximum `take` a caller may request — a larger `take` is REFUSED with a `400`, not silently clamped down to the cap. The `50` is owned by `ContentItemProcessingService` (`MaximumFeedPageSize`), which resolves the nullable `skip`/`take` the controller passes through untouched; it is **not** reached by `ODataPageSizeConvention`, which only visits actions carrying `[EnableQuery]` and never visits this route since the route carries none, and it is **not** configuration.
 
 ### ARC17.3 Topic Endpoints *(formerly §17.3)*
 
