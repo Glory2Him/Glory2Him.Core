@@ -33,6 +33,11 @@ Every issue you propose needs a `Model - Effort` line in its body and the matchi
 label applied, spelled out in full — `Opus 5 - Medium`, `Sonnet 5 - High`. An
 issue without one is not ready to hand over.
 
+Choose the tier by the rules in `DEVELOPERS.md` §10 under *Choosing the label*.
+Read them rather than working from instinct: the default for developer work is
+`Sonnet 5 - High`, and reaching for Opus without one of the five triggers is the
+drift those rules exist to stop. The budget you set is a cost nobody else audits.
+
 ## What you produce
 
 Acceptance criteria written into the GitHub issue body with `gh issue edit`, under
