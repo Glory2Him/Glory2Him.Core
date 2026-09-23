@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
 using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
 using Moq;
 using Xeptions;
@@ -64,6 +65,207 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 broker.LogErrorAsync(It.Is(SameExceptionAs(expectedDependencyException))),
                 Times.Once);
 
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // The foundation handler's own refusals stay validation-shaped through this layer, exactly
+        // as its method-path refusals do.
+        [Theory]
+        [MemberData(nameof(AssociationDependencyValidationExceptions))]
+        public async Task ShouldThrowDependencyValidationExceptionOnAddingIfTheFoundationHandlerRefusesAndLogItAsync(
+            Xeption foundationException)
+        {
+            // given
+            Association addRequest = CreateHonestAddRequest();
+            EventEnvelope<Association> inputEnvelope = CreateRequestEnvelope(addRequest);
+            SetupEventPathEndpointReads(addRequest, inputEnvelope);
+
+            var expectedDependencyValidationException =
+                new AssociationOrchestrationDependencyValidationException(
+                    message: "Content item association orchestration dependency validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: (foundationException.InnerException as Xeption)!);
+
+            this.associationServiceMock.Setup(service =>
+                service.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(foundationException);
+
+            // when
+            ValueTask<EventEnvelope<Association>> onAddingTask =
+                this.associationOrchestrationService.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationDependencyValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationDependencyValidationException>(
+                    onAddingTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedDependencyValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedDependencyValidationException))),
+                Times.Once);
+
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // AN ENDPOINT READ THAT FAILED IS NEVER TREATED AS RESOLVED. A store that could not answer
+        // is a dependency failure, not a not-found, and above all not a pass: the foundation is
+        // never handed the envelope.
+        [Fact]
+        public async Task ShouldThrowDependencyExceptionOnAddingIfAnEndpointReadFailsAndNotFallOpenAsync()
+        {
+            // given
+            Association addRequest = CreateHonestAddRequest();
+            EventEnvelope<Association> inputEnvelope = CreateRequestEnvelope(addRequest);
+            SetupEventPathEndpointReads(addRequest, inputEnvelope);
+            var innerException = new Xeption(message: GetRandomString());
+
+            var contentItemDependencyException =
+                new ContentItemDependencyException(
+                    message: GetRandomString(),
+                    innerException: innerException);
+
+            var expectedDependencyException =
+                new AssociationOrchestrationDependencyException(
+                    message: "Content item association orchestration dependency error occurred, contact support.",
+                    innerException: innerException);
+
+            this.contentItemServiceMock.Setup(service =>
+                service.RetrieveContentItemByIdAsync(
+                    addRequest.EntityAKeyId,
+                    inputEnvelope,
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(contentItemDependencyException);
+
+            // when
+            ValueTask<EventEnvelope<Association>> onAddingTask =
+                this.associationOrchestrationService.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationDependencyException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationDependencyException>(
+                    onAddingTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedDependencyException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedDependencyException))),
+                Times.Once);
+
+            this.associationServiceMock.Verify(service =>
+                service.OnAddingAssociationAsync(
+                    It.IsAny<EventEnvelope<Association>>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // A TIMEOUT — an OperationCanceledException whose token was NOT cancelled — is a
+        // dependency failure, never the caller's cancellation.
+        [Fact]
+        public async Task ShouldThrowDependencyExceptionOnAddingIfADependencyTimesOutAndLogItAsync()
+        {
+            // given
+            Association addRequest = CreateHonestAddRequest();
+            EventEnvelope<Association> inputEnvelope = CreateRequestEnvelope(addRequest);
+            SetupEventPathEndpointReads(addRequest, inputEnvelope);
+            var operationCanceledException = new OperationCanceledException();
+
+            var timeoutException =
+                new TimeoutException("The dependency operation timed out.");
+
+            var timeoutAssociationOrchestrationException =
+                new TimeoutAssociationOrchestrationException(
+                    message: "Failed content item association orchestration timeout error occurred, " +
+                        "contact support.",
+                    innerException: timeoutException,
+                    data: timeoutException.Data);
+
+            var expectedDependencyException =
+                new AssociationOrchestrationDependencyException(
+                    message: "Content item association orchestration dependency error occurred, contact support.",
+                    innerException: timeoutAssociationOrchestrationException);
+
+            this.associationServiceMock.Setup(service =>
+                service.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(operationCanceledException);
+
+            // when
+            ValueTask<EventEnvelope<Association>> onAddingTask =
+                this.associationOrchestrationService.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationDependencyException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationDependencyException>(
+                    onAddingTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedDependencyException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedDependencyException))),
+                Times.Once);
+
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowServiceExceptionOnAddingIfServiceErrorOccursAndLogItAsync()
+        {
+            // given
+            Association addRequest = CreateHonestAddRequest();
+            EventEnvelope<Association> inputEnvelope = CreateRequestEnvelope(addRequest);
+            var serviceException = new Exception(GetRandomString());
+
+            var failedAssociationOrchestrationServiceException =
+                new FailedAssociationOrchestrationServiceException(
+                    message: "Failed content item association orchestration service error occurred, " +
+                        "please contact support.",
+                    innerException: serviceException,
+                    data: serviceException.Data);
+
+            var expectedServiceException =
+                new AssociationOrchestrationServiceException(
+                    message: "Content item association orchestration service error occurred, contact support.",
+                    innerException: failedAssociationOrchestrationServiceException);
+
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    inputEnvelope,
+                    "AssociationAdding",
+                    EnvelopeDirection.Request))
+                        .ThrowsAsync(serviceException);
+
+            // when
+            ValueTask<EventEnvelope<Association>> onAddingTask =
+                this.associationOrchestrationService.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationServiceException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationServiceException>(
+                    onAddingTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedServiceException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedServiceException))),
+                Times.Once);
+
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.tagServiceMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
