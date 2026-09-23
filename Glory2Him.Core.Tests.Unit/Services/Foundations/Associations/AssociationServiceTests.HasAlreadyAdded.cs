@@ -9,6 +9,8 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Configurations;
@@ -55,6 +57,31 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     EventBrokerIdentifiers.AssociationOnAddingAssociationSubscriptionName,
                     TestContext.Current.CancellationToken),
                 Times.Once);
+
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // #631 criterion 5b. Asked by the orchestration AHEAD of every endpoint read, so a caller
+        // that has already cancelled must not pay for the storage round trip either.
+        [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnHasAlreadyAddedAssociationIfCancellationRequestedAsync()
+        {
+            // given
+            EventEnvelope<Association> requestEnvelope = CreateRandomAssociationRequestEnvelope();
+            var cancellationToken = new CancellationToken(canceled: true);
+
+            // when
+            ValueTask<bool> hasAlreadyAddedTask =
+                this.associationService.HasAlreadyAddedAssociationAsync(
+                    requestEnvelope,
+                    cancellationToken);
+
+            // then
+            await Assert.ThrowsAsync<OperationCanceledException>(
+                hasAlreadyAddedTask.AsTask);
 
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
