@@ -133,11 +133,25 @@ namespace Glory2Him.Core.Services.Foundations.Links
                     cancellationToken: cancellationToken);
             });
 
-        public ValueTask<Link> RetrieveLinkByIdAsync<TSource>(
+        // The identity-CARRYING twin of the read above: same do-work, same visibility posture,
+        // evaluated against the envelope the reader is already acting under rather than a minted
+        // one. CreateNextAsync copies the security context forward and keeps causation linked; it
+        // does not mint a context, which is the whole difference from the overload above (#631).
+        public async ValueTask<Link> RetrieveLinkByIdAsync<TSource>(
             Guid linkId,
             EventEnvelope<TSource> inboundEnvelope,
-            CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
+            CancellationToken cancellationToken = default)
+        {
+            EventEnvelope<Link> readEnvelope =
+                await this.eventEnvelopeBroker.CreateNextAsync(
+                    sourceEnvelope: inboundEnvelope,
+                    content: new Link { Id = linkId });
+
+            return await DoRetrieveLinkByIdAsync(
+                linkId: linkId,
+                inboundEnvelope: readEnvelope,
+                cancellationToken: cancellationToken);
+        }
 
         public ValueTask<Link> ModifyLinkAsync(
             Link link,
