@@ -37,18 +37,18 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
         {
             // given
             Func<EventEnvelope<Association>, CancellationToken,
-                ValueTask<EventEnvelope<Association>?>> addingHandler = null;
+                ValueTask<EventEnvelope<Association>>> addingHandler = null;
 
             this.eventBrokerMock.Setup(broker =>
                 broker.SubscribeToAssociationEventAsync(
                     It.IsAny<EventSubscription>(),
                     AssociationEventOperation.Adding,
                     It.IsAny<Func<EventEnvelope<Association>, CancellationToken,
-                        ValueTask<EventEnvelope<Association>?>>>(),
+                        ValueTask<EventEnvelope<Association>>>>(),
                     It.IsAny<CancellationToken>()))
                         .Callback<EventSubscription, AssociationEventOperation,
                             Func<EventEnvelope<Association>, CancellationToken,
-                                ValueTask<EventEnvelope<Association>?>>,
+                                ValueTask<EventEnvelope<Association>>>,
                             CancellationToken>((_, _, handler, _) => addingHandler = handler);
 
             var deliveredEnvelope = new EventEnvelope<Association>();
@@ -93,11 +93,11 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                     It.IsAny<EventSubscription>(),
                     AssociationEventOperation.Adding,
                     It.IsAny<Func<EventEnvelope<Association>, CancellationToken,
-                        ValueTask<EventEnvelope<Association>?>>>(),
+                        ValueTask<EventEnvelope<Association>>>>(),
                     It.IsAny<CancellationToken>()))
                         .Callback<EventSubscription, AssociationEventOperation,
                             Func<EventEnvelope<Association>, CancellationToken,
-                                ValueTask<EventEnvelope<Association>?>>,
+                                ValueTask<EventEnvelope<Association>>>,
                             CancellationToken>((subscription, _, _, _) =>
                                 addingSubscriptions.Add(subscription));
 
@@ -144,18 +144,18 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             var subscribedHandlers =
                 new List<(AssociationEventOperation Operation,
                     Func<EventEnvelope<Association>, CancellationToken,
-                        ValueTask<EventEnvelope<Association>?>> Handler)>();
+                        ValueTask<EventEnvelope<Association>>> Handler)>();
 
             this.eventBrokerMock.Setup(broker =>
                 broker.SubscribeToAssociationEventAsync(
                     It.IsAny<EventSubscription>(),
                     It.IsAny<AssociationEventOperation>(),
                     It.IsAny<Func<EventEnvelope<Association>, CancellationToken,
-                        ValueTask<EventEnvelope<Association>?>>>(),
+                        ValueTask<EventEnvelope<Association>>>>(),
                     It.IsAny<CancellationToken>()))
                         .Callback<EventSubscription, AssociationEventOperation,
                             Func<EventEnvelope<Association>, CancellationToken,
-                                ValueTask<EventEnvelope<Association>?>>,
+                                ValueTask<EventEnvelope<Association>>>,
                             CancellationToken>((_, operation, handler, _) =>
                                 subscribedHandlers.Add((operation, handler)));
 
@@ -167,7 +167,7 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             // when
             foreach ((AssociationEventOperation operation,
                 Func<EventEnvelope<Association>, CancellationToken,
-                    ValueTask<EventEnvelope<Association>?>> handler) in subscribedHandlers)
+                    ValueTask<EventEnvelope<Association>>> handler) in subscribedHandlers)
             {
                 this.associationServiceMock.Invocations.Clear();
                 await handler(new EventEnvelope<Association>(), TestContext.Current.CancellationToken);
