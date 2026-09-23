@@ -226,11 +226,12 @@ mocked-boundary blind spot, and reading the tests rather than their names.
 10. **Gate compliance.** Run the suite yourself. Check for skipped tests, leftover
    TODOs, commented-out code, and uncovered new lines. Check the PR body carries
    `Closes #<n>` and that no AI attribution reached a commit message — either one
-   blocks the merge in CI. Check the issue's `Model - Effort` **label** was
-   corrected to what actually ran, per `DEVELOPERS.md` §10; a label still
-   reporting the budget as the outcome is ADVISORY, not BLOCKING, but it is
-   never nothing — your verdict comment deliberately says nothing about which
-   model ran, so that label is the only surviving record of what the work cost.
+   blocks the merge in CI. Check the issue body carries a `## Model usage` line
+   for this PR recording what actually ran, per `DEVELOPERS.md` §10. A missing
+   one is ADVISORY, not BLOCKING, but it is never nothing — your verdict comment
+   deliberately says nothing about which model ran, so that line is the only
+   surviving record of what the work cost. The label is the decision and must
+   not have been edited to match the session.
 
 11. **Regression risk.** What existing behaviour could this plausibly have broken,
      and is there a test that would have caught it?

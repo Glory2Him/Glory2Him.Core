@@ -734,14 +734,34 @@ Trivial work — a rename, a config change, a doc relocation — is `Fable 5` or
 escalate-on-scope-discovered rule correct it. Over-spending is invisible and
 nobody else is watching for it.
 
-**The body line is the budget; the label is the record.** The `Model - Effort`
-line in the issue body is what was budgeted before anyone had read the code, and
-it does not change. The label is corrected to what actually ran, by the
-developer, when the PR is opened. Nothing in this repository reads either one
-automatically, so the label is the only durable record of what a piece of work
-actually cost — and QA's verdict comment on the PR is the only durable record of
-what that cost bought. Keep both honest or the next review of this policy has
-nothing to measure. `Documentation/ModelBudget/tally.py` is that review.
+**The label is the decision.** It duplicates the `Model - Effort` line in the
+issue body for one reason: the label shows in the issue list and the line does
+not, so whoever is about to pick the issue up can see what to set their session
+to without opening it. That is what the label is for, so it is chosen when the
+issue is written and it does not change afterwards. The agent that writes the
+issue must get it right; a wrong label sends the next person to the wrong model
+before anyone has read a line of code.
+
+**The body records what it actually cost.** When the pull request opens, the
+developer appends a line under a `## Model usage` heading at the end of the
+issue body:
+
+```markdown
+## Model usage
+
+- PR #663 — Opus 5 - High
+```
+
+One line per pull request, appended and never rewritten, so an issue that took
+two attempts shows both. This is where the record goes precisely because the
+label cannot hold it — the label has a job already, and overloading it would
+leave a reader unable to tell a plan from an outcome.
+
+Nothing in this repository reads either automatically, so that section and QA's
+verdict comment on the pull request are the only durable record of what a piece
+of work cost and what the cost bought. Keep both honest or the next review of
+this policy has nothing to measure. `Documentation/ModelBudget/tally.py` is that
+review.
 
 **Never add AI or assistant attribution** to a commit message or PR description.
 It trips the unattributed-changes rule and blocks the merge.

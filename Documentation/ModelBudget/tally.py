@@ -13,9 +13,12 @@ the same file works unchanged in the template and in anything generated from it.
 
 Two caveats the output cannot carry on its own:
 
-  * The label is only a record if the developer corrected it at pull-request
-    time, per DEVELOPERS.md section 10. Before that convention existed it is a
-    budget, and a comparison over those pull requests compares intentions.
+  * The `Model - Effort` label is the decision, not the outcome: it is chosen
+    before anyone has read the code and it never changes. What actually ran is
+    appended to the issue body under `## Model usage`, per DEVELOPERS.md section
+    10, and only that is a record. Where it is missing this falls back to the
+    label and says how many rows did so — those rows compare intentions, not
+    costs.
   * Assignment is not random. Harder issues were given larger budgets on
     purpose, so the raw split reflects difficulty, not model. The size bands are
     a partial control and churn is a poor proxy for difficulty. Only the trial
@@ -50,6 +53,14 @@ MODELS = ["Opus 5", "Sonnet 5", "Fable 5"]
 
 # .github/workflows/prLinter.yml accepts all of these to satisfy requireIssueOrTask.
 CLOSES = re.compile(r"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s*:?\s*#(\d+)", re.I)
+
+# What the developer appends to the issue body under `## Model usage`, one line
+# per pull request:
+#   "- PR #663 — Opus 5 - High"
+# The label is the decision and stays the decision, so a comparison of what the
+# models actually cost has to read this and never the label. Any of hyphen, en
+# dash or em dash separates the two halves, because all three get typed.
+USAGE = re.compile(r"^\s*[-*]\s*PR\s*#(\d+)\s*[-–—]\s*(.+?)\s*$", re.M)
 
 # The header qa.md asks for, one per review pass:
 #   "QA round 2: FAIL - BLOCKING 3, ADVISORY 2 - MERGE READY: NO"
@@ -123,7 +134,7 @@ def fetch(cached):
         with open(prs_path, "w", encoding="utf-8") as handle:
             handle.write(raw)
         raw = run(["gh", "issue", "list", "--state", "all", "--limit", "1000",
-                   "--json", "number,labels"])
+                   "--json", "number,labels,body"])
         with open(issues_path, "w", encoding="utf-8") as handle:
             handle.write(raw)
 
@@ -136,13 +147,21 @@ def fetch(cached):
 
     with open(issues_path, encoding="utf-8") as handle:
         issues = json.load(handle)
-    labels = {}
+
+    # The label is what was decided before the code was read; `## Model usage` is
+    # what happened. Actuals are keyed by pull request rather than by issue,
+    # because one issue can take more than one attempt and the attempts need not
+    # have run under the same budget.
+    decided, actual = {}, {}
     for issue in issues:
         hit = [l["name"] for l in issue["labels"]
                if any(l["name"].startswith(m + " - ") for m in MODELS)]
         if hit:
-            labels[issue["number"]] = hit[0]
-    return list(prs.values()), labels
+            decided[issue["number"]] = hit[0]
+        for number, ran in USAGE.findall(issue.get("body") or ""):
+            if any(ran.startswith(m + " - ") for m in MODELS):
+                actual[int(number)] = ran
+    return list(prs.values()), decided, actual
 
 
 def moment(text):
@@ -261,16 +280,24 @@ def main():
     parser.add_argument("--control", default="Opus 5")
     args = parser.parse_args()
 
-    prs, labels = fetch(args.cached)
-    rows = []
+    prs, decided, actual = fetch(args.cached)
+    rows, measured = [], 0
     for pr in prs:
         closes = {int(n) for n in CLOSES.findall(pr.get("body") or "")}
-        hit = sorted(n for n in closes if n in labels)
-        if hit:
-            rows.append(measure(pr, labels[hit[0]]))
+        hit = sorted(n for n in closes if n in decided)
+        # What ran beats what was planned wherever the developer recorded it.
+        # Falling back to the label is not equivalent, and the count below says
+        # how much of the comparison rests on the weaker of the two.
+        ran = actual.get(pr["number"])
+        if ran:
+            measured += 1
+        if ran or hit:
+            rows.append(measure(pr, ran or decided[hit[0]]))
 
     print("merged pull requests: {}".format(len(prs)))
-    print("joined to a model-labelled issue: {}".format(len(rows)))
+    print("joined to a model budget: {}".format(len(rows)))
+    print("  of those, recording what actually ran: {} (the rest are the"
+          " label, i.e. the plan)".format(measured))
     print("carrying a QA verdict comment: {} of {}".format(
         sum(1 for r in rows if r["verdict"]), len(rows)))
     print("rebase-suspect (every commit post-open): {}".format(
