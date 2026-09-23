@@ -377,10 +377,11 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
             // A scope toggle moves the row's effective id, so it moves the row's position in
             // UX_Associations_EditorialPair or UX_Associations_PersonalPair, whichever holds
-            // it, and can land on a key another row already holds. "Just
-            // toggle a flag" reads like it cannot fail, and it can - so this runs the same
-            // duplicate check an add relies on the index for, rather than waiting for the
-            // database to raise it.
+            // it, and can land on a key another row already holds. "Just toggle a flag" reads
+            // like it cannot fail, and it can - so this checks for the collision rather than
+            // waiting for the database to raise it. The check matches the EDITORIAL key; for a
+            // personal row it is narrower than UX_Associations_PersonalPair, which remains the
+            // guarantee until #618 (Domain.md §DOM4.6 rule 2).
             await ValidateAssociationPairIsUnoccupiedAsync(
                 association: storageAssociation,
                 cancellationToken: cancellationToken);

@@ -73,7 +73,9 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
         /// Whether a LIVE row other than <paramref name="excludedAssociationId"/> already holds
         /// the given canonical pair — the duplicate check a scope change has to pass, because
         /// <c>UX_Associations_EditorialPair</c> and <c>UX_Associations_PersonalPair</c> key on
-        /// the EFFECTIVE id and a scope toggle recomputes it.
+        /// the EFFECTIVE id and a scope toggle recomputes it. Matches the EDITORIAL key plus
+        /// <c>UserId</c>: exact for an editorial row, narrower than
+        /// <c>UX_Associations_PersonalPair</c> for a personal one (§DOM4.6 rule 2, #618).
         /// </summary>
         ValueTask<bool> ExistsLiveAssociationOnPairAsync(
             EntityType entityAType,

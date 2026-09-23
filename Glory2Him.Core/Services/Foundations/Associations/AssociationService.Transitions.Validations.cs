@@ -541,7 +541,9 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         // UX_Associations_PersonalPair key on the EFFECTIVE id, which a scope toggle
         // recomputes, so the row can move onto a key another row already holds. Letting the
         // database raise it would surface as a dependency-validation exception with no
-        // indication of which endpoint moved.
+        // indication of which endpoint moved. The match is the EDITORIAL key plus UserId, so
+        // for a personal row it misses a different reaction held by the same reader, and
+        // UX_Associations_PersonalPair is what refuses that until #618 (§DOM4.6 rule 2).
         private async ValueTask ValidateAssociationPairIsUnoccupiedAsync(
             Association association,
             CancellationToken cancellationToken)
