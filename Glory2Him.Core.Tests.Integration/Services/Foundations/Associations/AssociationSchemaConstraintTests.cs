@@ -253,6 +253,68 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
         }
 
         [Fact]
+        public async Task ShouldNotBlockOnASoftDeletedRowAsync()
+        {
+            // given: both pair indexes are filtered on IsDeleted = 0, so a withdrawn row must
+            // free its key in each. Each half first shows the key is really taken while the
+            // row is live — without that, "accepted after the soft delete" would pass just as
+            // well against an index that never held the key at all.
+            Guid editorialGroupId = Guid.NewGuid();
+            Guid tagGroupId = Guid.NewGuid();
+
+            Association editorialAssociation = CreatePair(editorialGroupId, tagGroupId);
+            Exception editorialOutcome = await SeedAsync(editorialAssociation);
+
+            Association blockedEditorialAssociation = CreatePair(editorialGroupId, tagGroupId);
+
+            Exception blockedEditorialOutcome = await SeedAsync(blockedEditorialAssociation);
+
+            Guid reactedGroupId = Guid.NewGuid();
+            string readerUserId = Guid.NewGuid().ToString();
+
+            Association loveAssociation =
+                CreateReaction(reactedGroupId, reactionGroupId: Guid.NewGuid(), readerUserId);
+
+            Exception loveOutcome = await SeedAsync(loveAssociation);
+
+            Association blockedMovedAssociation =
+                CreateReaction(reactedGroupId, reactionGroupId: Guid.NewGuid(), readerUserId);
+
+            Exception blockedMovedOutcome = await SeedAsync(blockedMovedAssociation);
+
+            // when: both originals are soft-removed, which is what Remove and a withdrawn
+            // reaction do — the rows stay
+            await this.broker.SoftDeleteAsync(editorialAssociation);
+            await this.broker.SoftDeleteAsync(loveAssociation);
+
+            Association readdedEditorialAssociation = CreatePair(editorialGroupId, tagGroupId);
+            Exception readdedEditorialOutcome = await SeedAsync(readdedEditorialAssociation);
+
+            Association movedAssociation =
+                CreateReaction(reactedGroupId, reactionGroupId: Guid.NewGuid(), readerUserId);
+
+            Exception movedOutcome = await SeedAsync(movedAssociation);
+
+            // then
+            editorialOutcome.Should().BeNull();
+            loveOutcome.Should().BeNull();
+
+            blockedEditorialOutcome.Should().BeOfType<DuplicateKeyWithUniqueIndexException>(
+                because: "while the editorial row is live its pair is taken");
+
+            blockedMovedOutcome.Should().BeOfType<DuplicateKeyWithUniqueIndexException>(
+                because: "while the reader's reaction is live their reaction on the item is "
+                    + "taken");
+
+            readdedEditorialOutcome.Should().BeNull(
+                because: "UX_Associations_EditorialPair's filter excludes the soft-deleted row");
+
+            movedOutcome.Should().BeNull(
+                because: "UX_Associations_PersonalPair's filter excludes the withdrawn "
+                    + "reaction, so the reader may hold one again");
+        }
+
+        [Fact]
         public async Task ShouldDeployTheCanonicalOrderConstraintWithAnOrdinalCollationAsync()
         {
             // given: CompareEndpoints orders endpoints with string.CompareOrdinal. The
