@@ -17,6 +17,7 @@ using Force.DeepCloner;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.Tags;
 using Glory2Him.Core.Models.Foundations.Tags.Exceptions;
 using Glory2Him.Core.Models.Orchestrations.Associations;
@@ -148,6 +149,49 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                     It.IsAny<EventEnvelope<Association>>(),
                     It.IsAny<CancellationToken>()),
                 Times.Never);
+        }
+
+        // THE METHOD PATH'S ARM OF CRITERION 3, and the reason it is not the event path's. The
+        // same contradictions the event path refuses are OVERWRITTEN here, because a method
+        // caller hands over a loose object nobody attested to, and amending it costs nothing.
+        // Pinned beside the write-flow seam because that seam is shared: a refusal that slipped
+        // into the shared flow instead of the event handler would turn this door's overwrite
+        // into a refusal, and this is the test that notices.
+        [Theory]
+        [MemberData(nameof(ContradictingContentTypeClaims))]
+        public async Task ShouldOverwriteACallerSuppliedContentTypeOnTheMethodPathAsync(
+            ContentType? claimedEntityAContentType,
+            ContentType? claimedEntityBContentType,
+            string contradictedParameter)
+        {
+            // given
+            Association rawRequest = CreateRawAddRequest();
+            rawRequest.EntityAContentType = claimedEntityAContentType;
+            rawRequest.EntityBContentType = claimedEntityBContentType;
+            ContentItem resolvedContentItem = SetupEndpointReads(rawRequest);
+            Association capturedForLookup = null;
+
+            this.associationServiceMock.Setup(service =>
+                service.FindAssociationByPairAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<CancellationToken>()))
+                        .Callback<Association, CancellationToken>(
+                            (association, _) => capturedForLookup = association.DeepClone())
+                        .ReturnsAsync(CreatePairMatch(ApprovalStatus.Approved, isDeleted: false));
+
+            // when
+            AssociationSuggestionResult actualResult =
+                await this.associationOrchestrationService.AddAssociationAsync(
+                    rawRequest,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualResult.Status.Should().Be(AssociationSuggestionStatus.AlreadyApproved);
+            capturedForLookup.Should().NotBeNull(because: $"{contradictedParameter} is overwritten");
+            capturedForLookup.EntityAContentType.Should().Be(resolvedContentItem.ContentType);
+            capturedForLookup.EntityBContentType.Should().BeNull();
+
+            this.loggingBrokerMock.VerifyNoOtherCalls();
         }
     }
 }
