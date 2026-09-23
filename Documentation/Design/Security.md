@@ -259,8 +259,9 @@ present or hypothetical, for which a singleton over the identity chain is the co
 arrangement. The helpers themselves still register singletons — measured, and `Add*Service()` is
 unchanged — so **whether the OTHER `Add*Service()` helpers should now be scoped is a wider
 question, named here and deliberately not ruled**. *Other* is exact rather than loose:
-`AddAssociationOrchestrationService()`'s own disposition **is** ruled, at §ARC12.5 entry 1, because
-that service composes an identity-chain broker and the rule above is unconditional. What is ruled
+`AddAssociationOrchestrationService()`'s singleton **is** already ruled out, at §ARC12.5 entry 1,
+because that service composes an identity-chain broker and the rule above is unconditional. The
+decision is made; only carrying it out is open, and that is #659's. What is ruled
 generally is only that no design or comment may cite the method-group trade to justify a
 singleton, because the mechanism it names is gone. **Three things follow from that and all three
 are #659's**: the sixteen source files still asserting the mechanism, `CoreRegistration`
