@@ -1,4 +1,4 @@
-﻿# Domain
+# Domain
 
 Carries `G2H Design.md` §2 "Domain Model Overview", §3 "Content Design",
 §4 "Association Design", §5 "Supporting Content Entities", §6

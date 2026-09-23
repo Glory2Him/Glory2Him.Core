@@ -1,4 +1,4 @@
-﻿# Architecture
+# Architecture
 
 Carries `G2H Design.md` §12 "Component Architecture", §16 "Recommended Service
 Responsibilities" and §17 "Recommended API Design" — the layer model, the

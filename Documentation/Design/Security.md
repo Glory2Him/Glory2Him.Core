@@ -1,4 +1,4 @@
-﻿# Security
+# Security
 
 Carries `G2H Design.md` §14 "Visibility Rules" and §18 "Authentication and
 Authorisation" — the read-visibility rules, the enforcement posture applied at
