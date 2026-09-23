@@ -63,10 +63,17 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                     content: addedAssociation);
             });
 
-        public ValueTask<bool> HasAlreadyAddedAssociationAsync(
+        // The deduplication question on its own, for the layer above (#631). Same receiver name
+        // and same storage probe the Adding handler uses, so the two cannot answer differently —
+        // asking it twice is a repeated read, not a second rule.
+        public async ValueTask<bool> HasAlreadyAddedAssociationAsync(
             EventEnvelope<Association> envelope,
             CancellationToken cancellationToken = default) =>
-            throw new System.NotImplementedException();
+            await AlreadyProcessedAsync(
+                envelope: envelope,
+                receiverName: EventBrokerIdentifiers
+                    .AssociationOnAddingAssociationSubscriptionName,
+                cancellationToken: cancellationToken);
 
         public ValueTask<EventEnvelope<Association>?> OnModifyingAssociationAsync(
             EventEnvelope<Association> envelope,
