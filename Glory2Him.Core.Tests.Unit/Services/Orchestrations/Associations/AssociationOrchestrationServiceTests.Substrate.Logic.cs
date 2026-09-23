@@ -76,6 +76,72 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        // THE DERIVATION RUNS ON THE EVENT PATH, and in the right place: after the duplicate
+        // question, before the foundation is handed the envelope. Both orderings are SNAPSHOTTED
+        // while the call is happening — Moq evaluates matchers at Verify time, so a read moved to
+        // AFTER the delegation, which reopens the whole gap, would still satisfy a plain Verify.
+        [Fact]
+        public async Task ShouldDeriveEndpointsOnTheEventPathAsync()
+        {
+            // given
+            Association addRequest = CreateHonestAddRequest();
+            EventEnvelope<Association> inputEnvelope = CreateRequestEnvelope(addRequest);
+            SetupEventPathEndpointReads(addRequest, inputEnvelope);
+            bool wereEndpointsReadBeforeTheDuplicateQuestion = true;
+            bool wereBothEndpointsReadBeforeDelegating = false;
+
+            this.associationServiceMock.Setup(service =>
+                service.HasAlreadyAddedAssociationAsync(
+                    inputEnvelope,
+                    It.IsAny<CancellationToken>()))
+                        .Callback<EventEnvelope<Association>, CancellationToken>((_, _) =>
+                            wereEndpointsReadBeforeTheDuplicateQuestion =
+                                this.contentItemServiceMock.Invocations.Count > 0
+                                    || this.tagServiceMock.Invocations.Count > 0)
+                        .ReturnsAsync(false);
+
+            this.associationServiceMock.Setup(service =>
+                service.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    It.IsAny<CancellationToken>()))
+                        .Callback<EventEnvelope<Association>, CancellationToken>((_, _) =>
+                            wereBothEndpointsReadBeforeDelegating =
+                                this.contentItemServiceMock.Invocations.Count > 0
+                                    && this.tagServiceMock.Invocations.Count > 0)
+                        .ReturnsAsync(inputEnvelope);
+
+            // when
+            await this.associationOrchestrationService.OnAddingAssociationAsync(
+                inputEnvelope,
+                TestContext.Current.CancellationToken);
+
+            // then
+            wereEndpointsReadBeforeTheDuplicateQuestion.Should().BeFalse();
+            wereBothEndpointsReadBeforeDelegating.Should().BeTrue();
+
+            this.contentItemServiceMock.Verify(service =>
+                service.RetrieveContentItemByIdAsync(
+                    addRequest.EntityAKeyId,
+                    inputEnvelope,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.tagServiceMock.Verify(service =>
+                service.RetrieveTagByIdAsync(
+                    addRequest.EntityBKeyId,
+                    inputEnvelope,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.associationServiceMock.Verify(service =>
+                service.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // A REPLAY DOES NO WORK. Deduplication belongs to the foundation, and this handler now
         // runs AHEAD of it — so without the early question a re-delivered envelope would read
         // both endpoint rows before anything noticed the event was already applied. If an
