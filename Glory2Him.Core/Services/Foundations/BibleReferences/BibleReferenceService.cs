@@ -143,6 +143,8 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
             CancellationToken cancellationToken = default) =>
             TryCatch(async () =>
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 EventEnvelope<BibleReference> readEnvelope =
                     await this.eventEnvelopeBroker.CreateNextAsync(
                         sourceEnvelope: inboundEnvelope,
