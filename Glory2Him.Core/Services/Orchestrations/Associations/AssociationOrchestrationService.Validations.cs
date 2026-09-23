@@ -21,21 +21,135 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
 {
     internal partial class AssociationOrchestrationService
     {
-        // The orchestration enforces the contribution gate itself (§14.6): an exposer may bind
+        // The orchestration enforces the contribution gate itself (§SEC14.6): an exposer may bind
         // to it directly, so it never assumes an upstream layer already gated the caller.
+        //
+        // The ADD's composition: the two row-free leaves, and then — once both endpoints have
+        // been resolved from storage — the endpoint half of the veto, which this member is the
+        // one write able to decide for itself (§SEC14.7 posture A′ rule 4, "the add is the
+        // exception that proves the rule").
         private static void ValidateUserIsAllowedToContribute(SecurityContext securityContext)
+        {
+            ValidateUserIsAuthenticated(securityContext);
+            ValidateUserIsNotGloballyBlocked(securityContext);
+        }
+
+        // ── ONE COMPOSITION PER OPERATION, over shared leaves ─────────────────────────
+        //
+        // The three below are the orchestration's half of the gate on modify, remove and hard
+        // remove: the part that needs NO row (§SEC14.7 posture A′ rule 4). Each of the three
+        // members is handed an id or an untrusted Association, so nothing composed from the
+        // STORED endpoints is decidable here — that half runs in the foundation, and this layer
+        // issues no second read to duplicate it. Running these leaves first is what stops the
+        // three surfaces being used to probe which association ids exist.
+        //
+        // MODIFY AND REMOVE COMPOSE THE SAME TWO LEAVES TODAY AND STILL GET A METHOD EACH, for
+        // the reason the add's gate above gets its own: a shared composition cannot give one
+        // operation a rule without giving it to the other, so the day modify needs something
+        // remove must not have, the sharing is what makes the asymmetry unexpressible. The
+        // duplication is three lines; the entanglement would be a rule arriving somewhere nobody
+        // was looking. The leaves are shared freely — they carry no operation's policy.
+        private static void ValidateUserMayModifyAssociation(SecurityContext securityContext)
+        {
+            ValidateUserIsAuthenticated(securityContext);
+            ValidateUserIsNotGloballyBlocked(securityContext);
+        }
+
+        private static void ValidateUserMayRemoveAssociation(SecurityContext securityContext)
+        {
+            ValidateUserIsAuthenticated(securityContext);
+            ValidateUserIsNotGloballyBlocked(securityContext);
+        }
+
+        // HARD REMOVE's composition: the same two row-free leaves, plus Administrators — which is
+        // itself decidable with no row, so it joins this layer's half rather than the
+        // foundation's (§SEC14.7 posture A′ rule 4). The endpoint veto is NOT here; it needs the
+        // stored row and stays one layer down, where a block refuses even an administrator
+        // (§SEC18.6 rule 2). This one is visibly not its neighbours' equal, which is the case the
+        // rule above exists for.
+        //
+        // The global block is asked BEFORE the Administrators grant, because a veto is asked
+        // ahead of any grant and is overridden by none of them.
+        private static void ValidateUserMayHardRemoveAssociation(SecurityContext securityContext)
+        {
+            ValidateUserIsAuthenticated(securityContext);
+            ValidateUserIsNotGloballyBlocked(securityContext);
+
+            if (securityContext.Roles.Contains(Roles.Administrators) is false)
+            {
+                throw new UnauthorizedAssociationOrchestrationException(
+                    message: "The current user is not permitted to permanently delete a content item association.");
+            }
+        }
+
+        private static void ValidateUserIsAuthenticated(SecurityContext securityContext)
         {
             if (securityContext is null || securityContext.IsAuthenticated is false)
             {
                 throw new UnauthorizedAssociationOrchestrationException(
                     message: "The current user is not authenticated.");
             }
+        }
 
+        private static void ValidateUserIsNotGloballyBlocked(SecurityContext securityContext)
+        {
             if (securityContext.Roles.Contains(Roles.ReadOnly))
             {
                 throw new UnauthorizedAssociationOrchestrationException(
                     message: "The current user is blocked from contributing content item associations.");
             }
+        }
+
+        // §SEC14.7 posture A′ rule 1's veto, composed from the endpoints this service has just
+        // RESOLVED from storage — never from the caller's copy, which is why the content type may
+        // be trusted here at all. Four scoped names in all, two per end.
+        //
+        // THE `OR` IS LOAD-BEARING. Under an AND, a user holding Tag-ReadOnly alongside
+        // BibleReference-Reviewers could pair a tag with an entity type they are not banned from
+        // and land it on a public scripture page — exactly what Tag-ReadOnly exists to prevent.
+        // One end admits on the grant side; one end bars on the block side.
+        //
+        // THIS IS THE ADD'S ALONE. Modify, remove and hard remove are handed an id or an
+        // untrusted row, so there is no resolved endpoint for this layer to compose from and the
+        // veto belongs one layer down (§SEC14.7 posture A′ rule 4). §SEC14.6 rule 2 makes the
+        // duplicate with the foundation's own gate intended rather than redundant.
+        private static void ValidateUserIsNotBlockedFromEndpoints(
+            SecurityContext securityContext,
+            Association association)
+        {
+            bool isBlocked =
+                IsBlockedFromEndpoint(
+                    securityContext,
+                    association.EntityAType,
+                    association.EntityAContentType)
+                || IsBlockedFromEndpoint(
+                    securityContext,
+                    association.EntityBType,
+                    association.EntityBContentType);
+
+            if (isBlocked)
+            {
+                throw new UnauthorizedAssociationOrchestrationException(
+                    message: "The current user is blocked from contributing content item associations.");
+            }
+        }
+
+        // Both block tiers for ONE endpoint. A null content type costs that endpoint its narrow
+        // tier and widens nothing: only ContentItem carries one (§SEC18.6 rule 5), and on this
+        // path a ContentItem endpoint always has one, because resolution derived it.
+        private static bool IsBlockedFromEndpoint(
+            SecurityContext securityContext,
+            EntityType entityType,
+            ContentType? contentType)
+        {
+            if (securityContext.Roles.Contains(Roles.ReadOnlyFor(entityType)))
+            {
+                return true;
+            }
+
+            return contentType.HasValue
+                && securityContext.Roles.Contains(
+                    Roles.ReadOnlyFor(entityType, contentType.Value));
         }
 
         private static void ValidateAssociationIsNotNull(Association association)
@@ -57,6 +171,14 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 (Rule: IsInvalid(association.EntityBType), Parameter: nameof(Association.EntityBType)),
                 (Rule: IsInvalid(association.EntityAKeyId), Parameter: nameof(Association.EntityAKeyId)),
                 (Rule: IsInvalid(association.EntityBKeyId), Parameter: nameof(Association.EntityBKeyId)));
+
+        // The id-keyed surfaces' own validation. Kept separate from ValidateOnAddAssociation
+        // rather than folded into a shared validator: they compose different rules today and
+        // sharing the composition would mean a rule added for one silently binds the other.
+        private static void ValidateAssociationId(Guid associationId) =>
+            Validate(
+                message: "Content item association is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(associationId), Parameter: nameof(Association.Id)));
 
         private static dynamic IsInvalid(Guid id) => new
         {

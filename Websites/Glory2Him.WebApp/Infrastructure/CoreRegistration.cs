@@ -27,6 +27,7 @@ using Glory2Him.Core.Services.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Services.Foundations.IdentityUsers;
 using Glory2Him.Core.Services.Foundations.ApprovalReviews;
 using Glory2Him.Core.Services.Orchestrations.AIReviewers;
+using Glory2Him.Core.Services.Orchestrations.Associations;
 using Glory2Him.Core.Services.Orchestrations.ApprovalReviewers;
 using Glory2Him.Core.Services.Orchestrations.Approvals;
 using Glory2Him.Core.Services.Processings.Links;
@@ -232,6 +233,21 @@ namespace Glory2Him.WebApp.Infrastructure
             services.AddScoped<ICommentService, CommentService>();
             services.AddScoped<IBibleReferenceService, BibleReferenceService>();
             services.AddScoped<IAssociationService, AssociationService>();
+
+            // The layer #318's controller binds to (§ARC12.1: a caller binds to the highest layer
+            // that exists), and the only one that can answer §SEC14.3's composite — an association
+            // is visible only while BOTH its endpoints are, which spans seven entity types and so
+            // cannot live in the foundation's own-table read (§SEC14.3 Layer).
+            //
+            // Scoped, and registered HERE rather than through
+            // ServiceRegistration.AddAssociationOrchestrationService, which registers a singleton:
+            // §SEC14.6.1 refuses a singleton over the identity chain in a host that wires no
+            // subscription for the service. The lifetime is load-bearing a second time over — the
+            // composite read composes the endpoint foundations' queryables into the association
+            // foundation's, so all seven must resolve the SAME storage broker within the request.
+            services.AddScoped<
+                IAssociationOrchestrationService,
+                AssociationOrchestrationService>();
             services.AddScoped<IApprovalSettingService, ApprovalSettingService>();
             services.AddScoped<IContentItemSettingService, ContentItemSettingService>();
 
