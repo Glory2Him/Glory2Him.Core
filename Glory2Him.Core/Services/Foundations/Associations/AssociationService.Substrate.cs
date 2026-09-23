@@ -63,6 +63,11 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                     content: addedAssociation);
             });
 
+        public ValueTask<bool> HasAlreadyAddedAssociationAsync(
+            EventEnvelope<Association> envelope,
+            CancellationToken cancellationToken = default) =>
+            throw new System.NotImplementedException();
+
         public ValueTask<EventEnvelope<Association>?> OnModifyingAssociationAsync(
             EventEnvelope<Association> envelope,
             CancellationToken cancellationToken = default) =>

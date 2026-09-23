@@ -75,5 +75,63 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
 
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        // A REPLAY DOES NO WORK. Deduplication belongs to the foundation, and this handler now
+        // runs AHEAD of it — so without the early question a re-delivered envelope would read
+        // both endpoint rows before anything noticed the event was already applied. If an
+        // endpoint has since been soft-deleted, or stopped being visible to the signed caller,
+        // that read fails and a settled write is recorded as a failed delivery and retried.
+        //
+        // Asserted as "no endpoint was read and the foundation handler was never called",
+        // because a short-circuit that still pays for the reads is the bug half-fixed.
+        [Fact]
+        public async Task ShouldShortCircuitADuplicateBeforeResolvingEndpointsOnTheEventPathAsync()
+        {
+            // given
+            Association addRequest = CreateHonestAddRequest();
+            EventEnvelope<Association> inputEnvelope = CreateRequestEnvelope(addRequest);
+            SetupEventPathEndpointReads(addRequest, inputEnvelope);
+
+            this.associationServiceMock.Setup(service =>
+                service.HasAlreadyAddedAssociationAsync(
+                    inputEnvelope,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(true);
+
+            // when
+            EventEnvelope<Association> actualReplyEnvelope =
+                await this.associationOrchestrationService.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualReplyEnvelope.Should().BeNull();
+
+            this.envelopeIntegrityBrokerMock.Verify(broker =>
+                broker.VerifyAsync(
+                    inputEnvelope,
+                    "AssociationAdding",
+                    EnvelopeDirection.Request),
+                Times.Once);
+
+            this.associationServiceMock.Verify(service =>
+                service.HasAlreadyAddedAssociationAsync(
+                    inputEnvelope,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            // the derivation never ran, so a since-deleted endpoint cannot fail a settled replay,
+            // and the foundation handler was never reached
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.tagServiceMock.VerifyNoOtherCalls();
+            this.reactionServiceMock.VerifyNoOtherCalls();
+            this.bibleReferenceServiceMock.VerifyNoOtherCalls();
+            this.commentServiceMock.VerifyNoOtherCalls();
+            this.linkServiceMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }

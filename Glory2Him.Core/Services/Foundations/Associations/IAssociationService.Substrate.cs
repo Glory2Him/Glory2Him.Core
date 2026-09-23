@@ -30,6 +30,29 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             EventEnvelope<Association> envelope,
             CancellationToken cancellationToken = default);
 
+        /// <summary>
+        /// Whether this add request has ALREADY been applied by this receiver — the same
+        /// <c>ProcessedEvents</c> question <see cref="OnAddingAssociationAsync"/> asks itself,
+        /// exposed so the layer above can ask it FIRST.
+        ///
+        /// <para>The orchestration that now owns <c>Association-Adding</c> reads BOTH endpoint rows
+        /// before it delegates, to derive <c>Entity{A,B}ContentType</c> (#631). Left after the
+        /// deduplication, those reads make a replay do more than it used to: a re-delivered
+        /// envelope whose endpoint has since been soft-deleted, or has stopped being visible to
+        /// the signed caller, fails the derivation and is recorded as a failed delivery and
+        /// retried — for an event that was already applied. Before the address moved up a tier a
+        /// duplicate short-circuited to <c>null</c> without touching either endpoint, and it must
+        /// still.</para>
+        ///
+        /// <para>A boolean, over the receiver's own bookkeeping — it reveals nothing but whether
+        /// this system has seen an event id the caller minted. The handler keeps asking the same
+        /// question for itself, because it must be safe called alone (§SEC14.6 rule 1); this only
+        /// moves the answer earlier for the path that has work in front of it.</para>
+        /// </summary>
+        internal ValueTask<bool> HasAlreadyAddedAssociationAsync(
+            EventEnvelope<Association> envelope,
+            CancellationToken cancellationToken = default);
+
         ValueTask<EventEnvelope<Association>?> OnModifyingAssociationAsync(
             EventEnvelope<Association> envelope,
             CancellationToken cancellationToken = default);
