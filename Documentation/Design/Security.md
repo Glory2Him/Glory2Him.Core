@@ -243,7 +243,10 @@ itself, as `CoreRegistration.AddCoreServices` does. **That conditional is a coro
 operative rule**, and the paragraph below is why it must not be read as one: the rule above is
 unconditional, and `CoreRegistration.AddCoreServices` is cited for what it **does** — register
 scoped, by hand — and no longer for satisfying the condition, because that host wires 109
-subscriptions.
+subscriptions. Only the genuinely stateless brokers (`IDateTimeBroker`, `IIdentifierBroker`,
+`IHashBroker`, `IEnvelopeIntegrityBroker`, `IEventBroker`) stay singletons **in that host** — the
+word was *there* until the paragraphs below were inserted between it and its referent, at which
+point it read as the `Add*Service()` helpers, which is the opposite of what it says.
 
 **The trade itself has since been bought out, and the rule that rested on it now rests on
 something else.** `EventSubscriptionRegistration` no longer binds a method group on a held
@@ -267,9 +270,7 @@ singleton, because the mechanism it names is gone. **Three things follow from th
 are #659's**: the sixteen source files still asserting the mechanism, `CoreRegistration`
 contradicting itself about whether this host wires subscriptions, and that one extension's
 lifetime — corrected to `AddScoped` or deleted. That issue carries the *other helpers* boundary as
-its own out-of-scope line, so the sweep does not turn into the wider ruling by accident. Only the genuinely stateless brokers
-(`IDateTimeBroker`, `IIdentifierBroker`, `IHashBroker`, `IEnvelopeIntegrityBroker`,
-`IEventBroker`) stay singletons there.
+its own out-of-scope line, so the sweep does not turn into the wider ruling by accident.
 
 Because the failure is invisible to behavioural tests, **the guard is a registration test that
 asserts the lifetime directly** — see `CoreRegistrationTests.ShouldRegisterRequestBoundServicesAsScoped`.
