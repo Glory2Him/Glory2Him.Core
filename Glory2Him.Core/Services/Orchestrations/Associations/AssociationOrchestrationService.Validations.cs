@@ -167,6 +167,13 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             EventEnvelope<Association> envelope,
             AssociationEventOperation operation)
         {
+            if (envelope is null || envelope.Content is null || envelope.Metadata is null)
+            {
+                throw new InvalidAssociationOrchestrationException(
+                    message: "Invalid content item association event. " +
+                        "The event envelope, its content and metadata are required.");
+            }
+
             string eventName = $"{nameof(Association)}{operation}";
 
             bool isSignatureValid = await this.envelopeIntegrityBroker.VerifyAsync(
