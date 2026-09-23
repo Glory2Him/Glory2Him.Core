@@ -133,6 +133,12 @@ namespace Glory2Him.Core.Services.Foundations.Tags
                     cancellationToken: cancellationToken);
             });
 
+        public ValueTask<Tag> RetrieveTagByIdAsync<TSource>(
+            Guid tagId,
+            EventEnvelope<TSource> inboundEnvelope,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
         public ValueTask<Tag> ModifyTagAsync(
             Tag tag,
             CancellationToken cancellationToken = default) =>
