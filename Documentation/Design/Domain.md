@@ -391,7 +391,7 @@ Each endpoint carries the same six fields:
 | --- | --- | --- |
 | `Entity{A,B}Type` | The `EntityType` of the endpoint. | caller, create-only |
 | `Entity{A,B}KeyId` | The specific row — the version, for a versioned entity type. | caller, create-only |
-| `Entity{A,B}GroupId` | The version group. Equal to `KeyId` when the entity type is not versioned, so every endpoint has a group id and one set of rules covers both kinds. | caller for a versioned type; derived otherwise; create-only |
+| `Entity{A,B}GroupId` | The version group. Equal to `KeyId` when the entity type is not versioned, so every endpoint has a group id and one set of rules covers both kinds. | derived (§DOM4.5 rule 2): from the resolved endpoint row for a versioned type, as `KeyId` otherwise; create-only |
 | `Entity{A,B}Scope` | Whether the association follows the endpoint across versions. | derived (§DOM4.5); the only endpoint field that may change after creation |
 | `Entity{A,B}EffectiveId` | `GroupId` under `AllVersions`, `KeyId` under `ThisVersionOnly`. | the database (§DOM4.6) |
 | `Entity{A,B}ContentType` | The endpoint's `ContentType`, denormalised so authorization composes from the row alone (§SEC18.6). Null unless the type is `ContentItem`. | derived from the resolved endpoint, never caller-supplied |
@@ -421,7 +421,7 @@ A is the endpoint with the lower `(EntityType name, GroupId)` tuple; B is the ot
 ### DOM4.5 Derived and Pinned Endpoint Fields *(formerly §4.5)*
 
 1. `Scope` is **derived, never accepted from a caller**: a non-versioned entity type resolves to `ThisVersionOnly` (it has exactly one row, so `AllVersions` would be a distinction without a difference); a versioned one defaults to `AllVersions`. The publication model comes from the §APR7.5.1 lookup — **never** from probing the entity for `IVersion` at runtime, which this repository has already proved unreliable twice.
-2. `GroupId` is derived as `KeyId` for a non-versioned endpoint.
+2. `GroupId` is derived as `KeyId` for a non-versioned endpoint, and **from the resolved endpoint row for a versioned one — never caller-supplied** (ruled on #631). A caller names an endpoint by `Type` and `KeyId` alone, which is the add's "two endpoints and nothing else" (§ARC16.8.1). The versioned derivation is `AssociationOrchestrationService`'s, because reading the endpoint spans a second entity. The foundation, which may not read it (§SEC14.3), keeps the value it is handed, which is why the `Association-Adding` event path refuses a claim that differs (§ARC12.5.2 rule 6). The group id keys the effective id under `AllVersions`, canonical order (§DOM4.4) and rule 5 below. A caller-set group would therefore attach the row to an item whose content type and visibility were never resolved.
 3. `ContentType` is derived from the resolved endpoint and never caller-supplied — it is an authorization input, so a caller who could set it could claim authority over a content type they hold no role for. Resolving it requires reading the endpoint row, which is an orchestration read; the foundation enforces the structural half of the rule (a value is permitted only on a `ContentItem` endpoint) and leaves a null endpoint costing the caller only the narrow role tier.
 4. **Reclassification is forbidden.** `Type`, `KeyId` and `GroupId` are pinned against storage on every modify. Repointing an association is indistinguishable from deleting one link and creating another — except that it carries the original's approval state and review history across to a pair nobody reviewed.
 
