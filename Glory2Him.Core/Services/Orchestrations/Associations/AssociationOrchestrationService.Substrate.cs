@@ -24,6 +24,10 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             CancellationToken cancellationToken = default) =>
             TryCatch(async () =>
             {
+                // Ahead of the verify: a caller who has already cancelled should not pay for an
+                // HMAC computation, let alone two endpoint reads.
+                cancellationToken.ThrowIfCancellationRequested();
+
                 await ValidateAssociationEventEnvelopeAsync(
                     envelope: envelope,
                     operation: AssociationEventOperation.Adding);
