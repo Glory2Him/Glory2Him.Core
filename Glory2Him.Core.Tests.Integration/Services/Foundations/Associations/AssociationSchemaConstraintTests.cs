@@ -62,9 +62,10 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
             firstOutcome.Should().BeNull(because: "the first of a pair is always allowed");
 
             duplicateOutcome.Should().BeOfType<DuplicateKeyWithUniqueIndexException>(
-                because: "UX_Associations_Pair rejects the second");
+                because: "the pair carries no UserId, so it is editorial, and "
+                    + "UX_Associations_EditorialPair rejects the second");
 
-            duplicateOutcome.Message.Should().Contain("UX_Associations_Pair");
+            duplicateOutcome.Message.Should().Contain("UX_Associations_EditorialPair");
         }
 
         [Fact]
