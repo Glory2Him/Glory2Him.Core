@@ -247,17 +247,28 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             // group differing only in KeyId mean the same thing, and over the raw columns they
             // are distinct rows. The effective id collapses them.
             //
-            // UserId goes LAST and stays nullable, which is what lets one index carry two
-            // different meanings. SQL Server — unlike the SQL standard — treats NULL as equal
-            // to NULL in a unique index, so a null UserId means "exactly one of these
-            // globally" (an editorial pairing) while a set value means "exactly one per user"
-            // (a reaction). Without the column, the 112th "Amen" on a passage fails with a
-            // duplicate key, because Reaction is a lookup row and every reaction association
-            // is otherwise byte-identical.
+            // Two indexes, not one, because editorial and personal rows are two different rules
+            // over two different column sets (§DOM4.6 rule 2): exactly one editorial row per
+            // pair, and exactly one live personal row per (item, far-end type, reader). The
+            // UserId term in each filter is what routes a row to one index and never both.
             //
-            // The explicit filter also REPLACES the one EF would generate. Left to itself, EF
-            // filters a unique index over a nullable column with "WHERE [UserId] IS NOT NULL",
-            // which would exempt every editorial row from the uniqueness it most needs.
+            // Editorial: UserId leaves the key because the filter pins it to NULL, so it would
+            // carry no information there.
+            //
+            // Personal: EntityBEffectiveId leaves the key — a reader holds one reaction on an
+            // item, whichever reaction it is — and UserId takes its place, so two readers on
+            // one item are two rows. EntityBType stays, so the rule is one personal
+            // association per far-end TYPE rather than one of any kind per item.
+            //
+            // Both filters are written out in full and REPLACE the one EF would generate.
+            // Left to itself, EF filters a unique index over a nullable column with
+            // "WHERE [UserId] IS NOT NULL", which on the editorial index would exempt every
+            // editorial row from the uniqueness it most needs, and on either index would drop
+            // the IsDeleted term, so a withdrawn row would hold its key for ever. The
+            // personal filter needs its UserId term just as much: SQL Server — unlike the SQL
+            // standard — treats NULL as equal to NULL in a unique index, so without it every
+            // editorial row would enter the personal index too and an item could carry only
+            // one editorial Tag.
             //
             // The content types are deliberately absent: they are derived from the endpoint,
             // not part of identity.
@@ -266,12 +277,26 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                 association.EntityAType,
                 association.EntityAEffectiveId,
                 association.EntityBType,
-                association.EntityBEffectiveId,
+                association.EntityBEffectiveId
+            })
+                 .IsUnique()
+                 .HasFilter(
+                     $"[{nameof(Association.IsDeleted)}] = 0 AND " +
+                     $"[{nameof(Association.UserId)}] IS NULL")
+                 .HasDatabaseName("UX_Associations_EditorialPair");
+
+            model.HasIndex(association => new
+            {
+                association.EntityAType,
+                association.EntityAEffectiveId,
+                association.EntityBType,
                 association.UserId
             })
                  .IsUnique()
-                 .HasFilter($"[{nameof(Association.IsDeleted)}] = 0")
-                 .HasDatabaseName("UX_Associations_Pair");
+                 .HasFilter(
+                     $"[{nameof(Association.IsDeleted)}] = 0 AND " +
+                     $"[{nameof(Association.UserId)}] IS NOT NULL")
+                 .HasDatabaseName("UX_Associations_PersonalPair");
         }
     }
 }

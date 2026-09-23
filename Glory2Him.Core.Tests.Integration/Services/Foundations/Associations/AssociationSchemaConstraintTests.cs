@@ -105,9 +105,9 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
         {
             // given: the reaction case. Reaction is a lookup row, so every "Amen" on a passage
             // is byte-identical apart from who made it — without UserId in the key the second
-            // one would be a duplicate. UserId sits LAST in the index and stays nullable, so
-            // one index carries both meanings: set, it is one per user; null, it is one
-            // globally.
+            // one would be a duplicate. A set UserId routes the row to
+            // UX_Associations_PersonalPair, which keys on it: one per user, where the
+            // editorial index's null UserId means one globally.
             Guid groupId = Guid.NewGuid();
             Guid reactionGroupId = Guid.NewGuid();
 
