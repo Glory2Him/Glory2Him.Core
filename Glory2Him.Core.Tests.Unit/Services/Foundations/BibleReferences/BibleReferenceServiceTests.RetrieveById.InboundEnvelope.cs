@@ -124,5 +124,84 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        // A MISS ON THIS OVERLOAD MUST READ AS A MISS. The association orchestration recognises an
+        // unresolvable endpoint by its *ValidationException shape; a raw NotFoundBibleReferenceException
+        // escaping here would reach its dependency clause instead and report "this endpoint does
+        // not exist" as a failed dependency.
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnRetrieveByIdAsTheInboundEnvelopesCallerIfBibleReferenceNotFoundAndLogItAsync()
+        {
+            // given
+            Guid someBibleReferenceId = Guid.NewGuid();
+            BibleReference nullBibleReference = null;
+
+            var inboundEnvelope = new EventEnvelope<Association>
+            {
+                Content = new Association { Id = Guid.NewGuid() },
+                SecurityContext = CreateAuthenticatedSecurityContext(),
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateNextAsync(
+                    It.IsAny<EventEnvelope<Association>>(),
+                    It.IsAny<BibleReference>()))
+                        .Returns((EventEnvelope<Association> source, BibleReference content) =>
+                            new ValueTask<EventEnvelope<BibleReference>>(
+                                new EventEnvelope<BibleReference>
+                                {
+                                    Content = content,
+                                    SecurityContext = source.SecurityContext,
+                                    Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+                                }));
+
+            var notFoundBibleReferenceException =
+                new NotFoundBibleReferenceException(
+                    message: $"Bible reference not found with id: {someBibleReferenceId}.");
+
+            var expectedBibleReferenceValidationException =
+                new BibleReferenceValidationException(
+                    message: "Bible reference validation error occurred, fix the errors and try again.",
+                    innerException: notFoundBibleReferenceException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectBibleReferenceByIdAsync(
+                    someBibleReferenceId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(nullBibleReference);
+
+            // when
+            ValueTask<BibleReference> retrieveBibleReferenceByIdTask =
+                this.bibleReferenceService.RetrieveBibleReferenceByIdAsync(
+                    someBibleReferenceId,
+                    inboundEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            BibleReferenceValidationException actualBibleReferenceValidationException =
+                await Assert.ThrowsAsync<BibleReferenceValidationException>(
+                    retrieveBibleReferenceByIdTask.AsTask);
+
+            // then
+            actualBibleReferenceValidationException.Should().BeEquivalentTo(
+                expectedBibleReferenceValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectBibleReferenceByIdAsync(
+                    someBibleReferenceId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedBibleReferenceValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
