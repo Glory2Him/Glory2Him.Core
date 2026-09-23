@@ -133,6 +133,12 @@ namespace Glory2Him.Core.Services.Foundations.Links
                     cancellationToken: cancellationToken);
             });
 
+        public ValueTask<Link> RetrieveLinkByIdAsync<TSource>(
+            Guid linkId,
+            EventEnvelope<TSource> inboundEnvelope,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
         public ValueTask<Link> ModifyLinkAsync(
             Link link,
             CancellationToken cancellationToken = default) =>
