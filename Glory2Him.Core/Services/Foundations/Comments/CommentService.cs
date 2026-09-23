@@ -143,6 +143,8 @@ namespace Glory2Him.Core.Services.Foundations.Comments
             CancellationToken cancellationToken = default) =>
             TryCatch(async () =>
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 EventEnvelope<Comment> readEnvelope =
                     await this.eventEnvelopeBroker.CreateNextAsync(
                         sourceEnvelope: inboundEnvelope,
