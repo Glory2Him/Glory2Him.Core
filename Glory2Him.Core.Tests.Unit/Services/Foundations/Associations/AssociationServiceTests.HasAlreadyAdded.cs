@@ -207,5 +207,62 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldThrowServiceExceptionOnHasAlreadyAddedAssociationIfServiceErrorOccursAndLogItAsync()
+        {
+            // given
+            EventEnvelope<Association> requestEnvelope = CreateRandomAssociationRequestEnvelope();
+            var serviceException = new Exception();
+
+            var failedAssociationServiceException =
+                new FailedAssociationServiceException(
+                    message: "Failed content item association service error occurred, please contact support.",
+                    innerException: serviceException,
+                    data: serviceException.Data);
+
+            var expectedAssociationServiceException =
+                new AssociationServiceException(
+                    message: "Content item association service error occurred, contact support.",
+                    innerException: failedAssociationServiceException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectProcessedEventExistsAsync(
+                    requestEnvelope.Metadata.EventId,
+                    EventBrokerIdentifiers.AssociationOnAddingAssociationSubscriptionName,
+                    TestContext.Current.CancellationToken))
+                        .ThrowsAsync(serviceException);
+
+            // when
+            ValueTask<bool> hasAlreadyAddedTask =
+                this.associationService.HasAlreadyAddedAssociationAsync(
+                    requestEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            AssociationServiceException actualAssociationServiceException =
+                await Assert.ThrowsAsync<AssociationServiceException>(
+                    hasAlreadyAddedTask.AsTask);
+
+            // then
+            actualAssociationServiceException.Should().BeEquivalentTo(
+                expectedAssociationServiceException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectProcessedEventExistsAsync(
+                    requestEnvelope.Metadata.EventId,
+                    EventBrokerIdentifiers.AssociationOnAddingAssociationSubscriptionName,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationServiceException))),
+                Times.Once);
+
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
