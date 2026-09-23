@@ -32,6 +32,13 @@ namespace Glory2Him.Core.Services.Foundations.Associations
     /// handler — are not applied twice; a deduplicated delivery replies <c>null</c>. Failures
     /// are categorized into the service's typed exceptions and rethrown so the substrate
     /// records the delivery as <c>Error</c> and drives retries; they are never swallowed.
+    ///
+    /// <para><b><c>Association-Adding</c> no longer binds here directly.</b> Since #631 the
+    /// address binds <c>IAssociationOrchestrationService</c>, which verifies the request, asks
+    /// <see cref="HasAlreadyAddedAssociationAsync"/> first, derives both endpoints through the
+    /// same write flow the method path runs, and then calls <see cref="OnAddingAssociationAsync"/>
+    /// with the same envelope. The handler stays, and everything it does stays this
+    /// service's.</para>
     /// </summary>
     internal partial class AssociationService
     {

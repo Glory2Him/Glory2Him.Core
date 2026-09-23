@@ -17,6 +17,21 @@ using Glory2Him.Core.Models.Foundations.Associations;
 
 namespace Glory2Him.Core.Services.Orchestrations.Associations
 {
+    /// <summary>
+    /// The event path of the add. <c>Association-Adding</c> binds HERE rather than to the
+    /// foundation (#631), because its handler derives <c>Entity{A,B}ContentType</c> — an
+    /// authorization input (§DOM4.5 rule 3) — from the two endpoint rows the request names, and
+    /// the foundation, confined to its own entity, validates that value for enum-definedness
+    /// only. While the address bound the foundation, a publisher could name a content type it
+    /// held no role for and have it accepted on that alone.
+    ///
+    /// <para><b>The foundation keeps everything else.</b> This handler verifies, asks the
+    /// duplicate question early, and runs the SAME write flow the method path runs — then hands
+    /// the SAME envelope down. Deduplication on <c>Metadata.EventId</c>, the audit stamping,
+    /// canonical ordering, the write, the past-tense fact and the reply are all still the
+    /// foundation's, reached with the envelope untouched. The precedent is
+    /// <c>ContentItemSetting-Adding</c> (#456), followed unchanged.</para>
+    /// </summary>
     internal partial class AssociationOrchestrationService
     {
         public ValueTask<EventEnvelope<Association>?> OnAddingAssociationAsync(

@@ -221,7 +221,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
         public async Task ShouldFlagOnlyTheAssociationEndpointWhoseNarrowTierCannotBeDecidedAsync()
         {
             // given: a Series-Quote style row where ONE ContentItem endpoint carries no content
-            // type — a shape the foundation's own Association-Adding address admits (§14.7
+            // type — a shape the foundation's own add admits (§14.7
             // A′.1). The flagged endpoint is the one whose narrow tier is undecidable; the
             // BibleReference endpoint has no narrow tier to lose and must NOT be flagged, or a
             // sanction that cannot cover it would bar the actor anyway.

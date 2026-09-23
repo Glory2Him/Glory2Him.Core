@@ -245,6 +245,10 @@ namespace Glory2Him.WebApp.Infrastructure
             // subscription for the service. The lifetime is load-bearing a second time over — the
             // composite read composes the endpoint foundations' queryables into the association
             // foundation's, so all seven must resolve the SAME storage broker within the request.
+            //
+            // The Association-Adding SUBSCRIPTION resolves it too (#631), out of the scope the
+            // registration opens per delivery, so this registration is load-bearing on both entry
+            // paths rather than only on the controller's.
             services.AddScoped<
                 IAssociationOrchestrationService,
                 AssociationOrchestrationService>();

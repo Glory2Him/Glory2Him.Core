@@ -23,6 +23,13 @@ namespace Glory2Him.Core.Services.Foundations.Associations
     /// registration decides what is connected. Every handler replies with the operation's
     /// outcome envelope (recorded on the delivery), or <c>null</c> when a duplicated request
     /// was skipped.
+    ///
+    /// <para><b><c>OnAddingAssociationAsync</c> is no longer reached from the registration.</b>
+    /// That address binds <c>IAssociationOrchestrationService</c>, which derives both endpoints
+    /// and their content types and then calls this handler with the same envelope (#631). The
+    /// capability stays here — the deduplication, the write, the canonical ordering, the fact and
+    /// the reply are all this service's — but the address is one tier up, because the rule it
+    /// carries reads two other entities' rows and a foundation may not.</para>
     /// </summary>
     internal partial interface IAssociationService
     {
