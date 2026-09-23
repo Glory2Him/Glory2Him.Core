@@ -9,12 +9,20 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Force.DeepCloner;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Foundations.BibleReferences;
+using Glory2Him.Core.Models.Foundations.Comments;
+using Glory2Him.Core.Models.Foundations.ContentItems;
+using Glory2Him.Core.Models.Foundations.Links;
+using Glory2Him.Core.Models.Foundations.Reactions;
+using Glory2Him.Core.Models.Foundations.Tags;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
@@ -140,6 +148,221 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 Times.Once);
 
             this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // Every endpoint type the resolver supports, on side B. Side A stays a ContentItem, so
+        // each row also exercises the content-typed read alongside the one under test.
+        public static TheoryData<EntityType> SupportedEndpointTypes() =>
+            new TheoryData<EntityType>
+            {
+                EntityType.ContentItem,
+                EntityType.Link,
+                EntityType.Tag,
+                EntityType.Reaction,
+                EntityType.BibleReference,
+                EntityType.Comment,
+            };
+
+        // THE READS ARE THE SIGNED CALLER'S (§ARC12.5.2, "a read whose answer depends on who is
+        // asking is passed the envelope it is being made under"). Delivery is synchronous inside
+        // a publish and HttpContextAccessor flows on an AsyncLocal, so an ambient read on this
+        // path inherits whoever PUBLISHED — wrong in the permissive direction. Asserted per
+        // endpoint type, and as "no ambient read happened at all", because one branch left on the
+        // ambient overload is the whole defect for every association that names that type.
+        [Theory]
+        [MemberData(nameof(SupportedEndpointTypes))]
+        public async Task ShouldCarryTheInboundEnvelopeIntoTheEndpointReadsOnTheEventPathAsync(
+            EntityType endpointBType)
+        {
+            // given
+            Association addRequest = CreateHonestAddRequest();
+            addRequest.EntityBType = endpointBType;
+
+            addRequest.EntityBContentType =
+                endpointBType == EntityType.ContentItem ? ContentType.Story : null;
+
+            EventEnvelope<Association> inputEnvelope = CreateRequestEnvelope(addRequest);
+            SetupEventPathEndpointReads(addRequest, inputEnvelope);
+            SetupEventPathEndpointRead(endpointBType, addRequest.EntityBKeyId, inputEnvelope);
+
+            this.associationServiceMock.Setup(service =>
+                service.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(inputEnvelope);
+
+            // when
+            await this.associationOrchestrationService.OnAddingAssociationAsync(
+                inputEnvelope,
+                TestContext.Current.CancellationToken);
+
+            // then
+            this.contentItemServiceMock.Verify(service =>
+                service.RetrieveContentItemByIdAsync(
+                    addRequest.EntityAKeyId,
+                    inputEnvelope,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            VerifyEventPathEndpointRead(endpointBType, addRequest.EntityBKeyId, inputEnvelope);
+            VerifyNoAmbientEndpointRead();
+
+            this.associationServiceMock.Verify(service =>
+                service.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        private void SetupEventPathEndpointRead(
+            EntityType entityType,
+            Guid keyId,
+            EventEnvelope<Association> inboundEnvelope)
+        {
+            switch (entityType)
+            {
+                case EntityType.ContentItem:
+                    this.contentItemServiceMock.Setup(service =>
+                        service.RetrieveContentItemByIdAsync(
+                            keyId, inboundEnvelope, It.IsAny<CancellationToken>()))
+                                .ReturnsAsync(new ContentItem
+                                {
+                                    Id = keyId,
+                                    GroupId = Guid.NewGuid(),
+                                    ContentType = ContentType.Story,
+                                });
+
+                    return;
+
+                case EntityType.Link:
+                    this.linkServiceMock.Setup(service =>
+                        service.RetrieveLinkByIdAsync(
+                            keyId, inboundEnvelope, It.IsAny<CancellationToken>()))
+                                .ReturnsAsync(new Link { Id = keyId, GroupId = Guid.NewGuid() });
+
+                    return;
+
+                case EntityType.Tag:
+                    this.tagServiceMock.Setup(service =>
+                        service.RetrieveTagByIdAsync(
+                            keyId, inboundEnvelope, It.IsAny<CancellationToken>()))
+                                .ReturnsAsync(new Tag { Id = keyId });
+
+                    return;
+
+                case EntityType.Reaction:
+                    this.reactionServiceMock.Setup(service =>
+                        service.RetrieveReactionByIdAsync(
+                            keyId, inboundEnvelope, It.IsAny<CancellationToken>()))
+                                .ReturnsAsync(new Reaction { Id = keyId });
+
+                    return;
+
+                case EntityType.BibleReference:
+                    this.bibleReferenceServiceMock.Setup(service =>
+                        service.RetrieveBibleReferenceByIdAsync(
+                            keyId, inboundEnvelope, It.IsAny<CancellationToken>()))
+                                .ReturnsAsync(new BibleReference { Id = keyId });
+
+                    return;
+
+                case EntityType.Comment:
+                    this.commentServiceMock.Setup(service =>
+                        service.RetrieveCommentByIdAsync(
+                            keyId, inboundEnvelope, It.IsAny<CancellationToken>()))
+                                .ReturnsAsync(new Comment { Id = keyId });
+
+                    return;
+            }
+        }
+
+        private void VerifyEventPathEndpointRead(
+            EntityType entityType,
+            Guid keyId,
+            EventEnvelope<Association> inboundEnvelope)
+        {
+            switch (entityType)
+            {
+                case EntityType.ContentItem:
+                    this.contentItemServiceMock.Verify(service =>
+                        service.RetrieveContentItemByIdAsync(
+                            keyId, inboundEnvelope, It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+                    return;
+
+                case EntityType.Link:
+                    this.linkServiceMock.Verify(service =>
+                        service.RetrieveLinkByIdAsync(
+                            keyId, inboundEnvelope, It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+                    return;
+
+                case EntityType.Tag:
+                    this.tagServiceMock.Verify(service =>
+                        service.RetrieveTagByIdAsync(
+                            keyId, inboundEnvelope, It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+                    return;
+
+                case EntityType.Reaction:
+                    this.reactionServiceMock.Verify(service =>
+                        service.RetrieveReactionByIdAsync(
+                            keyId, inboundEnvelope, It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+                    return;
+
+                case EntityType.BibleReference:
+                    this.bibleReferenceServiceMock.Verify(service =>
+                        service.RetrieveBibleReferenceByIdAsync(
+                            keyId, inboundEnvelope, It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+                    return;
+
+                case EntityType.Comment:
+                    this.commentServiceMock.Verify(service =>
+                        service.RetrieveCommentByIdAsync(
+                            keyId, inboundEnvelope, It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+                    return;
+            }
+        }
+
+        // The ambient overloads mint their own envelope; on the event path not one may be used.
+        private void VerifyNoAmbientEndpointRead()
+        {
+            this.contentItemServiceMock.Verify(service =>
+                service.RetrieveContentItemByIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.linkServiceMock.Verify(service =>
+                service.RetrieveLinkByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.tagServiceMock.Verify(service =>
+                service.RetrieveTagByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.reactionServiceMock.Verify(service =>
+                service.RetrieveReactionByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.bibleReferenceServiceMock.Verify(service =>
+                service.RetrieveBibleReferenceByIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.commentServiceMock.Verify(service =>
+                service.RetrieveCommentByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+                Times.Never);
         }
 
         // A REPLAY DOES NO WORK. Deduplication belongs to the foundation, and this handler now
