@@ -133,6 +133,12 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
                     cancellationToken: cancellationToken);
             });
 
+        public ValueTask<BibleReference> RetrieveBibleReferenceByIdAsync<TSource>(
+            Guid bibleReferenceId,
+            EventEnvelope<TSource> inboundEnvelope,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
         public ValueTask<BibleReference> ModifyBibleReferenceAsync(
             BibleReference bibleReference,
             CancellationToken cancellationToken = default) =>
