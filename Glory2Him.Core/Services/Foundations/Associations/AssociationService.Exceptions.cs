@@ -453,6 +453,21 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             {
                 return await returningBooleanFunction();
             }
+            catch (OperationCanceledException operationCanceledException)
+                when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
+            {
+                var timeoutException =
+                    new TimeoutException("The dependency operation timed out.");
+
+                var timeoutAssociationException =
+                    new TimeoutAssociationException(
+                        message: "Failed content item association timeout error occurred, contact support.",
+                        innerException: timeoutException,
+                        data: timeoutException.Data);
+
+                throw await CreateAndLogTimeoutDependencyExceptionAsync(
+                    exception: timeoutAssociationException);
+            }
             catch (SqlException sqlException)
             {
                 var failedStorageAssociationException =
