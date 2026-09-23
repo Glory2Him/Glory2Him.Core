@@ -63,13 +63,26 @@ all lowercase after the handle — `the-standard-team-branching` owns this patte
 Use the handle of whoever is actually committing (`git config user.name` or the
 current `gh` session), never a literal example handle. Never commit to main.
 
-Open the PR with `gh pr create`. The title is `CATEGORY: Description In Pascal
-Case` using a prefix from `.github/workflows/prLinter.yml` — that file is the
-authoritative list, and a prefix outside it silently fails to label. The body
-must link the issue or `requireIssueOrTask` fails the PR — `Closes #<n>` is the
-preferred form, but `.github/workflows/prLinter.yml` also accepts `fixes`,
-`resolves`, their past-tense variants, and `AB#<n>`; any of those satisfies the
-gate.
+**Opening the PR is mandatory and yours, not the caller's.** The moment every
+criterion for this pass is implemented and committed, open the PR yourself with
+`gh pr create` — do not report the work as done and leave PR creation to whoever
+invoked you. This holds whether you were invoked directly or by an orchestrating
+agent: nothing downstream of you creates the PR, and "done" without a PR is not
+done.
+
+The title is `CATEGORY: Description In Pascal Case` using a prefix from
+`.github/workflows/prLinter.yml` — that file is the authoritative list, and a
+prefix outside it silently fails to label. The body must link the issue or
+`requireIssueOrTask` fails the PR — `Closes #<n>` is the preferred form, but
+`.github/workflows/prLinter.yml` also accepts `fixes`, `resolves`, their
+past-tense variants, and `AB#<n>`; any of those satisfies the gate.
+
+**A PR is opened once per issue, never re-created.** When QA returns a BLOCKING
+finding that is yours to fix, push the fix as further commits on the same
+branch — the existing PR updates in place. Never open a second PR for the same
+issue, and never close-and-reopen to shake CI. The cycle is: implement, open the
+PR, QA reviews it, you push fixes against it, QA reviews again, repeat until QA's
+verdict is `MERGE READY: YES` and the `QA - Merge Ready` label lands on the PR.
 
 Never add AI or assistant attribution to a commit message or PR description. It
 trips the unattributed-changes rule and blocks the merge.
@@ -352,11 +365,13 @@ rather than working around it:
 
 ## Handing off
 
-When you finish, output the criteria implemented, the tests covering each, any
-migrations added, and the commit SHAs. Then give your own completeness verdict on
-its own line — `MERGE READY: YES` or `MERGE READY: NO` — judging only whether your
-work is done, never whether a human has approved it. Give it again after every
-round of review fixes.
+By this point the PR already exists — see "Branch and pull request" above. When
+you finish, output the criteria implemented, the tests covering each, any
+migrations added, the commit SHAs, and the PR number/URL. Then give your own
+completeness verdict on its own line — `MERGE READY: YES` or `MERGE READY: NO` —
+judging only whether your work is done, never whether a human has approved it.
+Give it again after every round of review fixes, and note in that round's output
+that the fix was pushed to the existing PR rather than a new one.
 
 ## Flagging the wrong budget
 
