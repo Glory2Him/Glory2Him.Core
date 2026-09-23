@@ -50,6 +50,7 @@ using Glory2Him.Core.Services.Orchestrations.ContentItemSettings;
 using Glory2Him.Core.Models.Events.Processings;
 using Glory2Him.Core.Services.Orchestrations.AIReviewers;
 using Glory2Him.Core.Services.Orchestrations.ApprovalReviewers;
+using Glory2Him.Core.Services.Orchestrations.Associations;
 using Glory2Him.Core.Services.Orchestrations.Approvals;
 using Glory2Him.Core.Services.Processings.ContentItems;
 using Glory2Him.Core.Services.Processings.Links;
@@ -73,6 +74,9 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
         private readonly Mock<IApprovalSettingService> approvalSettingServiceMock;
         private readonly Mock<IAssociationService> associationServiceMock;
         private readonly Mock<IContentItemSettingService> contentItemSettingServiceMock;
+
+        private readonly Mock<IAssociationOrchestrationService>
+            associationOrchestrationServiceMock;
 
         private readonly Mock<IContentItemSettingOrchestrationService>
             contentItemSettingOrchestrationServiceMock;
@@ -103,6 +107,9 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             this.approvalSettingServiceMock = new Mock<IApprovalSettingService>();
             this.associationServiceMock = new Mock<IAssociationService>();
             this.contentItemSettingServiceMock = new Mock<IContentItemSettingService>();
+
+            this.associationOrchestrationServiceMock =
+                new Mock<IAssociationOrchestrationService>();
 
             this.contentItemSettingOrchestrationServiceMock =
                 new Mock<IContentItemSettingOrchestrationService>();
@@ -148,6 +155,10 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 .Returns(this.associationServiceMock.Object);
             serviceProviderMock.Setup(p => p.GetService(typeof(IContentItemSettingService)))
                 .Returns(this.contentItemSettingServiceMock.Object);
+
+            serviceProviderMock.Setup(p =>
+                p.GetService(typeof(IAssociationOrchestrationService)))
+                    .Returns(this.associationOrchestrationServiceMock.Object);
 
             serviceProviderMock.Setup(p =>
                 p.GetService(typeof(IContentItemSettingOrchestrationService)))
@@ -1219,7 +1230,13 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 expectedSubscriptionName: EventBrokerIdentifiers
                     .AssociationOnAddingAssociationSubscriptionName,
                 expectedOperation: AssociationEventOperation.Adding,
-                expectedHandler: this.associationServiceMock.Object
+
+                // THE ORCHESTRATION, not the foundation, and the tier is the whole assertion
+                // (#631). Its handler derives Entity{A,B}ContentType — an authorization input —
+                // from the endpoints it resolves, so an add request that reached the foundation
+                // directly would be gated on the caller's own word for it. The seven addresses
+                // below stay on the foundation: none of them derives anything.
+                expectedHandler: this.associationOrchestrationServiceMock.Object
                     .OnAddingAssociationAsync);
 
             VerifyAssociationSubscription(
@@ -1713,6 +1730,7 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 this.approvalReviewRequestServiceMock,
                 this.approvalSettingServiceMock, this.associationServiceMock,
                 this.contentItemSettingServiceMock,
+                this.associationOrchestrationServiceMock,
                 this.contentItemSettingOrchestrationServiceMock,
                 this.contentItemProcessingServiceMock,
                 this.linkProcessingServiceMock, this.approvalOrchestrationServiceMock,
