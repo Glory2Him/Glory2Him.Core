@@ -290,8 +290,9 @@ approval, AI-reviewer, approval-reviewer and association orchestrations — and
 `AddIdentityUserService`**, whose `IdentityUserService` and `IdentityCoreStorageBroker` compose
 no identity-chain broker at all. This rule does not reach it. It does register a
 `DbContext`-bearing broker as a singleton, which is the thread-safety hazard the paragraph above
-measured — but that is a different question from identity capture, and it is **named here and not
-ruled**.
+measured — a **different hazard** from identity capture, which this rule neither covers nor
+decides. **Its owner is #659 all the same**, assigned there by a separate ruling on 2026-09-23
+and not by this rule; #659 decides it on that ground, not on this one.
 
 **The decision is made for all 21; carrying it out is #659's.** No host calls these helpers today
 — only their own unit tests do — so nothing is live, and each helper is corrected to `AddScoped`
@@ -301,7 +302,8 @@ groups" -- '*.cs'`, which searches tracked files only and so excludes `obj/` and
 construction: 18 match, and two of them — `EventSubscriptionRegistration.cs` and
 `ServiceRegistration.ApprovalReview.cs` — already state the retirement, leaving 16 that assert
 it)* and `CoreRegistration` contradicting itself about whether this host wires subscriptions.
-`AddIdentityUserService` is outside #659, for the reason above.
+#659 owns `AddIdentityUserService` too, on the separate ground above, so it owns **all 22**
+helpers: 21 under this rule and one under the `DbContext` hazard.
 
 Because the failure is invisible to behavioural tests, **the guard is a registration test that
 asserts the lifetime directly** — see `CoreRegistrationTests.ShouldRegisterRequestBoundServicesAsScoped`.
