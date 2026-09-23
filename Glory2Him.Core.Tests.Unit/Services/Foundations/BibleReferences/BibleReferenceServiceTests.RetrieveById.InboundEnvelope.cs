@@ -19,6 +19,7 @@ using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.BibleReferences;
 using Glory2Him.Core.Models.Foundations.BibleReferences.Exceptions;
 using Glory2Him.Core.Models.Securities;
+using Microsoft.Data.SqlClient;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
@@ -241,5 +242,196 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
                 SecurityContext = CreateAuthenticatedSecurityContext(),
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
+
+        [Fact]
+        public async Task ShouldThrowDependencyExceptionOnRetrieveByIdAsTheInboundEnvelopesCallerIfOperationCanceledExceptionOccursAndLogItAsync()
+        {
+            // given
+            Guid someBibleReferenceId = Guid.NewGuid();
+            EventEnvelope<Association> inboundEnvelope = CreateInboundAssociationEnvelope();
+            SetupReadEnvelopeChainedFromTheInboundEnvelope();
+            var operationCanceledException = new OperationCanceledException();
+
+            var timeoutException =
+                new TimeoutException("The dependency operation timed out.");
+
+            var timeoutBibleReferenceException =
+                new TimeoutBibleReferenceException(
+                    message: "Failed bible reference timeout error occurred, contact support.",
+                    innerException: timeoutException,
+                    data: timeoutException.Data);
+
+            var expectedBibleReferenceDependencyException = new BibleReferenceDependencyException(
+                message: "Bible reference dependency error occurred, contact support.",
+                innerException: timeoutBibleReferenceException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectBibleReferenceByIdAsync(
+                    someBibleReferenceId,
+                    TestContext.Current.CancellationToken))
+                        .ThrowsAsync(operationCanceledException);
+
+            // when
+            ValueTask<BibleReference> retrieveBibleReferenceByIdTask =
+                this.bibleReferenceService.RetrieveBibleReferenceByIdAsync(
+                    someBibleReferenceId,
+                    inboundEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            BibleReferenceDependencyException actualBibleReferenceDependencyException =
+                await Assert.ThrowsAsync<BibleReferenceDependencyException>(
+                    retrieveBibleReferenceByIdTask.AsTask);
+
+            // then
+            actualBibleReferenceDependencyException.Should().BeEquivalentTo(
+                expectedBibleReferenceDependencyException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectBibleReferenceByIdAsync(
+                    someBibleReferenceId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedBibleReferenceDependencyException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowCriticalDependencyExceptionOnRetrieveByIdAsTheInboundEnvelopesCallerIfSqlErrorOccursAndLogItAsync()
+        {
+            // given
+            Guid someBibleReferenceId = Guid.NewGuid();
+            EventEnvelope<Association> inboundEnvelope = CreateInboundAssociationEnvelope();
+            SetupReadEnvelopeChainedFromTheInboundEnvelope();
+            SqlException sqlException = GetSqlException();
+
+            var failedStorageBibleReferenceException = new FailedStorageBibleReferenceException(
+                message: "Failed bible reference storage error occurred, contact support.",
+                innerException: sqlException,
+                data: sqlException.Data);
+
+            var expectedBibleReferenceDependencyException = new BibleReferenceDependencyException(
+                message: "Bible reference dependency error occurred, contact support.",
+                innerException: failedStorageBibleReferenceException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectBibleReferenceByIdAsync(
+                    someBibleReferenceId,
+                    TestContext.Current.CancellationToken))
+                        .ThrowsAsync(sqlException);
+
+            // when
+            ValueTask<BibleReference> retrieveBibleReferenceByIdTask =
+                this.bibleReferenceService.RetrieveBibleReferenceByIdAsync(
+                    someBibleReferenceId,
+                    inboundEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            BibleReferenceDependencyException actualBibleReferenceDependencyException =
+                await Assert.ThrowsAsync<BibleReferenceDependencyException>(
+                    retrieveBibleReferenceByIdTask.AsTask);
+
+            // then
+            actualBibleReferenceDependencyException.Should().BeEquivalentTo(
+                expectedBibleReferenceDependencyException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectBibleReferenceByIdAsync(
+                    someBibleReferenceId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogCriticalAsync(It.Is(
+                    SameExceptionAs(expectedBibleReferenceDependencyException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowServiceExceptionOnRetrieveByIdAsTheInboundEnvelopesCallerIfServiceErrorOccursAndLogItAsync()
+        {
+            // given
+            Guid someBibleReferenceId = Guid.NewGuid();
+            EventEnvelope<Association> inboundEnvelope = CreateInboundAssociationEnvelope();
+            SetupReadEnvelopeChainedFromTheInboundEnvelope();
+            var serviceException = new Exception();
+
+            var failedBibleReferenceServiceException = new FailedBibleReferenceServiceException(
+                message: "Failed bible reference service error occurred, please contact support.",
+                innerException: serviceException,
+                data: serviceException.Data);
+
+            var expectedBibleReferenceServiceException = new BibleReferenceServiceException(
+                message: "Bible reference service error occurred, contact support.",
+                innerException: failedBibleReferenceServiceException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectBibleReferenceByIdAsync(
+                    someBibleReferenceId,
+                    TestContext.Current.CancellationToken))
+                        .ThrowsAsync(serviceException);
+
+            // when
+            ValueTask<BibleReference> retrieveBibleReferenceByIdTask =
+                this.bibleReferenceService.RetrieveBibleReferenceByIdAsync(
+                    someBibleReferenceId,
+                    inboundEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            BibleReferenceServiceException actualBibleReferenceServiceException =
+                await Assert.ThrowsAsync<BibleReferenceServiceException>(
+                    retrieveBibleReferenceByIdTask.AsTask);
+
+            // then
+            actualBibleReferenceServiceException.Should().BeEquivalentTo(
+                expectedBibleReferenceServiceException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectBibleReferenceByIdAsync(
+                    someBibleReferenceId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedBibleReferenceServiceException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // Chains the read envelope off the inbound one, copying its security context forward, as
+        // the real broker does.
+        private void SetupReadEnvelopeChainedFromTheInboundEnvelope() =>
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateNextAsync(
+                    It.IsAny<EventEnvelope<Association>>(),
+                    It.IsAny<BibleReference>()))
+                        .Returns((EventEnvelope<Association> source, BibleReference content) =>
+                            new ValueTask<EventEnvelope<BibleReference>>(
+                                new EventEnvelope<BibleReference>
+                                {
+                                    Content = content,
+                                    SecurityContext = source.SecurityContext,
+                                    Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+                                }));
     }
 }

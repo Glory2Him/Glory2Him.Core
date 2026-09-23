@@ -19,6 +19,7 @@ using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.Reactions;
 using Glory2Him.Core.Models.Foundations.Reactions.Exceptions;
 using Glory2Him.Core.Models.Securities;
+using Microsoft.Data.SqlClient;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
@@ -241,5 +242,196 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
                 SecurityContext = CreateAuthenticatedSecurityContext(),
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
+
+        [Fact]
+        public async Task ShouldThrowDependencyExceptionOnRetrieveByIdAsTheInboundEnvelopesCallerIfOperationCanceledExceptionOccursAndLogItAsync()
+        {
+            // given
+            Guid someReactionId = Guid.NewGuid();
+            EventEnvelope<Association> inboundEnvelope = CreateInboundAssociationEnvelope();
+            SetupReadEnvelopeChainedFromTheInboundEnvelope();
+            var operationCanceledException = new OperationCanceledException();
+
+            var timeoutException =
+                new TimeoutException("The dependency operation timed out.");
+
+            var timeoutReactionException =
+                new TimeoutReactionException(
+                    message: "Failed reaction timeout error occurred, contact support.",
+                    innerException: timeoutException,
+                    data: timeoutException.Data);
+
+            var expectedReactionDependencyException = new ReactionDependencyException(
+                message: "Reaction dependency error occurred, contact support.",
+                innerException: timeoutReactionException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectReactionByIdAsync(
+                    someReactionId,
+                    TestContext.Current.CancellationToken))
+                        .ThrowsAsync(operationCanceledException);
+
+            // when
+            ValueTask<Reaction> retrieveReactionByIdTask =
+                this.reactionService.RetrieveReactionByIdAsync(
+                    someReactionId,
+                    inboundEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            ReactionDependencyException actualReactionDependencyException =
+                await Assert.ThrowsAsync<ReactionDependencyException>(
+                    retrieveReactionByIdTask.AsTask);
+
+            // then
+            actualReactionDependencyException.Should().BeEquivalentTo(
+                expectedReactionDependencyException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectReactionByIdAsync(
+                    someReactionId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedReactionDependencyException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowCriticalDependencyExceptionOnRetrieveByIdAsTheInboundEnvelopesCallerIfSqlErrorOccursAndLogItAsync()
+        {
+            // given
+            Guid someReactionId = Guid.NewGuid();
+            EventEnvelope<Association> inboundEnvelope = CreateInboundAssociationEnvelope();
+            SetupReadEnvelopeChainedFromTheInboundEnvelope();
+            SqlException sqlException = GetSqlException();
+
+            var failedStorageReactionException = new FailedStorageReactionException(
+                message: "Failed reaction storage error occurred, contact support.",
+                innerException: sqlException,
+                data: sqlException.Data);
+
+            var expectedReactionDependencyException = new ReactionDependencyException(
+                message: "Reaction dependency error occurred, contact support.",
+                innerException: failedStorageReactionException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectReactionByIdAsync(
+                    someReactionId,
+                    TestContext.Current.CancellationToken))
+                        .ThrowsAsync(sqlException);
+
+            // when
+            ValueTask<Reaction> retrieveReactionByIdTask =
+                this.reactionService.RetrieveReactionByIdAsync(
+                    someReactionId,
+                    inboundEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            ReactionDependencyException actualReactionDependencyException =
+                await Assert.ThrowsAsync<ReactionDependencyException>(
+                    retrieveReactionByIdTask.AsTask);
+
+            // then
+            actualReactionDependencyException.Should().BeEquivalentTo(
+                expectedReactionDependencyException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectReactionByIdAsync(
+                    someReactionId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogCriticalAsync(It.Is(
+                    SameExceptionAs(expectedReactionDependencyException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowServiceExceptionOnRetrieveByIdAsTheInboundEnvelopesCallerIfServiceErrorOccursAndLogItAsync()
+        {
+            // given
+            Guid someReactionId = Guid.NewGuid();
+            EventEnvelope<Association> inboundEnvelope = CreateInboundAssociationEnvelope();
+            SetupReadEnvelopeChainedFromTheInboundEnvelope();
+            var serviceException = new Exception();
+
+            var failedReactionServiceException = new FailedReactionServiceException(
+                message: "Failed reaction service error occurred, please contact support.",
+                innerException: serviceException,
+                data: serviceException.Data);
+
+            var expectedReactionServiceException = new ReactionServiceException(
+                message: "Reaction service error occurred, contact support.",
+                innerException: failedReactionServiceException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectReactionByIdAsync(
+                    someReactionId,
+                    TestContext.Current.CancellationToken))
+                        .ThrowsAsync(serviceException);
+
+            // when
+            ValueTask<Reaction> retrieveReactionByIdTask =
+                this.reactionService.RetrieveReactionByIdAsync(
+                    someReactionId,
+                    inboundEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            ReactionServiceException actualReactionServiceException =
+                await Assert.ThrowsAsync<ReactionServiceException>(
+                    retrieveReactionByIdTask.AsTask);
+
+            // then
+            actualReactionServiceException.Should().BeEquivalentTo(
+                expectedReactionServiceException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectReactionByIdAsync(
+                    someReactionId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedReactionServiceException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // Chains the read envelope off the inbound one, copying its security context forward, as
+        // the real broker does.
+        private void SetupReadEnvelopeChainedFromTheInboundEnvelope() =>
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateNextAsync(
+                    It.IsAny<EventEnvelope<Association>>(),
+                    It.IsAny<Reaction>()))
+                        .Returns((EventEnvelope<Association> source, Reaction content) =>
+                            new ValueTask<EventEnvelope<Reaction>>(
+                                new EventEnvelope<Reaction>
+                                {
+                                    Content = content,
+                                    SecurityContext = source.SecurityContext,
+                                    Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+                                }));
     }
 }

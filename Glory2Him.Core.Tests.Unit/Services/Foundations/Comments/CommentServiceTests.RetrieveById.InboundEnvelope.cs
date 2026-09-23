@@ -19,6 +19,7 @@ using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.Comments;
 using Glory2Him.Core.Models.Foundations.Comments.Exceptions;
 using Glory2Him.Core.Models.Securities;
+using Microsoft.Data.SqlClient;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
@@ -241,5 +242,196 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
                 SecurityContext = CreateAuthenticatedSecurityContext(),
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
+
+        [Fact]
+        public async Task ShouldThrowDependencyExceptionOnRetrieveByIdAsTheInboundEnvelopesCallerIfOperationCanceledExceptionOccursAndLogItAsync()
+        {
+            // given
+            Guid someCommentId = Guid.NewGuid();
+            EventEnvelope<Association> inboundEnvelope = CreateInboundAssociationEnvelope();
+            SetupReadEnvelopeChainedFromTheInboundEnvelope();
+            var operationCanceledException = new OperationCanceledException();
+
+            var timeoutException =
+                new TimeoutException("The dependency operation timed out.");
+
+            var timeoutCommentException =
+                new TimeoutCommentException(
+                    message: "Failed comment timeout error occurred, contact support.",
+                    innerException: timeoutException,
+                    data: timeoutException.Data);
+
+            var expectedCommentDependencyException = new CommentDependencyException(
+                message: "Comment dependency error occurred, contact support.",
+                innerException: timeoutCommentException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectCommentByIdAsync(
+                    someCommentId,
+                    TestContext.Current.CancellationToken))
+                        .ThrowsAsync(operationCanceledException);
+
+            // when
+            ValueTask<Comment> retrieveCommentByIdTask =
+                this.commentService.RetrieveCommentByIdAsync(
+                    someCommentId,
+                    inboundEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            CommentDependencyException actualCommentDependencyException =
+                await Assert.ThrowsAsync<CommentDependencyException>(
+                    retrieveCommentByIdTask.AsTask);
+
+            // then
+            actualCommentDependencyException.Should().BeEquivalentTo(
+                expectedCommentDependencyException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectCommentByIdAsync(
+                    someCommentId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedCommentDependencyException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowCriticalDependencyExceptionOnRetrieveByIdAsTheInboundEnvelopesCallerIfSqlErrorOccursAndLogItAsync()
+        {
+            // given
+            Guid someCommentId = Guid.NewGuid();
+            EventEnvelope<Association> inboundEnvelope = CreateInboundAssociationEnvelope();
+            SetupReadEnvelopeChainedFromTheInboundEnvelope();
+            SqlException sqlException = GetSqlException();
+
+            var failedStorageCommentException = new FailedStorageCommentException(
+                message: "Failed comment storage error occurred, contact support.",
+                innerException: sqlException,
+                data: sqlException.Data);
+
+            var expectedCommentDependencyException = new CommentDependencyException(
+                message: "Comment dependency error occurred, contact support.",
+                innerException: failedStorageCommentException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectCommentByIdAsync(
+                    someCommentId,
+                    TestContext.Current.CancellationToken))
+                        .ThrowsAsync(sqlException);
+
+            // when
+            ValueTask<Comment> retrieveCommentByIdTask =
+                this.commentService.RetrieveCommentByIdAsync(
+                    someCommentId,
+                    inboundEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            CommentDependencyException actualCommentDependencyException =
+                await Assert.ThrowsAsync<CommentDependencyException>(
+                    retrieveCommentByIdTask.AsTask);
+
+            // then
+            actualCommentDependencyException.Should().BeEquivalentTo(
+                expectedCommentDependencyException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectCommentByIdAsync(
+                    someCommentId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogCriticalAsync(It.Is(
+                    SameExceptionAs(expectedCommentDependencyException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowServiceExceptionOnRetrieveByIdAsTheInboundEnvelopesCallerIfServiceErrorOccursAndLogItAsync()
+        {
+            // given
+            Guid someCommentId = Guid.NewGuid();
+            EventEnvelope<Association> inboundEnvelope = CreateInboundAssociationEnvelope();
+            SetupReadEnvelopeChainedFromTheInboundEnvelope();
+            var serviceException = new Exception();
+
+            var failedCommentServiceException = new FailedCommentServiceException(
+                message: "Failed comment service error occurred, please contact support.",
+                innerException: serviceException,
+                data: serviceException.Data);
+
+            var expectedCommentServiceException = new CommentServiceException(
+                message: "Comment service error occurred, contact support.",
+                innerException: failedCommentServiceException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectCommentByIdAsync(
+                    someCommentId,
+                    TestContext.Current.CancellationToken))
+                        .ThrowsAsync(serviceException);
+
+            // when
+            ValueTask<Comment> retrieveCommentByIdTask =
+                this.commentService.RetrieveCommentByIdAsync(
+                    someCommentId,
+                    inboundEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            CommentServiceException actualCommentServiceException =
+                await Assert.ThrowsAsync<CommentServiceException>(
+                    retrieveCommentByIdTask.AsTask);
+
+            // then
+            actualCommentServiceException.Should().BeEquivalentTo(
+                expectedCommentServiceException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectCommentByIdAsync(
+                    someCommentId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedCommentServiceException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // Chains the read envelope off the inbound one, copying its security context forward, as
+        // the real broker does.
+        private void SetupReadEnvelopeChainedFromTheInboundEnvelope() =>
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateNextAsync(
+                    It.IsAny<EventEnvelope<Association>>(),
+                    It.IsAny<Comment>()))
+                        .Returns((EventEnvelope<Association> source, Comment content) =>
+                            new ValueTask<EventEnvelope<Comment>>(
+                                new EventEnvelope<Comment>
+                                {
+                                    Content = content,
+                                    SecurityContext = source.SecurityContext,
+                                    Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+                                }));
     }
 }

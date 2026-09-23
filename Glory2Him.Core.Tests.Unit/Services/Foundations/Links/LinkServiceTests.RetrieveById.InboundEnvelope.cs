@@ -19,6 +19,7 @@ using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.Links;
 using Glory2Him.Core.Models.Foundations.Links.Exceptions;
 using Glory2Him.Core.Models.Securities;
+using Microsoft.Data.SqlClient;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
@@ -241,5 +242,196 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
                 SecurityContext = CreateAuthenticatedSecurityContext(),
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
+
+        [Fact]
+        public async Task ShouldThrowDependencyExceptionOnRetrieveByIdAsTheInboundEnvelopesCallerIfOperationCanceledExceptionOccursAndLogItAsync()
+        {
+            // given
+            Guid someLinkId = Guid.NewGuid();
+            EventEnvelope<Association> inboundEnvelope = CreateInboundAssociationEnvelope();
+            SetupReadEnvelopeChainedFromTheInboundEnvelope();
+            var operationCanceledException = new OperationCanceledException();
+
+            var timeoutException =
+                new TimeoutException("The dependency operation timed out.");
+
+            var timeoutLinkException =
+                new TimeoutLinkException(
+                    message: "Failed link timeout error occurred, contact support.",
+                    innerException: timeoutException,
+                    data: timeoutException.Data);
+
+            var expectedLinkDependencyException = new LinkDependencyException(
+                message: "Link dependency error occurred, contact support.",
+                innerException: timeoutLinkException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectLinkByIdAsync(
+                    someLinkId,
+                    TestContext.Current.CancellationToken))
+                        .ThrowsAsync(operationCanceledException);
+
+            // when
+            ValueTask<Link> retrieveLinkByIdTask =
+                this.linkService.RetrieveLinkByIdAsync(
+                    someLinkId,
+                    inboundEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            LinkDependencyException actualLinkDependencyException =
+                await Assert.ThrowsAsync<LinkDependencyException>(
+                    retrieveLinkByIdTask.AsTask);
+
+            // then
+            actualLinkDependencyException.Should().BeEquivalentTo(
+                expectedLinkDependencyException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectLinkByIdAsync(
+                    someLinkId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedLinkDependencyException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowCriticalDependencyExceptionOnRetrieveByIdAsTheInboundEnvelopesCallerIfSqlErrorOccursAndLogItAsync()
+        {
+            // given
+            Guid someLinkId = Guid.NewGuid();
+            EventEnvelope<Association> inboundEnvelope = CreateInboundAssociationEnvelope();
+            SetupReadEnvelopeChainedFromTheInboundEnvelope();
+            SqlException sqlException = GetSqlException();
+
+            var failedStorageLinkException = new FailedStorageLinkException(
+                message: "Failed link storage error occurred, contact support.",
+                innerException: sqlException,
+                data: sqlException.Data);
+
+            var expectedLinkDependencyException = new LinkDependencyException(
+                message: "Link dependency error occurred, contact support.",
+                innerException: failedStorageLinkException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectLinkByIdAsync(
+                    someLinkId,
+                    TestContext.Current.CancellationToken))
+                        .ThrowsAsync(sqlException);
+
+            // when
+            ValueTask<Link> retrieveLinkByIdTask =
+                this.linkService.RetrieveLinkByIdAsync(
+                    someLinkId,
+                    inboundEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            LinkDependencyException actualLinkDependencyException =
+                await Assert.ThrowsAsync<LinkDependencyException>(
+                    retrieveLinkByIdTask.AsTask);
+
+            // then
+            actualLinkDependencyException.Should().BeEquivalentTo(
+                expectedLinkDependencyException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectLinkByIdAsync(
+                    someLinkId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogCriticalAsync(It.Is(
+                    SameExceptionAs(expectedLinkDependencyException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowServiceExceptionOnRetrieveByIdAsTheInboundEnvelopesCallerIfServiceErrorOccursAndLogItAsync()
+        {
+            // given
+            Guid someLinkId = Guid.NewGuid();
+            EventEnvelope<Association> inboundEnvelope = CreateInboundAssociationEnvelope();
+            SetupReadEnvelopeChainedFromTheInboundEnvelope();
+            var serviceException = new Exception();
+
+            var failedLinkServiceException = new FailedLinkServiceException(
+                message: "Failed link service error occurred, please contact support.",
+                innerException: serviceException,
+                data: serviceException.Data);
+
+            var expectedLinkServiceException = new LinkServiceException(
+                message: "Link service error occurred, contact support.",
+                innerException: failedLinkServiceException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectLinkByIdAsync(
+                    someLinkId,
+                    TestContext.Current.CancellationToken))
+                        .ThrowsAsync(serviceException);
+
+            // when
+            ValueTask<Link> retrieveLinkByIdTask =
+                this.linkService.RetrieveLinkByIdAsync(
+                    someLinkId,
+                    inboundEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            LinkServiceException actualLinkServiceException =
+                await Assert.ThrowsAsync<LinkServiceException>(
+                    retrieveLinkByIdTask.AsTask);
+
+            // then
+            actualLinkServiceException.Should().BeEquivalentTo(
+                expectedLinkServiceException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectLinkByIdAsync(
+                    someLinkId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedLinkServiceException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // Chains the read envelope off the inbound one, copying its security context forward, as
+        // the real broker does.
+        private void SetupReadEnvelopeChainedFromTheInboundEnvelope() =>
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateNextAsync(
+                    It.IsAny<EventEnvelope<Association>>(),
+                    It.IsAny<Link>()))
+                        .Returns((EventEnvelope<Association> source, Link content) =>
+                            new ValueTask<EventEnvelope<Link>>(
+                                new EventEnvelope<Link>
+                                {
+                                    Content = content,
+                                    SecurityContext = source.SecurityContext,
+                                    Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+                                }));
     }
 }
