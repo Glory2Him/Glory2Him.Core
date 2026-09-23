@@ -137,21 +137,22 @@ namespace Glory2Him.Core.Services.Foundations.Tags
         // evaluated against the envelope the reader is already acting under rather than a minted
         // one. CreateNextAsync copies the security context forward and keeps causation linked; it
         // does not mint a context, which is the whole difference from the overload above (#631).
-        public async ValueTask<Tag> RetrieveTagByIdAsync<TSource>(
+        public ValueTask<Tag> RetrieveTagByIdAsync<TSource>(
             Guid tagId,
             EventEnvelope<TSource> inboundEnvelope,
-            CancellationToken cancellationToken = default)
-        {
-            EventEnvelope<Tag> readEnvelope =
-                await this.eventEnvelopeBroker.CreateNextAsync(
-                    sourceEnvelope: inboundEnvelope,
-                    content: new Tag { Id = tagId });
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                EventEnvelope<Tag> readEnvelope =
+                    await this.eventEnvelopeBroker.CreateNextAsync(
+                        sourceEnvelope: inboundEnvelope,
+                        content: new Tag { Id = tagId });
 
-            return await DoRetrieveTagByIdAsync(
-                tagId: tagId,
-                inboundEnvelope: readEnvelope,
-                cancellationToken: cancellationToken);
-        }
+                return await DoRetrieveTagByIdAsync(
+                    tagId: tagId,
+                    inboundEnvelope: readEnvelope,
+                    cancellationToken: cancellationToken);
+            });
 
         public ValueTask<Tag> ModifyTagAsync(
             Tag tag,
