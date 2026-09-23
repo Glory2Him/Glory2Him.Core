@@ -233,10 +233,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             //     answer it at its ROW regardless, which is what the composite's Tag term does
             //     and what the by-id switch's default arm does. Nothing else pinned that, so the
             //     argument in Reads.cs was the only thing holding it.
+            //
+            //     ITS GROUP ID IS DELIBERATELY NOT ITS KEY ID. On a well-formed non-versioned
+            //     endpoint the two are equal (§DOM4.5), which makes "answered at its row" and
+            //     "answered at its group" the same call and pins nothing — a resolver that
+            //     honoured the scope column here would pass unnoticed. Divergent ids are a second
+            //     piece of bad data on a row that is bad data already, and they are what make the
+            //     rule observable.
             Association nonVersionedEndCarryingAllVersions = BuildCrossPathAssociation(
                 EntityType.BibleReference, visibleBibleReferenceId, visibleBibleReferenceId,
                 Scope.ThisVersionOnly, EntityType.Tag, visibleTagId,
-                entityBGroupId: visibleTagId, entityBScope: Scope.AllVersions);
+                entityBGroupId: Guid.NewGuid(), entityBScope: Scope.AllVersions);
 
             // 12. the same bad-data shape over a tag that is NOT visible — drops on both paths,
             //     so neither read can be said to have waved the row through on the scope column
@@ -244,7 +251,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 BuildCrossPathAssociation(
                     EntityType.BibleReference, visibleBibleReferenceId, visibleBibleReferenceId,
                     Scope.ThisVersionOnly, EntityType.Tag, invisibleTagId,
-                    entityBGroupId: invisibleTagId, entityBScope: Scope.AllVersions);
+                    entityBGroupId: Guid.NewGuid(), entityBScope: Scope.AllVersions);
 
             world.StoredAssociations.AddRange(new[]
             {
