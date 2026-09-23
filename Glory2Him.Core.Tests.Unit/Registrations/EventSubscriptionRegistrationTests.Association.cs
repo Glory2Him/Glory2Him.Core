@@ -10,11 +10,15 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using FluentAssertions;
+using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Services.Foundations.Associations;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Registrations
@@ -70,6 +74,113 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
 
             this.associationServiceMock.VerifyNoOtherCalls();
             this.associationOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        // ONLY THE HANDLER MOVED. The event name "AssociationAdding" is inside the HMAC, so a
+        // renamed address breaks every signature published to it; the id is what the substrate
+        // knows this subscription by, so a new one orphans it; and the name is the foundation's
+        // ProcessedEvents receiver key, so a new one forgets every event already applied. Pinned
+        // as LITERALS rather than through the constants, because a test that reads the constant
+        // it guards cannot notice the constant change.
+        [Fact]
+        public async Task ShouldKeepTheSubscriptionIdentityUnchanged()
+        {
+            // given
+            var addingSubscriptions = new List<EventSubscription>();
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.SubscribeToAssociationEventAsync(
+                    It.IsAny<EventSubscription>(),
+                    AssociationEventOperation.Adding,
+                    It.IsAny<Func<EventEnvelope<Association>, CancellationToken,
+                        ValueTask<EventEnvelope<Association>?>>>(),
+                    It.IsAny<CancellationToken>()))
+                        .Callback<EventSubscription, AssociationEventOperation,
+                            Func<EventEnvelope<Association>, CancellationToken,
+                                ValueTask<EventEnvelope<Association>?>>,
+                            CancellationToken>((subscription, _, _, _) =>
+                                addingSubscriptions.Add(subscription));
+
+            // when
+            await this.eventSubscriptionRegistration.RegisterAsync(
+                TestContext.Current.CancellationToken);
+
+            // then
+            EventSubscription addingSubscription = addingSubscriptions.Should().ContainSingle().Subject;
+            addingSubscription.Id.Should().Be(new Guid("019f8170-a642-7cec-bc2e-da65a18d6c88"));
+            addingSubscription.Name.Should().Be("AssociationService.OnAddingAssociation");
+
+            Guid addingAddressId =
+                EventBrokerIdentifiers.AssociationEventAddressIds[AssociationEventOperation.Adding];
+
+            EventBrokerIdentifiers.AssociationEventAddresses[addingAddressId]
+                .Should().Be("Association-Adding");
+
+            $"{nameof(Association)}{AssociationEventOperation.Adding}"
+                .Should().Be("AssociationAdding");
+        }
+
+        // THE OTHER SEVEN STAY WHERE THEY WERE. None of them derives anything — each works from
+        // columns already on the stored row — so moving any of them would add a layer that only
+        // forwards (§ARC12.1). Set-scope is the nearest neighbour: it re-runs the add's duplicate
+        // check, but it recomputes the effective id from the stored row rather than resolving an
+        // endpoint. Every Association handler the registration hands the broker is DRIVEN, and
+        // the set of request operations that lands on the foundation must be exactly these seven.
+        [Fact]
+        public async Task ShouldLeaveTheRemainingSevenAssociationAddressesOnTheFoundationAsync()
+        {
+            // given
+            var expectedFoundationBindings = new Dictionary<AssociationEventOperation, string>
+            {
+                { AssociationEventOperation.Modifying, nameof(IAssociationService.OnModifyingAssociationAsync) },
+                { AssociationEventOperation.RemovingById, nameof(IAssociationService.OnRemovingAssociationByIdAsync) },
+                { AssociationEventOperation.HardRemovingById, nameof(IAssociationService.OnHardRemovingAssociationByIdAsync) },
+                { AssociationEventOperation.RetrievingById, nameof(IAssociationService.OnRetrievingAssociationByIdAsync) },
+                { AssociationEventOperation.Approving, nameof(IAssociationService.OnApprovingAssociationAsync) },
+                { AssociationEventOperation.SettingConfidence, nameof(IAssociationService.OnSettingAssociationConfidenceAsync) },
+                { AssociationEventOperation.SettingScope, nameof(IAssociationService.OnSettingAssociationScopeAsync) },
+            };
+
+            var subscribedHandlers =
+                new List<(AssociationEventOperation Operation,
+                    Func<EventEnvelope<Association>, CancellationToken,
+                        ValueTask<EventEnvelope<Association>?>> Handler)>();
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.SubscribeToAssociationEventAsync(
+                    It.IsAny<EventSubscription>(),
+                    It.IsAny<AssociationEventOperation>(),
+                    It.IsAny<Func<EventEnvelope<Association>, CancellationToken,
+                        ValueTask<EventEnvelope<Association>?>>>(),
+                    It.IsAny<CancellationToken>()))
+                        .Callback<EventSubscription, AssociationEventOperation,
+                            Func<EventEnvelope<Association>, CancellationToken,
+                                ValueTask<EventEnvelope<Association>?>>,
+                            CancellationToken>((_, operation, handler, _) =>
+                                subscribedHandlers.Add((operation, handler)));
+
+            await this.eventSubscriptionRegistration.RegisterAsync(
+                TestContext.Current.CancellationToken);
+
+            var actualFoundationBindings = new Dictionary<AssociationEventOperation, string>();
+
+            // when
+            foreach ((AssociationEventOperation operation,
+                Func<EventEnvelope<Association>, CancellationToken,
+                    ValueTask<EventEnvelope<Association>?>> handler) in subscribedHandlers)
+            {
+                this.associationServiceMock.Invocations.Clear();
+                await handler(new EventEnvelope<Association>(), TestContext.Current.CancellationToken);
+
+                foreach (IInvocation invocation in this.associationServiceMock.Invocations)
+                {
+                    actualFoundationBindings.Add(operation, invocation.Method.Name);
+                }
+            }
+
+            // then
+            actualFoundationBindings.Should().HaveCount(7);
+            actualFoundationBindings.Should().BeEquivalentTo(expectedFoundationBindings);
         }
     }
 }
