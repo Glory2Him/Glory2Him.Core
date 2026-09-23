@@ -506,7 +506,7 @@ field on that command. Use the REST endpoint above.
 Issue #512, "add a saved-searches panel". UI work, so it starts with a picture.
 
 **1 — Issue first.** Open it and describe the behaviour in prose, and apply the
-`Opus 5 - Medium` label. The label is the whole of the budget decision; do not
+`Opus 5.5 - Medium` label. The label is the whole of the budget decision; do not
 restate it in the body. The issue comes first because the
 mockup's README has to name it, and a raw-URL embed has to name a commit that
 already exists.
@@ -554,7 +554,7 @@ send it back.
 **7 — Developer.** Move the issue to `status: in-progress` before you invoke it,
 not after the PR appears — a developer session can run a long while, and a label
 that only flips at the end never represents the work actually being done. Set the
-session to **Opus 5 · Medium** first, to match the
+session to **Opus 5.5 · Medium** first, to match the
 label. Fresh session: *"Act as the developer. Implement issue #512."* It branches
 `users/cjdutoit/components-savedsearches-add`, then per criterion commits
 `ShouldRenderSavedSearchesPanelAsync -> FAIL` followed by
@@ -579,7 +579,7 @@ review` to PR #520 itself.
 If a "Search result density" design had been written by the architect into
 §UI20.6 and left `(needs issue)`, the start inverts: you run the sweep, the
 analyst opens issue #513 with criteria already written and applies `design: ui`,
-`Opus 5 - Medium` and `status: needs-scoping`. You or the architect then rewrite
+`Opus 5.5 - Medium` and `status: needs-scoping`. You or the architect then rewrite
 the heading to `### UI20.6 Components *(formerly §20.6)* (#513)` — the analyst
 cannot, for the reason in §6. You pick up at step 5.
 
@@ -700,11 +700,11 @@ inventory: the category labels the PR linter applies are separate, and so is
 
 | Model | Efforts available |
 | --- | --- |
-| Opus 5 | Small, Medium, High, Extra, Max |
+| Opus 5.5 | Small, Medium, High, Extra, Max |
 | Sonnet 5 | Low, Medium, High |
 | Fable 5 | Low, Medium, High |
 
-There is no `Opus 5 - Low`, no `Sonnet 5 - Max`, no `Fable 5 - Extra`.
+There is no `Opus 5.5 - Low`, no `Sonnet 5 - Max`, no `Fable 5 - Extra`.
 
 **Choosing the label.** The default for developer work is `Sonnet 5 - High`, not
 Opus. Most implementation follows a pattern that already exists in the solution,
