@@ -137,21 +137,22 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
         // evaluated against the envelope the reader is already acting under rather than a minted
         // one. CreateNextAsync copies the security context forward and keeps causation linked; it
         // does not mint a context, which is the whole difference from the overload above (#631).
-        public async ValueTask<BibleReference> RetrieveBibleReferenceByIdAsync<TSource>(
+        public ValueTask<BibleReference> RetrieveBibleReferenceByIdAsync<TSource>(
             Guid bibleReferenceId,
             EventEnvelope<TSource> inboundEnvelope,
-            CancellationToken cancellationToken = default)
-        {
-            EventEnvelope<BibleReference> readEnvelope =
-                await this.eventEnvelopeBroker.CreateNextAsync(
-                    sourceEnvelope: inboundEnvelope,
-                    content: new BibleReference { Id = bibleReferenceId });
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                EventEnvelope<BibleReference> readEnvelope =
+                    await this.eventEnvelopeBroker.CreateNextAsync(
+                        sourceEnvelope: inboundEnvelope,
+                        content: new BibleReference { Id = bibleReferenceId });
 
-            return await DoRetrieveBibleReferenceByIdAsync(
-                bibleReferenceId: bibleReferenceId,
-                inboundEnvelope: readEnvelope,
-                cancellationToken: cancellationToken);
-        }
+                return await DoRetrieveBibleReferenceByIdAsync(
+                    bibleReferenceId: bibleReferenceId,
+                    inboundEnvelope: readEnvelope,
+                    cancellationToken: cancellationToken);
+            });
 
         public ValueTask<BibleReference> ModifyBibleReferenceAsync(
             BibleReference bibleReference,
