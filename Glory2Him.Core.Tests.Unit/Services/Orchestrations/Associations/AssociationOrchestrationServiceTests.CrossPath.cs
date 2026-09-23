@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -151,6 +151,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             visibleEndpoints.Add(
                 EntityType.BibleReference, visibleBibleReferenceId, visibleBibleReferenceId);
 
+            // a Link version group shaped like the ContentItem one above: one visible version,
+            // one superseded, and a second group with nothing visible at all
+            var linkGroupId = Guid.NewGuid();
+            var visibleLinkVersionId = Guid.NewGuid();
+            var supersededLinkVersionId = Guid.NewGuid();
+            visibleEndpoints.Add(EntityType.Link, visibleLinkVersionId, linkGroupId);
+
+            var invisibleLinkGroupId = Guid.NewGuid();
+            var invisibleLinkVersionId = Guid.NewGuid();
+
             // 1. AllVersions on a version that IS visible — listed, openable
             Association allVersionsOnALiveVersion = BuildCrossPathAssociation(
                 EntityType.ContentItem, visibleLaterVersionId, contentItemGroupId,
@@ -184,6 +194,58 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 EntityType.ContentItem, visibleLaterVersionId, contentItemGroupId,
                 Scope.AllVersions, EntityType.Tag, invisibleTagId);
 
+            // 7. THE SAME Q7 SHAPE ON SIDE B, AND ON THE OTHER VERSIONED TYPE. 'Link' sorts after
+            //    every other endpoint type and EntityTypeVersioning defaults it to AllVersions,
+            //    so a Link endpoint's ordinary shape is a versioned end on side B — which is
+            //    exactly what rows 1-6 could not express. Its key id names a superseded version
+            //    and its group still has a visible one, so the group answers, it is listed, and
+            //    it must open.
+            Association linkOnSideBAtAllVersionsOverASupersededVersion = BuildCrossPathAssociation(
+                EntityType.ContentItem, visibleLaterVersionId, contentItemGroupId,
+                Scope.AllVersions, EntityType.Link, supersededLinkVersionId,
+                entityBGroupId: linkGroupId, entityBScope: Scope.AllVersions);
+
+            // 8. the same end with nothing visible in its group — drops on both paths
+            Association linkOnSideBAtAllVersionsOverAnInvisibleGroup = BuildCrossPathAssociation(
+                EntityType.ContentItem, visibleLaterVersionId, contentItemGroupId,
+                Scope.AllVersions, EntityType.Link, invisibleLinkVersionId,
+                entityBGroupId: invisibleLinkGroupId, entityBScope: Scope.AllVersions);
+
+            // 9. a versioned end on side B at ThisVersionOnly, naming a version that IS visible —
+            //    listed and openable, and the control that stops case 7 passing for a resolver
+            //    that simply ignored the B scope and always read the group
+            Association linkOnSideBAtThisVersionOnly = BuildCrossPathAssociation(
+                EntityType.ContentItem, visibleLaterVersionId, contentItemGroupId,
+                Scope.AllVersions, EntityType.Link, visibleLinkVersionId,
+                entityBGroupId: linkGroupId, entityBScope: Scope.ThisVersionOnly);
+
+            // 10. a versioned end on side B at ThisVersionOnly naming a SUPERSEDED version whose
+            //     group is visible — the row is the predicate, so it drops on both paths. Reds a
+            //     resolver that answered a ThisVersionOnly B end at its group.
+            Association linkOnSideBAtThisVersionOnlyOverASupersededVersion =
+                BuildCrossPathAssociation(
+                    EntityType.ContentItem, visibleLaterVersionId, contentItemGroupId,
+                    Scope.AllVersions, EntityType.Link, supersededLinkVersionId,
+                    entityBGroupId: linkGroupId, entityBScope: Scope.ThisVersionOnly);
+
+            // 11. A NON-VERSIONED END CARRYING A STORED AllVersions SCOPE. Only a versioned type
+            //     can legitimately be written AllVersions, so this is bad data — and both reads
+            //     answer it at its ROW regardless, which is what the composite's Tag term does
+            //     and what the by-id switch's default arm does. Nothing else pinned that, so the
+            //     argument in Reads.cs was the only thing holding it.
+            Association nonVersionedEndCarryingAllVersions = BuildCrossPathAssociation(
+                EntityType.BibleReference, visibleBibleReferenceId, visibleBibleReferenceId,
+                Scope.ThisVersionOnly, EntityType.Tag, visibleTagId,
+                entityBGroupId: visibleTagId, entityBScope: Scope.AllVersions);
+
+            // 12. the same bad-data shape over a tag that is NOT visible — drops on both paths,
+            //     so neither read can be said to have waved the row through on the scope column
+            Association nonVersionedEndCarryingAllVersionsOverAnInvisibleRow =
+                BuildCrossPathAssociation(
+                    EntityType.BibleReference, visibleBibleReferenceId, visibleBibleReferenceId,
+                    Scope.ThisVersionOnly, EntityType.Tag, invisibleTagId,
+                    entityBGroupId: invisibleTagId, entityBScope: Scope.AllVersions);
+
             world.StoredAssociations.AddRange(new[]
             {
                 allVersionsOnALiveVersion,
@@ -192,6 +254,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 allVersionsOnAnInvisibleGroup,
                 nonVersionedPair,
                 onAnInvisibleFarEnd,
+                linkOnSideBAtAllVersionsOverASupersededVersion,
+                linkOnSideBAtAllVersionsOverAnInvisibleGroup,
+                linkOnSideBAtThisVersionOnly,
+                linkOnSideBAtThisVersionOnlyOverASupersededVersion,
+                nonVersionedEndCarryingAllVersions,
+                nonVersionedEndCarryingAllVersionsOverAnInvisibleRow,
             });
 
             world.ExpectedListedAssociationIds.AddRange(new[]
@@ -199,6 +267,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 allVersionsOnALiveVersion.Id,
                 allVersionsOnASupersededVersion.Id,
                 nonVersionedPair.Id,
+                linkOnSideBAtAllVersionsOverASupersededVersion.Id,
+                linkOnSideBAtThisVersionOnly.Id,
+                nonVersionedEndCarryingAllVersions.Id,
             });
 
             SetupVisibleAssociations(world.StoredAssociations.ToArray());
@@ -217,13 +288,20 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             return world;
         }
 
+        // Side B takes its own key id, group id and scope rather than being hard-wired to a
+        // non-versioned row. It was hard-wired, and that is why every mutation on the B-side
+        // branch of the by-id predicate stayed green: Link sorts after every other endpoint type
+        // and defaults to AllVersions, so a Link endpoint's NORMAL shape is exactly the one this
+        // fixture could not build.
         private static Association BuildCrossPathAssociation(
             EntityType entityAType,
             Guid entityAKeyId,
             Guid entityAGroupId,
             Scope entityAScope,
             EntityType entityBType,
-            Guid entityBKeyId) =>
+            Guid entityBKeyId,
+            Guid? entityBGroupId = null,
+            Scope entityBScope = Scope.ThisVersionOnly) =>
             new Association
             {
                 Id = Guid.NewGuid(),
@@ -235,8 +313,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                     entityAType == EntityType.ContentItem ? ContentType.Story : null,
                 EntityBType = entityBType,
                 EntityBKeyId = entityBKeyId,
-                EntityBGroupId = entityBKeyId,
-                EntityBScope = Scope.ThisVersionOnly,
+                EntityBGroupId = entityBGroupId ?? entityBKeyId,
+                EntityBScope = entityBScope,
+                EntityBContentType =
+                    entityBType == EntityType.ContentItem ? ContentType.Story : null,
             };
 
         // ONE description of what is visible, driving every read both paths make: the six

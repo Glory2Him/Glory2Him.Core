@@ -386,25 +386,39 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
         }
 
         [Theory]
-        [InlineData(Scope.AllVersions)]
-        [InlineData(Scope.ThisVersionOnly)]
+        [MemberData(nameof(VersionedEndpointByIdCases))]
         public async Task ShouldThrowNotFoundRatherThanDependencyOnRetrieveByIdIfAnEndpointIsNotVisibleAsync(
-            Scope contentItemEndpointScope)
+            EntityType versionedType,
+            Scope versionedEndpointScope,
+            bool versionedEndpointIsOnSideA)
         {
             // given: the association row is visible to this caller but one of its endpoints is
             // not. Answering that with a 424 would report a visibility rule as a failed
             // dependency and leak through the status code exactly what §SEC14.5 rule 2 keeps out
             // of the message — so the endpoint service's validation failure is converted at the
             // resolution site into a not-found, the conversion the add path already performs.
+            //
+            // Run over both versioned types, both scopes and both sides, so the refusal is proven
+            // on the branch that answers each rather than only on the one the fixtures happened
+            // to build.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
 
-            ContentItem contentItemEndpoint = CreateEndpointContentItem();
-            Tag tagEndpoint = CreateEndpointTag();
+            var versionedKeyId = Guid.NewGuid();
+            var versionedGroupId = Guid.NewGuid();
+            var partnerId = Guid.NewGuid();
 
-            Association storedAssociation =
-                CreateStoredAssociation(contentItemEndpoint, tagEndpoint);
+            EntityType partnerType = versionedEndpointIsOnSideA
+                ? EntityType.Tag
+                : EntityType.Comment;
 
-            storedAssociation.EntityAScope = contentItemEndpointScope;
+            Association storedAssociation = BuildTestedEndpointAssociation(
+                versionedType,
+                versionedKeyId,
+                versionedGroupId,
+                partnerType,
+                partnerId,
+                versionedEndpointIsOnSideA,
+                testedScope: versionedEndpointScope);
 
             this.associationServiceMock.Setup(service =>
                 service.RetrieveAssociationByIdAsync(
@@ -412,27 +426,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(storedAssociation);
 
-            // Each scope's own way of saying "not visible", in that foundation's own terms: an
-            // empty group slice, which the group-keyed read returns when the group holds nothing
-            // this caller may see, and a validation-shaped not-found from the by-id read.
-            if (contentItemEndpointScope == Scope.AllVersions)
-            {
-                this.contentItemServiceMock.Setup(service =>
-                    service.RetrieveContentItemsByGroupIdAsync(
-                        storedAssociation.EntityAGroupId,
-                        It.IsAny<CancellationToken>()))
-                            .ReturnsAsync(new List<ContentItem>());
-            }
-            else
-            {
-                this.contentItemServiceMock.Setup(service =>
-                    service.RetrieveContentItemByIdAsync(
-                        storedAssociation.EntityAKeyId,
-                        It.IsAny<CancellationToken>()))
-                            .ThrowsAsync(new ContentItemValidationException(
-                                message: "not found",
-                                innerException: new Xeption()));
-            }
+            // each scope's own way of saying "not visible", in that foundation's own terms: an
+            // empty group slice from the group-keyed read, a validation-shaped not-found from the
+            // by-id read
+            SetupVersionedEndpointRead(
+                versionedType, versionedEndpointScope, versionedKeyId, versionedGroupId,
+                isVisible: false);
+
+            SetupNonVersionedEndpointRead(partnerType, partnerId, isVisible: true);
 
             var notFoundAssociationOrchestrationException =
                 new NotFoundAssociationOrchestrationException(
@@ -473,5 +474,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
 
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
     }
 }

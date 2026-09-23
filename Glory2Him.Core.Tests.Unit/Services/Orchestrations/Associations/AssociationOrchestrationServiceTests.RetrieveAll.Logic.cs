@@ -109,40 +109,36 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
         }
 
         /// <summary>
-        /// §SEC14.7 posture A rule 4 for a <c>Submitted</c> <c>ContentItem</c>, stated as data:
-        /// the review roles are admitted to a non-public row and nobody else is. The first member
-        /// of each pair is the caller, the second is what THAT ENTITY'S OWN READ hands back for
-        /// them.
+        /// Criterion 2's positive case: <b>the same association row</b> is in the set for a
+        /// caller the endpoint's own read admits to a <c>Submitted</c> item, and absent for one
+        /// it does not admit.
+        ///
+        /// <para><b>What this asserts is the pass-through, and only that.</b> The composite reads
+        /// no role and cannot — §SEC14.3's endpoint term takes its caller clause from the
+        /// endpoint's own read, which is why a moderator keeps the pairing on the item they
+        /// moderate. The role→admission mapping below is therefore stated by fiat in the theory
+        /// data rather than proven here; it belongs to <c>ContentItemService</c> and is proven in
+        /// that service's own tests. Reading this test as evidence for it would be reading it as
+        /// more than it is.</para>
+        ///
+        /// <para><b>What it adds over its two neighbours</b>, which also pair a surviving row
+        /// with a dropped one: they use two DIFFERENT rows, so a composite keying on something
+        /// about the row itself would satisfy them. This one holds the row fixed and varies only
+        /// the endpoint set, so the answer can come from nowhere else.</para>
         /// </summary>
-        public static TheoryData<string[], bool> SubmittedEndpointCallers() =>
-            new TheoryData<string[], bool>
-            {
-                { new[] { Roles.ReviewersFor(EntityType.ContentItem) }, true },
-                { new[] { Roles.Reviewers }, true },
-                { Array.Empty<string>(), false },
-
-                // a review role on the FAR end buys nothing on the near one
-                { new[] { Roles.ReviewersFor(EntityType.Tag) }, false },
-            };
-
         [Theory]
-        [MemberData(nameof(SubmittedEndpointCallers))]
+        [InlineData(true)]
+        [InlineData(false)]
         public async Task ShouldIncludeAnAssociationOnASubmittedContentItemForItsReviewerOnRetrieveAllAsync(
-            string[] callerRoles,
             bool theContentItemReadAdmitsThisCaller)
         {
-            // given: ONE association row, asked for by two kinds of caller. The composite reads
-            // no role of its own and cannot — the caller term is the ENDPOINT read's (§SEC14.3,
-            // the paragraph after its Layer note), so a moderator keeps the pairing on the
-            // Submitted item they moderate because that item's read admits them, not because the
-            // composite makes an exception for them.
-            //
-            // THE ROLES BELOW ARE THEREFORE INERT AT THIS LAYER, and saying so is the point
-            // rather than an apology for it. What grips is the pairing: the same row, the same
-            // evaluator, two different answers, decided by nothing but what the endpoint read
-            // returned. A composite that admitted or refused on its own account would answer both
-            // callers alike and red one of these cases.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(callerRoles);
+            // given: one row, one evaluator, and the endpoint read answering two different ways.
+            // The caller is a reviewer in the first case and holds nothing in the second, which
+            // is §SEC14.7 posture A rule 4's admission for a Submitted row — recorded here as the
+            // scenario, not asserted by this test.
+            this.ambientSecurityContext = theContentItemReadAdmitsThisCaller
+                ? CreateAuthenticatedSecurityContext(Roles.ReviewersFor(EntityType.ContentItem))
+                : CreateAuthenticatedSecurityContext();
 
             ContentItem submittedContentItemUnderReview = CreateEndpointContentItem();
             Tag sharedTag = CreateEndpointTag();
