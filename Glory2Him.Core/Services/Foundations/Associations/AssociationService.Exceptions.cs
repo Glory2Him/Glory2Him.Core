@@ -468,6 +468,10 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 throw await CreateAndLogTimeoutDependencyExceptionAsync(
                     exception: timeoutAssociationException);
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch (SqlException sqlException)
             {
                 var failedStorageAssociationException =
@@ -478,6 +482,17 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
                 throw await CreateAndLogCriticalDependencyExceptionAsync(
                     exception: failedStorageAssociationException);
+            }
+            catch (Exception exception)
+            {
+                var failedAssociationServiceException =
+                    new FailedAssociationServiceException(
+                        message: "Failed content item association service error occurred, please contact support.",
+                        innerException: exception,
+                        data: exception.Data);
+
+                throw await CreateAndLogServiceExceptionAsync(
+                    failedAssociationServiceException);
             }
         }
 
