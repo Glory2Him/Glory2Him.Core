@@ -69,6 +69,37 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
         }
 
         [Fact]
+        public async Task ShouldRefuseASecondEditorialAssociationOnTheSamePairAsync()
+        {
+            // given: UserId left the editorial key because the editorial filter pins it to
+            // NULL, and that must change nothing about what the editorial rule refuses. A live
+            // personal row on the same pair goes first, to show it neither stands in for the
+            // editorial row nor collides with it: editorial rows collide with each other only.
+            Guid groupId = Guid.NewGuid();
+            Guid tagGroupId = Guid.NewGuid();
+
+            Association personalAssociation = CreatePair(groupId, tagGroupId);
+            personalAssociation.UserId = Guid.NewGuid().ToString();
+
+            Association firstEditorialAssociation = CreatePair(groupId, tagGroupId);
+            Association secondEditorialAssociation = CreatePair(groupId, tagGroupId);
+
+            // when
+            Exception personalOutcome = await SeedAsync(personalAssociation);
+            Exception firstEditorialOutcome = await SeedAsync(firstEditorialAssociation);
+            Exception secondEditorialOutcome = await SeedAsync(secondEditorialAssociation);
+
+            // then
+            personalOutcome.Should().BeNull();
+
+            firstEditorialOutcome.Should().BeNull(
+                because: "a personal row on the pair is not the pair's editorial row");
+
+            secondEditorialOutcome.Should().BeOfType<DuplicateKeyWithUniqueIndexException>(
+                because: "a pair holds exactly one live editorial row");
+        }
+
+        [Fact]
         public async Task ShouldRejectTheSamePairWrittenInReverseAsync()
         {
             // given: the same two entities, endpoints swapped. This is the case the unique
