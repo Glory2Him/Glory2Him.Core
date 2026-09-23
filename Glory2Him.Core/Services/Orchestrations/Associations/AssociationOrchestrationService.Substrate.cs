@@ -47,27 +47,15 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                     return null;
                 }
 
-                var derivedAssociation = new Association
-                {
-                    EntityAType = envelope.Content.EntityAType,
-                    EntityAKeyId = envelope.Content.EntityAKeyId,
-                    EntityBType = envelope.Content.EntityBType,
-                    EntityBKeyId = envelope.Content.EntityBKeyId,
-                };
+                // THE SAME WRITE FLOW THE METHOD PATH RUNS, on a working copy of the raw endpoints
+                // rather than on the envelope's content: that content is covered by the HMAC, and
+                // the foundation, the ProcessedEvents record and the reply are all built from it,
+                // so no part the rules read may be edited here (§SEC14.6 rule 4).
+                Association derivedAssociation = CreateAddRequestFrom(envelope.Content);
 
-                await ResolveEndpointAsync(
-                    derivedAssociation.EntityAType,
-                    derivedAssociation.EntityAKeyId,
-                    onResolved: _ => { },
-                    endpointName: "A",
-                    readEnvelope: envelope,
-                    cancellationToken: cancellationToken);
-
-                await ResolveEndpointAsync(
-                    derivedAssociation.EntityBType,
-                    derivedAssociation.EntityBKeyId,
-                    onResolved: _ => { },
-                    endpointName: "B",
+                await DeriveAssociationToAddAsync(
+                    association: derivedAssociation,
+                    inboundEnvelope: envelope,
                     readEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
@@ -75,5 +63,16 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                     envelope: envelope,
                     cancellationToken: cancellationToken);
             });
+
+        // Only the RAW endpoints are the caller's to supply (see ValidateOnAddAssociation), so
+        // they are all the working copy carries. Everything else the flow needs it derives.
+        private static Association CreateAddRequestFrom(Association claimedAssociation) =>
+            new Association
+            {
+                EntityAType = claimedAssociation.EntityAType,
+                EntityAKeyId = claimedAssociation.EntityAKeyId,
+                EntityBType = claimedAssociation.EntityBType,
+                EntityBKeyId = claimedAssociation.EntityBKeyId,
+            };
     }
 }
