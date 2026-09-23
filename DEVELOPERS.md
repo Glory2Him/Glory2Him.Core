@@ -693,18 +693,36 @@ status check the branch ruleset requires green.
 
 **Issue labels.** Every issue carries a `Model - Effort` label. The body does not
 repeat it — the label is the decision, and the body is where what actually ran is
-recorded afterwards. The `Model - Effort` set is not a tidy matrix —
+recorded afterwards. The effort ladder is **Low / Medium / High / Extra / Max**, one
+vocabulary for every model. The `Model - Effort` set is not a tidy matrix —
 these eleven exist and no other pairing of the two does. It is not the whole label
 inventory: the category labels the PR linter applies are separate, and so is
 `DESIGN` below.
 
 | Model | Efforts available |
 | --- | --- |
-| Opus 5.5 | Small, Medium, High, Extra, Max |
+| Opus 5.5 | Low, Medium, High, Extra, Max |
 | Sonnet 5 | Low, Medium, High |
 | Fable 5 | Low, Medium, High |
 
-There is no `Opus 5.5 - Low`, no `Sonnet 5 - Max`, no `Fable 5 - Extra`.
+There is no `Sonnet 5 - Max` and no `Fable 5 - Extra` — only Opus carries the top two
+rungs. `Opus 5 - *` labels exist on the same ladder and are deliberately absent from the
+table: they carry the closed issues genuinely built under Opus 5, so they are history
+rather than a choice.
+
+The bottom rung was once called `Small` on the five-rung models and `Low` on the rest,
+which meant the cheapest Opus tier was the one name that did not work. `Small` is
+retired and the labels carrying it were renamed, so nothing was re-tiered.
+
+**The label set is generated, not hand-maintained.** `.github/generate-labels.py` reads
+the authoritative prefix list out of `.github/workflows/prLinter.yml` and writes
+`.github/labels.json`; `.github/workflows/labels.yml` syncs that manifest to the
+repository on every push to `main` that touches it. Two properties worth knowing before
+you trust it: it **never deletes a label**, so anything added by hand survives, and it
+**re-creates any manifest entry that is missing** — so renaming a live label without
+changing the manifest brings the old name straight back. The generator also fails rather
+than guessing when a prefix has no colour, which is what stops a new prefix becoming a
+silent grey label the first time someone uses it in a PR title.
 
 **Choosing the label.** The default for developer work is `Sonnet 5 - High`, not
 Opus. Most implementation follows a pattern that already exists in the solution,
