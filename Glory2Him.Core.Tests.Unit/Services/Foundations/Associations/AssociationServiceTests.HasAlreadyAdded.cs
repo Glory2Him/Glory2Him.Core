@@ -16,6 +16,8 @@ using FluentAssertions;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Foundations.Associations.Exceptions;
+using Microsoft.Data.SqlClient;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
@@ -82,6 +84,63 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // then
             await Assert.ThrowsAsync<OperationCanceledException>(
                 hasAlreadyAddedTask.AsTask);
+
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowCriticalDependencyExceptionOnHasAlreadyAddedAssociationIfSqlErrorOccursAndLogItAsync()
+        {
+            // given
+            EventEnvelope<Association> requestEnvelope = CreateRandomAssociationRequestEnvelope();
+            SqlException sqlException = GetSqlException();
+
+            var failedStorageAssociationException =
+                new FailedStorageAssociationException(
+                    message: "Failed content item association storage error occurred, contact support.",
+                    innerException: sqlException,
+                    data: sqlException.Data);
+
+            var expectedAssociationDependencyException =
+                new AssociationDependencyException(
+                    message: "Content item association dependency error occurred, contact support.",
+                    innerException: failedStorageAssociationException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectProcessedEventExistsAsync(
+                    requestEnvelope.Metadata.EventId,
+                    EventBrokerIdentifiers.AssociationOnAddingAssociationSubscriptionName,
+                    TestContext.Current.CancellationToken))
+                        .ThrowsAsync(sqlException);
+
+            // when
+            ValueTask<bool> hasAlreadyAddedTask =
+                this.associationService.HasAlreadyAddedAssociationAsync(
+                    requestEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            AssociationDependencyException actualAssociationDependencyException =
+                await Assert.ThrowsAsync<AssociationDependencyException>(
+                    hasAlreadyAddedTask.AsTask);
+
+            // then
+            actualAssociationDependencyException.Should().BeEquivalentTo(
+                expectedAssociationDependencyException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectProcessedEventExistsAsync(
+                    requestEnvelope.Metadata.EventId,
+                    EventBrokerIdentifiers.AssociationOnAddingAssociationSubscriptionName,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogCriticalAsync(It.Is(
+                    SameExceptionAs(expectedAssociationDependencyException))),
+                Times.Once);
 
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
