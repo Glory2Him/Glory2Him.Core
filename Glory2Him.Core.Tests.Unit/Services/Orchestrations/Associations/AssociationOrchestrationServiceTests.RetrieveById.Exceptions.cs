@@ -1,4 +1,4 @@
-// ─────────────────────────────────────────────────────────────────────────────────
+﻿// ─────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -39,12 +39,24 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
         /// path, so the risk is low; what was uncovered is the two new call sites. A conversion
         /// that widened to catch any <c>Xeption</c> would turn a broken database into "this
         /// association does not exist", which is a 4xx for a 500.</para>
+        ///
+        /// <para>Run on <b>both sides</b>, like the two by-id theories beside it. The B-side
+        /// group read reaches the same <c>try</c> block through the same catch arms, so the
+        /// behaviour is structurally symmetric — but "only one side was exercised" is the exact
+        /// shape that let the Q7 defect through on side B, and the cost of closing it here is a
+        /// parameter.</para>
         /// </summary>
+        // Four cases rather than the shared VersionedEndpointByIdCases source its neighbours use:
+        // that source varies scope, and only an AllVersions endpoint reaches a group read at all,
+        // so borrowing it would run each case twice over a dimension this test pins.
         [Theory]
-        [InlineData(EntityType.ContentItem)]
-        [InlineData(EntityType.Link)]
+        [InlineData(EntityType.ContentItem, true)]
+        [InlineData(EntityType.ContentItem, false)]
+        [InlineData(EntityType.Link, true)]
+        [InlineData(EntityType.Link, false)]
         public async Task ShouldThrowDependencyExceptionOnRetrieveByIdIfAnEndpointGroupReadFailsAsync(
-            EntityType versionedType)
+            EntityType versionedType,
+            bool versionedEndpointIsOnSideA)
         {
             // given
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
@@ -53,13 +65,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             var versionedGroupId = Guid.NewGuid();
             var partnerId = Guid.NewGuid();
 
+            EntityType partnerType = versionedEndpointIsOnSideA
+                ? EntityType.Tag
+                : EntityType.Comment;
+
             Association storedAssociation = BuildTestedEndpointAssociation(
                 versionedType,
                 versionedKeyId,
                 versionedGroupId,
-                EntityType.Tag,
+                partnerType,
                 partnerId,
-                testedIsOnSideA: true,
+                versionedEndpointIsOnSideA,
                 testedScope: Scope.AllVersions);
 
             this.associationServiceMock.Setup(service =>
@@ -67,6 +83,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                     storedAssociation.Id,
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(storedAssociation);
+
+            // the partner resolves, so the only thing that can refuse is the group read under
+            // test. On a side-B case it is resolved FIRST, which is what makes the B-side leg
+            // reach the group read at all.
+            SetupNonVersionedEndpointRead(partnerType, partnerId, isVisible: true);
 
             var innerException = new Xeption();
 
