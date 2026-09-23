@@ -1,4 +1,5 @@
 import { ComponentType, useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../securitys/authProvider';
 import { ContentItemAddPanel } from './contentItemAddPanel';
 import { ContentItemDefaultPanel } from './contentItemDefaultPanel';
@@ -235,7 +236,9 @@ export function ContentItemPanel({
     onExpandCollapse,
     ...eventsAndText
 }: ContentItemPanelProps) {
-    const { isAuthenticated, user, userRoles } = useAuth();
+    const { isAuthenticated, isLoading: isAuthenticationLoading, user, userRoles } = useAuth();
+    const navigate = useNavigate();
+    const location = useLocation();
 
     // The per-card render toggles, and whether the reader has taken Edit in place. Local state
     // is right even in a presentation component: which face is showing is nothing the consumer
@@ -453,6 +456,24 @@ export function ContentItemPanel({
             onReactionClick={() => setIsReactionPickerOpen(!isReactionPickerOpen)}
             onReactionSelected={(item, reaction) => {
                 setIsReactionPickerOpen(false);
+
+                // A SIGNED-OUT READER IS SENT TO SIGN IN, and the choice is not written. The
+                // click navigates on its own - no prompt, no modal, no toast, and nothing about
+                // the choice is kept for afterwards: the reader chooses again once signed in.
+                // NOT WHILE THE READ IS UNRESOLVED. `isAuthenticated` reports false both for
+                // a reader with no session and for one whose session has not been read back
+                // yet, and every full page load passes through the second with the cards
+                // already on screen — so deciding there would send a signed-in reader to sign
+                // in. SecuredRoute refuses to decide while loading and so does this.
+                if (isAuthenticationLoading === false && isAuthenticated === false) {
+                    // The path alone, URI-encoded: the one return address this application
+                    // carries (securedRoutes.tsx), so the reader lands back on this page.
+                    navigate(
+                        `/Account/Login?returnUrl=${encodeURIComponent(location.pathname)}`);
+
+                    return;
+                }
+
                 onReactionSelected?.(item, reaction);
             }}
             {...eventsAndText} />

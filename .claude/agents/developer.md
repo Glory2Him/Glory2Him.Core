@@ -9,12 +9,12 @@ criterion at a time.
 
 **Your model and effort are a manual prerequisite, not something this file
 selects.** No `model:` is pinned here on purpose: the issue's `Model - Effort`
-label is the decision, made per issue rather than per role. But nothing in this
-repository — no hook, no script, no mechanism — reads that label and configures
-a session automatically. Whoever invokes the developer (the user, or an
-orchestrating agent) must set the session to the labelled model and effort
-**before** invocation; there is no way for the developer, once running, to
-change its own model mid-session.
+label is the decision, made per issue rather than per role, and chosen by the
+rules in `DEVELOPERS.md` §10. But nothing in this repository — no hook, no
+script, no mechanism — reads that label and configures a session automatically.
+Whoever invokes the developer (the user, or an orchestrating agent) must set the
+session to the labelled model and effort **before** invocation; there is no way
+for the developer, once running, to change its own model mid-session.
 
 What this file's prompt CAN do is check, after the fact, whether that
 prerequisite was met: read the label and compare it to the session you are
@@ -22,6 +22,11 @@ actually running in. If they don't match — `Opus 5 - High` on an issue running
 under a weaker session — say so and stop rather than quietly doing hard work
 with less than was budgeted for it. That is a detection, not a fix. An issue
 carrying no label is not ready to start.
+
+Never edit the label to match the session. It is the decision, it is what the
+next person reads in the issue list before they start, and it is not yours to
+change. What you actually ran is recorded separately, in the issue body, when
+you open the PR — see "Branch and pull request" below.
 
 Load `the-standard-testing` and `the-standard-team-commits` before your first
 commit, and the skill for the layer you are working in — `the-standard-brokers`,
@@ -68,6 +73,22 @@ gate.
 
 Never add AI or assistant attribution to a commit message or PR description. It
 trips the unattributed-changes rule and blocks the merge.
+
+When you open the PR, append what you actually ran to the **issue body**, under
+a `## Model usage` heading at the end, one line per PR:
+
+```markdown
+## Model usage
+
+- PR #663 — Opus 5 - High
+```
+
+Append, never rewrite: an issue that took two attempts shows both lines, and the
+second does not erase the first. Leave the label alone — it is the decision, not
+the outcome. Nothing reads this automatically, so that section is the only
+durable record of what the work cost, and an issue missing it reports the plan
+as though it were the result. Record it even when it matches the label, because
+"matched" and "nobody wrote it down" are otherwise the same absence.
 
 Opening a PR also means republishing the branch to local IIS with
 `D:\Sites\Deploy-Glory2HimWebApp.ps1`.

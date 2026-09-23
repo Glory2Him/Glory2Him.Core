@@ -458,7 +458,9 @@ describe('PostDetail', () => {
     };
 
     it('should mark the reaction the reader chose for this visit', async () => {
-        // given
+        // given: a signed-in reader — choosing a reaction signed out sends the reader to sign
+        // in instead of reaching this page's handler at all
+        signInAs(authState);
         renderPage();
 
         // when
@@ -471,7 +473,8 @@ describe('PostDetail', () => {
     });
 
     it('should withdraw the reaction when the reader chooses it again', async () => {
-        // given
+        // given: signed in, for the same reason as the test above
+        signInAs(authState);
         renderPage();
         await chooseReaction();
 
