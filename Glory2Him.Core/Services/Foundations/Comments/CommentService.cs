@@ -133,6 +133,12 @@ namespace Glory2Him.Core.Services.Foundations.Comments
                     cancellationToken: cancellationToken);
             });
 
+        public ValueTask<Comment> RetrieveCommentByIdAsync<TSource>(
+            Guid commentId,
+            EventEnvelope<TSource> inboundEnvelope,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
         public ValueTask<Comment> ModifyCommentAsync(
             Comment comment,
             CancellationToken cancellationToken = default) =>
