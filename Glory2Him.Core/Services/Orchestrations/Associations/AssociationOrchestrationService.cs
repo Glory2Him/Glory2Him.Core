@@ -12,6 +12,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Brokers.EventEnvelopes;
+using Glory2Him.Core.Brokers.Integrities;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
@@ -61,6 +62,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         private readonly ICommentService commentService;
         private readonly ILinkService linkService;
         private readonly IEventEnvelopeBroker eventEnvelopeBroker;
+        private readonly IEnvelopeIntegrityBroker envelopeIntegrityBroker;
         private readonly ILoggingBroker loggingBroker;
 
         public AssociationOrchestrationService(
@@ -72,6 +74,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             ICommentService commentService,
             ILinkService linkService,
             IEventEnvelopeBroker eventEnvelopeBroker,
+            IEnvelopeIntegrityBroker envelopeIntegrityBroker,
             ILoggingBroker loggingBroker)
         {
             this.associationService = associationService;
@@ -82,6 +85,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             this.commentService = commentService;
             this.linkService = linkService;
             this.eventEnvelopeBroker = eventEnvelopeBroker;
+            this.envelopeIntegrityBroker = envelopeIntegrityBroker;
             this.loggingBroker = loggingBroker;
         }
 
