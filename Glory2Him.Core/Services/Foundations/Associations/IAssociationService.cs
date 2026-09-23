@@ -14,6 +14,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
 
 namespace Glory2Him.Core.Services.Foundations.Associations
@@ -46,6 +47,22 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         /// </summary>
         ValueTask<AssociationPairMatch?> FindAssociationByPairAsync(
             Association association,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// The same pair probe, with its contribution gate asked of the envelope the caller is
+        /// already acting under rather than of a minted one — the twin of the member above, as the
+        /// endpoint reads' inbound-envelope overloads are of theirs, and internal for the same
+        /// reason: a public member taking a caller-supplied context is a forgery surface.
+        ///
+        /// <para>Used on the <c>Association-Adding</c> event path (#631, §ARC12.5.2 Rule 3), where
+        /// the ambient caller is nobody or whoever published. The read is unfiltered either way;
+        /// only whose gate it is changes. The key comes from <paramref name="association"/>, never
+        /// from the envelope's content.</para>
+        /// </summary>
+        internal ValueTask<AssociationPairMatch?> FindAssociationByPairAsync(
+            Association association,
+            EventEnvelope<Association> inboundEnvelope,
             CancellationToken cancellationToken = default);
 
         /// <summary>

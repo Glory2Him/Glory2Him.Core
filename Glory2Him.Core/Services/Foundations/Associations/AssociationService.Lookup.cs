@@ -99,6 +99,12 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 };
             });
 
+        public ValueTask<AssociationPairMatch?> FindAssociationByPairAsync(
+            Association association,
+            EventEnvelope<Association> inboundEnvelope,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
         // The probe is called with a resolved association, so its endpoints must be identified:
         // a valid entity type each side and non-empty key and group ids, since the effective id
         // the lookup keys on is computed from them. An unresolved endpoint here would key the
