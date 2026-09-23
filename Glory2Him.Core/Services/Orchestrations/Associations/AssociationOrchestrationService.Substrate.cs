@@ -9,7 +9,6 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
-using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Events;
@@ -22,6 +21,8 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         public ValueTask<EventEnvelope<Association>?> OnAddingAssociationAsync(
             EventEnvelope<Association> envelope,
             CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
+            this.associationService.OnAddingAssociationAsync(
+                envelope: envelope,
+                cancellationToken: cancellationToken);
     }
 }
