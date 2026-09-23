@@ -47,6 +47,30 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                     return null;
                 }
 
+                var derivedAssociation = new Association
+                {
+                    EntityAType = envelope.Content.EntityAType,
+                    EntityAKeyId = envelope.Content.EntityAKeyId,
+                    EntityBType = envelope.Content.EntityBType,
+                    EntityBKeyId = envelope.Content.EntityBKeyId,
+                };
+
+                await ResolveEndpointAsync(
+                    derivedAssociation.EntityAType,
+                    derivedAssociation.EntityAKeyId,
+                    onResolved: _ => { },
+                    endpointName: "A",
+                    readEnvelope: envelope,
+                    cancellationToken: cancellationToken);
+
+                await ResolveEndpointAsync(
+                    derivedAssociation.EntityBType,
+                    derivedAssociation.EntityBKeyId,
+                    onResolved: _ => { },
+                    endpointName: "B",
+                    readEnvelope: envelope,
+                    cancellationToken: cancellationToken);
+
                 return await this.associationService.OnAddingAssociationAsync(
                     envelope: envelope,
                     cancellationToken: cancellationToken);

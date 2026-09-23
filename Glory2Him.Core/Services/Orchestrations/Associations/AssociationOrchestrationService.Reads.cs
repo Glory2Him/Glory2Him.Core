@@ -197,7 +197,8 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                     // above at ThisVersionOnly. An endpoint type with no foundation service
                     // raises InvalidAssociationOrchestrationException here, which the caller of
                     // this method turns into the association's own not-found.
-                    await ResolveEndpointCoreAsync(entityType, keyId, cancellationToken);
+                    await ResolveEndpointCoreAsync(
+                        entityType, keyId, readEnvelope: null, cancellationToken);
 
                     return;
             }

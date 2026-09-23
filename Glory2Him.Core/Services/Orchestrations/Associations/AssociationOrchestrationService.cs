@@ -129,6 +129,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                     association.EntityAScope = resolved.Scope;
                 },
                 endpointName: "A",
+                readEnvelope: null,
                 cancellationToken: cancellationToken);
 
             await ResolveEndpointAsync(
@@ -141,6 +142,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                     association.EntityBScope = resolved.Scope;
                 },
                 endpointName: "B",
+                readEnvelope: null,
                 cancellationToken: cancellationToken);
 
             // The endpoint half of the veto, decidable HERE and nowhere else above the foundation:
