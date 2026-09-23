@@ -12,6 +12,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Associations;
 
 namespace Glory2Him.Core.Services.Orchestrations.Associations
@@ -22,8 +23,14 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             EventEnvelope<Association> envelope,
             CancellationToken cancellationToken = default) =>
             TryCatch(async () =>
-                await this.associationService.OnAddingAssociationAsync(
+            {
+                await ValidateAssociationEventEnvelopeAsync(
                     envelope: envelope,
-                    cancellationToken: cancellationToken));
+                    operation: AssociationEventOperation.Adding);
+
+                return await this.associationService.OnAddingAssociationAsync(
+                    envelope: envelope,
+                    cancellationToken: cancellationToken);
+            });
     }
 }

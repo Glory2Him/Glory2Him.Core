@@ -11,8 +11,10 @@
 
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
 using Glory2Him.Core.Models.Securities;
@@ -150,6 +152,32 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             return contentType.HasValue
                 && securityContext.Roles.Contains(
                     Roles.ReadOnlyFor(entityType, contentType.Value));
+        }
+
+        // THE EVENT PATH'S OWN GUARD, asked before this service reads anything. The foundation
+        // asks the identical question again when the envelope is handed down, and that repeat is
+        // §SEC14.6 rule 2 working as intended: this handler resolves BOTH endpoint rows before the
+        // foundation is reached, and doing that on the word of an envelope nothing has vouched for
+        // would be acting on an unattested payload (§SEC14.6 rule 4).
+        //
+        // The name is the publisher's composition — entity name plus operation — and it sits
+        // inside the HMAC. It reads "AssociationAdding" because that is what EventBroker signs for
+        // this address, exactly as the foundation composed it while the address bound there.
+        private async ValueTask ValidateAssociationEventEnvelopeAsync(
+            EventEnvelope<Association> envelope,
+            AssociationEventOperation operation)
+        {
+            string eventName = $"{nameof(Association)}{operation}";
+
+            bool isSignatureValid = await this.envelopeIntegrityBroker.VerifyAsync(
+                envelope, eventName, EnvelopeDirection.Request);
+
+            if (isSignatureValid is false)
+            {
+                throw new InvalidAssociationOrchestrationException(
+                    message: "Invalid content item association event. " +
+                        "Integrity verification failed.");
+            }
         }
 
         private static void ValidateAssociationIsNotNull(Association association)
