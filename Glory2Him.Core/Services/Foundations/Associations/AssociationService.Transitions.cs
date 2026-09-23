@@ -376,7 +376,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             storageAssociation.EntityBScope = resolvedEntityBScope;
 
             // A scope toggle moves the row's effective id, so it moves the row's position in
-            // UX_Associations_Pair and can land on a key another row already holds. "Just
+            // UX_Associations_EditorialPair or UX_Associations_PersonalPair, whichever holds
+            // it, and can land on a key another row already holds. "Just
             // toggle a flag" reads like it cannot fail, and it can - so this runs the same
             // duplicate check an add relies on the index for, rather than waiting for the
             // database to raise it.

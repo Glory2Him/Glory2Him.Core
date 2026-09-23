@@ -336,8 +336,9 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
         }
 
         /// <summary>
-        /// The scope-change duplicate check: UX_Associations_Pair keys on the EFFECTIVE id, which
-        /// a scope toggle recomputes, so the row can move onto a key another row already holds.
+        /// The scope-change duplicate check: UX_Associations_EditorialPair and
+        /// UX_Associations_PersonalPair key on the EFFECTIVE id, which a scope toggle
+        /// recomputes, so the row can move onto a key another row already holds.
         /// </summary>
         [Fact]
         public async Task ShouldReportThePairAsOccupiedByAnotherLiveRowAsync()
