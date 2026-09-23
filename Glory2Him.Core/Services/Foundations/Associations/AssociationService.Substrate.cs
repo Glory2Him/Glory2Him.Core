@@ -75,12 +75,16 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         // asking it twice is a repeated read, not a second rule.
         public async ValueTask<bool> HasAlreadyAddedAssociationAsync(
             EventEnvelope<Association> envelope,
-            CancellationToken cancellationToken = default) =>
-            await AlreadyProcessedAsync(
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            return await AlreadyProcessedAsync(
                 envelope: envelope,
                 receiverName: EventBrokerIdentifiers
                     .AssociationOnAddingAssociationSubscriptionName,
                 cancellationToken: cancellationToken);
+        }
 
         public ValueTask<EventEnvelope<Association>?> OnModifyingAssociationAsync(
             EventEnvelope<Association> envelope,
