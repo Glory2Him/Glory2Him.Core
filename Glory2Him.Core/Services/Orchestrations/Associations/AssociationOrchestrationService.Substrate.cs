@@ -32,6 +32,21 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                     envelope: envelope,
                     operation: AssociationEventOperation.Adding);
 
+                // AHEAD OF THE DERIVATION, because the derivation is work and a replay should do
+                // none of it. The foundation asks this for itself too, but only after this handler
+                // has read both endpoint rows — and a re-delivered envelope whose endpoint has since
+                // been soft-deleted, or has stopped being visible to the signed caller, would fail
+                // that read and be recorded as a failed delivery for an event already applied.
+                bool alreadyAdded =
+                    await this.associationService.HasAlreadyAddedAssociationAsync(
+                        envelope: envelope,
+                        cancellationToken: cancellationToken);
+
+                if (alreadyAdded)
+                {
+                    return null;
+                }
+
                 return await this.associationService.OnAddingAssociationAsync(
                     envelope: envelope,
                     cancellationToken: cancellationToken);
