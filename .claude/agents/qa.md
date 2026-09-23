@@ -337,9 +337,10 @@ Check, in order:
    criterion that contradicts another, contradicts the design, or invents
    behaviour the design does not have. The design outranks the issue.
 
-6. **The label.** Every issue carries a `Model - Effort` line in its body and the
-   matching label, spelled out in full. Without one the issue is not ready to
-   hand over and the developer's session cannot be configured for it.
+6. **The label.** Every issue carries a `Model - Effort` label, spelled out in
+   full. Without one the issue is not ready to hand over and the developer's
+   session cannot be configured for it. The body must not restate it — that is
+   the label's job alone, and a second copy is a second thing to keep true.
 
 You do not write criteria, open issues, split sections or edit the design.
 Findings about an issue route to the analyst, who owns it; findings about the

@@ -190,8 +190,8 @@ design would span more than one, stop and propose a split:
 2. Identify any shared foundation that should be built first
 3. Recommend which to start with and why
 
-Then ask which to design. Every issue you propose needs a `Model - Effort` line in
-its body and the matching label, spelled out in full. Choose the tier by the
+Then ask which to design. Every issue you propose needs a `Model - Effort` label,
+spelled out in full, and the body does not repeat it. Choose the tier by the
 rules in `DEVELOPERS.md` §10 under *Choosing the label* — the default for
 developer work is `Sonnet 5 - High`, and Opus needs one of the five triggers
 named there. Your own seat is budgeted separately and is not the precedent.

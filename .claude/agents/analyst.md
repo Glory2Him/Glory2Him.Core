@@ -29,9 +29,9 @@ When you propose a split, output the proposed sub-issues as one-line stories, an
 shared foundation that should be built first, and a recommendation on which to
 start with. Then stop and ask which to proceed with.
 
-Every issue you propose needs a `Model - Effort` line in its body and the matching
-label applied, spelled out in full — `Opus 5 - Medium`, `Sonnet 5 - High`. An
-issue without one is not ready to hand over.
+Every issue you propose needs a `Model - Effort` label applied, spelled out in
+full — `Opus 5 - Medium`, `Sonnet 5 - High`. The label is the decision and the
+body does not repeat it. An issue without one is not ready to hand over.
 
 Choose the tier by the rules in `DEVELOPERS.md` §10 under *Choosing the label*.
 Read them rather than working from instinct: the default for developer work is
