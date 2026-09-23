@@ -143,6 +143,8 @@ namespace Glory2Him.Core.Services.Foundations.Links
             CancellationToken cancellationToken = default) =>
             TryCatch(async () =>
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 EventEnvelope<Link> readEnvelope =
                     await this.eventEnvelopeBroker.CreateNextAsync(
                         sourceEnvelope: inboundEnvelope,
