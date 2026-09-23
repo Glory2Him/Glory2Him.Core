@@ -1,0 +1,92 @@
+// ────────────────────────────────────────────────────────────────────────────────
+// Copyright (c) Glory 2 Him. All rights reserved.
+// Licensed under the Glory 2 Him Software License (G2HSL).
+// See License.txt in the project root for full license information.
+// FREE TO USE TO HELP SHARE THE GOSPEL
+// John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
+//                  No one comes to the Father except through me.’"
+// https://john.bible/john-14-6
+// If Jesus is who He said He is, what does that mean for you, today?
+// ────────────────────────────────────────────────────────────────────────────────
+
+using System.Threading;
+using System.Threading.Tasks;
+using FluentAssertions;
+using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
+using Moq;
+
+namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
+{
+    public partial class AssociationOrchestrationServiceTests
+    {
+        // VERIFICATION SITS IN THE RECEIVER (§SEC14.6 rule 4), and this handler is now the first
+        // receiver. It reads both endpoint rows before the foundation is reached, so doing that on
+        // the word of an envelope nothing has vouched for would be acting on an unattested payload.
+        // The name verified is the one EventBroker signs for this address — "AssociationAdding",
+        // exactly what the foundation verified while the address bound there.
+        [Fact]
+        public async Task ShouldRefuseAnUnverifiedEnvelopeOnTheAddingAddressAsync()
+        {
+            // given
+            Association addRequest = CreateHonestAddRequest();
+            EventEnvelope<Association> inputEnvelope = CreateRequestEnvelope(addRequest);
+            SetupEventPathEndpointReads(addRequest, inputEnvelope);
+
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    inputEnvelope,
+                    "AssociationAdding",
+                    EnvelopeDirection.Request))
+                        .ReturnsAsync(false);
+
+            var invalidAssociationOrchestrationException =
+                new InvalidAssociationOrchestrationException(
+                    message: "Invalid content item association event. " +
+                        "Integrity verification failed.");
+
+            var expectedValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: "Content item association orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: invalidAssociationOrchestrationException);
+
+            // when
+            ValueTask<EventEnvelope<Association>> onAddingTask =
+                this.associationOrchestrationService.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(
+                    onAddingTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedValidationException);
+
+            this.envelopeIntegrityBrokerMock.Verify(broker =>
+                broker.VerifyAsync(
+                    inputEnvelope,
+                    "AssociationAdding",
+                    EnvelopeDirection.Request),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
+            // nothing read, nothing derived, nothing delegated
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.tagServiceMock.VerifyNoOtherCalls();
+            this.reactionServiceMock.VerifyNoOtherCalls();
+            this.bibleReferenceServiceMock.VerifyNoOtherCalls();
+            this.commentServiceMock.VerifyNoOtherCalls();
+            this.linkServiceMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+    }
+}
