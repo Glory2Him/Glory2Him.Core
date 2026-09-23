@@ -59,6 +59,10 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                     readEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
+                ValidateContentTypesAreTheEndpoints(
+                    claimedAssociation: envelope.Content,
+                    derivedAssociation: derivedAssociation);
+
                 return await this.associationService.OnAddingAssociationAsync(
                     envelope: envelope,
                     cancellationToken: cancellationToken);

@@ -207,6 +207,33 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 (Rule: IsInvalid(association.EntityAKeyId), Parameter: nameof(Association.EntityAKeyId)),
                 (Rule: IsInvalid(association.EntityBKeyId), Parameter: nameof(Association.EntityBKeyId)));
 
+        // THE DERIVATION, EXPRESSED AS A REFUSAL — the event path's arm, and the difference from
+        // the method path is the signature, not the rule. Both paths run the same write flow and
+        // let the derived value govern. On the method path the derived value simply overwrites
+        // the caller's: a loose object nobody attested to. Here the claim arrived inside a signed
+        // envelope whose HMAC covers the content (§SEC14.6 rule 4), and the property that
+        // signature buys is that no receiver edits a part the rules read — the foundation, the
+        // ProcessedEvents record and the reply are all built from that content. So a claim that
+        // disagrees with what the endpoints resolve to is refused rather than quietly corrected.
+        //
+        // An omission disagrees too. The foundation reads a null on a ContentItem endpoint as
+        // "the narrow tier cannot be decided" and fails closed, but the derived value is known
+        // here, and it governs. An honest publisher — anything that resolved the endpoints — is
+        // unaffected, because for it the two values already agree.
+        private static void ValidateContentTypesAreTheEndpoints(
+            Association claimedAssociation,
+            Association derivedAssociation) =>
+            Validate(
+                message: "Content item association is invalid, fix the errors and try again.",
+                (Rule: IsNotTheDerivedContentType(
+                    claimedAssociation.EntityAContentType,
+                    derivedAssociation.EntityAContentType),
+                    Parameter: nameof(Association.EntityAContentType)),
+                (Rule: IsNotTheDerivedContentType(
+                    claimedAssociation.EntityBContentType,
+                    derivedAssociation.EntityBContentType),
+                    Parameter: nameof(Association.EntityBContentType)));
+
         // The id-keyed surfaces' own validation. Kept separate from ValidateOnAddAssociation
         // rather than folded into a shared validator: they compose different rules today and
         // sharing the composition would mean a rule added for one silently binds the other.
@@ -219,6 +246,14 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         {
             Condition = id == Guid.Empty,
             Message = "Id is required"
+        };
+
+        private static dynamic IsNotTheDerivedContentType(
+            ContentType? claimedContentType,
+            ContentType? derivedContentType) => new
+        {
+            Condition = claimedContentType != derivedContentType,
+            Message = "Value must be the content type its endpoint resolves to"
         };
 
         private static dynamic IsInvalid(EntityType entityType) => new
