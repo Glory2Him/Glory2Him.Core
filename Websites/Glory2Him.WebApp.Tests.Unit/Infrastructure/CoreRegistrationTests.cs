@@ -19,6 +19,7 @@ using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Services.Foundations.ApprovalComments;
 using Glory2Him.Core.Services.Foundations.ApprovalReviews;
 using Glory2Him.Core.Services.Foundations.Tags;
+using Glory2Him.Core.Services.Orchestrations.Associations;
 using Glory2Him.WebApp.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -57,6 +58,37 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
 
             // then
             descriptor.Lifetime.Should().Be(ServiceLifetime.Scoped);
+        }
+
+        // §SEC14.6.1 refuses a singleton over the identity chain in a host that wires no
+        // subscription for the service, and ServiceRegistration.AddAssociationOrchestrationService
+        // registers exactly that — so this host registers the orchestration itself, Scoped, beside
+        // the foundation it composes. The lifetime is load-bearing twice over: it is also what
+        // makes the endpoint foundations and the association foundation resolve the SAME storage
+        // broker within one request, which §ARC16.8's composite read depends on (#310 criterion 3).
+        [Fact]
+        public void ShouldRegisterAssociationOrchestrationServiceAsScopedAsync()
+        {
+            // given
+            IServiceCollection services = new ServiceCollection();
+
+            // when
+            services.AddCoreServices();
+
+            ServiceDescriptor descriptor = services.Single(service =>
+                service.ServiceType == typeof(IAssociationOrchestrationService));
+
+            // then
+            descriptor.Lifetime.Should().Be(ServiceLifetime.Scoped);
+
+            descriptor.ImplementationType.Should().Be(typeof(AssociationOrchestrationService));
+
+            // and the interface is public, so a PUBLIC controller constructor can take it —
+            // a less-accessible parameter type is CS0051 and #318 would not compile. The
+            // implementation stays internal and reaches this host through InternalsVisibleTo,
+            // per the ITagService / IApprovalOrchestrationService precedent.
+            typeof(IAssociationOrchestrationService).IsPublic.Should().BeTrue();
+            typeof(AssociationOrchestrationService).IsPublic.Should().BeFalse();
         }
 
         [Fact]
