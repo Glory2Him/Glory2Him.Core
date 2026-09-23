@@ -137,6 +137,36 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
         }
 
         [Fact]
+        public async Task ShouldRefuseASecondLiveReactionForTheSameReaderAsync()
+        {
+            // given: one reader, one item, two DIFFERENT reactions — Love, then Moved. The far
+            // ends differ, so a key carrying EntityBEffectiveId would hold both. The personal
+            // rule is one live personal association per (item, far-end type, reader), so the
+            // second is refused however its far end differs from the first.
+            Guid groupId = Guid.NewGuid();
+            string readerUserId = Guid.NewGuid().ToString();
+
+            Association loveAssociation =
+                CreateReaction(groupId, reactionGroupId: Guid.NewGuid(), readerUserId);
+
+            Association movedAssociation =
+                CreateReaction(groupId, reactionGroupId: Guid.NewGuid(), readerUserId);
+
+            // when
+            Exception loveOutcome = await SeedAsync(loveAssociation);
+            Exception movedOutcome = await SeedAsync(movedAssociation);
+
+            // then
+            loveOutcome.Should().BeNull(because: "a reader's first reaction is always allowed");
+
+            movedOutcome.Should().BeOfType<DuplicateKeyWithUniqueIndexException>(
+                because: "UX_Associations_PersonalPair holds one live reaction per reader "
+                    + "per item, whichever reaction it is");
+
+            movedOutcome.Message.Should().Contain("UX_Associations_PersonalPair");
+        }
+
+        [Fact]
         public async Task ShouldRejectAPairWhoseEndpointsShareAGroupAsync()
         {
             // given: an entity associated with itself
@@ -324,6 +354,24 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
                 entityAGroupId: groupId,
                 entityBType: EntityType.Tag,
                 entityBGroupId: otherGroupId);
+
+        // A reader's reaction on an item: ContentItem sorts below Reaction ordinally, so the
+        // item is on A and the reaction on B, and the UserId is what makes the row personal.
+        private static Association CreateReaction(
+            Guid groupId,
+            Guid reactionGroupId,
+            string userId)
+        {
+            Association reactionAssociation = CreateAssociation(
+                entityAType: EntityType.ContentItem,
+                entityAGroupId: groupId,
+                entityBType: EntityType.Reaction,
+                entityBGroupId: reactionGroupId);
+
+            reactionAssociation.UserId = userId;
+
+            return reactionAssociation;
+        }
 
         private static Association CreateAssociation(
             EntityType entityAType,
