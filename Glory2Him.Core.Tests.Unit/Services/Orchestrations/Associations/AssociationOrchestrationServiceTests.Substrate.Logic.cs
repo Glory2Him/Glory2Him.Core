@@ -52,7 +52,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.associationServiceMock.Setup(service =>
                 service.OnAddingAssociationAsync(
                     inputEnvelope,
-                    It.IsAny<CancellationToken>()))
+                    TestContext.Current.CancellationToken))
                         .ReturnsAsync(expectedReplyEnvelope);
 
             // when
@@ -68,13 +68,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.associationServiceMock.Verify(service =>
                 service.OnAddingAssociationAsync(
                     inputEnvelope,
-                    It.IsAny<CancellationToken>()),
+                    TestContext.Current.CancellationToken),
                 Times.Once);
 
             this.associationServiceMock.Verify(service =>
                 service.AddAssociationAsync(
                     It.IsAny<Association>(),
-                    It.IsAny<CancellationToken>()),
+                    TestContext.Current.CancellationToken),
                 Times.Never);
 
             this.eventEnvelopeBrokerMock.Verify(broker =>
@@ -101,7 +101,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.associationServiceMock.Setup(service =>
                 service.HasAlreadyAddedAssociationAsync(
                     inputEnvelope,
-                    It.IsAny<CancellationToken>()))
+                    TestContext.Current.CancellationToken))
                         .Callback<EventEnvelope<Association>, CancellationToken>((_, _) =>
                             wereEndpointsReadBeforeTheDuplicateQuestion =
                                 this.contentItemServiceMock.Invocations.Count > 0
@@ -111,7 +111,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.associationServiceMock.Setup(service =>
                 service.OnAddingAssociationAsync(
                     inputEnvelope,
-                    It.IsAny<CancellationToken>()))
+                    TestContext.Current.CancellationToken))
                         .Callback<EventEnvelope<Association>, CancellationToken>((_, _) =>
                             wereBothEndpointsReadBeforeDelegating =
                                 this.contentItemServiceMock.Invocations.Count > 0
@@ -127,24 +127,30 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             wereEndpointsReadBeforeTheDuplicateQuestion.Should().BeFalse();
             wereBothEndpointsReadBeforeDelegating.Should().BeTrue();
 
+            this.associationServiceMock.Verify(service =>
+                service.HasAlreadyAddedAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
             this.contentItemServiceMock.Verify(service =>
                 service.RetrieveContentItemByIdAsync(
                     addRequest.EntityAKeyId,
                     inputEnvelope,
-                    It.IsAny<CancellationToken>()),
+                    TestContext.Current.CancellationToken),
                 Times.Once);
 
             this.tagServiceMock.Verify(service =>
                 service.RetrieveTagByIdAsync(
                     addRequest.EntityBKeyId,
                     inputEnvelope,
-                    It.IsAny<CancellationToken>()),
+                    TestContext.Current.CancellationToken),
                 Times.Once);
 
             this.associationServiceMock.Verify(service =>
                 service.OnAddingAssociationAsync(
                     inputEnvelope,
-                    It.IsAny<CancellationToken>()),
+                    TestContext.Current.CancellationToken),
                 Times.Once);
 
             this.loggingBrokerMock.VerifyNoOtherCalls();
@@ -188,7 +194,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.associationServiceMock.Setup(service =>
                 service.OnAddingAssociationAsync(
                     inputEnvelope,
-                    It.IsAny<CancellationToken>()))
+                    TestContext.Current.CancellationToken))
                         .ReturnsAsync(inputEnvelope);
 
             // when
@@ -201,7 +207,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 service.RetrieveContentItemByIdAsync(
                     addRequest.EntityAKeyId,
                     inputEnvelope,
-                    It.IsAny<CancellationToken>()),
+                    TestContext.Current.CancellationToken),
                 Times.Once);
 
             VerifyEventPathEndpointRead(endpointBType, addRequest.EntityBKeyId, inputEnvelope);
@@ -210,7 +216,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.associationServiceMock.Verify(service =>
                 service.OnAddingAssociationAsync(
                     inputEnvelope,
-                    It.IsAny<CancellationToken>()),
+                    TestContext.Current.CancellationToken),
                 Times.Once);
 
             this.loggingBrokerMock.VerifyNoOtherCalls();
@@ -226,7 +232,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 case EntityType.ContentItem:
                     this.contentItemServiceMock.Setup(service =>
                         service.RetrieveContentItemByIdAsync(
-                            keyId, inboundEnvelope, It.IsAny<CancellationToken>()))
+                            keyId, inboundEnvelope, TestContext.Current.CancellationToken))
                                 .ReturnsAsync(new ContentItem
                                 {
                                     Id = keyId,
@@ -239,7 +245,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 case EntityType.Link:
                     this.linkServiceMock.Setup(service =>
                         service.RetrieveLinkByIdAsync(
-                            keyId, inboundEnvelope, It.IsAny<CancellationToken>()))
+                            keyId, inboundEnvelope, TestContext.Current.CancellationToken))
                                 .ReturnsAsync(new Link { Id = keyId, GroupId = Guid.NewGuid() });
 
                     return;
@@ -247,7 +253,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 case EntityType.Tag:
                     this.tagServiceMock.Setup(service =>
                         service.RetrieveTagByIdAsync(
-                            keyId, inboundEnvelope, It.IsAny<CancellationToken>()))
+                            keyId, inboundEnvelope, TestContext.Current.CancellationToken))
                                 .ReturnsAsync(new Tag { Id = keyId });
 
                     return;
@@ -255,7 +261,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 case EntityType.Reaction:
                     this.reactionServiceMock.Setup(service =>
                         service.RetrieveReactionByIdAsync(
-                            keyId, inboundEnvelope, It.IsAny<CancellationToken>()))
+                            keyId, inboundEnvelope, TestContext.Current.CancellationToken))
                                 .ReturnsAsync(new Reaction { Id = keyId });
 
                     return;
@@ -263,7 +269,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 case EntityType.BibleReference:
                     this.bibleReferenceServiceMock.Setup(service =>
                         service.RetrieveBibleReferenceByIdAsync(
-                            keyId, inboundEnvelope, It.IsAny<CancellationToken>()))
+                            keyId, inboundEnvelope, TestContext.Current.CancellationToken))
                                 .ReturnsAsync(new BibleReference { Id = keyId });
 
                     return;
@@ -271,7 +277,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 case EntityType.Comment:
                     this.commentServiceMock.Setup(service =>
                         service.RetrieveCommentByIdAsync(
-                            keyId, inboundEnvelope, It.IsAny<CancellationToken>()))
+                            keyId, inboundEnvelope, TestContext.Current.CancellationToken))
                                 .ReturnsAsync(new Comment { Id = keyId });
 
                     return;
@@ -288,7 +294,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 case EntityType.ContentItem:
                     this.contentItemServiceMock.Verify(service =>
                         service.RetrieveContentItemByIdAsync(
-                            keyId, inboundEnvelope, It.IsAny<CancellationToken>()),
+                            keyId, inboundEnvelope, TestContext.Current.CancellationToken),
                         Times.Once);
 
                     return;
@@ -296,7 +302,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 case EntityType.Link:
                     this.linkServiceMock.Verify(service =>
                         service.RetrieveLinkByIdAsync(
-                            keyId, inboundEnvelope, It.IsAny<CancellationToken>()),
+                            keyId, inboundEnvelope, TestContext.Current.CancellationToken),
                         Times.Once);
 
                     return;
@@ -304,7 +310,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 case EntityType.Tag:
                     this.tagServiceMock.Verify(service =>
                         service.RetrieveTagByIdAsync(
-                            keyId, inboundEnvelope, It.IsAny<CancellationToken>()),
+                            keyId, inboundEnvelope, TestContext.Current.CancellationToken),
                         Times.Once);
 
                     return;
@@ -312,7 +318,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 case EntityType.Reaction:
                     this.reactionServiceMock.Verify(service =>
                         service.RetrieveReactionByIdAsync(
-                            keyId, inboundEnvelope, It.IsAny<CancellationToken>()),
+                            keyId, inboundEnvelope, TestContext.Current.CancellationToken),
                         Times.Once);
 
                     return;
@@ -320,7 +326,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 case EntityType.BibleReference:
                     this.bibleReferenceServiceMock.Verify(service =>
                         service.RetrieveBibleReferenceByIdAsync(
-                            keyId, inboundEnvelope, It.IsAny<CancellationToken>()),
+                            keyId, inboundEnvelope, TestContext.Current.CancellationToken),
                         Times.Once);
 
                     return;
@@ -328,7 +334,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 case EntityType.Comment:
                     this.commentServiceMock.Verify(service =>
                         service.RetrieveCommentByIdAsync(
-                            keyId, inboundEnvelope, It.IsAny<CancellationToken>()),
+                            keyId, inboundEnvelope, TestContext.Current.CancellationToken),
                         Times.Once);
 
                     return;
@@ -384,7 +390,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.associationServiceMock.Setup(service =>
                 service.HasAlreadyAddedAssociationAsync(
                     inputEnvelope,
-                    It.IsAny<CancellationToken>()))
+                    TestContext.Current.CancellationToken))
                         .ReturnsAsync(true);
 
             // when
@@ -406,7 +412,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.associationServiceMock.Verify(service =>
                 service.HasAlreadyAddedAssociationAsync(
                     inputEnvelope,
-                    It.IsAny<CancellationToken>()),
+                    TestContext.Current.CancellationToken),
                 Times.Once);
 
             // the derivation never ran, so a since-deleted endpoint cannot fail a settled replay,
