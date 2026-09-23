@@ -199,6 +199,34 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
         }
 
         [Fact]
+        public async Task ShouldPermitOnePersonalAssociationPerFarEndTypeAsync()
+        {
+            // given: the personal rule is one live personal association per (item, far-end
+            // TYPE, reader), not one of any kind per item. The same reader on the same item
+            // holds a Reaction row and a Tag row; the rows differ only in far-end type, so
+            // EntityBType is the one key column keeping them apart.
+            Guid groupId = Guid.NewGuid();
+            string readerUserId = Guid.NewGuid().ToString();
+
+            Association reactionAssociation =
+                CreateReaction(groupId, reactionGroupId: Guid.NewGuid(), readerUserId);
+
+            Association tagAssociation = CreatePair(groupId, otherGroupId: Guid.NewGuid());
+            tagAssociation.UserId = readerUserId;
+
+            // when
+            Exception reactionOutcome = await SeedAsync(reactionAssociation);
+            Exception tagOutcome = await SeedAsync(tagAssociation);
+
+            // then
+            reactionOutcome.Should().BeNull();
+
+            tagOutcome.Should().BeNull(
+                because: "a different far-end type is a different personal key, so a reader's "
+                    + "reaction does not take the place of their tag on the same item");
+        }
+
+        [Fact]
         public async Task ShouldPermitTwoReadersOnOneItemAsync()
         {
             // given: the personal key dropped the far end, so it is (item, far-end type,
