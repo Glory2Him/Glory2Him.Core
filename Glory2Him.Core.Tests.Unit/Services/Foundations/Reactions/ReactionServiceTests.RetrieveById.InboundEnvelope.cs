@@ -124,5 +124,84 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        // A MISS ON THIS OVERLOAD MUST READ AS A MISS. The association orchestration recognises an
+        // unresolvable endpoint by its *ValidationException shape; a raw NotFoundReactionException
+        // escaping here would reach its dependency clause instead and report "this endpoint does
+        // not exist" as a failed dependency.
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnRetrieveByIdAsTheInboundEnvelopesCallerIfReactionNotFoundAndLogItAsync()
+        {
+            // given
+            Guid someReactionId = Guid.NewGuid();
+            Reaction nullReaction = null;
+
+            var inboundEnvelope = new EventEnvelope<Association>
+            {
+                Content = new Association { Id = Guid.NewGuid() },
+                SecurityContext = CreateAuthenticatedSecurityContext(),
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateNextAsync(
+                    It.IsAny<EventEnvelope<Association>>(),
+                    It.IsAny<Reaction>()))
+                        .Returns((EventEnvelope<Association> source, Reaction content) =>
+                            new ValueTask<EventEnvelope<Reaction>>(
+                                new EventEnvelope<Reaction>
+                                {
+                                    Content = content,
+                                    SecurityContext = source.SecurityContext,
+                                    Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+                                }));
+
+            var notFoundReactionException =
+                new NotFoundReactionException(
+                    message: $"Reaction not found with id: {someReactionId}.");
+
+            var expectedReactionValidationException =
+                new ReactionValidationException(
+                    message: "Reaction validation error occurred, fix the errors and try again.",
+                    innerException: notFoundReactionException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectReactionByIdAsync(
+                    someReactionId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(nullReaction);
+
+            // when
+            ValueTask<Reaction> retrieveReactionByIdTask =
+                this.reactionService.RetrieveReactionByIdAsync(
+                    someReactionId,
+                    inboundEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            ReactionValidationException actualReactionValidationException =
+                await Assert.ThrowsAsync<ReactionValidationException>(
+                    retrieveReactionByIdTask.AsTask);
+
+            // then
+            actualReactionValidationException.Should().BeEquivalentTo(
+                expectedReactionValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectReactionByIdAsync(
+                    someReactionId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedReactionValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
