@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -63,6 +64,36 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 broker.LogErrorAsync(It.Is(SameExceptionAs(expectedDependencyException))),
                 Times.Once);
 
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // A caller who has already cancelled pays for nothing — not the HMAC, not a read — and
+        // the cancellation propagates as itself, never masked as a timeout or wrapped, exactly as
+        // the method path's add does.
+        [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnAddingIfCancellationRequestedAsync()
+        {
+            // given
+            Association addRequest = CreateHonestAddRequest();
+            EventEnvelope<Association> inputEnvelope = CreateRequestEnvelope(addRequest);
+            SetupEventPathEndpointReads(addRequest, inputEnvelope);
+            using var cancellationTokenSource = new CancellationTokenSource();
+            await cancellationTokenSource.CancelAsync();
+
+            // when
+            ValueTask<EventEnvelope<Association>> onAddingTask =
+                this.associationOrchestrationService.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    cancellationTokenSource.Token);
+
+            // then
+            await Assert.ThrowsAsync<OperationCanceledException>(onAddingTask.AsTask);
+
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.tagServiceMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
     }
