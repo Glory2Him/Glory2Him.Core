@@ -21,8 +21,9 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         public ValueTask<EventEnvelope<Association>?> OnAddingAssociationAsync(
             EventEnvelope<Association> envelope,
             CancellationToken cancellationToken = default) =>
-            this.associationService.OnAddingAssociationAsync(
-                envelope: envelope,
-                cancellationToken: cancellationToken);
+            TryCatch(async () =>
+                await this.associationService.OnAddingAssociationAsync(
+                    envelope: envelope,
+                    cancellationToken: cancellationToken));
     }
 }
