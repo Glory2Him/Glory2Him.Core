@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Enums;
@@ -203,5 +204,42 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        // CANCELLED BEFORE ANY WORK (tsc-csharp-cp-005). The ambient overload checks the token
+        // first; so must this one, ahead of chaining the read envelope.
+        [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnRetrieveByIdAsTheInboundEnvelopesCallerIfCancellationRequestedAsync()
+        {
+            // given
+            Guid someReactionId = Guid.NewGuid();
+            EventEnvelope<Association> inboundEnvelope = CreateInboundAssociationEnvelope();
+            var cancellationToken = new CancellationToken(canceled: true);
+
+            // when
+            ValueTask<Reaction> retrieveReactionByIdTask =
+                this.reactionService.RetrieveReactionByIdAsync(
+                    someReactionId,
+                    inboundEnvelope,
+                    cancellationToken);
+
+            // then
+            await Assert.ThrowsAsync<OperationCanceledException>(
+                retrieveReactionByIdTask.AsTask);
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        private static EventEnvelope<Association> CreateInboundAssociationEnvelope() =>
+            new EventEnvelope<Association>
+            {
+                Content = new Association { Id = Guid.NewGuid() },
+                SecurityContext = CreateAuthenticatedSecurityContext(),
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
     }
 }
