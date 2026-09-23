@@ -29,7 +29,7 @@ The design follows these principles:
 7. `Topic` must be modelled as a `ContentType`, not as a separate database entity.
 8. A `Topic` groups other content items through `Association`.
 9. The feed is a domain projection only, not a database entity.
-10. Any publishable content type except `Topic` can appear in the feed.
+10. Any publishable content type except `Topic` and `Series` can appear in the feed.
 11. All deletes are soft deletes.
 12. Soft-deleted content must be excluded from public visibility.
 
