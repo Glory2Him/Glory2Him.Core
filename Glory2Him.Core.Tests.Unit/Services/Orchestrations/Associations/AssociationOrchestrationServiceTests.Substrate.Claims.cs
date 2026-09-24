@@ -13,6 +13,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Force.DeepCloner;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
@@ -180,6 +181,46 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                     It.IsAny<EventEnvelope<Association>>(),
                     It.IsAny<CancellationToken>()),
                 Times.Never);
+
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // 3d. What the foundation re-derives before anything reads it is not the event path's to
+        // refuse: both scopes, and a non-versioned endpoint's group id (the Tag on B). Claims
+        // that differ from the derivation on all three still reach the foundation, unchanged.
+        [Fact]
+        public async Task ShouldNotCompareScopeOrANonVersionedGroupIdOnTheEventPathAsync()
+        {
+            // given
+            Association addRequest = CreateHonestAddRequest();
+            addRequest.EntityAScope = Scope.ThisVersionOnly;
+            addRequest.EntityBScope = Scope.AllVersions;
+            addRequest.EntityBGroupId = Guid.NewGuid();
+            EventEnvelope<Association> inputEnvelope = CreateRequestEnvelope(addRequest);
+            Association expectedContent = addRequest.DeepClone();
+            SetupEventPathEndpointReads(addRequest, inputEnvelope);
+
+            this.associationServiceMock.Setup(service =>
+                service.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(inputEnvelope);
+
+            // when
+            EventEnvelope<Association> actualReplyEnvelope =
+                await this.associationOrchestrationService.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualReplyEnvelope.Should().BeSameAs(inputEnvelope);
+            inputEnvelope.Content.Should().BeEquivalentTo(expectedContent);
+
+            this.associationServiceMock.Verify(service =>
+                service.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
 
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
