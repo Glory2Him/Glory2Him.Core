@@ -224,5 +224,71 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
 
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        public static TheoryData<string> RefusedClaims() =>
+            new TheoryData<string>
+            {
+                "a contradicting content type",
+                "a claimed UserId",
+                "a contradicting versioned group id",
+            };
+
+        // 3e. A refused claim stops the request BEFORE the occupancy probes, so a request the
+        // event path will refuse anyway cannot be used to learn whether a pair is occupied.
+        [Theory]
+        [MemberData(nameof(RefusedClaims))]
+        public async Task ShouldNotProbeThePairWhenAClaimIsRefusedOnTheEventPathAsync(
+            string refusedClaim)
+        {
+            // given
+            Association addRequest = CreateHonestAddRequest();
+            EventEnvelope<Association> inputEnvelope = CreateRequestEnvelope(addRequest);
+            SetupEventPathEndpointReads(addRequest, inputEnvelope);
+
+            switch (refusedClaim)
+            {
+                case "a contradicting content type":
+                    addRequest.EntityAContentType = ContentType.Testimony;
+                    break;
+
+                case "a claimed UserId":
+                    addRequest.UserId = "a-claimed-user-id";
+                    break;
+
+                case "a contradicting versioned group id":
+                    addRequest.EntityAGroupId = Guid.NewGuid();
+                    break;
+            }
+
+            // when
+            ValueTask<EventEnvelope<Association>> onAddingTask =
+                this.associationOrchestrationService.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(
+                onAddingTask.AsTask);
+
+            // then
+            this.associationServiceMock.Verify(service =>
+                service.FindAssociationByPairAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<EventEnvelope<Association>>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.associationServiceMock.Verify(service =>
+                service.FindOverlappingAssociationAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<EventEnvelope<Association>>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.associationServiceMock.Verify(service =>
+                service.OnAddingAssociationAsync(
+                    It.IsAny<EventEnvelope<Association>>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
     }
 }
