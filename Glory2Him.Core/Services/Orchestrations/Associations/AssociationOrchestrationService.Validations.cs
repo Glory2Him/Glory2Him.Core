@@ -12,6 +12,7 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
@@ -221,8 +222,10 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         // here, and it governs. An honest publisher — anything that resolved the endpoints — is
         // unaffected, because for it the two values already agree.
         //
-        // UserId is the same rule over another derived value (#631 criterion 3b): the foundation
-        // checks it for length only, and a non-null one makes the row personal.
+        // The same rule covers the two other values the foundation would take as handed (#631
+        // criteria 3b, 3c): UserId, which it checks for length only and which makes the row
+        // personal, and a VERSIONED endpoint's group id, which it keeps. A scope, and a
+        // non-versioned group id, it re-derives before anything reads them, so neither is compared.
         private static void ValidateClaimsAreTheDerivation(
             Association claimedAssociation,
             Association derivedAssociation) =>
@@ -236,6 +239,16 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                     claimedAssociation.EntityBContentType,
                     derivedAssociation.EntityBContentType),
                     Parameter: nameof(Association.EntityBContentType)),
+                (Rule: IsNotTheDerivedVersionedGroupId(
+                    derivedAssociation.EntityAType,
+                    claimedAssociation.EntityAGroupId,
+                    derivedAssociation.EntityAGroupId),
+                    Parameter: nameof(Association.EntityAGroupId)),
+                (Rule: IsNotTheDerivedVersionedGroupId(
+                    derivedAssociation.EntityBType,
+                    claimedAssociation.EntityBGroupId,
+                    derivedAssociation.EntityBGroupId),
+                    Parameter: nameof(Association.EntityBGroupId)),
                 (Rule: IsNotTheDerivedUserId(
                     claimedAssociation.UserId,
                     derivedAssociation.UserId),
@@ -261,6 +274,16 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         {
             Condition = claimedContentType != derivedContentType,
             Message = "Value must be the content type its endpoint resolves to"
+        };
+
+        private static dynamic IsNotTheDerivedVersionedGroupId(
+            EntityType entityType,
+            Guid claimedGroupId,
+            Guid derivedGroupId) => new
+        {
+            Condition = EntityTypeVersioning.IsVersioned(entityType)
+                && claimedGroupId != derivedGroupId,
+            Message = "Value must be the group its endpoint resolves to"
         };
 
         private static dynamic IsNotTheDerivedUserId(
