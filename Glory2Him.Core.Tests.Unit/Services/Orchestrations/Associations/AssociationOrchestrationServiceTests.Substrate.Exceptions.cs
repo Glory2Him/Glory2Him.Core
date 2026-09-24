@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Foundations.Associations.Exceptions;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
 using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
 using Moq;
@@ -296,6 +297,137 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.contentItemServiceMock.VerifyNoOtherCalls();
             this.tagServiceMock.VerifyNoOtherCalls();
             this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // THE EARLY-DEDUPE QUESTION FAILING (#631 criterion 9). A store that could not say whether
+        // the event was applied is a dependency failure — not "no", which would re-apply it, and
+        // not "yes", which would drop it.
+        [Fact]
+        public async Task ShouldThrowDependencyExceptionOnAddingIfTheDuplicateQuestionFailsAndLogItAsync()
+        {
+            // given
+            Association addRequest = CreateHonestAddRequest();
+            EventEnvelope<Association> inputEnvelope = CreateRequestEnvelope(addRequest);
+            SetupEventPathEndpointReads(addRequest, inputEnvelope);
+            var innerException = new Xeption(message: GetRandomString());
+
+            var associationDependencyException =
+                new AssociationDependencyException(
+                    message: GetRandomString(),
+                    innerException: innerException);
+
+            var expectedDependencyException =
+                new AssociationOrchestrationDependencyException(
+                    message: "Content item association orchestration dependency error occurred, contact support.",
+                    innerException: innerException);
+
+            this.associationServiceMock.Setup(service =>
+                service.HasAlreadyAddedAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken))
+                        .ThrowsAsync(associationDependencyException);
+
+            // when
+            ValueTask<EventEnvelope<Association>> onAddingTask =
+                this.associationOrchestrationService.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationDependencyException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationDependencyException>(
+                    onAddingTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedDependencyException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedDependencyException))),
+                Times.Once);
+
+            this.associationServiceMock.Verify(service =>
+                service.OnAddingAssociationAsync(
+                    It.IsAny<EventEnvelope<Association>>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.tagServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        public static TheoryData<string> OccupancyProbes() =>
+            new TheoryData<string>
+            {
+                "the pair probe",
+                "the overlap probe",
+            };
+
+        // A PROBE THAT FAILED IS NEVER TREATED AS FINDING THE PAIR UNOCCUPIED (#631 criterion 9).
+        // Falling open here is exactly the takedown-laundering insert the probes exist to stop.
+        [Theory]
+        [MemberData(nameof(OccupancyProbes))]
+        public async Task ShouldThrowDependencyExceptionOnAddingIfAnOccupancyProbeFailsAndNotFallOpenAsync(
+            string failingProbe)
+        {
+            // given
+            Association addRequest = CreateHonestAddRequest();
+            EventEnvelope<Association> inputEnvelope = CreateRequestEnvelope(addRequest);
+            SetupEventPathEndpointReads(addRequest, inputEnvelope);
+            var innerException = new Xeption(message: GetRandomString());
+
+            var associationDependencyException =
+                new AssociationDependencyException(
+                    message: GetRandomString(),
+                    innerException: innerException);
+
+            var expectedDependencyException =
+                new AssociationOrchestrationDependencyException(
+                    message: "Content item association orchestration dependency error occurred, contact support.",
+                    innerException: innerException);
+
+            if (failingProbe == "the pair probe")
+            {
+                this.associationServiceMock.Setup(service =>
+                    service.FindAssociationByPairAsync(
+                        It.IsAny<Association>(),
+                        inputEnvelope,
+                        TestContext.Current.CancellationToken))
+                            .ThrowsAsync(associationDependencyException);
+            }
+            else
+            {
+                this.associationServiceMock.Setup(service =>
+                    service.FindOverlappingAssociationAsync(
+                        It.IsAny<Association>(),
+                        inputEnvelope,
+                        TestContext.Current.CancellationToken))
+                            .ThrowsAsync(associationDependencyException);
+            }
+
+            // when
+            ValueTask<EventEnvelope<Association>> onAddingTask =
+                this.associationOrchestrationService.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationDependencyException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationDependencyException>(
+                    onAddingTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedDependencyException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedDependencyException))),
+                Times.Once);
+
+            this.associationServiceMock.Verify(service =>
+                service.OnAddingAssociationAsync(
+                    It.IsAny<EventEnvelope<Association>>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
     }
