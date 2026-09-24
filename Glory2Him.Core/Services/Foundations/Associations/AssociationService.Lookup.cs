@@ -15,6 +15,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Securities;
 
 namespace Glory2Him.Core.Services.Foundations.Associations
 {
@@ -33,72 +34,100 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 EventEnvelope<Association> envelope =
                     await this.eventEnvelopeBroker.CreateAsync(content: association);
 
-                ValidateUserIsNotGloballyBlockedFromContributing(envelope.SecurityContext);
-                ValidateOnFindAssociationByPair(association);
-
-                // Match the SAME canonical endpoint order an insert lands in — DoAddAssociationAsync
-                // normalizes before InsertAssociationAsync, so every stored row is canonical.
-                // Without this the probe is orientation-sensitive: a reversed-order request would
-                // miss the canonical stored row (breaking retrieve-or-add for half of all input
-                // orderings), and against a soft-deleted moderator-takedown row it would slip a
-                // normalized insert past the IsDeleted = 0-filtered unique index — laundering the
-                // exact takedown this probe exists to catch. Normalizing here rather than in the
-                // caller keeps canonical ordering in one place, so the write path and the probe
-                // cannot diverge.
-                association = NormalizeEndpointOrder(association);
-
-                // The same effective ids the persisted computed column carries and the
-                // UX_Associations_EditorialPair index keys on. Computed here from the resolved
-                // endpoints so the probe matches exactly the editorial row an insert would
-                // collide with.
-                Guid entityAEffectiveId = ResolveEffectiveId(
-                    association.EntityAScope,
-                    association.EntityAGroupId,
-                    association.EntityAKeyId);
-
-                Guid entityBEffectiveId = ResolveEffectiveId(
-                    association.EntityBScope,
-                    association.EntityBGroupId,
-                    association.EntityBKeyId);
-
-                // Prefer a LIVE row when one exists (there can be at most one — the unique index
-                // filters WHERE IsDeleted = 0), and otherwise the most recently touched
-                // soft-deleted row, which is the candidate the resurrect rule considers.
-                //
-                // Deliberately UNFILTERED (§7.4/§14.6): the retrieve-or-add flow must see a
-                // pending or rejected row belonging to another user, and a soft-deleted one, both
-                // of which the read posture hides from the submitting caller. The projection
-                // returned below reveals no row body, so nothing the caller could not already
-                // infer from resubmitting leaks.
-                //
-                // Asked for as ONE row. Composing this predicate onto the collection read's live
-                // queryable left a synchronous terminal operator as the only way to run it, which
-                // blocked the request thread and dropped the cancellation token at the one call
-                // that touches the database. What stays HERE is the normalisation above: canonical
-                // ordering lives in one place so the write path and the probe cannot diverge, and
-                // the storage layer is handed endpoints already resolved.
-                Association? match = await this.storageBroker.SelectAssociationByPairAsync(
-                    entityAType: association.EntityAType,
-                    entityBType: association.EntityBType,
-                    entityAEffectiveId: entityAEffectiveId,
-                    entityBEffectiveId: entityBEffectiveId,
-                    userId: association.UserId,
+                return await DoFindAssociationByPairAsync(
+                    association: association,
+                    securityContext: envelope.SecurityContext,
                     cancellationToken: cancellationToken);
-
-                if (match is null)
-                {
-                    return null;
-                }
-
-                return new AssociationPairMatch
-                {
-                    Id = match.Id,
-                    ApprovalStatus = match.ApprovalStatus,
-                    IsDeleted = match.IsDeleted,
-                    CreatedBy = match.CreatedBy,
-                    DeletedBy = match.DeletedBy,
-                };
             });
+
+        // The inbound-envelope twin (#631): the gate is asked of the caller the envelope was
+        // signed for, and nothing is minted. The key still comes from the association argument.
+        public ValueTask<AssociationPairMatch?> FindAssociationByPairAsync(
+            Association association,
+            EventEnvelope<Association> inboundEnvelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                return await DoFindAssociationByPairAsync(
+                    association: association,
+                    securityContext: inboundEnvelope.SecurityContext,
+                    cancellationToken: cancellationToken);
+            });
+
+        // ONE BODY for both members, which differ only in where the security context comes from.
+        private async ValueTask<AssociationPairMatch?> DoFindAssociationByPairAsync(
+            Association association,
+            SecurityContext securityContext,
+            CancellationToken cancellationToken)
+        {
+            ValidateUserIsNotGloballyBlockedFromContributing(securityContext);
+            ValidateOnFindAssociationByPair(association);
+
+            // Match the SAME canonical endpoint order an insert lands in — DoAddAssociationAsync
+            // normalizes before InsertAssociationAsync, so every stored row is canonical.
+            // Without this the probe is orientation-sensitive: a reversed-order request would
+            // miss the canonical stored row (breaking retrieve-or-add for half of all input
+            // orderings), and against a soft-deleted moderator-takedown row it would slip a
+            // normalized insert past the IsDeleted = 0-filtered unique index — laundering the
+            // exact takedown this probe exists to catch. Normalizing here rather than in the
+            // caller keeps canonical ordering in one place, so the write path and the probe
+            // cannot diverge.
+            association = NormalizeEndpointOrder(association);
+
+            // The same effective ids the persisted computed column carries and the
+            // UX_Associations_EditorialPair index keys on. Computed here from the resolved
+            // endpoints so the probe matches exactly the editorial row an insert would
+            // collide with.
+            Guid entityAEffectiveId = ResolveEffectiveId(
+                association.EntityAScope,
+                association.EntityAGroupId,
+                association.EntityAKeyId);
+
+            Guid entityBEffectiveId = ResolveEffectiveId(
+                association.EntityBScope,
+                association.EntityBGroupId,
+                association.EntityBKeyId);
+
+            // Prefer a LIVE row when one exists (there can be at most one — the unique index
+            // filters WHERE IsDeleted = 0), and otherwise the most recently touched
+            // soft-deleted row, which is the candidate the resurrect rule considers.
+            //
+            // Deliberately UNFILTERED (§7.4/§14.6): the retrieve-or-add flow must see a
+            // pending or rejected row belonging to another user, and a soft-deleted one, both
+            // of which the read posture hides from the submitting caller. The projection
+            // returned below reveals no row body, so nothing the caller could not already
+            // infer from resubmitting leaks.
+            //
+            // Asked for as ONE row. Composing this predicate onto the collection read's live
+            // queryable left a synchronous terminal operator as the only way to run it, which
+            // blocked the request thread and dropped the cancellation token at the one call
+            // that touches the database. What stays HERE is the normalisation above: canonical
+            // ordering lives in one place so the write path and the probe cannot diverge, and
+            // the storage layer is handed endpoints already resolved.
+            Association? match = await this.storageBroker.SelectAssociationByPairAsync(
+                entityAType: association.EntityAType,
+                entityBType: association.EntityBType,
+                entityAEffectiveId: entityAEffectiveId,
+                entityBEffectiveId: entityBEffectiveId,
+                userId: association.UserId,
+                cancellationToken: cancellationToken);
+
+            if (match is null)
+            {
+                return null;
+            }
+
+            return new AssociationPairMatch
+            {
+                Id = match.Id,
+                ApprovalStatus = match.ApprovalStatus,
+                IsDeleted = match.IsDeleted,
+                CreatedBy = match.CreatedBy,
+                DeletedBy = match.DeletedBy,
+            };
+        }
 
         // The probe is called with a resolved association, so its endpoints must be identified:
         // a valid entity type each side and non-empty key and group ids, since the effective id

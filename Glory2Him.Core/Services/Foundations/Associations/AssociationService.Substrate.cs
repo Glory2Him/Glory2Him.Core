@@ -32,6 +32,13 @@ namespace Glory2Him.Core.Services.Foundations.Associations
     /// handler — are not applied twice; a deduplicated delivery replies <c>null</c>. Failures
     /// are categorized into the service's typed exceptions and rethrown so the substrate
     /// records the delivery as <c>Error</c> and drives retries; they are never swallowed.
+    ///
+    /// <para><b><c>Association-Adding</c> no longer binds here directly.</b> Since #631 the
+    /// address binds <c>IAssociationOrchestrationService</c>, which verifies the request, asks
+    /// <see cref="HasAlreadyAddedAssociationAsync"/> first, derives both endpoints through the
+    /// same write flow the method path runs, and then calls <see cref="OnAddingAssociationAsync"/>
+    /// with the same envelope. The handler stays, and everything it does stays this
+    /// service's.</para>
     /// </summary>
     internal partial class AssociationService
     {
@@ -61,6 +68,23 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: addedAssociation);
+            });
+
+        // The deduplication question on its own, for the layer above (#631). Same receiver name
+        // and same storage probe the Adding handler uses, so the two cannot answer differently —
+        // asking it twice is a repeated read, not a second rule.
+        public ValueTask<bool> HasAlreadyAddedAssociationAsync(
+            EventEnvelope<Association> envelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                return await AlreadyProcessedAsync(
+                    envelope: envelope,
+                    receiverName: EventBrokerIdentifiers
+                        .AssociationOnAddingAssociationSubscriptionName,
+                    cancellationToken: cancellationToken);
             });
 
         public ValueTask<EventEnvelope<Association>?> OnModifyingAssociationAsync(

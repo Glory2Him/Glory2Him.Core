@@ -19,7 +19,13 @@ namespace Glory2Him.Core.Registrations
         /// <summary>
         /// Registers the Association orchestration service with the container. The caller is
         /// responsible for registering the foundation services and brokers it depends on
-        /// (the Association foundation service plus every endpoint entity's service).
+        /// (the Association foundation service plus every endpoint entity's service, and
+        /// <c>IEnvelopeIntegrityBroker</c>, which its event-path handler verifies inbound
+        /// envelopes through).
+        ///
+        /// <para>Since #631 the <c>Association-Adding</c> subscription resolves this service per
+        /// delivery, so a host that wires the substrate must register it or that address throws
+        /// mid-delivery.</para>
         /// </summary>
         public static IServiceCollection AddAssociationOrchestrationService(this IServiceCollection services)
         {

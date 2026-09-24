@@ -98,7 +98,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
         public async Task ShouldRetrieveContentItemByIdIfContentItemIsPubliclyVisibleAndActorHasBlockRoleAsync(
             string blockRole)
         {
-            // given: the block roles only block contributions (§16.6) — a blocked user
+            // given: the block roles only block contributions (§SEC14.7 posture A rule 1) — a blocked user
             // still reads public content like everyone else
             Guid randomContentItemId = Guid.NewGuid();
             Guid inputContentItemId = randomContentItemId;

@@ -11,12 +11,16 @@
 
 using System;
 using System.Linq.Expressions;
+using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Brokers.EventEnvelopes;
+using Glory2Him.Core.Brokers.Integrities;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Foundations.ContentItems;
+using Glory2Him.Core.Models.Foundations.Tags;
 using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Services.Foundations.Associations;
 using Glory2Him.Core.Services.Foundations.BibleReferences;
@@ -42,6 +46,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
         private readonly Mock<ICommentService> commentServiceMock;
         private readonly Mock<ILinkService> linkServiceMock;
         private readonly Mock<IEventEnvelopeBroker> eventEnvelopeBrokerMock;
+        private readonly Mock<IEnvelopeIntegrityBroker> envelopeIntegrityBrokerMock;
         private readonly Mock<ILoggingBroker> loggingBrokerMock;
         private readonly IAssociationOrchestrationService associationOrchestrationService;
         private SecurityContext ambientSecurityContext;
@@ -56,7 +61,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.commentServiceMock = new Mock<ICommentService>();
             this.linkServiceMock = new Mock<ILinkService>();
             this.eventEnvelopeBrokerMock = new Mock<IEventEnvelopeBroker>();
+            this.envelopeIntegrityBrokerMock = new Mock<IEnvelopeIntegrityBroker>();
             this.loggingBrokerMock = new Mock<ILoggingBroker>();
+
+            // Valid by default. The verification tests override it; every other test on the event
+            // path would otherwise be asserting the guard rather than its own subject.
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    It.IsAny<EventEnvelope<It.IsAnyType>>(),
+                    It.IsAny<string>(),
+                    It.IsAny<EnvelopeDirection>()))
+                        .ReturnsAsync(true);
 
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
 
@@ -80,6 +95,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 commentService: this.commentServiceMock.Object,
                 linkService: this.linkServiceMock.Object,
                 eventEnvelopeBroker: this.eventEnvelopeBrokerMock.Object,
+                envelopeIntegrityBroker: this.envelopeIntegrityBrokerMock.Object,
                 loggingBroker: this.loggingBrokerMock.Object);
         }
 
@@ -126,6 +142,62 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 EntityBKeyId = Guid.NewGuid(),
                 UserId = null,
             };
+        }
+
+        // An add request as an HONEST publisher sends it over the substrate: the raw endpoints
+        // plus what those endpoints really are — a Story in its version group on A, and nothing
+        // on the Tag on B. Anything that resolved the endpoints before publishing states exactly
+        // this. SetupEventPathEndpointReads resolves A to the group stated here.
+        private static Association CreateHonestAddRequest()
+        {
+            Association addRequest = CreateRawAddRequest();
+            addRequest.EntityAContentType = ContentType.Story;
+            addRequest.EntityAGroupId = Guid.NewGuid();
+            addRequest.EntityBContentType = null;
+
+            return addRequest;
+        }
+
+        // A request envelope as the substrate hands one over: content, the signed caller, and the
+        // event id ProcessedEvents deduplicates on. Integrity is left to the broker mock.
+        private static EventEnvelope<Association> CreateRequestEnvelope(
+            Association association,
+            SecurityContext securityContext = null) =>
+            new EventEnvelope<Association>
+            {
+                Content = association,
+                SecurityContext = securityContext ?? CreateAuthenticatedSecurityContext(),
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() },
+            };
+
+        // The event path's endpoint reads, keyed on the INBOUND envelope: a ContentItem (Story) on
+        // A, in the group the request states, and a Tag on B. Handed back so a test can assert what was derived from it.
+        private ContentItem SetupEventPathEndpointReads(
+            Association addRequest,
+            EventEnvelope<Association> inboundEnvelope)
+        {
+            var resolvedContentItem = new ContentItem
+            {
+                Id = addRequest.EntityAKeyId,
+                GroupId = addRequest.EntityAGroupId,
+                ContentType = ContentType.Story,
+            };
+
+            this.contentItemServiceMock.Setup(service =>
+                service.RetrieveContentItemByIdAsync(
+                    addRequest.EntityAKeyId,
+                    inboundEnvelope,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(resolvedContentItem);
+
+            this.tagServiceMock.Setup(service =>
+                service.RetrieveTagByIdAsync(
+                    addRequest.EntityBKeyId,
+                    inboundEnvelope,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(new Tag { Id = addRequest.EntityBKeyId });
+
+            return resolvedContentItem;
         }
 
         private static AssociationPairMatch CreatePairMatch(
