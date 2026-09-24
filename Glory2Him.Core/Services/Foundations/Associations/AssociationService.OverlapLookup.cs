@@ -48,11 +48,15 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             EventEnvelope<Association> inboundEnvelope,
             CancellationToken cancellationToken = default) =>
             TryCatch(async () =>
-                await DoFindOverlappingAssociationAsync(
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                return await DoFindOverlappingAssociationAsync(
                     association: association,
                     excludedAssociationId: null,
                     securityContext: inboundEnvelope.SecurityContext,
-                    cancellationToken: cancellationToken));
+                    cancellationToken: cancellationToken);
+            });
 
         // ONE BODY for both members, which differ only in where the security context comes from.
         private async ValueTask<AssociationPairMatch?> DoFindOverlappingAssociationAsync(
