@@ -26,8 +26,9 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
     /// held no role for and have it accepted on that alone.
     ///
     /// <para><b>The foundation keeps everything else.</b> This handler verifies, asks the
-    /// duplicate question early, and runs the SAME write flow the method path runs — then hands
-    /// the SAME envelope down. Deduplication on <c>Metadata.EventId</c>, the audit stamping,
+    /// duplicate question early, and runs the SAME write flow the method path runs — the
+    /// derivation and the occupancy check — refusing a claim that contradicts a derived value
+    /// and any occupant of the pair, then hands the SAME envelope down. Deduplication on <c>Metadata.EventId</c>, the audit stamping,
     /// canonical ordering, the write, the past-tense fact and the reply are all still the
     /// foundation's, reached with the envelope untouched. The precedent is
     /// <c>ContentItemSetting-Adding</c> (#456), followed unchanged.</para>

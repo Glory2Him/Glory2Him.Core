@@ -36,9 +36,10 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
     public partial interface IAssociationOrchestrationService
     {
         /// <summary>
-        /// Handles an add request that arrived over the event substrate: verifies it, derives the
-        /// endpoints through the same write flow the method path runs, and then hands the SAME
-        /// envelope to the foundation's handler.
+        /// Handles an add request that arrived over the event substrate: verifies it, runs the
+        /// same write flow the method path runs — the derivation and the occupancy check — refuses
+        /// any claim that contradicts a derived value and any occupant of the pair, and only then
+        /// hands the SAME envelope to the foundation's handler.
         ///
         /// <para>Replies with the outcome envelope the foundation produced, or <c>null</c> when the
         /// request had already been applied — the deduplication, the audit stamping, the storage
