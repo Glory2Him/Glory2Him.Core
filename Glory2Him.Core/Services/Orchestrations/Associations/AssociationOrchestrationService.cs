@@ -119,26 +119,16 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 readEnvelope: null,
                 cancellationToken: cancellationToken);
 
-            // The unfiltered canonical-pair lookup — sees a pending/rejected row owned by another
-            // user, and a soft-deleted one, both of which the caller's read posture hides.
-            AssociationPairMatch? existingMatch =
-                await this.associationService.FindAssociationByPairAsync(
-                    association,
-                    cancellationToken);
+            (AssociationPairMatch? existingMatch, AssociationPairMatch? overlappingMatch) =
+                await FindPairOccupantsAsync(
+                    association: association,
+                    readEnvelope: null,
+                    cancellationToken: cancellationToken);
 
             if (existingMatch is null)
             {
-                // No row occupies the EXACT pair, but a differently-scoped LIVE row can still
-                // overlap this one's coverage — an AllVersions endpoint spanning a ThisVersionOnly
-                // row's version, or the reverse. Their effective ids differ, so the unique index
-                // is blind to it, yet inserting past it would render the same pairing twice from
-                // two rows with independent approval lifecycles. Report the overlap, insert nothing.
-                AssociationPairMatch? overlappingMatch =
-                    await this.associationService.FindOverlappingAssociationAsync(
-                        association,
-                        excludedAssociationId: null,
-                        cancellationToken);
-
+                // Nothing on the exact pair, but a differently-scoped live row may overlap it.
+                // Report the overlap, insert nothing.
                 if (overlappingMatch is not null)
                 {
                     return new AssociationSuggestionResult
@@ -188,6 +178,55 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 Status = liveStatus,
                 AssociationId = existingMatch.Id,
             };
+        }
+
+        // THE OCCUPANCY CHECK, the second half of the add's write flow and shared by both entry
+        // paths in the same way (#631 criterion 4b). The paths differ only in how they ANSWER an
+        // occupant — the method path with a status, the event path with a refusal — so only the
+        // answer is theirs.
+        //
+        // First the unfiltered canonical-pair lookup, which sees a pending or rejected row owned
+        // by another user, and a soft-deleted one, both of which the caller's read posture hides.
+        // Only when no row occupies the EXACT pair is the overlap asked: a differently-scoped
+        // LIVE row can still overlap this one's coverage — an AllVersions endpoint spanning a
+        // ThisVersionOnly row's version, or the reverse. Their effective ids differ, so the
+        // unique index is blind to it, yet inserting past it would render the same pairing twice
+        // from two rows with independent approval lifecycles.
+        //
+        // WHOSE gate each probe asks follows the read envelope, as the endpoint reads do: none on
+        // the method path, where the ambient caller is the caller; the inbound one on the event
+        // path, so the signed caller is asked (§ARC12.5.2 Rule 3).
+        private async ValueTask<(AssociationPairMatch? PairMatch, AssociationPairMatch? OverlappingMatch)>
+            FindPairOccupantsAsync(
+                Association association,
+                EventEnvelope<Association>? readEnvelope,
+                CancellationToken cancellationToken)
+        {
+            AssociationPairMatch? pairMatch = readEnvelope is null
+                ? await this.associationService.FindAssociationByPairAsync(
+                    association,
+                    cancellationToken)
+                : await this.associationService.FindAssociationByPairAsync(
+                    association,
+                    readEnvelope,
+                    cancellationToken);
+
+            if (pairMatch is not null)
+            {
+                return (pairMatch, null);
+            }
+
+            AssociationPairMatch? overlappingMatch = readEnvelope is null
+                ? await this.associationService.FindOverlappingAssociationAsync(
+                    association,
+                    excludedAssociationId: null,
+                    cancellationToken)
+                : await this.associationService.FindOverlappingAssociationAsync(
+                    association,
+                    readEnvelope,
+                    cancellationToken);
+
+            return (null, overlappingMatch);
         }
 
         // THE ADD'S WRITE FLOW — every rule that decides whether an add may happen and what the

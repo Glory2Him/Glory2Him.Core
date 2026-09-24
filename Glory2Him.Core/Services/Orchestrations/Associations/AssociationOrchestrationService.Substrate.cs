@@ -78,21 +78,15 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                     claimedAssociation: envelope.Content,
                     derivedAssociation: derivedAssociation);
 
-                AssociationPairMatch? pairMatch =
-                    await this.associationService.FindAssociationByPairAsync(
+                // THE SAME OCCUPANCY CHECK THE METHOD PATH RUNS, over the same derived copy. Only
+                // the answer differs: this door refuses every occupant.
+                (AssociationPairMatch? pairMatch, AssociationPairMatch? overlappingMatch) =
+                    await FindPairOccupantsAsync(
                         association: derivedAssociation,
-                        inboundEnvelope: envelope,
+                        readEnvelope: envelope,
                         cancellationToken: cancellationToken);
 
-                ValidatePairIsUnoccupied(pairMatch);
-
-                AssociationPairMatch? overlappingMatch =
-                    await this.associationService.FindOverlappingAssociationAsync(
-                        association: derivedAssociation,
-                        inboundEnvelope: envelope,
-                        cancellationToken: cancellationToken);
-
-                ValidatePairIsUnoccupied(overlappingMatch);
+                ValidatePairIsUnoccupied(pairMatch ?? overlappingMatch);
 
                 return await this.associationService.OnAddingAssociationAsync(
                     envelope: envelope,
