@@ -1239,7 +1239,7 @@ The route is **`[AllowAnonymous]`**, and **the counted set is caller-independent
 
 #### The reader's own reaction, and what a withdrawal is keyed on
 
-**The reader's own reaction is identified pair-keyed, not row-keyed, so the response carries no association id.** It carries `ViewerReactionId` and `ViewerReactionName`, and the caller already holds the other half — the card's content item. The justification is **§DOM4.6 rule 2**, which makes the reader's one personal row for a host unique on its endpoints together with `UserId`: the pair already *is* the row's key, so an id would be a second handle on something already addressable, and one that could be probed with. That rule is cited **by section number and never by index name**, because the index behind it is replaced within this same feature while the section is rewritten in place.
+**The reader's own reaction is identified pair-keyed, not row-keyed, so the response carries no association id.** It carries `ViewerReactionId` and `ViewerReactionName`, and the caller already holds the other half — the card's content item. The justification is **§DOM4.6 rule 2**, which makes the reader's one personal row for a host unique on its host, its far-end type and `UserId`: the pair already *is* the row's key, so an id would be a second handle on something already addressable, and one that could be probed with. That rule is cited **by section number and never by index name**, because the index behind it is replaced within this same feature while the section is rewritten in place.
 
 **A withdrawal is therefore keyed on (content item, reaction, caller).** The caller supplies no user id at all — it is derived from the inbound envelope — so a pair-keyed withdrawal cannot address another reader's row.
 
@@ -1411,7 +1411,7 @@ Recommended endpoints:
 
 **§SEC14.7's five state transitions have no rows in this table**, and their absence is not a claim that they are unreachable: each is designed with its own field scope, tier and fact, and nothing in this section places one on a route.
 
-**Every row in this table carries the route's shape and not the served literal**, under §ARC17.2's rule, because `AssociationsController` carries the `[Route("api/[controller]")]` convention token like every controller that rule describes, and unlike §ARC17.5's explicit-route exception. If it ever took an explicit route instead, §ARC17.2's exception list is what would change, not this table. The literal follows the token, so the kebab-cased spelling here and the `GET api/Associations/ReactionSummaries` §ARC16.8 publishes are **one** route rather than two, and the same holds of every row above it.
+**Every row in this table carries the route's shape and not the served literal**, under §ARC17.2's rule, because `AssociationsController` carries the `[Route("api/[controller]")]` convention token like every controller that rule describes, and unlike §ARC17.5's explicit-route exception. The literal follows the token, so the kebab-cased spelling here and the `GET api/Associations/ReactionSummaries` §ARC16.8 publishes are **one** route rather than two, and the same holds of every row above it.
 
 **RULED — the two CRUD reads are `[AllowAnonymous]`, the three ordinary writes carry a BARE `[Authorize]`, and only the hard delete names a role.** (The seventh row, §ARC16.8's summary read, is `[AllowAnonymous]` on its own section's reasoning and is not one of the two this ruling is about.)
 
