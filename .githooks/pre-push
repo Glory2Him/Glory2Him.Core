@@ -6,8 +6,11 @@
 guard="$(dirname "$0")/identity-guard.sh"
 while read -r local_ref local_sha remote_ref remote_sha; do
     case "$local_sha" in *[!0]*) ;; *) continue ;; esac
+    # Only the commits this push publishes: never what the remote branch already
+    # had, nor anything already on any remote (a merged-in base branch's history
+    # is not this push's to answer for).
     case "$remote_sha" in
-        *[!0]*) bash "$guard" check-range "$remote_sha..$local_sha" || exit 1 ;;
+        *[!0]*) bash "$guard" check-range "$local_sha" "^$remote_sha" --not --remotes || exit 1 ;;
         *) bash "$guard" check-range "$local_sha" --not --remotes || exit 1 ;;
     esac
 done
