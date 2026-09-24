@@ -28,6 +28,7 @@ using Glory2Him.Core.Models.Foundations.Tags.Exceptions;
 using Glory2Him.Core.Models.Orchestrations.Associations;
 using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
 using Glory2Him.Core.Models.Securities;
+using Glory2Him.Core.Services.Foundations.Associations;
 using Glory2Him.Core.Services.Foundations.BibleReferences;
 using Glory2Him.Core.Services.Foundations.Comments;
 using Glory2Him.Core.Services.Foundations.ContentItems;
@@ -163,13 +164,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 Times.Never);
         }
 
-        // ONE WRITE FLOW, BOTH DOORS — THE STRUCTURAL HALF (#631 criterion 4). The theory above
+        // ONE WRITE FLOW, BOTH DOORS — THE STRUCTURAL HALF (#631 criteria 4a, 4b). The theory above
         // proves both doors refuse alike, which a faithful second COPY of the flow also satisfies:
         // two identical copies are indistinguishable by behaviour until one of them changes. So
         // this reads the compiled code. It walks the IL each entry path can reach — through the
-        // compiler's async state machines and lambdas — and requires that each reaches the shared
-        // flow, and that neither reaches any rule the shared flow holds by any other route: no
-        // composition member of this service, no endpoint read, no derived-field write.
+        // compiler's async state machines and lambdas — and requires that each reaches BOTH shared
+        // members of the flow (the derivation, and the occupancy probes that follow it), and that
+        // neither reaches any rule those members hold by any other route: no composition member
+        // of this service, no endpoint read, no derived-field write, no occupancy probe.
         //
         // The leaf primitives (Validate, IsInvalid) are exempt: they carry no operation's policy
         // and are shared freely, so the event path's own refusals may use them.
@@ -179,9 +181,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             // given
             Type serviceType = typeof(AssociationOrchestrationService);
 
-            MethodInfo sharedWriteFlow = serviceType.GetMethod(
+            MethodInfo sharedDerivation = serviceType.GetMethod(
                 "DeriveAssociationToAddAsync",
                 BindingFlags.NonPublic | BindingFlags.Instance);
+
+            MethodInfo sharedOccupancyProbes = serviceType.GetMethod(
+                "FindPairOccupantsAsync",
+                BindingFlags.NonPublic | BindingFlags.Instance);
+
+            MethodBase[] sharedWriteFlow = new MethodBase[] { sharedDerivation, sharedOccupancyProbes }
+                .Where(method => method is not null)
+                .ToArray();
 
             MethodInfo methodPathEntry = serviceType.GetMethod(
                 nameof(AssociationOrchestrationService.AddAssociationAsync));
@@ -189,8 +199,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             MethodInfo eventPathEntry = serviceType.GetMethod(
                 nameof(AssociationOrchestrationService.OnAddingAssociationAsync));
 
-            sharedWriteFlow.Should().NotBeNull();
             string[] sharedLeafPrimitives = { "Validate", "IsInvalid" };
+
+            string[] occupancyProbes =
+            {
+                nameof(IAssociationService.FindAssociationByPairAsync),
+                nameof(IAssociationService.FindOverlappingAssociationAsync),
+            };
 
             Type[] endpointServiceTypes =
             {
@@ -203,17 +218,20 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             };
 
             // when
-            HashSet<MethodBase> writeFlowRules =
-                GetReachableMethods(sharedWriteFlow, serviceType, notEntering: null)
-                    .Where(method =>
-                        (IsOwnedBy(method, serviceType)
-                            && sharedLeafPrimitives.Contains(method.Name) is false)
-                        || endpointServiceTypes.Contains(method.DeclaringType)
-                        || (method.DeclaringType == typeof(Association)
-                            && method.Name.StartsWith("set_", StringComparison.Ordinal)))
-                    .ToHashSet();
+            HashSet<MethodBase> writeFlowRules = sharedWriteFlow
+                .SelectMany(member => GetReachableMethods(member, serviceType, notEntering: null))
+                .Where(method =>
+                    (IsOwnedBy(method, serviceType)
+                        && sharedLeafPrimitives.Contains(method.Name) is false)
+                    || endpointServiceTypes.Contains(method.DeclaringType)
+                    || (method.DeclaringType == typeof(Association)
+                        && method.Name.StartsWith("set_", StringComparison.Ordinal)))
+                .Concat(typeof(IAssociationService)
+                    .GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
+                    .Where(method => occupancyProbes.Contains(method.Name)))
+                .ToHashSet();
 
-            writeFlowRules.Remove(sharedWriteFlow);
+            writeFlowRules.ExceptWith(sharedWriteFlow);
 
             HashSet<MethodBase> methodPathReach =
                 GetReachableMethods(methodPathEntry, serviceType, notEntering: sharedWriteFlow);
@@ -229,6 +247,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 "ResolveEndpointAsync",
                 "ValidateUserIsNotBlockedFromEndpoints",
                 "set_UserId",
+                nameof(IAssociationService.FindAssociationByPairAsync),
+                nameof(IAssociationService.FindOverlappingAssociationAsync),
             });
 
             methodPathReach.Intersect(writeFlowRules).Select(method => method.Name)
@@ -237,21 +257,118 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             eventPathReach.Intersect(writeFlowRules).Select(method => method.Name)
                 .Should().BeEmpty(because: "the event path reaches the write flow's rules only through the shared flow");
 
-            methodPathReach.Contains(sharedWriteFlow).Should().BeTrue(
+            sharedDerivation.Should().NotBeNull();
+            sharedOccupancyProbes.Should().NotBeNull();
+
+            methodPathReach.Should().Contain(sharedWriteFlow,
                 because: "the method path runs the shared write flow");
 
-            eventPathReach.Contains(sharedWriteFlow).Should().BeTrue(
+            eventPathReach.Should().Contain(sharedWriteFlow,
                 because: "the event path runs the shared write flow");
+        }
+
+        // 4b. Both doors hand the probes the SAME derived association. The event envelope claims
+        // a scope the derivation disagrees with (which 3d lets through), so an event path that
+        // handed the probes envelope.Content instead of the working copy is caught here.
+        [Fact]
+        public async Task ShouldProbeThePairWithTheSameDerivedAssociationOnBothEntryPathsAsync()
+        {
+            // given
+            Association methodRequest = CreateHonestAddRequest();
+            Association eventRequest = methodRequest.DeepClone();
+            eventRequest.EntityAScope = Scope.ThisVersionOnly;
+            EventEnvelope<Association> inputEnvelope = CreateRequestEnvelope(eventRequest);
+            ContentItem resolvedContentItem = SetupEventPathEndpointReads(eventRequest, inputEnvelope);
+
+            this.contentItemServiceMock.Setup(service =>
+                service.RetrieveContentItemByIdAsync(
+                    methodRequest.EntityAKeyId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(resolvedContentItem);
+
+            this.tagServiceMock.Setup(service =>
+                service.RetrieveTagByIdAsync(
+                    methodRequest.EntityBKeyId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(new Tag { Id = methodRequest.EntityBKeyId });
+
+            Association methodPairProbe = null;
+            Association methodOverlapProbe = null;
+            Association eventPairProbe = null;
+            Association eventOverlapProbe = null;
+
+            this.associationServiceMock.Setup(service =>
+                service.FindAssociationByPairAsync(
+                    It.IsAny<Association>(),
+                    TestContext.Current.CancellationToken))
+                        .Callback<Association, CancellationToken>((association, _) =>
+                            methodPairProbe = association.DeepClone())
+                        .ReturnsAsync((AssociationPairMatch)null);
+
+            this.associationServiceMock.Setup(service =>
+                service.FindOverlappingAssociationAsync(
+                    It.IsAny<Association>(),
+                    It.Is<Guid?>(excludedAssociationId => excludedAssociationId == null),
+                    TestContext.Current.CancellationToken))
+                        .Callback<Association, Guid?, CancellationToken>((association, _, _) =>
+                            methodOverlapProbe = association.DeepClone())
+                        .ReturnsAsync((AssociationPairMatch)null);
+
+            this.associationServiceMock.Setup(service =>
+                service.AddAssociationAsync(
+                    It.IsAny<Association>(),
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(new Association { Id = Guid.NewGuid() });
+
+            this.associationServiceMock.Setup(service =>
+                service.FindAssociationByPairAsync(
+                    It.IsAny<Association>(),
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken))
+                        .Callback<Association, EventEnvelope<Association>, CancellationToken>(
+                            (association, _, _) => eventPairProbe = association.DeepClone())
+                        .ReturnsAsync((AssociationPairMatch)null);
+
+            this.associationServiceMock.Setup(service =>
+                service.FindOverlappingAssociationAsync(
+                    It.IsAny<Association>(),
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken))
+                        .Callback<Association, EventEnvelope<Association>, CancellationToken>(
+                            (association, _, _) => eventOverlapProbe = association.DeepClone())
+                        .ReturnsAsync((AssociationPairMatch)null);
+
+            this.associationServiceMock.Setup(service =>
+                service.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(inputEnvelope);
+
+            // when
+            await this.associationOrchestrationService.AddAssociationAsync(
+                methodRequest,
+                TestContext.Current.CancellationToken);
+
+            await this.associationOrchestrationService.OnAddingAssociationAsync(
+                inputEnvelope,
+                TestContext.Current.CancellationToken);
+
+            // then
+            methodPairProbe.Should().NotBeNull();
+            eventPairProbe.Should().BeEquivalentTo(methodPairProbe);
+            eventOverlapProbe.Should().BeEquivalentTo(methodOverlapProbe);
+            eventPairProbe.EntityAScope.Should().Be(Scope.AllVersions);
+            eventPairProbe.Should().NotBeSameAs(inputEnvelope.Content);
         }
 
         // Every method reachable from the root by a call, a callvirt, a newobj or an ldftn in its
         // IL, following the service's own members (and the compiler's state machines and lambdas
-        // nested in it) but never into another type, and never INTO notEntering — which is still
-        // recorded as reached.
+        // nested in it) but never into another type, and never INTO a member of notEntering — which
+        // is still recorded as reached.
         private static HashSet<MethodBase> GetReachableMethods(
             MethodBase root,
             Type serviceType,
-            MethodBase notEntering)
+            IReadOnlyCollection<MethodBase> notEntering)
         {
             var reached = new HashSet<MethodBase>();
             var pending = new Stack<MethodBase>();
@@ -262,7 +379,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 MethodBase method = pending.Pop();
 
                 if (reached.Add(method) is false
-                    || method == notEntering
+                    || notEntering?.Contains(method) is true
                     || IsOwnedBy(method, serviceType) is false)
                 {
                     continue;
