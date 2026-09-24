@@ -130,9 +130,10 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 throw await CreateAndLogDependencyValidationExceptionAsync(
                     alreadyExistsAssociationException);
             }
-            // A violation of UX_Associations_Pair arrives as its own type, and that type does
-            // NOT derive from DuplicateKeyException — EFxceptions derives both directly from
-            // Exception. Without this catch the clause above misses it and a duplicate pairing
+            // A violation of UX_Associations_EditorialPair or UX_Associations_PersonalPair
+            // arrives as its own type, and that type does NOT derive from DuplicateKeyException
+            // — EFxceptions derives both directly from Exception. Without this catch the clause
+            // above misses it and a duplicate pairing
             // falls through to the general handler, surfacing as a service exception ("our
             // code is broken") rather than the dependency-validation exception a caller can
             // act on. The pair index is what makes this reachable at all.
@@ -261,9 +262,10 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 throw await CreateAndLogDependencyValidationExceptionAsync(
                     alreadyExistsAssociationException);
             }
-            // A violation of UX_Associations_Pair arrives as its own type, and that type does
-            // NOT derive from DuplicateKeyException — EFxceptions derives both directly from
-            // Exception. Without this catch the clause above misses it and a duplicate pairing
+            // A violation of UX_Associations_EditorialPair or UX_Associations_PersonalPair
+            // arrives as its own type, and that type does NOT derive from DuplicateKeyException
+            // — EFxceptions derives both directly from Exception. Without this catch the clause
+            // above misses it and a duplicate pairing
             // falls through to the general handler, surfacing as a service exception ("our
             // code is broken") rather than the dependency-validation exception a caller can
             // act on. The pair index is what makes this reachable at all.
