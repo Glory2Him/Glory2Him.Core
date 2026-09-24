@@ -14,8 +14,10 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
@@ -142,6 +144,115 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 broker.CreateAsync(It.IsAny<Association>()),
                 Times.Never);
 
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // The five ways a pair can be occupied: a live row on the exact pair in each approval
+        // state that can hold it, a soft-deleted row there, and a live row that overlaps it.
+        public static TheoryData<string> Occupants() =>
+            new TheoryData<string>
+            {
+                "a live approved row on the pair",
+                "a live pending row on the pair",
+                "a live rejected row on the pair",
+                "a soft-deleted row on the pair",
+                "a live row that overlaps the pair",
+            };
+
+        // Stubs the two probes as the named occupant would answer them, and hands back the row's
+        // projection so a test can check none of it leaks.
+        private AssociationPairMatch SetupOccupant(
+            string occupant,
+            EventEnvelope<Association> inboundEnvelope)
+        {
+            AssociationPairMatch pairMatch = occupant switch
+            {
+                "a live approved row on the pair" =>
+                    CreatePairMatch(ApprovalStatus.Approved, isDeleted: false),
+
+                "a live pending row on the pair" =>
+                    CreatePairMatch(ApprovalStatus.Submitted, isDeleted: false),
+
+                "a live rejected row on the pair" =>
+                    CreatePairMatch(ApprovalStatus.Rejected, isDeleted: false),
+
+                "a soft-deleted row on the pair" =>
+                    CreatePairMatch(ApprovalStatus.Approved, isDeleted: true),
+
+                _ => null,
+            };
+
+            AssociationPairMatch overlapMatch =
+                pairMatch is null ? CreatePairMatch(ApprovalStatus.Approved, isDeleted: false) : null;
+
+            this.associationServiceMock.Setup(service =>
+                service.FindAssociationByPairAsync(
+                    It.IsAny<Association>(),
+                    inboundEnvelope,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(pairMatch);
+
+            this.associationServiceMock.Setup(service =>
+                service.FindOverlappingAssociationAsync(
+                    It.IsAny<Association>(),
+                    inboundEnvelope,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(overlapMatch);
+
+            return pairMatch ?? overlapMatch;
+        }
+
+        // 4c. The method path answers an occupant with a status; this door cannot. Its reply is
+        // an EventEnvelope<Association>: returning the occupant leaks what the status projection
+        // exists to hide, null claims the event was already applied, and a new shape is a
+        // contract change. So every occupant is refused, and the foundation — which alone could
+        // record, write or publish — is never reached.
+        [Theory]
+        [MemberData(nameof(Occupants))]
+        public async Task ShouldRefuseAnOccupiedPairOnTheEventPathAsync(string occupant)
+        {
+            // given
+            Association addRequest = CreateHonestAddRequest();
+            EventEnvelope<Association> inputEnvelope = CreateRequestEnvelope(addRequest);
+            SetupEventPathEndpointReads(addRequest, inputEnvelope);
+            SetupOccupant(occupant, inputEnvelope);
+
+            var invalidAssociationOrchestrationException =
+                new InvalidAssociationOrchestrationException(
+                    message: "The content item association's pair is already occupied.");
+
+            var expectedValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: "Content item association orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: invalidAssociationOrchestrationException);
+
+            // when
+            ValueTask<EventEnvelope<Association>> onAddingTask =
+                this.associationOrchestrationService.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(
+                    onAddingTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(
+                expectedValidationException,
+                because: $"{occupant} occupies the pair");
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
+            this.associationServiceMock.Verify(service =>
+                service.OnAddingAssociationAsync(
+                    It.IsAny<EventEnvelope<Association>>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
     }
