@@ -10,12 +10,15 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Foundations.Associations.Exceptions;
 using Glory2Him.Core.Models.Securities;
+using Microsoft.Data.SqlClient;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
@@ -75,6 +78,36 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     It.IsAny<Association>()),
                 Times.Never);
 
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnFindOverlapAsTheInboundEnvelopesCallerIfCancellationRequestedAsync()
+        {
+            // given
+            Association pairRequest = CreateResolvedPairRequest();
+            EventEnvelope<Association> inboundEnvelope = CreateInboundEnvelopeCarryingAnotherPair();
+            var cancellationToken = new CancellationToken(canceled: true);
+
+            // when
+            ValueTask<AssociationPairMatch> findTask =
+                this.associationService.FindOverlappingAssociationAsync(
+                    pairRequest,
+                    inboundEnvelope,
+                    cancellationToken);
+
+            // then
+            await Assert.ThrowsAsync<OperationCanceledException>(findTask.AsTask);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectOverlappingAssociationAsync(
+                    It.IsAny<EntityType>(), It.IsAny<EntityType>(), It.IsAny<string>(),
+                    It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Scope>(), It.IsAny<Scope>(),
+                    It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid?>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
     }
