@@ -122,7 +122,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         ///
         /// <para>Used by <c>ContentItemSettingOrchestrationService</c> to derive an override's
         /// <c>ContentType</c> on the event path (§12.5.2 business rule 6, #456), so that
-        /// derivation carries §16.6's visibility posture on BOTH entry paths rather than only on
+        /// derivation carries §SEC14.7 posture A rule 4's visibility posture on BOTH entry paths rather than only on
         /// the one where the ambient context happens to be the caller.</para>
         ///
         /// <para><b>Internal, and narrow, on purpose.</b> A public method taking a caller-supplied
