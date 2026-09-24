@@ -78,15 +78,21 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                     claimedAssociation: envelope.Content,
                     derivedAssociation: derivedAssociation);
 
-                await this.associationService.FindAssociationByPairAsync(
-                    association: derivedAssociation,
-                    inboundEnvelope: envelope,
-                    cancellationToken: cancellationToken);
+                AssociationPairMatch? pairMatch =
+                    await this.associationService.FindAssociationByPairAsync(
+                        association: derivedAssociation,
+                        inboundEnvelope: envelope,
+                        cancellationToken: cancellationToken);
 
-                await this.associationService.FindOverlappingAssociationAsync(
-                    association: derivedAssociation,
-                    inboundEnvelope: envelope,
-                    cancellationToken: cancellationToken);
+                ValidatePairIsUnoccupied(pairMatch);
+
+                AssociationPairMatch? overlappingMatch =
+                    await this.associationService.FindOverlappingAssociationAsync(
+                        association: derivedAssociation,
+                        inboundEnvelope: envelope,
+                        cancellationToken: cancellationToken);
+
+                ValidatePairIsUnoccupied(overlappingMatch);
 
                 return await this.associationService.OnAddingAssociationAsync(
                     envelope: envelope,

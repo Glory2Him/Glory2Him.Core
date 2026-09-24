@@ -254,6 +254,21 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                     derivedAssociation.UserId),
                     Parameter: nameof(Association.UserId)));
 
+        // THE EVENT PATH'S ANSWER TO AN OCCUPANT (#631 criterion 4c, Architecture.md "Rule 2 — the
+        // occupancy check runs on both doors"). The method path answers with a status; this door
+        // replies with an EventEnvelope<Association>, and none of its answers is safe — the row
+        // would leak what the status projection hides, null would claim the event was applied,
+        // and a new shape is a contract change. So every occupant is refused, with ONE message
+        // that names no row and no state.
+        private static void ValidatePairIsUnoccupied(AssociationPairMatch? occupant)
+        {
+            if (occupant is not null)
+            {
+                throw new InvalidAssociationOrchestrationException(
+                    message: "The content item association's pair is already occupied.");
+            }
+        }
+
         // The id-keyed surfaces' own validation. Kept separate from ValidateOnAddAssociation
         // rather than folded into a shared validator: they compose different rules today and
         // sharing the composition would mean a rule added for one silently binds the other.
