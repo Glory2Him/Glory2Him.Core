@@ -149,7 +149,8 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
 
         /// <summary>
         /// Marks a row deleted the way a soft remove does, leaving it in the table. The
-        /// pair index is filtered on <c>IsDeleted = 0</c>, so this is what frees the key.
+        /// pair indexes, editorial and personal alike, are filtered on <c>IsDeleted = 0</c>,
+        /// so this is what frees the key.
         /// </summary>
         public async ValueTask SoftDeleteAsync(Association association)
         {

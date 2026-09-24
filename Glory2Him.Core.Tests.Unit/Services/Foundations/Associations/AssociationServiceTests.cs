@@ -283,8 +283,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             string someMessage = GetRandomString();
             var duplicateKeyException = new DuplicateKeyException(someMessage);
 
-            // UX_Associations_Pair reports through this type, not DuplicateKeyException, and
-            // the two are siblings rather than parent and child — both derive straight from
+            // UX_Associations_EditorialPair and UX_Associations_PersonalPair report through
+            // this type, not DuplicateKeyException, and the two are siblings rather than
+            // parent and child — both derive straight from
             // Exception. It therefore needs its own catch and its own row here; without them a
             // duplicate pairing surfaces as a service exception instead of this one.
             var duplicateKeyWithUniqueIndexException =

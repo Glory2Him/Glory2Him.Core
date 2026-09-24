@@ -62,9 +62,41 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
             firstOutcome.Should().BeNull(because: "the first of a pair is always allowed");
 
             duplicateOutcome.Should().BeOfType<DuplicateKeyWithUniqueIndexException>(
-                because: "UX_Associations_Pair rejects the second");
+                because: "the pair carries no UserId, so it is editorial, and "
+                    + "UX_Associations_EditorialPair rejects the second");
 
-            duplicateOutcome.Message.Should().Contain("UX_Associations_Pair");
+            duplicateOutcome.Message.Should().Contain("UX_Associations_EditorialPair");
+        }
+
+        [Fact]
+        public async Task ShouldRefuseASecondEditorialAssociationOnTheSamePairAsync()
+        {
+            // given: UserId left the editorial key because the editorial filter pins it to
+            // NULL, and that must change nothing about what the editorial rule refuses. A live
+            // personal row on the same pair goes first, to show it neither stands in for the
+            // editorial row nor collides with it: editorial rows collide with each other only.
+            Guid groupId = Guid.NewGuid();
+            Guid tagGroupId = Guid.NewGuid();
+
+            Association personalAssociation = CreatePair(groupId, tagGroupId);
+            personalAssociation.UserId = Guid.NewGuid().ToString();
+
+            Association firstEditorialAssociation = CreatePair(groupId, tagGroupId);
+            Association secondEditorialAssociation = CreatePair(groupId, tagGroupId);
+
+            // when
+            Exception personalOutcome = await SeedAsync(personalAssociation);
+            Exception firstEditorialOutcome = await SeedAsync(firstEditorialAssociation);
+            Exception secondEditorialOutcome = await SeedAsync(secondEditorialAssociation);
+
+            // then
+            personalOutcome.Should().BeNull();
+
+            firstEditorialOutcome.Should().BeNull(
+                because: "a personal row on the pair is not the pair's editorial row");
+
+            secondEditorialOutcome.Should().BeOfType<DuplicateKeyWithUniqueIndexException>(
+                because: "a pair holds exactly one live editorial row");
         }
 
         [Fact]
@@ -104,9 +136,9 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
         {
             // given: the reaction case. Reaction is a lookup row, so every "Amen" on a passage
             // is byte-identical apart from who made it — without UserId in the key the second
-            // one would be a duplicate. UserId sits LAST in the index and stays nullable, so
-            // one index carries both meanings: set, it is one per user; null, it is one
-            // globally.
+            // one would be a duplicate. A set UserId routes the row to
+            // UX_Associations_PersonalPair, which keys on it: one per user, where the
+            // editorial index's null UserId means one globally.
             Guid groupId = Guid.NewGuid();
             Guid reactionGroupId = Guid.NewGuid();
 
@@ -134,6 +166,101 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
 
             sameUserAgainOutcome.Should().BeOfType<DuplicateKeyWithUniqueIndexException>(
                 because: "the SAME user reacting twice is still one row");
+        }
+
+        [Fact]
+        public async Task ShouldRefuseASecondLiveReactionForTheSameReaderAsync()
+        {
+            // given: one reader, one item, two DIFFERENT reactions — Love, then Moved. The far
+            // ends differ, so a key carrying EntityBEffectiveId would hold both. The personal
+            // rule is one live personal association per (item, far-end type, reader), so the
+            // second is refused however its far end differs from the first.
+            Guid groupId = Guid.NewGuid();
+            string readerUserId = Guid.NewGuid().ToString();
+
+            Association loveAssociation =
+                CreateReaction(groupId, reactionGroupId: Guid.NewGuid(), readerUserId);
+
+            Association movedAssociation =
+                CreateReaction(groupId, reactionGroupId: Guid.NewGuid(), readerUserId);
+
+            // when
+            Exception loveOutcome = await SeedAsync(loveAssociation);
+            Exception movedOutcome = await SeedAsync(movedAssociation);
+
+            // then
+            loveOutcome.Should().BeNull(because: "a reader's first reaction is always allowed");
+
+            movedOutcome.Should().BeOfType<DuplicateKeyWithUniqueIndexException>(
+                because: "UX_Associations_PersonalPair holds one live reaction per reader "
+                    + "per item, whichever reaction it is");
+
+            movedOutcome.Message.Should().Contain("UX_Associations_PersonalPair");
+        }
+
+        [Fact]
+        public async Task ShouldPermitOnePersonalAssociationPerFarEndTypeAsync()
+        {
+            // given: the personal rule is one live personal association per (item, far-end
+            // TYPE, reader), not one of any kind per item. The same reader on the same item
+            // holds a Reaction row and a Tag row; the rows differ only in far-end type, so
+            // EntityBType is the one key column keeping them apart.
+            Guid groupId = Guid.NewGuid();
+            string readerUserId = Guid.NewGuid().ToString();
+
+            Association reactionAssociation =
+                CreateReaction(groupId, reactionGroupId: Guid.NewGuid(), readerUserId);
+
+            Association tagAssociation = CreatePair(groupId, otherGroupId: Guid.NewGuid());
+            tagAssociation.UserId = readerUserId;
+
+            // when
+            Exception reactionOutcome = await SeedAsync(reactionAssociation);
+            Exception tagOutcome = await SeedAsync(tagAssociation);
+
+            // then
+            reactionOutcome.Should().BeNull();
+
+            tagOutcome.Should().BeNull(
+                because: "a different far-end type is a different personal key, so a reader's "
+                    + "reaction does not take the place of their tag on the same item");
+        }
+
+        [Fact]
+        public async Task ShouldPermitTwoReadersOnOneItemAsync()
+        {
+            // given: the personal key dropped the far end, so it is (item, far-end type,
+            // reader) that must now keep reactions apart. Two readers giving the SAME reaction
+            // to one item differ only by reader, and one reader reacting to two items differs
+            // only by item — each is a distinct key and must be accepted.
+            Guid firstGroupId = Guid.NewGuid();
+            Guid secondGroupId = Guid.NewGuid();
+            Guid loveGroupId = Guid.NewGuid();
+            string firstReaderUserId = Guid.NewGuid().ToString();
+            string secondReaderUserId = Guid.NewGuid().ToString();
+
+            Association firstReaderAssociation =
+                CreateReaction(firstGroupId, loveGroupId, firstReaderUserId);
+
+            Association secondReaderAssociation =
+                CreateReaction(firstGroupId, loveGroupId, secondReaderUserId);
+
+            Association secondItemAssociation =
+                CreateReaction(secondGroupId, loveGroupId, firstReaderUserId);
+
+            // when
+            Exception firstReaderOutcome = await SeedAsync(firstReaderAssociation);
+            Exception secondReaderOutcome = await SeedAsync(secondReaderAssociation);
+            Exception secondItemOutcome = await SeedAsync(secondItemAssociation);
+
+            // then
+            firstReaderOutcome.Should().BeNull();
+
+            secondReaderOutcome.Should().BeNull(
+                because: "a second reader's reaction on the same item is a different key");
+
+            secondItemOutcome.Should().BeNull(
+                because: "the same reader's reaction on a different item is a different key");
         }
 
         [Fact]
@@ -219,6 +346,68 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
 
             readdedOutcome.Should().BeNull(
                 because: "the filter excludes the soft-deleted row, so the pair is free again");
+        }
+
+        [Fact]
+        public async Task ShouldNotBlockOnASoftDeletedRowAsync()
+        {
+            // given: both pair indexes are filtered on IsDeleted = 0, so a withdrawn row must
+            // free its key in each. Each half first shows the key is really taken while the
+            // row is live — without that, "accepted after the soft delete" would pass just as
+            // well against an index that never held the key at all.
+            Guid editorialGroupId = Guid.NewGuid();
+            Guid tagGroupId = Guid.NewGuid();
+
+            Association editorialAssociation = CreatePair(editorialGroupId, tagGroupId);
+            Exception editorialOutcome = await SeedAsync(editorialAssociation);
+
+            Association blockedEditorialAssociation = CreatePair(editorialGroupId, tagGroupId);
+
+            Exception blockedEditorialOutcome = await SeedAsync(blockedEditorialAssociation);
+
+            Guid reactedGroupId = Guid.NewGuid();
+            string readerUserId = Guid.NewGuid().ToString();
+
+            Association loveAssociation =
+                CreateReaction(reactedGroupId, reactionGroupId: Guid.NewGuid(), readerUserId);
+
+            Exception loveOutcome = await SeedAsync(loveAssociation);
+
+            Association blockedMovedAssociation =
+                CreateReaction(reactedGroupId, reactionGroupId: Guid.NewGuid(), readerUserId);
+
+            Exception blockedMovedOutcome = await SeedAsync(blockedMovedAssociation);
+
+            // when: both originals are soft-removed, which is what Remove and a withdrawn
+            // reaction do — the rows stay
+            await this.broker.SoftDeleteAsync(editorialAssociation);
+            await this.broker.SoftDeleteAsync(loveAssociation);
+
+            Association readdedEditorialAssociation = CreatePair(editorialGroupId, tagGroupId);
+            Exception readdedEditorialOutcome = await SeedAsync(readdedEditorialAssociation);
+
+            Association movedAssociation =
+                CreateReaction(reactedGroupId, reactionGroupId: Guid.NewGuid(), readerUserId);
+
+            Exception movedOutcome = await SeedAsync(movedAssociation);
+
+            // then
+            editorialOutcome.Should().BeNull();
+            loveOutcome.Should().BeNull();
+
+            blockedEditorialOutcome.Should().BeOfType<DuplicateKeyWithUniqueIndexException>(
+                because: "while the editorial row is live its pair is taken");
+
+            blockedMovedOutcome.Should().BeOfType<DuplicateKeyWithUniqueIndexException>(
+                because: "while the reader's reaction is live their reaction on the item is "
+                    + "taken");
+
+            readdedEditorialOutcome.Should().BeNull(
+                because: "UX_Associations_EditorialPair's filter excludes the soft-deleted row");
+
+            movedOutcome.Should().BeNull(
+                because: "UX_Associations_PersonalPair's filter excludes the withdrawn "
+                    + "reaction, so the reader may hold one again");
         }
 
         [Fact]
@@ -324,6 +513,24 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
                 entityAGroupId: groupId,
                 entityBType: EntityType.Tag,
                 entityBGroupId: otherGroupId);
+
+        // A reader's reaction on an item: ContentItem sorts below Reaction ordinally, so the
+        // item is on A and the reaction on B, and the UserId is what makes the row personal.
+        private static Association CreateReaction(
+            Guid groupId,
+            Guid reactionGroupId,
+            string userId)
+        {
+            Association reactionAssociation = CreateAssociation(
+                entityAType: EntityType.ContentItem,
+                entityAGroupId: groupId,
+                entityBType: EntityType.Reaction,
+                entityBGroupId: reactionGroupId);
+
+            reactionAssociation.UserId = userId;
+
+            return reactionAssociation;
+        }
 
         private static Association CreateAssociation(
             EntityType entityAType,
