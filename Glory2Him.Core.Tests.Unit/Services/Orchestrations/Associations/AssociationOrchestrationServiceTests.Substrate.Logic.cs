@@ -187,9 +187,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             addRequest.EntityBContentType =
                 endpointBType == EntityType.ContentItem ? ContentType.Story : null;
 
+            addRequest.EntityBGroupId =
+                endpointBType is EntityType.ContentItem or EntityType.Link
+                    ? Guid.NewGuid()
+                    : Guid.Empty;
+
             EventEnvelope<Association> inputEnvelope = CreateRequestEnvelope(addRequest);
             SetupEventPathEndpointReads(addRequest, inputEnvelope);
-            SetupEventPathEndpointRead(endpointBType, addRequest.EntityBKeyId, inputEnvelope);
+
+            SetupEventPathEndpointRead(
+                endpointBType,
+                addRequest.EntityBKeyId,
+                addRequest.EntityBGroupId,
+                inputEnvelope);
 
             this.associationServiceMock.Setup(service =>
                 service.OnAddingAssociationAsync(
@@ -222,9 +232,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        // A versioned endpoint resolves to the group it is handed; a non-versioned one has none.
         private void SetupEventPathEndpointRead(
             EntityType entityType,
             Guid keyId,
+            Guid groupId,
             EventEnvelope<Association> inboundEnvelope)
         {
             switch (entityType)
@@ -236,7 +248,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                                 .ReturnsAsync(new ContentItem
                                 {
                                     Id = keyId,
-                                    GroupId = Guid.NewGuid(),
+                                    GroupId = groupId,
                                     ContentType = ContentType.Story,
                                 });
 
@@ -246,7 +258,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                     this.linkServiceMock.Setup(service =>
                         service.RetrieveLinkByIdAsync(
                             keyId, inboundEnvelope, TestContext.Current.CancellationToken))
-                                .ReturnsAsync(new Link { Id = keyId, GroupId = Guid.NewGuid() });
+                                .ReturnsAsync(new Link { Id = keyId, GroupId = groupId });
 
                     return;
 

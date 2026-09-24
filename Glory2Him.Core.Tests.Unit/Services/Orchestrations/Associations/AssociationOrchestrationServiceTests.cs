@@ -145,12 +145,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
         }
 
         // An add request as an HONEST publisher sends it over the substrate: the raw endpoints
-        // plus the content types those endpoints really have — a Story on A, and nothing on the
-        // Tag on B. Anything that resolved the endpoints before publishing states exactly this.
+        // plus what those endpoints really are — a Story in its version group on A, and nothing
+        // on the Tag on B. Anything that resolved the endpoints before publishing states exactly
+        // this. SetupEventPathEndpointReads resolves A to the group stated here.
         private static Association CreateHonestAddRequest()
         {
             Association addRequest = CreateRawAddRequest();
             addRequest.EntityAContentType = ContentType.Story;
+            addRequest.EntityAGroupId = Guid.NewGuid();
             addRequest.EntityBContentType = null;
 
             return addRequest;
@@ -169,7 +171,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             };
 
         // The event path's endpoint reads, keyed on the INBOUND envelope: a ContentItem (Story) on
-        // A, a Tag on B. Handed back so a test can assert what was derived from it.
+        // A, in the group the request states, and a Tag on B. Handed back so a test can assert what was derived from it.
         private ContentItem SetupEventPathEndpointReads(
             Association addRequest,
             EventEnvelope<Association> inboundEnvelope)
@@ -177,7 +179,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             var resolvedContentItem = new ContentItem
             {
                 Id = addRequest.EntityAKeyId,
-                GroupId = Guid.NewGuid(),
+                GroupId = addRequest.EntityAGroupId,
                 ContentType = ContentType.Story,
             };
 

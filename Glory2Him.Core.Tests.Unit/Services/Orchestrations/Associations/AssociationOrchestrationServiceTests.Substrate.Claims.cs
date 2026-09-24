@@ -9,9 +9,11 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
@@ -53,6 +55,102 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             invalidAssociationOrchestrationException.AddData(
                 key: nameof(Association.UserId),
                 values: "Value is derived and must not be supplied");
+
+            var expectedValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: "Content item association orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: invalidAssociationOrchestrationException);
+
+            // when
+            ValueTask<EventEnvelope<Association>> onAddingTask =
+                this.associationOrchestrationService.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(
+                    onAddingTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
+            this.associationServiceMock.Verify(service =>
+                service.OnAddingAssociationAsync(
+                    It.IsAny<EventEnvelope<Association>>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // Each case names the versioned endpoint type on B (A is always a ContentItem), which
+        // side's claim is contradicted, and whether the claim is omitted rather than wrong.
+        public static TheoryData<EntityType, string, bool> ContradictingVersionedGroupIdClaims() =>
+            new TheoryData<EntityType, string, bool>
+            {
+                { EntityType.Tag, nameof(Association.EntityAGroupId), false },
+                { EntityType.Tag, nameof(Association.EntityAGroupId), true },
+                { EntityType.ContentItem, nameof(Association.EntityBGroupId), false },
+                { EntityType.Link, nameof(Association.EntityBGroupId), false },
+                { EntityType.Link, nameof(Association.EntityBGroupId), true },
+            };
+
+        // 3c. The foundation re-derives a non-versioned endpoint's group id but keeps a versioned
+        // one's as handed, so a publisher could attach the row to a version group it never
+        // resolved. A claim that differs from the resolved row's group is refused, and an omitted
+        // (empty) one differs too.
+        [Theory]
+        [MemberData(nameof(ContradictingVersionedGroupIdClaims))]
+        public async Task ShouldRefuseAContradictingVersionedGroupIdOnTheEventPathAsync(
+            EntityType endpointBType,
+            string contradictedParameter,
+            bool isOmitted)
+        {
+            // given
+            Association addRequest = CreateHonestAddRequest();
+            addRequest.EntityBType = endpointBType;
+
+            addRequest.EntityBContentType =
+                endpointBType == EntityType.ContentItem ? ContentType.Story : null;
+
+            addRequest.EntityBGroupId =
+                endpointBType is EntityType.ContentItem or EntityType.Link
+                    ? Guid.NewGuid()
+                    : Guid.Empty;
+
+            EventEnvelope<Association> inputEnvelope = CreateRequestEnvelope(addRequest);
+            SetupEventPathEndpointReads(addRequest, inputEnvelope);
+
+            SetupEventPathEndpointRead(
+                endpointBType,
+                addRequest.EntityBKeyId,
+                addRequest.EntityBGroupId,
+                inputEnvelope);
+
+            // the reads above resolve the HONEST groups; only the claim changes now
+            Guid claimedGroupId = isOmitted ? Guid.Empty : Guid.NewGuid();
+
+            if (contradictedParameter == nameof(Association.EntityAGroupId))
+            {
+                addRequest.EntityAGroupId = claimedGroupId;
+            }
+            else
+            {
+                addRequest.EntityBGroupId = claimedGroupId;
+            }
+
+            var invalidAssociationOrchestrationException =
+                new InvalidAssociationOrchestrationException(
+                    message: "Content item association is invalid, fix the errors and try again.");
+
+            invalidAssociationOrchestrationException.AddData(
+                key: contradictedParameter,
+                values: "Value must be the group its endpoint resolves to");
 
             var expectedValidationException =
                 new AssociationOrchestrationValidationException(
