@@ -220,7 +220,10 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         // "the narrow tier cannot be decided" and fails closed, but the derived value is known
         // here, and it governs. An honest publisher — anything that resolved the endpoints — is
         // unaffected, because for it the two values already agree.
-        private static void ValidateContentTypesAreTheEndpoints(
+        //
+        // UserId is the same rule over another derived value (#631 criterion 3b): the foundation
+        // checks it for length only, and a non-null one makes the row personal.
+        private static void ValidateClaimsAreTheDerivation(
             Association claimedAssociation,
             Association derivedAssociation) =>
             Validate(
@@ -232,7 +235,11 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 (Rule: IsNotTheDerivedContentType(
                     claimedAssociation.EntityBContentType,
                     derivedAssociation.EntityBContentType),
-                    Parameter: nameof(Association.EntityBContentType)));
+                    Parameter: nameof(Association.EntityBContentType)),
+                (Rule: IsNotTheDerivedUserId(
+                    claimedAssociation.UserId,
+                    derivedAssociation.UserId),
+                    Parameter: nameof(Association.UserId)));
 
         // The id-keyed surfaces' own validation. Kept separate from ValidateOnAddAssociation
         // rather than folded into a shared validator: they compose different rules today and
@@ -254,6 +261,14 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         {
             Condition = claimedContentType != derivedContentType,
             Message = "Value must be the content type its endpoint resolves to"
+        };
+
+        private static dynamic IsNotTheDerivedUserId(
+            string? claimedUserId,
+            string? derivedUserId) => new
+        {
+            Condition = claimedUserId != derivedUserId,
+            Message = "Value is derived and must not be supplied"
         };
 
         private static dynamic IsInvalid(EntityType entityType) => new

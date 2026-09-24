@@ -74,7 +74,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                     readEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
-                ValidateContentTypesAreTheEndpoints(
+                ValidateClaimsAreTheDerivation(
                     claimedAssociation: envelope.Content,
                     derivedAssociation: derivedAssociation);
 
