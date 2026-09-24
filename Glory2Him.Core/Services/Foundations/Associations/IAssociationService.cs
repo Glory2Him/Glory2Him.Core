@@ -82,6 +82,18 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             Guid? excludedAssociationId = null,
             CancellationToken cancellationToken = default);
 
+        /// <summary>
+        /// The same overlap probe, with its contribution gate asked of the envelope the caller is
+        /// already acting under — the twin of the pair probe's inbound-envelope overload, and
+        /// internal for the same reason. Used on the <c>Association-Adding</c> event path (#631,
+        /// §ARC12.5.2 Rule 3), where there is no row under modification, so nothing is excluded.
+        /// The key comes from <paramref name="association"/>, never from the envelope's content.
+        /// </summary>
+        internal ValueTask<AssociationPairMatch?> FindOverlappingAssociationAsync(
+            Association association,
+            EventEnvelope<Association> inboundEnvelope,
+            CancellationToken cancellationToken = default);
+
         ValueTask<Association> ModifyAssociationAsync(
             Association association,
             CancellationToken cancellationToken = default);

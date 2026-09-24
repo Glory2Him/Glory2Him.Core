@@ -93,5 +93,11 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                     DeletedBy = match.DeletedBy,
                 };
             });
+
+        public ValueTask<AssociationPairMatch?> FindOverlappingAssociationAsync(
+            Association association,
+            EventEnvelope<Association> inboundEnvelope,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
     }
 }
