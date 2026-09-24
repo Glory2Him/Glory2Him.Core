@@ -12,6 +12,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Brokers.EventEnvelopes;
+using Glory2Him.Core.Brokers.Integrities;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
@@ -61,6 +62,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         private readonly ICommentService commentService;
         private readonly ILinkService linkService;
         private readonly IEventEnvelopeBroker eventEnvelopeBroker;
+        private readonly IEnvelopeIntegrityBroker envelopeIntegrityBroker;
         private readonly ILoggingBroker loggingBroker;
 
         public AssociationOrchestrationService(
@@ -72,6 +74,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             ICommentService commentService,
             ILinkService linkService,
             IEventEnvelopeBroker eventEnvelopeBroker,
+            IEnvelopeIntegrityBroker envelopeIntegrityBroker,
             ILoggingBroker loggingBroker)
         {
             this.associationService = associationService;
@@ -82,6 +85,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             this.commentService = commentService;
             this.linkService = linkService;
             this.eventEnvelopeBroker = eventEnvelopeBroker;
+            this.envelopeIntegrityBroker = envelopeIntegrityBroker;
             this.loggingBroker = loggingBroker;
         }
 
@@ -107,73 +111,24 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             EventEnvelope<Association> inboundEnvelope,
             CancellationToken cancellationToken)
         {
-            ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
-            ValidateOnAddAssociation(association);
-
-            // Resolve BOTH endpoints against their foundation services and DERIVE the scope,
-            // group id and content type onto the row, overwriting anything the caller supplied —
-            // the content type is an authorization input and a caller-set scope could claim
-            // AllVersions on an entity with no group (§7.4, §5). A non-existent or non-visible
-            // endpoint surfaces here as not-found.
-            await ResolveEndpointAsync(
-                association.EntityAType,
-                association.EntityAKeyId,
-                onResolved: resolved =>
-                {
-                    association.EntityAGroupId = resolved.GroupId;
-                    association.EntityAContentType = resolved.ContentType;
-                    association.EntityAScope = resolved.Scope;
-                },
-                endpointName: "A",
+            // The method path's reads are the ambient caller's, which on an HTTP request IS the
+            // caller — so no read envelope is carried.
+            await DeriveAssociationToAddAsync(
+                association: association,
+                inboundEnvelope: inboundEnvelope,
+                readEnvelope: null,
                 cancellationToken: cancellationToken);
 
-            await ResolveEndpointAsync(
-                association.EntityBType,
-                association.EntityBKeyId,
-                onResolved: resolved =>
-                {
-                    association.EntityBGroupId = resolved.GroupId;
-                    association.EntityBContentType = resolved.ContentType;
-                    association.EntityBScope = resolved.Scope;
-                },
-                endpointName: "B",
-                cancellationToken: cancellationToken);
-
-            // The endpoint half of the veto, decidable HERE and nowhere else above the foundation:
-            // the add is the one write that resolves both endpoints from storage as its own first
-            // act, so §SEC14.7 posture A′ rule 4's split puts this half on the orchestration
-            // rather than below it. Asked before the pair probe, so a blocked caller cannot use
-            // the add to learn which pairings already exist.
-            ValidateUserIsNotBlockedFromEndpoints(inboundEnvelope.SecurityContext, association);
-
-            // UserId is not the caller's to set. It partitions BOTH the canonical-pair probe and
-            // the unique index, so a caller-supplied value would evade the probe — missing a
-            // soft-deleted moderator-takedown row and laundering a fresh insert past it, or
-            // duplicating a live editorial row. The only rows that legitimately carry a UserId are
-            // per-user reactions, whose replace-on-react flow (thread 4) derives it from the caller
-            // and does not exist yet; until then every suggestion is editorial and carries no user.
-            association.UserId = null;
-
-            // The unfiltered canonical-pair lookup — sees a pending/rejected row owned by another
-            // user, and a soft-deleted one, both of which the caller's read posture hides.
-            AssociationPairMatch? existingMatch =
-                await this.associationService.FindAssociationByPairAsync(
-                    association,
-                    cancellationToken);
+            (AssociationPairMatch? existingMatch, AssociationPairMatch? overlappingMatch) =
+                await FindPairOccupantsAsync(
+                    association: association,
+                    readEnvelope: null,
+                    cancellationToken: cancellationToken);
 
             if (existingMatch is null)
             {
-                // No row occupies the EXACT pair, but a differently-scoped LIVE row can still
-                // overlap this one's coverage — an AllVersions endpoint spanning a ThisVersionOnly
-                // row's version, or the reverse. Their effective ids differ, so the unique index
-                // is blind to it, yet inserting past it would render the same pairing twice from
-                // two rows with independent approval lifecycles. Report the overlap, insert nothing.
-                AssociationPairMatch? overlappingMatch =
-                    await this.associationService.FindOverlappingAssociationAsync(
-                        association,
-                        excludedAssociationId: null,
-                        cancellationToken);
-
+                // Nothing on the exact pair, but a differently-scoped live row may overlap it.
+                // Report the overlap, insert nothing.
                 if (overlappingMatch is not null)
                 {
                     return new AssociationSuggestionResult
@@ -223,6 +178,121 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 Status = liveStatus,
                 AssociationId = existingMatch.Id,
             };
+        }
+
+        // THE OCCUPANCY CHECK, the second half of the add's write flow and shared by both entry
+        // paths in the same way (#631 criterion 4b). The paths differ only in how they ANSWER an
+        // occupant — the method path with a status, the event path with a refusal — so only the
+        // answer is theirs.
+        //
+        // First the unfiltered canonical-pair lookup, which sees a pending or rejected row owned
+        // by another user, and a soft-deleted one, both of which the caller's read posture hides.
+        // Only when no row occupies the EXACT pair is the overlap asked: a differently-scoped
+        // LIVE row can still overlap this one's coverage — an AllVersions endpoint spanning a
+        // ThisVersionOnly row's version, or the reverse. Their effective ids differ, so the
+        // unique index is blind to it, yet inserting past it would render the same pairing twice
+        // from two rows with independent approval lifecycles.
+        //
+        // WHOSE gate each probe asks follows the read envelope, as the endpoint reads do: none on
+        // the method path, where the ambient caller is the caller; the inbound one on the event
+        // path, so the signed caller is asked (§ARC12.5.2 Rule 3).
+        private async ValueTask<(AssociationPairMatch? PairMatch, AssociationPairMatch? OverlappingMatch)>
+            FindPairOccupantsAsync(
+                Association association,
+                EventEnvelope<Association>? readEnvelope,
+                CancellationToken cancellationToken)
+        {
+            AssociationPairMatch? pairMatch = readEnvelope is null
+                ? await this.associationService.FindAssociationByPairAsync(
+                    association,
+                    cancellationToken)
+                : await this.associationService.FindAssociationByPairAsync(
+                    association,
+                    readEnvelope,
+                    cancellationToken);
+
+            if (pairMatch is not null)
+            {
+                return (pairMatch, null);
+            }
+
+            AssociationPairMatch? overlappingMatch = readEnvelope is null
+                ? await this.associationService.FindOverlappingAssociationAsync(
+                    association,
+                    excludedAssociationId: null,
+                    cancellationToken)
+                : await this.associationService.FindOverlappingAssociationAsync(
+                    association,
+                    readEnvelope,
+                    cancellationToken);
+
+            return (null, overlappingMatch);
+        }
+
+        // THE ADD'S WRITE FLOW — every rule that decides whether an add may happen and what the
+        // row derives to — written ONCE and run by BOTH entry paths: AddAssociationAsync on the
+        // way to the pair probe, and the Association-Adding handler on the way to the
+        // foundation's own handler (#631). A rule added here is on both doors by construction and
+        // cannot be added to one alone, which is what makes "a gate the event path walks past"
+        // structurally impossible rather than merely absent today.
+        //
+        // The two paths differ only in WHOSE reads resolve the endpoints: the method path passes
+        // no read envelope and its endpoint services read as the ambient caller; the event path
+        // passes the inbound envelope so they read as the signed one.
+        private async ValueTask DeriveAssociationToAddAsync(
+            Association association,
+            EventEnvelope<Association> inboundEnvelope,
+            EventEnvelope<Association>? readEnvelope,
+            CancellationToken cancellationToken)
+        {
+            ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
+            ValidateOnAddAssociation(association);
+
+            // Resolve BOTH endpoints against their foundation services and DERIVE the scope,
+            // group id and content type onto the row, overwriting anything the caller supplied —
+            // the content type is an authorization input and a caller-set scope could claim
+            // AllVersions on an entity with no group (§7.4, §5). A non-existent or non-visible
+            // endpoint surfaces here as not-found.
+            await ResolveEndpointAsync(
+                association.EntityAType,
+                association.EntityAKeyId,
+                onResolved: resolved =>
+                {
+                    association.EntityAGroupId = resolved.GroupId;
+                    association.EntityAContentType = resolved.ContentType;
+                    association.EntityAScope = resolved.Scope;
+                },
+                endpointName: "A",
+                readEnvelope: readEnvelope,
+                cancellationToken: cancellationToken);
+
+            await ResolveEndpointAsync(
+                association.EntityBType,
+                association.EntityBKeyId,
+                onResolved: resolved =>
+                {
+                    association.EntityBGroupId = resolved.GroupId;
+                    association.EntityBContentType = resolved.ContentType;
+                    association.EntityBScope = resolved.Scope;
+                },
+                endpointName: "B",
+                readEnvelope: readEnvelope,
+                cancellationToken: cancellationToken);
+
+            // The endpoint half of the veto, decidable HERE and nowhere else above the foundation:
+            // the add is the one write that resolves both endpoints from storage as its own first
+            // act, so §SEC14.7 posture A′ rule 4's split puts this half on the orchestration
+            // rather than below it. Asked before the pair probe, so a blocked caller cannot use
+            // the add to learn which pairings already exist.
+            ValidateUserIsNotBlockedFromEndpoints(inboundEnvelope.SecurityContext, association);
+
+            // UserId is not the caller's to set. It partitions BOTH the canonical-pair probe and
+            // the unique index, so a caller-supplied value would evade the probe — missing a
+            // soft-deleted moderator-takedown row and laundering a fresh insert past it, or
+            // duplicating a live editorial row. The only rows that legitimately carry a UserId are
+            // per-user reactions, whose replace-on-react flow (thread 4) derives it from the caller
+            // and does not exist yet; until then every suggestion is editorial and carries no user.
+            association.UserId = null;
         }
     }
 }

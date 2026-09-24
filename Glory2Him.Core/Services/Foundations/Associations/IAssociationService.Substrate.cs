@@ -23,10 +23,40 @@ namespace Glory2Him.Core.Services.Foundations.Associations
     /// registration decides what is connected. Every handler replies with the operation's
     /// outcome envelope (recorded on the delivery), or <c>null</c> when a duplicated request
     /// was skipped.
+    ///
+    /// <para><b><c>OnAddingAssociationAsync</c> is no longer reached from the registration.</b>
+    /// That address binds <c>IAssociationOrchestrationService</c>, which derives both endpoints
+    /// and their content types and then calls this handler with the same envelope (#631). The
+    /// capability stays here — the deduplication, the write, the canonical ordering, the fact and
+    /// the reply are all this service's — but the address is one tier up, because the rule it
+    /// carries reads two other entities' rows and a foundation may not.</para>
     /// </summary>
     internal partial interface IAssociationService
     {
         ValueTask<EventEnvelope<Association>?> OnAddingAssociationAsync(
+            EventEnvelope<Association> envelope,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Whether this add request has ALREADY been applied by this receiver — the same
+        /// <c>ProcessedEvents</c> question <see cref="OnAddingAssociationAsync"/> asks itself,
+        /// exposed so the layer above can ask it FIRST.
+        ///
+        /// <para>The orchestration that now owns <c>Association-Adding</c> reads BOTH endpoint rows
+        /// before it delegates, to derive <c>Entity{A,B}ContentType</c> (#631). Left after the
+        /// deduplication, those reads make a replay do more than it used to: a re-delivered
+        /// envelope whose endpoint has since been soft-deleted, or has stopped being visible to
+        /// the signed caller, fails the derivation and is recorded as a failed delivery and
+        /// retried — for an event that was already applied. Before the address moved up a tier a
+        /// duplicate short-circuited to <c>null</c> without touching either endpoint, and it must
+        /// still.</para>
+        ///
+        /// <para>A boolean, over the receiver's own bookkeeping — it reveals nothing but whether
+        /// this system has seen an event id the caller minted. The handler keeps asking the same
+        /// question for itself, because it must be safe called alone (§SEC14.6 rule 1); this only
+        /// moves the answer earlier for the path that has work in front of it.</para>
+        /// </summary>
+        internal ValueTask<bool> HasAlreadyAddedAssociationAsync(
             EventEnvelope<Association> envelope,
             CancellationToken cancellationToken = default);
 

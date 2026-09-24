@@ -47,6 +47,7 @@ using Glory2Him.Core.Services.Foundations.Tags;
 using Glory2Him.Core.Services.Orchestrations.AIReviewers;
 using Glory2Him.Core.Services.Orchestrations.ApprovalReviewers;
 using Glory2Him.Core.Services.Orchestrations.Approvals;
+using Glory2Him.Core.Services.Orchestrations.Associations;
 using Glory2Him.Core.Services.Orchestrations.ContentItemSettings;
 using Glory2Him.Core.Services.Processings.ContentItems;
 using Glory2Him.Core.Services.Processings.Links;
@@ -1610,6 +1611,20 @@ namespace Glory2Him.Core.Registrations
                 cancellationToken: cancellationToken);
 
             // ── Association request handlers ──────────────────────────
+            // ADD BINDS THE ORCHESTRATION; the other seven bind the foundation, and the split is
+            // the point (#631). Entity{A,B}ContentType is an authorization input, DERIVED from the
+            // two endpoint rows an add names — other entities' rows, so the derivation lives one
+            // tier up. While this line named IAssociationService, an add request published to
+            // this address reached DoAddAssociationAsync with the publisher's own content types on
+            // the row, validated for enum-definedness only. The orchestration now verifies,
+            // deduplicates early, runs the same write flow the HTTP path runs, and hands the SAME
+            // envelope to the foundation's handler. The subscription id and name are unchanged:
+            // the name is the foundation's ProcessedEvents receiver key, and the id is what the
+            // substrate knows this subscription by.
+            //
+            // Modify, both removals, the retrieve, approve, set-confidence and set-scope derive
+            // nothing — each works from columns already on the stored row — so they stay bound to
+            // the foundation rather than gaining a layer that only forwards (§ARC12.1).
             await this.eventBroker.SubscribeToAssociationEventAsync(
                 subscription: new EventSubscription
                 {
@@ -1619,12 +1634,13 @@ namespace Glory2Him.Core.Registrations
                     Name = EventBrokerIdentifiers
                         .AssociationOnAddingAssociationSubscriptionName,
 
-                    Description = "Handles add requests: stores the content item association, " +
-                        "publishes Association-Added, and replies with the added entity."
+                    Description = "Handles add requests: derives both endpoints and their " +
+                        "content types, stores the content item association, publishes " +
+                        "Association-Added, and replies with the added entity."
                 },
                 operation: AssociationEventOperation.Adding,
                 associationEventHandler:
-                    Scoped<IAssociationService, Association>(
+                    Scoped<IAssociationOrchestrationService, Association>(
                         service => service.OnAddingAssociationAsync),
                 cancellationToken: cancellationToken);
 

@@ -11,8 +11,11 @@
 
 using System;
 using System.Linq;
+using System.Threading.Tasks;
+using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
 using Glory2Him.Core.Models.Securities;
@@ -152,6 +155,39 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                     Roles.ReadOnlyFor(entityType, contentType.Value));
         }
 
+        // THE EVENT PATH'S OWN GUARD, asked before this service reads anything. The foundation
+        // asks the identical question again when the envelope is handed down, and that repeat is
+        // §SEC14.6 rule 2 working as intended: this handler resolves BOTH endpoint rows before the
+        // foundation is reached, and doing that on the word of an envelope nothing has vouched for
+        // would be acting on an unattested payload (§SEC14.6 rule 4).
+        //
+        // The name is the publisher's composition — entity name plus operation — and it sits
+        // inside the HMAC. It reads "AssociationAdding" because that is what EventBroker signs for
+        // this address, exactly as the foundation composed it while the address bound there.
+        private async ValueTask ValidateAssociationEventEnvelopeAsync(
+            EventEnvelope<Association> envelope,
+            AssociationEventOperation operation)
+        {
+            if (envelope is null || envelope.Content is null || envelope.Metadata is null)
+            {
+                throw new InvalidAssociationOrchestrationException(
+                    message: "Invalid content item association event. " +
+                        "The event envelope, its content and metadata are required.");
+            }
+
+            string eventName = $"{nameof(Association)}{operation}";
+
+            bool isSignatureValid = await this.envelopeIntegrityBroker.VerifyAsync(
+                envelope, eventName, EnvelopeDirection.Request);
+
+            if (isSignatureValid is false)
+            {
+                throw new InvalidAssociationOrchestrationException(
+                    message: "Invalid content item association event. " +
+                        "Integrity verification failed.");
+            }
+        }
+
         private static void ValidateAssociationIsNotNull(Association association)
         {
             if (association is null)
@@ -172,6 +208,67 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 (Rule: IsInvalid(association.EntityAKeyId), Parameter: nameof(Association.EntityAKeyId)),
                 (Rule: IsInvalid(association.EntityBKeyId), Parameter: nameof(Association.EntityBKeyId)));
 
+        // THE DERIVATION, EXPRESSED AS A REFUSAL — the event path's arm, and the difference from
+        // the method path is the signature, not the rule. Both paths run the same write flow and
+        // let the derived value govern. On the method path the derived value simply overwrites
+        // the caller's: a loose object nobody attested to. Here the claim arrived inside a signed
+        // envelope whose HMAC covers the content (§SEC14.6 rule 4), and the property that
+        // signature buys is that no receiver edits a part the rules read — the foundation, the
+        // ProcessedEvents record and the reply are all built from that content. So a claim that
+        // disagrees with what the endpoints resolve to is refused rather than quietly corrected.
+        //
+        // An omission disagrees too. The foundation reads a null on a ContentItem endpoint as
+        // "the narrow tier cannot be decided" and fails closed, but the derived value is known
+        // here, and it governs. An honest publisher — anything that resolved the endpoints — is
+        // unaffected, because for it the two values already agree.
+        //
+        // The same rule covers the two other values the foundation would take as handed (#631
+        // criteria 3b, 3c): UserId, which it checks for length only and which makes the row
+        // personal, and a VERSIONED endpoint's group id, which it keeps. A scope, and a
+        // non-versioned group id, it re-derives before anything reads them, so neither is compared.
+        private static void ValidateClaimsAreTheDerivation(
+            Association claimedAssociation,
+            Association derivedAssociation) =>
+            Validate(
+                message: "Content item association is invalid, fix the errors and try again.",
+                (Rule: IsNotTheDerivedContentType(
+                    claimedAssociation.EntityAContentType,
+                    derivedAssociation.EntityAContentType),
+                    Parameter: nameof(Association.EntityAContentType)),
+                (Rule: IsNotTheDerivedContentType(
+                    claimedAssociation.EntityBContentType,
+                    derivedAssociation.EntityBContentType),
+                    Parameter: nameof(Association.EntityBContentType)),
+                (Rule: IsNotTheDerivedVersionedGroupId(
+                    derivedAssociation.EntityAType,
+                    claimedAssociation.EntityAGroupId,
+                    derivedAssociation.EntityAGroupId),
+                    Parameter: nameof(Association.EntityAGroupId)),
+                (Rule: IsNotTheDerivedVersionedGroupId(
+                    derivedAssociation.EntityBType,
+                    claimedAssociation.EntityBGroupId,
+                    derivedAssociation.EntityBGroupId),
+                    Parameter: nameof(Association.EntityBGroupId)),
+                (Rule: IsNotTheDerivedUserId(
+                    claimedAssociation.UserId,
+                    derivedAssociation.UserId),
+                    Parameter: nameof(Association.UserId)));
+
+        // THE EVENT PATH'S ANSWER TO AN OCCUPANT (#631 criterion 4c, Architecture.md "Rule 2 — the
+        // occupancy check runs on both doors"). The method path answers with a status; this door
+        // replies with an EventEnvelope<Association>, and none of its answers is safe — the row
+        // would leak what the status projection hides, null would claim the event was applied,
+        // and a new shape is a contract change. So every occupant is refused, with ONE message
+        // that names no row and no state.
+        private static void ValidatePairIsUnoccupied(AssociationPairMatch? occupant)
+        {
+            if (occupant is not null)
+            {
+                throw new InvalidAssociationOrchestrationException(
+                    message: "The content item association's pair is already occupied.");
+            }
+        }
+
         // The id-keyed surfaces' own validation. Kept separate from ValidateOnAddAssociation
         // rather than folded into a shared validator: they compose different rules today and
         // sharing the composition would mean a rule added for one silently binds the other.
@@ -184,6 +281,32 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         {
             Condition = id == Guid.Empty,
             Message = "Id is required"
+        };
+
+        private static dynamic IsNotTheDerivedContentType(
+            ContentType? claimedContentType,
+            ContentType? derivedContentType) => new
+        {
+            Condition = claimedContentType != derivedContentType,
+            Message = "Value must be the content type its endpoint resolves to"
+        };
+
+        private static dynamic IsNotTheDerivedVersionedGroupId(
+            EntityType entityType,
+            Guid claimedGroupId,
+            Guid derivedGroupId) => new
+        {
+            Condition = EntityTypeVersioning.IsVersioned(entityType)
+                && claimedGroupId != derivedGroupId,
+            Message = "Value must be the group its endpoint resolves to"
+        };
+
+        private static dynamic IsNotTheDerivedUserId(
+            string? claimedUserId,
+            string? derivedUserId) => new
+        {
+            Condition = claimedUserId != derivedUserId,
+            Message = "Value is derived and must not be supplied"
         };
 
         private static dynamic IsInvalid(EntityType entityType) => new

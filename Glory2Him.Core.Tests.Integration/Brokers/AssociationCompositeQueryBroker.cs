@@ -101,6 +101,7 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
                         new LinkService(
                             storage, dateTime, identifier, events, envelopes, audit, access, integrity, logging)),
                 eventEnvelopeBroker: EventEnvelopeBrokerMock.Object,
+                envelopeIntegrityBroker: new Mock<IEnvelopeIntegrityBroker>().Object,
                 loggingBroker: new Mock<ILoggingBroker>().Object);
         }
 

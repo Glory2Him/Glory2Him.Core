@@ -35,6 +35,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         private delegate ValueTask<EventEnvelope<Association>?>
             ReturningAssociationEventEnvelopeFunction();
 
+        private delegate ValueTask<bool> ReturningBooleanFunction();
+
         // The event-path wrapper: categorizes failures with the same taxonomy as the
         // non-event TryCatch (so the two entry paths cannot diverge), plus the envelope
         // guard that only exists on this path, and ALWAYS rethrows so the substrate records
@@ -420,6 +422,57 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             {
                 throw await CreateAndLogValidationExceptionAsync(
                     exception: invalidAssociationException);
+            }
+            catch (SqlException sqlException)
+            {
+                var failedStorageAssociationException =
+                    new FailedStorageAssociationException(
+                        message: "Failed content item association storage error occurred, contact support.",
+                        innerException: sqlException,
+                        data: sqlException.Data);
+
+                throw await CreateAndLogCriticalDependencyExceptionAsync(
+                    exception: failedStorageAssociationException);
+            }
+            catch (Exception exception)
+            {
+                var failedAssociationServiceException =
+                    new FailedAssociationServiceException(
+                        message: "Failed content item association service error occurred, please contact support.",
+                        innerException: exception,
+                        data: exception.Data);
+
+                throw await CreateAndLogServiceExceptionAsync(
+                    failedAssociationServiceException);
+            }
+        }
+
+        // The early-dedupe question (#631): a storage read and nothing else, so it needs only the
+        // read-style dependency catches.
+        private async ValueTask<bool> TryCatch(ReturningBooleanFunction returningBooleanFunction)
+        {
+            try
+            {
+                return await returningBooleanFunction();
+            }
+            catch (OperationCanceledException operationCanceledException)
+                when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
+            {
+                var timeoutException =
+                    new TimeoutException("The dependency operation timed out.");
+
+                var timeoutAssociationException =
+                    new TimeoutAssociationException(
+                        message: "Failed content item association timeout error occurred, contact support.",
+                        innerException: timeoutException,
+                        data: timeoutException.Data);
+
+                throw await CreateAndLogTimeoutDependencyExceptionAsync(
+                    exception: timeoutAssociationException);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (SqlException sqlException)
             {
