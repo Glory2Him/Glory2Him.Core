@@ -10,7 +10,9 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -254,6 +256,57 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
 
             this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // 4d. ONE ANSWER FOR EVERY OCCUPANT. All five refusals are gathered and compared with one
+        // another — message and data — and none may carry the occupant's id or any approval
+        // state, so a publisher learns that the pair is taken and nothing about by what. The
+        // method path's AlreadyPending already folds pending, rejected and deleted together.
+        [Fact]
+        public async Task ShouldRefuseEveryOccupantWithTheSameMessageOnTheEventPathAsync()
+        {
+            // given
+            var refusals = new List<(string Message, IDictionary Data)>();
+            var occupantIds = new List<Guid>();
+
+            foreach (string occupant in Occupants().Select(row => row.Data))
+            {
+                Association addRequest = CreateHonestAddRequest();
+                EventEnvelope<Association> inputEnvelope = CreateRequestEnvelope(addRequest);
+                SetupEventPathEndpointReads(addRequest, inputEnvelope);
+                AssociationPairMatch occupyingRow = SetupOccupant(occupant, inputEnvelope);
+                occupantIds.Add(occupyingRow.Id);
+
+                // when
+                ValueTask<EventEnvelope<Association>> onAddingTask =
+                    this.associationOrchestrationService.OnAddingAssociationAsync(
+                        inputEnvelope,
+                        TestContext.Current.CancellationToken);
+
+                AssociationOrchestrationValidationException actualException =
+                    await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(
+                        onAddingTask.AsTask);
+
+                refusals.Add((actualException.InnerException.Message, actualException.InnerException.Data));
+            }
+
+            // then
+            refusals.Select(refusal => refusal.Message).Distinct().Should().ContainSingle();
+
+            refusals.Should().AllSatisfy(refusal =>
+                refusal.Data.Should().BeEquivalentTo(refusals[0].Data));
+
+            string message = refusals[0].Message;
+
+            occupantIds.Should().AllSatisfy(occupantId =>
+                message.Should().NotContain(occupantId.ToString()));
+
+            Enum.GetNames<ApprovalStatus>().Should().AllSatisfy(status =>
+                message.Should().NotContainEquivalentOf(status));
+
+            message.Should().NotContainEquivalentOf("deleted");
+            message.Should().NotContainEquivalentOf("pending");
+            message.Should().NotContainEquivalentOf("overlap");
         }
     }
 }
