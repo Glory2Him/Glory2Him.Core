@@ -71,7 +71,7 @@ namespace Glory2Him.Core.Services.Processings.Links
 
         /// <summary>
         /// Retrieves a single content item version by its <c>Id</c>, enforcing the read
-        /// posture of design §14.1/§16.6: a version that satisfies canonical content
+        /// posture of design §SEC14.1/§SEC14.7 posture A rule 4: a version that satisfies canonical content
         /// visibility (not deleted, <c>Approved</c>, <c>IsPublished</c>, and
         /// <c>PublishDate</c> null or past) is readable by anyone — reads carry no
         /// contribution gate, so anonymous and even <c>ReadOnly</c>-blocked callers may

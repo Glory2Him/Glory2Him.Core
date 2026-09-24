@@ -143,7 +143,7 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ContentItems
 
         /// <summary>
         /// Criterion 4: NOTHING INDEXES DeletedWhen ANY MORE. Nothing in the solution filters
-        /// that column — every soft-delete predicate, including all fourteen filtered indexes,
+        /// that column — every soft-delete predicate, including every soft-delete filtered index,
         /// tests <c>IsDeleted</c> — so the only index on it earns nothing and is dropped.
         ///
         /// <para>Included columns are checked as well as keys. A key-list-only reading would
@@ -229,18 +229,24 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ContentItems
         }
 
         /// <summary>
-        /// Criterion 5: THE FOURTEEN SOFT-DELETE FILTERED INDEXES ARE OUT OF SCOPE AND STAY
-        /// THAT WAY, AND EXACTLY ONE FILTERED INDEX JOINS THEM. Read catalogue-wide rather
-        /// than per table, and as the (name, filter) PAIRS SQL Server stored rather than as a
-        /// count of them: a count survives a diff that renames one index or rewrites one
-        /// filter into a different filter still carrying the term, which is exactly the diff
-        /// this criterion exists to refuse.
+        /// Criterion 5: THE BASELINE SOFT-DELETE FILTERED INDEXES ARE OUT OF SCOPE AND STAY THAT
+        /// WAY, AND THE FEED INDEX IS THE ONE FILTERED INDEX THAT JOINS THEM. Read catalogue-wide
+        /// rather than per table, and as the (name, filter) PAIRS SQL Server stored rather than as
+        /// a count of them: a count survives a diff that renames one index or rewrites one filter
+        /// into a different filter still carrying the term, which is exactly the diff this
+        /// criterion exists to refuse.
         ///
-        /// <para><b>Catalogue-wide and not an allowlist of the fourteen.</b> An allowlist
-        /// cannot see a name it does not already list, so a stray fifteenth filtered index —
-        /// or the ruled one misspelled, or the ruled one carrying the wrong filter — would
-        /// pass unseen. The whole selection is read and the single permitted addition is named
-        /// here instead.</para>
+        /// <para><b>Catalogue-wide and not an allowlist of the baseline.</b> An allowlist
+        /// cannot see a name it does not already list, so a stray extra filtered index — or
+        /// the ruled one misspelled, or the ruled one carrying the wrong filter — would pass
+        /// unseen. The whole selection is read and every expected pair, the feed index
+        /// included, is named here instead.</para>
+        ///
+        /// <para><b>The baseline is fifteen, and the name still says fourteen.</b> There were
+        /// fourteen when this was written. #627 then replaced one of them, the single
+        /// association pair index, with an editorial and a personal index, so the list below
+        /// holds fifteen baseline pairs and the feed index. The name is kept because #601's
+        /// criterion and its FAIL/PASS commits cite the test by it.</para>
         /// </summary>
         [Fact]
         public async Task ShouldLeaveTheFourteenSoftDeleteFilteredIndexesUnchanged_AfterTheMigrationAsync()
@@ -250,7 +256,7 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ContentItems
             {
                 "IX_ContentItem_IsPublished	([IsPublished]=(1) AND [IsDeleted]=(0))",
 
-                // The one permitted addition, named rather than counted: the ruled feed index
+                // The feed change's one addition, named rather than counted: the ruled feed index
                 // and nothing else, carrying §SEC14.1's first term as its filter.
                 "IX_ContentItems_FeedEffective	([IsDeleted]=(0))",
 
@@ -261,7 +267,13 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ContentItems
                 "UX_ApprovalSettings_EntityTypeContentType	([ContentType] IS NOT NULL AND [IsDeleted]=(0))",
                 "UX_ApprovalSettings_EntityTypeDefault	([EntityType] IS NOT NULL AND [ContentType] IS NULL AND [IsPersonal] IS NULL AND [IsDeleted]=(0))",
                 "UX_ApprovalSettings_GlobalDefault	([EntityType] IS NULL AND [IsDeleted]=(0))",
-                "UX_Associations_Pair	([IsDeleted]=(0))",
+
+                // One baseline index became two: #627 replaced the single association pair
+                // index with an editorial and a personal one (§DOM4.6 rule 2), each carrying
+                // its own UserId term beside the soft-delete term.
+                "UX_Associations_EditorialPair	([IsDeleted]=(0) AND [UserId] IS NULL)",
+                "UX_Associations_PersonalPair	([IsDeleted]=(0) AND [UserId] IS NOT NULL)",
+
                 "UX_Attachments_GroupId_IsPublished	([IsPublished]=(1) AND [IsDeleted]=(0))",
                 "UX_BibleReferences_USFM	([IsDeleted]=(0))",
                 "UX_ContentItemSettings_DefaultPerType	([ContentItemId] IS NULL AND [IsDeleted]=(0))",
@@ -284,9 +296,9 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ContentItems
             // then
             deployedPairs.Should().Equal(
                 expectedPairs,
-                because: "every one of the fourteen baseline filtered indexes is out of this "
-                    + "change's scope, name and filter text alike, and the only addition is "
-                    + "the ruled feed index under exactly that name and filter");
+                because: "each of the fifteen baseline soft-delete filtered indexes must keep "
+                    + "its name and filter text, and the only other one must be the ruled feed "
+                    + "index under exactly that name and filter");
         }
 
         private static string DescribeKey(DeployedIndexColumn indexColumn) =>

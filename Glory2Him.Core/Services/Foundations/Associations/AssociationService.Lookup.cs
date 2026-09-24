@@ -77,8 +77,9 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             association = NormalizeEndpointOrder(association);
 
             // The same effective ids the persisted computed column carries and the
-            // UX_Associations_Pair index keys on. Computed here from the resolved endpoints
-            // so the probe matches exactly the row an insert would collide with.
+            // UX_Associations_EditorialPair index keys on. Computed here from the resolved
+            // endpoints so the probe matches exactly the editorial row an insert would
+            // collide with.
             Guid entityAEffectiveId = ResolveEffectiveId(
                 association.EntityAScope,
                 association.EntityAGroupId,
