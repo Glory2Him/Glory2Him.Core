@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Refuses to push any new commit that is authored or committed as an AI tool, or
+# whose message carries AI attribution. It also catches history rewritten by
+# tools that skip pre-commit and commit-msg (filter-branch, rebase --exec, the
+# plumbing commands). See identity-guard.sh.
+guard="$(dirname "$0")/identity-guard.sh"
+while read -r local_ref local_sha remote_ref remote_sha; do
+    case "$local_sha" in *[!0]*) ;; *) continue ;; esac
+    case "$remote_sha" in
+        *[!0]*) bash "$guard" check-range "$remote_sha..$local_sha" || exit 1 ;;
+        *) bash "$guard" check-range "$local_sha" --not --remotes || exit 1 ;;
+    esac
+done
+exit 0

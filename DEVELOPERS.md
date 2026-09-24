@@ -781,6 +781,25 @@ review.
 **Never add AI or assistant attribution** to a commit message or PR description.
 It trips the unattributed-changes rule and blocks the merge.
 
+**Every commit carries the identity of the person responsible for it**, never an
+AI tool's — whoever opens the PR owns the code, and the history says so. Three
+layers hold this, and each catches what the one before it misses:
+
+- `.claude/settings.json` turns Claude Code's own attribution off, points git at
+  `.githooks/` and, when a session would commit as a tool, switches the
+  repository to the signed-in person (`CLAUDE_CODE_USER_EMAIL`, or
+  `G2H_GIT_USER_NAME` / `G2H_GIT_USER_EMAIL` set in a cloud environment's
+  settings). It then refuses any git command that would commit or push as a tool,
+  carry attribution, or skip the hooks, and any GitHub PR whose text carries
+  attribution.
+- `.githooks/` refuses the commit (`pre-commit`, `commit-msg`) and the push
+  (`pre-push`, which also catches rewritten history). A clone outside Claude Code
+  turns them on once with `git config core.hooksPath .githooks`.
+- `rejectAiAttribution` in `.github/workflows/prLinter.yml` fails any PR with a
+  tool-authored commit, an attribution trailer, or an attributed description.
+
+All three share one rule set, `.githooks/identity-guard.sh`.
+
 **Skills** live in `.claude/skills/` and are vendored from upstream via
 `skills-lock.json`. Treat them as read-only and reference them by name. In
 practice a few have been edited locally; that is drift, not licence — if a skill

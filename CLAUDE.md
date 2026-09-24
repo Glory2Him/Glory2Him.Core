@@ -69,6 +69,14 @@ actually ran is appended to the body under `## Model usage` when the PR opens.
   migration script must work as a single batch on the deploy path.
 - Never add AI or assistant attribution to a commit message or PR description — it
   blocks the merge.
+- Every commit is authored and committed under the identity of the person
+  responsible for it, never as an AI tool (a `Claude` name, an `@anthropic.com`
+  address) — in cloud sessions as much as local ones. If git would commit as a
+  tool, stop and set `git config user.name` / `user.email` to that person. This is
+  enforced, not advisory: `.claude/settings.json` switches the identity at
+  session start and blocks the command, `.githooks/` refuses the commit and the
+  push, and `rejectAiAttribution` in `prLinter.yml` fails the PR. Never bypass
+  them (`--no-verify`, `core.hooksPath`).
 - Never implement behaviour that is not in an approved criterion.
 - Adding a dependency, an event, or a layer change is an architect decision.
 
