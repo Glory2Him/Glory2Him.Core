@@ -643,10 +643,15 @@ namespace Glory2Him.Core.Migrations
                     b.HasIndex("EntityBType", "EntityBEffectiveId")
                         .HasDatabaseName("IX_Associations_EndpointB");
 
-                    b.HasIndex("EntityAType", "EntityAEffectiveId", "EntityBType", "EntityBEffectiveId", "UserId")
+                    b.HasIndex("EntityAType", "EntityAEffectiveId", "EntityBType", "EntityBEffectiveId")
                         .IsUnique()
-                        .HasDatabaseName("UX_Associations_Pair")
-                        .HasFilter("[IsDeleted] = 0");
+                        .HasDatabaseName("UX_Associations_EditorialPair")
+                        .HasFilter("[IsDeleted] = 0 AND [UserId] IS NULL");
+
+                    b.HasIndex("EntityAType", "EntityAEffectiveId", "EntityBType", "UserId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Associations_PersonalPair")
+                        .HasFilter("[IsDeleted] = 0 AND [UserId] IS NOT NULL");
 
                     b.ToTable("Associations", null, t =>
                         {

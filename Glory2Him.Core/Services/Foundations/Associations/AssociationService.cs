@@ -421,8 +421,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 securityContext: inboundEnvelope.SecurityContext);
 
             // canonical ordering lands here rather than in the public method or an
-            // orchestration: `Association-Adding` is a public event address whose substrate
-            // handler enters DoAdd directly, so anything layered above it is bypassed.
+            // orchestration: every add ends here, and a direct caller of this service's add
+            // never passes the orchestration, so anything layered above DoAdd is bypassed.
             // Validation runs first so its messages name the endpoints the caller sent.
             association = NormalizeEndpointOrder(association);
 

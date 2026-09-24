@@ -143,14 +143,16 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         // never accepted from a caller", precisely because it is an authorization input), and
         // this service is single-entity and may not resolve an endpoint to derive it for itself
         // (§14.3). Add validation therefore admits a null. Without this branch, omitting the
-        // field on the public `Association-Adding` address would step around every narrow block
+        // field on a direct call to this service's add would step around every narrow block
         // there is — no lie needed, and no knowledge of which content types the sanction covers.
         //
         // It costs a narrow-blocked contributor nothing on the orchestration path, where the
         // value is always derived and present, so §18.6 rule 2's "silent outside its scope" still
-        // holds for every caller who arrives the ordinary way. What remains open is a DECLARED
-        // but false content type on the foundation's own address; that needs the endpoint
-        // resolved to detect and is recorded as the known gap in §14.7 posture A′.
+        // holds for every caller who arrives the ordinary way — the Association-Adding address
+        // included, which binds the orchestration and refuses a contradicting claim (#631). What
+        // remains open is a DECLARED but false content type from a direct caller of this
+        // service's add; that needs the endpoint resolved to detect and is recorded as the known
+        // gap in §14.7 posture A′.
         private static bool IsNarrowBlockUndecidableFor(
             SecurityContext securityContext,
             EntityType entityType)

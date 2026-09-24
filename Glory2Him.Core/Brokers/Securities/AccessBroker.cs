@@ -965,8 +965,8 @@ namespace Glory2Him.Core.Brokers.Securities
         // One endpoint of an association, and the flag is why this is not an inline object
         // initialiser any more. A ContentItem endpoint carrying a NULL content type is not an
         // endpoint without a narrow tier — it is one whose narrow tier cannot be decided,
-        // because the value is the orchestration's to derive and the foundation's own
-        // `Association-Adding` address admits a null (§14.7 A′.1). Reported as absent, the
+        // because the value is the orchestration's to derive and the foundation's own add
+        // admits a null (§14.7 A′.1). Reported as absent, the
         // veto would go silent on exactly the omitted-null step-around that
         // AssociationService.IsNarrowBlockUndecidableFor fails closed on — and the approval
         // surface has no endpoint gate of its own to catch it.

@@ -24,7 +24,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItemSettings
     internal partial class ContentItemSettingOrchestrationService
     {
         // The item's own service answers whether it exists and whether this caller may see it
-        // (§16.6), so the read carries the visibility posture rather than reinventing it. Its
+        // (§SEC14.7 posture A rule 4), so the read carries the visibility posture rather than reinventing it. Its
         // not-found has already been logged there; to this flow the endpoint simply did not
         // resolve, and the caller is told that and not which of the two reasons applied.
         //
@@ -53,7 +53,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItemSettings
         // the signed caller may not see.
         //
         // Handing the foundation the inbound envelope makes the read the SIGNED CALLER'S, so the
-        // §16.6 posture the derivation is documented to carry is the posture it actually carries,
+        // §SEC14.7 posture A rule 4 posture the derivation is documented to carry is the posture it actually carries,
         // on both entry paths. Caught by the Copilot review on #469.
         private async ValueTask<ContentItem> ResolveContentItemAsync<TSource>(
             Guid contentItemId,

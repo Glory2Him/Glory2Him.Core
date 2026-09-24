@@ -16,6 +16,7 @@ using System.Threading.Tasks;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Securities;
 
 namespace Glory2Him.Core.Services.Foundations.Associations
 {
@@ -33,65 +34,96 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 EventEnvelope<Association> envelope =
                     await this.eventEnvelopeBroker.CreateAsync(content: association);
 
-                ValidateUserIsNotGloballyBlockedFromContributing(envelope.SecurityContext);
-                ValidateOnFindAssociationByPair(association);
-
-                // Match the SAME canonical endpoint order stored rows carry (an insert normalizes
-                // before persisting), so a reversed-order request is not blind to the row it would
-                // overlap — the exact concern the pair probe had.
-                association = NormalizeEndpointOrder(association);
-
-                Guid entityAEffectiveId = ResolveEffectiveId(
-                    association.EntityAScope,
-                    association.EntityAGroupId,
-                    association.EntityAKeyId);
-
-                Guid entityBEffectiveId = ResolveEffectiveId(
-                    association.EntityBScope,
-                    association.EntityBGroupId,
-                    association.EntityBKeyId);
-
-                // Overlap, not exact match: two rows on the same canonical pair (same endpoint
-                // types, groups and UserId) whose version coverage intersects on BOTH endpoints.
-                // An endpoint's coverage intersects when either side spans AllVersions (which
-                // covers the whole group, so it contains the other's version) OR both pin the
-                // SAME version (equal effective ids). Two ThisVersionOnly endpoints on DIFFERENT
-                // versions of the same group do NOT overlap — other versions do not inherit — so
-                // this must not flag them. Only LIVE rows can double-render, so soft-deleted rows
-                // are excluded.
-                //
-                // Same UNFILTERED posture the exact-pair probe carries: an overlapping row
-                // belonging to another user, or a pending one, is hidden from the submitting
-                // caller yet still renders, so a visibility-filtered read would miss it and let
-                // the double-render through. And asked for the same way — as one row, with the
-                // token, rather than as a predicate composed onto a live queryable and executed
-                // synchronously on the request thread.
-                Association? match = await this.storageBroker.SelectOverlappingAssociationAsync(
-                    entityAType: association.EntityAType,
-                    entityBType: association.EntityBType,
-                    userId: association.UserId,
-                    entityAGroupId: association.EntityAGroupId,
-                    entityBGroupId: association.EntityBGroupId,
-                    entityAScope: association.EntityAScope,
-                    entityBScope: association.EntityBScope,
-                    entityAEffectiveId: entityAEffectiveId,
-                    entityBEffectiveId: entityBEffectiveId,
+                return await DoFindOverlappingAssociationAsync(
+                    association: association,
                     excludedAssociationId: excludedAssociationId,
+                    securityContext: envelope.SecurityContext,
                     cancellationToken: cancellationToken);
-
-                if (match is null)
-                {
-                    return null;
-                }
-
-                return new AssociationPairMatch
-                {
-                    Id = match.Id,
-                    ApprovalStatus = match.ApprovalStatus,
-                    IsDeleted = match.IsDeleted,
-                    CreatedBy = match.CreatedBy,
-                    DeletedBy = match.DeletedBy,
-                };
             });
+
+        // The inbound-envelope twin (#631): the gate is asked of the caller the envelope was
+        // signed for, and nothing is minted. An add has no row under modification to exclude.
+        public ValueTask<AssociationPairMatch?> FindOverlappingAssociationAsync(
+            Association association,
+            EventEnvelope<Association> inboundEnvelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                return await DoFindOverlappingAssociationAsync(
+                    association: association,
+                    excludedAssociationId: null,
+                    securityContext: inboundEnvelope.SecurityContext,
+                    cancellationToken: cancellationToken);
+            });
+
+        // ONE BODY for both members, which differ only in where the security context comes from.
+        private async ValueTask<AssociationPairMatch?> DoFindOverlappingAssociationAsync(
+            Association association,
+            Guid? excludedAssociationId,
+            SecurityContext securityContext,
+            CancellationToken cancellationToken)
+        {
+            ValidateUserIsNotGloballyBlockedFromContributing(securityContext);
+            ValidateOnFindAssociationByPair(association);
+
+            // Match the SAME canonical endpoint order stored rows carry (an insert normalizes
+            // before persisting), so a reversed-order request is not blind to the row it would
+            // overlap — the exact concern the pair probe had.
+            association = NormalizeEndpointOrder(association);
+
+            Guid entityAEffectiveId = ResolveEffectiveId(
+                association.EntityAScope,
+                association.EntityAGroupId,
+                association.EntityAKeyId);
+
+            Guid entityBEffectiveId = ResolveEffectiveId(
+                association.EntityBScope,
+                association.EntityBGroupId,
+                association.EntityBKeyId);
+
+            // Overlap, not exact match: two rows on the same canonical pair (same endpoint
+            // types, groups and UserId) whose version coverage intersects on BOTH endpoints.
+            // An endpoint's coverage intersects when either side spans AllVersions (which
+            // covers the whole group, so it contains the other's version) OR both pin the
+            // SAME version (equal effective ids). Two ThisVersionOnly endpoints on DIFFERENT
+            // versions of the same group do NOT overlap — other versions do not inherit — so
+            // this must not flag them. Only LIVE rows can double-render, so soft-deleted rows
+            // are excluded.
+            //
+            // Same UNFILTERED posture the exact-pair probe carries: an overlapping row
+            // belonging to another user, or a pending one, is hidden from the submitting
+            // caller yet still renders, so a visibility-filtered read would miss it and let
+            // the double-render through. And asked for the same way — as one row, with the
+            // token, rather than as a predicate composed onto a live queryable and executed
+            // synchronously on the request thread.
+            Association? match = await this.storageBroker.SelectOverlappingAssociationAsync(
+                entityAType: association.EntityAType,
+                entityBType: association.EntityBType,
+                userId: association.UserId,
+                entityAGroupId: association.EntityAGroupId,
+                entityBGroupId: association.EntityBGroupId,
+                entityAScope: association.EntityAScope,
+                entityBScope: association.EntityBScope,
+                entityAEffectiveId: entityAEffectiveId,
+                entityBEffectiveId: entityBEffectiveId,
+                excludedAssociationId: excludedAssociationId,
+                cancellationToken: cancellationToken);
+
+            if (match is null)
+            {
+                return null;
+            }
+
+            return new AssociationPairMatch
+            {
+                Id = match.Id,
+                ApprovalStatus = match.ApprovalStatus,
+                IsDeleted = match.IsDeleted,
+                CreatedBy = match.CreatedBy,
+                DeletedBy = match.DeletedBy,
+            };
+        }
     }
 }

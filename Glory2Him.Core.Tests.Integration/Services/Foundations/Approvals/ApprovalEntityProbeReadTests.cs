@@ -130,7 +130,8 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Approvals
         /// against an in-memory list, where a store the database will not accept is trivial to
         /// build; that scenario was never reachable.</para>
         ///
-        /// <para>Contrast <c>UX_Associations_Pair</c>, which IS filtered on IsDeleted — there a
+        /// <para>Contrast <c>UX_Associations_EditorialPair</c> and
+        /// <c>UX_Associations_PersonalPair</c>, which ARE filtered on IsDeleted — there a
         /// live row and a tombstone genuinely can share a pair, and the association read's
         /// ordering is exercised on real rows.</para>
         /// </summary>

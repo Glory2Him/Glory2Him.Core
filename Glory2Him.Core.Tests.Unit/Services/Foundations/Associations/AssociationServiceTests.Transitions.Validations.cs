@@ -289,8 +289,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         public async Task ShouldThrowValidationExceptionOnSetScopeIfThePairIsAlreadyOccupiedAsync()
         {
             // given: a scope toggle recomputes the effective id, which moves the row's position
-            // in UX_Associations_Pair and can land it on a key another row already holds.
-            // "Just toggle a flag" reads like it cannot fail, and it can.
+            // in UX_Associations_EditorialPair or UX_Associations_PersonalPair, whichever holds
+            // it, and can land it on a key another row already holds.
+            // "Just toggle a flag" reads like it cannot fail, and it can. The pre-check matches
+            // the editorial key plus UserId, so this pins its refusal on that key; the personal
+            // key's match is #618's.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Association storageAssociation = CreateSubmittableStorageAssociation();

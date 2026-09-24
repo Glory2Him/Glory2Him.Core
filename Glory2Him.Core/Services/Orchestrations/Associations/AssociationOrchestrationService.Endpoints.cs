@@ -15,6 +15,8 @@ using System.Threading.Tasks;
 using Glory2Him.Core.Models.Bases;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.Links;
 using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
@@ -52,10 +54,12 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             Guid keyId,
             Action<ResolvedEndpoint> onResolved,
             string endpointName,
+            EventEnvelope<Association>? readEnvelope,
             CancellationToken cancellationToken) =>
             ConvertEndpointValidationFailureToNotFoundAsync(
                 resolveEndpointAsync: async () =>
-                    onResolved(await ResolveEndpointCoreAsync(entityType, keyId, cancellationToken)),
+                    onResolved(await ResolveEndpointCoreAsync(
+                        entityType, keyId, readEnvelope, cancellationToken)),
                 endpointName: endpointName);
 
         // The conversion, written ONCE and shared by both resolvers. The endpoint's own service
@@ -80,9 +84,18 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             }
         }
 
+        // WHOSE read each branch makes is the one thing the entry path decides. With no read
+        // envelope the endpoint's service mints its own, capturing the AMBIENT caller — right on
+        // an HTTP request, where the ambient caller is the caller. The Association-Adding event
+        // path hands the inbound envelope instead, so every branch reads as the SIGNED caller: a
+        // delivery runs synchronously inside a publish and HttpContextAccessor flows on an
+        // AsyncLocal, so a minted envelope there would inherit whoever PUBLISHED (§ARC12.5.2,
+        // "a read whose answer depends on who is asking is passed the envelope it is being made
+        // under", #631).
         private async ValueTask<ResolvedEndpoint> ResolveEndpointCoreAsync(
             EntityType entityType,
             Guid keyId,
+            EventEnvelope<Association>? readEnvelope,
             CancellationToken cancellationToken)
         {
             // Every branch reads its endpoint (which confirms it exists and is visible, and
@@ -95,33 +108,53 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             switch (entityType)
             {
                 case EntityType.ContentItem:
-                    ContentItem contentItem =
-                        await this.contentItemService.RetrieveContentItemByIdAsync(
-                            keyId, cancellationToken);
+                    ContentItem contentItem = readEnvelope is null
+                        ? await this.contentItemService.RetrieveContentItemByIdAsync(
+                            keyId, cancellationToken)
+                        : await this.contentItemService.RetrieveContentItemByIdAsync(
+                            keyId, readEnvelope, cancellationToken);
 
                     return DeriveEndpoint(entityType, keyId, contentItem, contentItem.ContentType);
 
                 case EntityType.Link:
-                    Link link =
-                        await this.linkService.RetrieveLinkByIdAsync(keyId, cancellationToken);
+                    Link link = readEnvelope is null
+                        ? await this.linkService.RetrieveLinkByIdAsync(keyId, cancellationToken)
+                        : await this.linkService.RetrieveLinkByIdAsync(
+                            keyId, readEnvelope, cancellationToken);
 
                     return DeriveEndpoint(entityType, keyId, link, contentType: null);
 
                 case EntityType.Tag:
-                    await this.tagService.RetrieveTagByIdAsync(keyId, cancellationToken);
+                    _ = readEnvelope is null
+                        ? await this.tagService.RetrieveTagByIdAsync(keyId, cancellationToken)
+                        : await this.tagService.RetrieveTagByIdAsync(
+                            keyId, readEnvelope, cancellationToken);
+
                     return DeriveEndpoint(entityType, keyId, versionedEndpoint: null, contentType: null);
 
                 case EntityType.Reaction:
-                    await this.reactionService.RetrieveReactionByIdAsync(keyId, cancellationToken);
+                    _ = readEnvelope is null
+                        ? await this.reactionService.RetrieveReactionByIdAsync(keyId, cancellationToken)
+                        : await this.reactionService.RetrieveReactionByIdAsync(
+                            keyId, readEnvelope, cancellationToken);
+
                     return DeriveEndpoint(entityType, keyId, versionedEndpoint: null, contentType: null);
 
                 case EntityType.BibleReference:
-                    await this.bibleReferenceService.RetrieveBibleReferenceByIdAsync(
-                        keyId, cancellationToken);
+                    _ = readEnvelope is null
+                        ? await this.bibleReferenceService.RetrieveBibleReferenceByIdAsync(
+                            keyId, cancellationToken)
+                        : await this.bibleReferenceService.RetrieveBibleReferenceByIdAsync(
+                            keyId, readEnvelope, cancellationToken);
+
                     return DeriveEndpoint(entityType, keyId, versionedEndpoint: null, contentType: null);
 
                 case EntityType.Comment:
-                    await this.commentService.RetrieveCommentByIdAsync(keyId, cancellationToken);
+                    _ = readEnvelope is null
+                        ? await this.commentService.RetrieveCommentByIdAsync(keyId, cancellationToken)
+                        : await this.commentService.RetrieveCommentByIdAsync(
+                            keyId, readEnvelope, cancellationToken);
+
                     return DeriveEndpoint(entityType, keyId, versionedEndpoint: null, contentType: null);
 
                 default:
