@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -69,6 +70,77 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             actualReplyEnvelope.Should().BeSameAs(inputEnvelope);
 
             calls.Should().Equal("pair probe", "overlap probe", "foundation handler");
+
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // 2a. The probes' contribution gate is identity, so on this path it is asked of the
+        // SIGNED caller: through the inbound-envelope overloads, handed the inbound envelope
+        // itself, and never through the minting members, which would read the ambient caller.
+        [Fact]
+        public async Task ShouldProbeThroughTheInboundEnvelopeOverloadsOnTheEventPathAsync()
+        {
+            // given
+            Association addRequest = CreateHonestAddRequest();
+            EventEnvelope<Association> inputEnvelope = CreateRequestEnvelope(addRequest);
+            SetupEventPathEndpointReads(addRequest, inputEnvelope);
+
+            this.associationServiceMock.Setup(service =>
+                service.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(inputEnvelope);
+
+            // when
+            await this.associationOrchestrationService.OnAddingAssociationAsync(
+                inputEnvelope,
+                TestContext.Current.CancellationToken);
+
+            // then
+            this.associationServiceMock.Verify(service =>
+                service.FindAssociationByPairAsync(
+                    It.IsAny<Association>(),
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.associationServiceMock.Verify(service =>
+                service.FindOverlappingAssociationAsync(
+                    It.IsAny<Association>(),
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.associationServiceMock.Verify(service =>
+                service.FindAssociationByPairAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.associationServiceMock.Verify(service =>
+                service.FindOverlappingAssociationAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<Guid?>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.associationServiceMock.Verify(service =>
+                service.FindAssociationByPairAsync(
+                    It.IsAny<Association>(),
+                    It.Is<EventEnvelope<Association>>(envelope => envelope != inputEnvelope),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.associationServiceMock.Verify(service =>
+                service.FindOverlappingAssociationAsync(
+                    It.IsAny<Association>(),
+                    It.Is<EventEnvelope<Association>>(envelope => envelope != inputEnvelope),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(It.IsAny<Association>()),
+                Times.Never);
 
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
