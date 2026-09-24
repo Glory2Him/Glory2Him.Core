@@ -790,8 +790,8 @@ layers hold this, and each catches what the one before it misses:
   repository to the signed-in person (`CLAUDE_CODE_USER_EMAIL`, or
   `G2H_GIT_USER_NAME` / `G2H_GIT_USER_EMAIL` set in a cloud environment's
   settings). It then refuses any git command that would commit or push as a tool,
-  carry attribution, or skip the hooks, and any GitHub PR whose text carries
-  attribution.
+  carry attribution, or skip the hooks, and any GitHub PR, issue, comment or
+  review whose text carries attribution.
 - `.githooks/` refuses the commit (`pre-commit`, `commit-msg`) and the push
   (`pre-push`, which also catches rewritten history). A clone outside Claude Code
   turns them on once with `git config core.hooksPath .githooks`.

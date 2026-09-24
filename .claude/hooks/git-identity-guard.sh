@@ -5,8 +5,8 @@
 #                  switches this repository to the signed-in person's identity.
 #   pre-bash       Refuses a git command that would commit or push as an AI tool,
 #                  carry AI attribution, or skip the git hooks.
-#   pre-github     Refuses a GitHub pull request or commit whose text carries AI
-#                  attribution.
+#   pre-github     Refuses a GitHub pull request, commit, issue, comment or review
+#                  whose text carries AI attribution.
 #
 # A non-zero exit of 2 blocks the tool call and shows the reason to Claude.
 
@@ -83,7 +83,7 @@ case "${1:-}" in
         ;;
 
     pre-github)
-        if ! reason=$(read_payload | GUARD_LABEL='this pull request or commit' bash "$guard" check-text 2>&1); then
+        if ! reason=$(read_payload | GUARD_LABEL='this GitHub pull request, commit, issue or comment' bash "$guard" check-text 2>&1); then
             block "Refused: $reason"
         fi
         exit 0
