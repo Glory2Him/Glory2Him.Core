@@ -110,7 +110,9 @@ case "${1:-}" in
         ;;
 
     pre-github)
-        if ! reason=$(sed 's/\\n/\n/g; s/\\r//g' | GUARD_LABEL='this GitHub pull request, commit, issue or comment' bash "$guard" check-text 2>&1); then
+        # Only the text GitHub shows as written by someone: never a file's contents.
+        text=$(json_strings title body commit_title commit_message message)
+        if ! reason=$(printf '%s\n' "$text" | GUARD_LABEL='this GitHub pull request, commit, issue or comment' bash "$guard" check-text 2>&1); then
             block "Refused: $reason"
         fi
         exit 0
