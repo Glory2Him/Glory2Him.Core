@@ -514,6 +514,31 @@ $trailer"),\"files\":[{\"path\":\"a.sh\",\"content\":\"echo\"}]}"
     github_blocks pull_request_review_write "{\"method\":\"create\",\"body\":$(json_string "$trailer")}"
 }
 
+ShouldRunTheGithubHooksOnExactlyTheToolsThatWriteText() {
+    matchers=$(awk '/"matcher"/ { m = $0; sub(/.*"matcher": *"/, "", m); sub(/".*/, "", m) }
+        /git-identity-guard\.sh/ { mode = $0; sub(/.*git-identity-guard\.sh\\" */, "", mode); sub(/".*/, "", mode); print mode "\t" m }' "$settings")
+    matcher_for() { printf '%s\n' "$matchers" | awk -F '\t' -v mode="$1" '$1 == mode { print $2 }'; }
+    matches() { printf '%s\n' "$2" | grep -Eq -- "$(matcher_for "$1")"; }
+    for tool in create_pull_request update_pull_request push_files create_or_update_file merge_pull_request \
+        issue_write create_issue add_issue_comment update_issue_comment add_reply_to_pull_request_comment \
+        add_comment_to_pending_review add_pull_request_review_comment pull_request_review_write \
+        create_pull_request_review submit_pending_pull_request_review discussion_comment_write; do
+        allowed "pre-github runs on $tool" matches pre-github "mcp__github__$tool"
+    done
+    for tool in create_pull_request issue_write create_issue add_issue_comment add_reply_to_pull_request_comment \
+        add_pull_request_review_comment pull_request_review_write create_pull_request_review discussion_comment_write; do
+        allowed "post-github runs on $tool" matches post-github "mcp__github__$tool"
+    done
+    for tool in sub_issue_write issue_read get_me list_issues; do
+        refused "pre-github does not run on $tool" matches pre-github "mcp__github__$tool"
+        refused "post-github does not run on $tool" matches post-github "mcp__github__$tool"
+    done
+    refused 'pre-github does not run on another server' matches pre-github 'mcp__other__create_pull_request'
+    allowed 'pre-bash runs on Bash' matches pre-bash 'Bash'
+    allowed 'pre-bash runs on PowerShell' matches pre-bash 'PowerShell'
+    refused 'pre-bash does not run on a tool merely named like it' matches pre-bash 'mcp__x__Bash'
+}
+
 ShouldSkipCommentLinesOnlyInACommitMessageGitWillStrip() {
     # Markdown headings and stored messages keep their "#" lines: they are judged.
     refused 'a heading footer in a PR description' \
