@@ -802,7 +802,11 @@ ShouldRunTheGuardsOwnTestsBeforeJudgingInCi() {
         ShouldKeepTheRulesInOneScript \
         ShouldRunTheGuardsOwnTestsBeforeJudgingInCi \
         ShouldJudgeALargeCommandWellWithinTheHookTimeoutOnPreBash; do
-        declare -F "$name" >/dev/null || fail_check "no such test: $name"
+        # As the runner below resolves a name given on the command line.
+        case " $(printf '%s ' $all_tests)" in
+            *" $name "*) ;;
+            *) fail_check "no such test: $name" ;;
+        esac
     done
 
     # The job runs the whole suite, and runs it before any step that judges.
