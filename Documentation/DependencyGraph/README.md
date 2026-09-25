@@ -375,8 +375,8 @@ view you were on, and switching carries your current selection across.
   grounds for leaving it unmeasured; it is grounds for measuring it, and the
   function sits in the same file as the one already being run.
 
-  The `/update-dependency-graph` skill's own verification numbers are
-  stale by three generations now and should be read from here instead.
+  The `/update-dependency-graph` skill carries no counts of its own; it reads
+  them from here.
 
   *Measured by running the page's own `buildSingleCopyInstances` and
   `buildDuplicatedInstances` over the data rather than read off a screenshot, so
