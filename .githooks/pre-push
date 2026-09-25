@@ -9,9 +9,12 @@ while read -r local_ref local_sha remote_ref remote_sha; do
     # Only the commits this push publishes: never what the remote branch already
     # had, nor anything already on any remote (a merged-in base branch's history
     # is not this push's to answer for).
-    case "$remote_sha" in
-        *[!0]*) bash "$guard" check-range "$local_sha" "^$remote_sha" --not --remotes || exit 1 ;;
-        *) bash "$guard" check-range "$local_sha" --not --remotes || exit 1 ;;
-    esac
+    # A remote tip this clone has never fetched (a force push over someone
+    # else's work) cannot narrow the range: check against what it has seen.
+    if git cat-file -e "$remote_sha^{commit}" 2>/dev/null; then
+        bash "$guard" check-range "$local_sha" "^$remote_sha" --not --remotes || exit 1
+    else
+        bash "$guard" check-range "$local_sha" --not --remotes || exit 1
+    fi
 done
 exit 0
