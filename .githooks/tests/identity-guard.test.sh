@@ -171,10 +171,16 @@ pre_github() {
 github_allows() { expect_exit 0 "pre-github allows $1: $2" pre_github "$@"; }
 github_blocks() { expect_exit 2 "pre-github blocks $1: $2" pre_github "$@"; }
 
+# python3_runs: succeeds, and prints nothing, when a trivial program run through
+# python3 exits 0. Being found is not enough: on Windows, python3 can be the
+# Microsoft Store's placeholder, which prints how to install Python and exits 49,
+# and which starts the install when it is run without arguments.
+python3_runs() { python3 -c 'pass' >/dev/null 2>&1; }
+
 # json_value <file> <key> [key ...]: prints, as JSON, the value at that path in
 # the JSON file, or "undefined" when the path is absent.
 json_value() {
-    if python3 -c 'pass' >/dev/null 2>&1; then
+    if python3_runs; then
         python3 -c 'import json,sys
 v = json.load(open(sys.argv[1]))
 for k in sys.argv[2:]:
@@ -194,7 +200,7 @@ console.log(JSON.stringify(v));' "$@"
 
 # is_json <text>: succeeds when the text parses as JSON.
 is_json() {
-    if python3 -c 'pass' >/dev/null 2>&1; then
+    if python3_runs; then
         python3 -c 'import json,sys; json.loads(sys.argv[1])' "$1"
     else
         node -e 'JSON.parse(process.argv[1])' "$1"
