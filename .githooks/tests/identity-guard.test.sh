@@ -1112,6 +1112,30 @@ ShouldPreferAPython3ThatRuns() {
         on_path "$bin:$PATH" is_json 'not json'
 }
 
+# python3_ran <description>: the python3 recorded in $bin was run at least once.
+python3_ran() { [ -s "$bin/python3.runs" ] || { : >"$scratch/out"; fail_check "$1: the python3 stand-in was not run"; }; }
+
+# runs_python3_only_with_arguments <description> <helper> [arg ...]: while the
+# helper does its work with $bin first on PATH, the python3 recorded there was run,
+# and never without arguments.
+runs_python3_only_with_arguments() {
+    what=$1; shift
+    rm -f "$bin/python3.runs"
+    on_path "$bin:$PATH" "$@" >/dev/null 2>&1
+    python3_ran "$what"
+    refused "$what: python3 was run without arguments" grep -qx 0 "$bin/python3.runs"
+}
+
+ShouldNeverRunPython3WithoutArguments() {
+    write_values
+    for python3_stand_in in working_python3 placeholder_python3; do
+        bin="$scratch/arguments-to-$python3_stand_in"
+        "$python3_stand_in" "$bin"
+        runs_python3_only_with_arguments "$python3_stand_in: json_value" json_value "$values" a empty
+        runs_python3_only_with_arguments "$python3_stand_in: is_json" is_json '{}'
+    done
+}
+
 # ======================================================================= runner
 
 all_tests=$(declare -F | sed -n 's/^declare -f \(Should[A-Za-z0-9]*\)$/\1/p')
