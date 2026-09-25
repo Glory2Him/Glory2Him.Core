@@ -363,6 +363,41 @@ ShouldJudgeEveryIdentityOverrideByTheSharedRuleOnPreBash() {
     bash_blocks "git -c user.name=\"$tool_name Code\" -c user.email=$tool_email commit -n -m x -m \"$trailer\""
 }
 
+ShouldRefuseEveryFormThatSkipsTheHooksOnPreBash() {
+    new_session skips
+    bash_blocks 'git commit -n -m x'
+    bash_blocks 'git commit -anm x'
+    bash_blocks 'git commit -qn -m x'
+    bash_blocks 'git commit --no-verif -m x'
+    bash_blocks 'git commit --no-ve -m x'
+    bash_blocks 'git push --no-verify'
+    bash_blocks 'git merge --no-verify feature'
+    bash_blocks 'git -c core.hookspath=/dev/null commit -m x'
+    bash_blocks 'git -c CORE.HOOKSPATH=/dev/null push'
+    bash_blocks 'git -c "core.hooksPath=/dev/null" push'
+    bash_blocks 'git --config-env=core.hooksPath=HOOKS push'
+    bash_blocks 'GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hookspath GIT_CONFIG_VALUE_0=/dev/null git commit -m x'
+    bash_blocks "GIT_CONFIG_PARAMETERS=\"'core.hooksPath'='/dev/null'\" git push"
+    bash_blocks 'git --no-pager commit -n -m x'
+    bash_blocks 'git -P push --no-verify'
+    bash_blocks 'git -C "C:\Users\First Last\repo" commit --no-verify -m x'
+    bash_blocks 'git --git-dir .git --work-tree . commit -n -m x'
+    bash_blocks '/usr/bin/git commit -n -m x'
+    bash_blocks 'cd sub && git commit -n -m x'
+    bash_blocks 'bash -c "git commit --no-verify -m x"'
+    bash_blocks 'git rebase --exec "git commit --amend --no-edit --no-verify" HEAD~1'
+    bash_blocks 'git config core.hooksPath /dev/null'
+    bash_blocks 'git config --unset core.hooksPath'
+    # Values that look like the options are not the options.
+    bash_allows 'git commit -m "-n is not an option here"'
+    bash_allows 'git commit -m x -m "--no-verify is not an option here either"'
+    bash_allows 'git push -n origin main'
+    bash_allows 'git merge --no-verify-signatures feature'
+    bash_allows 'git config core.hooksPath .githooks'
+    bash_allows 'git config core.hooksPath'
+    bash_allows 'git -C "C:\Users\First Last\repo" status'
+}
+
 ShouldRefuseAttributionOnPreGithub() {
     new_session github
     github_blocks create_pull_request "{\"title\":\"t\",\"body\":$(json_string "Closes #1
