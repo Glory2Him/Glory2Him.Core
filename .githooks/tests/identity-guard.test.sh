@@ -1004,7 +1004,7 @@ $footer"
 
 # ======================================================================= runner
 
-all_tests=$(declare -F | sed -n 's/^declare -f \(Should[A-Za-z]*\)$/\1/p')
+all_tests=$(declare -F | sed -n 's/^declare -f \(Should[A-Za-z0-9]*\)$/\1/p')
 selected=${*:-$all_tests}
 for name in $selected; do
     test_failed=0
