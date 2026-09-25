@@ -194,7 +194,7 @@ console.log(JSON.stringify(v));' "$@"
 
 # is_json <text>: succeeds when the text parses as JSON.
 is_json() {
-    if command -v python3 >/dev/null 2>&1; then
+    if python3 -c 'pass' >/dev/null 2>&1; then
         python3 -c 'import json,sys; json.loads(sys.argv[1])' "$1"
     else
         node -e 'JSON.parse(process.argv[1])' "$1"
