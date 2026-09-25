@@ -59,6 +59,13 @@ case "${1:-}" in
             git -C "$project_dir" config user.name "$name"
             git -C "$project_dir" config user.email "$email"
             printf 'Git identity for commits set to %s <%s> for this repository. Never commit as an AI tool.\n' "$name" "$email"
+            # The environment outranks the configuration: GIT_AUTHOR_* and
+            # GIT_COMMITTER_* can still hold the tool's identity.
+            if ! ( cd "$project_dir" && bash "$guard" check-current ) >/dev/null 2>&1; then
+                printf 'WARNING: git would still commit as an AI tool, because the GIT_AUTHOR_NAME, GIT_AUTHOR_EMAIL, '
+                printf 'GIT_COMMITTER_NAME or GIT_COMMITTER_EMAIL environment variables override the configuration. '
+                printf 'Every commit will be refused until they are unset or set to the person.\n'
+            fi
             exit 0
         fi
 
