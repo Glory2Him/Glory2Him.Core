@@ -76,14 +76,17 @@ case "${1:-}" in
 
         use_hooks
 
-        if printf '%s\n' "$command" | grep -Eq -- '--no-verify|core\.hooksPath'; then
-            block 'Refused: this repository does not allow skipping or redirecting its git hooks (--no-verify, core.hooksPath). They keep AI identities and attribution out of the history.'
-        fi
         while IFS="$tab" read -r kind label ident; do
-            [ "$kind" = IDENT ] || continue
-            if ! reason=$(bash "$guard" check-ident "$label" "$ident" 2>&1); then
-                block "Refused: $reason"
-            fi
+            case "$kind" in
+                SKIP)
+                    block "Refused: this repository does not allow skipping or redirecting its git hooks ($label). They keep AI identities and attribution out of the history."
+                    ;;
+                IDENT)
+                    if ! reason=$(bash "$guard" check-ident "$label" "$ident" 2>&1); then
+                        block "Refused: $reason"
+                    fi
+                    ;;
+            esac
         done <<<"$facts"
         if has_fact HISTORY; then
             if ! reason=$(printf '%s\n' "$command" | GUARD_LABEL='this git command' bash "$guard" check-text 2>&1); then

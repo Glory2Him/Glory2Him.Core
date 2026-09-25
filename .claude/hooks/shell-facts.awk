@@ -2,6 +2,7 @@
 # line about the git commands in it, for git-identity-guard.sh to judge:
 #
 #   IDENT <tab> <label> <tab> <identity>   an identity the command sets inline
+#   SKIP <tab> <what>                      the command skips or redirects the git hooks
 #   HISTORY                                a git command that writes history
 #   COMMIT                                 ...and records the configured identity
 #
@@ -24,7 +25,27 @@ BEGIN {
     WRAPPER_VALUES["xargs"] = "I L n P d E s a"
 
     HISTORY_COMMANDS = " commit commit-tree push merge pull rebase cherry-pick revert am tag notes filter-branch filter-repo "
-    COMMIT_VALUES = "--message --file --reuse-message --reedit-message --fixup --squash --date --template --cleanup --trailer --pathspec-from-file --author"
+
+    # Per subcommand: short options that take a value, attached or separate;
+    # short options whose value can only be attached; long options that take a
+    # separate value; and the short option that skips the hooks.
+    SHORT_VALUES["commit"] = "mFCct";  ATTACHED["commit"] = "Su"; SKIPS_HOOKS["commit"] = "n"
+    LONG_VALUES["commit"] = "--message --file --reuse-message --reedit-message --fixup --squash --date --template --cleanup --trailer --pathspec-from-file --author"
+    SHORT_VALUES["merge"] = "mFsX";    ATTACHED["merge"] = "S"
+    LONG_VALUES["merge"] = "--message --file --strategy --strategy-option --into-name --cleanup"
+    SHORT_VALUES["pull"] = "sX";       ATTACHED["pull"] = "S"
+    LONG_VALUES["pull"] = "--strategy --strategy-option --upload-pack --depth --deepen --shallow-since --shallow-exclude --refmap"
+    SHORT_VALUES["rebase"] = "xsXC";   ATTACHED["rebase"] = "S"
+    LONG_VALUES["rebase"] = "--exec --onto --strategy --strategy-option --whitespace"
+    SHORT_VALUES["push"] = "o"
+    LONG_VALUES["push"] = "--push-option --repo --receive-pack --exec"
+    SHORT_VALUES["tag"] = "mFu"
+    LONG_VALUES["tag"] = "--message --file --local-user --cleanup --sort --format --contains --no-contains --points-at --merged --no-merged"
+    SHORT_VALUES["cherry-pick"] = "mX"; ATTACHED["cherry-pick"] = "S"
+    LONG_VALUES["cherry-pick"] = "--mainline --strategy --strategy-option --cleanup"
+    SHORT_VALUES["revert"] = "mX";     ATTACHED["revert"] = "S"
+    LONG_VALUES["revert"] = "--mainline --strategy --strategy-option --cleanup"
+    LONG_VALUES["am"] = "--patch-format --directory --exclude --include --resolvemsg --whitespace --quoted-cr --empty"
 }
 
 { S = S $0 "\n" }
@@ -304,6 +325,7 @@ function assign(t,    eq, name, value, upper, n) {
         n = substr(upper, 16)
         CONFIG_KEYS[n] = value
         if (n in CONFIG_VALUES) config_pair(value, CONFIG_VALUES[n], 1)
+        else if (tolower(value) == "core.hookspath") config_pair(value, "", 0)
     }
     else if (upper ~ /^GIT_CONFIG_VALUE_[0-9]+$/) {
         n = substr(upper, 18)
@@ -345,6 +367,10 @@ function config_environment(kv,    eq, variable) {
 
 function config_pair(key, value, has_value,    lower) {
     lower = tolower(key)
+    if (lower == "core.hookspath") {
+        if (!has_value || value != ".githooks") print "SKIP\tcore.hooksPath"
+        return
+    }
     if (!has_value) return
     if (lower ~ /^(user|author|committer)\.name$/) ident_name(key, value)
     else if (lower ~ /^(user|author|committer)\.email$/) ident_email(key, value)
@@ -367,49 +393,66 @@ function git_command(words, i, nw,    t, sub_command) {
     if (index(HISTORY_COMMANDS, " " sub_command " ")) {
         print "HISTORY"
         print "COMMIT"
+        subcommand_options(sub_command, words, i, nw)
     }
-    if (sub_command == "commit") commit_options(words, i, nw)
 }
 
-function commit_options(words, i, nw,    t, eq, name, k, c) {
+# Walks a history-writing subcommand's options, consuming each option's value
+# so that a value is never read as an option.
+function subcommand_options(sub_command, words, i, nw,    t, eq, name, value, k, c) {
     while (i <= nw) {
         t = words[i]
         i++
         if (t == "--") return
-        if (t ~ /^--/) {
+        if (t ~ /^--./) {
             eq = index(t, "=")
             name = eq ? substr(t, 1, eq - 1) : t
-            if (is_prefix(name, "--author", 4)) {
-                if (eq) author(substr(t, eq + 1))
-                else if (i <= nw) author(words[i++])
-                continue
-            }
-            if (!eq && takes_value(name, COMMIT_VALUES)) i++
+            value = ""
+            if (!eq && takes_value(name, LONG_VALUES[sub_command]) && i <= nw) value = words[i++]
+            else if (eq) value = substr(t, eq + 1)
+            if (is_prefix(name, "--no-verify", 6)) print "SKIP\t--no-verify"
+            if (sub_command == "commit" && is_prefix(name, "--author", 4)) author(value)
+            if (sub_command == "rebase" && is_prefix(name, "--exec", 4)) parse_string(value)
             continue
         }
         if (t ~ /^-./) {
             for (k = 2; k <= length(t); k++) {
                 c = substr(t, k, 1)
-                if (index("mFCct", c)) { if (k == length(t)) i++; break }
-                if (index("Su", c)) break
+                if (index(SKIPS_HOOKS[sub_command], c)) print "SKIP\t-" c
+                if (index(SHORT_VALUES[sub_command], c)) {
+                    if (k < length(t)) value = substr(t, k + 1)
+                    else if (i <= nw) value = words[i++]
+                    else value = ""
+                    if (sub_command == "rebase" && c == "x") parse_string(value)
+                    break
+                }
+                if (index(ATTACHED[sub_command], c)) break
             }
         }
     }
 }
 
-function config_command(words, i, nw,    t, n, positional) {
+function config_command(words, i, nw,    t, n, positional, removing) {
     n = 0
     positional[0] = ""
+    removing = 0
     while (i <= nw) {
         t = words[i]
         i++
         if (t == "-f" || t == "--file" || t == "--blob" || t == "--type" || t == "--default" || t == "--comment") { i++; continue }
+        if (t ~ /^--(unset|unset-all|remove-section|rename-section)$/) { removing = 1; continue }
         if (t ~ /^-/) continue
         positional[++n] = t
     }
-    if (n && (positional[1] == "set" || positional[1] == "unset")) {
+    if (n && (positional[1] == "set" || positional[1] == "unset" || positional[1] == "remove-section" || positional[1] == "rename-section")) {
+        if (positional[1] != "set") removing = 1
         for (i = 1; i < n; i++) positional[i] = positional[i + 1]
         n--
+    }
+    if (!n) return
+    if (removing) {
+        if (tolower(positional[1]) ~ /^core(\.hookspath)?$/) print "SKIP\tcore.hooksPath"
+        return
     }
     if (n >= 2) config_pair(positional[1], positional[2], 1)
 }
