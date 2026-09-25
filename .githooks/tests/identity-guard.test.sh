@@ -424,6 +424,25 @@ $footer\""
     bash_allows 'gh issue comment 5 --body "Looks good"'
 }
 
+ShouldNotRefuseOrdinaryCommandsOnPreBash() {
+    new_session ordinary
+    bash_allows 'git commit -m x' 'Commit, rather than with --no-verify'
+    bash_allows "git commit -m x -m \"Co-Authored-By: $person\" && git push -u origin $tool_lower/issue-700-abc"
+    bash_allows 'git commit -m "Document core.hooksPath"'
+    bash_allows 'git config core.hooksPath .githooks && git commit -m x'
+    bash_allows "git commit -m \"Mention $tool_name in the message\""
+    # Commands that record no identity run whatever the identity is.
+    git -C "$session" config user.name "$tool_name"
+    bash_allows 'git pull --ff-only'
+    bash_allows 'git tag -l'
+    bash_allows 'git tag v1'
+    bash_allows 'git notes list'
+    bash_allows 'git status'
+    bash_allows 'git log --oneline'
+    bash_blocks 'git tag -a v1 -m "A release"'
+    bash_blocks 'git pull'
+}
+
 ShouldRefuseAttributionOnPreGithub() {
     new_session github
     github_blocks create_pull_request "{\"title\":\"t\",\"body\":$(json_string "Closes #1
