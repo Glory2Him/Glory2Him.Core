@@ -50,7 +50,8 @@ case "${1:-}" in
         email="${G2H_GIT_USER_EMAIL:-${CLAUDE_CODE_USER_EMAIL:-}}"
         name="${G2H_GIT_USER_NAME:-}"
         if [ -z "$name" ] && [ -n "$email" ]; then
-            name=$(git -C "$project_dir" log --all -1 --format='%an' --author="<$email>" 2>/dev/null)
+            name=$(git -C "$project_dir" log --all -1 --format='%an' \
+                --regexp-ignore-case --fixed-strings --author="<$email>" 2>/dev/null)
         fi
 
         if [ -n "$name" ] && [ -n "$email" ] \
