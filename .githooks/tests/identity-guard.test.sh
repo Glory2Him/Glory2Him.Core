@@ -647,6 +647,34 @@ ShouldRefuseAGhTextSourceItCannotReadOnPreBash() {
     bash_allows 'gh api repos/o/r/issues/1/comments -F body=@clean.md'
 }
 
+# now: the time in seconds, to the millisecond.
+now() {
+    if [ -n "${EPOCHREALTIME:-}" ]; then printf '%s' "${EPOCHREALTIME/,/.}"
+    else perl -MTime::HiRes=time -e 'printf "%.3f", time'; fi
+}
+
+ShouldJudgeALargeCommandWellWithinTheHookTimeoutOnPreBash() {
+    new_session large
+    # 2048 lines of 102 characters once decoded, heavy in what JSON escapes, built
+    # already escaped so that only the hook is timed.
+    text='Line with \"quotes\", a \\backslash and a \ttab, then plain words to make it one hundred characters long.\n'
+    for doubling in 1 2 3 4 5 6 7 8 9 10 11; do text=$text$text; done
+    one_line=${text//\\n/ }
+    for command in "git commit -F - <<'EOF'\n${text}EOF" \
+        "gh pr create --title t --body '${text}'" \
+        "gh pr comment 5 --body '${one_line}'"; do
+        payload="{\"session_id\":\"test\",\"cwd\":$(json_string "$session"),\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"$command\"}}"
+        [ "${#payload}" -gt 200000 ] || fail_check "the payload is only ${#payload} bytes"
+        started=$(now)
+        printf '%s' "$payload" | CLAUDE_PROJECT_DIR="$session" bash "$hook" pre-bash >"$scratch/out" 2>&1
+        status=$?
+        finished=$(now)
+        assert_equal "judged in full: ${command:0:30}" 0 "$status"
+        awk -v took="$(awk -v a="$started" -v b="$finished" 'BEGIN { printf "%.3f", b - a }')" \
+            'BEGIN { exit !(took < 2) }' || fail_check "took $(awk -v a="$started" -v b="$finished" 'BEGIN { printf "%.3f", b - a }') s: ${command:0:30}"
+    done
+}
+
 ShouldNotRefuseOrdinaryCommandsOnPreBash() {
     new_session ordinary
     bash_allows 'git commit -m x' 'Commit, rather than with --no-verify'
