@@ -174,7 +174,7 @@ github_blocks() { expect_exit 2 "pre-github blocks $1: $2" pre_github "$@"; }
 # json_value <file> <key> [key ...]: prints, as JSON, the value at that path in
 # the JSON file, or "undefined" when the path is absent.
 json_value() {
-    if command -v python3 >/dev/null 2>&1; then
+    if python3 -c 'pass' >/dev/null 2>&1; then
         python3 -c 'import json,sys
 v = json.load(open(sys.argv[1]))
 for k in sys.argv[2:]:
