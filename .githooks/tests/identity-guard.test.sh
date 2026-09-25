@@ -309,6 +309,31 @@ ShouldRefuseAToolAuthoredCommitOnPrePush() {
     refused 'rewritten history carrying a tool commit' git -C "$repo" push -q --force origin main
 }
 
+ShouldCheckAForcePushOverARemoteTipThisCloneHasNotSeen() {
+    remote="$scratch/unseen-remote.git"
+    git init -q --bare "$remote"
+    other="$scratch/unseen-other"
+    clone_repo "$remote" "$other"
+    git -C "$other" commit -q --allow-empty -m 'Base'
+    git -C "$other" push -q origin main
+
+    repo="$scratch/unseen"
+    clone_repo "$remote" "$repo"
+    git -C "$other" commit -q --allow-empty -m 'Pushed elsewhere, never fetched here'
+    git -C "$other" push -q origin main
+
+    git -C "$repo" commit -q --allow-empty -m 'By a person'
+    allowed 'a force push of commits by a person' git -C "$repo" push -q --force origin main
+    raw_commit "$repo" "$tool_ident" "$tool_ident" 'Tool-authored' >/dev/null
+    git -C "$other" fetch -q origin
+    git -C "$other" reset -q --hard origin/main
+    git -C "$other" commit -q --allow-empty -m 'Pushed elsewhere again'
+    git -C "$other" push -q origin main
+    output=$(git -C "$repo" push -q --force origin main 2>&1)
+    assert_equal 'the tool commit is not published' "$(git -C "$other" rev-parse HEAD)" "$(git -C "$remote" rev-parse main)"
+    assert_contains 'the refusal names the tool identity' 'authored or committed as an AI tool' "$output"
+}
+
 ShouldPushPublishedToolHistoryMergedIn() {
     remote="$scratch/published-remote.git"
     git init -q --bare "$remote"
