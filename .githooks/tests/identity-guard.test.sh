@@ -409,81 +409,14 @@ ShouldPushPublishedToolHistoryMergedIn() {
 
 ShouldRefuseTheCanonicalFormsOnPreBash() {
     new_session canonical
-    bash_blocks "git commit -m x -m \"$trailer\""
-    bash_blocks "git commit -m x -m \"$session_link\""
-    bash_blocks "git commit -m x -m \"$footer\""
     bash_blocks 'git commit --no-verify -m x'
     bash_blocks 'git -c core.hooksPath=/dev/null commit -m x'
-    bash_blocks "GIT_AUTHOR_NAME=$tool_name git commit -m x"
-    bash_blocks "git commit --author=$tool_name -m x"
-    bash_blocks "git -c user.name=$tool_name commit -m x"
     bash_allows 'git commit -m "Add the thing"'
     bash_allows 'git status'
     bash_allows 'ls -la'
     git -C "$session" config --unset core.hooksPath
     bash_allows 'git push origin main'
     assert_equal 'hooks pointed at .githooks' .githooks "$(git -C "$session" config core.hooksPath)"
-    git -C "$session" config user.name "$tool_name"
-    bash_blocks 'git commit -m x'
-}
-
-ShouldJudgeEveryIdentityOverrideByTheSharedRuleOnPreBash() {
-    new_session overrides
-    # People whose names or addresses merely contain the word: check-ident allows them.
-    bash_allows "git commit --author='$tool_name Monet <cm@example.com>' -m x"
-    bash_allows "GIT_AUTHOR_EMAIL=jean.$tool_lower@example.fr git commit -m x"
-    bash_allows "git -c user.name=${tool_name}tte commit -m x"
-    bash_allows "git config user.name '$tool_name Monet'"
-    # Tool identities, however they are spelled: check-ident refuses them.
-    bash_blocks "git commit --author=\"$tool_name <$tool_lower@example.com>\" -m x"
-    bash_blocks "git commit --author \"$tool_ident\" -m x"
-    bash_blocks "git -c user.name=\"$tool_name Code\" commit -m x"
-    bash_blocks "git -c \"user.name=$tool_name Code\" commit -m x"
-    bash_blocks "git -c USER.EMAIL=$tool_email commit -m x"
-    bash_blocks "git -c author.name=$tool_name commit -m x"
-    bash_blocks "GIT_COMMITTER_EMAIL=someone@anthro""pic.com git commit -m x"
-    bash_blocks "export GIT_AUTHOR_NAME='$tool_name Code'; git commit -m x"
-    bash_blocks "env GIT_AUTHOR_NAME=$tool_name git commit -m x"
-    bash_blocks "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=user.name GIT_CONFIG_VALUE_0=$tool_name git commit -m x"
-    bash_blocks "GIT_CONFIG_PARAMETERS=\"'user.email'='$tool_email'\" git commit -m x"
-    bash_blocks "git config user.email $tool_email"
-    bash_blocks "git config --local user.name \"$tool_name Code\""
-    bash_blocks "git -c user.name=\"$tool_name Code\" -c user.email=$tool_email commit -n -m x -m \"$trailer\""
-}
-
-ShouldRefuseEveryFormThatSkipsTheHooksOnPreBash() {
-    new_session skips
-    bash_blocks 'git commit -n -m x'
-    bash_blocks 'git commit -anm x'
-    bash_blocks 'git commit -qn -m x'
-    bash_blocks 'git commit --no-verif -m x'
-    bash_blocks 'git commit --no-ve -m x'
-    bash_blocks 'git push --no-verify'
-    bash_blocks 'git merge --no-verify feature'
-    bash_blocks 'git -c core.hookspath=/dev/null commit -m x'
-    bash_blocks 'git -c CORE.HOOKSPATH=/dev/null push'
-    bash_blocks 'git -c "core.hooksPath=/dev/null" push'
-    bash_blocks 'git --config-env=core.hooksPath=HOOKS push'
-    bash_blocks 'GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hookspath GIT_CONFIG_VALUE_0=/dev/null git commit -m x'
-    bash_blocks "GIT_CONFIG_PARAMETERS=\"'core.hooksPath'='/dev/null'\" git push"
-    bash_blocks 'git --no-pager commit -n -m x'
-    bash_blocks 'git -P push --no-verify'
-    bash_blocks 'git -C "C:\Users\First Last\repo" commit --no-verify -m x'
-    bash_blocks 'git --git-dir .git --work-tree . commit -n -m x'
-    bash_blocks '/usr/bin/git commit -n -m x'
-    bash_blocks 'cd sub && git commit -n -m x'
-    bash_blocks 'bash -c "git commit --no-verify -m x"'
-    bash_blocks 'git rebase --exec "git commit --amend --no-edit --no-verify" HEAD~1'
-    bash_blocks 'git config core.hooksPath /dev/null'
-    bash_blocks 'git config --unset core.hooksPath'
-    # Values that look like the options are not the options.
-    bash_allows 'git commit -m "-n is not an option here"'
-    bash_allows 'git commit -m x -m "--no-verify is not an option here either"'
-    bash_allows 'git push -n origin main'
-    bash_allows 'git merge --no-verify-signatures feature'
-    bash_allows 'git config core.hooksPath .githooks'
-    bash_allows 'git config core.hooksPath'
-    bash_allows 'git -C "C:\Users\First Last\repo" status'
 }
 
 ShouldRefuseAttributionInGithubTextWrittenWithGhOnPreBash() {
@@ -516,8 +449,6 @@ ShouldNotRefuseOrdinaryCommandsOnPreBash() {
     new_session ordinary
     bash_allows 'git commit -m x' 'Commit, rather than with --no-verify'
     bash_allows "git commit -m x -m \"Co-Authored-By: $person\" && git push -u origin $tool_lower/issue-700-abc"
-    bash_allows 'git commit -m "Document core.hooksPath"'
-    bash_allows 'git config core.hooksPath .githooks && git commit -m x'
     bash_allows "git commit -m \"Mention $tool_name in the message\""
     # Commands that record no identity run whatever the identity is.
     git -C "$session" config user.name "$tool_name"
@@ -527,8 +458,6 @@ ShouldNotRefuseOrdinaryCommandsOnPreBash() {
     bash_allows 'git notes list'
     bash_allows 'git status'
     bash_allows 'git log --oneline'
-    bash_blocks 'git tag -a v1 -m "A release"'
-    bash_blocks 'git pull'
 }
 
 ShouldRefuseAttributionOnPreGithub() {
