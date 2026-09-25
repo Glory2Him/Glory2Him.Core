@@ -545,6 +545,28 @@ ShouldNameTheMatchedTokenInTheRefusalOnPreBash() {
     names 'git commit -m "-n is not an option here"' '-n'
 }
 
+ShouldNotJudgeIdentityOrMessagesOnPreBash() {
+    new_session not-judged
+    # Identities set on the command: git's own hooks judge what git resolves.
+    bash_allows "git -c user.name=$tool_name commit -m x"
+    bash_allows "git -c user.name=\"$tool_name Code\" -c user.email=$tool_email commit -m x"
+    bash_allows "GIT_AUTHOR_NAME=$tool_name git commit -m x"
+    bash_allows "git commit --author=\"$tool_ident\" -m x"
+    bash_allows "git config user.email $tool_email"
+    # Messages carrying attribution: commit-msg and pre-push judge them.
+    bash_allows "git commit -m x -m \"$trailer\""
+    bash_allows "git commit -m x -m \"$session_link\""
+    bash_allows "git commit -m x -m \"$footer\""
+    bash_allows "git tag -a v1 -m \"$trailer\""
+    # A tool identity configured: nothing is refused because of it.
+    git -C "$session" config user.name "$tool_name"
+    git -C "$session" config user.email "$tool_email"
+    bash_allows 'git commit -m x'
+    bash_allows 'git tag -a v1 -m "A release"'
+    bash_allows 'git pull'
+    bash_allows 'git merge --no-ff feature'
+}
+
 ShouldNotRefuseOrdinaryCommandsOnPreBash() {
     new_session ordinary
     bash_allows 'git commit -m x' 'Commit, rather than with --no-verify'
