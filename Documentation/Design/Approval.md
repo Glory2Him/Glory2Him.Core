@@ -20,8 +20,8 @@ heading level 3, exactly as `### 7.5.1`, `### 8.6.1`, `### 8.6.2` and
 `### 8.6.2.1` stood in `G2H Design.md`. All four stay at level 3 rather than
 being promoted to match their numbers: the anomaly is preserved, not tidied
 (§IDX1.5, the same precedent `Security.md`'s header block names for §SEC14.6.1 and
-`Architecture.md`'s for §ARC16.7.5). The other `Documentation/Design/*.md`
-files carry their own prefixes — `ARC`, `DOM`, `EVN`, `SEC`, `UI` — so a bare
+`Architecture.md`'s for §ARC16.7.5). The other area files under `Documentation/Design/`
+carry their own prefixes — `ARC`, `DOM`, `EVN`, `SEC`, `UI` — so a bare
 `§APR8.6` is unambiguous. Where this file cites one of them, the map at the
 top of [`G2H Design.md`](../G2H%20Design.md) is what resolves it.
 

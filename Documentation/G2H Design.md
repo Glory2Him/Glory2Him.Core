@@ -105,7 +105,7 @@ forcing. What the split inherits from `Events.md` is the prefix idea and the
 
 **The citation form**
 
-A citation is the bare prefixed number and nothing else:
+A citation of a prefixed document is the bare prefixed number and nothing else, because the prefix already names the file:
 
 ```
 §DOM4.2      §APR8.6.1      §ARC12.5      §SEC14.7      §UI20.6.1      §EVN18      §IDX1.5

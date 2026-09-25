@@ -92,7 +92,9 @@ second statement that will drift from the first.
 
 **Record every deviation where it happens.** A feature or user story that must
 depart from a global rule says so in its document's **Deviations** section: the
-rule it departs from, the reason, and how it is done instead. The planner proposes
+rule it departs from, the reason, and how it is done instead. A service's own
+deviation, such as a count over two-to-three, goes in its user story document's,
+as §ARC12.5 says. The planner proposes
 a deviation and the user's approval grants it. Another document's deviation is
 never the reason for one. A service designed before feature documents has no such
 section, so its approved two-to-three deviation is recorded in §ARC12.5's register
@@ -112,9 +114,11 @@ for every design document, feature and user story documents included:
 **Every operation section in a user story document carries exactly one tag,
 never bare:**
 
+<!-- Indented so that a line-based reader, such as the `(needs issue)` sweep,
+     does not take these two example lines for headings. Do not dedent. -->
 ```markdown
-## 1. AddSavedSearchAsync (#512)
-## 2. RemoveSavedSearchByIdAsync (needs issue)
+  ## 1. AddSavedSearchAsync (#512)
+  ## 2. RemoveSavedSearchByIdAsync (needs issue)
 ```
 
 `(#N)` names the task — the GitHub issue — that delivers the operation.
@@ -129,9 +133,9 @@ The tag is mandatory rather than inferred, because a bare heading is ambiguous �
 deliberately skipped, or just missed? Requiring the tag forces the decision every
 time an operation is touched.
 
-**Relocations.** Annotate every relocated section with `(formerly §X)` so code
-comments citing the old number still resolve by grep; §IDX1.5 has the full rules,
-including where a retired number may still stand. Nothing in CI validates
+**Relocations.** §IDX1.5 rules how a relocated section is annotated, so that a
+citation of its old number still resolves by grep, and where a retired number
+may still stand. Nothing in CI validates
 citations. `Tools/design-split-audit.sh` checks their form (gate G4) when someone
 runs it by hand; otherwise the annotation convention is the whole guarantee.
 

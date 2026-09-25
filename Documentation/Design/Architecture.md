@@ -22,7 +22,7 @@ leave two sections competing for the same `formerly` annotation as their
 shared grep anchor. §IDX1.5 reason 3 already forbids the reorder as well —
 the same kind of preservation `Security.md`'s header
 block names for §SEC14.6.1's heading-level anomaly. The
-other `Documentation/Design/*.md` files carry their own prefixes — `APR`,
+other area files under `Documentation/Design/` carry their own prefixes — `APR`,
 `DOM`, `EVN`, `SEC`, `UI` — so a bare `§ARC12.5` is unambiguous. Where this
 file cites one of them, the map at the top of
 [`G2H Design.md`](../G2H%20Design.md) is what resolves it.
@@ -1046,7 +1046,7 @@ Responsible for:
 
 **An arm is UP TO four blocks — a read-only contract raises no dependency-validation family and costs three.** The bound is deliberately an upper one rather than a flat number, and stating it flatly is what made the inventory below wrong: a read-only contract has no uniqueness collision, no foreign-key violation and no constraint conflict, so there is nothing for a dependency-validation family to carry, and `IIdentityUserService` is the worked example. **Nobody is to mint the fourth type for symmetry** — there is no `IdentityUserDependencyValidationException` anywhere in the solution and there should not be one. The upper bound also leaves the runaway argument exactly where it was: the cap is on how fast the `TryCatch` can grow, and an arm that costs three rather than four does not make a fifth dependency affordable.
 
-**RULE — a count over three needs an entry in §ARC12.5's register of approved deviations.** That is where the protocol for granting one lives, beside the rule an author of a new orchestration reads; this section deliberately holds only the counting rule and the inventory it produces.
+**RULE — a count over three needs an approved deviation, recorded where §ARC12.5 says: in the service's user story document, or, for a service designed before those documents existed, in §ARC12.5's register.** The rule and the protocol for granting one live in the agent definitions, as §ARC12.5's note says; this section deliberately holds only the counting rule and the inventory it produces.
 
 **A missing arm is a defect, not untidiness, and that is what makes the count the right metric.** `ApprovalOrchestrationService.Exceptions.cs` states the cost itself, above its `ApprovalReviewRequest` arm: *"Without these the whole family falls to the catch-all below and every routine refusal — an over-long deletion reason, a `ReadOnly` caller, a uniqueness collision — is reported as a 424 infrastructure fault, and the Conflict branch on the exposer is dead code that can never be reached."* A dependency you have not written an arm for is not a cheaper dependency; it is a dependency whose validation failures lie to the client.
 

@@ -1,7 +1,8 @@
 #!/bin/bash
 # ────────────────────────────────────────────────────────────────────────────────
-# Standing two-gate check for the area-scoped design documents under
-# `Documentation/Design/`.
+# Standing two-gate check for the design documents under
+# `Documentation/Design/`: the area files, and the index, `design.md`, which G1
+# skips.
 #
 # The split of `Documentation/G2H Design.md` into area files is finished, and
 # the baseline-relative proofs that a relocation was faithful (G2, symmetric
@@ -18,7 +19,8 @@
 #        new section, `*(new; <source or reason>)*` or bare `*(new)*`. This
 #        reads the tree as it stands today; it needs no history and no
 #        `origin/main`.
-#   G4 — citation FORM. Inside a non-exempt area file, a `§N.M` citation must
+#   G4 — citation FORM. Inside a non-exempt file — an area file, or the index,
+#        `design.md` — a `§N.M` citation must
 #        carry its area prefix (`§UI20.6`, never bare `§20.6`) — the rule
 #        `Documentation/G2H Design.md` §IDX1.5 states. HEAD-only, no baseline.
 #
@@ -61,7 +63,8 @@
 #                         `Documentation/Design/`. Both gates skip
 #                         `Documentation/Design/Events.md` regardless of scope —
 #                         see the note below — and that skip lives inside each
-#                         gate, not in file selection.
+#                         gate, not in file selection. G1 skips the index,
+#                         `design.md`, the same way.
 #   --gate      all       G1 is heading provenance, G4 is citation form. Neither
 #                         reads a baseline or `origin/main`.
 #
@@ -126,7 +129,8 @@ INDEX="$AREA_DIR/design.md"
 FAILURES=0
 
 area_files() {
-    # Every area file. Scope 20 is UI.md alone; scope sec is
+    # Every file the gates read: each area file, and the index, `design.md`,
+    # which G1 skips. Scope 20 is UI.md alone; scope sec is
     # Security.md alone (§14 and §18, issue #552); scope arc is Architecture.md
     # alone (§12, §16 and §17, issue #553); scope apr is Approval.md alone
     # (§7, §8, §9 and §13, issue #554); scope dom is Domain.md alone
@@ -164,7 +168,8 @@ area_files() {
 
 expected_area_file() {
     # The one file a narrow scope resolves to, named when it is missing.
-    # Meaningless under --scope all, which resolves to every area file.
+    # Meaningless under --scope all, which resolves to every file under
+    # `Documentation/Design/`, the index included.
     case "$SCOPE" in
         20)  echo "$AREA_DIR/UI.md" ;;
         sec) echo "$AREA_DIR/Security.md" ;;

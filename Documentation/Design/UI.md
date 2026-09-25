@@ -9,7 +9,7 @@ renumbered, reordered, merged or split in the move. That is the
 prefix-preserving rule of §IDX1.5. It means this file starts at `UI20` rather than
 at 1 and its numbering is not contiguous with the other area files, so the
 contents list below is what makes that gap read as a table of contents rather
-than as missing content. The other `Documentation/Design/*.md` files carry
+than as missing content. The other area files under `Documentation/Design/` carry
 their own prefixes — `ARC`, `APR`, `DOM`, `SEC`, `EVN` — so a bare `§UI20.6.1`
 is unambiguous. Where this file cites one of them, the map at the top of
 [`G2H Design.md`](../G2H%20Design.md) is what resolves it.
