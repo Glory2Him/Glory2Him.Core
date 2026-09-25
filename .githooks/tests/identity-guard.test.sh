@@ -446,9 +446,42 @@ $footer\""
     bash_blocks "gh api repos/o/r/issues/1/comments -F body=@attributed.md"
     bash_blocks "gh release create v1 --notes \"$footer\""
     bash_blocks "/usr/bin/gh pr create --title t --body \"$footer\""
+    # Every file source, in every form: --option value, --option=value, -x value, -xvalue.
+    mkdir -p "$session/docs"
+    cp "$session/attributed.md" "$session/docs/attributed.md"
+    bash_blocks 'gh pr create --title t --body-file=attributed.md'
+    bash_blocks 'gh pr create -t t -Fattributed.md'
+    bash_blocks 'gh pr comment 5 -F docs/attributed.md'
+    bash_blocks 'gh pr review 5 --comment --body-file attributed.md'
+    bash_blocks 'gh pr merge 5 --squash --body-file attributed.md'
+    bash_blocks 'gh issue edit 5 --body-file attributed.md'
+    bash_blocks 'gh issue comment 5 -Fattributed.md'
+    bash_blocks 'gh release create v1 --notes-file attributed.md'
+    bash_blocks 'gh release edit v1 --notes-file=attributed.md'
+    bash_blocks 'gh release create v1 -F attributed.md'
+    bash_blocks 'gh api repos/o/r/issues/1/comments --field body=@attributed.md'
+    bash_blocks 'gh api repos/o/r/issues/1/comments -Fbody=@attributed.md'
+    bash_blocks 'gh api repos/o/r/issues/1/comments --field=body=@attributed.md'
+    bash_blocks 'gh api repos/o/r/issues/1 -X PATCH --input attributed.md'
+    bash_blocks 'gh api repos/o/r/issues/1 -X PATCH --input=attributed.md'
+    bash_blocks '/usr/local/bin/gh pr comment 5 --body-file attributed.md'
+    bash_blocks 'cd . && gh pr comment 5 --body-file attributed.md && echo done'
+    # Every inline source.
+    bash_blocks "gh pr create --title \"$session_link\" --body x"
+    bash_blocks "gh pr create -t \"$session_link\" -b x"
+    bash_blocks "gh pr comment 5 -b\"$trailer\""
+    bash_blocks "gh pr comment 5 --body=\"$trailer\""
+    bash_blocks "gh release edit v1 -n \"$footer\""
+    bash_blocks "gh api repos/o/r/issues/1/comments --raw-field \"body=$footer\""
+    bash_blocks "gh api repos/o/r/issues -f title=t --field \"body=$footer\""
     bash_allows 'gh pr create --title t --body "Closes #1"'
     bash_allows 'gh pr edit 5 --body-file clean.md'
+    bash_allows 'gh pr create -t t -Fclean.md'
+    bash_allows 'gh release create v1 --notes-file=clean.md'
+    bash_allows 'gh api repos/o/r/issues/1/comments -F body=@clean.md'
+    bash_allows 'gh api repos/o/r/issues/1 -X PATCH --input clean.md'
     bash_allows 'gh pr view 5'
+    bash_allows 'gh api repos/o/r/pulls/5'
     # gh writes no commit, so it never needs the configured git identity.
     git -C "$session" config user.name "$tool_name"
     bash_allows 'gh issue comment 5 --body "Looks good"'
