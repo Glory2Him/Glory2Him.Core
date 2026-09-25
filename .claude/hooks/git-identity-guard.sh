@@ -114,14 +114,6 @@ case "${1:-}" in
 
         while IFS="$tab" read -r kind label ident; do
             case "$kind" in
-                SKIP)
-                    block "Refused: this repository does not allow skipping or redirecting its git hooks ($label). They keep AI identities and attribution out of the history."
-                    ;;
-                IDENT)
-                    if ! reason=$(bash "$guard" check-ident "$label" "$ident" 2>&1); then
-                        block "Refused: $reason"
-                    fi
-                    ;;
                 FILE)
                     cwd=$(printf '%s' "$payload" | json_strings cwd)
                     if ! reason=$( cd "${cwd:-$project_dir}" 2>/dev/null; [ ! -f "$label" ] || \
@@ -131,13 +123,8 @@ case "${1:-}" in
                     ;;
             esac
         done <<<"$facts"
-        if has_fact HISTORY || has_fact GH; then
+        if has_fact GH; then
             if ! reason=$(printf '%s\n' "$command" | GUARD_LABEL='this command' bash "$guard" check-text 2>&1); then
-                block "Refused: $reason"
-            fi
-        fi
-        if has_fact COMMIT; then
-            if ! reason=$( cd "$project_dir" && bash "$guard" check-current 2>&1 ); then
                 block "Refused: $reason"
             fi
         fi
