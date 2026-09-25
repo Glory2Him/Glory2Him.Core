@@ -153,6 +153,15 @@ pre_bash() {
 bash_allows() { expect_exit 0 "pre-bash allows: $1" pre_bash "$@"; }
 bash_blocks() { expect_exit 2 "pre-bash blocks: $1" pre_bash "$@"; }
 
+# pre_powershell <command>: runs the session hook over a PowerShell call in $session.
+pre_powershell() {
+    printf '{"session_id":"test","hook_event_name":"PreToolUse","cwd":%s,"tool_name":"PowerShell","tool_input":{"command":%s}}' \
+        "$(json_string "$session")" "$(json_string "$1")" | CLAUDE_PROJECT_DIR="$session" bash "$hook" pre-bash
+}
+
+powershell_allows() { expect_exit 0 "pre-bash allows PowerShell: $1" pre_powershell "$@"; }
+powershell_blocks() { expect_exit 2 "pre-bash blocks PowerShell: $1" pre_powershell "$@"; }
+
 # pre_github <tool> <tool_input JSON>
 pre_github() {
     printf '{"session_id":"test","hook_event_name":"PreToolUse","tool_name":"mcp__github__%s","tool_input":%s}' "$1" "$2" | \
@@ -443,6 +452,26 @@ $footer\""
     # gh writes no commit, so it never needs the configured git identity.
     git -C "$session" config user.name "$tool_name"
     bash_allows 'gh issue comment 5 --body "Looks good"'
+}
+
+ShouldRestoreTheHooksPathBeforeEachCommandOnPreBash() {
+    new_session restore
+    hooks_path() { git -C "$session" config core.hooksPath; }
+    git -C "$session" config --unset core.hooksPath
+    pre_bash 'ls -la' >/dev/null 2>&1
+    assert_equal 'restored when unset, before an ordinary command' .githooks "$(hooks_path)"
+    git -C "$session" config core.hooksPath /dev/null
+    pre_bash 'echo hi' >/dev/null 2>&1
+    assert_equal 'restored when redirected' .githooks "$(hooks_path)"
+    git -C "$session" config core.hooksPath ./.githooks
+    pre_bash 'git commit --no-verify -m x' >/dev/null 2>&1
+    assert_equal 'restored before a refused command' .githooks "$(hooks_path)"
+    git -C "$session" config core.hooksPath /dev/null
+    pre_powershell 'Get-ChildItem' >/dev/null 2>&1
+    assert_equal 'restored before a PowerShell command' .githooks "$(hooks_path)"
+    git -C "$session" config core.hooksPath /dev/null
+    printf '{"tool_name":"Bash","tool_input":{}}' | CLAUDE_PROJECT_DIR="$session" bash "$hook" pre-bash >/dev/null 2>&1
+    assert_equal 'restored for a payload with no command' .githooks "$(hooks_path)"
 }
 
 ShouldNotRefuseOrdinaryCommandsOnPreBash() {
