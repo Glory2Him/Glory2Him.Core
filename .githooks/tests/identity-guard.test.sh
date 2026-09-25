@@ -388,6 +388,40 @@ ShouldSwitchAToolIdentityToTheSignedInPersonOnSessionStart() {
     assert_equal 'hooks pointed at .githooks for a person too' .githooks "$(git -C "$repo" config core.hooksPath)"
 }
 
+ShouldCheckOnlyThePullRequestsOwnCommitsInCi() {
+    remote="$scratch/ci-range-remote.git"
+    git init -q --bare "$remote"
+    seed="$scratch/ci-range-seed"
+    git clone -q "$remote" "$seed" 2>/dev/null
+    base=$(raw_commit "$seed" "$person" "$person" 'Base, the PR base when it opened')
+    git -C "$seed" push -q origin HEAD:main
+
+    repo="$scratch/ci-range"
+    clone_repo "$remote" "$repo"
+    git -C "$repo" checkout -q -b feature
+    git -C "$repo" commit -q --allow-empty -m 'By a person'
+    raw_commit "$seed" "$tool_ident" "$tool_ident" 'Tool-authored, merged to main later' >/dev/null
+    git -C "$seed" push -q origin HEAD:main
+    git -C "$repo" fetch -q origin
+    git -C "$repo" merge -q --no-edit origin/main
+    clean=$(git -C "$repo" rev-parse HEAD)
+    raw_commit "$repo" "$person" "$person" "By a person
+
+$trailer" >/dev/null
+    trailer_only=$(git -C "$repo" rev-parse HEAD)
+    git -C "$repo" update-ref HEAD "$clean"
+    raw_commit "$repo" "$tool_ident" "$person" 'Tool-authored in the PR' >/dev/null
+    tool_authored=$(git -C "$repo" rev-parse HEAD)
+    # A checkout holds the PR head; the base branch is the job's to fetch.
+    git -C "$repo" checkout -q --detach "$clean"
+    git -C "$repo" update-ref -d refs/remotes/origin/main
+
+    ci() { ( export BASE_SHA="$base" BASE_REF=main HEAD_SHA="$1" PR_TITLE='CONFIG: Do The Thing' PR_BODY='Closes #1'; ci_job "$repo" ); }
+    allowed 'a PR that merged in tool history already on main, with a stale base sha' ci "$clean"
+    refused 'a PR with a trailer-only commit' ci "$trailer_only"
+    refused 'a PR with a tool-authored commit' ci "$tool_authored"
+}
+
 ShouldFailAnAttributedPullRequestTitleOrDescriptionInCi() {
     remote="$scratch/ci-text-remote.git"
     git init -q --bare "$remote"
