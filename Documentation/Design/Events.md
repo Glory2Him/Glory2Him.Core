@@ -1563,7 +1563,8 @@ either.
   change — or, whatever it requires, where the fact is a reader's changed
   reaction (§APR8.8 regardless-rule 1, not yet built) — determines that the
   existing verdicts no longer describe the current content. It then sets
-  **every active `ApprovalReview` on that approval to `Dismissed`**. An `-Added`
+  **every active `ApprovalReview` on that approval to `Dismissed`** — for a
+  changed reaction, every one the old pair earned (§APR9.7.4). An `-Added`
   fact opens or reinstates the round and evaluates it; it dismisses nothing. The re-file
   route depends entirely on it, and **that route is now reachable**: the
   service exists, the subscription is wired, and a superseded reviewer's slot is
@@ -2127,10 +2128,9 @@ itself is at-least-once.**
      fact handlers re-run the whole §APR8.5 evaluation from stored
      state, so a second delivery reaches the same conclusion (§EVN18(b)).
      One delta rides with that evaluation and carries no check: under
-     `RequireReapprovalOnChange = true` the `-Modified` ears dismiss the
-     round's active reviews on every delivery, so a redelivered `-Modified`
-     dismisses reviews already cast on the amended text (§APR9.7.4's second
-     residual).
+     `RequireReapprovalOnChange = true` the `-Modified` and `-Submitted` ears
+     dismiss the round's active reviews on every delivery, so a redelivered
+     one dismisses reviews already cast since (§APR9.7.4's residual).
    - **Gate on signed state, then find nothing left to do.** The two
      non-re-testing subscriber sets of §EVN18(e) read the round's status out of
      the HMAC before any gather, and their gather or presence check is empty on
@@ -2339,10 +2339,10 @@ Avoiding event spaghetti:
    makes that tolerable for the fact handlers is that they re-evaluate the round
    rather than apply a delta — idempotence by construction, not deduplication —
    save two deltas. The `Association-Repointed` ear's carries the check
-   §APR9.7.4 names (not yet built); the `-Modified` ears' dismissal under
-   `RequireReapprovalOnChange = true` carries none (§APR9.7.4's second
-   residual). A handler added above the foundation that applies a delta owns
-   the check that makes it safe.
+   §APR9.7.4 names (not yet built); the `-Modified` and `-Submitted` ears'
+   dismissal under `RequireReapprovalOnChange = true` carries none
+   (§APR9.7.4's residual). A handler added above the foundation that applies
+   a delta owns the check that makes it safe.
 5. Do not rely on the relative order of two subscribers on one address, or on
    the order of two publishes. No address carries two subscriptions today, so
    the first half constrains future wiring; the second bites now.
@@ -2365,8 +2365,8 @@ Avoiding event spaghetti:
     fresh envelope — which is what makes rule 4's dedup on `EventId` work, and
     why `RetryCount` never increments (§EVN9). There is no replay operator that
     re-runs history (§EVN22); replay-safety is a property every handler must
-    carry, not a feature something offers. One built handler does not yet: the
-    `-Modified` ears' dismissal (§APR9.7.4's second residual).
+    carry, not a feature something offers. One built behaviour does not yet:
+    the `-Modified` and `-Submitted` ears' dismissal (§APR9.7.4's residual).
 
 ## EVN21. Future Pattern: Intentional Dispatch Events *(new; from EventSubstrate.md §34)*
 
