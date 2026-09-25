@@ -89,23 +89,25 @@ MODEL_EFFORTS = {
 }
 EFFORT_COLOUR = "fbca04"
 
-# The issue lifecycle. Approval is a label rather than a review, so these carry it.
-# DEVELOPERS.md section 7 is the written record.
+# The issue lifecycle. Approval is not among these: it is QA's ready for development
+# label below, which takes a task out of status: needs-scoping. DEVELOPERS.md
+# section 7 is the written record.
 STATUS_LABELS = [
-    ("status: needs-scoping", "e4e669", "Criteria written, waiting on a human to approve them"),
-    ("status: ready-for-dev", "0e8a16", "Approved. The developer will not start without this"),
+    ("status: needs-scoping", "e4e669", "Criteria written, waiting on QA to sign them off"),
     ("status: in-progress", "1d76db", "A developer is implementing it"),
     ("status: in-qa", "5319e7", "Implemented, under adversarial verification"),
     ("status: done", "6a737d", "Merged and verified"),
 ]
 
 # QA's verdicts: ready for development on an issue it clears, ready for review on a
-# PR it passes. .claude/agents/qa.md makes applying them mandatory, and gh --add-label
-# fails outright on a label the repository does not have. There is no separate
-# merge-ready label: ready for review already carries QA's MERGE READY: YES. Colours
-# and descriptions are copied from the live Glory2Him.Template labels.
+# PR it passes. ready for development is also the approval: the developer will not
+# start a task without it. .claude/agents/qa.md makes applying them mandatory, and
+# gh --add-label fails outright on a label the repository does not have. There is no
+# separate merge-ready label: ready for review already carries QA's MERGE READY: YES.
+# Colours, and the ready for review description, are copied from the live
+# Glory2Him.Template labels.
 QA_LABELS = [
-    ("ready for development", "0e8a16", "Criteria approved and reviewed; a developer may start"),
+    ("ready for development", "0e8a16", "QA signed the task off; a developer may start once its design is on main"),
     ("ready for review", "0e8a16", "QA passed with no blocking findings; ready for a human merge review"),
 ]
 

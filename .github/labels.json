@@ -612,12 +612,7 @@
   {
     "name": "status: needs-scoping",
     "color": "e4e669",
-    "description": "Criteria written, waiting on a human to approve them"
-  },
-  {
-    "name": "status: ready-for-dev",
-    "color": "0e8a16",
-    "description": "Approved. The developer will not start without this"
+    "description": "Criteria written, waiting on QA to sign them off"
   },
   {
     "name": "status: in-progress",
@@ -637,7 +632,7 @@
   {
     "name": "ready for development",
     "color": "0e8a16",
-    "description": "Criteria approved and reviewed; a developer may start"
+    "description": "QA signed the task off; a developer may start once its design is on main"
   },
   {
     "name": "ready for review",
