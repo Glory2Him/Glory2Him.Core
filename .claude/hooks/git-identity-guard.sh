@@ -29,7 +29,8 @@ block() {
 }
 
 use_hooks() {
-    git -C "$project_dir" config core.hooksPath .githooks 2>/dev/null
+    [ "$(git -C "$project_dir" config core.hooksPath 2>/dev/null)" = .githooks ] || \
+        git -C "$project_dir" config core.hooksPath .githooks 2>/dev/null
 }
 
 # The hook payload is JSON on stdin: print the decoded string fields named.
@@ -80,13 +81,12 @@ case "${1:-}" in
         ;;
 
     pre-bash)
+        use_hooks
         payload=$(cat)
         command=$(printf '%s' "$payload" | json_strings command)
         [ -n "$command" ] || exit 0
         facts=$(printf '%s\n' "$command" | awk -f "$hooks_dir/shell-facts.awk")
         [ -n "$facts" ] || exit 0
-
-        use_hooks
 
         while IFS="$tab" read -r kind label ident; do
             case "$kind" in
