@@ -5,3 +5,6 @@
 
 # Git hooks have no extension, so name the directory: a CRLF hook fails the same way.
 .githooks/* text eol=lf
+
+# The awk programs the hooks run stay LF, like the scripts that run them.
+*.awk text eol=lf

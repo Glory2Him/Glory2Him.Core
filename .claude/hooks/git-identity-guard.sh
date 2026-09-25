@@ -17,6 +17,8 @@ set -u
 
 project_dir="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 guard="$project_dir/.githooks/identity-guard.sh"
+hooks_dir=$(dirname "${BASH_SOURCE[0]}")
+tab=$(printf '\t')
 
 block() {
     printf '%s\n' "$1" >&2
@@ -27,10 +29,13 @@ use_hooks() {
     git -C "$project_dir" config core.hooksPath .githooks 2>/dev/null
 }
 
-# The hook payload is one line of JSON; turn its escaped newlines back into lines
-# so each message line is matched on its own.
-read_payload() {
-    sed 's/\\n/\n/g; s/\\r//g'
+# The hook payload is JSON on stdin: print the decoded string fields named.
+json_strings() {
+    awk -v keys="$*" -f "$hooks_dir/json-strings.awk"
+}
+
+has_fact() {
+    printf '%s\n' "$facts" | grep -qx "$1"
 }
 
 case "${1:-}" in
@@ -64,29 +69,37 @@ case "${1:-}" in
         ;;
 
     pre-bash)
-        payload=$(read_payload)
-        git_write='git([[:space:]]+-[cC][[:space:]]+[^[:space:]]+)*[[:space:]]+(commit|commit-tree|push|merge|pull|rebase|cherry-pick|revert|am|tag|notes|filter-branch|filter-repo)([^a-z-]|$)'
-        printf '%s\n' "$payload" | grep -Eq "$git_write" || exit 0
+        command=$(json_strings command)
+        [ -n "$command" ] || exit 0
+        facts=$(printf '%s\n' "$command" | awk -f "$hooks_dir/shell-facts.awk")
+        [ -n "$facts" ] || exit 0
 
         use_hooks
 
-        if printf '%s\n' "$payload" | grep -Eq -- '--no-verify|core\.hooksPath'; then
+        if printf '%s\n' "$command" | grep -Eq -- '--no-verify|core\.hooksPath'; then
             block 'Refused: this repository does not allow skipping or redirecting its git hooks (--no-verify, core.hooksPath). They keep AI identities and attribution out of the history.'
         fi
-        if printf '%s\n' "$payload" | grep -Eiq '(GIT_(AUTHOR|COMMITTER)_(NAME|EMAIL)|user\.(name|email))=[^[:space:]]*(claude|anthropic)|--author[= ]+["'"'"']?claude'; then
-            block 'Refused: commits are never authored or committed as an AI tool. They are checked in under the identity of the person responsible for them.'
+        while IFS="$tab" read -r kind label ident; do
+            [ "$kind" = IDENT ] || continue
+            if ! reason=$(bash "$guard" check-ident "$label" "$ident" 2>&1); then
+                block "Refused: $reason"
+            fi
+        done <<<"$facts"
+        if has_fact HISTORY; then
+            if ! reason=$(printf '%s\n' "$command" | GUARD_LABEL='this git command' bash "$guard" check-text 2>&1); then
+                block "Refused: $reason"
+            fi
         fi
-        if ! reason=$(printf '%s\n' "$payload" | GUARD_LABEL='this git command' bash "$guard" check-text 2>&1); then
-            block "Refused: $reason"
-        fi
-        if ! reason=$( cd "$project_dir" && bash "$guard" check-current 2>&1 ); then
-            block "Refused: $reason"
+        if has_fact COMMIT; then
+            if ! reason=$( cd "$project_dir" && bash "$guard" check-current 2>&1 ); then
+                block "Refused: $reason"
+            fi
         fi
         exit 0
         ;;
 
     pre-github)
-        if ! reason=$(read_payload | GUARD_LABEL='this GitHub pull request, commit, issue or comment' bash "$guard" check-text 2>&1); then
+        if ! reason=$(sed 's/\\n/\n/g; s/\\r//g' | GUARD_LABEL='this GitHub pull request, commit, issue or comment' bash "$guard" check-text 2>&1); then
             block "Refused: $reason"
         fi
         exit 0
