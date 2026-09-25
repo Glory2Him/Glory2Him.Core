@@ -529,6 +529,22 @@ git log -n 1"
     powershell_allows 'git commit -m "Add the thing"'
 }
 
+ShouldNameTheMatchedTokenInTheRefusalOnPreBash() {
+    new_session token-names
+    names() {
+        output=$(pre_bash "$1" 2>&1)
+        assert_contains "the refusal of: $1" "\"$2\"" "$output"
+    }
+    names 'git push --No-Verify-Signatures' '--No-Veri'
+    names 'git -c Core.HooksPath=/dev/null push' 'HooksPath'
+    names 'export Git_Config_Global=/tmp/x; git commit -m x' 'Git_Config'
+    names 'git config Alias.ci commit' 'Alias.'
+    names 'git config --global Include.path /tmp/x' 'Include.'
+    names 'git config IncludeIf.gitdir:~/src/.path /tmp/x' 'IncludeIf.'
+    names 'git commit -m x -qNa' '-qNa'
+    names 'git commit -m "-n is not an option here"' '-n'
+}
+
 ShouldNotRefuseOrdinaryCommandsOnPreBash() {
     new_session ordinary
     bash_allows 'git commit -m x' 'Commit, rather than with --no-verify'
