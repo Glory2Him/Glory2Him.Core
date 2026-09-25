@@ -58,10 +58,6 @@ hook_skipping_token() {
     printf '%s' "$token"
 }
 
-has_fact() {
-    printf '%s\n' "$facts" | grep -qx "$1"
-}
-
 case "${1:-}" in
     session-start)
         use_hooks
@@ -109,25 +105,22 @@ case "${1:-}" in
         if [ -n "$token" ]; then
             block "Refused: \"$token\" in this command can skip or redirect this repository's git hooks, which keep AI identities and attribution out of the history. The check matches text, so a command that only mentions it is refused too: rephrase it."
         fi
-        facts=$(printf '%s\n' "$command" | awk -f "$hooks_dir/shell-facts.awk")
-        [ -n "$facts" ] || exit 0
+        shell=bash
+        [ "$(printf '%s' "$payload" | json_strings tool_name)" = PowerShell ] && shell=powershell
+        sources=$(printf '%s\n' "$command" | LC_ALL=C awk -v shell="$shell" -f "$hooks_dir/gh-sources.awk")
+        [ -n "$sources" ] || exit 0
 
-        while IFS="$tab" read -r kind label ident; do
-            case "$kind" in
-                FILE)
-                    cwd=$(printf '%s' "$payload" | json_strings cwd)
-                    if ! reason=$( cd "${cwd:-$project_dir}" 2>/dev/null; [ ! -f "$label" ] || \
-                        GUARD_LABEL="$label" bash "$guard" check-text <"$label" 2>&1 ); then
-                        block "Refused: $reason"
-                    fi
-                    ;;
-            esac
-        done <<<"$facts"
-        if has_fact GH; then
-            if ! reason=$(printf '%s\n' "$command" | GUARD_LABEL='this command' bash "$guard" check-text 2>&1); then
+        if ! reason=$(printf '%s\n' "$command" | GUARD_LABEL='this command' bash "$guard" check-text 2>&1); then
+            block "Refused: $reason"
+        fi
+        cwd=$(printf '%s' "$payload" | json_strings cwd)
+        while IFS="$tab" read -r kind option value; do
+            [ "$kind" = FILE ] || continue
+            if ! reason=$( cd "${cwd:-$project_dir}" 2>/dev/null; [ ! -f "$value" ] || \
+                GUARD_LABEL="$value" bash "$guard" check-text <"$value" 2>&1 ); then
                 block "Refused: $reason"
             fi
-        fi
+        done <<<"$sources"
         exit 0
         ;;
 
