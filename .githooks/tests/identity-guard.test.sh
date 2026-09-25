@@ -458,6 +458,22 @@ $footer")}"
     fi
 }
 
+ShouldCheckOnlyTheTextFieldsOnPreGithub() {
+    new_session github-fields
+    # A file's contents are code, not GitHub text: the guard itself names the patterns.
+    github_allows push_files "{\"branch\":\"b\",\"message\":\"CONFIG: Update The Guard\",\"files\":[{\"path\":\"a.sh\",\"content\":$(json_string "$trailer")}]}"
+    github_allows create_or_update_file "{\"path\":\"a.md\",\"message\":\"DOCUMENTATION: Explain\",\"content\":$(json_string "$footer")}"
+    github_blocks push_files "{\"branch\":\"b\",\"message\":$(json_string "x
+
+$trailer"),\"files\":[{\"path\":\"a.sh\",\"content\":\"echo\"}]}"
+    github_blocks create_or_update_file "{\"path\":\"a.md\",\"message\":$(json_string "$session_link"),\"content\":\"x\"}"
+    github_blocks merge_pull_request "{\"pullNumber\":1,\"commit_title\":\"t\",\"commit_message\":$(json_string "$trailer")}"
+    github_blocks merge_pull_request "{\"pullNumber\":1,\"commit_title\":$(json_string "$footer")}"
+    github_blocks issue_write "{\"method\":\"create\",\"title\":$(json_string "$session_link"),\"body\":\"x\"}"
+    github_blocks discussion_comment_write "{\"body\":$(json_string "$footer")}"
+    github_blocks pull_request_review_write "{\"method\":\"create\",\"body\":$(json_string "$trailer")}"
+}
+
 ShouldSwitchAToolIdentityToTheSignedInPersonOnSessionStart() {
     repo="$scratch/session-start"
     git init -q "$repo"
