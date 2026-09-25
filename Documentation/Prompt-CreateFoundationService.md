@@ -1,7 +1,7 @@
 You are working in a repository that contains project skills, templates, and standards documentation.
 Your task is to create a The Standard compliant Foundation Service by following the repository skills and templates exactly.
-You MUST follow strict TDD Red → Green practices, repository standards, and the implementation sequence defined below.
-Commit history is critical and will be reviewed.
+Follow strict TDD, red then green, the repository standards, and the implementation sequence defined below.
+The commit history is part of the deliverable: every test lands as a FAIL commit and then a PASS commit, in order.
 Core Rules
 Repository Compliance
 	• Follow the skills in this repository exactly — `the-standard-foundations` is authoritative for shape; this prompt is the process that walks you through building it.
@@ -14,18 +14,11 @@ Identity Rules
 	• The foundation enforces its own security (design §SEC14.6). Do not assume an exposer or an upstream orchestration already gated the caller — every write path runs its own gate inside `DoXAsync`.
 	• A caller who may not see a row is told not-found, never unauthorized. An authorization error would confirm the row exists; log the true denial reason server-side only.
 Testing Rules
-	• Anything that can be tested MUST be tested.
-	• Follow strict TDD Red → Green practices.
-	• Create exactly ONE test at a time.
-	• Never batch multiple tests together.
-	• Never implement future tests ahead of sequence.
+	• Anything that can be tested must be tested.
+	• Create one test at a time, in the sequence below — never a batch, and never a test ahead of its turn.
 	• Run tests after every change.
 Implementation Rules
-	• ONLY implement the absolute minimum code required for the current step.
-	• Do not over-engineer.
-	• Do not future-proof.
-	• Do not implement code for later phases.
-	• Do not implement additional logic because it "might be needed later".
+	• Implement only the minimum code the current step's test demands; what a later phase or operation needs is written when its own test demands it.
 	• If uncertain, stop and ask rather than assume.
 Progression Rules
 	• Never continue automatically.
@@ -38,8 +31,7 @@ Progression Rules
 
 Required Implementation Order
 Work in vertical slices per CRUD operation.
-You MUST fully complete one CRUD operation before moving to the next.
-You MUST NOT move to another CRUD operation until the current CRUD operation has completed:
+Complete one CRUD operation — all four of these — before moving to the next:
 	1. Logic tests
 	2. Validation tests
 	3. Exception tests
@@ -58,7 +50,7 @@ Do not change this order.
 Event Path: Where It Fits
 Per `the-standard-foundations` (ts-foundations-013), every operation with a request address —
 Adding, Modifying, RemovingById, HardRemovingById, RetrievingById — is reachable both directly
-and through the event substrate, and both paths converge on the SAME private `DoXAsync`.
+and through the event substrate, and both paths converge on the same private `DoXAsync`.
 `RetrieveAll{Entity}sAsync` is the deliberate exception: it has no address, no handler, and no
 `DoXAsync`; it mints an envelope only to capture the caller for the visibility filter and does
 its work inline. Do not add event-path tests or an `OnRetrievingAll` handler for it.
@@ -78,9 +70,8 @@ pass at the end.
 Execution Process
 For every single test, follow this exact sequence.
 Phase 1 — RED
-Step 1 — Create ONE failing test only
-Create exactly ONE failing test only for the current phase.
-Do not create additional tests.
+Step 1 — Create one failing test
+Create one failing test for the current phase, and no other.
 Step 2 — Run the test
 Run the relevant test.
 Step 3 — Verify expected failure
@@ -98,7 +89,7 @@ Wait for:
 Do not continue automatically.
 Step 5 — FAIL commit
 After approval, create a local commit:
-%testname% → FAIL
+%testname% -> FAIL
 
 Phase 2 — GREEN
 Step 6 — Implement minimum production code
@@ -123,7 +114,7 @@ Wait for:
 Do not continue automatically.
 Step 10 — PASS commit
 After approval, create a local commit:
-%testname% → PASS
+%testname% -> PASS
 Step 11 — Continue
 Repeat this process for the next required test in sequence.
 
@@ -131,21 +122,11 @@ Logic Phase Rules
 For each CRUD operation:
 Start with the logic test phase, driving the direct (non-event) path only.
 Rules:
-	• Create exactly ONE logic test at a time
-	• Implement only the minimum logic required
-	• TryCatch is forbidden
-	• No validation logic
-	• No exception handling
-	• No dependency exception handling
-	• No service exception handling
+	• Create one logic test at a time and implement only the logic it demands
+	• No TryCatch, no validation logic and no exception handling yet — dependency and service exception handling included; those come in the validation and exception phases
+	• No orchestration logic, and nothing for a later CRUD operation
 	• Audit and user-id calls use the `SecurityContext` overload from the start — never add the
 	  ambient overload and migrate later
-You MUST NOT:
-	• add TryCatch
-	• add validations
-	• add exception handling
-	• add orchestration logic
-	• implement future CRUD functionality
 If logic implementation appears to require any of the above:
 Stop and explain why before proceeding.
 
@@ -163,7 +144,7 @@ Validation tests must be completed one at a time and in this exact order:
 	6. Audit field tests (SameAs, NotSameAs, NotRecent)
 Rules:
 	• Implement only the validation required for the current test
-	• TryCatch may ONLY be added during this phase
+	• TryCatch may only be added during this phase
 	• Do not implement future validations
 	• Do not implement exception handling yet
 	• Do not move to the exception phase early
@@ -205,7 +186,7 @@ Rules:
 	• Do not implement event-path tests for future CRUD operations
 
 Vertical Slice Rule
-You MUST complete all phases for a CRUD operation before moving to the next CRUD operation.
+Complete every phase of a CRUD operation before moving to the next one.
 Correct sequence example:
 	1. Add logic
 	2. Add validations
@@ -240,19 +221,18 @@ This is forbidden — so is finishing all five operations' direct paths before s
 Commit Rules
 Stop for a review checkpoint before every commit.
 Every failing state requires a FAIL commit:
-%testname% → FAIL
+%testname% -> FAIL
 Every passing state requires a PASS commit:
-%testname% → PASS
+%testname% -> PASS
 Commits must reflect actual TDD progression.
 Do not squash steps.
 Do not skip commits.
 
 Final Constraint
 If repository skills, templates, or standards conflict with assumptions, the repository is authoritative.
-If uncertain:
-STOP AND ASK.
+If uncertain, stop and ask.
 Begin by:
 	1. Identifying the correct Foundation Service template from the repository skills.
-	2. Creating ONE failing logic test only for the first CRUD operation (Add).
+	2. Creating one failing logic test for the first CRUD operation (Add).
 	3. Running the test and verifying it fails for the expected reason.
 	4. Stopping for review.

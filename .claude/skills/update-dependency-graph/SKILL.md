@@ -63,8 +63,8 @@ Fan out read-only exploration; each agent returns compact JSON:
    public surfaces + internals of `G2H.Security.Client`, `G2H.StorageClient`,
    `G2H.EventEnvelope.Client`; which Core brokers consume them;
    `Websites\Glory2Him.WebApp` endpoint groups → view services → brokers →
-   externals; whether WebApp now references Glory2Him.Core (today it does NOT
-   — if that changed, it is the headline update).
+   externals; and the WebApp → Glory2Him.Core calls, which the README's
+   "Current truths" records as not yet modelled.
 
 ## 3/ Update the data files
 
@@ -97,11 +97,10 @@ from `javascript_tool` (the renderer exposes `window.__graph` = { state,
 setView, select, selectRow, clearSelection, rebuild, fit, tracePath }).
 Confirm:
 
-- No console errors; the header count roughly matches expectations (last
-  scan: 60 components · 1033 flows single-copy; 119 nodes · 1226 flows per
-  consumer).
+- No console errors; the header count roughly matches the counts the README's
+  "Current truths" records for the previous scan.
 - Purple edge count equals the number of subscriptions wired in
-  `EventSubscriptionRegistration` (74 at last scan) — in both views.
+  `EventSubscriptionRegistration` — in both views.
 - No node-rect overlaps and no project-box overlaps (query the SVG rects
   with `javascript_tool` and intersect pairwise), in each view.
 - Switching view preserves the selection (by component id).
