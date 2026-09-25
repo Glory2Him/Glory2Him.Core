@@ -474,6 +474,61 @@ ShouldRestoreTheHooksPathBeforeEachCommandOnPreBash() {
     assert_equal 'restored for a payload with no command' .githooks "$(hooks_path)"
 }
 
+ShouldRefuseEveryHookSkippingTokenOnPreBash() {
+    new_session tokens
+    # --no-veri, and every abbreviation or extension of it.
+    bash_blocks 'git commit --no-verify -m x'
+    bash_blocks 'git commit --NO-VERI -m x'
+    bash_blocks 'git push --No-Verify'
+    bash_blocks 'git merge --no-verify-signatures feature'
+    bash_blocks 'git commit -m x -m "--no-verify is only mentioned"'
+    # hookspath, set, read or only mentioned.
+    bash_blocks 'git -c core.hooksPath=/dev/null commit -m x'
+    bash_blocks 'git -c CORE.HOOKSPATH=/dev/null push'
+    bash_blocks 'git config core.hooksPath .githooks'
+    bash_blocks 'git config core.hooksPath'
+    bash_blocks 'git commit -m "Document core.hooksPath"'
+    bash_blocks 'git config core.hooksPath .githooks && git commit -m x'
+    # git_config, as in the GIT_CONFIG_* variables.
+    bash_blocks 'GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.editor GIT_CONFIG_VALUE_0=vi git commit -m x'
+    bash_blocks 'export git_config_global=/tmp/other; git commit -m x'
+    # alias., include. and includeIf. config keys.
+    bash_blocks 'git config alias.ci commit'
+    bash_blocks 'git -c ALIAS.ci=commit ci -m x'
+    bash_blocks 'git config --global include.path /tmp/other.gitconfig'
+    bash_blocks 'git config includeIf.gitdir:~/src/.path /tmp/other.gitconfig'
+    # After the word commit, a single-dash cluster of letters that holds n.
+    bash_blocks 'git commit -n -m x'
+    bash_blocks 'git commit -N -m x'
+    bash_blocks 'git commit -anm x'
+    bash_blocks 'git commit -qn -m x'
+    bash_blocks 'git commit -m "-n is not an option here"'
+    bash_blocks 'git COMMIT --amend -n'
+    bash_blocks "git commit -m x
+git log -n 1"
+    # Redirections, wrappers and other shells change nothing: it is all text.
+    bash_blocks 'git commit -m x 2>&1 --no-verify'
+    bash_blocks 'git 2>/dev/null commit -n -m x'
+    bash_blocks '>/dev/null git commit -n -m x'
+    bash_blocks 'git push >&2 --no-verify'
+    bash_blocks "bash -o pipefail -c 'git commit -n -m x'"
+    bash_blocks "bash -c -- 'git commit --no-verify -m x'"
+    bash_blocks 'powershell -Command "git push --no-verify"'
+    bash_blocks 'cmd /c "git commit -n -m x"'
+    powershell_blocks 'git commit --no-verify -m x'
+    powershell_blocks 'git commit `
+    -n -m x'
+    powershell_blocks '$env:GIT_CONFIG_GLOBAL = "C:\temp\other"; git commit -m x'
+    powershell_blocks 'pwsh -Command "git -c core.hooksPath=NUL commit -m x"'
+    # None of the tokens: allowed.
+    bash_allows 'git push -n origin main'
+    bash_allows 'git log -n 5'
+    bash_allows 'git commit -m "Add the new-feature flag"'
+    bash_allows 'git commit --amend --no-edit'
+    bash_allows 'git commit -m x && git log --oneline'
+    powershell_allows 'git commit -m "Add the thing"'
+}
+
 ShouldNotRefuseOrdinaryCommandsOnPreBash() {
     new_session ordinary
     bash_allows 'git commit -m x' 'Commit, rather than with --no-verify'
