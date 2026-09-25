@@ -38,6 +38,23 @@ use_hooks() {
         git -C "$project_dir" config core.hooksPath .githooks 2>/dev/null
 }
 
+# unreadable_source <INLINE|FILE> <value>: succeeds when pre-bash cannot read
+# the text a gh text source names (Architecture.md §ARC12.11 rule 5): stdin, a
+# command or process substitution, a variable, and for a file ~ or a path that is
+# not a readable file from the command's working directory ($cwd).
+unreadable_source() {
+    case "$2" in
+        - | @- | *'$('* | *'`'* | *'<('*) return 0 ;;
+    esac
+    [[ $2 =~ \$[[:alpha:]_{] ]] && return 0
+    [ "$1" = FILE ] || return 1
+    case "$2" in
+        '~'*) return 0 ;;
+    esac
+    ( cd "${cwd:-$project_dir}" 2>/dev/null && [ -f "$2" ] && [ -r "$2" ] ) && return 1
+    return 0
+}
+
 # The hook payload is JSON on stdin: print the decoded string fields named.
 json_strings() {
     awk -v keys="$*" -f "$hooks_dir/json-strings.awk"
@@ -115,13 +132,19 @@ case "${1:-}" in
         sources=$(printf '%s\n' "$command" | LC_ALL=C awk -v shell="$shell" -f "$hooks_dir/gh-sources.awk")
         [ -n "$sources" ] || exit 0
 
+        cwd=$(printf '%s' "$payload" | json_strings cwd)
+        while IFS="$tab" read -r kind option value; do
+            [ "$kind" = GH ] && continue
+            unreadable_source "$kind" "$value" && \
+                block "Refused: this gh command takes its GitHub text from something this hook cannot read ($option $(printf '%.80s' "$value")): stdin, a command or process substitution, a variable, ~, or a path that is not a readable file. Write the text to a file and pass it with --body-file <path> (--notes-file <path> for a release, -F body=@<path> for gh api)."
+        done <<<"$sources"
+
         if ! reason=$(printf '%s\n' "$command" | GUARD_LABEL='this command' bash "$guard" check-text 2>&1); then
             block "Refused: $reason"
         fi
-        cwd=$(printf '%s' "$payload" | json_strings cwd)
         while IFS="$tab" read -r kind option value; do
             [ "$kind" = FILE ] || continue
-            if ! reason=$( cd "${cwd:-$project_dir}" 2>/dev/null; [ ! -f "$value" ] || \
+            if ! reason=$( cd "${cwd:-$project_dir}" && \
                 GUARD_LABEL="$value" bash "$guard" check-text <"$value" 2>&1 ); then
                 block "Refused: $reason"
             fi
