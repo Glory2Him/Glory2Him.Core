@@ -1,10 +1,12 @@
 # Reads a command line as the Bash tool would run it and prints one fact per
-# line about the git commands in it, for git-identity-guard.sh to judge:
+# line about the git and gh commands in it, for git-identity-guard.sh to judge:
 #
 #   IDENT <tab> <label> <tab> <identity>   an identity the command sets inline
 #   SKIP <tab> <what>                      the command skips or redirects the git hooks
 #   HISTORY                                a git command that writes history
 #   COMMIT                                 ...and records the configured identity
+#   GH                                     a gh command that writes GitHub text
+#   FILE <tab> <path>                      a file whose text that gh command posts
 #
 # It reads the line the way a POSIX shell does — quotes, escapes, $(...) and
 # backquote substitutions, heredocs, `bash -c` and `eval` — so that an option
@@ -266,6 +268,7 @@ function examine(words, nw,    i, t, name) {
     if (i > nw) return
     name = command_name(words[i])
     if (name == "git") git_command(words, i + 1, nw)
+    else if (name == "gh") gh_command(words, i + 1, nw)
     else if (name == "eval") parse_string(join(words, i + 1, nw))
     else if (name ~ /^(ba|z|da|k)?sh$/ || name == "pwsh" || name == "powershell") shell_command(words, i + 1, nw)
 }
@@ -455,6 +458,31 @@ function config_command(words, i, nw,    t, n, positional, removing) {
         return
     }
     if (n >= 2) config_pair(positional[1], positional[2], 1)
+}
+
+# gh pr|issue|release create/edit/comment/..., and gh api: the text they post.
+function gh_command(words, i, nw,    group, action) {
+    while (i <= nw && words[i] ~ /^-/) i += (words[i] == "-R" || words[i] == "--repo") ? 2 : 1
+    group = words[i++]
+    action = words[i++]
+    if (group == "api") { gh_text(group, words, i - 1, nw); return }
+    if (group == "pr" && action ~ /^(create|new|edit|comment|review|merge)$/) gh_text(group, words, i, nw)
+    else if (group == "issue" && action ~ /^(create|new|edit|comment)$/) gh_text(group, words, i, nw)
+    else if (group == "release" && action ~ /^(create|new|edit)$/) gh_text(group, words, i, nw)
+}
+
+function gh_text(group, words, i, nw,    t, eq, name, value) {
+    print "GH"
+    for (; i <= nw; i++) {
+        t = words[i]
+        eq = index(t, "=")
+        name = (t ~ /^--/ && eq) ? substr(t, 1, eq - 1) : t
+        if (name != "--body-file" && name != "--notes-file" && name != "--input" && name != "-F" && name != "--field") continue
+        value = (name == t) ? words[++i] : substr(t, eq + 1)
+        if (value ~ /^[^=]*=@/) value = substr(value, index(value, "=@") + 2)
+        else if (group == "api" && name != "--input") continue
+        if (value != "" && value != "-") print "FILE\t" value
+    }
 }
 
 function is_prefix(name, full, shortest) {

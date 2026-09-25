@@ -69,7 +69,8 @@ case "${1:-}" in
         ;;
 
     pre-bash)
-        command=$(json_strings command)
+        payload=$(cat)
+        command=$(printf '%s' "$payload" | json_strings command)
         [ -n "$command" ] || exit 0
         facts=$(printf '%s\n' "$command" | awk -f "$hooks_dir/shell-facts.awk")
         [ -n "$facts" ] || exit 0
@@ -86,10 +87,17 @@ case "${1:-}" in
                         block "Refused: $reason"
                     fi
                     ;;
+                FILE)
+                    cwd=$(printf '%s' "$payload" | json_strings cwd)
+                    if ! reason=$( cd "${cwd:-$project_dir}" 2>/dev/null; [ ! -f "$label" ] || \
+                        GUARD_LABEL="$label" bash "$guard" check-text <"$label" 2>&1 ); then
+                        block "Refused: $reason"
+                    fi
+                    ;;
             esac
         done <<<"$facts"
-        if has_fact HISTORY; then
-            if ! reason=$(printf '%s\n' "$command" | GUARD_LABEL='this git command' bash "$guard" check-text 2>&1); then
+        if has_fact HISTORY || has_fact GH; then
+            if ! reason=$(printf '%s\n' "$command" | GUARD_LABEL='this command' bash "$guard" check-text 2>&1); then
                 block "Refused: $reason"
             fi
         fi
