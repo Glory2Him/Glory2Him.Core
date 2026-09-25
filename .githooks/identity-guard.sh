@@ -3,10 +3,9 @@
 #
 # Every commit is checked in under the identity of the person who owns it — the
 # person opening the PR is responsible for the code, so the history says so. No
-# commit may be authored or committed as an AI tool (a "Claude" name, an
-# @anthropic.com address), and no commit message or PR description may carry
-# assistant attribution (Co-Authored-By trailers, session links, "Generated
-# with" footers).
+# commit may be authored or committed as an AI tool (see AI_IDENT_RE), and no
+# commit message or PR description may carry assistant attribution
+# (Co-Authored-By trailers, session links, "Generated with" footers).
 #
 # One rule set for every layer: the git hooks in this directory, the Claude Code
 # hooks in .claude/hooks, and the rejectAiAttribution job in
@@ -21,8 +20,11 @@
 
 set -u
 
-# A tool identity, as git prints it ("Name <email> 1700000000 +0000").
-AI_IDENT_RE='(^|[[:space:]])claude([[:space:]]+code)?[[:space:]]*<|@anthropic\.com>|<noreply@anthropic\.com'
+# A tool identity, as git prints it ("Name <email> 1700000000 +0000"), matched
+# case-insensitively (Architecture.md §ARC12.11 rule 6): a name that, trimmed, is
+# exactly Claude, Claude Code or claude[bot], or any address at anthropic.com. A
+# person whose name merely holds the word (Jean Claude, Claudette) is not a tool.
+AI_IDENT_RE='^[[:space:]]*claude( code|\[bot\])?[[:space:]]*<|@anthropic\.com>'
 
 # Attribution a tool adds to a commit message or a PR description. A co-author
 # trailer is matched within its own name and address, never past them, so that a
