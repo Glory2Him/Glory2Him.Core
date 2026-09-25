@@ -223,6 +223,21 @@ ShouldRefuseAToolIdentityOnPreCommit() {
     assert_equal 'commits made' 1 "$(git -C "$repo" rev-list --count HEAD)"
 }
 
+ShouldRefuseAToolIdentityOnPreMergeCommit() {
+    repo="$scratch/pre-merge-commit"
+    new_repo "$repo"
+    git -C "$repo" commit -q --allow-empty -m 'Base'
+    git -C "$repo" checkout -q -b feature
+    git -C "$repo" commit -q --allow-empty -m 'On the feature'
+    git -C "$repo" checkout -q main
+    git -C "$repo" commit -q --allow-empty -m 'On main'
+    refused 'a merge commit by a tool' \
+        git -C "$repo" -c user.name="$tool_name" -c user.email="$tool_email" merge -q --no-ff --no-edit feature
+    git -C "$repo" merge --abort 2>/dev/null
+    allowed 'a merge commit by a person' git -C "$repo" merge -q --no-ff --no-edit feature
+    assert_equal 'merge author' "$person_name" "$(git -C "$repo" log -1 --format=%an)"
+}
+
 ShouldRefuseAnAttributionTrailerOnCommitMsg() {
     repo="$scratch/commit-msg"
     new_repo "$repo"
