@@ -474,6 +474,34 @@ $trailer"),\"files\":[{\"path\":\"a.sh\",\"content\":\"echo\"}]}"
     github_blocks pull_request_review_write "{\"method\":\"create\",\"body\":$(json_string "$trailer")}"
 }
 
+ShouldSkipCommentLinesOnlyInACommitMessageGitWillStrip() {
+    # Markdown headings and stored messages keep their "#" lines: they are judged.
+    refused 'a heading footer in a PR description' \
+        bash -c "printf '%s\n' 'Closes #1' '## $footer' | bash '$guard' check-text"
+    new_session comments
+    github_blocks create_pull_request "{\"title\":\"t\",\"body\":$(json_string "Closes #1
+
+## $footer")}"
+    base=$(git -C "$session" rev-parse HEAD)
+    raw_commit "$session" "$person" "$person" "x
+
+# $trailer" >/dev/null
+    refused 'a stored "#" line' bash -c "cd '$session' && bash '$guard' check-range '$base..HEAD'"
+    git -C "$session" update-ref HEAD "$base"
+
+    # An edited message: git strips its comment lines and all below the scissors.
+    cat >"$scratch/editor" <<EDITOR
+#!/usr/bin/env bash
+{ printf 'Subject\n# %s\n' '$trailer'; cat "\$1"; } >"\$1.new" && mv "\$1.new" "\$1"
+EDITOR
+    chmod +x "$scratch/editor"
+    printf '%s\n' "$trailer" >"$session/notes.txt"
+    git -C "$session" add notes.txt
+    allowed 'a comment line and a diff below the scissors' \
+        env GIT_EDITOR="$scratch/editor" git -C "$session" commit -q -v
+    assert_equal 'stored message' 'Subject' "$(git -C "$session" log -1 --format=%B | sed '/^$/d')"
+}
+
 ShouldSwitchAToolIdentityToTheSignedInPersonOnSessionStart() {
     repo="$scratch/session-start"
     git init -q "$repo"
