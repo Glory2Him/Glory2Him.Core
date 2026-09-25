@@ -76,6 +76,10 @@
 #   `EVN21`, `EVN22`, `EVN24`, ...) that had no former life in `G2H Design.md`.
 #   It is exempt from both G1 and G4 — see each gate's own comment for why the
 #   exemption is permanent.
+# - `Documentation/Design/design.md` is NOT an area file. It is the index to the
+#   design (#692): it holds no section of the design, so it has no provenance
+#   to declare and G1 does not read it. G4 still does, because its citations
+#   follow §IDX1.5 like any other document's.
 # ────────────────────────────────────────────────────────────────────────────────
 
 set -u
@@ -117,6 +121,7 @@ cd "$REPO_ROOT" || exit 2
 
 AREA_DIR="Documentation/Design"
 EVENTS="$AREA_DIR/Events.md"
+INDEX="$AREA_DIR/design.md"
 
 FAILURES=0
 
@@ -197,6 +202,9 @@ gate_g1() {
         # sections with no former life in `G2H Design.md` — see the header
         # note above for why the exemption is permanent.
         [ "$file" = "$EVENTS" ] && continue
+        # `design.md` is the index, not an area file: it holds no section of the
+        # design, so there is no provenance for its headings to declare.
+        [ "$file" = "$INDEX" ] && continue
         local hits
         # A heading declares its provenance one of two ways: a relocation,
         # `*(formerly §N.M)*` — the anchor by which 103 of the 106 distinct
