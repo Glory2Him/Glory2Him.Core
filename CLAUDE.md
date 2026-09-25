@@ -69,6 +69,25 @@ actually ran is appended to the body under `## Model usage` when the PR opens.
   migration script must work as a single batch on the deploy path.
 - Never add AI or assistant attribution to a commit message or PR description — it
   blocks the merge.
+- Every commit is authored and committed under the identity of the person
+  responsible for it, never as an AI tool, in cloud sessions as much as local
+  ones. A tool identity is a name that, trimmed and compared case-insensitively,
+  is exactly `Claude`, `Claude Code` or `claude[bot]`, or any `anthropic.com`
+  address; a person whose name only contains the word (`Jean Claude`) is not one.
+  If git would commit as a tool, stop and set `git config user.name` /
+  `user.email` to that person. `Documentation/Design/Architecture.md` §ARC12.11
+  rules how far each layer that checks this can be relied on:
+  - **CI is the enforcement of record.** `rejectAiAttribution` ("Reject AI
+    Identity And Attribution", emitted into `prLinter.yml` by the generator) fails
+    a PR whose own commits have a tool author or committer or carry attribution,
+    or whose title or description carries attribution. It is a required status
+    check on `main`.
+  - **The git hooks are the local layer.** `.githooks/` refuses the commit and the
+    push on what git resolves. `--no-verify` skips them by design, which is why
+    they are not the record. Never bypass them (`--no-verify`, `core.hooksPath`).
+  - **The session hooks are best effort.** The hooks in `.claude/settings.json`
+    each act on a closed list of forms. A form outside a list gets past them, and
+    CI catches the result. They guarantee nothing.
 - Never implement behaviour that is not in an approved criterion.
 - Adding a dependency, an event, or a layer change is an architect decision.
 
@@ -88,6 +107,8 @@ even if not named here explicitly.
 - React: `npm run lint`, `npm run test`, `npm run build` (from the React app's
   own directory) — CI runs all three and `npm run build` also type-checks both
   `tsconfig` projects.
+- Identity guard: `bash .githooks/tests/identity-guard.test.sh` (CI runs it in
+  `prLinter.yml`, not `build.yml`)
 - Republish the branch to local IIS: `D:\Sites\Deploy-Glory2HimWebApp.ps1`
 
 ## Worktrees

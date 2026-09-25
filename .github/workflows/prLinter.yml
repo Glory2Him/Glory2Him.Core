@@ -206,6 +206,39 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
+  rejectAiAttribution:
+    name: Reject AI Identity And Attribution
+    runs-on: ubuntu-latest
+    if: ${{ github.event.action != 'closed' }}
+    steps:
+    - name: Check out
+      uses: actions/checkout@v5
+      with:
+        fetch-depth: 0
+        ref: ${{ github.event.pull_request.head.sha }}
+    - name: Test The Identity Guard
+      run: bash .githooks/tests/identity-guard.test.sh
+      shell: bash
+    - name: Fetch The Base Branch
+      env:
+        BASE_REF: ${{ github.event.pull_request.base.ref }}
+      run: git fetch --no-tags origin "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
+      shell: bash
+    - name: Check Commit Identities And Messages
+      env:
+        BASE_REF: ${{ github.event.pull_request.base.ref }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      run: bash .githooks/identity-guard.sh check-range "$HEAD_SHA" --not "origin/$BASE_REF"
+      shell: bash
+    - name: Check PR Title And Description
+      env:
+        PR_TITLE: ${{ github.event.pull_request.title }}
+        PR_BODY: ${{ github.event.pull_request.body }}
+        GUARD_LABEL: the pull request title or description
+      run: printf '%s\n%s\n' "$PR_TITLE" "$PR_BODY" | bash .githooks/identity-guard.sh check-text
+      shell: bash
+    permissions:
+      contents: read
   setAuthorAsPrAssignee:
     name: Set Author As PR Assignee
     runs-on: ubuntu-latest

@@ -37,6 +37,7 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\Glory2Him.Core\Glory2Him.Core.csproj" />
+		<ProjectReference Include="..\Glory2Him.Core.Infrastructure\Glory2Him.Core.Infrastructure.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>

@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Refuses a commit whose author or committer is an AI tool. See identity-guard.sh.
+exec bash "$(dirname "$0")/identity-guard.sh" check-current
