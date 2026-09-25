@@ -1,6 +1,6 @@
 # Developing in this repository
 
-How work moves from an idea to merged code here, and how to drive the four
+How work moves from an idea to merged code here, and how to drive the three
 Claude Code agents that do most of it.
 
 `CLAUDE.md` is the short version an agent loads automatically. This is the long
@@ -8,48 +8,126 @@ version for a person: it explains the same workflow, plus the parts an agent
 never sees — where a mockup goes, how to brief a fresh session, and which
 conventions are enforced by tooling rather than by good intentions.
 
-Read `INTENT.md` for what the system is for, and `Documentation/G2H Design.md`
-for how it is designed.
+Read `INTENT.md` for what the system is for, and `Documentation/Design/design.md` —
+the index to the design documents — for how it is designed. This repository's
+design predates feature and user story documents: the global and area documents
+hold it, and `design.md` maps them (§4).
 
 ---
 
-## 1. The pipeline
+## 1. How work breaks down
+
+Work is broken down the way Azure DevOps does it:
+
+| Level | What it is | Example | Where it lives |
+| --- | --- | --- | --- |
+| **Epic** | the whole product | Student Portal | `INTENT.md`, and the global design documents |
+| **Feature** | something that ships and works on its own | Student registration | a feature document |
+| **Sub-feature** | a part of a feature too large to plan in one go | Password reset, inside Account management | a sub-feature document |
+| **User story** | one component at one level — it can do something, but need not work on its own | the Student foundation service; a master page | a user story document, under `Backend/` or `UI/` |
+| **Task** | one operation of a user story | `IStudentService.AddStudentAsync` | a GitHub issue |
+
+A feature is built by several user stories, usually at several levels — a storage
+broker, a foundation service, a controller, a page. A user story never spans
+levels. Its operations are its tasks: **one task per operation**, with that
+operation's logic, validations and exception handling together, never split
+apart. The direct path and its event path are two methods, so two tasks of the
+same user story.
+
+A feature can span several screens, and each screen is its own user story. A user
+portal is one feature, not two: its master page and its detail page are two UI
+user stories, and the operations they offer between them — add a user, search
+for a user, view, modify and remove one — are their tasks.
+
+Every level names its parent: a sub-feature its feature, a user story its feature
+or sub-feature, a task its user story. `Documentation/Design/design.md` defines
+the levels, and §4 shows where each document lives.
+
+Only tasks are GitHub issues. Writing the design is work too, tracked the same
+way: a **design task** is a `DESIGN:` issue whose output is design documents
+rather than code.
+
+### The pipeline
 
 ```
 mockup            (UI work only — Documentation/Mockups/)
    ↓
-architect         settles layer, entities, events, storage → writes the design section
+planner           the design, when the work needs it: feature and user story documents,
+                  every business rule the mockups show, any epic-level rule
    ↓
-analyst           turns the design into numbered acceptance criteria → writes them into a GitHub issue
+planner           the tasks: one GitHub issue per operation, each with a sign-off checklist
    ↓
-qa                checks the issues cover the design — coverage, completeness, size
+qa                reviews the design and the tasks, fresh — coverage, completeness, size
+   ↕              findings go back to the planner, who corrects them and hands back
+                  `ready for development` on each task it signs off,
+                  `ready for review` on the design PR once all of them are
    ↓
-YOU               read the criteria, apply `status: ready-for-dev`
+YOU               merge the design PR, if the work had one
    ↓
-YOU               set the session model, apply `status: in-progress`, invoke
+developer         test first, one criterion at a time → commits, branch, then the PR
    ↓
-developer         test first, one criterion at a time → commits, branch, PR
+qa                adversarial verification against the criteria, fresh
+   ↕              findings go back to the developer, who fixes them as commits on the PR
+                  `ready for review` on the PR once it passes
    ↓
-architect         (structural changes only) did the structure hold?
-   ↓
-qa                adversarial verification against the criteria → BLOCKING / ADVISORY findings
-   ↓
-YOU               merge, or send the findings back to whoever owns them
+YOU               merge
 ```
 
-Every transition is yours. The agents do not hand work to each other —
-none of them can invoke another, because none has a Task tool. **You are the
-only thing that moves work between roles**, and the artifact each role leaves
-behind is what the next one reads.
+**Every arrow is yours.** The agents do not hand work to each other — none of
+them can invoke another, because none has a Task tool. You are the only thing
+that moves work between roles, and the artifact each role leaves behind is the
+whole of the handoff. Two of the rows are also decisions only you can make:
+merging the design, and merging the work. Approving the criteria is QA's: its
+`ready for development` label is what the developer starts on.
+
+**Every handover to QA is fresh.** QA starts with an empty context and a brief
+that points — the tasks, the design PR, the PR — never the other agent's summary
+or reasoning: it reviews what was delivered, not the account of it. The planner
+and the developer are the opposite: QA's findings go back to them with context,
+as its round comment. The work comes to QA on a PR — the design on its design
+PR, the code on the PR the developer opens before handing over — and every
+correction is a further commit on that same PR, or an edit to a task. The loop
+repeats until QA signs the work off, and each round is smaller than the last:
+after round 1, QA reviews only what changed since its previous round and what
+that touches. The developer or QA may hand a question to the planner, with
+context. A planner change to anything an open, signed-off task depends on — the
+task, or the design it cites — takes `ready for development` off until QA has
+agreed it, and the developer waits for any design change to reach `main`, so it
+never acts on criteria QA has not seen. When a round has findings for both the
+planner and the developer, route the planner's first: the developer's fix round
+waits until the changed task is signed off again — or, when the planner settles
+its findings without changing the task, until your brief says so. A disputed
+finding comes to you: the planner rules when the developer disputes one about a
+task or the design, and anything else — including a finding the planner disputes
+about its own work — is yours to decide.
+
+**The planner pushes back when the design is too high-level.** It goes straight
+from the design to tasks when the change is simple, but it will not invent the
+rules a task encodes. With no feature document, or one whose mockups have not
+been mined for their business rules, or no user story to carve a task from, it
+stops and proposes a design task first. §8 walks that path end to end.
+
+The planner sizes the process to the risk of the change, and states the tier on
+each task's first line:
+
+| Tier | Applies to | The planner writes |
+| --- | --- | --- |
+| **1: design** | A new entity, a schema change or migration, a new event, a change to the security boundary, or a new service, layer or dependency | The design the work needs — feature and user story documents, any epic-level rule — then the tasks |
+| **2: behaviour** | New behaviour inside the existing design — no schema, no event, no boundary crossed | The tasks, criteria only |
+| **3: fix or tweak** | A bug fix, a copy or styling change — one file, no schema, no event, no boundary | The task, cut down to the outcome and the one or two criteria that pin the change |
+
+No tier skips the task, the approval or QA on the work: the PR linter fails a PR
+that closes no issue, and the developer builds nothing that is not in an
+approved criterion. What a lower tier skips is the design.
 
 Skip stages deliberately, not by accident:
 
 | Stage | Skip it when |
 | --- | --- |
 | mockup | there is no UI surface |
-| architect | one file, no schema, no event, no layer boundary crossed |
-| analyst | never — the developer refuses an issue with no approved criteria |
-| qa on the issues | the feature is one issue, every criterion is obviously a test name, **and** you have read the design section yourself and seen nothing in it the issue leaves out — **never** when a feature spans more than one issue |
+| the planner's design | tier 2 or 3 — no schema, no event, no layer boundary crossed |
+| planner | never — the developer refuses a task with no approved criteria |
+| qa on the tasks | never — its `ready for development` label is the approval, and the developer refuses a task without it |
 | developer | never |
 | qa on the work | never for anything that ships |
 
@@ -60,144 +138,231 @@ Skip stages deliberately, not by accident:
 This is the rule people get wrong most often, so it is stated before anything
 else.
 
-**Each role is a separate session with an empty context.** The architect does
-not remember writing the design when the analyst runs. The developer cannot see
-the analyst's reasoning, only what the analyst wrote down. QA is deliberately
+**Each role is a separate session with an empty context.** The developer cannot
+see the planner's reasoning, only what the planner wrote down. QA is deliberately
 given a fresh context so it argues with the code rather than with the
 developer's summary of it.
 
 That has one consequence worth internalising: **if it is not in the artifact, it
-does not exist.** A decision made in conversation with the architect and not
-written into the design document is lost the moment that session ends.
+does not exist.** A decision made in conversation with the planner and not
+written into the design documents or the task is lost the moment that session
+ends.
 
 ### What each role leaves behind
 
 | Role | Durable artifact | Where the next role reads it |
 | --- | --- | --- |
-| architect | a design section | `Documentation/Design/*.md` or `Documentation/G2H Design.md` |
-| analyst | numbered acceptance criteria | the GitHub issue body, under `## Acceptance criteria` |
+| planner | for tier 1, the design | feature and user story documents under `Documentation/DesignFeatures/`, and any epic-level rule in `Documentation/Design/`, listed in `design.md` |
+| planner | the tasks — one issue per operation, each naming its user story, with the tier and a sign-off checklist | the GitHub issue body, under `## Acceptance criteria` |
 | developer | commits, a branch, a PR, a handoff report | the PR and its diff |
-| qa | BLOCKING / ADVISORY findings | its final report — on the issue when it reviews issues, on the PR when it reviews code |
+| qa | BLOCKING / ADVISORY findings, each naming its owner | a numbered round comment — on the PR, on the design PR, or on each task when a task review has no design PR — and its labels: `ready for development` on each task it signs off, `ready for review` on a PR or design PR it passes |
 
 ### How to brief a fresh session
 
-Give the agent three things: **the role, the work it is on, and where to read.**
-The middle one is usually an issue number, but it is a PR number when you are
-asking QA or the architect to review something already built, and it is the
-design document itself when you are running a sweep and no issue exists yet.
-Everything else the agent can find for itself.
+Give the agent three things: **the role, the issue number, and where to read.**
+Everything else it can find for itself.
 
 ```
-Act as the architect. Read issue #512 and settle the design for it.
+Act as the planner. Read issue #512 and plan it.
 ```
 
 ```
-Act as the analyst. Issue #512 now has a design section at
-Documentation/Design/Events.md §EVN23. Write acceptance criteria into the issue.
+Act as the planner. The user story for issue #512 is at
+Documentation/DesignFeatures/Backend/SavedSearchService.md §1. Write its
+acceptance criteria into the issue.
 ```
 
 ```
-Act as the developer. Implement issue #512. The criteria are approved and the
-issue carries `status: ready-for-dev`.
+Act as the developer. Implement issue #512. QA has signed its criteria off and
+it carries `ready for development`.
 ```
 
 ```
 Act as QA. Verify PR #520 against the acceptance criteria on issue #512.
 ```
 
-The agent will read the issue, the design and the code itself. Do not paste the
+The agent will read the task, the design and the code itself. Do not paste the
 previous session's transcript in — if an agent needs something to do its job and
 cannot find it, that is a signal the artifact is incomplete, and the fix is to
 improve the artifact rather than to narrate it.
 
-### Set the developer's model and effort before you invoke it
+QA's brief is the strictest: the mode and the numbers, nothing more — never what
+the other agent did, what it fixed, or what to look at. Each agent ends its run
+with the brief for the next one — QA's for whoever owns its findings — so you
+rarely write one. The planner and the developer, by contrast, get QA's findings
+as context: their brief points at the round comment.
 
-`.claude/agents/developer.md` pins no `model:` and no `effort:` on purpose. The
-issue's `Model - Effort` label is the decision, made per issue rather than per
-role — but **nothing in this repository reads that label and configures a
-session.** No hook, no script, no mechanism. You set it by hand, before you
-invoke the developer, because a session cannot change its own model once
-running.
+#### Two briefs that need more than a pointer
 
-The developer can only detect the mismatch afterwards and stop. An issue with no
-`Model - Effort` label is not ready to start.
+Both hand the planner a **source** instead of an issue to read. Say what the
+source is, how much authority it carries, and what you want out of it — otherwise
+the planner has to guess whether it is describing a decision or proposing one.
 
-The other three roles are pinned in their own files: architect and analyst run
-`opus` / `high`; QA runs `opus` / `max` deliberately, so the reviewer is never
-reasoning less hard than the implementer did.
+**From a Claude Design mockup.** The job is to turn a picture into words, because
+a picture cannot become a test name:
+
+```
+Act as the planner. Issue #511 is the design task for saved searches, with
+Claude Design mockups at Documentation/Mockups/saved-searches/ — panel.html for
+the interaction and panel.webp for the screens, with the images embedded in the
+issue body. Open the HTML, not just the image: hover states, spacing and the
+real DOM are in there.
+
+Write the feature document, linked to the mockups, with every business rule they
+show. Name the user stories that build it — one component at one level each —
+and write their documents, one section per operation. Name the component
+boundaries, the state each owns, the events they raise and what the server
+re-decides regardless of what the client shows.
+
+Anything you cannot state in words is not design yet. Say so rather than citing
+the picture — the tasks are written from these documents alone, and "matches the
+mockup" is not a criterion.
+```
+
+When it is done, go back and add the **Superseded by** line to the mockup folder's
+README (§5.1). The feature document is authoritative from that moment and the
+mockup is history.
+
+**From a design written somewhere else.** Porting an existing document — a sketch,
+a specification, a wiki page, a design carried over from another repository:
+
+```
+Act as the planner. There is an existing design at
+Documentation/Imported/legacy-search.md, written before this repository existed.
+It describes behaviour we intend to keep, but it is a source input and not an
+authority.
+
+Port what still applies into the design documents in their conventions —
+epic-level rules into the global document that owns the area, what a feature does
+into its feature document, what a component does into its user story document.
+Do not restate it wholesale — the parts that no longer apply must not survive the
+move just because they were written down once.
+
+Where it disagrees with what is already in the design documents, they win, and
+say so explicitly rather than silently choosing. List at the end what you
+deliberately dropped and why, and anything you could not verify against the
+code — a claim you could not check is not a design decision you can make on its
+behalf.
+```
+
+Record where it came from. A ported section that does not name its source reads
+as a decision someone made here, and the next person cannot tell which parts were
+inherited and which were chosen.
+
+### Set the developer's effort before you invoke it
+
+`.claude/agents/developer.md` pins `model: opus`, because every label names Opus
+5.5 (§10), and pins no `effort:` on purpose: the task's `Model - Effort` label
+decides the effort, per task rather than per role — but **nothing in this
+repository reads that label and configures a session.** No hook, no script, no
+mechanism. You set the effort by hand, before you invoke the developer, because
+a session cannot change its own effort once running.
+
+The developer can only detect a mismatch afterwards and stop, and where it cannot
+see its own effort it says which effort the label asks for so you can confirm
+it. A task with no `Model - Effort` label is not ready to start.
+
+All three roles are pinned to `opus` in their own files. The planner also pins
+`high`; QA pins `max` deliberately, so the reviewer is never reasoning less hard
+than the implementer did.
 
 ---
 
-## 3. The four agents
+## 3. The three agents
 
 Defined in `.claude/agents/`. Each file is the authority on its own role; this
 section tells you when to reach for which.
 
-### architect — shape, not syntax
+### planner — design and tasks, not code
 
-**Owns** layer placement, entity count, event contracts, the security boundary,
-storage and migration shape.
-
-**Produces** an update to the design document, in the section that already owns
-the subject. Nothing else. "No design needed, hand to the analyst" is a valid
-output and you should expect it often.
-
-It settles seven things in order: the problem in one paragraph, layer placement,
-**the entity count** (this is what decides the layer — one entity means
-foundation or processing, two or three means orchestration, more than three is a
-violation), event contracts in `<Subject>-<Verb>` form, storage and migration
-shape including the seed consequence, risks split into reversible and not, and an
-explicit out-of-scope list.
-
-**Use it** before any non-trivial implementation, and again afterwards to review
-whether the structure held — that second mode reports only structural findings,
-marked BLOCKING or ADVISORY. The review pass is worth its cost whenever the
-change moved a layer boundary, added an event or a dependency, or changed the
-entity count; skip it for a change that did none of those, since it would have
-nothing structural to find.
-
-**Skip it** for a change touching a single file with no schema, no event and no
-boundary crossed.
-
-It never writes production code and never fixes defects.
-
-### analyst — criteria, not code
-
-**Owns** turning intent into acceptance criteria precise enough that a developer
+**Owns** the breakdown — feature, sub-feature, user story, task — the size check
+and the risk tier, and everything the design decides: the business rules, layer
+placement, entity count, event contracts, the security boundary, storage and
+migration shape. Then the acceptance criteria, precise enough that a developer
 can write a failing test from them without asking a question.
 
-**Produces** criteria written into the GitHub issue body with `gh issue edit`,
-under an `## Acceptance criteria` heading. **The issue is the spec.** There is no
-parallel spec file, deliberately — a second document would drift from the issue.
+**Produces**, for tier 1, the design first:
 
-Aim for five to eight criteria; ten is a ceiling, not a target. If it is past ten
-and still on the happy path, the issue needs splitting, and the analyst will stop
-and propose the split mid-draft rather than write a criteria list nobody can
-finish.
+- any epic-level rule, in the global document that owns its area;
+- a feature document — its problem, its business rules including every rule its
+  mockups show, the user stories that build it and their levels, the entity count
+  (this is what decides the layer — one entity means foundation or processing,
+  two or three means orchestration, more than three is a violation), event
+  contracts in `<Subject>-<Verb>` form, storage and migration shape including the
+  seed consequence, risks split into reversible and not, and an explicit
+  out-of-scope list;
+- one user story document per component, naming its parent and giving each
+  operation its own section.
 
-Every criterion must be expressible as a single test name. If you cannot imagine
-the test name, the criterion is not finished.
+Every document cites the rules above it instead of restating them, and records
+any deviation with its reason. "No design needed" is a valid outcome and you
+should expect it often — that is tier 2 or 3.
 
-**Use it** for every piece of work, including work that skipped the architect.
+**Then the tasks, one per operation** — one public method on one component's
+interface — with everything the method needs: its logic, its validations and its
+exception handling, in one task and never split apart. That is the unit The
+Standard's branch name encodes (`foundations-student-add`: one category, one
+entity, one action) and the unit `the-standard-testing` requires every path for.
+The direct path (`AddStudentAsync`) and its event path (`OnAddingStudentAsync`)
+are two methods, so two tasks of the same user story, though both converge on one
+private `DoAddStudentAsync`. The planner writes a feature's tasks as a set in
+build order, bottom-up, each naming the tasks it builds on.
 
-It has no `Edit` and no `Write` tool — it changes the issue through `gh`, and
-touches no file in the repository.
+Each task carries the tier on its first line, its parent user story and the
+operation it delivers on the next two, and the criteria under an
+`## Acceptance criteria` heading as a sign-off checklist — the three kinds of test
+The Standard writes for every operation:
+
+```markdown
+- [ ] Logic tests
+  - [ ] Happy path — succeeds under a security context allowed to do this
+  - [ ] Negative path — refused under a security context that may not do this
+- [ ] Validation tests
+- [ ] Exception tests
+```
+
+Each numbered criterion is a box under its group. The developer ticks a box when
+its test goes green, and QA checks every tick against the test behind it. An
+operation open to every caller has no negative path, and says so. The task's
+title is the one its PR will carry, `CATEGORY: Description In Pascal Case`, the
+category naming the layer. **The task is the unit of work.** There is no parallel
+file for the criteria, deliberately — a second document would drift from the task.
+
+Aim for five to eight logic criteria; an operation's validations and exceptions
+never count toward its size. If the logic alone runs past about eight criteria,
+the operation does too much, and the planner raises it as a design question
+rather than splitting the operation's paths across tasks.
+
+Every criterion is written Given/When/Then and must be expressible as a single
+test name. If you cannot imagine the test name, the criterion is not finished.
+
+**Use it** for every piece of work; the tier decides how much it writes.
+Everything it writes goes to QA before any developer sees it. Expect it to push
+back — proposing a design task — when the design above the work is too
+high-level to plan from.
+
+It never writes production code or tests, and edits no file outside
+`Documentation/` — tasks change through `gh`. It does not review finished work
+either: structural findings on a PR — a skipped layer, a decision in a broker —
+are part of QA's checklist.
 
 ### developer — test first, one criterion at a time
 
 **Owns** implementation. **Produces** commits, a branch, a PR, and a written
 handoff naming the criteria implemented, the tests covering each, any migrations
-added, and the commit SHAs — ending in its own verdict line, `MERGE READY: YES`
-or `MERGE READY: NO`, which judges only whether its work is done and never
-whether a human has approved it.
+added, the presentation decisions no criterion made, and the commit SHAs —
+ending in its own verdict line, `MERGE READY: YES` or `MERGE READY: NO`, which
+judges only whether its work is done and never whether a human has approved it.
 
 The loop per criterion is: write one test, run it and confirm it fails **for the
 right reason**, commit it as `{TestName} -> FAIL`, implement the smallest change
-that passes, commit as `{TestName} -> PASS`. No production code exists without a
-failing test that demanded it.
+that passes, commit as `{TestName} -> PASS`, and tick the criterion's box. No
+production code exists without a failing test that demanded it.
 
-**Use it** only when the issue carries approved criteria. It is the only agent
-with a `Write` tool.
+**Use it** only when the task carries `ready for development` — QA's sign-off
+on its criteria. It builds the one operation the task names and stops if the
+work needs another. It opens the PR once the work is done and before it hands
+over to QA, and fixes QA's findings as further commits on that PR.
 
 ### qa — adversarial, never fixes
 
@@ -206,66 +371,108 @@ marked BLOCKING or ADVISORY. It never fixes anything, deliberately: the person
 who broke it should fix it, and a reviewer who patches defects stops looking for
 more.
 
-It assumes the developer's summary is optimistic and verifies against the code.
-Always run it in a fresh session — that is the whole point of it.
+It verifies against the code, never against another agent's account: always run
+it in a fresh session, briefed with pointers only — that is the whole point of
+it. After round 1, each round reviews only what changed since the last one and
+what that touches.
 
-It has a **second mode**, defined in its agent file: reviewing **the issues before
-any code exists**. Does the design have an issue behind every section, do those
-issues together capture the whole feature, is any of them too big, can every
-criterion become a test name. Where a feature needed more than one issue that
-review is mandatory — each issue was sized on its own, and nothing else in the
-pipeline ever asks whether the set is complete. Say which mode you want when you
-brief it; verifying a diff is the default and it will otherwise go looking for a
-diff that does not exist.
+It has a **second mode**, defined in its own agent file: reviewing **the tasks**
+before their code is written, or when a ruling changes one — §8 step 4. Does
+every operation in the feature's user stories have a task, do the tasks together
+cover every business rule, does every level name its parent, is any task too
+big, can every criterion become a test name. That review is never skipped: it
+signs off each task it clears with `ready for development`, the approval the
+developer starts on, and labels the design PR `ready for review` once every task
+it carries is signed off — and where a feature has more than one task, nothing
+else in the pipeline ever asks whether the set is complete.
 
-**Route failures by owner**: implementation defects to the developer, missing or
-contradictory criteria to the analyst, a crossed boundary or wrong layer to the
-architect.
+Say which mode you want when you brief it; verifying a diff is the default.
+
+**Route failures by owner** — QA names one on every finding: implementation
+defects to the developer, including code that departs from a sound design;
+missing or contradictory criteria, or a design that got a boundary or a layer
+wrong, to the planner.
 
 ---
 
 ## 4. The Documentation folder
 
 ```
+INTENT.md                  the epic — what the product is for
 Documentation/
-  G2H Design.md            the index: §IDX1, the map, the pointer stubs, the roadmap
-  Design/                  area-scoped design documents, each with its own section prefix
-    Events.md              §EVN0 … §EVN23  (event design)
-    UI.md                  §UI20          (UI / UX design)
-    Security.md            §SEC14, §SEC18  (security design)
-    Architecture.md        §ARC12, §ARC16, §ARC17  (architecture design)
-    Approval.md            §APR7, §APR8, §APR9, §APR13  (approval design)
-    Domain.md              §DOM2, §DOM3, §DOM4, §DOM5, §DOM6, §DOM11, §DOM19  (domain design)
-  Mockups/                 Claude Design exports awaiting or feeding a design section
+  G2H Design.md            the overview (§IDX1): principles, the numbering and citation
+                           rules, and the map from every pre-split section to its file
+  Design/
+    design.md              the index — the levels, a map of every design document, the conventions
+    Architecture.md        epic: layers, services, dependencies          §ARC12, §ARC16, §ARC17
+    Security.md            epic: authentication, authorisation, identity §SEC14, §SEC18
+    Events.md              epic: event contracts, how a service implements events   §EVN0 … §EVN23
+    Domain.md              epic: entities and their invariants           §DOM2 … §DOM6, §DOM11, §DOM19
+    Approval.md            the approval process, designed before feature documents  §APR7, §APR8, §APR9, §APR13
+    UI.md                  UI / UX design, designed before feature documents        §UI20
+  DesignFeatures/
+    <Feature>.md           a feature, or a sub-feature naming its parent feature
+    Backend/<Story>.md     a backend user story — one component at one level
+    UI/<Story>.md          a UI user story — one component at one level
+  Mockups/                 Claude Design exports, linked from the features they feed
   Images/                  static visual assets referenced from issues and design docs
   DependencyGraph/         generated architecture graph and its viewer
+  ModelBudget/             tally.py, the review of what the model budget bought
   Glory 2 Him.drawio       the original design sketch, cited by §IDX1.3 as a source input
   Prompt-CreateFoundationService.md   a standalone prompt template, predating the agents
 ```
 
-### The split, and why sections carry prefixes
+`design.md` holds no design of its own. It defines the levels, maps every design
+document, and carries the conventions they follow — keep it current, because a
+document it does not list is one nobody finds.
 
-`G2H Design.md` has been broken into area-scoped files under
-`Documentation/Design/` (issue #481). `Events.md` came first, then `UI.md`, then
-`Security.md`, then `Architecture.md`, then `Approval.md`, then `Domain.md`.
-Every area has now moved. `G2H Design.md` is the index: the map at the top of
-it says, for every one of the 21 original sections, which file it is in and
-what to cite it as.
+### Epic rules, features and user stories
 
-Sections in a split file carry a **prefixed number** and never one that restarts
-at 1, so that a bare citation stays unambiguous now that six `Design/*.md` files
-sit side by side. A relocated section keeps the number it already had and gains
-its file's prefix — `§20.6.1` became `§UI20.6.1` — and carries a
-`(formerly §20.6.1)` annotation naming its old position, so the dozens of C#
-comments that cite the old number still resolve by grep. `Events.md` is the one
-file that renumbered instead, flat as `§EVN1`, `§EVN2`, because it merged two
-independently numbered documents; §IDX1.5 records that as an exception rather
-than the pattern to copy.
+Each level holds its own kind of decision, and the planner decides which level a
+decision belongs to before writing it:
 
-**If you add a new split file, copy the convention from `UI.md`'s intro block.**
-Pick the reserved prefix for the area, keep every section's existing number, open
-with a contents list so the gaps in the numbering read as one, and annotate every
-relocated section with where it came from.
+- **The global documents** hold the epic-level rules every feature must follow —
+  how a service implements eventing, how a user authenticates, how layers depend
+  on each other. They stay global: the screens a security rule needs, such as
+  sign-in or 2FA, are UI user stories that cite `Security.md`, not UI written
+  into it.
+- **A feature document** holds what one feature does: its business rules —
+  including every rule its mockups show — and the user stories that build it. A
+  feature too large to plan in one go lists sub-features instead, each in its own
+  document naming its parent.
+- **A user story document** holds what one component does, one section per
+  operation, and names its parent feature or sub-feature.
+
+**Nothing restates what is above it.** A feature cites the global rules —
+`per §EVN2` — and a user story cites its feature's business rules, so there is
+only ever one copy to keep true. A document that must depart from a global rule
+records it in its own **Deviations** section: the rule, the reason, and how it is
+done instead. The planner proposes a deviation; your approval grants it.
+
+`Approval.md` and `UI.md` were written before features had documents of their
+own, so they hold feature-level design in the area layout. A new feature gets a
+feature document.
+
+### Numbering and citation
+
+`G2H Design.md` was broken into area-scoped files under `Documentation/Design/`
+(issue #481), and the map at the top of it still says, for every one of the 21
+original sections, which file it is in and what to cite it as. §IDX1.5 holds the
+numbering and citation rules in full.
+
+Sections in the global and area documents carry a **prefixed number** and never
+one that restarts at 1, so that a bare citation stays unambiguous with several
+files side by side. A relocated section keeps the number it already had and
+gains its file's prefix — `§20.6.1` became `§UI20.6.1` — and carries a
+`(formerly §20.6.1)` annotation naming its old position, so the C# comments that
+cite the old number still resolve by grep. `Events.md` is the one file that
+renumbered instead, flat as `§EVN1`, `§EVN2`, because it merged two independently
+numbered documents; §IDX1.5 records that as an exception rather than the pattern
+to copy. **If you add a new area file, copy the convention from `UI.md`'s intro
+block.**
+
+A feature document numbers its business rules, and a user story document its
+operation sections; both are cited by their path under `DesignFeatures/`.
 
 Two cautions learned the hard way:
 
@@ -286,6 +493,8 @@ numbering discipline matters:
 ```csharp
 // design §14.6 rule 2: either service must be safe when called alone
 // (§EVN2 rule 4, §EVN18(a))
+// design SavedSearches.md rule 3
+// design Backend/SavedSearchService.md §1
 ```
 
 Most of the codebase still cites the pre-split `§N.N` form. That is expected —
@@ -293,12 +502,12 @@ the `(formerly …)` annotations exist precisely so those citations keep working
 
 ---
 
-## 5. From a Claude Design mockup to a design section
+## 5. From a Claude Design mockup to a feature
 
 UI work usually starts as a picture. The job of this stage is to get the picture
-into the repository and then **out of the critical path**, because a picture is
-not a test name and a mockup left as a second source of truth will eventually
-contradict the design.
+into the repository and then **out of the critical path** — every rule it shows
+written into a feature document — because a picture is not a test name and a
+mockup left as a second source of truth will eventually contradict the design.
 
 ### 5.1 Put the export in the repository
 
@@ -317,15 +526,16 @@ matters and the image alone when it does not, and do not commit five versions of
 the same screen because a design iterated.
 
 Every mockup folder gets a `README.md` with three lines: what it shows, the issue
-it came from, and — once the architect has written the design — **the design
-section it produced**. That last line is what stops the mockup becoming a rival
-spec:
+it came from — or `Issue: none yet, this started the work` when the mockup came
+first — and, once the planner has written the design, **the feature document it
+produced**. That last line is what stops the mockup becoming a rival source of
+truth:
 
 ```markdown
-# Content item search panel
-Source: Claude Design export, 2026-09-11. Issue: #398.
-Superseded by the design at `Documentation/Design/UI.md` §UI20.6 — that section
-wins wherever the two disagree.
+# Saved searches panel
+Source: Claude Design export, 2026-09-11. Issue: #511.
+Superseded by `Documentation/DesignFeatures/SavedSearches.md` — its business rules
+win wherever the two disagree.
 ```
 
 Commit it on its own, with a `DOCUMENTATION:` prefix.
@@ -336,163 +546,134 @@ When you reference an image from a GitHub issue, use a **raw URL pinned to the
 full 40-character commit SHA**, never a branch:
 
 ```markdown
-![Cards](https://raw.githubusercontent.com/Glory2Him/Glory2Him.Core/29e95e9f47d50c43c80864ac8b517ab6e493abc0/Documentation/Images/ContentItemSearchPanel/redesign-cards.png)
+![Panel](https://raw.githubusercontent.com/<owner>/<repo>/<40-char-sha>/Documentation/Mockups/saved-searches/panel.webp)
 ```
 
-Pinned to a SHA, the picture in the issue cannot change under it later. Issue
-#398 is the worked precedent and is worth reading before you do this the first
-time — it pairs the images with prose, a component tree and an event-hook table,
-which is the level of written detail the analyst needs.
+Pinned to a SHA, the picture in the issue cannot change under it later. Pair the
+images with prose, a component tree and an event-hook table — that is the level
+of written detail the planner needs to write the design and criteria from.
 
 Drag-and-dropping an image into the GitHub comment box also works and is hosted
 by GitHub, but it lives nowhere in the repository. Use it for a throwaway
-annotation, not for the spec.
+annotation, not for the design.
 
-### 5.3 Ask the architect to turn it into a design section
+### 5.3 Ask the planner for the design task
 
 ```
-Act as the architect. Issue #512 has a mockup at
+Act as the planner. Issue #511 has a mockup at
 Documentation/Mockups/saved-searches/ and images embedded in the issue body.
-Settle the UI design for it and write it into the design document.
+Treat it as the design task: write the feature document, linked to the mockup,
+with every business rule it shows, and the user story documents that build it.
 ```
 
-The architect writes the section. From that moment the design section is
-authoritative and the mockup is history — go back and add the "Superseded by"
-line to the mockup's README.
+The planner writes the documents, numbers the business rules and the operation
+sections, and tags each operation `(needs issue)` (§6). From that moment the
+feature document is authoritative and the mockup is history — go back and add the
+"Superseded by" line to the mockup's README.
 
-**Where it writes, today.** `architect.md` sends it to the file that owns the
-subject's area and names no file itself: the area file under
-`Documentation/Design/` where the area has one, and `Documentation/G2H Design.md`
-— in the section that already owns the subject — where it does not. The map at
-the top of `G2H Design.md` is what says which of the two, one row per section.
-Six areas have their own file today: event design in `Design/Events.md`, UI
-design in `Design/UI.md`, security design in `Design/Security.md`, architecture
-design in `Design/Architecture.md`, approval design in `Design/Approval.md` and
-domain design in `Design/Domain.md`. What an extracted section leaves behind is a
-pointer stub, and design is never written into one. A section in an area
-file is numbered with that file's prefix; a section still in the main document
-keeps the number it has. Heading tags are a separate, not-yet-applied
-convention — see §6.
-
-### 5.4 Then the analyst writes criteria in words
-
-```
-Act as the analyst. Issue #512's design is at Documentation/Design/UI.md §UI20.6.
-Write acceptance criteria into the issue.
-```
-
-Criteria must be derived from the design in words. "Matches the mockup" is not a
-criterion, because it cannot be a test name.
+The tasks come second, derived from the design in words. "Matches the mockup" is
+not a criterion, because it cannot be a test name.
 
 ---
 
-## 6. Linking design and issues
+## 6. Linking design and tasks
 
 Two mechanisms, deliberately different, answering two different questions.
 
-### Heading tags — "what issue defines this section?"
+### Operation tags — "which task delivers this operation?"
 
-**Proposed, not yet applied.** This is #498's criterion 1 and no heading under
-`Documentation/Design/` carries either of the two tags this section defines —
-every heading there is still bare, deliberately for relocated headings: the
-split relocates headings without touching them. Adopt it as you touch
-sections; do not read it as an invariant you can rely on.
-
-Every numbered heading in `Documentation/Design/*.md` should carry exactly one of
-two tags, never bare:
+Every operation section in a user story document carries exactly one of two tags,
+never bare:
 
 ```markdown
-### UI20.6 Components *(formerly §20.6)* (#512)
-### UI20.9 Services and Brokers *(formerly §20.9)* (needs issue)
+## 1. AddSavedSearchAsync (#512)
+## 2. RemoveSavedSearchByIdAsync (needs issue)
 ```
 
-`(#N)` names the **most recent** issue that authoritatively defined the section —
-not an accumulating list, because `git log` and `git blame` already give the full
-history for free. `(needs issue)` is an explicit, greppable flag for design
-content nobody has scheduled yet.
-
-The tag is **added** to the heading as it stands; it never replaces what is
-already there. A relocated heading keeps its `*(formerly §N.M)*` annotation — that
-is the anchor an old `§20.6` citation in code resolves by, and dropping it fails
-gate G1 — so the tag goes after it, as the specimens show.
+`(#N)` names the task that delivers the operation. `(needs issue)` is an explicit,
+greppable flag for an operation nobody has scheduled yet. The task names the
+section back, on its **User story** line, so the link runs both ways.
 
 The tag is mandatory rather than inferred, because a bare heading is ambiguous:
 deliberately skipped, or just missed? Requiring a tag forces the decision every
-time a section is touched. **The architect sets these**, and may not leave a
-heading bare when it writes or substantially expands a section.
+time an operation is touched. **The planner sets these**, and may not leave an
+operation section bare.
 
 ### Area labels — "show me everything that touched this area"
 
-One label per `Design/*.md` file — `design: events`, `design: ui` — applied by the
-analyst when it writes an issue's criteria. That gives a live query that never
-goes stale, because it is GitHub's own index:
+One label per design area — `design: events`, `design: security` — applied by the
+planner to every task it writes. That gives a live query that never goes stale,
+because it is GitHub's own index:
 
 ```bash
 gh issue list --label "design: events" --state all
 ```
 
-### Sweep mode — generating issues from the gaps
+### Sweep mode — carving tasks from the gaps
 
-**Proposed, not yet available.** This is #498's criterion 3. The checked-in
-`analyst.md` has no sweep mode, and it could not complete the last step of one
-even if asked: it holds no `Edit` or `Write` tool and is told "never edit a file
-in the working tree", so it cannot rewrite a heading tag. Until the agent
-contract is updated, treat the flow below as the intended design and do the tag
-rewrite yourself.
-
-The idea is a second way in. Instead of "turn this feature description into
-criteria", you point the analyst at the design documents:
+The planner has a second way in. Instead of "plan this request", point it at the
+design documents:
 
 ```
-Act as the analyst in sweep mode. Find design sections with no issue behind them
-and propose issues for them.
+Act as the planner in sweep mode. Find operations with no task behind them and
+write tasks for them.
 ```
 
-The sweep itself is a grep you can run today:
+It runs:
 
 ```bash
-grep -rn "(needs issue)" Documentation/Design/*.md
+grep -rnE --include=*.md "^#{2,3} .*\(needs issue\)" Documentation/DesignFeatures
 ```
 
-For each hit the analyst does exactly what it does for a human-described feature
-— the size check, splitting if too big, criteria into a new issue, the
-`Model - Effort` label, the area label. Same skill, different starting point.
-Flipping the heading tag from `(needs issue)` to `(#<new-issue-number>)` is then
-an edit to the design document, which belongs to you or to the architect.
+and for each hit does exactly what it does for a described request — the size
+check, the tier, the task and its sign-off checklist, the `Model - Effort` label,
+the area label — then flips the tag from `(needs issue)` to
+`(#<new-issue-number>)`. Same skill, different starting point. It skips a match
+inside a code fence: the README there carries a fenced example. Flipping a tag
+edits the design, so the sweep runs under a design task and its PR carries the
+tags.
 
 ---
 
 ## 7. Approval is a label
 
-**Proposed, not yet in force.** This is #498's criterion 4. The `status:` labels
-do not exist yet, and neither `developer.md` nor `qa.md` mentions them — grep
-both and you get nothing. Until the labels are created and those two agent files
-updated, the lifecycle below is the intended process and the gate is your own
-judgement, not something an agent will refuse to proceed without.
-
-There is no PR-gated approval for a spec, and no approval file. Approval is a
-label on the issue, applied by you:
+There is no PR-gated approval for a task, and no approval file. Approval is a
+label on the task, applied by QA:
 
 ```
-status: needs-scoping → status: ready-for-dev → status: in-progress → status: in-qa → status: done
+status: needs-scoping → ready for development → status: in-progress → status: in-qa → status: done
 ```
 
-The analyst leaves an issue at `status: needs-scoping`. You read the criteria and,
-when satisfied, apply `status: ready-for-dev` by hand. That is the same judgement
-a PR approval would have expressed, as a label toggle instead of a merge.
+The planner leaves a task at `status: needs-scoping`, and QA's task review in §8
+step 4 happens while the task sits there. On each task it clears, QA applies
+`ready for development` and takes `status: needs-scoping` off. That is the same
+judgement a PR approval would have expressed, as a label instead of a merge. It
+is QA's ruling, so it stays on the task while that ruling stands: the `status:`
+labels after it track the work and never replace it, and if a later task review
+finds a BLOCKING defect in the task, QA takes the label off and returns it to
+`status: needs-scoping`. The planner does the same before it changes an open,
+signed-off task or the design it cites, so the change goes back through QA
+before the developer acts on it.
 
-**The developer's rule, once the labels land: never start without
-`status: ready-for-dev`.** QA's verdict then says which label should come next —
-`status: done`, or back to `status: in-progress` on a BLOCKING finding. Both are
-changes #498 makes to `developer.md` and `qa.md`; today neither agent checks a
-status label, so applying it is a discipline you keep rather than one they
-enforce.
+The design is approved the way any change is: a design task's documents reach
+`main` through its PR, which you merge. The planner carves the feature's tasks
+on that same branch, so the PR carries the design and the tasks' tags together
+and QA reviews the tasks against it. Merge the design PR once QA has passed it —
+it carries `ready for review` — and before the developer starts any of its
+tasks: the developer reads the design from `main`, and waits while an open PR
+is still changing it. Merge any PR only when its head is the commit QA's latest
+round names (`at`): a commit pushed after QA passed it has not been reviewed.
+
+**The developer's hard rule: never start without `ready for development`.** The
+`status:` labels after it are yours to move, and QA's verdict on the work says
+which comes next — `status: done`, or back to `status: in-progress` on a
+BLOCKING finding.
 
 **The honest trade-off:** a label has a thinner audit trail than a PR review. To
-see who changed a status and when, read the issue's timeline:
+see who changed a status and when, read the task's timeline:
 
 ```bash
-gh api "repos/Glory2Him/Glory2Him.Core/issues/512/timeline?per_page=100" \
+gh api "repos/<owner>/<repo>/issues/512/timeline?per_page=100" \
   --jq '.[] | select(.event=="labeled" or .event=="unlabeled") | "\(.event) \(.label.name) by \(.actor.login) at \(.created_at)"'
 ```
 
@@ -503,133 +684,236 @@ field on that command. Use the REST endpoint above.
 
 ## 8. A worked example
 
-Issue #512, "add a saved-searches panel". UI work, so it starts with a picture.
+"Add a saved-searches panel." UI work, and **there is no design yet** — someone
+has a picture and an intention. The design comes first and the tasks fall out of
+it.
 
-**1 — Issue first.** Open it and describe the behaviour in prose, and apply the
-`Opus 5.5 - Medium` label. The label is the whole of the budget decision; do not
-restate it in the body. The issue comes first because the
-mockup's README has to name it, and a raw-URL embed has to name a commit that
-already exists.
-
-**2 — Mockup.** Export from Claude Design, save to
+**1 — Mockup.** Export from Claude Design, save to
 `Documentation/Mockups/saved-searches/panel.html` plus `panel.webp`, write the
-folder README naming issue #512, commit:
+folder README — what it shows, and that no issue exists yet — and commit:
 
 ```
 DOCUMENTATION: Add The Saved Searches Panel Mockup
 ```
 
-Then embed `panel.webp` in the issue by raw URL pinned to that commit's SHA.
-
-**3 — Architect.** Fresh session: *"Act as the architect. Issue #512 has a mockup
-at Documentation/Mockups/saved-searches/. Settle the design."* It writes
-`Documentation/Design/UI.md` §UI20.6, tagged `(#512)`, and commits with a `DESIGN:`
-prefix.
-
-**4 — Analyst.** Fresh session: *"Act as the analyst. Issue #512's design is at
-Documentation/Design/UI.md §UI20.6. Write acceptance criteria into the issue."* It
-writes six numbered criteria and applies `design: ui` and
-`status: needs-scoping`.
-
-**5 — QA, on the issues.** Before a line of code exists:
+**2 — Planner, the design task.** Open a design task for the feature — **#511**,
+`DESIGN: Design The Saved Searches Feature` — and point the planner at it and the
+mockup (§2 has the long form of this brief):
 
 ```
-Act as QA, reviewing the issues rather than a change. Issue #512's design is at
-Documentation/Design/UI.md §UI20.6. There is no code yet — do not look for any.
+Act as the planner. Issue #511 is the design task for saved searches, with
+Claude Design mockups at Documentation/Mockups/saved-searches/. Open the HTML as
+well as the images, extract every business rule they show, and write the feature
+document and the user story documents that build it.
 ```
 
-It checks that every section of the design for this feature has an issue behind
-it, that the issues together capture the whole of it, that none is too big, and
-that every criterion can become a test name. A criterion that cannot costs
-minutes here and a wasted implementation later. Findings route to the analyst.
+It writes `SavedSearches.md`, the feature: its business rules — rule 3 among them,
+*a saved search can be deleted from the panel*, which only the mockup's hover
+menu showed — and two user stories. `Backend/SavedSearchService.md` is the
+foundation service, and `UI/SavedSearchesPanel.md` the panel component. Each
+names `SavedSearches.md` as its parent and gives each operation its own section,
+tagged `(needs issue)`: `AddSavedSearchAsync` in the service, the panel in the
+component. It lists all three documents in `design.md`'s map and commits with a
+`DESIGN:` prefix on the design task's branch. Then go back and add the
+**Superseded by** line to the mockup folder's README.
 
-**Where a feature needed more than one issue this step is not optional.** Each
-issue was sized on its own; nothing before this asks whether the set covers the
-feature.
+**That tag is what makes the next step possible.** An untagged operation is
+invisible to the sweep, and the work is then only in someone's memory.
 
-**6 — You.** Read the criteria yourself — QA advises, you decide. If they are
-right, apply `status: ready-for-dev`. If a criterion cannot become a test name,
-send it back.
-
-**7 — Developer.** Move the issue to `status: in-progress` before you invoke it,
-not after the PR appears — a developer session can run a long while, and a label
-that only flips at the end never represents the work actually being done. Set the
-session to **Opus 5.5 · Medium** first, to match the
-label. Fresh session: *"Act as the developer. Implement issue #512."* It branches
-`users/cjdutoit/components-savedsearches-add`, then per criterion commits
-`ShouldRenderSavedSearchesPanelAsync -> FAIL` followed by
-`ShouldRenderSavedSearchesPanelAsync -> PASS`, and opens a PR titled:
+**3 — Planner, the tasks.** With the documents written, the planner carves the
+tasks on the same branch — in the same session, or a fresh one in sweep mode:
 
 ```
-COMPONENTS: Add A Saved Searches Panel
+Act as the planner in sweep mode, on the design task branch for #511. Find
+operations tagged (needs issue) and write tasks for them.
 ```
 
-with `Closes #512` in the body.
+It greps and finds two operations. `AddSavedSearchAsync` — its logic, validations
+and exceptions together — becomes **issue #512**, `FOUNDATIONS: Add A Saved
+Search`, tier 1 since it is a new service, naming
+`Backend/SavedSearchService.md` §1 as its user story. The panel becomes **#513**,
+`COMPONENTS: Add A Saved Searches Panel`, tier 2, naming
+`UI/SavedSearchesPanel.md` §1. Each gets its operation line, its sign-off
+checklist — logic tests for the happy path and the negative path, validation
+tests, exception tests — a `Model - Effort` label, a `design:` area label and
+`status: needs-scoping`, and the planner recommends the build order: the
+foundation first, since the panel builds on it. It retags both sections with
+their tasks, pushes, and opens design PR #519, which closes #511 — the design and
+its tags travel together — and ends with the brief for QA.
 
-**8 — QA, on the work.** A *different* fresh session from step 5: *"Act as QA.
-Verify PR #520 against the acceptance criteria on issue #512."* Move the issue to
-`status: in-qa`. QA reports two ADVISORY findings and no BLOCKING ones, and — this
-part is real today, unlike the `status:` lifecycle above — applies `ready for
-review` to PR #520 itself.
+A real feature carries more user stories than these two — the storage user
+story's model, migration and broker methods beneath the service, and a controller
+between the service and the panel. The example leaves them out so the flow stays
+visible.
 
-**9 — Merge**, and set `status: done`.
+**4 — QA, on the design and the tasks.** Before a line of code exists. The unit
+of review here is the **feature**, not one task. Run the planner's brief in a
+fresh session:
 
-### The same example, starting from a sweep
+```
+Act as QA, reviewing the tasks rather than a change. The saved-searches feature
+is designed in design PR #519 — Documentation/DesignFeatures/SavedSearches.md
+and its user stories — and the planner has carved tasks #512 and #513 from them.
+There is no code yet — do not look for any.
+```
 
-If a "Search result density" design had been written by the architect into
-§UI20.6 and left `(needs issue)`, the start inverts: you run the sweep, the
-analyst opens issue #513 with criteria already written and applies `design: ui`,
-`Opus 5.5 - Medium` and `status: needs-scoping`. You or the architect then rewrite
-the heading to `### UI20.6 Components *(formerly §20.6)* (#513)` — the analyst
-cannot, for the reason in §6. You pick up at step 5.
+That is the whole brief. `.claude/agents/qa.md` defines the mode and carries the
+checklist — coverage, completeness across the feature, the parent chain, size,
+criteria quality and the `Model - Effort` label — so you name the feature and the
+tasks, and say there is no code. Naming the mode matters: the default is
+verifying a diff, and it will go looking for one.
 
-That inversion is where the coverage check in step 5 earns its place: a design
-section the sweep missed has no issue at all, and a gap like that is invisible
-from the issue list.
+**This step is never optional: its label is the approval.** Where a feature has
+more than one task it does a second job as well. One operation, one task is a
+*mechanism* — it makes each operation traceable. It is not a guarantee that the
+operations between them deliver the whole feature. The planner sized each task
+in isolation, and nothing else ever asks whether the set is complete.
+
+QA reports two BLOCKING findings:
+
+- `SavedSearches.md` rule 3 — a saved search can be deleted from the panel — is
+  covered by no task: the service has no operation to delete one, and the panel
+  has no operation for its delete action. It is in the design and in no task.
+- Criterion 4 on #513 says the panel "feels responsive", which cannot become a
+  test name.
+
+It posts them to the design PR as round 1, at the commit it reviewed, with the
+planner as the owner of both. Neither finding is against #512, so QA signs it
+off: `ready for development` goes on and `status: needs-scoping` comes off.
+#513 keeps `status: needs-scoping`.
+
+Both findings route to the planner (§3), with context: *"Act as the planner.
+Address QA's round 1 findings on design PR #519."* On the design branch — the
+PR has not merged — it adds §2 `RemoveSavedSearchByIdAsync` to
+`Backend/SavedSearchService.md` and §2, the panel's delete action, to
+`UI/SavedSearchesPanel.md` as further commits, sweeps to open **#514** and
+**#515** for them, and rewrites #513's criterion 4 as something assertable. Then
+it hands back with the same brief, naming #514 and #515 as well.
+
+**QA's round 2** is another fresh session, and a smaller review. It reads its
+round 1 comment and diffs the design PR from the commit that round recorded.
+Both §2 sections are new, and nothing #512 cites changed, so #512 keeps its
+sign-off unread. It reviews #513, #514 and #515 in full, since none carries
+`ready for development`, checks both round 1 findings against the fixes, and
+stops there. All three pass: it signs them off and labels design PR #519
+`ready for review`.
+
+**5 — You merge the design PR.** It carries `ready for review`: QA has passed
+the design and signed off every task it carries, so the design is the one
+decision left to you before any code. Merge it once its head is the commit QA's
+round 2 names — the developer reads the design from `main`, so it lands before
+any of its tasks starts. Build #512 first: it is
+the foundation the panel builds on.
+
+**6 — Developer.** Set the session effort to match the task's `Model - Effort`
+label first; nothing does this for you. Fresh session: *"Act as the developer.
+Implement issue #512. It carries `ready for development`."* It branches
+`users/<your-handle>/foundations-savedsearch-add`, then per criterion commits
+`ShouldAddSavedSearchAsync -> FAIL` followed by `ShouldAddSavedSearchAsync -> PASS`,
+ticking the criterion's box, and opens a PR titled:
+
+```
+FOUNDATIONS: Add A Saved Search
+```
+
+with `Closes #512` in the body — opened once every criterion is committed, and
+before it hands over, since QA reviews a PR and never a branch. It ends with the
+brief for QA. You move the task to `status: in-progress`.
+
+**7 — QA, on the work.** A *different* fresh session from step 4 — carrying the
+criteria review's context into the code review is exactly what fresh contexts are
+for: *"Act as QA. Verify PR #520 against the acceptance criteria on issue #512."*
+Move the task to `status: in-qa`. Round 1 finds one BLOCKING gap — the test for
+criterion 3 asserts less than the criterion does — and posts it to PR #520 at the
+commit it reviewed, with the developer as its owner. The task goes back to
+`status: in-progress`, and the finding goes to the developer with context:
+*"Act as the developer. Address the QA findings on PR #520."* It pushes the fix
+as a commit on the same PR — never a new one — and hands back: *"Act as QA.
+Re-verify PR #520."* Round 2, back at `status: in-qa`, reads round 1's finding
+and the one commit since, checks the fix and what it touches, runs the suite,
+and stops: nothing else changed, so nothing else is reviewed. It passes, and QA
+applies `ready for review` to PR #520 itself — a label on the PR, separate from
+the task's `status:` lifecycle.
+
+**8 — Merge** once the PR's head is the commit QA's round 2 names, and set
+`status: done`. #513, #514 and #515 were signed off in QA's second round at
+step 4, so they are ready to build: #514 next, the service's remove operation,
+then #513, the panel, and #515, its delete action.
+
+### The same example when an issue already exists
+
+Someone files issue #510 asking for the panel in prose. The planner reads it,
+finds no feature document for saved searches, and pushes back: it proposes
+turning #510 into the design task — `DESIGN: Design The Saved Searches Feature` —
+rather than carving tasks from a request whose rules nobody has written down.
+Once you agree, it retitles #510, step 2 runs with #510 as its design task, and
+everything from step 3 on is identical.
 
 ---
 
 ## 9. Asking for it — copy-paste openers
 
-### Ask the architect
+### Ask the planner
 
 ```
-Act as the architect. Read issue #512 and settle the design.
-```
-
-```
-Act as the architect. Review PR #520 against the design at
-Documentation/Design/UI.md §UI20.6 and report structural findings only.
-```
-
-### Ask the analyst
-
-```
-Act as the analyst. Write acceptance criteria into issue #512.
+Act as the planner. Read issue #512 and plan it.
 ```
 
 ```
-Act as the analyst in sweep mode. Find design sections tagged (needs issue)
-and propose issues for them.
+Act as the planner. Issue #512 looks too big — check its size and split it into
+features or sub-features if it needs splitting, before planning further.
 ```
 
 ```
-Act as the analyst. Issue #512 looks too big — check its size and split it if it
-needs splitting, before writing criteria.
+Act as the planner. Issue #511 is the design task for <feature>. Write the
+feature document — mining the mockups at Documentation/Mockups/<slug>/ for every
+business rule — and the user story documents that build it.
 ```
+
+```
+Act as the planner in sweep mode. Find operations tagged (needs issue) and write
+tasks for them.
+```
+
+```
+Act as the planner. Address QA's findings on design PR #519.
+```
+
+```
+Act as the planner. The developer on issue #512 needs a ruling: <the question,
+the criterion or section, and what they found>.
+```
+
+```
+Act as the planner. Port the design at <path> into the design documents in their
+conventions — epic-level rules into the global documents, what a feature does
+into its feature document, components into user story documents. It is a source
+input, not an authority — where it disagrees with what is already there, the
+design documents win. List what you dropped and why, and anything you could not
+verify against the code.
+```
+
+§2 has the long forms of the mockup and port briefs, with the reasoning. A review
+of finished work against the design has no opener here: structural findings — a
+skipped layer, a decision in a broker — are part of QA's checklist on every PR.
 
 ### Ask the developer
 
-**Set the session model and effort to the issue's `Model - Effort` label first.**
+**Set the session effort to the task's `Model - Effort` label first.**
 Nothing does this for you.
 
 ```
-Act as the developer. Implement issue #512. It carries `status: ready-for-dev`.
+Act as the developer. Implement issue #512. It carries `ready for development`.
 ```
 
 ```
 Act as the developer. Address the QA findings on PR #520. The criteria are on
 issue #512.
+```
+
+```
+Act as the developer. Address the QA findings on PR #520. The planner's findings
+were settled without changing issue #512.
 ```
 
 ### Ask QA
@@ -639,16 +923,24 @@ Act as QA. Verify PR #520 against the acceptance criteria on issue #512.
 ```
 
 ```
-Act as QA. PR #520 has had a round of fixes since your last pass. Re-verify.
+Act as QA. Re-verify PR #520.
 ```
 
 ```
-Act as QA, reviewing the issues rather than a change. Issue #512's design is at
-Documentation/Design/UI.md §UI20.6. There is no code yet — do not look for any.
+Act as QA, reviewing the tasks rather than a change. The saved-searches feature
+is designed in design PR #519, with tasks #512 and #513. No code exists yet.
 ```
 
-That last one is QA's second mode. Name it explicitly — verifying a diff is the
-default. The checklist is in `.claude/agents/qa.md`; §8 step 5 has the reasoning.
+```
+Act as QA, reviewing the tasks rather than a change. Task #512 changed under a
+ruling. Code for it exists; do not review it.
+```
+
+The last two are QA's second mode. Name it explicitly — verifying a diff is the
+default, and it will go looking for one. §8 step 4 has the reasoning; the
+checklist is in `.claude/agents/qa.md`. A re-review uses the same brief as the
+first round, naming any task added since. None of these briefs says what
+changed or what to look at: QA works that out from its last round.
 
 ---
 
@@ -693,26 +985,22 @@ status check the branch ruleset requires green.
 
 **Issue labels.** Every issue carries a `Model - Effort` label. The body does not
 repeat it — the label is the decision, and the body is where what actually ran is
-recorded afterwards. The effort ladder is **Low / Medium / High / Extra / Max**, one
-vocabulary for every model. The `Model - Effort` set is not a tidy matrix —
-these eleven exist and no other pairing of the two does. It is not the whole label
-inventory: the category labels the PR linter applies are separate, and so is
-`DESIGN` below.
+recorded afterwards. **The model is always Opus 5.5; the effort is the only
+choice.** The effort ladder is **Low / Medium / High / Extra / Max**:
 
 | Model | Efforts available |
 | --- | --- |
 | Opus 5.5 | Low, Medium, High, Extra, Max |
-| Sonnet 5 | Low, Medium, High |
-| Fable 5 | Low, Medium, High |
 
-There is no `Sonnet 5 - Max` and no `Fable 5 - Extra` — only Opus carries the top two
-rungs. `Opus 5 - *` labels exist on the same ladder and are deliberately absent from the
-table: they carry the closed issues genuinely built under Opus 5, so they are history
-rather than a choice.
+Labels for other models exist on the same ladder and are deliberately absent from
+the table: `Opus 5 - *`, `Sonnet 5 - *`, `Fable 5 - *` and `Haiku 4.5 - *` carry
+closed issues genuinely built under those models, so they are history rather than a
+choice. Only the Opus families carry the top two rungs — there is no
+`Sonnet 5 - Max` and no `Fable 5 - Extra`.
 
 The bottom rung was once called `Small` on the five-rung models and `Low` on the rest,
-which meant the cheapest Opus tier was the one name that did not work. `Small` is
-retired and the labels carrying it were renamed, so nothing was re-tiered.
+which meant the cheapest Opus rung was the one name that did not work. `Small` is
+retired and the labels carrying it were renamed, so no issue changed rung.
 
 **The label set is generated, not hand-maintained.** `.github/generate-labels.py` reads
 the authoritative prefix list out of `.github/workflows/prLinter.yml` and writes
@@ -724,29 +1012,31 @@ changing the manifest brings the old name straight back. The generator also fail
 than guessing when a prefix has no colour, which is what stops a new prefix becoming a
 silent grey label the first time someone uses it in a PR title.
 
-**Choosing the label.** The default for developer work is `Sonnet 5 - High`, not
-Opus. Most implementation follows a pattern that already exists in the solution,
-and the phase is fenced on both sides — the criteria are approved before it
-starts and QA verifies adversarially after it finishes. Spend the Opus budget
-where there is no oracle: the architect's layer decisions, the analyst's
-criteria, QA's verification. A wrong call in any of those produces no failing
-test. Reach for Opus in the developer seat only on one of these:
+**Choosing the label.** The default for developer work is `Opus 5.5 - High`.
+Opus 5.5 is fast and capable enough that the model no longer needs rationing, so
+every label names it and what you choose is the effort, up or down from `High`.
+`High` is enough for most implementation: it follows a pattern that already exists
+in the solution, and the phase is fenced on both sides — the criteria are approved
+before it starts and QA verifies adversarially after it finishes. The top rungs
+belong where there is no oracle and a wrong call produces no failing test, which
+is why QA is pinned at `Max`. Raise the developer's effort to `Extra` or `Max`
+only on one of these:
 
 1. **First of its kind** — a service, layer or component with no sibling in the
    solution to pattern-match against.
 2. **Breadth sweeps** — where the risk is whether every site was found, not
    whether any one of them was changed correctly.
-3. **The security boundary** — envelope identity, access decisions. A miss here
+3. **The security boundary** — identity and access decisions. A miss here
    usually has no failing test to catch it.
 4. **Migrations and SQL** — deploy-path, hard to reverse, and the traps survive a
    passing test.
-5. **Thin criteria** — if the analyst left open questions, the developer is doing
-   analyst work and needs analyst budget.
+5. **Thin criteria** — if the planner left open questions, the developer is doing
+   planner work and needs more than the default.
 
-Trivial work — a rename, a config change, a doc relocation — is `Fable 5` or
-`Sonnet 5 - Low`. Between two tiers, take the cheaper one and let the
-escalate-on-scope-discovered rule correct it. Over-spending is invisible and
-nobody else is watching for it.
+Lower it for trivial work — a rename, a config change or a doc relocation is
+`Opus 5.5 - Low` or `Opus 5.5 - Medium`. Between two efforts, take the lower one
+and let the escalate-on-scope-discovered rule correct it. Over-spending is
+invisible and nobody else is watching for it.
 
 **The label is the decision, and it is the only place the decision lives.** It
 shows in the issue list, so whoever is about to pick the issue up can see what to
@@ -837,11 +1127,13 @@ All three share one rule set, `.githooks/identity-guard.sh`; no other hook
 carries its own copy. `.githooks/tests/identity-guard.test.sh` drives every layer
 end to end in scratch repositories, and `rejectAiAttribution` runs it first.
 
-**Skills** live in `.claude/skills/` and are vendored from upstream via
-`skills-lock.json`. Treat them as read-only and reference them by name. In
-practice a few have been edited locally; that is drift, not licence — if a skill
-is wrong for this repo, say so in the design rather than patching the skill
-quietly.
+**Agents and skills** live in `.claude/`. They are maintained in
+Glory2Him.Template and refreshed into this repository byte for byte — The
+Standard's skills reach the Template from upstream through `skills-lock.json`.
+Treat them as read-only here and reference skills by name. A change to one is made
+in the Template and arrives with the next refresh; a copy edited here is drift
+that the next refresh reverts. The exception is `update-dependency-graph`, this
+repository's own skill, which is maintained here.
 
 ---
 
@@ -889,16 +1181,16 @@ recursively, so a test project outside `Glory2Him.Core.Tests.*` still runs.
 
 Stated plainly so nobody goes looking:
 
-- **The `status:` labels are not created yet.** The lifecycle in §7 is the process
-  issue #498 introduces; the labels must be created before it is real.
-- **The `design: <area>` labels are not created yet** either. Note the trap: an
-  all-caps `DESIGN` label exists, auto-created by the PR linter from a `DESIGN:`
-  title prefix. It is a category label on PRs, not an area label on issues.
-- **`Documentation/Mockups/` is introduced by this document.** The two existing
-  precedents are `Documentation/Images/ContentItemSearchPanel/` and issue #398.
+- **No feature has a document yet.** `Documentation/DesignFeatures/` holds only
+  its README; the design that predates it lives in the global and area documents
+  `design.md` maps.
 - **Nothing validates design citations automatically.** `Tools/design-split-audit.sh`
   exists and is run by hand; no CI step runs it. Nothing reads the
   `Model - Effort` label to configure a session either.
 - **`Documentation/Prompt-CreateFoundationService.md`** predates the agents. It is
-  listed in `Glory2Him.Core.slnx`, but no agent reads it. Treat the four-agent
+  listed in `Glory2Him.Core.slnx`, but no agent reads it. Treat the three-agent
   workflow as current.
+
+Note one trap while you are here: an all-caps `DESIGN` label exists, auto-created
+by the PR linter from a `DESIGN:` title prefix. It is a category label on PRs, not
+one of the `design: <area>` labels in §6.
