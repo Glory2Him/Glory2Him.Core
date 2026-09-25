@@ -600,6 +600,53 @@ ShouldNotJudgeIdentityOrMessagesOnPreBash() {
     bash_allows 'git merge --no-ff feature'
 }
 
+ShouldRefuseAGhTextSourceItCannotReadOnPreBash() {
+    new_session gh-sources
+    printf 'Closes #1\n' >"$session/clean.md"
+    printf 'Closes #1\n' >"$HOME/notes.md"
+    mkdir -p "$session/docs"
+    unreadable() {
+        expect_exit 2 "pre-bash blocks: $1" pre_bash "$1"
+        output=$(pre_bash "$1" 2>&1)
+        assert_contains "the refusal of: $1" '--body-file <path>' "$output"
+    }
+    # stdin
+    unreadable 'gh pr create -t t -F -'
+    unreadable 'gh pr comment 5 --body-file -'
+    unreadable 'gh pr comment 5 --body-file=-'
+    unreadable 'gh api repos/o/r/issues/1/comments -F body=@-'
+    unreadable 'gh api repos/o/r/issues/1 -X PATCH --input -'
+    # command substitution
+    unreadable 'gh pr comment 5 --body "$(cat clean.md)"'
+    unreadable 'gh pr comment 5 --body-file "$(ls clean.md)"'
+    unreadable 'gh pr comment 5 --body "`cat clean.md`"'
+    unreadable 'gh pr comment 5 --body "Run `make` first"'
+    # a variable
+    unreadable 'gh pr comment 5 --body "$BODY"'
+    unreadable 'gh pr comment 5 --body "${BODY}"'
+    unreadable 'gh pr comment 5 --body-file $FILE'
+    unreadable 'gh release create v1 -n "$NOTES"'
+    unreadable 'gh api repos/o/r/issues -f title=t -f "body=$BODY"'
+    unreadable 'gh issue comment 5 -b$env:BODY'
+    expect_exit 2 'pre-bash blocks PowerShell: an environment variable' pre_powershell 'gh pr comment 5 --body $env:BODY'
+    # process substitution
+    unreadable 'gh pr comment 5 --body-file <(printf x)'
+    # a file source that starts with ~, readable or not
+    unreadable 'gh pr comment 5 --body-file ~/notes.md'
+    unreadable 'gh pr create -t t -F~/notes.md'
+    # a file source that does not resolve to a readable file
+    unreadable 'gh pr comment 5 --body-file missing.md'
+    unreadable 'gh pr comment 5 --body-file docs'
+    unreadable 'gh pr comment 5 --body-file'
+    unreadable 'gh release edit v1 --notes-file missing.md'
+    unreadable 'gh api repos/o/r/issues/1/comments -F body=@missing.md'
+    unreadable 'gh api repos/o/r/issues/1 -X PATCH --input missing.md'
+    # Literal text and readable literal paths pass.
+    bash_allows 'gh pr comment 5 --body-file clean.md'
+    bash_allows 'gh pr comment 5 --body "Costs 5 dollars"'
+    bash_allows 'gh api repos/o/r/issues/1/comments -F body=@clean.md'
+}
+
 ShouldNotRefuseOrdinaryCommandsOnPreBash() {
     new_session ordinary
     bash_allows 'git commit -m x' 'Commit, rather than with --no-verify'
