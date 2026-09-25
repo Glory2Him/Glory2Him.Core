@@ -49,8 +49,7 @@ check_ident() {
 
 check_text() {
     label="$1"
-    # Comment lines are stripped by git before the message is stored.
-    if grep -v '^#' | grep -Eiq "$AI_ATTRIBUTION_RE"; then
+    if grep -Eiq "$AI_ATTRIBUTION_RE"; then
         fail "$label carries AI attribution. Remove the Co-Authored-By / Claude-Session / \"Generated with\" lines."
     fi
 }
@@ -67,7 +66,16 @@ case "$command" in
         check_ident committer "$(git var GIT_COMMITTER_IDENT 2>/dev/null)"
         ;;
     check-message-file)
-        check_text "the commit message" < "$1"
+        # Only here are "#" lines not text: git strips a message it opened in an
+        # editor of its comment lines, and of everything below the scissors line
+        # that `commit -v` adds. Anywhere else, "#" starts a markdown heading.
+        comment=$(git config core.commentChar 2>/dev/null)
+        [ "${#comment}" = 1 ] || comment='#'
+        message=$(awk -v c="$comment" '
+            { first = substr($0, 1, 1) }
+            first != c && first != "#" { print; next }
+            $0 ~ /^. -+ >8 -+\r?$/ { exit }' "$1")
+        check_text "the commit message" <<<"$message"
         ;;
     check-text)
         check_text "${GUARD_LABEL:-the text}"
