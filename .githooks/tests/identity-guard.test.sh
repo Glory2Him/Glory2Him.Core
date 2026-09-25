@@ -1161,6 +1161,18 @@ ShouldNotPrintThePlaceholdersMessageWhenPython3DoesNotRun() {
     prints_no_placeholder_message is_json is_json '{}'
 }
 
+ShouldReadJsonThroughNodeWhenThereIsNoPython3() {
+    write_values
+    bin="$scratch/no-python3"
+    node_recorder "$bin"
+    refused 'no python3 is found' on_path "$bin" command -v python3
+    reads_through_node "$bin" 'an empty string' '""' a empty
+    reads_through_node "$bin" false false a no
+    reads_through_node "$bin" 'an absent path' undefined a absent
+    judged_through_node "$bin" JSON '{"a":[1,"two",null]}' accepted
+    judged_through_node "$bin" 'text that is not JSON' 'not json' refused
+}
+
 # ======================================================================= runner
 
 all_tests=$(declare -F | sed -n 's/^declare -f \(Should[A-Za-z0-9]*\)$/\1/p')
