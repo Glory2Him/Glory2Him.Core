@@ -96,6 +96,8 @@ even if not named here explicitly.
 - React: `npm run lint`, `npm run test`, `npm run build` (from the React app's
   own directory) — CI runs all three and `npm run build` also type-checks both
   `tsconfig` projects.
+- Identity guard: `bash .githooks/tests/identity-guard.test.sh` (CI runs it in
+  `prLinter.yml`, not `build.yml`)
 - Republish the branch to local IIS: `D:\Sites\Deploy-Glory2HimWebApp.ps1`
 
 ## Worktrees
