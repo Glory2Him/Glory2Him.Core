@@ -248,6 +248,28 @@ ShouldRefuseAToolAuthoredCommitOnCheckRange() {
     refused 'a tool-committed commit' bash -c "cd '$repo' && bash '$guard' check-range '$base..HEAD'"
 }
 
+ShouldRefuseATrailerOnlyCommitOnCheckRangeAndPrePush() {
+    remote="$scratch/trailer-remote.git"
+    git init -q --bare "$remote"
+    repo="$scratch/trailer"
+    clone_repo "$remote" "$repo"
+    base=$(raw_commit "$repo" "$person" "$person" 'Base')
+    git -C "$repo" push -q origin HEAD:main
+    raw_commit "$repo" "$person" "$person" "By a person
+
+$trailer" >/dev/null
+    refused 'check-range on a co-author trailer' bash -c "cd '$repo' && bash '$guard' check-range '$base..HEAD'"
+    refused 'pre-push of a co-author trailer' git -C "$repo" push -q origin HEAD:main
+    git -C "$repo" update-ref HEAD "$base"
+    raw_commit "$repo" "$person" "$person" "By a person
+
+$session_link" >/dev/null
+    refused 'check-range on a session link' bash -c "cd '$repo' && bash '$guard' check-range '$base..HEAD'"
+    refused 'pre-push of a session link on a new branch' git -C "$repo" push -q origin HEAD:refs/heads/trailer-branch
+    assert_equal 'remote main untouched' "$base" "$(git -C "$remote" rev-parse main)"
+    refused 'no trailer branch published' git -C "$remote" rev-parse -q --verify trailer-branch
+}
+
 ShouldRefuseAToolAuthoredCommitOnPrePush() {
     remote="$scratch/push-remote.git"
     git init -q --bare "$remote"
@@ -391,7 +413,10 @@ selected=${*:-$all_tests}
 for name in $selected; do
     test_failed=0
     printf '%s\n' "$name"
-    "$name"
+    case " $(printf '%s ' $all_tests)" in
+        *" $name "*) "$name" ;;
+        *) printf '    FAILED: no such test\n'; test_failed=1 ;;
+    esac
     if [ "$test_failed" = 0 ]; then
         printf '  PASS\n'
     else
