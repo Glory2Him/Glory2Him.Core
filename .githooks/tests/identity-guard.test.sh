@@ -572,7 +572,7 @@ ShouldRunTheGithubHooksOnExactlyTheToolsThatWriteText() {
     for tool in create_pull_request update_pull_request push_files create_or_update_file merge_pull_request \
         issue_write create_issue add_issue_comment update_issue_comment add_reply_to_pull_request_comment \
         add_comment_to_pending_review add_pull_request_review_comment pull_request_review_write \
-        create_pull_request_review submit_pending_pull_request_review discussion_comment_write; do
+        create_pull_request_review submit_pending_pull_request_review discussion_comment_write delete_file; do
         allowed "pre-github runs on $tool" matches pre-github "mcp__github__$tool"
     done
     for tool in create_pull_request issue_write create_issue add_issue_comment add_reply_to_pull_request_comment \
@@ -587,6 +587,11 @@ ShouldRunTheGithubHooksOnExactlyTheToolsThatWriteText() {
     allowed 'pre-bash runs on Bash' matches pre-bash 'Bash'
     allowed 'pre-bash runs on PowerShell' matches pre-bash 'PowerShell'
     refused 'pre-bash does not run on a tool merely named like it' matches pre-bash 'mcp__x__Bash'
+    new_session github-delete
+    github_blocks delete_file "{\"path\":\"a.md\",\"branch\":\"b\",\"message\":$(json_string "x
+
+$trailer")}"
+    github_allows delete_file '{"path":"a.md","branch":"b","message":"CONFIG: Remove The Old File"}'
 }
 
 ShouldSkipCommentLinesOnlyInACommitMessageGitWillStrip() {
