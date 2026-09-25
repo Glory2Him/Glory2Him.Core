@@ -1030,6 +1030,10 @@ stand_in() {
 placeholder_python3() { stand_in "$1" python3 "printf '%s\\n' '$placeholder_message' >&2" 'exit 49'; }
 silent_python3() { stand_in "$1" python3 'exit 1'; }
 
+# A python3 that runs, whatever its arguments, and answers with a marker.
+python3_marker='"python3 answered"'
+working_python3() { stand_in "$1" python3 "printf '%s\\n' '$python3_marker'" 'exit 0'; }
+
 # node_recorder <dir>: writes <dir>/node, which runs the real node and then records
 # its exit status in <dir>/node.exits.
 node_recorder() {
@@ -1096,6 +1100,16 @@ ShouldJudgeJsonThroughNodeWhenPython3DoesNotRun() {
         judged_through_node "$bin:$PATH" "$python3_stand_in: JSON" '{"a":[1,"two",null]}' accepted
         judged_through_node "$bin:$PATH" "$python3_stand_in: text that is not JSON" 'not json' refused
     done
+}
+
+ShouldPreferAPython3ThatRuns() {
+    write_values
+    bin="$scratch/prefer-working_python3"
+    working_python3 "$bin"
+    assert_equal 'the answer of json_value came from python3' "$python3_marker" \
+        "$(on_path "$bin:$PATH" json_value "$values" a empty)"
+    allowed 'the judgement of is_json came from python3, which accepts even text that is not JSON' \
+        on_path "$bin:$PATH" is_json 'not json'
 }
 
 # ======================================================================= runner
