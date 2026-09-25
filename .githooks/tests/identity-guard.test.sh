@@ -623,6 +623,18 @@ ShouldFindTheSignedInPersonWhateverTheCaseOfTheirEmailOnSessionStart() {
     assert_equal 'email from the session' 'jane.person+g2h@example.com' "$(git -C "$repo" config user.email)"
 }
 
+ShouldWarnWhenAToolIdentityFromTheEnvironmentOutlivesTheSwitchOnSessionStart() {
+    repo="$scratch/session-env"
+    git init -q "$repo"
+    cp -R "$root/.githooks" "$repo/.githooks"
+    raw_commit "$repo" "$person" "$person" 'An earlier commit' >/dev/null
+    output=$(env CLAUDE_PROJECT_DIR="$repo" CLAUDE_CODE_USER_EMAIL="$person_email" \
+        GIT_AUTHOR_NAME="$tool_name" GIT_AUTHOR_EMAIL="$tool_email" bash "$hook" session-start)
+    assert_equal 'the configured identity is still switched' "$person_name" "$(git -C "$repo" config user.name)"
+    assert_contains 'the warning' 'WARNING' "$output"
+    assert_contains 'the variables named' 'GIT_AUTHOR_' "$output"
+}
+
 ShouldFailAnAttributedPullRequestTitleOrDescriptionInCi() {
     remote="$scratch/ci-text-remote.git"
     git init -q --bare "$remote"
