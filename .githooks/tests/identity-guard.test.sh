@@ -1014,11 +1014,12 @@ $footer"
     refused 'a session link in the title' ci "CONFIG: $session_link" 'Closes #1'
 }
 
-# The JSON helpers' tests supply the python3 and the node they need, on a PATH
-# that lasts only for the call. Each stand-in is an sh script with both a "#!"
-# line and the execute bit: Git Bash runs a script only when it starts with "#!",
-# Linux only when it has the execute bit, and either would otherwise pass over it
-# to the machine's own.
+# The JSON helpers' tests choose the python3 that is found, or that none is, and
+# put a recording node where they must show that node answered, on a PATH that
+# lasts only for the call. Each stand-in is an sh script with both a "#!" line and
+# the execute bit: Git Bash runs a script only when it starts with "#!", Linux
+# only when it has the execute bit, and either would otherwise pass over it to the
+# machine's own.
 
 # What the Microsoft Store's python3 placeholder prints, as measured on Windows 11.
 placeholder_message='Python was not found; run without arguments to install from the Microsoft Store, or disable this shortcut from Settings > Apps > Advanced app settings > App execution aliases.'
