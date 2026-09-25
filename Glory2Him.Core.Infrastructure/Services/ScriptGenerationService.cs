@@ -579,6 +579,99 @@ namespace Glory2Him.Core.Infrastructure.Services
                             Name = "Require Issue Or Task Association",
                         }
                     },
+
+                    // The enforcement of record for the identity guard (design §ARC12.11 rule 1),
+                    // and a required status check on main. It judges only the commits the pull
+                    // request adds over its base branch, never pull_request.base.sha, which goes
+                    // stale once the base moves; and it tests the guard before trusting it.
+                    {
+                        "rejectAiAttribution",
+                        new Job
+                        {
+                            Name = "Reject AI Identity And Attribution",
+                            RunsOn = BuildMachines.UbuntuLatest,
+                            If = "${{ github.event.action != 'closed' }}",
+
+                            Steps = new List<GithubTask>
+                            {
+                                new GithubTask
+                                {
+                                    Name = "Check out",
+                                    Uses = "actions/checkout@v5",
+
+                                    With = new Dictionary<string, string>
+                                    {
+                                        { "fetch-depth", "0" },
+                                        { "ref", "${{ github.event.pull_request.head.sha }}" }
+                                    }
+                                },
+
+                                new GithubTask
+                                {
+                                    Name = "Test The Identity Guard",
+                                    Run = "bash .githooks/tests/identity-guard.test.sh",
+                                    Shell = "bash"
+                                },
+
+                                new GithubTask
+                                {
+                                    Name = "Fetch The Base Branch",
+
+                                    EnvironmentVariables = new Dictionary<string, string>
+                                    {
+                                        { "BASE_REF", "${{ github.event.pull_request.base.ref }}" }
+                                    },
+
+                                    Run =
+                                        "git fetch --no-tags origin " +
+                                        "\"+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF\"",
+
+                                    Shell = "bash"
+                                },
+
+                                new GithubTask
+                                {
+                                    Name = "Check Commit Identities And Messages",
+
+                                    EnvironmentVariables = new Dictionary<string, string>
+                                    {
+                                        { "BASE_REF", "${{ github.event.pull_request.base.ref }}" },
+                                        { "HEAD_SHA", "${{ github.event.pull_request.head.sha }}" }
+                                    },
+
+                                    Run =
+                                        "bash .githooks/identity-guard.sh check-range " +
+                                        "\"$HEAD_SHA\" --not \"origin/$BASE_REF\"",
+
+                                    Shell = "bash"
+                                },
+
+                                new GithubTask
+                                {
+                                    Name = "Check PR Title And Description",
+
+                                    EnvironmentVariables = new Dictionary<string, string>
+                                    {
+                                        { "PR_TITLE", "${{ github.event.pull_request.title }}" },
+                                        { "PR_BODY", "${{ github.event.pull_request.body }}" },
+                                        { "GUARD_LABEL", "the pull request title or description" }
+                                    },
+
+                                    Run =
+                                        "printf '%s\\n%s\\n' \"$PR_TITLE\" \"$PR_BODY\" | " +
+                                        "bash .githooks/identity-guard.sh check-text",
+
+                                    Shell = "bash"
+                                }
+                            },
+
+                            Permissions = new Dictionary<string, string>
+                            {
+                                { "contents", "read" }
+                            }
+                        }
+                    },
+
                     {
                         "setAuthorAsPrAssignee",
                         new SetAuthorAsPrAssigneeJobV2(runsOn: BuildMachines.UbuntuLatest)

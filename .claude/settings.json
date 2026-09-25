@@ -1,0 +1,59 @@
+{
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
+  },
+  "includeCoAuthoredBy": false,
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/git-identity-guard.sh\" session-start",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "^(Bash|PowerShell)$",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/git-identity-guard.sh\" pre-bash",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": "^mcp__github__(create_pull_request|update_pull_request|push_files|create_or_update_file|merge_pull_request|issue_write|create_issue|add_issue_comment|update_issue_comment|add_reply_to_pull_request_comment|add_comment_to_pending_review|add_pull_request_review_comment|pull_request_review_write|create_pull_request_review|submit_pending_pull_request_review|discussion_comment_write|delete_file)$",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/git-identity-guard.sh\" pre-github",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "^mcp__github__(create_pull_request|issue_write|create_issue|add_issue_comment|add_reply_to_pull_request_comment|add_pull_request_review_comment|pull_request_review_write|create_pull_request_review|discussion_comment_write)$",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/git-identity-guard.sh\" post-github",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

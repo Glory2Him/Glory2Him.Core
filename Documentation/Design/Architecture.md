@@ -70,6 +70,7 @@ resolves by grep even though the citable number is now prefixed.
   - [ARC12.8 Event System](#arc128-event-system-formerly-128)
   - [ARC12.9 Content Analysis Service](#arc129-content-analysis-service-formerly-129)
   - [ARC12.10 The Build Environment](#arc1210-the-build-environment-formerly-1210)
+  - [ARC12.11 The Identity Guard](#arc1211-the-identity-guard-new-682)
 - [ARC16. Recommended Service Responsibilities](#arc16-recommended-service-responsibilities-formerly-16)
   - [ARC16.1 ContentItemService](#arc161-contentitemservice-formerly-161)
   - [ARC16.2 AssociationService](#arc162-associationservice-formerly-162)
@@ -815,6 +816,51 @@ The service may depend on `AIBroker`, `StorageBroker`, and approval/content serv
 **Risks.** Reversible: the runner image, the container, the connection-string variables, the shell rewrites and the filter — all are one commit to the generator. Not reversible by a revert: a production key exported into a CI job that then drops a real database (rule 1), and a rehearsal that has silently stopped rehearsing (rule 6). Those two are the whole of why this is written down. A third, milder one: Linux is case-sensitive, so a `ProjectReference` path or an `appsettings.json` filename whose casing differs from the file on disk fails on Linux and cannot fail on Windows — cheap to fix, but it will not surface until the job runs. Rules 10 and 11 are both reversible — one package line and one broker field. The risk rule 10 was written against is no longer residual but realised and now named above: `g2h-dev` runs Linux, so image processing has been broken on the deployed portal, and nothing reported it because no test ran on Linux. What remains is the general form of that defect rather than this instance of it — a Linux host exercises native assets and case-sensitive paths that a Windows build never touches, and the Linux unit run is now the only thing in this repository that reports either before a deploy does.
 
 **Out of scope.** Deploying to Linux, and the `publish_webapp` and `deploy_webapp` jobs, which already run on `ubuntu-latest` and are unchanged — with the one deliberate exception that rule 10's native assets travel inside the publish artifact and therefore reach whatever host it is deployed to; confirming on the deployed site that profile-image upload works once rule 10's package reaches it, which is its own issue — the hosting platform itself is no longer open and is recorded under rule 10; a RID-specific publish to trim the artifact; running the portal or the developer loop on anything but Windows; consolidating the connection-string keys; replacing LocalDB for local development; and the `DefaultConnection` rename raised in rule 4.
+
+### ARC12.11 The Identity Guard *(new)* (#682)
+
+**Problem.** Every commit is checked in under the identity of the person responsible for it, and nothing a session writes (a commit, a pull request, an issue, a comment or a review) carries AI attribution. A cloud container's default git identity is a tool's, and both Claude Code and the GitHub connector add attribution unless stopped. Prose alone did not hold this: tool-authored commits and attribution trailers reached `main`. Three mechanisms now check it, and they share one rule set, `.githooks/identity-guard.sh`. This section rules which of the three the repository relies on, and what the other two are only asked to attempt.
+
+**No layer placement, and no boundary crossed.** As with §ARC12.10 rules 1 to 9, nothing here is a component of the system. §ARC12.1 does not apply, and there is no entity count. The identity in question is a git author, not a caller, so §EVN7 is untouched.
+
+**Rule 1: CI is the enforcement of record.** The `rejectAiAttribution` job ("Reject AI Identity And Attribution") in `prLinter.yml` is the only layer a session cannot skip from its own machine, and it is the layer the repository relies on. It judges two things. First, every commit the pull request adds over its base branch (`--not origin/<base>`, never `pull_request.base.sha`), for a tool author or committer and for attribution in the message. Second, the pull request's title and description, for attribution. It runs `.githooks/tests/identity-guard.test.sh` first. A check only enforces while it blocks merging, so the job is a **required status check on `main`**. That is a repository setting, and the owner makes it immediately after the job first lands on `main`. Made any earlier, it would leave every open pull request whose merge ref lacks the job waiting on it forever.
+
+**Rule 2: the job is generated.** `prLinter.yml` is emitted by `GeneratePrLintScript` in `Glory2Him.Core.Infrastructure`, and §ARC12.10 rule 8 applies to it exactly as it does to `build.yml`. The job is added to the generator and the file is regenerated, never hand-edited. A hand-edit would let the next regeneration delete the enforcement of record without any check failing. ADotNet already models every key the job uses (a plain `Job` with `If`, `Permissions` and `GithubTask` steps), so no package change is needed and none is granted.
+
+**Rule 3: the git hooks are the local layer.** `pre-commit` and `pre-merge-commit` judge the identity git actually resolves (`git var`). That means they see `--author`, `-c user.*` and the `GIT_AUTHOR_*` / `GIT_COMMITTER_*` variables without reading any command. `commit-msg` judges the message. `pre-push` judges every commit the push publishes, which also covers history created by paths that run no hook. `commit-msg` drops `#` lines whatever git's cleanup mode is, so it only approximates the stored message. That is accepted, because `pre-push` and rule 1 read the message as stored. These hooks stop a tool commit before it leaves the machine. They can be skipped by design, since `--no-verify` is git's own escape hatch, and that is why they are not the record.
+
+**Rule 4: the session hooks are best effort, and each is specified as a closed list.** No static reading of a shell command can decide what the command will do. Aliases, config includes, interpreters, escape sequences, wrappers and PowerShell each reopen whatever a parser closes. A parser that grows to chase them gets slower, and a hook that times out lets the call through. It also stays incomplete. So the Claude Code hooks are defence in depth, and each is specified by the forms it recognises rather than by the outcome it prevents. A bypass through a form outside the list is not a defect of the hook: rule 1 catches the result. `pre-bash` reads no shell grammar. It:
+
+1. restores `core.hooksPath` to `.githooks` before each shell command when the value differs;
+2. refuses a Bash or PowerShell command whose text, compared case-insensitively, contains a hook-skipping token:
+   - `--no-veri`, which covers every abbreviation git accepts for `--no-verify`;
+   - `hookspath`;
+   - `git_config`;
+   - a config key under `alias.`, `include.` or `includeif.`;
+   - after the word `commit`, a single-dash short-option cluster that contains `n`;
+3. applies rule 5 to `gh`.
+
+It judges neither identity nor commit messages. Rule 3 already judges both on what git actually resolves, and no reading of the command can improve on that. The token check is a plain text match, linear in the command's length. Because it reads text rather than grammar, it treats Bash, PowerShell and `cmd` alike. Refusing an innocent command that only mentions a token is an accepted cost: the refusal names the match, and the session has file-reading and search tools that are not shell commands.
+
+**Rule 5: GitHub text a session writes is best effort, and fails closed on its source.** Comments, reviews and issues never pass through CI, and this design adds no layer that would make them (see *Out of scope*). Through the connector, `pre-github` checks the fields GitHub shows as someone's writing: titles, bodies and commit messages, never a file's contents. `post-github` then has the session edit away the footer the connector appends after that check. Through `gh`, a command that writes text is checked in full for attribution, and every text source it names must be something the hook can read as a literal path. The hook refuses any other source: stdin, command substitution, a variable, process substitution, `~`, or a path that does not resolve to a readable file. The refusal tells the session to write the text to a file and pass it with `--body-file`. This means a `gh` write whose body comes from a command substitution is refused even when the text is visible in the command, and that includes the usual idiom for a long body. The false positive is accepted in exchange for a check that never has to parse one. A pull request's own title and description are also caught by rule 1.
+
+**Rule 6: what counts as a tool identity.** An author or committer is a tool when either of these holds:
+
+- its name, trimmed and compared case-insensitively, is exactly `Claude`, `Claude Code` or `claude[bot]`;
+- its address is at `anthropic.com`.
+
+A person whose name merely contains the word, such as `Jean Claude`, is not a tool. Attribution is whatever the attribution pattern in `identity-guard.sh` names. Every layer uses that one rule set, and no hook carries its own copy.
+
+**Risks.** Everything here is reversible. The hooks, the settings and the job come out with one revert, and the required check is one toggle. One residual risk is accepted. Under `pull_request`, the job runs the pull request's own workflow and guard, so a pull request that edits either is judged by its own edit. That edit is in the diff under review, and deleting the job leaves the required check pending, which blocks the merge. `pull_request_target` would judge with the base branch's copy, but it runs with the base branch's token against untrusted head content. That is a new security surface for one check, and it is rejected. One consequence cannot be undone by a revert: an attributed commit that reaches `main` stays in history unless `main` is force-pushed. Preventing that is the job of rule 1's required check, and it is why CI is the record. GitHub text that gets past rule 5 stays visible until someone edits it.
+
+**Out of scope.**
+
+- Rewriting the tool-authored commits already on `main`.
+- A GitHub-side check on issue, comment and review text. It would need either a workflow on comment events or an app allowed to edit other people's text, and either way it would act only after the text is posted.
+- `pull_request_target`.
+- CODEOWNERS or required reviews on the guard's own files.
+- Hooks for agents other than Claude Code.
+- Commit signing.
 
 ## ARC16. Recommended Service Responsibilities *(formerly §16)*
 

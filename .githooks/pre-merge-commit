@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Refuses a merge commit whose author or committer is an AI tool: git merge
+# never runs pre-commit. See identity-guard.sh.
+exec bash "$(dirname "$0")/identity-guard.sh" check-current
