@@ -246,14 +246,65 @@ fields from its assertions will notice.
 or `Transient`, never `Singleton`. A longer-lived consumer of a scoped identity broker is the
 same defect wearing a different hat.
 
-This collides with `ServiceRegistration.Add*Service()`, which registers foundation services as
-**singletons** deliberately, so `EventSubscriptionRegistration` can bind substrate handlers into
-the singleton `IEventBroker` as method groups. That trade is only sound in a host that actually
-wires those subscriptions. **A host that exposes a service over HTTP and wires no subscriptions
-must not use those helpers** — it registers the service and its request-bound brokers scoped
-itself, as `CoreRegistration.AddCoreServices` does. Only the genuinely stateless brokers
-(`IDateTimeBroker`, `IIdentifierBroker`, `IHashBroker`, `IEnvelopeIntegrityBroker`,
-`IEventBroker`) stay singletons there.
+This collides with `ServiceRegistration.Add*Service()`, which registers services as
+**singletons** deliberately, so `EventSubscriptionRegistration` could bind substrate handlers
+into the singleton `IEventBroker` as method groups. That trade was only sound in a host that
+actually wires those subscriptions. **A host that exposes a service over HTTP and wires no
+subscriptions must not use those helpers** — it registers the service and its request-bound
+brokers scoped itself, as `CoreRegistration.AddCoreServices` does. **That conditional is a
+corollary and not the operative rule**: the rule above is unconditional, and
+`CoreRegistration.AddCoreServices` is cited for what it **does** — register scoped, by hand — and
+not for satisfying the condition, because that host wires **123** subscriptions. *(Counted as the
+`expectedSubscriptionId:` verifications in
+`EventSubscriptionRegistrationTests.ShouldRegisterParticipantAddressesAndAllSubscriptionsAsync`,
+which ends in `VerifyNoOtherCalls` and so pins the number exactly rather than as a floor; it
+agrees with the 123 `await this.eventBroker.SubscribeTo…` calls in
+`EventSubscriptionRegistration.cs`.)* Only the genuinely stateless brokers (`IDateTimeBroker`,
+`IIdentifierBroker`, `IHashBroker`, `IEnvelopeIntegrityBroker`, `IEventBroker`) stay singletons
+**in that host**.
+
+**The trade itself has since been bought out, and the rule that rested on it now rests on
+something else.** `EventSubscriptionRegistration` no longer binds a method group on a held
+service: *"Every handler below is bound through here rather than as a method group on a held
+service"*, and its `Scoped<TService, TEntity>` helper opens an `AsyncServiceScope` **per
+delivery** — *"This is what lets the host register them scoped and still bind them here"*. The
+reason was a measured thread-safety defect, eight concurrent publishes sharing one `DbContext`,
+not a lifetime preference. So a singleton registration **no longer buys what it was traded for**,
+and **the first sentence of the paragraph above — the one naming method groups — is history
+rather than a live justification**; the bolded prohibition between the two is not. There is no
+host, present or hypothetical, for which a singleton over the identity chain is the correct
+arrangement, and no design or comment may cite the method-group trade to justify one.
+
+**RULED — the rule above applies to every `Add*Service()` helper whose service composes the
+identity chain, which is 21 of the 22.** The ground is the one that already rules out
+`AddAssociationOrchestrationService()`: its service composes `IEventEnvelopeBroker`, the broker
+this subsection names as capturing identity in its constructor, and the rule is unconditional.
+That ground does not distinguish the association helper from its siblings, so it is applied to
+all of them rather than to one. *(Measured by listing every registration each helper makes and
+checking each registered class for a `private readonly IEventEnvelopeBroker` field, directly or
+through a dependency the helpers also register: all 22 call `AddSingleton`; 20 register a service
+holding the broker directly — the fourteen foundations that hold it — of fifteen, the fifteenth
+being the `IdentityUserService` exception below — both processing services, and the approval,
+AI-reviewer, approval-reviewer and association orchestrations — and
+`ContentItemSettingOrchestrationService` composes `IContentItemSettingService` and
+`IContentItemService`, both of which hold it.)* **The one exception is
+`AddIdentityUserService`**, whose `IdentityUserService` and `IdentityCoreStorageBroker` compose
+no identity-chain broker at all. This rule does not reach it. It does register a
+`DbContext`-bearing broker as a singleton, which is the thread-safety hazard the paragraph above
+measured — a **different hazard** from identity capture, which this rule neither covers nor
+decides. **Its owner is #659 all the same**, assigned there by a separate ruling on 2026-09-23
+and not by this rule; #659 decides it on that ground, not on this one.
+
+**The decision is made for all 21; carrying it out is #659's.** No host calls these helpers today
+— only their own unit tests do — so nothing is live, and each helper is corrected to `AddScoped`
+or deleted, whichever #659 finds is right for it. #659 also owns the **16** source files still
+asserting the retired mechanism *(counted with `git grep -l -e "as a method group" -e "as method
+groups" -- '*.cs'`, which searches tracked files only and so excludes `obj/` and `bin/` by
+construction: 18 match, and two of them — `EventSubscriptionRegistration.cs` and
+`ServiceRegistration.ApprovalReview.cs` — already state the retirement, leaving 16 that assert
+it)* and `CoreRegistration` contradicting itself about whether this host wires subscriptions.
+#659 owns `AddIdentityUserService` too, on the separate ground above, so it owns **all 22**
+helpers: 21 under this rule and one under the `DbContext` hazard.
 
 Because the failure is invisible to behavioural tests, **the guard is a registration test that
 asserts the lifetime directly** — see `CoreRegistrationTests.ShouldRegisterRequestBoundServicesAsScoped`.
@@ -309,6 +360,17 @@ The §SEC14.6 mandate is applied per entity according to what the entity is. Fou
    **The refusal's exception family follows the layer that raised it.** The orchestration's own half refuses with `UnauthorizedAssociationOrchestrationException`, mapped by its `TryCatch` to `AssociationOrchestrationValidationException`. The foundation's half arrives as `AssociationValidationException` and leaves as `AssociationOrchestrationDependencyValidationException` — a routine refusal mapped as a dependency **validation** failure, never as a dependency error. Both are a caller-facing 4xx and neither is a 424; which codes an exposer maps them to is that exposer's.
 5. **The collection read filter resolves its sets in memory first.** It composes an expression tree and has no row to inspect, so the caller's reviewable entity types and content types are resolved in C# and the resulting sets are closed over; `Contains` over a local collection translates to `IN (...)`, and both enums persist as strings so the converted values are parameterised. A caller with no scoped roles gets two empty sets and the query degrades to exactly the public-plus-own predicate.
 6. **The narrow tier tests the endpoint type as well as the content type — on both read paths.** Only `ContentItem` carries a content type (§SEC18.6 rule 5), and the foundation refuses one on any other endpoint, so it is tempting to match the content type alone. That rule lives in the service, not the schema: no check constraint ties the column to an `EntityType` of `ContentItem`, so a row arriving by migration, backfill or direct SQL is not bound by it. Matching on the content type alone would hand a `ContentItem-Testimony-Reviewers` a `Tag` endpoint carrying `Testimony`, while the single read — which composes the role from both halves of the endpoint, and so asks for the never-granted `Tag-Testimony-Reviewers` — refuses the same row. The bulk path must not be the more permissive of the two.
+7. **A personal association is visible only to its owner and the review tier, on both read paths — reaction authorship is not published.** A row with `UserId` set (§DOM4.2) is admitted to its owner — **the account its `UserId` names, and not its `CreatedBy`** — and to the review tier of rule 2, and to nobody else: not to an anonymous caller, and not to an authenticated caller who is neither, **whatever its approval and publication state**. To everyone else a reaction exists only as §ARC16.8's aggregate. For that one kind of row it changes posture A rule 4 in **two** ways: it **narrows** its *public*, and it **moves its owner** from `CreatedBy` to `UserId` — which, on a row whose two columns differ, also **shows** a non-public row to the account `UserId` names where posture A rule 4 would have hidden it. It changes nothing for an editorial row, whose `CreatedBy` this rule does not decide. It decides **visibility** only: the owner test posture A rule 3 applies to removal is unchanged by it.
+
+   **Why `UserId` and not `CreatedBy`.** Every rule that is specific to a personal row keys it on `UserId`. §DOM4.10 rule 1 derives it from the envelope, rule 5 makes `UserId != null` the one chain that decides the row is personal, and rule 7 revives a withdrawn row only when *"`DeletedBy == Association.UserId`"*. §DOM4.6 rule 2's personal index makes the reader's one row for a host unique on `EntityAType, EntityAEffectiveId, EntityBType, UserId` — its host, its far-end type and `UserId`. Posture A′ rule 2 admits the reaction repoint only for `UpsertPersonalAssociationAsync` *"acting for that same `UserId`"*, and §ARC16.8's viewer fields name the caller's own reaction, pair-keyed on the caller. A visibility rule keyed on `CreatedBy` would be the one personal-row rule that did not. It would also reopen a probe §ARC16.8 closes: the withdrawal locates the caller's row by `UserId` (§ARC16.8.1), so under `CreatedBy` keying it could locate a row the caller cannot read and then be refused, and a refusal is distinguishable from the one answer §ARC16.8.1 gives both of its outcomes — which tells the caller that a row they may not see exists. And the two columns **fail in opposite directions** if they differ: keyed on `UserId`, the row stays with the account it names; keyed on `CreatedBy`, it would be shown to whoever wrote it and hidden from the person whose reaction it is. **The `CreatedBy` owner tests on writes are not personal-row rules and are not changed by this**: modify, removal, sort and the set-confidence exclusion all test `CreatedBy`, which §DOM4.9 calls *"the row-local owner"*.
+
+   **The consequence, and whether it can arise.** Where the two columns differ, the account `UserId` names can **read** the row and **cannot withdraw** it: the withdrawal resolves the row by `UserId` and then calls the foundation's soft delete, whose owner test is posture A rule 3's `CreatedBy`, which this rule leaves unchanged. The account `CreatedBy` names can remove it by id and cannot read it. **That case cannot arise on any designed write.** Every designed write that creates a personal row takes both columns from one envelope (§DOM4.10 rule 1), and no designed write changes either afterwards — the general modify pins both, and §ARC16.2.2's field scope excludes both; and no caller-facing path writes a personal row today, because `AssociationOrchestrationService` sets `UserId` to null on every add until #188 derives it. The columns can diverge by two routes. One is the foundation's own add, through either of its public methods, `AddAssociationAsync` or `OnAddingAssociationAsync`: it pins `CreatedBy` to its caller but checks `UserId` for length only. Its one production caller is the orchestration, which nulls `UserId` on the direct call and, on `Association-Adding` — which reaches the foundation's add only through it since **#631** — refuses a claimed `UserId` that differs from the one it derives (`Architecture.md:548`), so no production path takes that route today. The other is rule 6's *"migration, backfill or direct SQL"*. Moving removal's owner test to `UserId` is **not** done here: under every designed write it would change no answer.
+
+   **Why.** §ARC16.8 already withholds reaction authorship on its anonymous route by design — counts only, *"it names only the caller's own row"*, and no association id because one *"could be probed with"*. A sibling route on the same controller returning whole rows would publish exactly what that read withholds, and with `[EnableQuery]` over it a `$filter` on `UserId` lists one reader's reactions in a single request. A design that hides a fact on one route and publishes it on the route beside it has not hidden it. No section anywhere shows who reacted to what, so nothing depends on the opposite.
+
+   **How it is closed, and how it is not.** It is closed by **filtering the row out**, in the foundation's collection filter and its by-id read, which is where rules 5 and 6 already sit: the rule needs only the row's own columns — its `UserId`, and the endpoint columns the review tier of rule 2 reads — and the caller, so it is a self-only term and not a composite one. **Projecting `UserId` and `CreatedBy` away is refused**, on two grounds that hold for every kind of projection. First, §SEC14.6 rule 1: every service enforces security itself, and a projection in an exposer protects only that exposer — the foundation's by-id read would still hand the whole row to its `Association-RetrievingById` event handler and to any second exposer. Second, §ARC16.8's own reason: a projected row still carries its association id, which that section withholds because one *"could be probed with"*. *(A narrower argument is true only of one kind of projection, and is scoped to it: where the column is merely hidden from the serialised response, as with `[JsonIgnore]`, OData's model still carries it and a `$filter` on it still binds and executes. Where the response's element type omits the column, OData refuses that `$filter` at parse, so it is not the reason.)* Both read paths apply it, because a row the collection read drops must answer not-found when opened by id (§SEC14.5 rule 1), and that agreement is already required of these two reads.
+
+   **Built behaviour does not yet match this rule**: the foundation's collection filter and by-id read both return a public personal row to any caller today. Closing that is #671's.
 
 **Approval and publication now have a code path.** `TransitionAssociationApprovalAsync` owns the whole of `IApproval` — `ApprovalStatus`, `IsPublished` and `PublishDate` move together, so approve and publish are one operation and there is no separate publish verb. It is the **only** path that writes the three fields: add still refuses a caller-supplied `IsPublished`, `PublishDate` or non-`Draft`/`Submitted` status, and the general modify still pins all three against storage. The public clause on both read paths is therefore reachable, and rules 3 and 5 above describe live behaviour rather than a caveat.
 
