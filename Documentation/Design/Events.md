@@ -1432,9 +1432,10 @@ foundation, and the workflow still binds to its foundation facts.
    transition. `Association` has no submit verb at all —
    `AssociationEventOperation` carries no `Submitting` and `IAssociationService`
    no submit method — so its `-Submitted` is published by the approve transition
-   alone, when an administrator's override re-opens a decided row. Nothing above
-   the foundation takes part in either route, so there is no processing fact to
-   prefer.
+   alone, when an administrator's override re-opens a decided row or the
+   approval workflow returns a changed reaction's decided round (§APR9.7.4, not
+   yet built). Nothing above the foundation takes part in either route, so there
+   is no processing fact to prefer.
 
    A **Versioned** type must have a processing service before it can
    participate in approval, for the reason in rule 2. `Attachment` is Versioned
@@ -1775,7 +1776,8 @@ Three things about this pair, and each is a question a reviewer will ask:
    (e) condition 4). Contrast the round's own dismissal, which cannot be
    driven this way: dismissing stale reviews is conditional on
    `RequireReapprovalOnChange` on the edit path and unconditional on the §APR8.6
-   HR-4 reset (§ARC12.5.3 business rule 12, §ARC16.7.5), and a bare
+   HR-4 reset and on a changed reaction (§ARC12.5.3 business rule 12,
+   §ARC16.7.5), and a bare
    `Approval-Modified` cannot tell those apart — which is why the dismissal and
    Berean's return-to-pending stay direct calls on the round's own service
    (§ARC12.5.3 rule 19). Introducing a discriminated `Approval-Reset` fact to move
@@ -1815,7 +1817,7 @@ addresses of its own, both for the automatic Berean assignment of
 | Address | Rule | Reaction |
 | --- | --- | --- |
 | `Approval-Added` | §APR8.6.2.1 | A round opened. Where it opened at `Submitted` and the six gates pass, Berean is assigned under the system identity. |
-| `Approval-Modified` | §APR8.6.2.1 | A round may have *reached* `Submitted` — a draft submitted, or §APR8.6 HR-4's reset re-opening a decided one. Same gates, same write. |
+| `Approval-Modified` | §APR8.6.2.1 | A round may have *reached* `Submitted` — a draft submitted, §APR8.6 HR-4's reset re-opening a decided one, or a changed reaction's decided round returned (§APR9.7.4, not yet built). Same gates, same write. |
 
 Four things about this pair:
 
@@ -2122,7 +2124,9 @@ itself is at-least-once.**
      non-re-testing subscriber sets of §EVN18(e) read the round's status out of
      the HMAC before any gather, and their gather or presence check is empty on
      a second pass — the reviewer orchestration's retirements and the AI
-     orchestration's automatic assignment, both built.
+     orchestration's automatic assignment, both built. The
+     `Association-Repointed` ear takes this shape for its return and dismissal,
+     gating on the change's signed `UpdatedWhen` (§APR9.7.4, not yet built).
 
    Both shapes exist already; neither is new work. An earlier version of this
    rule offered only the first, which was true of every orchestration handler
@@ -2323,8 +2327,9 @@ Avoiding event spaghetti:
    `ApprovalOrchestrationService` fact handler run again on a redelivery. What
    makes that tolerable for the fact handlers is that they re-evaluate the round
    rather than apply a delta — idempotence by construction, not deduplication —
-   and a handler added above the foundation that applies a delta owns the check
-   that makes it safe.
+   save the `Association-Repointed` ear, whose delta carries the check §APR9.7.4
+   names (not yet built); a handler added above the foundation that applies a
+   delta owns the check that makes it safe.
 5. Do not rely on the relative order of two subscribers on one address, or on
    the order of two publishes. No address carries two subscriptions today, so
    the first half constrains future wiring; the second bites now.
