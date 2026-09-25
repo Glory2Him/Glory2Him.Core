@@ -339,6 +339,30 @@ ShouldRefuseTheCanonicalFormsOnPreBash() {
     bash_blocks 'git commit -m x'
 }
 
+ShouldJudgeEveryIdentityOverrideByTheSharedRuleOnPreBash() {
+    new_session overrides
+    # People whose names or addresses merely contain the word: check-ident allows them.
+    bash_allows "git commit --author='$tool_name Monet <cm@example.com>' -m x"
+    bash_allows "GIT_AUTHOR_EMAIL=jean.$tool_lower@example.fr git commit -m x"
+    bash_allows "git -c user.name=${tool_name}tte commit -m x"
+    bash_allows "git config user.name '$tool_name Monet'"
+    # Tool identities, however they are spelled: check-ident refuses them.
+    bash_blocks "git commit --author=\"$tool_name <$tool_lower@example.com>\" -m x"
+    bash_blocks "git commit --author \"$tool_ident\" -m x"
+    bash_blocks "git -c user.name=\"$tool_name Code\" commit -m x"
+    bash_blocks "git -c \"user.name=$tool_name Code\" commit -m x"
+    bash_blocks "git -c USER.EMAIL=$tool_email commit -m x"
+    bash_blocks "git -c author.name=$tool_name commit -m x"
+    bash_blocks "GIT_COMMITTER_EMAIL=someone@anthro""pic.com git commit -m x"
+    bash_blocks "export GIT_AUTHOR_NAME='$tool_name Code'; git commit -m x"
+    bash_blocks "env GIT_AUTHOR_NAME=$tool_name git commit -m x"
+    bash_blocks "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=user.name GIT_CONFIG_VALUE_0=$tool_name git commit -m x"
+    bash_blocks "GIT_CONFIG_PARAMETERS=\"'user.email'='$tool_email'\" git commit -m x"
+    bash_blocks "git config user.email $tool_email"
+    bash_blocks "git config --local user.name \"$tool_name Code\""
+    bash_blocks "git -c user.name=\"$tool_name Code\" -c user.email=$tool_email commit -n -m x -m \"$trailer\""
+}
+
 ShouldRefuseAttributionOnPreGithub() {
     new_session github
     github_blocks create_pull_request "{\"title\":\"t\",\"body\":$(json_string "Closes #1
