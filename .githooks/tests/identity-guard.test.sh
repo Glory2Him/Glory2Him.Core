@@ -191,10 +191,21 @@ ShouldRefuseOnlyAToolIdentityOnCheckIdent() {
     refused 'a tool name' bash "$guard" check-ident author "$tool_name Code <someone@example.com>"
     refused 'a tool address' bash "$guard" check-ident author "Someone <someone@anthro""pic.com>"
     refused 'no identity' bash "$guard" check-ident author ''
+    # The name, trimmed and in any case, is exactly one of the tool's names.
+    refused 'a padded, lower-case tool name' bash "$guard" check-ident author " $tool_lower code  <someone@example.com>"
+    refused 'an upper-case tool name' bash "$guard" check-ident author "CLAU""DE <someone@example.com>"
+    refused 'the bot name' bash "$guard" check-ident author "$tool_lower[bot] <1+bot@users.noreply.github.com>"
+    refused 'the bot name as git prints it' bash "$guard" check-ident author "$tool_lower[bot] <1+bot@users.noreply.github.com> 1700000000 +0000"
+    # Any address at the tool's domain, in any case.
+    refused 'an upper-case tool address' bash "$guard" check-ident author "Someone <SOMEONE@ANTHRO""PIC.COM>"
+    refused 'a tool address as git prints it' bash "$guard" check-ident author "Jane <jane@anthro""pic.com> 1700000000 +0000"
     allowed 'a person' bash "$guard" check-ident author "$person"
+    allowed 'a person as git prints them' bash "$guard" check-ident author "$person 1700000000 +0000"
+    allowed 'a person named Jean Claude' bash "$guard" check-ident author "Jean $tool_name <jc@example.com>"
     allowed 'a person named Claude Monet' bash "$guard" check-ident author "$tool_name Monet <cm@example.com>"
     allowed 'a person whose address holds the word' bash "$guard" check-ident author "Jean <jean.$tool_lower@example.fr>"
     allowed 'a person named Claudette' bash "$guard" check-ident author "${tool_name}tte <c@example.com>"
+    allowed 'a person at a domain that only ends in the name' bash "$guard" check-ident author "Jane <jane@not""anthro""pic.com>"
 }
 
 ShouldRefuseAToolIdentityOnCheckCurrent() {
