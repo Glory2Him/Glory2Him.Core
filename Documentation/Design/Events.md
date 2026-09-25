@@ -2125,6 +2125,11 @@ itself is at-least-once.**
    - **Re-evaluate rather than apply a delta.** `ApprovalOrchestrationService`'s
      fact handlers re-run the whole §APR8.5 evaluation from stored
      state, so a second delivery reaches the same conclusion (§EVN18(b)).
+     One delta rides with that evaluation and carries no check: under
+     `RequireReapprovalOnChange = true` the `-Modified` ears dismiss the
+     round's active reviews on every delivery, so a redelivered `-Modified`
+     dismisses reviews already cast on the amended text (§APR9.7.4's second
+     residual).
    - **Gate on signed state, then find nothing left to do.** The two
      non-re-testing subscriber sets of §EVN18(e) read the round's status out of
      the HMAC before any gather, and their gather or presence check is empty on
@@ -2332,9 +2337,11 @@ Avoiding event spaghetti:
    `ApprovalOrchestrationService` fact handler run again on a redelivery. What
    makes that tolerable for the fact handlers is that they re-evaluate the round
    rather than apply a delta — idempotence by construction, not deduplication —
-   save the `Association-Repointed` ear, whose delta carries the check §APR9.7.4
-   names (not yet built); a handler added above the foundation that applies a
-   delta owns the check that makes it safe.
+   save two deltas. The `Association-Repointed` ear's carries the check
+   §APR9.7.4 names (not yet built); the `-Modified` ears' dismissal under
+   `RequireReapprovalOnChange = true` carries none (§APR9.7.4's second
+   residual). A handler added above the foundation that applies a delta owns
+   the check that makes it safe.
 5. Do not rely on the relative order of two subscribers on one address, or on
    the order of two publishes. No address carries two subscriptions today, so
    the first half constrains future wiring; the second bites now.
