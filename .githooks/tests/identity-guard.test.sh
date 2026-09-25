@@ -398,6 +398,32 @@ ShouldRefuseEveryFormThatSkipsTheHooksOnPreBash() {
     bash_allows 'git -C "C:\Users\First Last\repo" status'
 }
 
+ShouldRefuseAttributionInGithubTextWrittenWithGhOnPreBash() {
+    new_session gh
+    printf 'Closes #1\n\n%s\n' "$footer" >"$session/attributed.md"
+    printf 'Closes #1\n' >"$session/clean.md"
+    bash_blocks "gh pr create --title t --body \"Closes #1
+
+$footer\""
+    bash_blocks "gh pr edit 5 --body-file attributed.md"
+    bash_blocks "gh pr comment 5 --body \"$session_link\""
+    bash_blocks "gh pr review 5 --comment -b \"$trailer\""
+    bash_blocks "gh pr merge 5 --squash --body \"$trailer\""
+    bash_blocks "gh issue create -t t -F attributed.md"
+    bash_blocks "gh issue comment 5 --body \"$trailer\""
+    bash_blocks "gh issue edit 5 --body \"$footer\""
+    bash_blocks "gh api repos/o/r/issues/1/comments -f body='$footer'"
+    bash_blocks "gh api repos/o/r/issues/1/comments -F body=@attributed.md"
+    bash_blocks "gh release create v1 --notes \"$footer\""
+    bash_blocks "/usr/bin/gh pr create --title t --body \"$footer\""
+    bash_allows 'gh pr create --title t --body "Closes #1"'
+    bash_allows 'gh pr edit 5 --body-file clean.md'
+    bash_allows 'gh pr view 5'
+    # gh writes no commit, so it never needs the configured git identity.
+    git -C "$session" config user.name "$tool_name"
+    bash_allows 'gh issue comment 5 --body "Looks good"'
+}
+
 ShouldRefuseAttributionOnPreGithub() {
     new_session github
     github_blocks create_pull_request "{\"title\":\"t\",\"body\":$(json_string "Closes #1
