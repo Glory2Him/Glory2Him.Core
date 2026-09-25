@@ -219,11 +219,16 @@ jobs:
     - name: Test The Identity Guard
       run: bash .githooks/tests/identity-guard.test.sh
       shell: bash
+    - name: Fetch The Base Branch
+      env:
+        BASE_REF: ${{ github.event.pull_request.base.ref }}
+      run: git fetch --no-tags origin "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
+      shell: bash
     - name: Check Commit Identities And Messages
       env:
-        BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        BASE_REF: ${{ github.event.pull_request.base.ref }}
         HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-      run: bash .githooks/identity-guard.sh check-range "$BASE_SHA..$HEAD_SHA"
+      run: bash .githooks/identity-guard.sh check-range "$HEAD_SHA" --not "origin/$BASE_REF"
       shell: bash
     - name: Check PR Title And Description
       env:
