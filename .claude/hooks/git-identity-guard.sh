@@ -57,7 +57,7 @@ unreadable_source() {
 
 # The hook payload is JSON on stdin: print the decoded string fields named.
 json_strings() {
-    awk -v keys="$*" -f "$hooks_dir/json-strings.awk"
+    LC_ALL=C awk -v keys="$*" -f "$hooks_dir/json-strings.awk"
 }
 
 # The hook-skipping tokens pre-bash refuses (Architecture.md §ARC12.11 rule 4),

@@ -4,69 +4,59 @@
 # skipped. git-identity-guard.sh reads Claude Code's hook payloads with it, so
 # that only the fields it means to judge are judged.
 #
-# POSIX awk only: it runs under mawk, gawk and BSD awk alike.
+# POSIX awk only: it runs under mawk, gawk and BSD awk alike, and in time linear
+# in the payload's length under each. The payload is never walked a character at
+# a time: escaped backslashes and quotes are set aside with gsub, and the rest is
+# split once on its quotes, so every even-numbered part is a string's contents.
 
 BEGIN {
+    RS = "\001"
     count = split(keys, list, " ")
     for (k = 1; k <= count; k++) wanted[list[k]] = 1
 }
 
-{ text = text $0 "\n" }
+{ text = text $0 }
 
 END {
-    len = length(text)
-    i = 1
+    # A JSON string holds no raw control character, so these two cannot collide.
+    gsub(/\\\\/, "\001", text)
+    gsub(/\\"/, "\002", text)
+    parts = split(text, part, /"/)
     key = ""
-    while (i <= len) {
-        c = substr(text, i, 1)
-        if (c == "\"") {
-            value = read_string()
-            j = i
-            while (j <= len && index(" \t\r\n", substr(text, j, 1))) j++
-            if (substr(text, j, 1) == ":") {
-                key = value
-                i = j + 1
-                continue
-            }
-            if (key in wanted) printf "%s\n", value
-            key = ""
+    for (p = 2; p <= parts; p += 2) {
+        after = part[p + 1]
+        if (after ~ /^[ \t\r\n]*:/) {
+            # A key: it names the next value only if that value is a string.
+            key = (after ~ /^[ \t\r\n]*:[ \t\r\n]*$/) ? part[p] : ""
             continue
         }
-        if (c == "{" || c == "[" || c == ",") key = ""
-        i++
+        if (key in wanted) print_decoded(part[p])
+        key = ""
     }
 }
 
-# Reads the string that opens at text[i] and leaves i just past its closing quote.
-function read_string(    out, rest, c) {
-    out = ""
-    i++
-    while (i <= len) {
-        rest = substr(text, i)
-        if (!match(rest, /["\\]/)) {
-            out = out rest
-            i = len + 1
-            break
-        }
-        out = out substr(rest, 1, RSTART - 1)
-        i += RSTART - 1
-        if (substr(text, i, 1) == "\"") {
-            i++
-            break
-        }
-        c = substr(text, i + 1, 1)
-        if (c == "n") out = out "\n"
-        else if (c == "t") out = out "\t"
-        else if (c == "r") out = out "\r"
-        else if (c == "b" || c == "f") out = out " "
-        else if (c == "u") {
-            out = out code_point(substr(text, i + 2, 4))
-            i += 4
-        }
-        else out = out c
-        i += 2
+# Prints a string's contents, decoded, and a newline.
+function print_decoded(s,    pieces, piece, k) {
+    gsub(/\\n/, "\n", s)
+    gsub(/\\t/, "\t", s)
+    gsub(/\\r/, "\r", s)
+    gsub(/\\[bf]/, " ", s)
+    gsub(/\\\//, "/", s)
+    gsub(/\002/, "\"", s)
+    pieces = split(s, piece, /\\u/)
+    print_restored(piece[1])
+    for (k = 2; k <= pieces; k++) {
+        printf "%s", code_point(substr(piece[k], 1, 4))
+        print_restored(substr(piece[k], 5))
     }
-    return out
+    printf "\n"
+}
+
+# Prints s with each escaped backslash, set aside as \001, restored.
+function print_restored(s,    pieces, piece, k) {
+    pieces = split(s, piece, /\001/)
+    printf "%s", piece[1]
+    for (k = 2; k <= pieces; k++) printf "\\%s", piece[k]
 }
 
 function code_point(hex,    value, k, digit) {
