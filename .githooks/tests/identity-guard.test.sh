@@ -86,6 +86,12 @@ assert_contains() {
     esac
 }
 
+assert_not_contains() {
+    case "$3" in
+        *"$2"*) printf '%s\n' "$3" >"$scratch/out"; fail_check "$1: expected output without '$2'" ;;
+    esac
+}
+
 # --------------------------------------------------------------- scratch repos
 
 # A repository set up the way a clone of this one is: hooks on, a person's identity.
@@ -1134,6 +1140,25 @@ ShouldNeverRunPython3WithoutArguments() {
         runs_python3_only_with_arguments "$python3_stand_in: json_value" json_value "$values" a empty
         runs_python3_only_with_arguments "$python3_stand_in: is_json" is_json '{}'
     done
+}
+
+# prints_no_placeholder_message <description> <helper> [arg ...]: while the helper
+# does its work with $bin first on PATH, the placeholder recorded there was run,
+# and its message is on neither stdout nor stderr.
+prints_no_placeholder_message() {
+    what=$1; shift
+    rm -f "$bin/python3.runs"
+    output=$(on_path "$bin:$PATH" "$@" 2>&1)
+    python3_ran "$what"
+    assert_not_contains "$what, on stdout or stderr" "$placeholder_message" "$output"
+}
+
+ShouldNotPrintThePlaceholdersMessageWhenPython3DoesNotRun() {
+    write_values
+    bin="$scratch/unheard-placeholder_python3"
+    placeholder_python3 "$bin"
+    prints_no_placeholder_message json_value json_value "$values" a empty
+    prints_no_placeholder_message is_json is_json '{}'
 }
 
 # ======================================================================= runner
