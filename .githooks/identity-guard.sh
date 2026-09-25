@@ -76,7 +76,9 @@ case "$command" in
         if [ -n "$offending" ]; then
             fail "commits in $* are authored or committed as an AI tool: $(printf '%s' "$offending" | tr '\n' ';')"
         fi
-        git log --format='%H%n%B' "$@" | check_text "a commit message in $*"
+        # A here-string, not a pipe: check_text must fail this shell, not a subshell.
+        messages=$(git log --format='%B' "$@") || fail "could not read the commits in $*."
+        check_text "a commit message in $*" <<<"$messages"
         ;;
     *)
         printf 'usage: %s check-ident|check-current|check-message-file|check-text|check-range\n' "$0" >&2
