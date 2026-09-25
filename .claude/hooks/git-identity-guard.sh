@@ -38,6 +38,21 @@ json_strings() {
     awk -v keys="$*" -f "$hooks_dir/json-strings.awk"
 }
 
+# The hook-skipping tokens pre-bash refuses (Architecture.md §ARC12.11 rule 4),
+# a closed list matched case-insensitively against the command's text.
+HOOK_SKIP_RE='--no-veri|hookspath|git_config|alias\.|include\.|includeif\.'
+# The rest of the text from the word "commit", and in it a single-dash cluster
+# of letters that holds an n (-n, -anm, -qn).
+FROM_COMMIT_RE='(^|[^[:alnum:]_])commit([^[:alnum:]_].*|$)'
+N_CLUSTER_RE='(^|[^[:alnum:]_-])-[[:alpha:]]*n[[:alpha:]]*([^[:alnum:]_-]|$)'
+
+# skips_hooks <text>: succeeds when the text holds a hook-skipping token.
+skips_hooks() {
+    flat=$(printf '%s' "$1" | tr '\r\n' '  ')
+    printf '%s\n' "$flat" | grep -Eiq -e "$HOOK_SKIP_RE" && return 0
+    printf '%s\n' "$flat" | grep -Eio -e "$FROM_COMMIT_RE" | grep -Eiq -e "$N_CLUSTER_RE"
+}
+
 has_fact() {
     printf '%s\n' "$facts" | grep -qx "$1"
 }
@@ -85,6 +100,9 @@ case "${1:-}" in
         payload=$(cat)
         command=$(printf '%s' "$payload" | json_strings command)
         [ -n "$command" ] || exit 0
+        if skips_hooks "$command"; then
+            block "Refused: this repository does not allow skipping or redirecting its git hooks. They keep AI identities and attribution out of the history."
+        fi
         facts=$(printf '%s\n' "$command" | awk -f "$hooks_dir/shell-facts.awk")
         [ -n "$facts" ] || exit 0
 
