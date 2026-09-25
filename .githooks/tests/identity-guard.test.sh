@@ -753,6 +753,21 @@ $trailer")}"
     github_allows delete_file '{"path":"a.md","branch":"b","message":"CONFIG: Remove The Old File"}'
 }
 
+ShouldKeepTheRulesInOneScript() {
+    ident_rule=$(sed -n "s/^AI_IDENT_RE='\(.*\)'\$/\1/p" "$guard")
+    attribution_rule=$(sed -n "s/^AI_ATTRIBUTION_RE=\(.*\)\$/\1/p" "$guard")
+    [ -n "$ident_rule" ] || fail_check 'identity-guard.sh defines AI_IDENT_RE'
+    [ -n "$attribution_rule" ] || fail_check 'identity-guard.sh defines AI_ATTRIBUTION_RE'
+    others=$(find "$root/.githooks" "$root/.claude/hooks" -type f ! -path "$guard")
+    [ -n "$others" ] || fail_check 'the other hook files are found'
+    while IFS= read -r file; do
+        refused "no copy of the tool-identity rule in ${file#"$root"/}" grep -qF -e "$ident_rule" "$file"
+        refused "no copy of the attribution rule in ${file#"$root"/}" grep -qF -e "$attribution_rule" "$file"
+        refused "no rule of its own in ${file#"$root"/}" grep -qE '^[[:space:]]*(AI_IDENT_RE|AI_ATTRIBUTION_RE)=' "$file"
+        refused "no tool address in ${file#"$root"/}" grep -qi "anthro""pic" "$file"
+    done <<<"$others"
+}
+
 ShouldSkipCommentLinesOnlyInACommitMessageGitWillStrip() {
     # Markdown headings and stored messages keep their "#" lines: they are judged.
     refused 'a heading footer in a PR description' \
