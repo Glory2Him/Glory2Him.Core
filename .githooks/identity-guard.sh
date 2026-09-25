@@ -8,9 +8,9 @@
 # assistant attribution (Co-Authored-By trailers, session links, "Generated
 # with" footers).
 #
-# One script, four callers: the git hooks in this directory, the Claude Code
+# One rule set for every layer: the git hooks in this directory, the Claude Code
 # hooks in .claude/hooks, and the rejectAiAttribution job in
-# .github/workflows/prLinter.yml.
+# .github/workflows/prLinter.yml, which also runs tests/identity-guard.test.sh.
 #
 # Usage:
 #   identity-guard.sh check-ident <label> "<Name <email> ...>"
