@@ -610,6 +610,19 @@ $trailer" >/dev/null
     refused 'a PR with a tool-authored commit' ci "$tool_authored"
 }
 
+ShouldFindTheSignedInPersonWhateverTheCaseOfTheirEmailOnSessionStart() {
+    repo="$scratch/session-case"
+    git init -q "$repo"
+    cp -R "$root/.githooks" "$repo/.githooks"
+    raw_commit "$repo" "$person_name <Jane.Person+g2h@Example.com>" "$person" 'An earlier commit' >/dev/null
+    git config --file "$scratch/tool-case.gitconfig" user.name "$tool_name"
+    git config --file "$scratch/tool-case.gitconfig" user.email "$tool_email"
+    env GIT_CONFIG_GLOBAL="$scratch/tool-case.gitconfig" CLAUDE_PROJECT_DIR="$repo" \
+        CLAUDE_CODE_USER_EMAIL='jane.person+g2h@example.com' bash "$hook" session-start >/dev/null
+    assert_equal 'name from history' "$person_name" "$(git -C "$repo" config user.name)"
+    assert_equal 'email from the session' 'jane.person+g2h@example.com' "$(git -C "$repo" config user.email)"
+}
+
 ShouldFailAnAttributedPullRequestTitleOrDescriptionInCi() {
     remote="$scratch/ci-text-remote.git"
     git init -q --bare "$remote"
