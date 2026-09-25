@@ -1069,6 +1069,29 @@ ShouldReadJsonThroughNodeWhenPython3DoesNotRun() {
     done
 }
 
+# judged_through_node <PATH> <description> <text> <accepted|refused>: on <PATH>,
+# is_json gives the text that judgement, and the node recorded in $bin gave it.
+judged_through_node() {
+    rm -f "$bin/node.exits"
+    on_path "$1" is_json "$3" >"$scratch/out" 2>&1
+    status=$?
+    [ "$(node_exit)" = "$status" ] || fail_check "$2: node did not give the judgement"
+    case "$4:$status" in
+        accepted:0 | refused:[1-9]*) ;;
+        *) fail_check "$2: expected $4, got exit $status" ;;
+    esac
+}
+
+ShouldJudgeJsonThroughNodeWhenPython3DoesNotRun() {
+    for python3_stand_in in placeholder_python3 silent_python3; do
+        bin="$scratch/judge-with-$python3_stand_in"
+        "$python3_stand_in" "$bin"
+        node_recorder "$bin"
+        judged_through_node "$bin:$PATH" "$python3_stand_in: JSON" '{"a":[1,"two",null]}' accepted
+        judged_through_node "$bin:$PATH" "$python3_stand_in: text that is not JSON" 'not json' refused
+    done
+}
+
 # ======================================================================= runner
 
 all_tests=$(declare -F | sed -n 's/^declare -f \(Should[A-Za-z0-9]*\)$/\1/p')
