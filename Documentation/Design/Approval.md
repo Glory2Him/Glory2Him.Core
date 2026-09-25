@@ -195,7 +195,7 @@ Rules:
 
    Runtime shape is not a stable discriminator, and the repository proves it twice. §DOM5.1 and §DOM5.2 describe `Tag` and `Reaction` as carrying `GroupId`/`Version`/`IsLatestVersion`, but neither implements the properties or the interface. More sharply, `BibleReference` dropped `IVersion` and its versioning properties while its storage configuration and validations kept referencing them — a probe would have silently changed the approval branch, where the compiler at least reports the mismatch.
 2. Adding an entity type to §APR7.5 without adding it here is an incomplete change. A missing row is a hard error, never a default.
-3. `Versioned` means an amendment to a **terminal** row — `Approved` or `Rejected` (§APR9.3, §APR9.4) — produces a **new row** (§DOM3.4 rule 8), and any previously published row stays live until the new one is approved. `Single-Row` means the row that is edited **is** the published row, so there is nothing to fork into and an amendment of a terminal row is **refused** instead.
+3. `Versioned` means an amendment to a **terminal** row — `Approved` or `Rejected` (§APR9.3, §APR9.4) — produces a **new row** (§DOM3.4 rule 8), and any previously published row stays live until the new one is approved. `Single-Row` means the row that is edited **is** the published row, so there is nothing to fork into and an amendment of a terminal row is **refused** instead — except the one in-place change §SEC14.7 posture A′ rule 2 admits, a reader changing their own reaction, which has no fork to go through the approval process in and so goes through it on the row itself (§DOM4.5 rule 4, #685).
 
    The two branches are therefore not two ways of doing the same thing. Versioned preserves the rejected or approved text as a row and moves on; Single-Row has nowhere to preserve it, so it holds the row still until an administrator override re-opens it (§APR8.8 regardless-rule 1).
 
@@ -508,6 +508,8 @@ The exception is narrow on every axis, and deliberately so, because HR-2's whole
 
 Setting `DoNotAllowBypassingSettings = true` closes route 3 entirely. Nobody, publishers and administrators included, can then approve without satisfying every required check.
 
+**The three routes decide a round; none of them returns a decided one to `Submitted`.** That happens by an administrator override (§APR9.3), or — for the single-row change §APR7.5.1 rule 3 admits — by that change going back through the approval process (#685), after which these three routes decide it again.
+
 **One residual, stated so it is not mistaken for a gap.** The setting governs approval *time*, not settings *editing*. An administrator with permission to edit approval settings can still disable or delete the rule and then approve. That is a deliberate limit of the mechanism — closing it requires separating "who may approve" from "who may configure approval", which is not modelled today. Any environment that needs a genuinely unbypassable rule must control who can edit `ApprovalSetting` rows.
 
 **Regardless of `AllowSelfApproval`:**
@@ -764,7 +766,7 @@ Regardless of this setting:
 
 1. **An administrator override that moves a terminal entity back to `Submitted` always dismisses active reviews.** This replaces the in-place amendment that used to sit here — that is withdrawn, because a state one role can edit out of is not terminal (§DOM3.4 rule 16). The override changes status, never content, and is gated to `Administrators` alone (§APR8.6 HR-4).
 
-   The dismissal is unconditional here for the same reason it is unconditional after a rejection: the reviews belong to a round that closed. `RequireReapprovalOnChange` governs whether an edit *during* a round invalidates the reviews taken so far; it has nothing to say about reviews that already produced a verdict. Re-opening the round on the strength of those verdicts would let an approval be reinstated by the very reviews the override just overruled.
+   The dismissal is unconditional here for the same reason it is unconditional after a rejection: the reviews belong to a round that closed. `RequireReapprovalOnChange` governs whether an edit *during* a round invalidates the reviews taken so far; it has nothing to say about reviews that already produced a verdict. The one case that meets it is the single-row change §APR7.5.1 rule 3 admits (#685): its round is returned to `Submitted` first, so the change is an edit during a round, and the setting governs those reviews as it governs any. Re-opening the round on the strength of those verdicts would let an approval be reinstated by the very reviews the override just overruled.
 
    The normal approval process then applies, or the `Administrators` may bypass-approve.
 
@@ -806,7 +808,7 @@ An entity starts in `Draft` when it is created but not yet ready for review.
 
 An entity moves to `Approved` when approval policy rules are satisfied.
 
-**`Approved` is terminal.** The row's content is immutable from here, for every role (§DOM3.4 rule 7). It leaves this state by exactly one route: an administrator override through the approval transition operation (§APR8.6 HR-4), which unpublishes it on the way out.
+**`Approved` is terminal.** The row's content is immutable from here, for every role (§DOM3.4 rule 7), save the one single-row change §APR7.5.1 rule 3 admits. It leaves this state by an administrator override through the approval transition operation (§APR8.6 HR-4), which unpublishes it on the way out — or, for that single-row change, by the change going back through the approval process (#685).
 
 ### APR9.4 Rejected *(formerly §9.4)*
 
@@ -817,7 +819,7 @@ An entity moves to `Rejected` when rejected according to the effective approval 
 What an owner does with a rejection therefore depends on the publication model (§APR7.5.1):
 
 - **Versioned** — editing forks a new row at `Draft` (§DOM3.4 rule 8). The rejected row stays as the record of what was rejected and why.
-- **Non-versioned** — there is no row to fork into, so the edit is refused outright. The row is corrected only after an administrator override moves it to `Submitted`.
+- **Non-versioned** — there is no row to fork into, so the edit is refused outright. The row is corrected only after an administrator override moves it to `Submitted`. The one exception is §APR7.5.1 rule 3's, which goes back through the approval process on the row itself (#685).
 
 A rejected row never published, so nothing is unpublished when it is forked or overridden.
 
@@ -838,6 +840,8 @@ stateDiagram-v2
     Submitted --> Submitted: Edited while under review (stale reviews dismissed per policy)
     Approved --> Submitted: Administrator override (row unpublished)
     Rejected --> Submitted: Administrator override
+    Approved --> Submitted: Reader's reaction change re-enters approval
+    Rejected --> Submitted: Reader's reaction change re-enters approval
     Approved --> [*]: terminal
     Rejected --> [*]: terminal
 ```
