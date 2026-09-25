@@ -121,8 +121,9 @@ const policyFields: ReadonlyArray<PolicyField> = [
     },
     {
         field: 'requireReapprovalOnChange',
-        label: 'Editing an approved item sends it back for review',
-        help: 'Reviews already cast are dismissed as evidence about superseded text.'
+        label: 'Editing an item under review dismisses its reviews',
+        help: 'Reviews already cast are dismissed as evidence about superseded text. '
+            + 'The item\'s status does not change.'
     },
     {
         field: 'requireReviewCommentResolutionBeforeApprovals',
