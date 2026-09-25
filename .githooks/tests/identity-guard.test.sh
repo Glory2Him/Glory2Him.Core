@@ -177,10 +177,10 @@ pre_github() {
 github_allows() { expect_exit 0 "pre-github allows $1: $2" pre_github "$@"; }
 github_blocks() { expect_exit 2 "pre-github blocks $1: $2" pre_github "$@"; }
 
-# python3_runs: succeeds, and prints nothing, when a trivial program run through
-# python3 exits 0. Being found is not enough: on Windows, python3 can be the
-# Microsoft Store's placeholder, which prints how to install Python and exits 49,
-# and which starts the install when it is run without arguments.
+# python3_runs: succeeds when a trivial program run through python3 exits 0, and
+# prints nothing either way. Being found is not enough: on Windows, python3 can be
+# the Microsoft Store's placeholder, which prints how to install Python and exits
+# 49, and which starts the install when it is run without arguments.
 python3_runs() { python3 -c 'pass' >/dev/null 2>&1; }
 
 # json_value <file> <key> [key ...]: prints, as JSON, the value at that path in
@@ -1014,7 +1014,7 @@ $footer"
     refused 'a session link in the title' ci "CONFIG: $session_link" 'Closes #1'
 }
 
-# The JSON helpers' tests put the python3 and the node they need first on a PATH
+# The JSON helpers' tests supply the python3 and the node they need, on a PATH
 # that lasts only for the call. Each stand-in is an sh script with both a "#!"
 # line and the execute bit: Git Bash runs a script only when it starts with "#!",
 # Linux only when it has the execute bit, and either would otherwise pass over it
@@ -1088,13 +1088,14 @@ ShouldReadJsonThroughNodeWhenPython3DoesNotRun() {
 # judged_through_node <PATH> <description> <text> <accepted|refused>: on <PATH>,
 # is_json gives the text that judgement, and the node recorded in $bin gave it.
 judged_through_node() {
+    on=$1 what=$2 text=$3 judgement=$4
     rm -f "$bin/node.exits"
-    on_path "$1" is_json "$3" >"$scratch/out" 2>&1
+    on_path "$on" is_json "$text" >"$scratch/out" 2>&1
     status=$?
-    [ "$(node_exit)" = "$status" ] || fail_check "$2: node did not give the judgement"
-    case "$4:$status" in
+    [ "$(node_exit)" = "$status" ] || fail_check "$what: node did not give the judgement"
+    case "$judgement:$status" in
         accepted:0 | refused:[1-9]*) ;;
-        *) fail_check "$2: expected $4, got exit $status" ;;
+        *) fail_check "$what: expected $judgement, got exit $status" ;;
     esac
 }
 
