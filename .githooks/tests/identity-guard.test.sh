@@ -768,6 +768,53 @@ ShouldKeepTheRulesInOneScript() {
     done <<<"$others"
 }
 
+ShouldRunTheGuardsOwnTestsBeforeJudgingInCi() {
+    # Every test #682 names for this suite: criteria 1 to 6a other than the .NET
+    # test in 5a, this one, and the non-functional constraint.
+    for name in \
+        ShouldTurnOffClaudeCodesOwnAttributionInSettings \
+        ShouldPointGitAtTheRepositoryHooksOnSessionStart \
+        ShouldSwitchAToolIdentityToTheSignedInPersonOnSessionStart \
+        ShouldFindTheSignedInPersonWhateverTheCaseOfTheirEmailOnSessionStart \
+        ShouldPreferTheG2hOverridesOnSessionStart \
+        ShouldWarnAndChangeNothingWhenNoPersonIsFoundOnSessionStart \
+        ShouldWarnWhenAToolIdentityFromTheEnvironmentOutlivesTheSwitchOnSessionStart \
+        ShouldRestoreTheHooksPathBeforeEachCommandOnPreBash \
+        ShouldRefuseEveryHookSkippingTokenOnPreBash \
+        ShouldNameTheMatchedTokenInTheRefusalOnPreBash \
+        ShouldNotJudgeIdentityOrMessagesOnPreBash \
+        ShouldRefuseAttributionOnPreGithub \
+        ShouldCheckOnlyTheTextFieldsOnPreGithub \
+        ShouldRemindTheSessionToEditAwayTheConnectorFooterOnPostGithub \
+        ShouldRunTheGithubHooksOnExactlyTheToolsThatWriteText \
+        ShouldRefuseAttributionInGithubTextWrittenWithGhOnPreBash \
+        ShouldRefuseAGhTextSourceItCannotReadOnPreBash \
+        ShouldRefuseAToolIdentityOnPreCommit \
+        ShouldRefuseAToolIdentityOnPreMergeCommit \
+        ShouldRefuseAnAttributionTrailerOnCommitMsg \
+        ShouldSkipCommentLinesOnlyInACommitMessageGitWillStrip \
+        ShouldRefuseAToolAuthoredCommitOnPrePush \
+        ShouldRefuseATrailerOnlyCommitOnCheckRangeAndPrePush \
+        ShouldPushPublishedToolHistoryMergedIn \
+        ShouldRefuseOnlyAToolIdentityOnCheckIdent \
+        ShouldCheckOnlyThePullRequestsOwnCommitsInCi \
+        ShouldFailAnAttributedPullRequestTitleOrDescriptionInCi \
+        ShouldKeepTheRulesInOneScript \
+        ShouldRunTheGuardsOwnTestsBeforeJudgingInCi \
+        ShouldJudgeALargeCommandWellWithinTheHookTimeoutOnPreBash; do
+        declare -F "$name" >/dev/null || fail_check "no such test: $name"
+    done
+
+    # The job runs the whole suite, and runs it before any step that judges.
+    runs=$(sed -n '/^  rejectAiAttribution:/,/^  [A-Za-z][A-Za-z]*:$/p' "$workflow" | sed -n 's/^ *run: //p')
+    suite_at=$(printf '%s\n' "$runs" | grep -n -x 'bash .githooks/tests/identity-guard.test.sh' | head -n 1 | cut -d: -f1)
+    judge_at=$(printf '%s\n' "$runs" | grep -n 'identity-guard\.sh check-' | head -n 1 | cut -d: -f1)
+    [ -n "$suite_at" ] || fail_check 'rejectAiAttribution runs the whole suite'
+    [ -n "$judge_at" ] || fail_check 'rejectAiAttribution judges the pull request'
+    [ -n "$suite_at" ] && [ -n "$judge_at" ] && [ "$suite_at" -lt "$judge_at" ] || \
+        fail_check "the suite (step $suite_at) runs before the first judging step ($judge_at)"
+}
+
 ShouldSkipCommentLinesOnlyInACommitMessageGitWillStrip() {
     # Markdown headings and stored messages keep their "#" lines: they are judged.
     refused 'a heading footer in a PR description' \
