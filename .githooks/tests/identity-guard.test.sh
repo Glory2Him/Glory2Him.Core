@@ -1002,6 +1002,73 @@ $footer"
     refused 'a session link in the title' ci "CONFIG: $session_link" 'Closes #1'
 }
 
+# The JSON helpers' tests put the python3 and the node they need first on a PATH
+# that lasts only for the call. Each stand-in is an sh script with both a "#!"
+# line and the execute bit: Git Bash runs a script only when it starts with "#!",
+# Linux only when it has the execute bit, and either would otherwise pass over it
+# to the machine's own.
+
+# What the Microsoft Store's python3 placeholder prints, as measured on Windows 11.
+placeholder_message='Python was not found; run without arguments to install from the Microsoft Store, or disable this shortcut from Settings > Apps > Advanced app settings > App execution aliases.'
+
+# stand_in <dir> <name> <line ...>: writes <dir>/<name>, an sh script that records
+# its argument count in <dir>/<name>.runs and then runs the lines.
+stand_in() {
+    mkdir -p "$1"
+    printf '%s\n' '#!/bin/sh' "printf '%s\\n' \"\$#\" >>$(printf '%q' "$1/$2.runs")" "${@:3}" >"$1/$2"
+    chmod +x "$1/$2"
+}
+
+# Two python3s that do not run, whatever their arguments: the placeholder, which
+# prints its message to stderr and exits 49, and one that prints nothing and exits 1.
+placeholder_python3() { stand_in "$1" python3 "printf '%s\\n' '$placeholder_message' >&2" 'exit 49'; }
+silent_python3() { stand_in "$1" python3 'exit 1'; }
+
+# node_recorder <dir>: writes <dir>/node, which runs the real node and then records
+# its exit status in <dir>/node.exits.
+node_recorder() {
+    mkdir -p "$1"
+    printf '%s\n' '#!/bin/sh' "$(printf '%q' "$(command -v node)") \"\$@\"" 'status=$?' \
+        "printf '%s\\n' \"\$status\" >>$(printf '%q' "$1/node.exits")" 'exit $status' >"$1/node"
+    chmod +x "$1/node"
+}
+
+# node_exit: the exit status of the last run of the node recorded in $bin, or
+# nothing when it has not run.
+node_exit() { tail -n 1 "$bin/node.exits" 2>/dev/null; }
+
+# on_path <PATH> <command ...>: runs the command with PATH set, in a subshell, so
+# that the change ends with the call.
+on_path() { ( PATH=$1; shift; "$@" ); }
+
+# write_values: writes the JSON file these tests read, and names it $values.
+write_values() {
+    values="$scratch/values.json"
+    printf '{"a":{"empty":"","no":false}}\n' >"$values"
+}
+
+# reads_through_node <PATH> <description> <expected> <key ...>: on <PATH>, json_value
+# reads <expected> at that path in $values, and the node recorded in $bin gave it.
+reads_through_node() {
+    on=$1 what=$2 expected=$3; shift 3
+    rm -f "$bin/node.exits"
+    answer=$(on_path "$on" json_value "$values" "$@" 2>"$scratch/out")
+    [ "$(node_exit)" = 0 ] || fail_check "$what: node did not give the answer"
+    assert_equal "$what" "$expected" "$answer"
+}
+
+ShouldReadJsonThroughNodeWhenPython3DoesNotRun() {
+    write_values
+    for python3_stand_in in placeholder_python3 silent_python3; do
+        bin="$scratch/read-with-$python3_stand_in"
+        "$python3_stand_in" "$bin"
+        node_recorder "$bin"
+        reads_through_node "$bin:$PATH" "$python3_stand_in: an empty string" '""' a empty
+        reads_through_node "$bin:$PATH" "$python3_stand_in: false" false a no
+        reads_through_node "$bin:$PATH" "$python3_stand_in: an absent path" undefined a absent
+    done
+}
+
 # ======================================================================= runner
 
 all_tests=$(declare -F | sed -n 's/^declare -f \(Should[A-Za-z0-9]*\)$/\1/p')
