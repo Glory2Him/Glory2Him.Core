@@ -386,7 +386,7 @@ Recommended properties:
 | `RequiredNumberOfApprovals` | Number of required approvals (1–5) before approval is complete. Applies when `RequireApprovals = true`. |
 | `AllowSelfApproval` | Whether the author can approve their own item by the ordinary route (§APR8.6 HR-2). It does not govern the bypass. |
 | `BlockOnReject` | Whether a single rejection blocks the approval. |
-| `RequireReapprovalOnChange` | Whether edits reset approval status. |
+| `RequireReapprovalOnChange` | Whether an edit during a round dismisses the reviews taken so far (§APR8.8). It never moves the approval's status, and it does not govern a reader's changed reaction, whose old pair's reviews are dismissed whatever it says (§APR8.8 regardless-rule 1). |
 | `AutoApproveIfAllApprovalRequirementsMet` | Whether the entity is automatically approved when all approval requirements are met. |
 | `RequireReviewCommentResolutionBeforeApprovals` | Whether every `ApprovalComment` on the approval must be **settled** before approval can be granted. Only comments that ask for something ever hold it shut — an informational comment is created settled (§APR7.8). It gates the `Approval` entity only — it never affects an individual `ApprovalReview`'s own verdict. |
 | `BlockOnZeroApprovalScore` | Whether an entity whose `IConfidence.ConfidenceScore` is `0` is blocked from approval. Defaults to `false`. Applies to both automatic approval and the manual approve action; a publisher or administrator may still bypass it (§ARC12.5.3 business rule 11) or correct the score first (§APR9.7.1 rule 5). |

@@ -1560,8 +1560,9 @@ either.
 - (c) **The entity under review is the inbound source that causes dismissal.** When an item subject to approval is
   amended, the orchestration receives that fact (rules 1–3 above decide at
   which tier) and, where the effective `ApprovalSetting` requires re-approval on
-  change, determines that the existing verdicts no longer describe the current
-  content. It then sets
+  change — or, whatever it requires, where the fact is a reader's changed
+  reaction (§APR8.8 regardless-rule 1, not yet built) — determines that the
+  existing verdicts no longer describe the current content. It then sets
   **every active `ApprovalReview` on that approval to `Dismissed`**. An `-Added`
   fact opens or reinstates the round and evaluates it; it dismisses nothing. The re-file
   route depends entirely on it, and **that route is now reachable**: the
@@ -2113,7 +2114,7 @@ itself is at-least-once.**
    phantom cannot be undone, whereas a late fact converges.
 
 4. **The guarantee becomes at-least-once, and receivers are already safe for
-   it.** A foundation request handler checks `ProcessedEvents`, unique on
+   it, but for the one delta named below.** A foundation request handler checks `ProcessedEvents`, unique on
    `EventId` + `ReceiverName`, and a deduplicated delivery replies `null`, so a
    redelivered envelope is a no-op there. How the receiver half of that key
    compares is ruled by §EVN25 rather than left to the catalogue's collation.
@@ -2363,8 +2364,9 @@ Avoiding event spaghetti:
     stored event, and it replays the identical signed bytes rather than minting a
     fresh envelope — which is what makes rule 4's dedup on `EventId` work, and
     why `RetryCount` never increments (§EVN9). There is no replay operator that
-    re-runs history (§EVN22); replay-safety is a property every handler carries,
-    not a feature something offers.
+    re-runs history (§EVN22); replay-safety is a property every handler must
+    carry, not a feature something offers. One built handler does not yet: the
+    `-Modified` ears' dismissal (§APR9.7.4's second residual).
 
 ## EVN21. Future Pattern: Intentional Dispatch Events *(new; from EventSubstrate.md §34)*
 
