@@ -764,7 +764,7 @@ issue body:
 ```markdown
 ## Model usage
 
-- PR #42 — Opus 5.5 - High
+- PR #<n> — Opus 5.5 - High
 ```
 
 One line per pull request, appended and never rewritten, so an issue that took
@@ -868,9 +868,10 @@ npm run test
 if ($LASTEXITCODE -ne 0) { throw "tests failed" }
 npm run build
 
-# republish the branch to local IIS — -Project defaults to the main checkout, so
-# pass this checkout's project or you publish whatever the main checkout has out
-D:\Sites\Deploy-Glory2HimWebApp.ps1 -Project <this checkout>\Websites\Glory2Him.WebApp\Glory2Him.WebApp.csproj
+# republish the branch to local IIS, from the repository root — -Project defaults
+# to the main checkout, so pass this checkout's project or you publish whatever
+# the main checkout has checked out
+D:\Sites\Deploy-Glory2HimWebApp.ps1 -Project .\Websites\Glory2Him.WebApp\Glory2Him.WebApp.csproj
 ```
 
 These are PowerShell — `Get-ChildItem` and the `.ps1` path assume it. `&&` is not

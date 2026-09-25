@@ -110,7 +110,7 @@ even if not named here explicitly.
 - Identity guard: `bash .githooks/tests/identity-guard.test.sh` (CI runs it in
   `prLinter.yml`, not `build.yml`)
 - Republish the branch to local IIS:
-  `D:\Sites\Deploy-Glory2HimWebApp.ps1 -Project <this checkout>\Websites\Glory2Him.WebApp\Glory2Him.WebApp.csproj`
+  `D:\Sites\Deploy-Glory2HimWebApp.ps1 -Project .\Websites\Glory2Him.WebApp\Glory2Him.WebApp.csproj`
   — `-Project` defaults to the main checkout, so a bare run publishes whatever
   that checkout has checked out rather than this branch.
 

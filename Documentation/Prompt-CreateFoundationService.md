@@ -123,7 +123,7 @@ For each CRUD operation:
 Start with the logic test phase, driving the direct (non-event) path only.
 Rules:
 	• Create one logic test at a time and implement only the logic it demands
-	• No TryCatch, validation or exception handling yet — those come in the validation and exception phases
+	• No TryCatch, no validation logic and no exception handling yet — dependency and service exception handling included; those come in the validation and exception phases
 	• No orchestration logic, and nothing for a later CRUD operation
 	• Audit and user-id calls use the `SecurityContext` overload from the start — never add the
 	  ambient overload and migrate later
