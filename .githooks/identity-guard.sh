@@ -24,8 +24,10 @@ set -u
 # A tool identity, as git prints it ("Name <email> 1700000000 +0000").
 AI_IDENT_RE='(^|[[:space:]])claude([[:space:]]+code)?[[:space:]]*<|@anthropic\.com>|<noreply@anthropic\.com'
 
-# Attribution a tool adds to a commit message or a PR description.
-AI_ATTRIBUTION_RE='co-authored-by:.*(claude|anthropic)|claude-session:|generated (with|by) \[?claude|claude\.ai/code/session|noreply@anthropic\.com'
+# Attribution a tool adds to a commit message or a PR description. A co-author
+# trailer is matched within its own name and address, never past them, so that a
+# human co-author followed on the same line by, say, a branch name is not refused.
+AI_ATTRIBUTION_RE='co-authored-by[[:space:]]*[:=][^<>"'"'"']*(claude|anthropic)|co-authored-by[[:space:]]*[:=][^<>"'"'"']*<[^<>"'"'"']*anthropic|claude-session:|generated (with|by) \[?claude|claude\.ai/code/session|noreply@anthropic\.com'
 
 fail() {
     printf 'identity-guard: %s\n' "$1" >&2

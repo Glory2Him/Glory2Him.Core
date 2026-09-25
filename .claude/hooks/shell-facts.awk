@@ -48,6 +48,7 @@ BEGIN {
     SHORT_VALUES["revert"] = "mX";     ATTACHED["revert"] = "S"
     LONG_VALUES["revert"] = "--mainline --strategy --strategy-option --cleanup"
     LONG_VALUES["am"] = "--patch-format --directory --exclude --include --resolvemsg --whitespace --quoted-cr --empty"
+    LONG_VALUES["notes"] = "--ref"
 }
 
 { S = S $0 "\n" }
@@ -395,13 +396,17 @@ function git_command(words, i, nw,    t, sub_command) {
     if (sub_command == "config") config_command(words, i, nw)
     if (index(HISTORY_COMMANDS, " " sub_command " ")) {
         print "HISTORY"
-        print "COMMIT"
+        RECORDS_IDENTITY = sub_command != "tag" && sub_command != "notes"
+        FIRST_ARGUMENT = ""
         subcommand_options(sub_command, words, i, nw)
+        if (sub_command == "notes") RECORDS_IDENTITY = FIRST_ARGUMENT ~ /^(add|append|copy|edit|merge|remove|prune)$/
+        if (RECORDS_IDENTITY) print "COMMIT"
     }
 }
 
 # Walks a history-writing subcommand's options, consuming each option's value
-# so that a value is never read as an option.
+# so that a value is never read as an option. Only an annotated tag, and a pull
+# that may merge, record the committer's identity.
 function subcommand_options(sub_command, words, i, nw,    t, eq, name, value, k, c) {
     while (i <= nw) {
         t = words[i]
@@ -416,12 +421,19 @@ function subcommand_options(sub_command, words, i, nw,    t, eq, name, value, k,
             if (is_prefix(name, "--no-verify", 6)) print "SKIP\t--no-verify"
             if (sub_command == "commit" && is_prefix(name, "--author", 4)) author(value)
             if (sub_command == "rebase" && is_prefix(name, "--exec", 4)) parse_string(value)
+            if (sub_command == "pull" && is_prefix(name, "--ff-only", 5)) RECORDS_IDENTITY = 0
+            if (sub_command == "tag" && (is_prefix(name, "--annotate", 4) || is_prefix(name, "--sign", 4) || is_prefix(name, "--local-user", 4) || is_prefix(name, "--message", 4) || is_prefix(name, "--file", 4))) RECORDS_IDENTITY = 1
+            continue
+        }
+        if (t !~ /^-./) {
+            if (FIRST_ARGUMENT == "") FIRST_ARGUMENT = t
             continue
         }
         if (t ~ /^-./) {
             for (k = 2; k <= length(t); k++) {
                 c = substr(t, k, 1)
                 if (index(SKIPS_HOOKS[sub_command], c)) print "SKIP\t-" c
+                if (sub_command == "tag" && index("asumF", c)) RECORDS_IDENTITY = 1
                 if (index(SHORT_VALUES[sub_command], c)) {
                     if (k < length(t)) value = substr(t, k + 1)
                     else if (i <= nw) value = words[i++]
