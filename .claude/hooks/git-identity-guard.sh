@@ -46,11 +46,16 @@ HOOK_SKIP_RE='--no-veri|hookspath|git_config|alias\.|include\.|includeif\.'
 FROM_COMMIT_RE='(^|[^[:alnum:]_])commit([^[:alnum:]_].*|$)'
 N_CLUSTER_RE='(^|[^[:alnum:]_-])-[[:alpha:]]*n[[:alpha:]]*([^[:alnum:]_-]|$)'
 
-# skips_hooks <text>: succeeds when the text holds a hook-skipping token.
-skips_hooks() {
+# hook_skipping_token <text>: prints the first hook-skipping token in the text,
+# as it is written there, or nothing.
+hook_skipping_token() {
     flat=$(printf '%s' "$1" | tr '\r\n' '  ')
-    printf '%s\n' "$flat" | grep -Eiq -e "$HOOK_SKIP_RE" && return 0
-    printf '%s\n' "$flat" | grep -Eio -e "$FROM_COMMIT_RE" | grep -Eiq -e "$N_CLUSTER_RE"
+    token=$(printf '%s\n' "$flat" | grep -Eio -e "$HOOK_SKIP_RE" | head -n 1)
+    if [ -z "$token" ]; then
+        token=$(printf '%s\n' "$flat" | grep -Eio -e "$FROM_COMMIT_RE" | head -n 1 | \
+            grep -Eio -e "$N_CLUSTER_RE" | head -n 1 | sed -e 's/^[^-]//' -e 's/[^[:alpha:]]$//')
+    fi
+    printf '%s' "$token"
 }
 
 has_fact() {
@@ -100,8 +105,9 @@ case "${1:-}" in
         payload=$(cat)
         command=$(printf '%s' "$payload" | json_strings command)
         [ -n "$command" ] || exit 0
-        if skips_hooks "$command"; then
-            block "Refused: this repository does not allow skipping or redirecting its git hooks. They keep AI identities and attribution out of the history."
+        token=$(hook_skipping_token "$command")
+        if [ -n "$token" ]; then
+            block "Refused: \"$token\" in this command can skip or redirect this repository's git hooks, which keep AI identities and attribution out of the history. The check matches text, so a command that only mentions it is refused too: rephrase it."
         fi
         facts=$(printf '%s\n' "$command" | awk -f "$hooks_dir/shell-facts.awk")
         [ -n "$facts" ] || exit 0
