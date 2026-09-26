@@ -1,49 +1,107 @@
 # Glory2Him.Core
 
 A collaborative content portal built to The Standard. See `INTENT.md` for what the
-system does, and `Documentation/G2H Design.md` with
-`Documentation/Design/Events.md` for how it is designed. `DEVELOPERS.md` walks a
-person through the same workflow end to end — the four roles, the documentation
-layout, and how a mockup becomes a design section, an issue, and merged code.
+system does and `Documentation/Design/design.md` — the index to the design
+documents — for how it is designed. `DEVELOPERS.md` walks a person through the
+same workflow end to end — the three roles, the documentation layout, and how a
+mockup becomes a feature, its user stories and tasks, and merged code.
 
 ## Where the rules live
 
 - **The Standard** — `.claude/skills/the-standard-*`. These own the layer model,
   naming, testing discipline, and the commit, branch and PR formats. Load the
   skill for the layer you are working in rather than working from memory.
-- **The design** — `Documentation/G2H Design.md` on main is the index and entry
-  point; the area files under `Documentation/Design/` are authoritative for their
-  areas, and the map at the top of the index says which area is in which file. An
-  issue that disagrees with the design is stale intent, not an instruction;
-  correct the issue.
+- **The agents and skills** — `.claude/agents/` and the shared skills under
+  `.claude/skills/` are maintained in Glory2Him.Template and refreshed into this
+  repository byte for byte. Never change them here: a change is made in the
+  Template and arrives with the next refresh. `update-dependency-graph` is this
+  repository's own skill and is maintained here.
+- **The design** — `Documentation/Design/design.md` is the index. The global
+  documents beside it (`Architecture.md`, `Security.md`, `Events.md`,
+  `Domain.md`) hold the epic-level rules every feature inherits, and
+  `Documentation/G2H Design.md` holds the overview and principles, the numbering
+  and citation rules (§IDX1.5), and the map of pre-split section numbers. `Approval.md` and `UI.md` hold two areas designed before features had
+  documents of their own. The feature and user story documents under
+  `Documentation/DesignFeatures/` hold what each feature does and how it is
+  built, citing the rules above them and never restating them, with any
+  deviation recorded and reasoned. The design on main is authoritative. An issue
+  that disagrees with it is stale intent, not an instruction; correct the issue.
 - **The CI gates** — `.github/workflows/prLinter.yml` holds the authoritative PR
   title prefixes and fails any PR whose body links no issue or task. `Closes
   #<n>` is the preferred form; `fixes`/`resolves` (and their past-tense
   variants) and `AB#<n>` are also accepted — see the workflow for the exact
   pattern.
+- **The labels** — `.github/labels.json` is the org label set and
+  `.github/workflows/labels.yml` applies it. Neither it nor `prLinter.yml` is
+  edited by hand: `prLinter.yml` is emitted by `GeneratePrLintScript` in
+  `Glory2Him.Core.Infrastructure` (§ARC12.11), and `labels.json` is generated
+  from it by `.github/generate-labels.py`. Change the generator, regenerate
+  `prLinter.yml`, then regenerate `labels.json`.
 
 ## Development workflow
 
-Non-trivial work moves through four roles, defined in `.claude/agents/`. Each
-hands over a durable artifact, not a conversation.
+Work breaks down the way Azure DevOps does it, and `design.md` defines each
+level:
 
-1. **architect** — settles layer placement, event contracts and the security
-   boundary, recorded in `Documentation/G2H Design.md`, or in
-   `Documentation/Design/Events.md` where the subject is event design. Skip only
-   for changes touching a single file, no schema, no event and no boundary.
-2. **analyst** — writes numbered acceptance criteria into the GitHub issue.
-   Requires approval before the developer starts.
-3. **developer** — test first, `-> FAIL` then `-> PASS`, one criterion at a time.
-4. **qa** — verifies the diff against the criteria in a fresh context. Reports
-   BLOCKING and ADVISORY findings. Never fixes anything.
+- **Epic** — the whole product (`INTENT.md` and the global design documents).
+- **Feature** — ships and works on its own; a feature document.
+- **Sub-feature** — a part of a feature too large to plan in one go.
+- **User story** — one component at one level, such as a foundation service or
+  a page; it need not work on its own, and never spans levels. A feature can span
+  several screens — each screen is its own user story.
+- **Task** — one operation of a user story: one GitHub issue.
+
+Each level names its parent. Work moves through three roles, defined in `.claude/agents/`, and through a
+process sized to its risk. Each role hands over a durable artifact, not a
+conversation.
+
+1. **planner** — plans top-down; for tier 1 writes the design first, under a
+   design task — global rules, feature and user story documents — settling layer placement, event
+   contracts and the security boundary; carves each user story into tasks, one
+   per operation, its validations and exception handling included; and writes
+   each task's criteria as a sign-off checklist: logic tests (happy path and
+   negative path under the security context), validation tests, exception tests.
+   Pushes back with a design task when the design is too high-level to plan
+   from. Its tasks need QA's sign-off before the developer starts.
+2. **developer** — test first, `-> FAIL` then `-> PASS`, one criterion at a time.
+   Starts only on a task carrying `ready for development`, and opens the PR once
+   the work is done, before handing it to QA.
+3. **qa** — always a fresh session with no context from the other roles. Before
+   a task's code is written, or when a ruling changes a task, reviews the design
+   and the tasks and signs off each task it clears with `ready for development`;
+   once the developer has opened a PR, verifies it against the criteria and
+   labels it `ready for review` when it passes. Reports BLOCKING and ADVISORY
+   findings. Never fixes anything.
+
+Every handover to QA is a fresh session briefed with pointers only — never
+another agent's account of its work. The planner always hands its design and
+tasks to QA and corrects what QA finds, until QA has signed every task off —
+and passed the design PR, where there is one, with `ready for review`. The
+developer hands over its PR, fixes QA's findings as commits on it, and hands
+back until QA labels it `ready for review`. After the first round, QA reviews
+only what changed since its last round and what that touches. The developer or
+QA may hand a question to the planner with context, and a planner change to an
+open, signed-off task, or to the design it cites, goes back through QA before
+the developer acts on it.
+
+| Tier | Applies to | The planner writes |
+| --- | --- | --- |
+| **1: design** | A new entity, a schema change or migration, a new event, a change to the security boundary, or a new service, layer or dependency | The design, then the tasks |
+| **2: behaviour** | New behaviour inside the existing design | The tasks, criteria only |
+| **3: fix or tweak** | A bug fix, a copy or styling change — one file, no schema, no event, no boundary | The task, cut down to the outcome and the criteria that pin the change |
+
+Every tier ends in approved tasks: the PR linter needs an issue to close, and
+the developer builds nothing that is not in an approved criterion.
 
 Failed QA goes back to whoever owns the finding: implementation to the developer,
-missing or contradictory criteria to the analyst, a crossed boundary or a wrong
-layer to the architect.
+including code that departs from a sound design; missing or contradictory
+criteria, or a design that got a boundary or a layer wrong, to the planner.
 
-Every issue carries a `Model - Effort` label, spelled out in full, such as
-`Opus 5.5 - Medium`. It is the decision and the issue body does not repeat it; what
-actually ran is appended to the body under `## Model usage` when the PR opens.
+Every task carries a `Model - Effort` label, spelled out in full, such as
+`Opus 5.5 - Medium`. The model is always Opus 5.5 — only the effort varies, and
+developer work defaults to `High`. The label is the decision and the task's body
+does not repeat it; what actually ran is appended to the body under
+`## Model usage` when the PR opens.
 
 ## Non-negotiables
 
@@ -60,11 +118,10 @@ actually ran is appended to the body under `## Model usage` when the PR opens.
   never a *storage* broker). `Documentation/Design/Architecture.md` §ARC12.1
   rule 2 and §ARC12.5 record the exception and no more: an orchestration
   reaches each entity through its processing service where one exists, its
-  foundation service where none does.
-  The narrowing to one kind — processing services or foundation services, never
-  both — is owned by `.claude/agents/architect.md` and `qa.md`, as "same kind,
-  never mixed". This deliberately overrides `the-standard-orchestrations`'
-  blanket ban on it — see those two agent files for the reasoning.
+  foundation service where none does. `.claude/agents/planner.md` and `qa.md`
+  enforce that as "same kind, never mixed", and deliberately override
+  `the-standard-orchestrations`' blanket ban on it — the reasoning is in those
+  two files.
 - Schema changes are new migrations. Applied migrations are never edited, and a
   migration script must work as a single batch on the deploy path.
 - Never add AI or assistant attribution to a commit message or PR description — it
@@ -80,8 +137,10 @@ actually ran is appended to the body under `## Model usage` when the PR opens.
   - **CI is the enforcement of record.** `rejectAiAttribution` ("Reject AI
     Identity And Attribution", emitted into `prLinter.yml` by the generator) fails
     a PR whose own commits have a tool author or committer or carry attribution,
-    or whose title or description carries attribution. It is a required status
-    check on `main`.
+    or whose title or description carries attribution. It runs on every pull
+    request into `main`; only `Build` is a required status check on `main` today,
+    and making
+    this one required too is the owner's setting.
   - **The git hooks are the local layer.** `.githooks/` refuses the commit and the
     push on what git resolves. `--no-verify` skips them by design, which is why
     they are not the record. Never bypass them (`--no-verify`, `core.hooksPath`).
@@ -89,7 +148,8 @@ actually ran is appended to the body under `## Model usage` when the PR opens.
     each act on a closed list of forms. A form outside a list gets past them, and
     CI catches the result. They guarantee nothing.
 - Never implement behaviour that is not in an approved criterion.
-- Adding a dependency, an event, or a layer change is an architect decision.
+- Adding a dependency, an event, or a layer change is a planner decision, made
+  in the design as tier 1 work.
 
 ## Commands
 

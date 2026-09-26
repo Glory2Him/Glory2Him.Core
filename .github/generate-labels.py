@@ -75,33 +75,43 @@ TIERS = {
 # "Small" was the old name for the bottom rung on the five-rung models, which left the
 # same rung called two different things depending on the model. It is retired.
 #
-# Opus 5 is listed to be NORMALISED, not to be chosen. Its labels stay because they carry
-# the closed issues genuinely built under it, while DEVELOPERS.md points forward at Opus
-# 5.5. Listing it here keeps the sync tidying its colour and description; the sync never
-# deletes, so leaving it out would simply abandon it to however it was hand-created.
-#
-# Haiku 4.5 is deliberately absent. It is live in Glory2Him.Template, which is where
-# this script came from, and has never existed on this repository. The manifest
-# records what is live here rather than importing a family nothing has used.
+# Only Opus 5.5 is chosen: DEVELOPERS.md section 10 fixes the model and varies the effort.
+# Opus 5, Sonnet 5, Fable 5 and Haiku 4.5 are listed to be NORMALISED, not to be chosen.
+# Their labels stay because they carry closed issues genuinely built under them. Listing
+# them here keeps the sync tidying their colour and description; the sync never deletes,
+# so leaving them out would simply abandon them to however they were hand-created.
 MODEL_EFFORTS = {
     "Opus 5.5": ["Low", "Medium", "High", "Extra", "Max"],
     "Opus 5": ["Low", "Medium", "High", "Extra", "Max"],
     "Sonnet 5": ["Low", "Medium", "High"],
     "Fable 5": ["Low", "Medium", "High"],
+    "Haiku 4.5": ["Low", "Medium", "High"],
 }
 EFFORT_COLOUR = "fbca04"
 
-# The issue lifecycle. Approval is a label rather than a review, so these carry it.
-# DEVELOPERS.md section 7 is the written record.
+# The issue lifecycle. Approval is not among these: it is QA's ready for development
+# label below, which takes a task out of status: needs-scoping. DEVELOPERS.md
+# section 7 is the written record.
 STATUS_LABELS = [
-    ("status: needs-scoping", "e4e669", "Criteria written, waiting on a human to approve them"),
-    ("status: ready-for-dev", "0e8a16", "Approved. The developer will not start without this"),
+    ("status: needs-scoping", "e4e669", "Criteria written, waiting on QA to sign them off"),
     ("status: in-progress", "1d76db", "A developer is implementing it"),
     ("status: in-qa", "5319e7", "Implemented, under adversarial verification"),
     ("status: done", "6a737d", "Merged and verified"),
 ]
 
-# One per design area, applied by the analyst so an area has a live query that never
+# QA's verdicts: ready for development on an issue it clears, ready for review on a
+# PR it passes. ready for development is also the approval: the developer will not
+# start a task without it. .claude/agents/qa.md makes applying them mandatory, and
+# gh --add-label fails outright on a label the repository does not have. There is no
+# separate merge-ready label: ready for review already carries QA's MERGE READY: YES.
+# Colours, and the ready for review description, are copied from the live
+# Glory2Him.Template labels.
+QA_LABELS = [
+    ("ready for development", "0e8a16", "QA signed the task off; a developer may start once its design is on main"),
+    ("ready for review", "0e8a16", "QA passed with no blocking findings; ready for a human merge review"),
+]
+
+# One per design area, applied by the planner so an area has a live query that never
 # goes stale. Note the trap: the all-caps DESIGN label is a PR category label the
 # linter auto-applies from a title prefix, and is a different thing entirely.
 DESIGN_AREA_COLOUR = "f9d0c4"
@@ -148,6 +158,9 @@ for model, efforts in MODEL_EFFORTS.items():
 for name, colour, description in STATUS_LABELS:
     labels.append({"name": name, "color": colour, "description": description})
 
+for name, colour, description in QA_LABELS:
+    labels.append({"name": name, "color": colour, "description": description})
+
 for area in DESIGN_AREAS:
     labels.append({
         "name": f"design: {area}",
@@ -168,4 +181,4 @@ with open(OUT, "w", encoding="utf-8", newline="\n") as file:
     json.dump(labels, file, indent=2, ensure_ascii=False)
     file.write("\n")
 
-print(f"{len(labels)} labels written to {OUT} ({len(prefixes)} prefixes + {sum(len(e) for e in MODEL_EFFORTS.values())} model-effort + {len(STATUS_LABELS)} status + {len(DESIGN_AREAS)} design area)")
+print(f"{len(labels)} labels written to {OUT} ({len(prefixes)} prefixes + {sum(len(e) for e in MODEL_EFFORTS.values())} model-effort + {len(STATUS_LABELS)} status + {len(QA_LABELS)} QA + {len(DESIGN_AREAS)} design area)")

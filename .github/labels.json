@@ -595,14 +595,24 @@
     "description": "Suggested model and effort for this issue"
   },
   {
-    "name": "status: needs-scoping",
-    "color": "e4e669",
-    "description": "Criteria written, waiting on a human to approve them"
+    "name": "Haiku 4.5 - Low",
+    "color": "fbca04",
+    "description": "Suggested model and effort for this issue"
   },
   {
-    "name": "status: ready-for-dev",
-    "color": "0e8a16",
-    "description": "Approved. The developer will not start without this"
+    "name": "Haiku 4.5 - Medium",
+    "color": "fbca04",
+    "description": "Suggested model and effort for this issue"
+  },
+  {
+    "name": "Haiku 4.5 - High",
+    "color": "fbca04",
+    "description": "Suggested model and effort for this issue"
+  },
+  {
+    "name": "status: needs-scoping",
+    "color": "e4e669",
+    "description": "Criteria written, waiting on QA to sign them off"
   },
   {
     "name": "status: in-progress",
@@ -618,6 +628,16 @@
     "name": "status: done",
     "color": "6a737d",
     "description": "Merged and verified"
+  },
+  {
+    "name": "ready for development",
+    "color": "0e8a16",
+    "description": "QA signed the task off; a developer may start once its design is on main"
+  },
+  {
+    "name": "ready for review",
+    "color": "0e8a16",
+    "description": "QA passed with no blocking findings; ready for a human merge review"
   },
   {
     "name": "design: architecture",
