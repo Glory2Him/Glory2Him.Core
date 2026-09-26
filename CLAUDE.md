@@ -32,9 +32,11 @@ mockup becomes a feature, its user stories and tasks, and merged code.
   variants) and `AB#<n>` are also accepted — see the workflow for the exact
   pattern.
 - **The labels** — `.github/labels.json` is the org label set and
-  `.github/workflows/labels.yml` applies it. A PR title prefix that has no label
-  in the manifest is a prefix the linter cannot label, so the two are edited
-  together.
+  `.github/workflows/labels.yml` applies it. Neither it nor `prLinter.yml` is
+  edited by hand: `prLinter.yml` is emitted by `GeneratePrLintScript` in
+  `Glory2Him.Core.Infrastructure` (§ARC12.11), and `labels.json` is generated
+  from it by `.github/generate-labels.py`. Change the generator, regenerate
+  `prLinter.yml`, then regenerate `labels.json`.
 
 ## Development workflow
 
@@ -136,7 +138,8 @@ does not repeat it; what actually ran is appended to the body under
     Identity And Attribution", emitted into `prLinter.yml` by the generator) fails
     a PR whose own commits have a tool author or committer or carry attribution,
     or whose title or description carries attribution. It runs on every pull
-    request; only `Build` is a required status check on `main` today, and making
+    request into `main`; only `Build` is a required status check on `main` today,
+    and making
     this one required too is the owner's setting.
   - **The git hooks are the local layer.** `.githooks/` refuses the commit and the
     push on what git resolves. `--no-verify` skips them by design, which is why

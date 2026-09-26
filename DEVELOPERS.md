@@ -364,6 +364,21 @@ on its criteria. It builds the one operation the task names and stops if the
 work needs another. It opens the PR once the work is done and before it hands
 over to QA, and fixes QA's findings as further commits on that PR.
 
+**Checking a change under a role, in this repository.** Every area is protected,
+so a mocked security context is the normal path, and three routes exist:
+
+1. **React rendering under any role, no server and no credentials.**
+   `AuthContextOverride` in
+   `Websites/Glory2Him.WebApp.React/src/components/securitys/authProvider.tsx`
+   stands up any `{ userId, displayName, roles }` for a subtree. It gates
+   rendering only; the server still re-decides every write.
+2. **A rendered page without signing in.** Render the real component to HTML in a
+   throwaway test and drive it in the browser, then delete the scratch files.
+3. **Real HTTP under any role.**
+   `Websites/Glory2Him.WebApp.Tests.Acceptance/TestAuthHandler.cs` accepts
+   `X-Test-Anonymous`, `X-Test-UserId` and `X-Test-Roles`. It exists only in the
+   test project and must never reach the shipped host.
+
 ### qa — adversarial, never fixes
 
 **Owns** finding the reasons a change should not ship. **Produces** findings
@@ -406,7 +421,7 @@ Documentation/
     design.md              the index — the levels, a map of every design document, the conventions
     Architecture.md        epic: layers, services, dependencies          §ARC12, §ARC16, §ARC17
     Security.md            epic: authentication, authorisation, identity §SEC14, §SEC18
-    Events.md              epic: event contracts, how a service implements events   §EVN0 … §EVN23
+    Events.md              epic: event contracts, how a service implements events   §EVN0 … §EVN25
     Domain.md              epic: entities and their invariants           §DOM2 … §DOM6, §DOM11, §DOM19
     Approval.md            the approval process, designed before feature documents  §APR7, §APR8, §APR9, §APR13
     UI.md                  UI / UX design, designed before feature documents        §UI20
@@ -980,7 +995,8 @@ Closes #512
 ```
 
 `fixes` and `resolves` (and their past-tense forms) and `AB#<n>` also match. This
-is the only PR-linter job that fails on the pull request's own content. The
+and `rejectAiAttribution` (the identity guard layers, below) are the PR-linter jobs
+that fail on the pull request's own content. The
 labelling job can still red for its own reasons, as above. `Build` is the only
 status check the branch ruleset requires green.
 
@@ -994,9 +1010,9 @@ choice.** The effort ladder is **Low / Medium / High / Extra / Max**:
 | Opus 5.5 | Low, Medium, High, Extra, Max |
 
 Labels for other models exist on the same ladder and are deliberately absent from
-the table: `Opus 5 - *`, `Sonnet 5 - *`, `Fable 5 - *` and `Haiku 4.5 - *` carry
-closed issues genuinely built under those models, so they are history rather than a
-choice. Only the Opus families carry the top two rungs — there is no
+the table: `Opus 5 - *`, `Sonnet 5 - *` and `Fable 5 - *` carry closed issues
+genuinely built under those models, so they are history rather than a choice.
+`Haiku 4.5 - *` comes with the Template's generator and carries no issue here. Only the Opus families carry the top two rungs — there is no
 `Sonnet 5 - Max` and no `Fable 5 - Extra`.
 
 The bottom rung was once called `Small` on the five-rung models and `Low` on the rest,
@@ -1088,8 +1104,9 @@ on, and only the first is relied on:
   or committer or with attribution in its message, and any PR whose title or
   description carries attribution. It is emitted by `GeneratePrLintScript` in
   `Glory2Him.Core.Infrastructure`, so change the generator and regenerate, never
-  the YAML. It runs on every pull request, but only `Build` is a required status
-  check on `main` today; making this one required is the owner's setting.
+  the YAML. It runs on every pull request into `main`, but only `Build` is a
+  required status check on `main` today; making this one required is the owner's
+  setting.
 - **The git hooks are the local layer.** `.githooks/` refuses the commit and the
   push. `pre-commit` and `pre-merge-commit` judge the identity git resolves,
   however it was set; `commit-msg` judges the message; `pre-push` judges every
