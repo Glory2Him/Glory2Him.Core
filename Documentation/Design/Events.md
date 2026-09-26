@@ -1437,9 +1437,10 @@ foundation, and the workflow still binds to its foundation facts.
    transition. `Association` has no submit verb at all —
    `AssociationEventOperation` carries no `Submitting` and `IAssociationService`
    no submit method — so its `-Submitted` is published by the approve transition
-   alone, when an administrator's override re-opens a decided row. Nothing above
-   the foundation takes part in either route, so there is no processing fact to
-   prefer.
+   alone, when an administrator's override re-opens a decided row or the
+   approval workflow returns a changed reaction's decided round (§APR9.7.4, not
+   yet built). Nothing above the foundation takes part in either route, so there
+   is no processing fact to prefer.
 
    A **Versioned** type must have a processing service before it can
    participate in approval, for the reason in rule 2. `Attachment` is Versioned
@@ -1559,9 +1560,11 @@ either.
 - (c) **The entity under review is the inbound source that causes dismissal.** When an item subject to approval is
   amended, the orchestration receives that fact (rules 1–3 above decide at
   which tier) and, where the effective `ApprovalSetting` requires re-approval on
-  change, determines that the existing verdicts no longer describe the current
-  content. It then sets
-  **every active `ApprovalReview` on that approval to `Dismissed`**. An `-Added`
+  change — or, whatever it requires, where the fact is a reader's changed
+  reaction (§APR8.8 regardless-rule 1, not yet built) — determines that the
+  existing verdicts no longer describe the current content. It then sets
+  **every active `ApprovalReview` on that approval to `Dismissed`** — for a
+  changed reaction, every one the old pair earned (§APR9.7.4). An `-Added`
   fact opens or reinstates the round and evaluates it; it dismisses nothing. The re-file
   route depends entirely on it, and **that route is now reachable**: the
   service exists, the subscription is wired, and a superseded reviewer's slot is
@@ -1780,7 +1783,8 @@ Three things about this pair, and each is a question a reviewer will ask:
    (e) condition 4). Contrast the round's own dismissal, which cannot be
    driven this way: dismissing stale reviews is conditional on
    `RequireReapprovalOnChange` on the edit path and unconditional on the §APR8.6
-   HR-4 reset (§ARC12.5.3 business rule 12, §ARC16.7.5), and a bare
+   HR-4 reset and on a changed reaction (§ARC12.5.3 business rule 12,
+   §ARC16.7.5), and a bare
    `Approval-Modified` cannot tell those apart — which is why the dismissal and
    Berean's return-to-pending stay direct calls on the round's own service
    (§ARC12.5.3 rule 19). Introducing a discriminated `Approval-Reset` fact to move
@@ -1820,7 +1824,7 @@ addresses of its own, both for the automatic Berean assignment of
 | Address | Rule | Reaction |
 | --- | --- | --- |
 | `Approval-Added` | §APR8.6.2.1 | A round opened. Where it opened at `Submitted` and the six gates pass, Berean is assigned under the system identity. |
-| `Approval-Modified` | §APR8.6.2.1 | A round may have *reached* `Submitted` — a draft submitted, or §APR8.6 HR-4's reset re-opening a decided one. Same gates, same write. |
+| `Approval-Modified` | §APR8.6.2.1 | A round may have *reached* `Submitted` — a draft submitted, §APR8.6 HR-4's reset re-opening a decided one, or a changed reaction's decided round returned (§APR9.7.4, not yet built). Same gates, same write. |
 
 Four things about this pair:
 
@@ -2111,7 +2115,7 @@ itself is at-least-once.**
    phantom cannot be undone, whereas a late fact converges.
 
 4. **The guarantee becomes at-least-once, and receivers are already safe for
-   it.** A foundation request handler checks `ProcessedEvents`, unique on
+   it, but for the one delta named below.** A foundation request handler checks `ProcessedEvents`, unique on
    `EventId` + `ReceiverName`, and a deduplicated delivery replies `null`, so a
    redelivered envelope is a no-op there. How the receiver half of that key
    compares is ruled by §EVN25 rather than left to the catalogue's collation.
@@ -2123,11 +2127,17 @@ itself is at-least-once.**
    - **Re-evaluate rather than apply a delta.** `ApprovalOrchestrationService`'s
      fact handlers re-run the whole §APR8.5 evaluation from stored
      state, so a second delivery reaches the same conclusion (§EVN18(b)).
+     One delta rides with that evaluation and carries no check: under
+     `RequireReapprovalOnChange = true` the `-Modified` and `-Submitted` ears
+     dismiss the round's active reviews on every delivery, so a redelivered
+     one dismisses reviews already cast since (§APR9.7.4's residual).
    - **Gate on signed state, then find nothing left to do.** The two
      non-re-testing subscriber sets of §EVN18(e) read the round's status out of
      the HMAC before any gather, and their gather or presence check is empty on
      a second pass — the reviewer orchestration's retirements and the AI
-     orchestration's automatic assignment, both built.
+     orchestration's automatic assignment, both built. The
+     `Association-Repointed` ear takes this shape for its return and dismissal,
+     gating on the change's signed `UpdatedWhen` (§APR9.7.4, not yet built).
 
    Both shapes exist already; neither is new work. An earlier version of this
    rule offered only the first, which was true of every orchestration handler
@@ -2328,8 +2338,11 @@ Avoiding event spaghetti:
    `ApprovalOrchestrationService` fact handler run again on a redelivery. What
    makes that tolerable for the fact handlers is that they re-evaluate the round
    rather than apply a delta — idempotence by construction, not deduplication —
-   and a handler added above the foundation that applies a delta owns the check
-   that makes it safe.
+   save two deltas. The `Association-Repointed` ear's carries the check
+   §APR9.7.4 names (not yet built); the `-Modified` and `-Submitted` ears'
+   dismissal under `RequireReapprovalOnChange = true` carries none
+   (§APR9.7.4's residual). A handler added above the foundation that applies
+   a delta owns the check that makes it safe.
 5. Do not rely on the relative order of two subscribers on one address, or on
    the order of two publishes. No address carries two subscriptions today, so
    the first half constrains future wiring; the second bites now.
@@ -2351,8 +2364,9 @@ Avoiding event spaghetti:
     stored event, and it replays the identical signed bytes rather than minting a
     fresh envelope — which is what makes rule 4's dedup on `EventId` work, and
     why `RetryCount` never increments (§EVN9). There is no replay operator that
-    re-runs history (§EVN22); replay-safety is a property every handler carries,
-    not a feature something offers.
+    re-runs history (§EVN22); replay-safety is a property every handler must
+    carry, not a feature something offers. One built behaviour does not yet:
+    the `-Modified` and `-Submitted` ears' dismissal (§APR9.7.4's residual).
 
 ## EVN21. Future Pattern: Intentional Dispatch Events *(new; from EventSubstrate.md §34)*
 
