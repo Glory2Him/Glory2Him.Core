@@ -18,7 +18,7 @@ list below is what makes those two gaps read as a table of contents rather than
 as missing content. **Unlike `Approval.md`, `Architecture.md` and
 `Security.md`, this file carries no heading-level anomaly to preserve** — every
 heading's level matches its number's depth throughout, `##` for `N`, `###` for
-`N.M` and `####` for `N.M.K`. The other `Documentation/Design/*.md` files carry
+`N.M` and `####` for `N.M.K`. The other area files under `Documentation/Design/` carry
 their own prefixes — `APR`, `ARC`, `EVN`, `SEC`, `UI` — so a bare `§DOM4.2` is
 unambiguous. Where this file cites one of them, the map at the
 top of [`G2H Design.md`](../G2H%20Design.md) is what resolves it.

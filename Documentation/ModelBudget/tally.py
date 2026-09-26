@@ -62,8 +62,13 @@ CLOSES = re.compile(r"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s*:?\s*#(\d+)"
 # dash or em dash separates the two halves, because all three get typed.
 USAGE = re.compile(r"^\s*[-*]\s*PR\s*#(\d+)\s*[-–—]\s*(.+?)\s*$", re.M)
 
+# Every design prefix .github/workflows/prLinter.yml accepts.
+DESIGN_TITLE = re.compile(r"(?:(?:MINOR|MEDIUM|MAJOR) )?DESIGN:", re.I)
+
 # The header qa.md asks for, one per review pass:
-#   "QA round 2: FAIL - BLOCKING 3, ADVISORY 2 - MERGE READY: NO"
+#   "QA round 2: FAIL - BLOCKING 3, ADVISORY 2 - MERGE READY: NO - at 4f2a9c1"
+# A design PR carries the same header for QA's task-review rounds; main() leaves
+# design PRs out, because those rounds judge the planner, not an implementation.
 #
 # Anchored to a single line on purpose. A pull request reviewed more than once
 # carries one header per round and the later ones supersede the earlier, so this
@@ -281,6 +286,10 @@ def main():
     args = parser.parse_args()
 
     prs, decided, actual = fetch(args.cached)
+    # A design PR's QA rounds review the planner's design and tasks. Counted here
+    # they would mix planner rework into every implementation column below.
+    design = [pr for pr in prs if DESIGN_TITLE.match(pr.get("title") or "")]
+    prs = [pr for pr in prs if pr not in design]
     rows, measured = [], 0
     for pr in prs:
         closes = {int(n) for n in CLOSES.findall(pr.get("body") or "")}
@@ -294,7 +303,8 @@ def main():
         if ran or hit:
             rows.append(measure(pr, ran or decided[hit[0]]))
 
-    print("merged pull requests: {}".format(len(prs)))
+    print("merged pull requests: {} (design pull requests left out: {})".format(
+        len(prs), len(design)))
     print("joined to a model budget: {}".format(len(rows)))
     print("  of those, recording what actually ran: {} (the rest are the"
           " label, i.e. the plan)".format(measured))
