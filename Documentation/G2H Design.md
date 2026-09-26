@@ -105,16 +105,23 @@ forcing. What the split inherits from `Events.md` is the prefix idea and the
 
 **The citation form**
 
-A citation is the bare prefixed number and nothing else:
+A citation of a prefixed document is the bare prefixed number and nothing else, because the prefix already names the file:
 
 ```
 §DOM4.2      §APR8.6.1      §ARC12.5      §SEC14.7      §UI20.6.1      §EVN18      §IDX1.5
 ```
 
-- **No filename.** `Domain.md §4.2` — the form issue #498 used — is **retired**.
-  A prefix already identifies the file uniquely, so a filename in a citation is a
-  second thing that can be wrong, and a stale path in a code comment is worse than
-  no path.
+- **No filename for a prefixed document.** `Domain.md §4.2` — the form issue #498
+  used — is **retired**. A prefix already identifies the file uniquely, so a
+  filename in a citation is a second thing that can be wrong, and a stale path in
+  a code comment is worse than no path.
+- **A feature or user story document is cited by its path, because it has no
+  prefix.** Such a document lives under `Documentation/DesignFeatures/`, and
+  `Documentation/Design/design.md` defines it (#692). Its path is its only
+  identifier rather than a second one, so a citation gives the path relative to
+  `DesignFeatures/` and the rule or section number — `SavedSearches.md rule 3`,
+  `Backend/SavedSearchService.md §1`. Its numbers are never cited without that
+  path.
 - **No bare dotted number** inside `Documentation/`. A `§8.6.1` with no prefix
   written after the split is a finding. Pre-split occurrences in code are left
   alone.

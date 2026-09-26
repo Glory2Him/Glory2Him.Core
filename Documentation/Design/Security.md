@@ -16,8 +16,8 @@ that gap read as a table of contents rather than as missing content.
 `### 14.6.1` — a third-level number at heading level 3 — in `G2H Design.md`,
 and it stays at heading level 3 as `### SEC14.6.1` rather than being promoted
 to match its number; the anomaly is preserved, not tidied (§IDX1.5, the same
-precedent already applied to §ARC16.7.5). The other `Documentation/Design/*.md`
-files carry their own prefixes — `ARC`, `APR`, `DOM`, `EVN`, `UI` — so a bare
+precedent already applied to §ARC16.7.5). The other area files under `Documentation/Design/`
+carry their own prefixes — `ARC`, `APR`, `DOM`, `EVN`, `UI` — so a bare
 `§SEC14.7` is unambiguous. Where this file cites one of them, the map at the
 top of [`G2H Design.md`](../G2H%20Design.md) is what resolves it.
 
