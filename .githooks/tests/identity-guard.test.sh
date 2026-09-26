@@ -86,6 +86,12 @@ assert_contains() {
     esac
 }
 
+assert_not_contains() {
+    case "$3" in
+        *"$2"*) printf '%s\n' "$3" >"$scratch/out"; fail_check "$1: expected output without '$2'" ;;
+    esac
+}
+
 # --------------------------------------------------------------- scratch repos
 
 # A repository set up the way a clone of this one is: hooks on, a person's identity.
@@ -171,10 +177,16 @@ pre_github() {
 github_allows() { expect_exit 0 "pre-github allows $1: $2" pre_github "$@"; }
 github_blocks() { expect_exit 2 "pre-github blocks $1: $2" pre_github "$@"; }
 
+# python3_runs: succeeds when a trivial program run through python3 exits 0, and
+# prints nothing either way. Being found is not enough: on Windows, python3 can be
+# the Microsoft Store's placeholder, which prints how to install Python and exits
+# 49, and which starts the install when it is run without arguments.
+python3_runs() { python3 -c 'pass' >/dev/null 2>&1; }
+
 # json_value <file> <key> [key ...]: prints, as JSON, the value at that path in
 # the JSON file, or "undefined" when the path is absent.
 json_value() {
-    if command -v python3 >/dev/null 2>&1; then
+    if python3_runs; then
         python3 -c 'import json,sys
 v = json.load(open(sys.argv[1]))
 for k in sys.argv[2:]:
@@ -194,7 +206,7 @@ console.log(JSON.stringify(v));' "$@"
 
 # is_json <text>: succeeds when the text parses as JSON.
 is_json() {
-    if command -v python3 >/dev/null 2>&1; then
+    if python3_runs; then
         python3 -c 'import json,sys; json.loads(sys.argv[1])' "$1"
     else
         node -e 'JSON.parse(process.argv[1])' "$1"
@@ -1000,6 +1012,167 @@ ShouldFailAnAttributedPullRequestTitleOrDescriptionInCi() {
 $footer"
     refused 'a CRLF description' ci 'CONFIG: Do The Thing' "Closes #1"$'\r\n\r\n'"$footer"$'\r\n'
     refused 'a session link in the title' ci "CONFIG: $session_link" 'Closes #1'
+}
+
+# The JSON helpers' tests choose the python3 that is found, or that none is, and
+# put a recording node where they must show that node answered, on a PATH that
+# lasts only for the call. Each stand-in is an sh script with both a "#!" line and
+# the execute bit: Git Bash runs a script only when it starts with "#!", Linux
+# only when it has the execute bit, and either would otherwise pass over it to the
+# machine's own.
+
+# What the Microsoft Store's python3 placeholder prints, as measured on Windows 11.
+placeholder_message='Python was not found; run without arguments to install from the Microsoft Store, or disable this shortcut from Settings > Apps > Advanced app settings > App execution aliases.'
+
+# stand_in <dir> <name> <line ...>: writes <dir>/<name>, an sh script that records
+# its argument count in <dir>/<name>.runs and then runs the lines.
+stand_in() {
+    mkdir -p "$1"
+    printf '%s\n' '#!/bin/sh' "printf '%s\\n' \"\$#\" >>$(printf '%q' "$1/$2.runs")" "${@:3}" >"$1/$2"
+    chmod +x "$1/$2"
+}
+
+# Two python3s that do not run, whatever their arguments: the placeholder, which
+# prints its message to stderr and exits 49, and one that prints nothing and exits 1.
+placeholder_python3() { stand_in "$1" python3 "printf '%s\\n' '$placeholder_message' >&2" 'exit 49'; }
+silent_python3() { stand_in "$1" python3 'exit 1'; }
+
+# A python3 that runs, whatever its arguments, and answers with a marker.
+python3_marker='"python3 answered"'
+working_python3() { stand_in "$1" python3 "printf '%s\\n' '$python3_marker'" 'exit 0'; }
+
+# node_recorder <dir>: writes <dir>/node, which runs the real node and then records
+# its exit status in <dir>/node.exits.
+node_recorder() {
+    mkdir -p "$1"
+    printf '%s\n' '#!/bin/sh' "$(printf '%q' "$(command -v node)") \"\$@\"" 'status=$?' \
+        "printf '%s\\n' \"\$status\" >>$(printf '%q' "$1/node.exits")" 'exit $status' >"$1/node"
+    chmod +x "$1/node"
+}
+
+# node_exit: the exit status of the last run of the node recorded in $bin, or
+# nothing when it has not run.
+node_exit() { tail -n 1 "$bin/node.exits" 2>/dev/null; }
+
+# on_path <PATH> <command ...>: runs the command with PATH set, in a subshell, so
+# that the change ends with the call.
+on_path() { ( PATH=$1; shift; "$@" ); }
+
+# write_values: writes the JSON file these tests read, and names it $values.
+write_values() {
+    values="$scratch/values.json"
+    printf '{"a":{"empty":"","no":false}}\n' >"$values"
+}
+
+# reads_through_node <PATH> <description> <expected> <key ...>: on <PATH>, json_value
+# reads <expected> at that path in $values, and the node recorded in $bin gave it.
+reads_through_node() {
+    on=$1 what=$2 expected=$3; shift 3
+    rm -f "$bin/node.exits"
+    answer=$(on_path "$on" json_value "$values" "$@" 2>"$scratch/out")
+    [ "$(node_exit)" = 0 ] || fail_check "$what: node did not give the answer"
+    assert_equal "$what" "$expected" "$answer"
+}
+
+ShouldReadJsonThroughNodeWhenPython3DoesNotRun() {
+    write_values
+    for python3_stand_in in placeholder_python3 silent_python3; do
+        bin="$scratch/read-with-$python3_stand_in"
+        "$python3_stand_in" "$bin"
+        node_recorder "$bin"
+        reads_through_node "$bin:$PATH" "$python3_stand_in: an empty string" '""' a empty
+        reads_through_node "$bin:$PATH" "$python3_stand_in: false" false a no
+        reads_through_node "$bin:$PATH" "$python3_stand_in: an absent path" undefined a absent
+    done
+}
+
+# judged_through_node <PATH> <description> <text> <accepted|refused>: on <PATH>,
+# is_json gives the text that judgement, and the node recorded in $bin gave it.
+judged_through_node() {
+    on=$1 what=$2 text=$3 judgement=$4
+    rm -f "$bin/node.exits"
+    on_path "$on" is_json "$text" >"$scratch/out" 2>&1
+    status=$?
+    [ "$(node_exit)" = "$status" ] || fail_check "$what: node did not give the judgement"
+    case "$judgement:$status" in
+        accepted:0 | refused:[1-9]*) ;;
+        *) fail_check "$what: expected $judgement, got exit $status" ;;
+    esac
+}
+
+ShouldJudgeJsonThroughNodeWhenPython3DoesNotRun() {
+    for python3_stand_in in placeholder_python3 silent_python3; do
+        bin="$scratch/judge-with-$python3_stand_in"
+        "$python3_stand_in" "$bin"
+        node_recorder "$bin"
+        judged_through_node "$bin:$PATH" "$python3_stand_in: JSON" '{"a":[1,"two",null]}' accepted
+        judged_through_node "$bin:$PATH" "$python3_stand_in: text that is not JSON" 'not json' refused
+    done
+}
+
+ShouldPreferAPython3ThatRuns() {
+    write_values
+    bin="$scratch/prefer-working_python3"
+    working_python3 "$bin"
+    assert_equal 'the answer of json_value came from python3' "$python3_marker" \
+        "$(on_path "$bin:$PATH" json_value "$values" a empty)"
+    allowed 'the judgement of is_json came from python3, which accepts even text that is not JSON' \
+        on_path "$bin:$PATH" is_json 'not json'
+}
+
+# python3_ran <description>: the python3 recorded in $bin was run at least once.
+python3_ran() { [ -s "$bin/python3.runs" ] || { : >"$scratch/out"; fail_check "$1: the python3 stand-in was not run"; }; }
+
+# runs_python3_only_with_arguments <description> <helper> [arg ...]: while the
+# helper does its work with $bin first on PATH, the python3 recorded there was run,
+# and never without arguments.
+runs_python3_only_with_arguments() {
+    what=$1; shift
+    rm -f "$bin/python3.runs"
+    on_path "$bin:$PATH" "$@" >/dev/null 2>&1
+    python3_ran "$what"
+    refused "$what: python3 was run without arguments" grep -qx 0 "$bin/python3.runs"
+}
+
+ShouldNeverRunPython3WithoutArguments() {
+    write_values
+    for python3_stand_in in working_python3 placeholder_python3; do
+        bin="$scratch/arguments-to-$python3_stand_in"
+        "$python3_stand_in" "$bin"
+        runs_python3_only_with_arguments "$python3_stand_in: json_value" json_value "$values" a empty
+        runs_python3_only_with_arguments "$python3_stand_in: is_json" is_json '{}'
+    done
+}
+
+# prints_no_placeholder_message <description> <helper> [arg ...]: while the helper
+# does its work with $bin first on PATH, the placeholder recorded there was run,
+# and its message is on neither stdout nor stderr.
+prints_no_placeholder_message() {
+    what=$1; shift
+    rm -f "$bin/python3.runs"
+    output=$(on_path "$bin:$PATH" "$@" 2>&1)
+    python3_ran "$what"
+    assert_not_contains "$what, on stdout or stderr" "$placeholder_message" "$output"
+}
+
+ShouldNotPrintThePlaceholdersMessageWhenPython3DoesNotRun() {
+    write_values
+    bin="$scratch/unheard-placeholder_python3"
+    placeholder_python3 "$bin"
+    prints_no_placeholder_message json_value json_value "$values" a empty
+    prints_no_placeholder_message is_json is_json '{}'
+}
+
+ShouldReadJsonThroughNodeWhenThereIsNoPython3() {
+    write_values
+    bin="$scratch/no-python3"
+    node_recorder "$bin"
+    refused 'no python3 is found' on_path "$bin" command -v python3
+    reads_through_node "$bin" 'an empty string' '""' a empty
+    reads_through_node "$bin" false false a no
+    reads_through_node "$bin" 'an absent path' undefined a absent
+    judged_through_node "$bin" JSON '{"a":[1,"two",null]}' accepted
+    judged_through_node "$bin" 'text that is not JSON' 'not json' refused
 }
 
 # ======================================================================= runner
