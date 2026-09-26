@@ -240,11 +240,33 @@ with the entire suite still green, because those callers are testing against a
 mock. When you tighten or add a validation, find the callers and check them.
 
 **Brokers get no unit tests.** They hold no logic, so there is nothing to assert.
-A narrow read is proven by asserting the arguments the broker was called with in
-the caller's unit test, and by the exposer-level acceptance test that exercises
-the path for real. The only broker-side check is the disposable wire-up probe
-described below. Note that Moq's default return for `IReadOnlyList` is null, not
-an empty list — set it up explicitly.
+The only broker-side check is the disposable wire-up probe described below. Note
+that Moq's default return for `IReadOnlyList` is null, not an empty list — set it
+up explicitly.
+
+**A keyed read is proven by executing its condition.** A keyed read is one that
+selects or shapes its rows with a query operator, or with a terminal operator
+that takes a predicate — what the storage-broker rule moves out of the broker. A
+lookup by primary key through the storage client uses neither, so it is not
+one. The condition is authored in the caller as a query-shaping function, so the
+caller's unit test mocks the broker and **applies the function it was handed**
+to an in-memory set seeded with a matching row and, for each term of the
+condition, a row that misses on that term alone — dropping or inverting any term
+must red a test. Where the read orders its rows or picks one of several matches,
+the set also holds a second matching row that the order ranks differently, so
+inverting the order reds a test too: which row wins when two match is a
+decision. Asserting only that *some* function was passed is refused; so is
+asserting the arguments alone. Integration tests remain for what
+LINQ-to-Objects cannot stand in for: SQL translation, collation, and index
+guarantees. Never answer a question by running a terminal operator over the
+unfiltered collection read, synchronous or awaited: that read stays for
+exposure, and a question is asked through a query-shaping function.
+`the-standard-processings`' good example `UpsertStudentAsync` does exactly that
+— `Any` over the retrieve-all read — and is not followed here: check existence
+with a lookup by primary key, or through a foundation read whose query-shaping
+function the foundation writes. Follow this shape for every keyed read your
+change touches — one you add, convert or edit. A read the change does not touch
+keeps its shape until a task converts it.
 
 **Fillers.** A property the filler ignores or pins has the same value on every
 random entity — an ignored enum, such as a type, stays at its default on every
@@ -427,9 +449,14 @@ rather than working around it:
   something work — not into a client, not into a broker. If the boundary is
   blocking you, the design is wrong, and that is a question for the planner.
 - Never skip a layer — except an orchestration depending on foundation services
-  directly, which is the one named exception the next rule governs.
+  directly, or holding one of the four kinds of broker the next rule allows.
+  Those are the named exceptions the next rule governs.
 - Never give an orchestration a mixed dependency list. Processing services or
-  foundation services, all of one kind — never both, and never a broker.
+  foundation services, all of one kind — never both. Of the brokers it may hold
+  only a logging broker, a broker that captures the caller's identity on a
+  signed envelope, a broker it needs to publish events or verify the ones it
+  receives, and a broker that gathers what a policy question needs —
+  never a storage broker, or any other. `planner.md` gives the reasons.
 - Never disable a lint rule or a test to reach green.
 - Never commit with a failing or skipped test, except the deliberate `-> FAIL`
   commit that step 3 requires.

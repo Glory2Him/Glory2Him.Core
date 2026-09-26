@@ -19,8 +19,8 @@ mockup becomes a feature, its user stories and tasks, and merged code.
 - **The design** — `Documentation/Design/design.md` is the index. The global
   documents beside it (`Architecture.md`, `Security.md`, `Events.md`,
   `Domain.md`) hold the epic-level rules every feature inherits, and
-  `Documentation/G2H Design.md` holds the overview and the numbering and citation
-  rules. `Approval.md` and `UI.md` hold two areas designed before features had
+  `Documentation/G2H Design.md` holds the overview and principles, the numbering
+  and citation rules (§IDX1.5), and the map of pre-split section numbers. `Approval.md` and `UI.md` hold two areas designed before features had
   documents of their own. The feature and user story documents under
   `Documentation/DesignFeatures/` hold what each feature does and how it is
   built, citing the rules above them and never restating them, with any
@@ -119,9 +119,7 @@ does not repeat it; what actually ran is appended to the body under
   foundation service where none does. `.claude/agents/planner.md` and `qa.md`
   enforce that as "same kind, never mixed", and deliberately override
   `the-standard-orchestrations`' blanket ban on it — the reasoning is in those
-  two files. Where an agent file states an older broker or keyed-read rule,
-  §ARC12.5 and §ARC12.2.1 govern in this repository, and the fix belongs in
-  Glory2Him.Template.
+  two files.
 - Schema changes are new migrations. Applied migrations are never edited, and a
   migration script must work as a single batch on the deploy path.
 - Never add AI or assistant attribution to a commit message or PR description — it
@@ -137,8 +135,9 @@ does not repeat it; what actually ran is appended to the body under
   - **CI is the enforcement of record.** `rejectAiAttribution` ("Reject AI
     Identity And Attribution", emitted into `prLinter.yml` by the generator) fails
     a PR whose own commits have a tool author or committer or carry attribution,
-    or whose title or description carries attribution. It is a required status
-    check on `main`.
+    or whose title or description carries attribution. It runs on every pull
+    request; only `Build` is a required status check on `main` today, and making
+    this one required too is the owner's setting.
   - **The git hooks are the local layer.** `.githooks/` refuses the commit and the
     push on what git resolves. `--no-verify` skips them by design, which is why
     they are not the record. Never bypass them (`--no-verify`, `core.hooksPath`).

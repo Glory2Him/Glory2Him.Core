@@ -250,14 +250,23 @@ tier 1. Say so, and write the tasks alone.
   envelope. It is never read from an ambient accessor, and an identity-filtered
   read must never be what decides an invariant — a read that returns nothing
   because the caller cannot see it is not the same as a row that does not exist.
-- **Brokers hold no logic** (`the-standard-brokers`). Narrow reads are still the
-  broker's job: the predicate and the await both live there, not a materialised
-  list filtered above.
-- **Never skip a layer — with one named exception.** A layer depends only on the
-  layer directly below it, except that an orchestration may depend on foundation
-  services directly, under the same-kind rule two bullets below. Nowhere else in
-  this solution is a level skipped; do not generalise the exception past that one
-  case.
+- **Brokers hold no logic** (`the-standard-brokers`), and a storage broker
+  authors no query condition. It composes no query operator — `Where`,
+  `Select`, `OrderBy` or any other — and calls no predicate-taking terminal
+  operator. No broker member queries through its `DbContext` — a `DbSet<T>` is
+  model registration, not a query source. The caller authors the condition
+  as a query-shaping function using `System.Linq` only and passes it down; the
+  storage client applies it and awaits the terminal operator with the caller's
+  token. The query still runs in SQL: a list materialised and then filtered
+  above the broker is still wrong. The unfiltered collection read stays for
+  exposure — a caller may compose it further and hand it up, but never answers
+  a question by running a terminal operator over it, synchronous or awaited.
+- **Never skip a layer — with two named exceptions, both for an
+  orchestration.** A layer depends only on the layer directly below it, except
+  that an orchestration may depend on foundation services directly, under the
+  same-kind rule two bullets below, and may hold the four kinds of broker that
+  rule names. Nowhere else in this solution is a level skipped; do not
+  generalise either exception past its case.
 - **Two-Three (Florance Pattern).** For Orchestrator services, the dependencies
   of services (not brokers) should be limited to two or three, not one, four, or
   more.
@@ -268,10 +277,14 @@ tier 1. Say so, and write the tasks alone.
   not a conclusion somebody reaches by finding the alternatives unattractive.
 
   An approved deviation is **recorded against the service it applies to**, in
-  the **Deviations** section of that service's user story document, with the
-  reason and what was rejected, so a later reader can tell an argued exception
-  from an overage nobody caught. Until a service appears there with both, there
-  are no approved deviations and every count over three is a finding.
+  the **Deviations** section of that service's user story document — or, for a
+  service designed before the repository had user story documents, in the
+  register its architecture document keeps — with the reason and what was
+  rejected, so a later reader can tell an argued exception from an overage
+  nobody caught. That register holds two-to-three deviations only; a departure
+  from any other global rule is never recorded there. Until a service appears
+  in one of them with both, there are no approved deviations and every count
+  over three is a finding.
 
   **An existing deviation is never justification for another.** Not by analogy,
   not by precedent, and not because a sibling service carries one. Each is argued
@@ -280,14 +293,33 @@ tier 1. Say so, and write the tasks alone.
 - **One kind of dependency, never a mix.** An orchestration may depend on
   processing services, or on foundation services, but not both. A mixed list is a
   violation because those services sit at different levels, and an orchestration
-  reaching across two levels at once has no single layer below it. Brokers remain
-  off limits to an orchestration entirely.
+  reaching across two levels at once has no single layer below it.
 
-  This deliberately overrides `the-standard-orchestrations` 1.1/Don'ts#1, which
-  forbids an orchestration from calling foundation services at all. In this
-  solution that call is allowed; the same-kind rule is what replaces it. Do not
-  "correct" this back to the skill — the skill is vendored and cannot be edited,
-  so the override lives here.
+  Of the brokers, an orchestration may hold four kinds, each for its reason:
+  - a **logging** broker, because without one it could not log;
+  - a broker that **captures the caller's identity on a signed envelope**,
+    because identity travels on that envelope, never on an ambient accessor,
+    and the orchestration's own security checks read it;
+  - a broker it needs to **publish events or verify the ones it receives**,
+    because no layer below publishes or verifies them for it;
+  - a broker that **gathers what a policy question needs**, because otherwise
+    the question is resolved again inside every service that asks it.
+
+  Every other broker stays off limits to an orchestration, a **storage** broker
+  first: reaching an entity's data directly skips every layer beneath it at
+  once, and that is the boundary this rule protects. Brokers do not count
+  toward the Florance two-to-three.
+
+  This deliberately overrides four rules of The Standard.
+  `the-standard-orchestrations` 1.1/Don'ts#1 and `ts-orchestrations-001` forbid
+  an orchestration from calling foundation services or brokers at all;
+  `ts-orchestrations-002` has it reach each entity through that entity's own
+  processing service; and `the-standard-core` `ts-core-003` has every layer
+  depend only on the layer directly below it. In this solution the foundation
+  call is allowed, the same-kind rule is what replaces the prohibition, and of
+  the brokers only the four kinds above are allowed. Do not "correct" this
+  back to the skills — they are vendored and cannot be edited, so the override
+  lives here.
 - **Thin exposers.** For exposers like controllers there should only be one
   dependency. Exposers behave like brokers and should be thin with no business
   logic.

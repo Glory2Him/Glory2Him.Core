@@ -472,7 +472,8 @@ to copy. **If you add a new area file, copy the convention from `UI.md`'s intro
 block.**
 
 A feature document numbers its business rules, and a user story document its
-operation sections; both are cited by their path under `DesignFeatures/`.
+operation sections; both are cited by their path under `DesignFeatures/`, the
+form §IDX1.5 gives a document that carries no prefix.
 
 Two cautions learned the hard way:
 
@@ -1087,7 +1088,8 @@ on, and only the first is relied on:
   or committer or with attribution in its message, and any PR whose title or
   description carries attribution. It is emitted by `GeneratePrLintScript` in
   `Glory2Him.Core.Infrastructure`, so change the generator and regenerate, never
-  the YAML. It is a required status check on `main`: a PR cannot merge without it.
+  the YAML. It runs on every pull request, but only `Build` is a required status
+  check on `main` today; making this one required is the owner's setting.
 - **The git hooks are the local layer.** `.githooks/` refuses the commit and the
   push. `pre-commit` and `pre-merge-commit` judge the identity git resolves,
   however it was set; `commit-msg` judges the message; `pre-push` judges every

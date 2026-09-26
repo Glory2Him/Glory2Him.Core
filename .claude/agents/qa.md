@@ -171,8 +171,31 @@ what changed" sets.
    operation with no token.
 
 3. **Layer discipline.** Does any layer call two layers below it — skip even one
-   level, e.g. Processing reaching straight for a broker? Did a decision land in
-   a broker? Does the entity count match the layer — one entity,
+   level, e.g. Processing reaching straight for a broker? An orchestration's
+   foundation services, and the four kinds of broker the same-kind rule below
+   allows it, are the named exceptions, not skips. Did a decision land in a
+   broker? Where the change **adds, converts or edits** a storage-broker member,
+   that member must compose no query operator — `Where`, `Select`, `OrderBy` or
+   any other — call no terminal operator that takes a predicate, and never query
+   through its `DbContext`. The condition belongs to the caller as a
+   query-shaping function using `System.Linq` only, and a service importing
+   `Microsoft.EntityFrameworkCore` to shape a query is a finding. So is a
+   service answering a question by running a terminal operator over the
+   unfiltered collection read, synchronous or awaited: that read stays for
+   exposure, and a question is asked through a query-shaping function.
+   `the-standard-processings`' good example `UpsertStudentAsync` does this —
+   `Any` over the retrieve-all read — and does not excuse it: the fix is a
+   lookup by primary key, or a foundation read whose query-shaping function the
+   foundation writes. Where the change
+   **touches** a keyed read, as `developer.md` defines one — adds, converts or
+   edits it — the matching test must **execute** that function against a set
+   seeded with a matching row and, for each term, a row that misses on that term
+   alone; where the read orders its rows or picks one of several matches, the
+   set also holds a second matching row that the order ranks differently. A
+   test that only asserts the arguments, or that some function was passed, does
+   not prove the condition and is a gap. Reads the change did not touch are
+   exempt; see *What is never a finding*.
+   Does the entity count match the layer — one entity,
    or more than three, in an orchestration, or two in a foundation, is a
    structural finding. Does an event's tense match its direction and its
    subject match its layer — present participle for a request, past tense for a
@@ -185,14 +208,29 @@ what changed" sets.
    **An orchestration's dependencies must all be the same kind.** It may depend
    on processing services, or on foundation services, but never a mix — those sit
    at different levels, so a mixed list means the orchestration is reaching across
-   two levels at once. A mixed list is a structural finding. A broker dependency
-   on an orchestration is a finding regardless.
+   two levels at once. A mixed list is a structural finding.
 
-   Note that this overrides `the-standard-orchestrations` 1.1/Don'ts#1, which bars
-   an orchestration from calling foundation services at all. In this solution that
-   call is permitted and the same-kind rule replaces the prohibition. An
-   orchestration depending only on foundation services is therefore correct, not a
-   finding — do not report it as one.
+   Of the brokers, an orchestration may hold four kinds, each for its reason: a
+   **logging** broker, which it needs to log; a broker that **captures the
+   caller's identity on a signed envelope**, which its own security checks read,
+   since identity never comes from an ambient accessor; a broker it needs to
+   **publish events or verify the ones it receives**, which no layer below
+   does for it; and a broker that **gathers what a policy question
+   needs**, so the question is not resolved again inside every service. Any
+   other broker dependency on an orchestration is a finding regardless — a
+   **storage** broker first, since reaching an entity's data directly skips
+   every layer beneath it at once.
+
+   Note that this overrides four rules of The Standard:
+   `the-standard-orchestrations` 1.1/Don'ts#1 and `ts-orchestrations-001`, which
+   bar an orchestration from calling foundation services or brokers at all;
+   `ts-orchestrations-002`, which has it reach each entity through that entity's
+   own processing service; and `the-standard-core` `ts-core-003`, which has every
+   layer depend only on the layer directly below it. In this solution the
+   foundation call is permitted, the same-kind rule replaces the prohibition,
+   and of the brokers only the four kinds above are allowed. An orchestration
+   depending only on foundation services is therefore correct, not a finding —
+   do not report it as one.
 
    **An orchestration over two-to-three service dependencies is a finding, unless
    an approved deviation is recorded for THAT SERVICE BY NAME.** This is the
@@ -216,8 +254,12 @@ what changed" sets.
    A ceiling that grows on contact was never a ceiling.
 
    The register is the **Deviations** section of the service's user story
-   document. While it names no approved deviation for the service in front of you,
-   there are none, and every count over three is a finding.
+   document — or, for a service designed before the repository had user story
+   documents, the register its architecture document keeps, which `design.md`'s
+   map points to. That register holds two-to-three deviations only, and grants
+   no departure from any other global rule. While neither names an approved
+   deviation for the service in front of you, there are none, and every count
+   over three is a finding.
 
 4. **Entanglement through reuse.** Did the change share a *per-operation*
    composition where it should have shared only the leaf rules? A single
@@ -354,9 +396,11 @@ into the event envelope and become indistinguishable from a genuine one.
 
 - **Missing broker tests of any kind.** Brokers hold no logic, so there is nothing
   to assert and their absence is correct — including the absence of a wire-up
-  probe, which is throw-away by design. A narrow read is proven by the caller
-  asserting the arguments and by the exposer-level acceptance test that exercises
-  the path for real.
+  probe, which is throw-away by design. A keyed read is proven by the caller's
+  test executing its condition — see check 3.
+- **A keyed read the change did not touch.** It keeps its shape until a task
+  converts it. A read the change touches — adds, converts or edits — is held to
+  the query-shaping rule, however old it is.
 - **An orchestration depending only on foundation services.** Permitted here; only
   a *mixed* processing-and-foundation list is a finding.
 - **A presentation detail the developer listed under Decisions not in the task**
