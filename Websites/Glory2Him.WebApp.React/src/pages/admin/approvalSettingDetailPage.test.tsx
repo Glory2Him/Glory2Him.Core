@@ -944,4 +944,26 @@ describe('ApprovalSettingDetailPage', () => {
             expect(screen.queryByTestId('list')).not.toBeInTheDocument();
         });
     });
+
+    describe('describing each gate', () => {
+        // §APR8.8: the setting governs whether an edit to an item still under review dismisses
+        // the reviews already cast. It never moves the item's status, and an approved item is
+        // never edited in place, so a label promising a return to review promises what nothing
+        // does.
+        it('should describe the reapproval switch as dismissing the reviews on an edit', () => {
+            // given
+            renderCreatePage();
+
+            // then
+            expect(switchFor('Editing an item under review dismisses its reviews'))
+                .toBeInTheDocument();
+
+            expect(screen.getByText(
+                'Reviews already cast are dismissed as evidence about superseded text. '
+                + 'The item\'s status does not change.')).toBeInTheDocument();
+
+            expect(screen.queryByText('Editing an approved item sends it back for review'))
+                .not.toBeInTheDocument();
+        });
+    });
 });
