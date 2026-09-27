@@ -16,6 +16,9 @@ Documentation/DesignFeatures/
 
 `Backend/` and `UI/` are created with their first user story.
 
+A presentation component's documents are not here: they live under
+[`Documentation/Design/UI/Components/`](../Design/UI/Components/) (§UI20.6.4).
+
 ## A feature document
 
 ```markdown

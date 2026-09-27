@@ -120,8 +120,11 @@ A citation of a prefixed document is the bare prefixed number and nothing else, 
   `Documentation/Design/design.md` defines it (#692). Its path is its only
   identifier rather than a second one, so a citation gives the path relative to
   `DesignFeatures/` and the rule or section number — `SavedSearches.md rule 3`,
-  `Backend/SavedSearchService.md §1`. Its numbers are never cited without that
-  path.
+  `Backend/SavedSearchService.md §1`. A presentation component's documents live
+  under `Documentation/Design/UI/Components/` instead (§UI20.6.4), and are cited
+  by their path relative to `Documentation/Design/` —
+  `UI/Components/ContentItemPanel.md rule 2.4`. Its numbers are never cited
+  without that path.
 - **No bare dotted number** inside `Documentation/`. A `§8.6.1` with no prefix
   written after the split is a finding. Pre-split occurrences in code are left
   alone.
@@ -210,7 +213,7 @@ it names the file the section is in now and the number to cite it by.
 | §12 | Component Architecture | [`Design/Architecture.md`](Design/Architecture.md) — extracted; §12 below is the pointer stub | `§ARC12` |
 | §13 | AI Content Analysis | [`Design/Approval.md`](Design/Approval.md) — extracted; §13 below is the pointer stub | `§APR13` |
 | §14 | Visibility Rules | [`Design/Security.md`](Design/Security.md) — extracted; §14 below is the pointer stub | `§SEC14` |
-| §15 | Recommended Corrections | **Retired** — checked item by item against the repository and deleted rather than relocated. The two live rules it still carried, that `ApprovalId` must not be placed on any approvable entity and the direction by which an approvable entity's round is instead reached, are now §APR7.4 items 6 and 7 | — |
+| §15 | Recommended Corrections | **Retired** — checked item by item against the repository and deleted rather than relocated. The two live rules it still carried, that `ApprovalId` must not be placed on any approvable entity and the direction by which an approvable entity's round is instead reached, went to §APR7.4 items 6 and 7, and the 2026-09-27 ruling reversed both: every entity that implements `IApproval` now stores its round's id, with no foreign key (§APR7.4 item 6) | — |
 | §16 | Recommended Service Responsibilities | [`Design/Architecture.md`](Design/Architecture.md) — extracted; §16 below is the pointer stub | `§ARC16` |
 | §17 | Recommended API Design | [`Design/Architecture.md`](Design/Architecture.md) — extracted; §17 below is the pointer stub | `§ARC17` |
 | §18 | Authentication and Authorisation | [`Design/Security.md`](Design/Security.md) — extracted; §18 below is the pointer stub | `§SEC18` |

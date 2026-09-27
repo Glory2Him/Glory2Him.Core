@@ -23,6 +23,10 @@ follows. The planner writes the design. Nobody else does.
 | **User story** | one component at one level — it can do something, but need not work on its own | the saved-search foundation service; a master page | a user story document, `DesignFeatures/Backend/<Story>.md` or `DesignFeatures/UI/<Story>.md`, naming its parent feature or sub-feature |
 | **Task** | one operation of a user story | `ISavedSearchService.AddSavedSearchAsync` | a GitHub issue, naming its parent user story |
 
+A presentation component's documents live under `Design/UI/Components/` instead, as §UI20.6.4
+rules: a root component is a feature, `<Root>.md`, and each of its child components a user
+story, `<Root>.<Child>.md`.
+
 A feature is built by several user stories, usually at several levels — a storage
 broker, a foundation service, a controller, a page. A user story never spans
 levels, so it is always either backend or UI. Its operations are its tasks, and
@@ -72,6 +76,43 @@ and user stories beside it:
 
 | Feature | Sub-features | User stories |
 | --- | --- | --- |
+
+### Presentation components
+
+The component documents of §UI20.6.4, in a table of their own because the table above lists
+product features under `DesignFeatures/`. Each root component is a feature, and its child
+components are its user stories.
+
+| Root component (feature) | Child components (user stories) |
+| --- | --- |
+| [UI/Components/AssociationPanel.md](UI/Components/AssociationPanel.md) | [AssociationPanel.TagAssociationPanel.md](UI/Components/AssociationPanel.TagAssociationPanel.md), [AssociationPanel.BibleReferenceAssociationPanel.md](UI/Components/AssociationPanel.BibleReferenceAssociationPanel.md) |
+| [UI/Components/ContentItemListPanel.md](UI/Components/ContentItemListPanel.md) | [ContentItemListPanel.ContentItemSearchBarPanel.md](UI/Components/ContentItemListPanel.ContentItemSearchBarPanel.md), [ContentItemListPanel.ContentItemResultsPanel.md](UI/Components/ContentItemListPanel.ContentItemResultsPanel.md) |
+| [UI/Components/ContentItemPanel.md](UI/Components/ContentItemPanel.md) | [ContentItemPanel.Add.md](UI/Components/ContentItemPanel.Add.md), [ContentItemPanel.Restricted.md](UI/Components/ContentItemPanel.Restricted.md), [ContentItemPanel.Edit.md](UI/Components/ContentItemPanel.Edit.md), [ContentItemPanel.Default.md](UI/Components/ContentItemPanel.Default.md), [ContentItemPanel.ContentItemQuotesPanel.md](UI/Components/ContentItemPanel.ContentItemQuotesPanel.md), [ContentItemPanel.ContentItemVerseImagePanel.md](UI/Components/ContentItemPanel.ContentItemVerseImagePanel.md) |
+| [UI/Components/ContentItemSettingsPanel.md](UI/Components/ContentItemSettingsPanel.md) | none |
+| [UI/Components/ReviewCommentPanel.md](UI/Components/ReviewCommentPanel.md) | none |
+| [UI/Components/ReviewPanel.md](UI/Components/ReviewPanel.md) | none |
+| [UI/Components/SharingPanel.md](UI/Components/SharingPanel.md) | none |
+
+### Page documents
+
+The page documents of §UI20.5.1, one per product page that renders the presentation components
+above: its layout, the components it renders, and where each of their hooks leads. The sample
+pages under `/SamplePages` demonstrate the components and have none, and neither has the ported
+template's blog — `/Post-Single`, `/Author`, `/Categories`, `/Tag`, `/Post-Grid`, `/Post-List`,
+`/Post-Grid-Masonry-Filter`, the demo `/Search` and the blog's own `/Search-Result` — which is
+sample material counted among them, each page of it to move under `/SamplePages` (§UI20.5.1).
+
+| Page document | Route | Section |
+| --- | --- | --- |
+| [UI/Pages/Home.md](UI/Pages/Home.md) | `/` | user |
+| [UI/Pages/Posts.md](UI/Pages/Posts.md) | `/posts` | user |
+| [UI/Pages/PostDetail.md](UI/Pages/PostDetail.md) | `/posts/{contentItemId}` | user |
+| [UI/Pages/Contribute.md](UI/Pages/Contribute.md) | `/posts/contribute` | user |
+| [UI/Pages/BibleReference.md](UI/Pages/BibleReference.md) | `/BibleReferences`, `/BibleReferences/{reference}` | user |
+| [UI/Pages/MyPosts.md](UI/Pages/MyPosts.md) | `/myposts` | user |
+| [UI/Pages/MyPostDetail.md](UI/Pages/MyPostDetail.md) | `/myposts/{contentItemId}` | user |
+| [UI/Pages/ContentItemModerationPage.md](UI/Pages/ContentItemModerationPage.md) | `/Admin/Posts` | admin (moderation) |
+| [UI/Pages/ContentItemModerationDetailPage.md](UI/Pages/ContentItemModerationDetailPage.md) | `/Admin/Posts/{contentItemId}` | admin (moderation) |
 
 ---
 
@@ -132,6 +173,42 @@ grep -rnE --include=*.md "^#{2,3} .*\(needs issue\)" Documentation/DesignFeature
 The tag is mandatory rather than inferred, because a bare heading is ambiguous —
 deliberately skipped, or just missed? Requiring the tag forces the decision every
 time an operation is touched.
+
+**A component document tags its gaps, not operations.** A presentation
+component's document (§UI20.6.4) has no operation sections. What it records that
+needs a task — a behaviour gap, a stale sample page or code comment, a test to
+rename — is an item of the numbered list in its section 10, and carries the tag
+straight after the item's number, before anything else on the line:
+
+<!-- Indented so that a line-based reader, such as the sweep below, does not take
+     these two example lines for tagged items. Do not dedent. -->
+```markdown
+  3. (needs issue) **Berean's re-request control is ungated.** …
+  4. (#512) **The doc page needs updating.** …
+```
+
+`(needs issue)` becomes `(#N)` once the task exists, as an operation's tag does. A
+question for the user carries no tag: it becomes work, and takes one, only once it
+is answered. A page document (§UI20.5.1) tags the items of its section 6 the same
+way, and so does `UI.md` its gaps — the list of building-block gaps under §UI20.6.4, and the
+ported blog's under §UI20.5.1. One sweep
+covers all three:
+
+```bash
+grep -rnE --include=*.md "^[0-9]+\. \(needs issue\)" Documentation/Design/UI/Components Documentation/Design/UI/Pages Documentation/Design/UI.md
+```
+
+**A gap that a design task holds carries that task's number** (user ruling 2026-09-27). Where a
+`DESIGN:` issue already holds a gap — its design settles the work, and the tasks that build it are
+carved only after it — the item carries the design issue's number instead of `(needs issue)`, so
+the sweep above, which finds only `(needs issue)`, does not carve a task that duplicates it. For
+example: `(#698)`, *Redesign The Post Moderation Page For Association Approvals*, on
+`UI/Pages/ContentItemModerationDetailPage.md §6 items 9, 10, 12 and 17`; `(#700)`, *Design The
+Bible Reference Page*, on `UI/Pages/BibleReference.md §6 items 1–4`; `(#701)`, *Record Who Amended An
+Item's Content*, on `UI/Components/ReviewPanel.md §10 item 10`; and `(#702)`, *Push Live Updates To
+Open Pages*, on the live-update gap of seven page documents (`UI/Pages/Home.md §6 item 11` and the
+items it names). When the design issue closes, its designed work gets tasks, and anything it leaves
+unbuilt goes back to `(needs issue)`, so the sweep finds it again.
 
 **Relocations.** §IDX1.5 rules how a relocated section is annotated, so that a
 citation of its old number still resolves by grep, and where a retired number

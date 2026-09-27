@@ -152,7 +152,7 @@ ends.
 
 | Role | Durable artifact | Where the next role reads it |
 | --- | --- | --- |
-| planner | for tier 1, the design | feature and user story documents under `Documentation/DesignFeatures/`, and any epic-level rule in `Documentation/Design/`, listed in `design.md` |
+| planner | for tier 1, the design | feature and user story documents under `Documentation/DesignFeatures/` (a presentation component's under `Documentation/Design/UI/Components/`, a page's under `Documentation/Design/UI/Pages/`), and any epic-level rule in `Documentation/Design/`, listed in `design.md` |
 | planner | the tasks — one issue per operation, each naming its user story, with the tier and a sign-off checklist | the GitHub issue body, under `## Acceptance criteria` |
 | developer | commits, a branch, a PR, a handoff report | the PR and its diff |
 | qa | BLOCKING / ADVISORY findings, each naming its owner | a numbered round comment — on the PR, on the design PR, or on each task when a task review has no design PR — and its labels: `ready for development` on each task it signs off, `ready for review` on a PR or design PR it passes |
@@ -425,6 +425,10 @@ Documentation/
     Domain.md              epic: entities and their invariants           §DOM2 … §DOM6, §DOM11, §DOM19
     Approval.md            the approval process, designed before feature documents  §APR7, §APR8, §APR9, §APR13
     UI.md                  UI / UX design, designed before feature documents        §UI20
+    UI/Components/         presentation component documents: <Root>.md is a feature,
+                           <Root>.<Child>.md a user story (§UI20.6.4)
+    UI/Pages/              page documents: <PageComponent>.md — the layout, the
+                           components, what the page does with each hook (§UI20.5.1)
   DesignFeatures/
     <Feature>.md           a feature, or a sub-feature naming its parent feature
     Backend/<Story>.md     a backend user story — one component at one level
@@ -457,6 +461,13 @@ decision belongs to before writing it:
   document naming its parent.
 - **A user story document** holds what one component does, one section per
   operation, and names its parent feature or sub-feature.
+- **A presentation component's documents** live under `Design/UI/Components/`
+  and follow §UI20.6.4's template instead: the root component is a feature,
+  `<Root>.md`, and each of its child components a user story, `<Root>.<Child>.md`.
+- **A page's document** lives under `Design/UI/Pages/`, named after the page's
+  React component, and follows §UI20.5.1: its layout, the components it renders,
+  and a table per component of every hook and what the page does with it. A
+  component raises the hook; where it leads is the page's, so it is written here.
 
 **Nothing restates what is above it.** A feature cites the global rules —
 `per §EVN2` — and a user story cites its feature's business rules, so there is
@@ -488,7 +499,10 @@ block.**
 
 A feature document numbers its business rules, and a user story document its
 operation sections; both are cited by their path under `DesignFeatures/`, the
-form §IDX1.5 gives a document that carries no prefix.
+form §IDX1.5 gives a document that carries no prefix. A presentation component's
+document is cited the same way by its path relative to `Documentation/Design/` —
+`UI/Components/ContentItemPanel.md rule 2.4` (§UI20.6.4) — and a page document
+likewise, `UI/Pages/Home.md rule 2.9` (§UI20.5.1).
 
 Two cautions learned the hard way:
 
@@ -648,6 +662,27 @@ the area label — then flips the tag from `(needs issue)` to
 inside a code fence: the README there carries a fenced example. Flipping a tag
 edits the design, so the sweep runs under a design task and its PR carries the
 tags.
+
+The presentation components' documents under `Documentation/Design/UI/Components/`
+(§UI20.6.4) and the page documents under `Documentation/Design/UI/Pages/`
+(§UI20.5.1) have no operation sections: they tag the gaps in their last section
+instead, as does `UI.md` its own gaps — the list of building blocks under
+§UI20.6.4's "Hooks, not routes", and the sample-page gaps under §UI20.5.1 — and
+`design.md` gives one sweep for all three. A question for the user carries no tag
+until it is answered:
+
+```bash
+grep -rnE --include=*.md "^[0-9]+\. \(needs issue\)" Documentation/Design/UI/Components Documentation/Design/UI/Pages Documentation/Design/UI.md
+```
+
+The planner agent does not run it on its own yet — its sweep is fixed in
+`planner.md`, which Glory2Him.Template maintains (Glory2Him.Template#29 is to teach
+it) — so name it in the brief:
+
+```
+Act as the planner in sweep mode over the component and page documents. Run the
+sweep design.md gives for them, and write tasks for the gaps it finds.
+```
 
 ---
 
@@ -1201,9 +1236,12 @@ recursively, so a test project outside `Glory2Him.Core.Tests.*` still runs.
 
 Stated plainly so nobody goes looking:
 
-- **No feature has a document yet.** `Documentation/DesignFeatures/` holds only
-  its README; the design that predates it lives in the global and area documents
-  `design.md` maps.
+- **No product feature has a document yet.** `Documentation/DesignFeatures/`
+  holds only its README; the design that predates it lives in the global and area
+  documents `design.md` maps. The exception is the presentation components
+  documented under `Documentation/Design/UI/Components/` (§UI20.6.4), and the
+  product pages that render them, under `Documentation/Design/UI/Pages/`
+  (§UI20.5.1).
 - **Nothing validates design citations automatically.** `Tools/design-split-audit.sh`
   exists and is run by hand; no CI step runs it. Nothing reads the
   `Model - Effort` label to configure a session either.
