@@ -67,9 +67,11 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.15 [Could]** The browser tab names the passage: *John 14:6 — Glory 2 Him* for the default passage, the address's reference for any other. *(code: bibleReference.tsx — the `document.title` effect)*
 
-**2.16 [Could]** A related reference that cannot be read as a passage, which this page cannot show (rule 2.2), leads to the journal's search, `/posts`, with the reference in its Bible references box, the advanced section expanded, carried in the query string, as on every page of the user section (`UI/Pages/PostDetail.md rule 2.23`). *(user, 2026-09-27)* ≠ item 4
+**2.16 [Could]** A related reference that cannot be read as a passage leads to this page all the same, which says it could not be found and offers the search (rule 2.18), as on every page of the user section (`UI/Pages/PostDetail.md rule 2.23`). *(user, 2026-09-28)* ≠ item 4
 
 **2.17 [Should]** A button on the page leads to the journal's search, `/posts`, with the passage in its Bible references box, the advanced section expanded, carried in the query string (`UI/Pages/Posts.md rule 2.22`), so the reader sees every item associated with the passage. Where the button sits and what it says are #700's (item 6). *(user, 2026-09-27)* ≠ item 6
+
+**2.18 [Should]** A reference that cannot be read as a passage opens this page all the same. In the passage's place the page shows *"{x}" could not be found. Check and confirm this is correct or search for something else.*, `{x}` being the reference as it was written, and beneath it the search of rule 2.17. How the page is addressed for such a reference, and what surrounds the message, are #700's (item 7). *(user, 2026-09-28)* ≠ item 7
 
 ## 3. Layout
 
@@ -137,7 +139,7 @@ and related references on the right in five — inside `Root`'s header and foote
 | --- | --- | --- | --- |
 | `onAdd` ≠ item 1 | A signed-in reader commits a reference, once per reference | Held for #700, as section 4.1 (rule 2.7) | ❌ No — held on the page only (`bibleReference.tsx`, lines 159-163); item 1 |
 | `onRemove` ≠ item 1 | The reader withdraws their own `Draft` or `Submitted` reference | Held for #700, as section 4.1 (rule 2.7) | ❌ No — dropped from the page's list (`bibleReference.tsx`, lines 164-166); item 1 |
-| `chipOnClick` or `chipHrefFor` ≠ item 4 | A related reference is clicked | Leads to the page showing that passage, `/BibleReferences/{reference}` (rule 2.12), or, for a reference it cannot read, to `/posts` with the reference in its Bible references box (rule 2.16) | ❌ No — the page supplies neither; the story's own default builds `/BibleReferences/<USFM>`, or `/Search?q=<reference>` for a reference it cannot read (`UI/Components/AssociationPanel.BibleReferenceAssociationPanel.md §10 item 5`); item 4 |
+| `chipOnClick` or `chipHrefFor` ≠ item 4 | A related reference is clicked | Leads to the page showing that passage, `/BibleReferences/{reference}` (rule 2.12), or, for a reference it cannot read, to this page all the same, which says it could not be found (rule 2.16) | ❌ No — the page supplies neither; the story's own default builds `/BibleReferences/<USFM>`, or `/Search?q=<reference>` for a reference it cannot read (`UI/Components/AssociationPanel.BibleReferenceAssociationPanel.md §10 item 5`); item 4 |
 | `loginButtonOnClick` or `loginHref` ≠ item 4 | A signed-out reader presses *Login to suggest a bible reference* | As section 4.1 (rule 2.12) | ❌ No — as section 4.1; item 4 |
 | `onApprove`, `onReject` | Only with `showModerationActions` on | — | *Not wired — switched off* (rule 2.8) |
 
@@ -259,14 +261,14 @@ are decided under §SEC14.7 posture A′, and a reaction under posture A′ rule
    2026-09-27, in their words: "Yes, we need to design this page still." The document keeps only
    the rules that bind every page: the setting switches of §DOM6.9 (rules 2.9 and 2.10); the
    read-only blocks (rule 2.11 and section 5); the page supplying every link, with a tag leading
-   to `/posts` handed the tag and a related reference to the page showing the passage, or to
-   `/posts` with it in the Bible references box where it cannot be read, as on every page of the user
+   to `/posts` handed the tag and a related reference to the page showing the passage, which
+   says it could not be found where it cannot be read, as on every page of the user
    section (rules 2.12 and 2.16); and sign-in (rules 2.11 and 2.12). It holds every
    rule and gap specific to this page for #700: what the page shows for a passage and where its
    text comes from; what it reads for the passage's tags and related references, and who may
    suggest one (rules 2.6 and 2.7); what a reader's reaction to a passage records (rule 2.11);
    where any hook specific to a passage leads (rule 2.12); and what shows while the settings
-   load. Items 1–4 and 6 are held for #700 and tagged with it, so the sweep
+   load. Items 1–4, 6 and 7 are held for #700 and tagged with it, so the sweep
    carves no task for this page before the mockup; #700's design carves them. The rules drawn from
    the code record the page as built until then. Telling the tag panel that its host is a passage
    is #700's too: the server refuses a suggestion blocked on either end of the association
@@ -286,3 +288,10 @@ are decided under §SEC14.7 posture A′, and a reaction under posture A′ rule
    reference narrows `/posts` only once associations are exposed over HTTP (§ARC17.4, not yet
    built), so until then the search shows the whole journal, the reference in its box. #700's
    mockup places the button.
+7. (#700) **Page gap — `/BibleReferences`: a reference the page cannot read shows Not Found.** Held
+   for #700 (item 5). Rule 2.18 (user ruling 2026-09-28, in their words: "open page, display "{x}"
+   could not be found  check and confirm this is correct or search for something else.  then show
+   the new search box"). Today an address the page cannot parse renders the site's Not Found page
+   (`src/pages/bibleReferenceView.tsx`, lines 16-23), and no product link opens the page for such a
+   reference: each sends it to `/Search?q=<reference>` (`UI/Pages/Home.md §6 item 14` and the items
+   it names). #700 designs how the page is addressed for it and what surrounds the message.

@@ -204,7 +204,7 @@ carved only after it — the item carries the design issue's number instead of `
 the sweep above, which finds only `(needs issue)`, does not carve a task that duplicates it. For
 example: `(#698)`, *Redesign The Post Moderation Page For Association Approvals*, on
 `UI/Pages/ContentItemModerationDetailPage.md §6 items 9, 10, 12 and 17`; `(#700)`, *Design The
-Bible Reference Page*, on `UI/Pages/BibleReference.md §6 items 1–4`; `(#701)`, *Record Who Amended An
+Bible Reference Page*, on `UI/Pages/BibleReference.md §6 items 1–4, 6 and 7`; `(#701)`, *Record Who Amended An
 Item's Content*, on `UI/Components/ReviewPanel.md §10 item 10`; and `(#702)`, *Push Live Updates To
 Open Pages*, on the live-update gap of seven page documents (`UI/Pages/Home.md §6 item 11` and the
 items it names). When the design issue closes, its designed work gets tasks, and anything it leaves

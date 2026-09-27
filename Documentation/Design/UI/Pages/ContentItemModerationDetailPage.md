@@ -97,7 +97,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.25 [Must]** View is switched off: this page is the item's detail view in the admin section, where View on the queue (`UI/Pages/ContentItemModerationPage.md rule 2.3`) and Moderate on the other lists (rule 2.1) lead, so the card does not offer View. *(user, 2026-09-27: View and Edit are each "configurable via the Show* properties"; `UI/Components/ContentItemPanel.md rule 2.40`)* ≠ item 14
 
-**2.26 [Must]** In the admin section, a click on the card's type chip, *Submitted by* or *Author*, or on a tag or Bible reference chip in the side panels, raises its hook, and the page opens the queue, `/Admin/Posts`, handed the value: the value in its query string, its search bar showing it in the matching box with the advanced section expanded (`UI/Pages/ContentItemModerationPage.md rules 2.12 and 2.13`). *(user, 2026-09-27)* ≠ items 5 and 17
+**2.26 [Must]** In the admin section, a click on the card's type chip, *Submitted by* or *Author*, or on a tag or Bible reference chip in the side panels, raises its hook, and the page opens the queue, `/Admin/Posts`, handed the value: the value in its query string, its search bar showing it in the matching box with the advanced section expanded (`UI/Pages/ContentItemModerationPage.md rules 2.12 and 2.13`). The page is to be redesigned from the product owner's mocks in a design session, which settles where its chips lead (#705; user ruling 2026-09-28). *(user, 2026-09-27)* ≠ items 5 and 17
 
 **2.27 [Must]** The reviewer candidates are read when `ReviewPanel`'s request picker opens, on the hook it raises then, and not before (`UI/Components/ReviewPanel.md rule 2.32`). *(user, 2026-09-27)* ≠ item 6
 
@@ -514,6 +514,7 @@ access matrices: `UI/Components/ContentItemPanel.md §5`, `UI/Components/Content
     elements), so a tag chip would follow the tag story's own `/Search?q=<tag>` and a reference
     chip the reference story's own `/BibleReferences/{USFM}`, or `/Search?q=<reference>` for a
     reference it cannot read. No chip renders while the lists are empty (associations are not yet
-    exposed over HTTP, §ARC17.4). The page is to be redesigned under #698, which replaces these two
-    panels (section 4.3) and may change what choosing a chip does; this item records the page as
+    exposed over HTTP, §ARC17.4). The page is to be redesigned under #698, from the product owner's mocks `Admin Post Detail.dc.html`
+    and `Admin Association Detail.dc.html` in a design session (#705; user ruling 2026-09-28), which
+    replaces these two panels (section 4.3) and may change what choosing a chip does; this item records the page as
     built.

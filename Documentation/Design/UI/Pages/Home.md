@@ -69,7 +69,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.24 [Must]** A change to an item's setting reaches the open page without a reload: comments switched off for an item, say, take the comments control off its card (§ARC12.5.2 business rule 12). How the page learns of the change is designed under #702, *Push Live Updates To Open Pages*; until it is designed and built, nothing pushes a change to the page. *(user, 2026-09-27; §ARC12.5.2 business rule 12)* ≠ item 11
 
-**2.25 [Could]** A Bible reference that cannot be read as a passage leads to the journal's search, `/posts`, with the reference in its Bible references box, the advanced section expanded, carried in the query string, instead of the passage of rule 2.12. *(user, 2026-09-27)* ≠ item 14
+**2.25 [Could]** A Bible reference that cannot be read as a passage leads to the Bible reference page all the same, which says it could not be found and offers the search (`UI/Pages/BibleReference.md rule 2.18`). *(user, 2026-09-28)* ≠ item 14
 
 ## 3. Layout
 
@@ -121,7 +121,7 @@ nothing stacks on a narrow screen: the column is already one.
 | `onSearch` | The bar commits, or a type chip or *Author* on a card is clicked. *Submitted by* and the tag and reference pills do not render on a listed card today: the projection leaves the submitter's name, the tags and the references unset (`toContentItemSearchItem.ts`, lines 62-80) | Writes the criteria into the URL; the read follows the URL (rules 2.2 and 2.5) | ✅ Yes (`home.tsx`, lines 95-96 and 147) |
 | `onContentTypeClick`, `onSubmittedByClick`, `onAuthorClick` ≠ item 9 | A type chip, *Submitted by* or *Author* on a card is clicked — today after the list has rewritten the criteria and raised `onSearch` (`UI/Components/ContentItemListPanel.md §10 item 11`). *Submitted by* does not render on a listed card today (section 4.1, `onSearch`) | Opens `/posts` handed the value, its search bar showing it in the matching box with the advanced section expanded (rule 2.13) | ❌ No — the page wires none of the three; the list's rewrite narrows this page's own list instead, so the reader stays on `/`; item 9 |
 | `onTagClick` ≠ item 9 | A tag pill on a card is clicked, after the list's rewrite. No pill renders today: the projection carries no tags until associations are exposed over HTTP (§ARC17.4, not yet built) | Opens `/posts` handed the tag, as the three above (rule 2.13) | ❌ No — the page wires none; the list toggles the tag criterion itself (`UI/Components/ContentItemListPanel.md §10 item 8`), and no read narrows on a tag until associations are exposed over HTTP (rule 2.4), so the list does not change; item 9 |
-| `onBibleReferenceClick` ≠ item 14 | A reference pill on a card is clicked, after the list's rewrite. No pill renders today: the projection carries no references until associations are exposed over HTTP (§ARC17.4, not yet built) | Navigates to `/BibleReferences/{reference}`, or, for a reference it cannot read, to `/posts` with the reference in its Bible references box, carrying `from` (rules 2.12 and 2.25) | For a readable reference ✅ Yes (`contentItemFeedNavigation.ts`, lines 45-46; `toUsfmReference.ts`, lines 67-73); for one it cannot read ❌ No — it goes to `/Search?q=<reference>` (`toUsfmReference.ts`, line 72); item 14. The list rewrites the criteria first (`UI/Components/ContentItemListPanel.md §10 item 8`) |
+| `onBibleReferenceClick` ≠ item 14 | A reference pill on a card is clicked, after the list's rewrite. No pill renders today: the projection carries no references until associations are exposed over HTTP (§ARC17.4, not yet built) | Navigates to `/BibleReferences/{reference}`, or, for a reference it cannot read, to that page all the same, which says it could not be found, carrying `from` (rules 2.12 and 2.25) | For a readable reference ✅ Yes (`contentItemFeedNavigation.ts`, lines 45-46; `toUsfmReference.ts`, lines 67-73); for one it cannot read ❌ No — it goes to `/Search?q=<reference>` (`toUsfmReference.ts`, line 72); item 14. The list rewrites the criteria first (`UI/Components/ContentItemListPanel.md §10 item 8`) |
 
 ### 4.2 ContentItemSearchBarPanel, through the list
 
@@ -427,21 +427,21 @@ write a card leads to is decided again by the service (§SEC14.6).
     `UI/Pages/Posts.md rule 2.3` say what the URL carries, and §UI20.7 rule 4 where the header's
     *Search* leads. The four comments are to say what the code does.
 14. (needs issue) **Page gap — an unreadable Bible reference leads to the demo search page.**
-    Rule 2.25 (user ruling 2026-09-27): a reference that cannot be read as a passage leads to the
-    journal's search, `/posts`, with the reference in its Bible references box. The page's
+    Rule 2.25 (user ruling 2026-09-28): a reference that cannot be read as a passage leads to the
+    Bible reference page all the same, which says it could not be found. The page's
     `onBibleReferenceClick` navigates to what `bibleReferenceHref` builds
     (`contentItemFeedNavigation.ts`, lines 45-46), which is `/Search?q=<reference>` for a reference
     it cannot read (`toUsfmReference.ts`, line 72): the demo search page, sample material
     (§UI20.5.1). No pill renders on a listed card today (section 4.1), so a reader meets it only
     once associations are exposed over HTTP (§ARC17.4, not yet built). The page's half is to send
-    an unreadable reference to `/posts`, in its Bible references box. The same helper is the
+    an unreadable reference to the Bible reference page. The same helper is the
     reference panel's default link, the component's half
     (`UI/Components/AssociationPanel.BibleReferenceAssociationPanel.md §10 item 5`). The same gap
     stands on `/posts` (`UI/Pages/Posts.md §6 item 13`) and `/myposts`
     (`UI/Pages/MyPosts.md §6 item 12`), whose navigation is built by the same
     `buildContentItemFeedNavigation`. The admin queue, `/Admin/Posts`, builds its navigation with
     that function too (`src/pages/admin/contentItemModerationPage.tsx`, line 97), but in the admin
-    section a reference leads to the queue itself, not to `/posts`
+    section a reference leads to the queue itself, not to the Bible reference page
     (`UI/Pages/ContentItemModerationPage.md rule 2.13`, its gap
     `UI/Pages/ContentItemModerationPage.md §6 item 6`), so a change made in the shared function
     reaches both destinations. The side panels' reference chips are
