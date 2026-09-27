@@ -62,7 +62,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.21 [Must]** The search lives in the query string, so the address is always a bookmark or a shareable link of what the reader sees: as the reader changes the search form, the query string follows without a reload, not only when the search is committed (rule 2.3). *(user, 2026-09-27)* ≠ item 10
 
-**2.22 [Must]** The page opens its search bar's advanced section whenever the query string carries a criterion that lives there — every criterion but the query itself: Category, Author, Submitted by, Shareability, Tags and Bible references — whether the reader typed it, a shared link carried it, or another page handed it over (`UI/Components/ContentItemListPanel.ContentItemSearchBarPanel.md rule 2.23`). *(user, 2026-09-27)* ≠ item 10
+**2.22 [Must]** The page opens its search bar's advanced section whenever the query string carries a criterion that lives there — every criterion but the query itself: Category, Author, Submitted by, Shareability, Tags and Bible references — whether the reader typed it, a shared link carried it, or another page handed it over (`UI/Components/ContentItemListPanel.ContentItemSearchBarPanel.md rule 2.23`). A value a click or a link hands over always lands in its own box there — a tag in Tags, a Bible reference in Bible references, a type in Category, a *Submitted by* or an *Author* in its own — and never in the free-text query, which is the reader's own, for narrowing further within the advanced criteria already set. *(user, 2026-09-27)* ≠ item 10
 
 **2.23 [Must]** The page's own contribution link, *Share what He has done*, behaves as `SharingPanel` does (`UI/Components/SharingPanel.md rules 2.9–2.11`): it is hidden from a signed-in holder of `ReadOnly` or `ContentItem-ReadOnly`, still shown to a reader whose only read-only roles are per content type, and a signed-out reader who presses it goes to sign in and then on to the contribution form (rule 2.13). *(user, 2026-09-27)* ≠ item 9
 
@@ -70,7 +70,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.25 [Must]** A change to an item's setting reaches the open page without a reload: comments switched off for an item, say, take the comments control off its card (§ARC12.5.2 business rule 12). How the page learns of the change is designed under #702, *Push Live Updates To Open Pages*; until it is designed and built, nothing pushes a change to the page. *(user, 2026-09-27; §ARC12.5.2 business rule 12)* ≠ item 11
 
-**2.26 [Could]** A Bible reference that cannot be read as a passage leads to this page's own search, `/posts`, with the reference's text as its free-text query (`q`), not in its Bible references box, carried in the query string, instead of the passage of rule 2.11. *(user, 2026-09-27)* ≠ item 13
+**2.26 [Could]** A Bible reference that cannot be read as a passage leads to this page's own search, `/posts`, with the reference in its Bible references box, the advanced section expanded, carried in the query string, instead of the passage of rule 2.11. *(user, 2026-09-27)* ≠ item 13
 
 ## 3. Layout
 
@@ -119,7 +119,7 @@ the heading.
 | `onSearch` | The bar commits, or a type chip or *Author* on a card is clicked. *Submitted by* and the tag and reference pills do not render on a listed card today: the projection leaves the submitter's name, the tags and the references unset (`toContentItemSearchItem.ts`, lines 62-80) | Writes the criteria into the URL; the read follows the URL (rule 2.3) | ✅ Yes (`posts.tsx`, lines 84-85 and 133) |
 | `onContentTypeClick`, `onSubmittedByClick`, `onAuthorClick` ≠ item 7 | A type chip, *Submitted by* or *Author* on a card is clicked — today after the list has rewritten the criteria and raised `onSearch` (`UI/Components/ContentItemListPanel.md §10 item 11`). *Submitted by* does not render on a listed card today (section 4.1, `onSearch`) | Puts the value in its criteria, its search bar showing it in the matching box with the advanced section expanded (rule 2.12) | ❌ No — the page wires none of the three; the list's rewrite puts the value in the URL and the box, and the advanced section stays folded; item 7 |
 | `onTagClick` ≠ item 7 | A tag pill on a card is clicked, after the list's rewrite. No pill renders today: the projection carries no tags until associations are exposed over HTTP (§ARC17.4, not yet built) | Puts the tag in its criteria, as the three above (rule 2.12) | ❌ No — the page wires none; the list toggles the tag criterion itself (`UI/Components/ContentItemListPanel.md §10 item 8`), and the caller-scoped read does not narrow on a tag until associations are exposed over HTTP (§ARC17.4, not yet built), so the list does not change; item 7 |
-| `onBibleReferenceClick` ≠ item 13 | A reference pill on a card is clicked, after the list's rewrite. No pill renders today: the projection carries no references until associations are exposed over HTTP (§ARC17.4, not yet built) | Navigates to `/BibleReferences/{reference}`, or, for a reference it cannot read, to `/posts` with the reference's text as the free-text query, carrying `from` (rules 2.11 and 2.26) | For a readable reference ✅ Yes (`contentItemFeedNavigation.ts`, lines 45-46; `toUsfmReference.ts`, lines 67-73); for one it cannot read ❌ No — it goes to `/Search?q=<reference>` (`toUsfmReference.ts`, line 72); item 13. The list rewrites the criteria first (`UI/Components/ContentItemListPanel.md §10 item 8`) |
+| `onBibleReferenceClick` ≠ item 13 | A reference pill on a card is clicked, after the list's rewrite. No pill renders today: the projection carries no references until associations are exposed over HTTP (§ARC17.4, not yet built) | Navigates to `/BibleReferences/{reference}`, or, for a reference it cannot read, to `/posts` with the reference in its Bible references box, carrying `from` (rules 2.11 and 2.26) | For a readable reference ✅ Yes (`contentItemFeedNavigation.ts`, lines 45-46; `toUsfmReference.ts`, lines 67-73); for one it cannot read ❌ No — it goes to `/Search?q=<reference>` (`toUsfmReference.ts`, line 72); item 13. The list rewrites the criteria first (`UI/Components/ContentItemListPanel.md §10 item 8`) |
 
 ### 4.2 ContentItemSearchBarPanel, through the list
 
@@ -333,7 +333,7 @@ Every write a card leads to is decided again by the service (§SEC14.6).
     `/myposts` is `UI/Pages/MyPosts.md §6 item 11`.
 13. (needs issue) **Page gap — an unreadable Bible reference leads to the demo search page.** Rule
     2.26 (user ruling 2026-09-27): a reference that cannot be read as a passage leads to `/posts`,
-    this page, with the reference's text as the free-text query. The page's `onBibleReferenceClick` sends it
+    this page, with the reference in its Bible references box. The page's `onBibleReferenceClick` sends it
     to `/Search?q=<reference>` instead (`contentItemFeedNavigation.ts`, lines 45-46;
     `toUsfmReference.ts`, line 72). No pill renders on a listed card today (section 4.1). The same
     gap on `/` is `UI/Pages/Home.md §6 item 14`, whose evidence stands for this page too.

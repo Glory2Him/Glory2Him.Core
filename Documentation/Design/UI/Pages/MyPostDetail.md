@@ -77,7 +77,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.22 [Must]** A change to the item's setting reaches the open page without a reload: comments switched off for the item, say, take the comments control off its card (§ARC12.5.2 business rule 12). How the page learns of the change is designed under #702, *Push Live Updates To Open Pages*; until it is designed and built, nothing pushes a change to the page. *(user, 2026-09-27; §ARC12.5.2 business rule 12)* ≠ item 16
 
-**2.23 [Could]** A Bible reference in the side panel that cannot be read as a passage, which no passage page shows (`UI/Pages/BibleReference.md rule 2.2`), leads to the journal's search, `/posts`, with the reference's text as its free-text query (`q`), not in its Bible references box, carried in the query string, instead of the passage at `/BibleReferences/{USFM}` (section 4.2). *(user, 2026-09-27)* ≠ item 7
+**2.23 [Could]** A Bible reference in the side panel that cannot be read as a passage, which no passage page shows (`UI/Pages/BibleReference.md rule 2.2`), leads to the journal's search, `/posts`, with the reference in its Bible references box, the advanced section expanded, carried in the query string, instead of the passage at `/BibleReferences/{USFM}` (section 4.2). *(user, 2026-09-27)* ≠ item 7
 
 ## 3. Layout
 
@@ -173,7 +173,7 @@ rule 3.1.1`, `UI/Components/AssociationPanel.BibleReferenceAssociationPanel.md r
 | Hook | Raised when | What the page does | Built today |
 | --- | --- | --- | --- |
 | `onAdd` | A suggestion is committed in the add box | Toasts that suggesting is coming soon, and sends nothing. ≠ item 5 | ❌ No — item 5 |
-| `chipOnClick` or `chipHrefFor` | A chip's label is pressed | The page supplies both links: a reference leads to the page showing the verse, `/BibleReferences/{USFM}` (`UI/Pages/BibleReference.md`), or, where it cannot be read as a passage, to `/posts` with its text as the free-text query (rule 2.23); a tag opens `/posts` handed the tag, its search bar showing it in the Tags box with the advanced section expanded (rule 2.15). ≠ item 7 | ❌ No — item 7. The page supplies neither a link nor a hook, so a tag leads to `/Search?q=<tag>` and a reference to `/BibleReferences/{USFM}`, or `/Search?q=<reference>` for one it cannot read, both composed by the story; `chipOnClick` is unreachable while each story's default `chipHrefFor` wins (`UI/Components/AssociationPanel.TagAssociationPanel.md §10 item 1`, `UI/Components/AssociationPanel.BibleReferenceAssociationPanel.md §10 item 2`). No chip renders today (rule 2.14). |
+| `chipOnClick` or `chipHrefFor` | A chip's label is pressed | The page supplies both links: a reference leads to the page showing the verse, `/BibleReferences/{USFM}` (`UI/Pages/BibleReference.md`), or, where it cannot be read as a passage, to `/posts` with it in the Bible references box (rule 2.23); a tag opens `/posts` handed the tag, its search bar showing it in the Tags box with the advanced section expanded (rule 2.15). ≠ item 7 | ❌ No — item 7. The page supplies neither a link nor a hook, so a tag leads to `/Search?q=<tag>` and a reference to `/BibleReferences/{USFM}`, or `/Search?q=<reference>` for one it cannot read, both composed by the story; `chipOnClick` is unreachable while each story's default `chipHrefFor` wins (`UI/Components/AssociationPanel.TagAssociationPanel.md §10 item 1`, `UI/Components/AssociationPanel.BibleReferenceAssociationPanel.md §10 item 2`). No chip renders today (rule 2.14). |
 | `onRemove` | Remove is pressed on the owner's own `Draft` or `Submitted` chip, which the panel offers with its moderation actions off (`UI/Components/AssociationPanel.md rule 2.18`) | Nothing: the page does not listen. No chip renders today. ≠ item 8 | ❌ No — item 8 |
 | `onReject`, `onApprove` | Reject or Approve is pressed | Never offered: `showModerationActions` stays off, as on every surface but a moderation one (`UI/Components/AssociationPanel.md rule 2.15`). | *Not wired — switched off* |
 | `loginButtonOnClick` | The login prompt is pressed | — | *Never raised*: the route admits no signed-out reader, and mounts the page only once the sign-in state is read (`securedRoutes.tsx` — `isLoading`), so the prompt does not render |
@@ -282,8 +282,8 @@ components' security and access matrices, `UI/Components/ContentItemPanel.md §5
    `/Search?q=<tag>`, the coupling each story's document records
    (`UI/Components/AssociationPanel.TagAssociationPanel.md §10 item 5`,
    `UI/Components/AssociationPanel.BibleReferenceAssociationPanel.md §10 item 5`). The page's half is
-   to supply the reference's link itself — for a reference it cannot read, `/posts` with its text
-   as the free-text query, not `/Search` (rule 2.23; user ruling 2026-09-27). A chip cannot raise `chipOnClick` until the story's default
+   to supply the reference's link itself — for a reference it cannot read, `/posts` with it in
+   the Bible references box, not `/Search` (rule 2.23; user ruling 2026-09-27). A chip cannot raise `chipOnClick` until the story's default
    goes (`UI/Components/AssociationPanel.BibleReferenceAssociationPanel.md §10 item 2`). The tag
    chip's link is the page's too: in the user section a tag opens `/posts` handed the tag, its
    search bar showing it in the Tags box with the advanced section expanded (rule 2.15; user

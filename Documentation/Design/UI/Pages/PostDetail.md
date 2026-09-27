@@ -69,7 +69,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.22 [Must]** A change to the item's setting reaches the open page without a reload: comments switched off for the item, say, take the comments control off its card (§ARC12.5.2 business rule 12). How the page learns of the change is designed under #702, *Push Live Updates To Open Pages*; until it is designed and built, nothing pushes a change to the page. *(user, 2026-09-27; §ARC12.5.2 business rule 12)* ≠ item 14
 
-**2.23 [Could]** A Bible reference in the side panel that cannot be read as a passage, which no passage page shows (`UI/Pages/BibleReference.md rule 2.2`), leads to the journal's search, `/posts`, with the reference's text as its free-text query (`q`), not in its Bible references box, carried in the query string, instead of the passage of rule 2.13. *(user, 2026-09-27)* ≠ item 5
+**2.23 [Could]** A Bible reference in the side panel that cannot be read as a passage, which no passage page shows (`UI/Pages/BibleReference.md rule 2.2`), leads to the journal's search, `/posts`, with the reference in its Bible references box, the advanced section expanded, carried in the query string, instead of the passage of rule 2.13. *(user, 2026-09-27)* ≠ item 5
 
 ## 3. Layout
 
@@ -168,7 +168,7 @@ beneath it. While the item loads, or when it cannot be read, a single centred co
 | --- | --- | --- | --- |
 | `onAdd` ≠ item 4 | A signed-in reader commits a reference in the box, once per reference | Writes the suggestion, `POST /api/associations` (§ARC17.4), and refreshes (rule 2.7) | ❌ No — it says *Suggesting bible references is coming soon.* (`postDetail.tsx`, lines 137-138); item 4 |
 | `onRemove` ≠ item 4 | The reader withdraws their own `Draft` or `Submitted` reference | Removes it, `DELETE /api/associations/{id}` (§ARC17.4), and refreshes (rule 2.8) | ❌ No — not wired; item 4 |
-| `chipOnClick` or `chipHrefFor` ≠ item 5 | A reference is clicked | Leads to a page showing the passage, `/BibleReferences/{reference}` (rule 2.13), or, for a reference it cannot read, to `/posts` with the reference's text as the free-text query (rule 2.23) | ❌ No — the page supplies neither; the story's own default builds `/BibleReferences/<USFM>`, or `/Search?q=<reference>` for a reference it cannot read (`UI/Components/AssociationPanel.BibleReferenceAssociationPanel.md §10 item 5`); item 5 |
+| `chipOnClick` or `chipHrefFor` ≠ item 5 | A reference is clicked | Leads to a page showing the passage, `/BibleReferences/{reference}` (rule 2.13), or, for a reference it cannot read, to `/posts` with the reference in its Bible references box (rule 2.23) | ❌ No — the page supplies neither; the story's own default builds `/BibleReferences/<USFM>`, or `/Search?q=<reference>` for a reference it cannot read (`UI/Components/AssociationPanel.BibleReferenceAssociationPanel.md §10 item 5`); item 5 |
 | `loginButtonOnClick` or `loginHref` ≠ item 5 | A signed-out reader presses *Login to suggest a bible reference* | As section 4.2 | ❌ No — as section 4.2; item 5 |
 | `onApprove`, `onReject` | Only with `showModerationActions` on | — | *Not wired — switched off*, as section 4.2 |
 
@@ -291,7 +291,7 @@ page is a courtesy (§SEC14.6).
    story's default goes (`UI/Components/AssociationPanel.TagAssociationPanel.md §10 item 1`). The
    sign-in half needs the one reusable sign-in action (`UI/Pages/Home.md §6 item 3`); the tag's
    destination is `/posts`, handed the tag (rule 2.13; user rulings 2026-09-27), and that of a
-   reference it cannot read is `/posts`, its text as the free-text query, not `/Search` (rule 2.23; user
+   reference it cannot read is `/posts`, the reference in its Bible references box, not `/Search` (rule 2.23; user
    ruling 2026-09-27).
 6. **Note — the type chip, *Submitted by* and *Author* on a detail view in the user section,
    ruled.** This item asked where each of the three leads from `/posts/{id}` and `/myposts/{id}`,

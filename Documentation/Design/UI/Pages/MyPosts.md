@@ -71,7 +71,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.20 [Must]** The page's contribution link, *Share what He has done*, carries this page's own address as `from`, so the contribution page's Cancel returns the reader here (`UI/Pages/Contribute.md rule 2.9`). *(user, 2026-09-27)* ≠ item 11
 
-**2.21 [Could]** A Bible reference that cannot be read as a passage leads to the journal's search, `/posts`, with the reference's text as its free-text query (`q`), not in its Bible references box, carried in the query string, instead of the passage at `/BibleReferences/{USFM}` (section 4.4). *(user, 2026-09-27)* ≠ item 12
+**2.21 [Could]** A Bible reference that cannot be read as a passage leads to the journal's search, `/posts`, with the reference in its Bible references box, the advanced section expanded, carried in the query string, instead of the passage at `/BibleReferences/{USFM}` (section 4.4). *(user, 2026-09-27)* ≠ item 12
 
 ## 3. Layout
 
@@ -161,7 +161,7 @@ handled inside `ContentItemPanel` (the counts toggle and the Like picker) and ne
 | `onSubmittedByClick` | *Submitted by* is pressed | Were it to render, the page would open `/posts` handed the submitter (rule 2.14). | *Never raised*: the segment never renders here, because the projection carries no submitter name (`toContentItemSearchItem.ts`, lines 62-80) |
 | `onAuthorClick` | *Author* is pressed | Opens `/posts` handed the author, as the type chip (rule 2.14). Today the list sets the author criterion on this page and raises `onSearch`, and the page wires no hook of its own. ≠ item 8 | ❌ No — item 8 |
 | `onTagClick` | A tag pill is pressed | No pill renders today, because the projection carries no tags until associations are exposed over HTTP (§ARC17.4, not yet built). When one does, the page is to open `/posts` handed the tag (rule 2.14); the list toggles the tag criterion instead (`UI/Components/ContentItemListPanel.md §10 item 8`), and the page supplies no destination of its own. ≠ item 8 | ❌ No — item 8 |
-| `onBibleReferenceClick` ≠ item 12 | A Bible reference pill is pressed | No pill renders today: associations are not yet exposed over HTTP (§ARC17.4). When one does, the page navigates to the passage at `/BibleReferences/{USFM}`, or, for a reference it cannot read, to `/posts` with the reference's text as the free-text query (rule 2.21), with `from`. The list also toggles the reference criterion first (`UI/Components/ContentItemListPanel.md §10 item 8`). | For a readable reference ✅ Yes (`contentItemFeedNavigation.ts`, lines 45-46; `toUsfmReference.ts`, lines 67-73); for one it cannot read ❌ No — it goes to `/Search?q=<reference>` (`toUsfmReference.ts`, line 72); item 12 |
+| `onBibleReferenceClick` ≠ item 12 | A Bible reference pill is pressed | No pill renders today: associations are not yet exposed over HTTP (§ARC17.4). When one does, the page navigates to the passage at `/BibleReferences/{USFM}`, or, for a reference it cannot read, to `/posts` with the reference in its Bible references box (rule 2.21), with `from`. The list also toggles the reference criterion first (`UI/Components/ContentItemListPanel.md §10 item 8`). | For a readable reference ✅ Yes (`contentItemFeedNavigation.ts`, lines 45-46; `toUsfmReference.ts`, lines 67-73); for one it cannot read ❌ No — it goes to `/Search?q=<reference>` (`toUsfmReference.ts`, line 72); item 12 |
 | `onCommentsClick` | The comments control is pressed | Navigates to `/myposts/{id}#comments` with `from`. That page shows no comments. ≠ item 4 | ✅ Yes (`contentItemFeedNavigation.ts`, lines 40-41); the destination is item 4 |
 | `onReactionSelected` | The reader chooses a reaction | Records, changes or clears the reader's own reaction. A signed-out reader never reaches the page (rule 2.1). ≠ item 2 | ❌ No — the choice is held in page state for the visit, and nothing is recorded (`useContentItemEngagement.ts`, lines 34-42); item 2 |
 | `onShareClick` | *Share* is pressed, on an `Approved` item alone (rule 2.16) | Copies `{origin}/posts/{id}` to the clipboard and toasts "Link copied." ≠ item 5 | ✅ Yes (`useContentItemEngagement.ts`, lines 44-49), but Share is offered on every card, whatever its status; item 5 |
@@ -293,7 +293,7 @@ The read-only roles each action answers to are those components' security and ac
     `UI/Pages/Posts.md §6 item 12`.
 12. (needs issue) **Page gap — `/myposts`: an unreadable Bible reference leads to the demo search
     page.** Rule 2.21 (user ruling 2026-09-27): a reference that cannot be read as a passage leads
-    to the journal's search, `/posts`, with the reference's text as the free-text query. The page's
+    to the journal's search, `/posts`, with the reference in its Bible references box. The page's
     `onBibleReferenceClick` sends it to `/Search?q=<reference>` instead
     (`contentItemFeedNavigation.ts`, lines 45-46; `toUsfmReference.ts`, line 72). No pill renders on
     a listed card today (section 4.4). The same gap on `/` is `UI/Pages/Home.md §6 item 14`, whose

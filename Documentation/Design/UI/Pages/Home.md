@@ -69,7 +69,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.24 [Must]** A change to an item's setting reaches the open page without a reload: comments switched off for an item, say, take the comments control off its card (§ARC12.5.2 business rule 12). How the page learns of the change is designed under #702, *Push Live Updates To Open Pages*; until it is designed and built, nothing pushes a change to the page. *(user, 2026-09-27; §ARC12.5.2 business rule 12)* ≠ item 11
 
-**2.25 [Could]** A Bible reference that cannot be read as a passage leads to the journal's search, `/posts`, with the reference's text as its free-text query (`q`), not in its Bible references box, carried in the query string, instead of the passage of rule 2.12. *(user, 2026-09-27)* ≠ item 14
+**2.25 [Could]** A Bible reference that cannot be read as a passage leads to the journal's search, `/posts`, with the reference in its Bible references box, the advanced section expanded, carried in the query string, instead of the passage of rule 2.12. *(user, 2026-09-27)* ≠ item 14
 
 ## 3. Layout
 
@@ -121,7 +121,7 @@ nothing stacks on a narrow screen: the column is already one.
 | `onSearch` | The bar commits, or a type chip or *Author* on a card is clicked. *Submitted by* and the tag and reference pills do not render on a listed card today: the projection leaves the submitter's name, the tags and the references unset (`toContentItemSearchItem.ts`, lines 62-80) | Writes the criteria into the URL; the read follows the URL (rules 2.2 and 2.5) | ✅ Yes (`home.tsx`, lines 95-96 and 147) |
 | `onContentTypeClick`, `onSubmittedByClick`, `onAuthorClick` ≠ item 9 | A type chip, *Submitted by* or *Author* on a card is clicked — today after the list has rewritten the criteria and raised `onSearch` (`UI/Components/ContentItemListPanel.md §10 item 11`). *Submitted by* does not render on a listed card today (section 4.1, `onSearch`) | Opens `/posts` handed the value, its search bar showing it in the matching box with the advanced section expanded (rule 2.13) | ❌ No — the page wires none of the three; the list's rewrite narrows this page's own list instead, so the reader stays on `/`; item 9 |
 | `onTagClick` ≠ item 9 | A tag pill on a card is clicked, after the list's rewrite. No pill renders today: the projection carries no tags until associations are exposed over HTTP (§ARC17.4, not yet built) | Opens `/posts` handed the tag, as the three above (rule 2.13) | ❌ No — the page wires none; the list toggles the tag criterion itself (`UI/Components/ContentItemListPanel.md §10 item 8`), and no read narrows on a tag until associations are exposed over HTTP (rule 2.4), so the list does not change; item 9 |
-| `onBibleReferenceClick` ≠ item 14 | A reference pill on a card is clicked, after the list's rewrite. No pill renders today: the projection carries no references until associations are exposed over HTTP (§ARC17.4, not yet built) | Navigates to `/BibleReferences/{reference}`, or, for a reference it cannot read, to `/posts` with the reference's text as the free-text query, carrying `from` (rules 2.12 and 2.25) | For a readable reference ✅ Yes (`contentItemFeedNavigation.ts`, lines 45-46; `toUsfmReference.ts`, lines 67-73); for one it cannot read ❌ No — it goes to `/Search?q=<reference>` (`toUsfmReference.ts`, line 72); item 14. The list rewrites the criteria first (`UI/Components/ContentItemListPanel.md §10 item 8`) |
+| `onBibleReferenceClick` ≠ item 14 | A reference pill on a card is clicked, after the list's rewrite. No pill renders today: the projection carries no references until associations are exposed over HTTP (§ARC17.4, not yet built) | Navigates to `/BibleReferences/{reference}`, or, for a reference it cannot read, to `/posts` with the reference in its Bible references box, carrying `from` (rules 2.12 and 2.25) | For a readable reference ✅ Yes (`contentItemFeedNavigation.ts`, lines 45-46; `toUsfmReference.ts`, lines 67-73); for one it cannot read ❌ No — it goes to `/Search?q=<reference>` (`toUsfmReference.ts`, line 72); item 14. The list rewrites the criteria first (`UI/Components/ContentItemListPanel.md §10 item 8`) |
 
 ### 4.2 ContentItemSearchBarPanel, through the list
 
@@ -406,7 +406,7 @@ write a card leads to is decided again by the service (§SEC14.6).
     `/BibleReferences/BibleReader`, a product page with no document of its own yet (§UI20.5.1),
     links each of its passage's tags to `/Search?q=<tag>` (`src/pages/bibleReader.tsx`, line 106).
     The work is to point each of these links where the rule sends it. The footer's topic links are
-    not this item's: they wait on the question of item 15. The product's other links to the sample
+    item 15's. The product's other links to the sample
     pages are gaps of their own: an unreadable Bible reference on a card is item 14, which names the
     other pages', and the tag panel's default link, which sends a tag to `/Search?q=<tag>`, is
     `UI/Components/AssociationPanel.TagAssociationPanel.md §10 item 5`. `TagPillList` sends a tag to
@@ -428,13 +428,13 @@ write a card leads to is decided again by the service (§SEC14.6).
     *Search* leads. The four comments are to say what the code does.
 14. (needs issue) **Page gap — an unreadable Bible reference leads to the demo search page.**
     Rule 2.25 (user ruling 2026-09-27): a reference that cannot be read as a passage leads to the
-    journal's search, `/posts`, with the reference's text as its free-text query (`q`). The page's
+    journal's search, `/posts`, with the reference in its Bible references box. The page's
     `onBibleReferenceClick` navigates to what `bibleReferenceHref` builds
     (`contentItemFeedNavigation.ts`, lines 45-46), which is `/Search?q=<reference>` for a reference
     it cannot read (`toUsfmReference.ts`, line 72): the demo search page, sample material
     (§UI20.5.1). No pill renders on a listed card today (section 4.1), so a reader meets it only
     once associations are exposed over HTTP (§ARC17.4, not yet built). The page's half is to send
-    an unreadable reference to `/posts`, its text as the free-text query. The same helper is the
+    an unreadable reference to `/posts`, in its Bible references box. The same helper is the
     reference panel's default link, the component's half
     (`UI/Components/AssociationPanel.BibleReferenceAssociationPanel.md §10 item 5`). The same gap
     stands on `/posts` (`UI/Pages/Posts.md §6 item 13`) and `/myposts`
@@ -447,18 +447,14 @@ write a card leads to is decided again by the service (§SEC14.6).
     reaches both destinations. The side panels' reference chips are
     `UI/Pages/PostDetail.md §6 item 5`, `UI/Pages/MyPostDetail.md §6 item 7` and
     `UI/Pages/BibleReference.md §6 item 4`.
-15. **Question — where the footer's topic links lead.** The footer, on every page, has a *Hot
-    topics* block of eight links — *Faith*, *Hope*, *Prayer*, *Scripture*, *Testimony*, *Worship*,
-    *Community* and *Missions* — each to `/Categories`, sample material moving under `/SamplePages`
-    (`src/components/layouts/footer.tsx`, lines 95-102; §UI20.5.1, its item 2). The user ruled on
-    2026-09-27 that each leads to `/posts` with the matching filter, without saying which filter
-    (§UI20.7 rule 4 leaves them to this item). Of the eight, only *Testimony* names a content type
-    (`src/models/foundations/contentItemSettings/contentType.ts`), which the search bar's Category
-    box filters on. The bar's other criteria are the query, Author, Submitted by, Shareability, Tags
-    and Bible references (`UI/Pages/Posts.md rule 2.22`). The design also defines a topic of its
-    own: a content item whose type is `Topic`, which groups the items associated with it and acts
-    as their landing page (§DOM11.1, §DOM11.2). A `TopicPage` showing a topic's associated items is
-    planned (§UI20.5) but not built, and neither the Tags box nor the Category box can express one.
-    The question: is the block hidden until topic pages are designed, or is each word a tag, filling
-    the Tags box? The links' gap is carved from the answer; until then this item holds it, and
-    item 12 does not.
+15. (needs issue) **The footer's topic links lead to a sample page.** The footer, on every page,
+    has a *Hot topics* block of eight links — *Faith*, *Hope*, *Prayer*, *Scripture*, *Testimony*,
+    *Worship*, *Community* and *Missions* — each to `/Categories`, sample material moving under
+    `/SamplePages` (`src/components/layouts/footer.tsx`, lines 95-102; §UI20.5.1, its item 2).
+    §UI20.7 rule 4 (user rulings 2026-09-27) sends each to `/posts` with its word as a tag, in the
+    search bar's Tags box with the advanced section expanded (`UI/Pages/Posts.md rule 2.22`). A tag
+    narrows nothing until associations are exposed over HTTP (§ARC17.4, not yet built;
+    `UI/Pages/Posts.md rule 2.12`), so until then a topic link shows the whole journal, its tag in
+    the Tags box. The links are to move before `/Categories` does, or with it: once §UI20.5.1 item 2
+    has moved `/Categories` under `/SamplePages`, a link still pointing there reaches the Not Found
+    page (`src/routes/staticRoutes.tsx`, line 31).

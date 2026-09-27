@@ -67,7 +67,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.15 [Could]** The browser tab names the passage: *John 14:6 — Glory 2 Him* for the default passage, the address's reference for any other. *(code: bibleReference.tsx — the `document.title` effect)*
 
-**2.16 [Could]** A related reference that cannot be read as a passage, which this page cannot show (rule 2.2), leads to the journal's search, `/posts`, with the reference's text as its free-text query (`q`), not in its Bible references box, carried in the query string, as on every page of the user section (`UI/Pages/PostDetail.md rule 2.23`). *(user, 2026-09-27)* ≠ item 4
+**2.16 [Could]** A related reference that cannot be read as a passage, which this page cannot show (rule 2.2), leads to the journal's search, `/posts`, with the reference in its Bible references box, the advanced section expanded, carried in the query string, as on every page of the user section (`UI/Pages/PostDetail.md rule 2.23`). *(user, 2026-09-27)* ≠ item 4
 
 ## 3. Layout
 
@@ -135,7 +135,7 @@ and related references on the right in five — inside `Root`'s header and foote
 | --- | --- | --- | --- |
 | `onAdd` ≠ item 1 | A signed-in reader commits a reference, once per reference | Held for #700, as section 4.1 (rule 2.7) | ❌ No — held on the page only (`bibleReference.tsx`, lines 159-163); item 1 |
 | `onRemove` ≠ item 1 | The reader withdraws their own `Draft` or `Submitted` reference | Held for #700, as section 4.1 (rule 2.7) | ❌ No — dropped from the page's list (`bibleReference.tsx`, lines 164-166); item 1 |
-| `chipOnClick` or `chipHrefFor` ≠ item 4 | A related reference is clicked | Leads to the page showing that passage, `/BibleReferences/{reference}` (rule 2.12), or, for a reference it cannot read, to `/posts` with the reference's text as the free-text query (rule 2.16) | ❌ No — the page supplies neither; the story's own default builds `/BibleReferences/<USFM>`, or `/Search?q=<reference>` for a reference it cannot read (`UI/Components/AssociationPanel.BibleReferenceAssociationPanel.md §10 item 5`); item 4 |
+| `chipOnClick` or `chipHrefFor` ≠ item 4 | A related reference is clicked | Leads to the page showing that passage, `/BibleReferences/{reference}` (rule 2.12), or, for a reference it cannot read, to `/posts` with the reference in its Bible references box (rule 2.16) | ❌ No — the page supplies neither; the story's own default builds `/BibleReferences/<USFM>`, or `/Search?q=<reference>` for a reference it cannot read (`UI/Components/AssociationPanel.BibleReferenceAssociationPanel.md §10 item 5`); item 4 |
 | `loginButtonOnClick` or `loginHref` ≠ item 4 | A signed-out reader presses *Login to suggest a bible reference* | As section 4.1 (rule 2.12) | ❌ No — as section 4.1; item 4 |
 | `onApprove`, `onReject` | Only with `showModerationActions` on | — | *Not wired — switched off* (rule 2.8) |
 
@@ -258,7 +258,7 @@ are decided under §SEC14.7 posture A′, and a reaction under posture A′ rule
    the rules that bind every page: the setting switches of §DOM6.9 (rules 2.9 and 2.10); the
    read-only blocks (rule 2.11 and section 5); the page supplying every link, with a tag leading
    to `/posts` handed the tag and a related reference to the page showing the passage, or to
-   `/posts` with its text as the free-text query where it cannot be read, as on every page of the user
+   `/posts` with it in the Bible references box where it cannot be read, as on every page of the user
    section (rules 2.12 and 2.16); and sign-in (rules 2.11 and 2.12). It holds every
    rule and gap specific to this page for #700: what the page shows for a passage and where its
    text comes from; what it reads for the passage's tags and related references, and who may

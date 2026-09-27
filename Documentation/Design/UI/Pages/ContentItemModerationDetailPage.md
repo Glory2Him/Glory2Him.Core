@@ -97,7 +97,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.25 [Must]** View is switched off: this page is the item's detail view in the admin section, where View on the queue (`UI/Pages/ContentItemModerationPage.md rule 2.3`) and Moderate on the other lists (rule 2.1) lead, so the card does not offer View. *(user, 2026-09-27: View and Edit are each "configurable via the Show* properties"; `UI/Components/ContentItemPanel.md rule 2.40`)* ≠ item 14
 
-**2.26 [Must]** In the admin section, a click on the card's type chip, *Submitted by* or *Author*, or on a tag or Bible reference chip in the side panels, raises its hook, and the page opens the queue, `/Admin/Posts`, handed the value: the value in its query string, its search bar showing it in the matching box with the advanced section expanded, and a Bible reference that cannot be read as a passage in the free-text query (`q`) instead (`UI/Pages/ContentItemModerationPage.md rules 2.12 and 2.13`). *(user, 2026-09-27)* ≠ items 5 and 17
+**2.26 [Must]** In the admin section, a click on the card's type chip, *Submitted by* or *Author*, or on a tag or Bible reference chip in the side panels, raises its hook, and the page opens the queue, `/Admin/Posts`, handed the value: the value in its query string, its search bar showing it in the matching box with the advanced section expanded (`UI/Pages/ContentItemModerationPage.md rules 2.12 and 2.13`). *(user, 2026-09-27)* ≠ items 5 and 17
 
 **2.27 [Must]** The reviewer candidates are read when `ReviewPanel`'s request picker opens, on the hook it raises then, and not before (`UI/Components/ReviewPanel.md rule 2.32`). *(user, 2026-09-27)* ≠ item 6
 
