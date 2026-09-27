@@ -69,6 +69,8 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.16 [Could]** A related reference that cannot be read as a passage, which this page cannot show (rule 2.2), leads to the journal's search, `/posts`, with the reference in its Bible references box, the advanced section expanded, carried in the query string, as on every page of the user section (`UI/Pages/PostDetail.md rule 2.23`). *(user, 2026-09-27)* ≠ item 4
 
+**2.17 [Should]** A button on the page leads to the journal's search, `/posts`, with the passage in its Bible references box, the advanced section expanded, carried in the query string (`UI/Pages/Posts.md rule 2.22`), so the reader sees every item associated with the passage. Where the button sits and what it says are #700's (item 6). *(user, 2026-09-27)* ≠ item 6
+
 ## 3. Layout
 
 Two columns at the `lg` breakpoint and wider — the passage on the left in seven twelfths, its tags
@@ -264,7 +266,7 @@ are decided under §SEC14.7 posture A′, and a reaction under posture A′ rule
    text comes from; what it reads for the passage's tags and related references, and who may
    suggest one (rules 2.6 and 2.7); what a reader's reaction to a passage records (rule 2.11);
    where any hook specific to a passage leads (rule 2.12); and what shows while the settings
-   load. Items 1–4 are held for #700 and tagged with it, so the sweep
+   load. Items 1–4 and 6 are held for #700 and tagged with it, so the sweep
    carves no task for this page before the mockup; #700's design carves them. The rules drawn from
    the code record the page as built until then. Telling the tag panel that its host is a passage
    is #700's too: the server refuses a suggestion blocked on either end of the association
@@ -277,3 +279,10 @@ are decided under §SEC14.7 posture A′, and a reaction under posture A′ rule
    `UI/Components/AssociationPanel.md rule 2.30` provides for the host end's roles only where the
    panel hangs off a post. So a holder of `BibleReference-ReadOnly` alone is shown the tag panel's
    box here, and the server refuses what they suggest.
+6. (#700) **Page gap — `/BibleReferences`: no button leads to the search for the passage.** Held
+   for #700 (item 5). Rule 2.17 (user ruling 2026-09-27): a button leads to `/posts` with the
+   passage in its Bible references box, listing every item associated with the passage. The page has
+   none: its one link beneath the passage is *Show Full Chapter* (`bibleReference.tsx`, line 108). A
+   reference narrows `/posts` only once associations are exposed over HTTP (§ARC17.4, not yet
+   built), so until then the search shows the whole journal, the reference in its box. #700's
+   mockup places the button.
