@@ -29,7 +29,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.4 [Should]** A tag or a Bible reference alone keeps the feed read, because no read narrows on either until associations are exposed over HTTP (§ARC17.4, not yet built). *(test: contentItemFeedPages.test.tsx — "should stay on the feed when the reader supplied only %s")*
 
-**2.5 [Must]** The committed criteria live in the URL, so a shared link and the back button land with the results showing. The header's *Search* leads to the journal's search, `/posts`, not to this page (item 12). *(code: home.tsx — header comment, `search`; user, 2026-09-27)* ≠ item 12
+**2.5 [Must]** The committed criteria live in the URL, so a shared link and the back button land with the results showing. The header's *Search* leads to `/posts`, not to this page (§UI20.7 rule 4). *(code: home.tsx — header comment, `search`; user, 2026-09-27)* ≠ item 12
 
 **2.6 [Must]** Every element is handed to the list self-contained, carrying its winning setting, resolved from the effective settings read: the content type defaults plus the override rows of the items on screen (`UI/Components/ContentItemPanel.md rules 2.5 and 2.39`). *(code: home.tsx — `useGetEffectiveSettingsFor`, `toContentItemSearchItem`)* ≠ item 1
 
@@ -424,8 +424,8 @@ write a card leads to is decided again by the service (§SEC14.6).
     header's /Search link and deep links land with the results already showing"), is wrong about
     that link too: the demo page shows its results only once the address carries `q`
     (`hasSearched`, line 87), and the header's link carries none. Rule 2.5 and
-    `UI/Pages/Posts.md rule 2.3` say what the URL carries, and where the header's *Search* leads
-    (item 12). The four comments are to say what the code does.
+    `UI/Pages/Posts.md rule 2.3` say what the URL carries, and §UI20.7 rule 4 where the header's
+    *Search* leads. The four comments are to say what the code does.
 14. (needs issue) **Page gap — an unreadable Bible reference leads to the demo search page.**
     Rule 2.25 (user ruling 2026-09-27): a reference that cannot be read as a passage leads to the
     journal's search, `/posts`, with the reference's text as its free-text query (`q`). The page's

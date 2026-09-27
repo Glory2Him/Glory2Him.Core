@@ -24,7 +24,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.2 [Must]** The page lists contributions through `ContentItemListPanel`, and only approved ones — the canonical public set (§SEC14.1) — to every reader, anonymous or signed in, the item's owner and the moderators included. Unreviewed content is never shown here: an owner sees their own on `/myposts`, and the moderation tier in the admin area, `/Admin/Posts`. *(user, 2026-09-27)* ≠ item 6
 
-**2.3 [Must]** The committed criteria live in the URL, so a shared link and the back button land with the results showing. The header's *Search*, on every page, leads here, to `/posts` (`UI/Pages/Home.md §6 item 12`). *(code: posts.tsx — header comment, `search`; test: posts.test.tsx — "should read the criteria off the url so a shared link lands on the results", "should put what was searched for back into the url", "should read a clicked submitted-by filter back off the url"; user, 2026-09-27)* ≠ `UI/Pages/Home.md §6 item 12`
+**2.3 [Must]** The committed criteria live in the URL, so a shared link and the back button land with the results showing. The header's *Search*, on every page, leads here (§UI20.7 rule 4). *(code: posts.tsx — header comment, `search`; test: posts.test.tsx — "should read the criteria off the url so a shared link lands on the results", "should put what was searched for back into the url", "should read a clicked submitted-by filter back off the url"; user, 2026-09-27)* ≠ `UI/Pages/Home.md §6 item 12`
 
 **2.4 [Should]** A content type the URL does not name is ignored rather than searched for. *(test: posts.test.tsx — "should ignore a content type the url does not actually name")*
 
