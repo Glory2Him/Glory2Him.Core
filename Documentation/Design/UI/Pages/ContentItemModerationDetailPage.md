@@ -7,7 +7,8 @@ leads here. Reviewers place their review here, and publishers and administrators
 amend it and narrow its settings. Only administrators reach it today.
 
 **This page is to be redesigned: issue #698**, *Redesign The Post Moderation Page For Association
-Approvals*, from a mockup (user ruling 2026-09-27). Every tag and Bible reference on a post is an
+Approvals*, from the product owner's mocks in the design session of #705 (user rulings 2026-09-27
+and 2026-09-28). Every tag and Bible reference on a post is an
 approvable association with a round of its own, and the redesign must show each one's review
 outcome the way the post's own is shown. This document records the page **as built** at
 70dc72e7. Several matters belong to #698 and are cited here, not asked: moderating tags and Bible
@@ -89,7 +90,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.21 [Could]** *Back to Posts* always leads to the list it names, the queue, `/Admin/Posts`: as the moderator left it when they came from it, and the bare queue otherwise — never to another page an origin in router state names. *(user, 2026-09-27; test: contentItemModerationDetailPage.test.tsx — "should walk back to the bare queue when no origin was carried", "should walk back to the filtered queue a redirect carried in state")* ≠ item 13
 
-**2.22 [Won't]** How tags and Bible references are moderated on this page is not designed here. The page is to be redesigned from a mockup under #698, which shows each association's own round. *(user, 2026-09-27)*
+**2.22 [Won't]** How tags and Bible references are moderated on this page is not designed here. The page is to be redesigned under #698, from the product owner's mocks in the design session of #705, which shows each association's own round. *(user, 2026-09-27)*
 
 **2.23 [Must]** Every call about the item's round is addressed by the round's approval id, which the item carries: the verdict, `GET api/Approvals/{approvalId}/Verdict`; the decision, `PUT` or `POST api/Approvals/{approvalId}` with a body of the decision, whether a bypass is requested and the bypass reason, and nothing else; the reset, `POST api/Approvals/{approvalId}/Reset`; and the reviewer candidates, the reviewer display names, the review requests and Berean's resource. The reviews and the thread are addressed by it already. The page reads the id off the stored item (§ARC17.5, §ARC16.7). *(user, 2026-09-27)* ≠ item 11
 
@@ -97,7 +98,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.25 [Must]** View is switched off: this page is the item's detail view in the admin section, where View on the queue (`UI/Pages/ContentItemModerationPage.md rule 2.3`) and Moderate on the other lists (rule 2.1) lead, so the card does not offer View. *(user, 2026-09-27: View and Edit are each "configurable via the Show* properties"; `UI/Components/ContentItemPanel.md rule 2.40`)* ≠ item 14
 
-**2.26 [Must]** In the admin section, a click on the card's type chip, *Submitted by* or *Author*, or on a tag or Bible reference chip in the side panels, raises its hook, and the page opens the queue, `/Admin/Posts`, handed the value: the value in its query string, its search bar showing it in the matching box with the advanced section expanded (`UI/Pages/ContentItemModerationPage.md rules 2.12 and 2.13`). The page is to be redesigned from the product owner's mocks in a design session, which settles where its chips lead (#705; user ruling 2026-09-28). *(user, 2026-09-27)* ≠ items 5 and 17
+**2.26 [Must]** In the admin section, a click on the card's type chip, *Submitted by* or *Author*, or on a tag or Bible reference chip in the side panels, raises its hook, and the page opens the queue, `/Admin/Posts`, handed the value: the value in its query string, its search bar showing it in the matching box with the advanced section expanded (`UI/Pages/ContentItemModerationPage.md rules 2.12 and 2.13`). The page is to be redesigned from the product owner's mocks in a design session, which settles where the side panels' tag and Bible reference chips lead (#705; user ruling 2026-09-28). *(user, 2026-09-27)* ≠ items 5 and 17
 
 **2.27 [Must]** The reviewer candidates are read when `ReviewPanel`'s request picker opens, on the hook it raises then, and not before (`UI/Components/ReviewPanel.md rule 2.32`). *(user, 2026-09-27)* ≠ item 6
 
@@ -514,7 +515,7 @@ access matrices: `UI/Components/ContentItemPanel.md §5`, `UI/Components/Content
     elements), so a tag chip would follow the tag story's own `/Search?q=<tag>` and a reference
     chip the reference story's own `/BibleReferences/{USFM}`, or `/Search?q=<reference>` for a
     reference it cannot read. No chip renders while the lists are empty (associations are not yet
-    exposed over HTTP, §ARC17.4). The page is to be redesigned under #698, from the product owner's mocks `Admin Post Detail.dc.html`
-    and `Admin Association Detail.dc.html` in a design session (#705; user ruling 2026-09-28), which
-    replaces these two panels (section 4.3) and may change what choosing a chip does; this item records the page as
-    built.
+    exposed over HTTP, §ARC17.4). The page is to be redesigned under #698, from the product owner's
+    mocks `Admin Post Detail.dc.html` and `Admin Association Detail.dc.html` in the design session of
+    #705 (user ruling 2026-09-28), which replaces these two panels (section 4.3) and settles where a
+    tag or Bible reference chip leads; this item records the page as built.

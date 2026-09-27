@@ -247,14 +247,15 @@ blocks under §UI20.6.4 is.
    (`src/pages/tag.tsx`, lines 41 and 49; `src/pages/postSingle.tsx`, line 70), and the sample
    pages' under `src/pages/samplePages/`. The product's own links to them lead to `/posts` instead
    (user ruling 2026-09-27): the layout's and the Bible reader's by §UI20.7 rule 4, whose gaps are
-   `UI/Pages/Home.md §6 item 12` and, for the footer's topic links, which are to move before
-   `/Categories` does or with it, `UI/Pages/Home.md §6 item 15`; and, in the user section, the tag panel's
-   default link, `UI/Components/AssociationPanel.TagAssociationPanel.md §10 item 5`. An unreadable
-   Bible reference's link, which reaches `/Search` today, leads to the Bible reference page instead
-   (user ruling 2026-09-28; `UI/Pages/BibleReference.md rule 2.18`), its gap
-   `UI/Pages/Home.md §6 item 14` and the items it names. In the admin section a tag
-   or a Bible reference leads to the queue, `/Admin/Posts`, instead
-   (`UI/Pages/ContentItemModerationPage.md rule 2.13`).
+   `UI/Pages/Home.md §6 item 12` and, for the footer's topic links, `UI/Pages/Home.md §6 item 15`;
+   and, in the user section, the tag panel's default link,
+   `UI/Components/AssociationPanel.TagAssociationPanel.md §10 item 5`. An unreadable Bible
+   reference's link, which reaches `/Search` today, leads to the Bible reference page instead (user
+   ruling 2026-09-28; `UI/Pages/BibleReference.md rule 2.18`), its gap `UI/Pages/Home.md §6 item 14`
+   and the items it names. In the admin section a tag or a Bible reference leads to the queue,
+   `/Admin/Posts`, instead (`UI/Pages/ContentItemModerationPage.md rule 2.13`). Each of these
+   product links changes before the page it points at moves, or with it: a link left pointing at a
+   moved page reaches the Not Found page (`src/routes/staticRoutes.tsx`, line 31).
 
 ### UI20.6 Components *(formerly §20.6)*
 

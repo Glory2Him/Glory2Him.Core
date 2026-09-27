@@ -426,7 +426,9 @@ write a card leads to is decided again by the service (§SEC14.6).
     (`hasSearched`, line 87), and the header's link carries none. Rule 2.5 and
     `UI/Pages/Posts.md rule 2.3` say what the URL carries, and §UI20.7 rule 4 where the header's
     *Search* leads. The four comments are to say what the code does.
-14. (needs issue) **Page gap — an unreadable Bible reference leads to the demo search page.**
+14. (#700) **Page gap — an unreadable Bible reference leads to the demo search page.** Held for
+    #700, which decides how the Bible reference page is addressed for such a reference
+    (`UI/Pages/BibleReference.md rule 2.18`).
     Rule 2.25 (user ruling 2026-09-28): a reference that cannot be read as a passage leads to the
     Bible reference page all the same, which says it could not be found. The page's
     `onBibleReferenceClick` navigates to what `bibleReferenceHref` builds
@@ -444,8 +446,8 @@ write a card leads to is decided again by the service (§SEC14.6).
     section a reference leads to the queue itself, not to the Bible reference page
     (`UI/Pages/ContentItemModerationPage.md rule 2.13`, its gap
     `UI/Pages/ContentItemModerationPage.md §6 item 6`), so a change made in the shared function
-    reaches both destinations. The side panels' reference chips are
-    `UI/Pages/PostDetail.md §6 item 5`, `UI/Pages/MyPostDetail.md §6 item 7` and
+    reaches both destinations. The side panels' chips for such a reference are
+    `UI/Pages/PostDetail.md §6 item 15`, `UI/Pages/MyPostDetail.md §6 item 17` and
     `UI/Pages/BibleReference.md §6 item 4`.
 15. (needs issue) **The footer's topic links lead to a sample page.** The footer, on every page,
     has a *Hot topics* block of eight links — *Faith*, *Hope*, *Prayer*, *Scripture*, *Testimony*,

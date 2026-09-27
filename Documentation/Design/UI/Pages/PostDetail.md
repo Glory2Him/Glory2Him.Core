@@ -69,7 +69,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.22 [Must]** A change to the item's setting reaches the open page without a reload: comments switched off for the item, say, take the comments control off its card (§ARC12.5.2 business rule 12). How the page learns of the change is designed under #702, *Push Live Updates To Open Pages*; until it is designed and built, nothing pushes a change to the page. *(user, 2026-09-27; §ARC12.5.2 business rule 12)* ≠ item 14
 
-**2.23 [Could]** A Bible reference in the side panel that cannot be read as a passage leads to the Bible reference page all the same, which says it could not be found and offers the search (`UI/Pages/BibleReference.md rule 2.18`). *(user, 2026-09-28)* ≠ item 5
+**2.23 [Could]** A Bible reference in the side panel that cannot be read as a passage leads to the Bible reference page all the same, which says it could not be found and offers the search (`UI/Pages/BibleReference.md rule 2.18`). *(user, 2026-09-28)* ≠ item 15
 
 ## 3. Layout
 
@@ -290,9 +290,8 @@ page is a courtesy (§SEC14.6).
    `UI/Components/AssociationPanel.md §10 item 15`; a tag chip cannot raise `chipOnClick` until the
    story's default goes (`UI/Components/AssociationPanel.TagAssociationPanel.md §10 item 1`). The
    sign-in half needs the one reusable sign-in action (`UI/Pages/Home.md §6 item 3`); the tag's
-   destination is `/posts`, handed the tag (rule 2.13; user rulings 2026-09-27), and that of a
-   reference it cannot read is the Bible reference page all the same, not `/Search` (rule 2.23; user
-   ruling 2026-09-28).
+   destination is `/posts`, handed the tag (rule 2.13; user rulings 2026-09-27). The link for a
+   reference it cannot read is item 15, held for #700.
 6. **Note — the type chip, *Submitted by* and *Author* on a detail view in the user section,
    ruled.** This item asked where each of the three leads from `/posts/{id}` and `/myposts/{id}`,
    where the card renders them as buttons that raise their hooks
@@ -383,3 +382,11 @@ page is a courtesy (§SEC14.6).
     ruling 2026-09-27); this page's share — hearing of a change to the setting that governs its
     item, and updating what it shows — is carved from that design. The same gap on `/` is
     `UI/Pages/Home.md §6 item 11`, whose evidence stands for this page too.
+15. (#700) **Page gap — `/posts/{id}`: an unreadable Bible reference in the side panel leads to the
+    demo search page.** Held for #700, which decides how the Bible reference page is addressed for
+    such a reference (`UI/Pages/BibleReference.md rule 2.18`). Rule 2.23 (user ruling 2026-09-28): a
+    reference in the side panel that cannot be read as a passage leads to the Bible reference page
+    all the same, which says it could not be found. With no link supplied (item 5), its chip follows
+    the reference story's own `/Search?q=<reference>`
+    (`UI/Components/AssociationPanel.BibleReferenceAssociationPanel.md §10 item 5`). The same gap on
+    the cards is `UI/Pages/Home.md §6 item 14`.

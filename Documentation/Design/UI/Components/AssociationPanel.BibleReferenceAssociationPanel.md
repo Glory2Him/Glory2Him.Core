@@ -21,7 +21,7 @@
 
 **2.4 [Could]** `bibleReferenceHref` links a reference citing separate verse groups, such as `Joshua 10:8, 12–13`, to its whole chapter: one URL can name only one passage, and spanning 8–13 would include verses the post never quoted. *(code: toUsfmReference.ts — toUsfmReference; test: toUsfmReference.test.ts)*
 
-**2.5 [Could]** Where a value that cannot be read as a reference leads is the page's too, and the page supplies that link, as it supplies every link (rule 2.3). In the user section it is the Bible reference page all the same, which says it could not be found (`UI/Pages/PostDetail.md rule 2.23`, `UI/Pages/MyPostDetail.md rule 2.23`, `UI/Pages/BibleReference.md rule 2.16`). In the admin section, where no click leaves the admin area, it is the queue, `/Admin/Posts`, handed the value, as for every reference there (`UI/Pages/ContentItemModerationDetailPage.md rule 2.26`, `UI/Pages/ContentItemModerationPage.md rule 2.13`). *(user, 2026-09-27)* ≠ item 5
+**2.5 [Could]** Where a value that cannot be read as a reference leads is the page's too, and the page supplies that link, as it supplies every link (rule 2.3). In the user section it is the Bible reference page all the same, which says it could not be found (`UI/Pages/PostDetail.md rule 2.23`, `UI/Pages/MyPostDetail.md rule 2.23`, `UI/Pages/BibleReference.md rule 2.16`). In the admin section, where no click leaves the admin area, it is the queue, `/Admin/Posts`, handed the value, as for every reference there (`UI/Pages/ContentItemModerationDetailPage.md rule 2.26`, `UI/Pages/ContentItemModerationPage.md rule 2.13`). *(user, 2026-09-27 and 2026-09-28)* ≠ item 5
 
 **2.6 [Should]** The book is the Approved icon, not a flat chip icon, so a reference still waiting on a decision shows the hourglass instead: one icon slot, filled by whichever status applies. *(code: bibleReferenceAssociationPanel.tsx — approvedIconCssClass; test: bibleReferenceAssociationPanel.test.tsx — "should carry the book icon once approved and the hourglass while it waits")*
 
@@ -135,7 +135,7 @@ On `/BibleReferences` the host is a passage, so the panel shows related referenc
 
 ## 7. Dependencies
 
-Inherits `UI/Components/AssociationPanel.md §7`. The default chip links, today's coupling (item 5), point at the `/BibleReferences/:reference` deep-link route (rule 2.3), or, for a value that cannot be read, at `/Search` — the ported template's demo, sample material moving under `/SamplePages` (§UI20.5.1) — where rule 2.5 has the page supply its link: `/posts` in the user section, `/Admin/Posts` in the admin section.
+Inherits `UI/Components/AssociationPanel.md §7`. The default chip links, today's coupling (item 5), point at the `/BibleReferences/:reference` deep-link route (rule 2.3), or, for a value that cannot be read, at `/Search` — the ported template's demo, sample material moving under `/SamplePages` (§UI20.5.1) — where rule 2.5 has the page supply its link: the Bible reference page in the user section, `/Admin/Posts` in the admin section.
 
 ## 8. States, Validation and Feedback
 

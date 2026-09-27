@@ -331,8 +331,10 @@ Every write a card leads to is decided again by the service (§SEC14.6).
     contribution page's half, returning the reader to the origin it is told, is
     `UI/Pages/Contribute.md §6 item 3`; the signed-out half of this link is item 8. The same gap on
     `/myposts` is `UI/Pages/MyPosts.md §6 item 11`.
-13. (needs issue) **Page gap — an unreadable Bible reference leads to the demo search page.** Rule
-    2.26 (user ruling 2026-09-28): a reference that cannot be read as a passage leads to the Bible
+13. (#700) **Page gap — an unreadable Bible reference leads to the demo search page.** Held for
+    #700, which decides how the Bible reference page is addressed for such a reference
+    (`UI/Pages/BibleReference.md rule 2.18`).
+    Rule 2.26 (user ruling 2026-09-28): a reference that cannot be read as a passage leads to the Bible
     reference page all the same, which says it could not be found. The page's `onBibleReferenceClick` sends it
     to `/Search?q=<reference>` instead (`contentItemFeedNavigation.ts`, lines 45-46;
     `toUsfmReference.ts`, line 72). No pill renders on a listed card today (section 4.1). The same

@@ -8,8 +8,10 @@ chip in a side panel, the verse of the day on `/`.
 **This page has not been designed yet: issue #700**, *Design The Bible Reference Page*, from a
 mockup (user rulings 2026-09-27). This document records the page **as built** at 70dc72e7, and of
 its design keeps only the rules that bind every page: the setting switches of §DOM6.9, the
-read-only blocks, the page supplying every link, and sign-in. Every rule and gap specific to this
-page is held for #700 — what it shows for a passage, who may suggest there, what a reaction to a
+read-only blocks, the page supplying every link, and sign-in. It also records the two rules the
+product owner has ruled for this page itself — the search for the passage's items (rule 2.17)
+and its message for a reference it cannot read (rule 2.18) — which #700 places. Every other rule
+and gap specific to this page is held for #700 — what it shows for a passage, who may suggest there, what a reaction to a
 passage records, where any hook specific to a passage leads, and telling the tag panel that its
 host is a passage — so no task is carved before the mockup (item 5).
 
@@ -39,7 +41,7 @@ Paths in this document are under `Websites/Glory2Him.WebApp.React/` unless they 
 
 **2.1 [Must]** `/BibleReferences` is public: neither of its routes has a guard, so every reader reaches the page, signed in or not. *(code: staticRoutes.tsx — the `BibleReferences` and `BibleReferences/:reference` routes)*
 
-**2.2 [Must]** The address names the passage and its version, as bible.com addresses them: `/BibleReferences/JHN.3.16.NIV` is John 3:16 in the NIV, and `JHN.3.16-17` or bible.com's dotted `JHN.3.16.17` a range. `/BibleReferences` alone shows John 14:6 in the NIV. A chapter-only address opens the Bible reader, and one that cannot be read is Not Found. *(code: bibleReferenceView.tsx — header comment, `BibleReferenceView`; code: bibleReference.tsx — header comment, the parameter defaults)*
+**2.2 [Must]** The address names the passage and its version, as bible.com addresses them: `/BibleReferences/JHN.3.16.NIV` is John 3:16 in the NIV, and `JHN.3.16-17` or bible.com's dotted `JHN.3.16.17` a range. `/BibleReferences` alone shows John 14:6 in the NIV. A chapter-only address opens the Bible reader; one that cannot be read is rule 2.18's. *(code: bibleReferenceView.tsx — header comment, `BibleReferenceView`; code: bibleReference.tsx — header comment, the parameter defaults; user, 2026-09-28)* ≠ item 7
 
 **2.3 [Must]** The passage's text is YouVersion's `BibleCard`: licensed scripture, with its own title and version picker. Choosing another translation navigates to this passage's address in that version, so a refresh keeps it and the address can be shared. *(code: bibleReference.tsx — header comment, `onVersionChange`)*
 
@@ -263,7 +265,9 @@ are decided under §SEC14.7 posture A′, and a reaction under posture A′ rule
    read-only blocks (rule 2.11 and section 5); the page supplying every link, with a tag leading
    to `/posts` handed the tag and a related reference to the page showing the passage, which
    says it could not be found where it cannot be read, as on every page of the user
-   section (rules 2.12 and 2.16); and sign-in (rules 2.11 and 2.12). It holds every
+   section (rules 2.12 and 2.16); and sign-in (rules 2.11 and 2.12). Beyond those, it records the two
+   rules the user ruled for this page itself, its search (rule 2.17) and its message for a
+   reference it cannot read (rule 2.18), and holds them for #700 to place. It holds every
    rule and gap specific to this page for #700: what the page shows for a passage and where its
    text comes from; what it reads for the passage's tags and related references, and who may
    suggest one (rules 2.6 and 2.7); what a reader's reaction to a passage records (rule 2.11);
@@ -294,4 +298,6 @@ are decided under §SEC14.7 posture A′, and a reaction under posture A′ rule
    the new search box"). Today an address the page cannot parse renders the site's Not Found page
    (`src/pages/bibleReferenceView.tsx`, lines 16-23), and no product link opens the page for such a
    reference: each sends it to `/Search?q=<reference>` (`UI/Pages/Home.md §6 item 14` and the items
-   it names). #700 designs how the page is addressed for it and what surrounds the message.
+   it names). #700 designs how the page is addressed for it and what surrounds the message, and
+   how `{x}` is shown: it echoes the address back, so a crafted link could otherwise put wording of
+   its own choosing on the page.

@@ -291,10 +291,11 @@ The read-only roles each action answers to are those components' security and ac
     router state (`myPosts.tsx`, lines 129-132), so the contribution page is told no origin. The
     contribution page's half is `UI/Pages/Contribute.md §6 item 3`. The same gap on `/posts` is
     `UI/Pages/Posts.md §6 item 12`.
-12. (needs issue) **Page gap — `/myposts`: an unreadable Bible reference leads to the demo search
-    page.** Rule 2.21 (user ruling 2026-09-28): a reference that cannot be read as a passage leads
-    to the Bible reference page all the same, which says it could not be found. The page's
-    `onBibleReferenceClick` sends it to `/Search?q=<reference>` instead
+12. (#700) **Page gap — `/myposts`: an unreadable Bible reference leads to the demo search page.**
+    Held for #700, which decides how the Bible reference page is addressed for such a reference
+    (`UI/Pages/BibleReference.md rule 2.18`). Rule 2.21 (user ruling 2026-09-28): a reference that
+    cannot be read as a passage leads to the Bible reference page all the same, which says it could
+    not be found. The page's `onBibleReferenceClick` sends it to `/Search?q=<reference>` instead
     (`contentItemFeedNavigation.ts`, lines 45-46; `toUsfmReference.ts`, line 72). No pill renders on
     a listed card today (section 4.4). The same gap on `/` is `UI/Pages/Home.md §6 item 14`, whose
     evidence stands for this page too.
