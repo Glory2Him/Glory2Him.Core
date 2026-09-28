@@ -862,7 +862,7 @@ the durable truth remains. Whether a publisher may ignore the result is ruled by
 the SUBSCRIPTION LIST rather than on the address being a notification: an address carrying
 a state-writing subscriber is a required delivery whose result must be inspected, and only
 an address nobody subscribes to may discard it. Publishers that still discard a subscribed
-result are an unclosed gap tracked as #497, not a sanctioned pattern — in doing so they
+result are an unclosed gap, not yet built, not a sanctioned pattern — in doing so they
 give up the only signal that a subscriber never ran.
 
 Foundation services follow a dual-path shape (see `ContentItemService` as the
@@ -1791,8 +1791,8 @@ Three things about this pair, and each is a question a reviewer will ask:
    them too was considered and **deferred**: it adds event surface to remove a
    dependency that is already inside the Florance count.
 
-**Neither subscription DERIVES its accepted event name, and that is #286's to
-fix rather than this pair's.** The *address* is already canonical: both bind
+**Neither subscription DERIVES its accepted event name, and that is for a sweep
+over every receiver to fix, not yet built, rather than this pair's.** The *address* is already canonical: both bind
 through `SubscribeTo<Entity>EventAsync(operation:)`, which resolves the address
 from `EventBrokerIdentifiers`' operation-to-address map, so no address is
 hand-written anywhere in this solution. The **signed event name** is a different
@@ -1800,9 +1800,9 @@ string — `EventBroker` composes it as `entityName + operation` at publish time
 and exposes that composition to nobody — so every receiver states it as a
 literal, all of them today on `ApprovalOrchestrationService.Substrate.cs`. These
 two add `"ApprovalReviewAdded"` and `"ApprovalModified"` to that set rather than
-inventing a second shape beside it, because #286 is a sweep over all of them and
+inventing a second shape beside it, because the fix is a sweep over all of them and
 a bespoke derivation at two sites would pre-empt a ruling scoped to the rest.
-Both literals are safe by the argument that already covers most of #286's:
+Both literals are safe by the argument that already covers most of that sweep's:
 `EventBroker.Approval.cs` and `EventBroker.ApprovalReview.cs` pass
 `nameof(Approval)` and `nameof(ApprovalReview)`, so the literal is the type name
 and cannot drift the way `"ContentItemProcessing"` and `"LinkProcessing"` did in
@@ -1857,9 +1857,9 @@ Four things about this pair:
 
 **The accepted event names are literals here too**, `"ApprovalAdded"` and
 `"ApprovalModified"`, for the reason the reviewer pair's closing paragraph
-gives: #286 is a sweep over every receiver's literal and a bespoke derivation at
-two more sites would pre-empt it. `"ApprovalModified"` is the same literal the
-retirement handler already states, which is a duplication #286 removes rather
+gives: the fix is a sweep over every receiver's literal, not yet built, and a
+bespoke derivation at two more sites would pre-empt it. `"ApprovalModified"` is the same literal the
+retirement handler already states, which is a duplication that sweep removes rather
 than something this design should solve locally.
 
 **Outbound — approval-caused writes use a transition verb, never
@@ -1879,7 +1879,8 @@ than something this design should solve locally.
    establishes this vocabulary — a transition owning a narrower field scope than
    a general modify is a separate method and therefore a separate verb, and its
    fact need not echo its request. The transition's scope is the whole of
-   `IApproval`, so no separate publish verb is required.
+   `IApproval` bar its `ApprovalId`, which it keeps from the stored row
+   (§APR7.4 item 6), so no separate publish verb is required.
 5. This operation writes only the `IApproval` members, and **must not** publish
    `<Entity>-Modified` or `<Entity>-Added`. Those two are the addresses rule 1's
    invalidation subscriptions bind to, so an approval-caused write cannot
@@ -2477,7 +2478,7 @@ it into this one.
 
 §EVN11 dispatches inline and **contains** a handler that throws: the publish completes, and the failure surfaces in exactly one place — `EventDelivery<T>.IsFailure` on the returned `EventPublishResult<T>`. **`IsFailure`, not the inverse of `IsSuccess`:** four statuses exist and only one is success, so Pending and Replay are also "not successful" while neither is a failure, and a publisher written against the inverse would raise this section's Critical alarm on healthy traffic. That was measured rather than reasoned about (`HandlerFailureContainmentTests`, #298), because the shape of the code says nothing about which way it goes. Containment is the right half of the answer: the write that caused the fact is already committed by the time the fact goes out, so failing the publisher would report a committed write as failed — a reviewer's vote written, then a 500 because a bookkeeping row would not save. The other half is the obligation containment creates, and before this section nothing in the solution met it: **every publisher discarded its result**, so a contained failure was an unreported one. This section closes that for the two cases named in rule 7; rule 7 also names what is still owed.
 
-**A published fact with a state-writing subscriber is a required delivery, and a required delivery's result must be inspected.** The tense of the address does not decide this and must not be read as deciding it. `EventSubscriptionRegistration` subscribes roughly twenty-nine **past-tense fact** addresses to handlers that perform required writes in another aggregate — `Tag-Submitted` reaches `OnTagSubmittedAsync`, which moves the tag's approval to `Submitted` and re-evaluates the round (§EVN18). A dropped delivery there is not a lost notification; it is the §APR9.8 divergence, and for `-Submitted` there is no repair path at all: §ARC16.7.2's read-triggered repair only opens a **missing** round and never reconciles an existing `Draft` round against an entity that has since moved on.
+**A published fact with a state-writing subscriber is a required delivery, and a required delivery's result must be inspected.** The tense of the address does not decide this and must not be read as deciding it. `EventSubscriptionRegistration` subscribes roughly twenty-nine **past-tense fact** addresses to handlers that perform required writes in another aggregate — `Tag-Submitted` reaches `OnTagSubmittedAsync`, which moves the tag's approval to `Submitted` and re-evaluates the round (§EVN18). A dropped delivery there is not a lost notification; it is the §APR9.8 divergence, and for `-Submitted` there is no repair path at all: §ARC16.7.2's read-triggered repair, as built, only opens a **missing** round and never reconciles an existing `Draft` round against an entity that has since moved on — and the 2026-09-27 ruling withdraws even that repair, since no read opens a round (§APR9.7.2 rule 1; not yet built).
 
 1. **The subscription list decides, never the verb.** An address with no subscription returns an empty `Deliveries` collection, so inspecting it is a no-op and costs nothing; an address with a state-writing subscriber is a required delivery. The publisher therefore inspects unconditionally and lets the subscription list answer, rather than encoding a copy of that list — which belongs to `EventSubscriptionRegistration` — as a condition in a service.
 
@@ -2495,7 +2496,7 @@ it into this one.
 
 6. **There is no retry behind this today, which is why the log line is the whole of the report.** The substrate exposes a pending-event sweep and nothing in Core invokes it, so the dispatch-time snapshot is the final outcome rather than a first attempt. Earlier text in §EVN11 claiming a failed delivery may succeed later on retry described a mechanism that is configured but never run, and has been corrected. §EVN19 rules the other half of this pair — a fact that never went out at all — and neither ruling introduces a redelivery mechanism; both make the gap **visible** rather than silent.
 
-7. **The two cases ruled first are the two that already funnel through a single call site, which is a cost argument and not a severity one.** `ApprovalOrchestrationService`'s entity-approval command, and the `-Submitted` fact published by the shared transition tail of the seven approvable foundations. **They are not the only cases without a reconcile path, and this section must not be read as saying so.** `-Modified` on the seven approvable foundations reaches `ProcessEntityModifiedAsync`, which dismisses stale reviews and re-evaluates; `ApprovalReview-Dismissed` and `ApprovalComment-Resolved` reach handlers that write the round's verdict. None of those has a reconcile path either, and `-Modified` is the one that fails OPEN — a dropped delivery leaves approving reviews standing on content that has since changed, so the next evaluation can auto-approve off reviews for text nobody read, and the item stays approved and published. `-Submitted` by contrast fails CLOSED, stranding an entity at Submitted. The remaining subscribed-but-uninspected publish sites are owed and are tracked as #497, `-Modified` first; until they are done, a discarded result elsewhere in the solution is an unclosed gap and must not be read as sanctioned by this section. §ARC16.7.1 already describes the sync as published *and observed*: inspecting the delivery outcome is the first half of that observation, and the reply envelope the command's handler returns is still discarded — named here as a residual rather than ruled on.
+7. **The two cases ruled first are the two that already funnel through a single call site, which is a cost argument and not a severity one.** `ApprovalOrchestrationService`'s entity-approval command, and the `-Submitted` fact published by the shared transition tail of the seven approvable foundations. **They are not the only cases without a reconcile path, and this section must not be read as saying so.** `-Modified` on the seven approvable foundations reaches `ProcessEntityModifiedAsync`, which dismisses stale reviews and re-evaluates; `ApprovalReview-Dismissed` and `ApprovalComment-Resolved` reach handlers that write the round's verdict. None of those has a reconcile path either, and `-Modified` is the one that fails OPEN — a dropped delivery leaves approving reviews standing on content that has since changed, so the next evaluation can auto-approve off reviews for text nobody read, and the item stays approved and published. `-Submitted` by contrast fails CLOSED, stranding an entity at Submitted. The remaining subscribed-but-uninspected publish sites are owed and not yet built, `-Modified` first; until they are done, a discarded result elsewhere in the solution is an unclosed gap and must not be read as sanctioned by this section. §ARC16.7.1 already describes the sync as published *and observed*: inspecting the delivery outcome is the first half of that observation, and the reply envelope the command's handler returns is still discarded — named here as a residual rather than ruled on.
 
 ## EVN24. Constructing the Broker Touches No Database *(new)*
 

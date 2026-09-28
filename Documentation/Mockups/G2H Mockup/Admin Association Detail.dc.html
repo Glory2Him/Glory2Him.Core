@@ -69,18 +69,18 @@
       </div>
       <div class="col-lg-9">
         <div class="d-flex align-items-center flex-wrap mb-3" style="gap:12px">
-          <h1 class="mb-0 h2">Verse Image</h1>
+          <h1 class="mb-0 h2">{{ assocHeading }}</h1>
           <nav class="ms-auto small" style="color:#7b8089">
-            <a href="Home.dc.html" style="color:#7b8089">Home</a> / <a href="Admin Users.dc.html" style="color:#7b8089">Admin</a> / <a href="Admin Posts.dc.html" style="color:#7b8089">Posts</a> / <span style="color:#b9bdc4">Verse Image</span>
+            <a href="Home.dc.html" style="color:#7b8089">Home</a> / <a href="Admin Users.dc.html" style="color:#7b8089">Admin</a> / <a href="Admin Posts.dc.html" style="color:#7b8089">Posts</a> / <a href="Admin Post Detail.dc.html" style="color:#7b8089">Verse Image</a> / <span style="color:#b9bdc4">{{ assocTitle }}</span>
           </nav>
         </div>
         <hr class="mt-0">
-        <div class="text-end mb-4"><a href="Admin Posts.dc.html" class="btn btn-secondary mb-0"><i class="bi bi-arrow-left me-1"></i>Back to Posts</a></div>
+        <div class="d-flex justify-content-end flex-wrap mb-4" style="gap:10px"><a href="Admin Posts.dc.html" class="btn btn-outline-secondary mb-0"><i class="bi bi-arrow-left me-1"></i>Back to Posts</a><a href="Admin Post Detail.dc.html" class="btn btn-secondary mb-0"><i class="bi bi-arrow-left me-1"></i>Back to Post</a></div>
         <div class="row g-4">
-        <div class="col-lg-7">
+        <div class="col-12">
           <div class="card border p-4 position-relative" style="overflow:hidden">
             <div style="position:absolute;top:0;right:0;width:120px;height:120px;overflow:hidden;pointer-events:none">
-              <span class="text-white fw-bold text-uppercase d-flex align-items-center justify-content-center" style="position:absolute;top:28px;right:-38px;transform:rotate(45deg);width:170px;height:28px;background:{{ ribbonBg }};font-size:.7rem;letter-spacing:.08em;box-shadow:0 2px 6px rgba(0,0,0,.2)">{{ itemStatus }}</span>
+              <span class="text-white fw-bold text-uppercase d-flex align-items-center justify-content-center" style="position:absolute;top:28px;right:-38px;transform:rotate(45deg);width:170px;height:28px;background:#0cbc87;font-size:.7rem;letter-spacing:.08em;box-shadow:0 2px 6px rgba(0,0,0,.2)">Approved</span>
             </div>
             <div class="mb-3"><span class="badge text-bg-purple"><i class="fas fa-circle me-2 small fw-bold"></i>Verse Image</span></div>
             <div class="rounded p-4 mb-3" style="background:rgba(0,0,0,.05)">
@@ -103,6 +103,35 @@
             </div>
             <div class="d-flex pt-2 mt-2 border-top">
               <a href="#" class="small text-body ms-auto"><i class="bi bi-pencil me-1"></i>Edit</a>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-7">
+          <div class="card border p-4 position-relative" style="overflow:hidden">
+            <div style="position:absolute;top:0;right:0;width:120px;height:120px;overflow:hidden;pointer-events:none">
+              <span class="text-white fw-bold text-uppercase d-flex align-items-center justify-content-center" style="position:absolute;top:28px;right:-38px;transform:rotate(45deg);width:170px;height:28px;background:{{ assocRibbonBg }};font-size:.7rem;letter-spacing:.08em;box-shadow:0 2px 6px rgba(0,0,0,.2)">{{ assocStatus }}</span>
+            </div>
+            <div class="small fw-bold text-uppercase mb-2" style="color:#7b8089">{{ assocTypeLabel }}</div>
+            <div class="mb-3"><span class="btn {{ assocChipCls }} mb-0 fs-5 d-inline-flex align-items-center" style="gap:8px"><sc-if value="{{ assocIsRef }}" hint-placeholder-val="{{ false }}"><i class="bi bi-book"></i></sc-if>{{ assocTitle }}</span></div>
+            <sc-if value="{{ assocVerse }}" hint-placeholder-val="{{ false }}">
+              <div class="rounded p-3 mb-3" style="background:rgba(0,0,0,.05)"><p class="mb-0">{{ assocVerse }}</p></div>
+            </sc-if>
+            <div class="d-flex align-items-center flex-wrap" style="gap:10px">
+              <span class="text-white fw-bold d-flex align-items-center justify-content-center flex-shrink-0" style="width:34px;height:34px;border-radius:50%;background:#4e5ff9;font-size:.75rem">{{ assocByInitials }}</span>
+              <div class="me-2"><span class="small">Suggested by </span><span class="fw-bold">{{ assocBy }}</span></div>
+              <div class="me-2 ps-3 border-start"><span class="small">Date </span><span class="fw-bold">{{ assocDate }}</span></div>
+            </div>
+            <div class="d-flex align-items-center border-top border-bottom py-2 mt-3" style="gap:10px;margin-left:-2rem;margin-right:-2rem;padding-left:2rem;padding-right:2rem;background:rgba(0,0,0,.05)">
+              <i class="bi bi-person-circle flex-shrink-0" style="font-size:26px;color:#7b8089;line-height:1"></i>
+              <span><span class="fw-bold d-block" style="line-height:1.2">Berean</span><span class="small" style="color:#7b8089">Your AI Pair Reviewer</span></span>
+            </div>
+            <div class="d-flex flex-column align-items-center text-center pt-3" style="gap:4px;margin-left:-2rem;margin-right:-2rem;padding-left:2rem;padding-right:2rem;background:{{ suggestBg }}">
+              <span class="fw-bold">Confidence Score:&nbsp;&nbsp;{{ assocScore }}</span>
+              <span class="fw-bold d-flex align-items-center" style="gap:6px;color:{{ suggestColor }}"><i class="bi {{ suggestIcon }}"></i>{{ suggestLabel }}</span>
+            </div>
+            <div class="pt-3" style="margin:0 -2rem -2rem;padding:0 2rem 2rem;background:{{ suggestBg }}">
+              <div class="small fw-bold text-uppercase mb-1 pt-3" style="color:#7b8089">Confidence Reason</div>
+              <p class="mb-0">{{ assocReason }}</p>
             </div>
           </div>
           <div class="card border p-4 mt-4">
@@ -183,11 +212,11 @@
                   <div style="position:absolute;top:100%;right:0;z-index:30;width:280px;background:#fff;border:1px solid rgba(0,0,0,.12);border-radius:.4rem;box-shadow:0 5px 15px rgba(0,0,0,.15);overflow:hidden">
                     <div class="p-3 border-bottom" style="cursor:pointer" onClick="{{ voteApprove }}" style-hover="background:rgba(12,188,135,.08)">
                       <div class="fw-bold"><sc-if value="{{ voteIsApproved }}" hint-placeholder-val="{{ false }}"><i class="bi bi-check me-1"></i></sc-if>Approve</div>
-                      <div class="small" style="color:#7b8089">I am happy with this post</div>
+                      <div class="small" style="color:#7b8089">I am happy with this {{ assocNoun }}</div>
                     </div>
                     <div class="p-3" style="cursor:pointer" onClick="{{ voteReject }}" style-hover="background:rgba(214,41,62,.08)">
                       <div class="fw-bold"><sc-if value="{{ voteIsRejected }}" hint-placeholder-val="{{ false }}"><i class="bi bi-check me-1"></i></sc-if>Reject</div>
-                      <div class="small" style="color:#7b8089">I do not think we should publish this post</div>
+                      <div class="small" style="color:#7b8089">This {{ assocNoun }} does not fit this post</div>
                     </div>
                   </div>
                 </sc-if>
@@ -201,11 +230,11 @@
             </sc-for>
             <div class="py-2 border-bottom">
               <span class="d-flex align-items-center" style="gap:10px"><span class="text-white fw-bold d-flex align-items-center justify-content-center flex-shrink-0" style="width:30px;height:30px;border-radius:50%;background:#4e5ff9;font-size:.7rem">JO</span><span><span class="fw-bold d-block" style="line-height:1.2">John</span><span class="small" style="color:#7b8089">john</span></span></span>
-              <span class="badge bg-success d-flex align-items-center justify-content-center w-100 mt-1" style="height:31px;font-size:.875rem">Approved</span>
+              <span class="badge {{ johnVoteCls }} d-flex align-items-center justify-content-center w-100 mt-1" style="height:31px;font-size:.875rem">{{ johnVoteLabel }}</span>
             </div>
             <div class="py-2 border-bottom">
               <span class="d-flex align-items-center" style="gap:10px"><span class="text-white fw-bold d-flex align-items-center justify-content-center flex-shrink-0" style="width:30px;height:30px;border-radius:50%;background:#17a2b8;font-size:.7rem">SU</span><span><span class="fw-bold d-block" style="line-height:1.2">Susan</span><span class="small" style="color:#7b8089">susan</span></span></span>
-              <span class="badge bg-success d-flex align-items-center justify-content-center w-100 mt-1" style="height:31px;font-size:.875rem">Approved</span>
+              <span class="badge {{ susanVoteCls }} d-flex align-items-center justify-content-center w-100 mt-1" style="height:31px;font-size:.875rem">{{ susanVoteLabel }}</span>
             </div>
             <div class="pt-3 mt-2 border-top">
               <h4 class="mb-3">Review Outcome</h4>
@@ -250,27 +279,6 @@
               </sc-if>
             </div>
           </div>
-          <div class="card border p-4 mt-4">
-            <h4 class="mb-2">Content Settings</h4>
-            <p class="small mb-2" style="color:#7b8089">Features</p>
-            <sc-for list="{{ features }}" as="f" hint-placeholder-count="6">
-              <div class="py-2 border-top">
-                <div class="fw-bold mb-1">{{ f.label }}</div>
-                <div class="d-flex flex-wrap" style="gap:8px 24px">
-                  <div class="form-check form-switch mb-0"><input class="form-check-input" type="checkbox" id="{{ f.viewId }}" checked="{{ f.view }}" onChange="{{ f.toggleView }}"><label class="form-check-label small" for="{{ f.viewId }}">{{ f.viewLabel }}</label></div>
-                  <div class="form-check form-switch mb-0"><input class="form-check-input" type="checkbox" id="{{ f.addId }}" checked="{{ f.add }}" onChange="{{ f.toggleAdd }}"><label class="form-check-label small" for="{{ f.addId }}">{{ f.addLabel }}</label></div>
-                </div>
-              </div>
-            </sc-for>
-            <div class="pt-3 border-top">
-              <div class="form-check form-switch mb-1"><input class="form-check-input" type="checkbox" id="cs-love" checked="{{ loveOnly }}" onChange="{{ toggleLoveOnly }}"><label class="form-check-label" for="cs-love">Limit reactions to love only</label></div>
-              <p class="small mb-3" style="color:#7b8089">Favourite-style behaviour: only the designated love reaction may be associated with content items of this type.</p>
-              <div class="d-flex" style="gap:10px">
-                <button class="btn btn-primary mb-0" onClick="{{ saveSettings }}">Save settings</button>
-                <button class="btn btn-outline-secondary mb-0" onClick="{{ resetSettings }}">Reset</button>
-              </div>
-            </div>
-          </div>
         </div>
         </div>
       </div>
@@ -290,21 +298,43 @@
 </x-dc>
 <script type="text/x-dc" data-dc-script>
 class Component extends DCLogic {
-  state = { myVote:'Approved', draft:'', draftType:'Comment', resolved:{john:true}, added:[], bypass:false, menuOpen:false, outcome:'Approved', submittedOutcome:'Approved', tagQuery:'', refQuery:'', pendingTags:[], pendingRefs:[] };
+  state = Component.initState();
+  static REVIEW_KEYS = ['myVote','johnVote','susanVote','outcome','submittedOutcome','bypass','bypassReason','resolved','added','draft','draftType','menuOpen','voteMenuOpen','requested'];
+  static defaults(a) {
+    const s = a.status, v = (s==='Approved'||s==='Rejected') ? s : null, peer = s==='Submitted' ? 'Approved' : v;
+    return {myVote:v, johnVote:peer, susanVote:peer, outcome:v, submittedOutcome:v, bypass:false, bypassReason:'', resolved:{}, added:[], draft:'', draftType:'Comment', menuOpen:false, voteMenuOpen:false, requested:[]};
+  }
+  static initState() {
+    let k = null; try { k = new URLSearchParams(location.search).get('a'); } catch(e) {}
+    const a = Component.ASSOC.find(x=>x.key===k) || Component.ASSOC.find(x=>x.status==='Submitted');
+    return {...Component.defaults(a), current:a.key, store:{}, tagQuery:'', refQuery:'', pendingTags:[], pendingRefs:[]};
+  }
+  switchTo(key) {
+    if (key===this.state.current) return;
+    const snap = {}; Component.REVIEW_KEYS.forEach(k=>snap[k]=this.state[k]);
+    const store = {...this.state.store, [this.state.current]:snap};
+    const a = Component.ASSOC.find(x=>x.key===key);
+    this.setState({...(store[key]||Component.defaults(a)), store, current:key});
+    try { history.replaceState(null, '', '?a='+encodeURIComponent(key)); } catch(e) {}
+  }
+  statusOf(a) {
+    const snap = a.key===this.state.current ? this.state : this.state.store[a.key];
+    return (snap && snap.submittedOutcome) || a.status;
+  }
   static ASSOC = [
-    {key:'tag:salvation', type:'tag', name:'salvation', status:'Approved', by:'Normal User', date:'Sep 04, 2026'},
-    {key:'tag:love', type:'tag', name:'love', status:'Approved', by:'Normal User', date:'Sep 04, 2026'},
-    {key:'tag:faith', type:'tag', name:'faith', status:'Approved', by:'Normal User', date:'Sep 04, 2026'},
-    {key:'tag:eternal life', type:'tag', name:'eternal life', status:'Approved', by:'Normal User', date:'Sep 04, 2026'},
-    {key:'tag:grace', type:'tag', name:'grace', status:'Submitted', by:'Judy Nguyen', date:'Sep 06, 2026'},
-    {key:'tag:gospel', type:'tag', name:'gospel', status:'Draft', by:'Normal User', date:'Sep 07, 2026'},
-    {key:'tag:world', type:'tag', name:'world', status:'Rejected', by:'Billy Vasquez', date:'Sep 05, 2026'},
-    {key:'tag:hope', type:'tag', name:'hope', status:'Submitted', by:'Judy Nguyen', date:'Sep 08, 2026'},
-    {key:'ref:John 3:16', type:'ref', name:'John 3:16', status:'Approved', by:'Normal User', date:'Sep 04, 2026', verse:'\u201CFor God so loved the world, that he gave his only Son, that whoever believes in him should not perish but have eternal life.\u201D \u2014 John 3:16 ESV'},
-    {key:'ref:1 John 4:9\u201310', type:'ref', name:'1 John 4:9\u201310', status:'Submitted', by:'Judy Nguyen', date:'Sep 06, 2026', verse:'\u201CIn this was manifested the love of God toward us, because that God sent his only begotten Son into the world, that we might live through him. Herein is love, not that we loved God, but that he loved us, and sent his Son to be the propitiation for our sins.\u201D \u2014 1 John 4:9\u201310 KJV'},
-    {key:'ref:Romans 5:8', type:'ref', name:'Romans 5:8', status:'Draft', by:'Normal User', date:'Sep 07, 2026', verse:'\u201CBut God commendeth his love toward us, in that, while we were yet sinners, Christ died for us.\u201D \u2014 Romans 5:8 KJV'},
-    {key:'ref:Genesis 1:1', type:'ref', name:'Genesis 1:1', status:'Rejected', by:'Billy Vasquez', date:'Sep 05, 2026', verse:'\u201CIn the beginning God created the heaven and the earth.\u201D \u2014 Genesis 1:1 KJV'},
-    {key:'ref:Ephesians 2:8\u20139', type:'ref', name:'Ephesians 2:8\u20139', status:'Submitted', by:'Judy Nguyen', date:'Sep 08, 2026', verse:'\u201CFor by grace are ye saved through faith; and that not of yourselves: it is the gift of God: Not of works, lest any man should boast.\u201D \u2014 Ephesians 2:8\u20139 KJV'},
+    {score:'9.62', reason:'“Should not perish but have eternal life” describes salvation directly; this is the central theme of the verse.', key:'tag:salvation', type:'tag', name:'salvation', status:'Approved', by:'Normal User', date:'Sep 04, 2026'},
+    {score:'9.71', reason:'The verse opens with “God so loved the world”, so love is the stated motive for everything that follows.', key:'tag:love', type:'tag', name:'love', status:'Approved', by:'Normal User', date:'Sep 04, 2026'},
+    {score:'9.18', reason:'“Whoever believes in him” makes belief the condition of the promise, which matches the faith tag.', key:'tag:faith', type:'tag', name:'faith', status:'Approved', by:'Normal User', date:'Sep 04, 2026'},
+    {score:'9.54', reason:'“Eternal life” appears verbatim as the promised outcome of the verse.', key:'tag:eternal life', type:'tag', name:'eternal life', status:'Approved', by:'Normal User', date:'Sep 04, 2026'},
+    {score:'8.45', reason:'The Son is given as an unearned gift, which reflects grace, although the word itself does not appear in the verse.', key:'tag:grace', type:'tag', name:'grace', status:'Submitted', by:'Judy Nguyen', date:'Sep 06, 2026'},
+    {score:'7.90', reason:'John 3:16 is often used as a summary of the gospel message, but the tag overlaps with salvation.', key:'tag:gospel', type:'tag', name:'gospel', status:'Draft', by:'Normal User', date:'Sep 07, 2026'},
+    {score:'3.12', reason:'“World” appears in the text but describes the recipient of God’s love, not a topic readers would search for.', key:'tag:world', type:'tag', name:'world', status:'Rejected', by:'Billy Vasquez', date:'Sep 05, 2026'},
+    {score:'5.40', reason:'Belief in the Son could be read as a call to hope, but the verse speaks of eternal life rather than hope directly.', key:'tag:hope', type:'tag', name:'hope', status:'Submitted', by:'Judy Nguyen', date:'Sep 08, 2026'},
+    {score:'9.98', reason:'This is the verse quoted on the image.', key:'ref:John 3:16', type:'ref', name:'John 3:16', status:'Approved', by:'Normal User', date:'Sep 04, 2026', verse:'\u201CFor God so loved the world, that he gave his only Son, that whoever believes in him should not perish but have eternal life.\u201D \u2014 John 3:16 ESV'},
+    {score:'8.73', reason:'Same author and theme: God showing his love by sending his Son so that we might live.', key:'ref:1 John 4:9\u201310', type:'ref', name:'1 John 4:9\u201310', status:'Submitted', by:'Judy Nguyen', date:'Sep 06, 2026', verse:'\u201CIn this was manifested the love of God toward us, because that God sent his only begotten Son into the world, that we might live through him. Herein is love, not that we loved God, but that he loved us, and sent his Son to be the propitiation for our sins.\u201D \u2014 1 John 4:9\u201310 KJV'},
+    {score:'8.10', reason:'Expresses God’s love shown through Christ’s death, a close parallel to John 3:16.', key:'ref:Romans 5:8', type:'ref', name:'Romans 5:8', status:'Draft', by:'Normal User', date:'Sep 07, 2026', verse:'\u201CBut God commendeth his love toward us, in that, while we were yet sinners, Christ died for us.\u201D \u2014 Romans 5:8 KJV'},
+    {score:'1.64', reason:'Concerns creation and shares no theme or wording with the verse on the image.', key:'ref:Genesis 1:1', type:'ref', name:'Genesis 1:1', status:'Rejected', by:'Billy Vasquez', date:'Sep 05, 2026', verse:'\u201CIn the beginning God created the heaven and the earth.\u201D \u2014 Genesis 1:1 KJV'},
+    {score:'5.85', reason:'Shares the theme of salvation by grace through faith, but focuses on works and boasting, which the verse image does not mention.', key:'ref:Ephesians 2:8\u20139', type:'ref', name:'Ephesians 2:8\u20139', status:'Submitted', by:'Judy Nguyen', date:'Sep 08, 2026', verse:'\u201CFor by grace are ye saved through faith; and that not of yourselves: it is the gift of God: Not of works, lest any man should boast.\u201D \u2014 Ephesians 2:8\u20139 KJV'},
   ];
   static STATUS = {Approved:{icon:'bi-check-circle-fill',color:'#0cbc87',ribbon:'#0cbc87'}, Submitted:{icon:'bi-hourglass-split',color:'#e0a800',ribbon:'#f7c32e'}, Draft:{icon:'bi-pencil-fill',color:'#7b8089',ribbon:'#7b8089'}, Rejected:{icon:'bi-x-circle-fill',color:'#d6293e',ribbon:'#d6293e'}};
   static chips(type, statusOf, current, open) {
@@ -313,10 +343,19 @@ class Component extends DCLogic {
         border: s==='Draft'?'1px dashed #7b8089':'1px solid transparent', deco: s==='Rejected'?'line-through':'none',
         ring: a.key===current?'0 0 0 2px #29292e':'none', open: open?((e)=>{e.preventDefault(); open(a.key);}):undefined}; });
   }
-  static COMMENTS = [
-    {id:'john', name:'John', type:'Question', date:'Sep 03, 2026', text:'Should the reference chip say ESV, or do we keep translations off the chips?'},
-    {id:'susan', name:'Susan', type:'Comment', date:'Sep 02, 2026', text:'Clean and readable — the verse speaks for itself. Happy to approve.'}
-  ];
+  static COMMENTS = {
+    'tag:grace': [
+      {id:'grace-john', name:'John', type:'Question', date:'Sep 07, 2026', text:'Is grace a main theme of this verse, or is it already covered by love and salvation?'},
+      {id:'grace-susan', name:'Susan', type:'Comment', date:'Sep 06, 2026', text:'Fits well. The gift of the Son is unearned, which is grace.'}
+    ],
+    'tag:world': [{id:'world-john', name:'John', type:'Comment', date:'Sep 05, 2026', text:'Too general to help anyone find this post.'}],
+    'ref:1 John 4:9\u201310': [
+      {id:'1john-john', name:'John', type:'Question', date:'Sep 07, 2026', text:'Should this be 4:9 only? Verse 10 moves on to propitiation.'},
+      {id:'1john-susan', name:'Susan', type:'Comment', date:'Sep 06, 2026', text:'A good companion to John 3:16, the same message from John\u2019s letter.'}
+    ],
+    'ref:Genesis 1:1': [{id:'gen-susan', name:'Susan', type:'Comment', date:'Sep 05, 2026', text:'Does not relate to the content of this verse image.'}],
+    'ref:John 3:16': [{id:'john316-susan', name:'Susan', type:'Comment', date:'Sep 04, 2026', text:'This is the verse on the image.'}]
+  };
   static TAGS = ['creation','science','faith','miracles','grace','redemption','justified','prayer','apologetics','astronomy','joshua','hezekiah','sovereignty','truth','salvation','love','eternal life'];
   static REFS = ['John 3:16','John 3:16\u201317','Romans 3:23\u201324','Romans 5:8','Ephesians 2:8\u20139','1 John 4:9\u201310','Titus 3:5','Psalm 19:1'];
   renderVals() {
@@ -327,9 +366,32 @@ class Component extends DCLogic {
     const addRef = (name)=>{ name=name.trim(); if(name && !S.pendingRefs.includes(name)) this.setState(s=>({pendingRefs:[...s.pendingRefs,name], refQuery:''})); else this.setState({refQuery:''}); };
     const tagMatches = match(C.TAGS, S.tagQuery).map(name=>({name, pick:()=>addTag(name)}));
     const refMatches = match(C.REFS, S.refQuery).map(name=>({name, pick:()=>addRef(name)}));
+    const AS = Component.ASSOC.find(x=>x.key===this.state.current);
+    const aStatus = this.statusOf(AS);
+    const vc = v => v==='Approved' ? 'bg-success' : v==='Rejected' ? 'bg-danger' : 'bg-secondary';
     return {
-      tagChips: Component.chips('tag', a=>a.status, null, null),
-      refChips: Component.chips('ref', a=>a.status, null, null),
+      tagChips: Component.chips('tag', a=>this.statusOf(a), this.state.current, k=>this.switchTo(k)),
+      refChips: Component.chips('ref', a=>this.statusOf(a), this.state.current, k=>this.switchTo(k)),
+      assocHeading: (AS.type==='tag' ? 'Tag: #' : 'Bible reference: ') + AS.name,
+      assocTitle: AS.type==='tag' ? '#'+AS.name : AS.name,
+      assocTypeLabel: AS.type==='tag' ? 'Tag' : 'Bible reference',
+      assocNoun: AS.type==='tag' ? 'tag' : 'reference',
+      assocIsRef: AS.type==='ref',
+      assocChipCls: AS.type==='tag' ? 'btn-success-soft' : 'btn-primary-soft',
+      assocVerse: AS.verse || null,
+      assocBy: AS.by,
+      assocByInitials: AS.by.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(),
+      assocDate: AS.date,
+      assocScore: AS.score,
+      ...(() => { const n = parseFloat(AS.score);
+        if (n > 7) return {suggestBg:'rgba(12,188,135,.1)', suggestColor:'#0cbc87', suggestIcon:'bi-hand-thumbs-up-fill', suggestLabel:'Suggesting an approval'};
+        if (n < 4) return {suggestBg:'rgba(214,41,62,.1)', suggestColor:'#d6293e', suggestIcon:'bi-hand-thumbs-down-fill', suggestLabel:'Suggesting a rejection'};
+        return {suggestBg:'rgba(247,195,46,.15)', suggestColor:'#e0a800', suggestIcon:'bi-question-circle-fill', suggestLabel:'Unable to suggest approve or reject'}; })(),
+      assocReason: AS.reason,
+      assocStatus: aStatus,
+      assocRibbonBg: Component.STATUS[aStatus].ribbon,
+      johnVoteLabel: this.state.johnVote || 'Awaiting review', johnVoteCls: vc(this.state.johnVote),
+      susanVoteLabel: this.state.susanVote || 'Awaiting review', susanVoteCls: vc(this.state.susanVote),
       pagesMenuOpen: !!(this.state&&this.state.pagesMenuOpen),
       togglePagesMenu:(e)=>{e.preventDefault();this.setState(s=>({pagesMenuOpen:!(s&&s.pagesMenuOpen)}));},
       authedName: authedUser,
@@ -348,10 +410,13 @@ class Component extends DCLogic {
       pendingRefs: S.pendingRefs.map(name=>({name, remove:()=>this.setState(s=>({pendingRefs:s.pendingRefs.filter(x=>x!==name)}))})),
       ...(() => {
         const warnings = [];
-        const approvals = 2 + (this.state.myVote==='Approved' ? 1 : 0);
+        const votes = [this.state.myVote, this.state.johnVote, this.state.susanVote];
+        const approvals = votes.filter(v=>v==='Approved').length;
+        const cur = Component.ASSOC.find(x=>x.key===this.state.current);
+        if (cur.status==='Draft' && !this.state.submittedOutcome) warnings.push('This item is still a draft and has not been submitted for review.');
         if (approvals < 3) warnings.push('At least 3 approving review(s) is required by reviewers.');
-        if (this.state.myVote==='Rejected') warnings.push('A rejected review is blocking approval');
-        if (!this.state.resolved['john']) warnings.push('All review comments must be resolved.');
+        if (votes.includes('Rejected')) warnings.push('A rejected review is blocking approval');
+        if ((Component.COMMENTS[this.state.current]||[]).concat(this.state.added).some(c=>c.type==='Question' && !this.state.resolved[c.id])) warnings.push('All review comments must be resolved.');
         return { warnings, hasWarnings: warnings.length>0, outcomeDisabled: warnings.length>0 && !this.state.bypass };
       })(),
       bypass: this.state.bypass,
@@ -445,7 +510,7 @@ class Component extends DCLogic {
       clearDraft:()=>this.setState({draft:'', draftType:'Comment'}),
       saveDraft:()=>{ const t=this.state.draft.trim(); if(!t) return;
         this.setState(s=>({added:[{id:'me-'+Date.now(), name:authedUser, type:s.draftType, date:'Sep 05, 2026', text:t}, ...s.added], draft:'', draftType:'Comment'})); },
-      reviewComments: [...this.state.added, ...Component.COMMENTS].map(c=>({...c,
+      reviewComments: [...this.state.added, ...(Component.COMMENTS[this.state.current]||[])].map(c=>({...c,
         isQuestion: c.type==='Question',
         typeCls: c.type==='Question' ? 'bg-info' : 'bg-secondary',
         resolvedId: 'res-'+c.id,

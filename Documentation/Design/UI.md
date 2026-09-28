@@ -17,9 +17,9 @@ is unambiguous. Where this file cites one of them, the map at the top of
 **`Events.md` is the one file a citation into it cannot be derived for.** It
 renumbered rather than prefix-preserved, so an into-Events citation is looked up
 in that file's own *(formerly §10.X)* annotations instead of having a prefix
-applied to the number it already had. The one such citation this file carries —
-`§EVN18`, in §UI20.6.1 — was resolved that way, and `§EVN10.17` would have been
-the wrong answer.
+applied to the number it already had. The one such citation this file carried —
+`§EVN18`, in §UI20.6.1, which has since moved to `UI/Components/ReviewPanel.md` —
+was resolved that way, and `§EVN10.17` would have been the wrong answer.
 
 This repository's C# and TypeScript comments cite design sections extensively,
 so every relocated section also carries a *(formerly §20.X)* annotation naming
@@ -34,10 +34,14 @@ an old citation resolves by grep even though the citable number is now prefixed.
   - [UI20.3 Architecture Principles](#ui203-architecture-principles-formerly-203)
   - [UI20.4 Folder Structure](#ui204-folder-structure-formerly-204)
   - [UI20.5 Pages](#ui205-pages-formerly-205)
+    - [UI20.5.1 Page documents](#ui2051-page-documents-new-user-ruling-2026-09-27)
   - [UI20.6 Components](#ui206-components-formerly-206)
     - [UI20.6.1 ReviewPanel — contract and dependencies](#ui2061-reviewpanel--contract-and-dependencies-formerly-2061)
     - [UI20.6.2 ContentItemPanel — contract and dependencies](#ui2062-contentitempanel--contract-and-dependencies-formerly-2062)
     - [UI20.6.3 ReviewCommentPanel — contract and dependencies](#ui2063-reviewcommentpanel--contract-and-dependencies-formerly-2063)
+    - [UI20.6.4 Component documents](#ui2064-component-documents-new-user-ruling-2026-09-26)
+    - [UI20.6.5 Pass-through properties](#ui2065-pass-through-properties-new-user-ruling-2026-09-26)
+    - [UI20.6.6 Rules every presentation component follows](#ui2066-rules-every-presentation-component-follows-new-user-rulings-2026-09-27)
   - [UI20.7 Navigation](#ui207-navigation-formerly-207)
   - [UI20.8 Authentication](#ui208-authentication-formerly-208)
   - [UI20.9 Services and Brokers](#ui209-services-and-brokers-formerly-209)
@@ -116,147 +120,536 @@ Planned pages based on the Blogzine template and the G2H domain:
 | `AdminDashboardPage` | Admin overview of content, settings, and approval configuration. |
 | `NotFoundPage` | 404 fallback. |
 
+Six of these are built as pages that have a page document (§UI20.5.1), each under its React
+component's name: `HomePage` is `Home` (`/`), `ContentItemPage` is `PostDetail`
+(`/posts/{contentItemId}`), `SearchPage` is `Posts` (`/posts`), the journal's search
+(`UI/Pages/Posts.md rule 2.12`), `SubmitContentPage` is `Contribute` (`/posts/contribute`),
+`ApprovalQueuePage` is `ContentItemModerationPage` (`/Admin/Posts`) and `ApprovalDetailPage` is
+`ContentItemModerationDetailPage` (`/Admin/Posts/{contentItemId}`). A seventh, `EditContentPage`,
+is built as no page of its own: it is the editor in place on `MyPostDetail`
+(`/myposts/{contentItemId}`), where the owner edits a draft or forks a new version of a reviewed
+item (`UI/Pages/MyPostDetail.md rules 2.3, 2.5 and 2.6`). Their page documents are their design.
+
+#### UI20.5.1 Page documents *(new; user ruling 2026-09-27)*
+
+Every product page that renders a documented presentation component has a **page document**
+under [`Documentation/Design/UI/Pages/`](UI/Pages/), named after the page's React component — the
+component in `Websites/Glory2Him.WebApp.React/src/pages/` that a route in `src/routes/` renders —
+so that it traces to the code: `Home.md` for `Home`, in `home.tsx`. The sample pages under
+`/SamplePages` are not product pages. They demonstrate the components — a component document
+names its own as its **Sample page** (§UI20.6.4) — and have no page document, so a gap found in
+one is recorded as §UI20.6.4 gives for a page without a document of its own. A page document records the page's layout —
+single column; two columns, main with a right sidebar or a left sidebar with main; or three
+columns — the components it renders in each region, and, in a table per component and per child
+component, every hook and what the page does for it (user ruling 2026-09-27). Like the component
+documents (§UI20.6.4), it differs from the layout `design.md` gives user story documents, and for
+page documents this section wins.
+
+**The page owns its hooks' destinations.** A presentation component raises hooks and knows no
+route; the page supplies every link and every redirect (§UI20.6.4, *Hooks, not routes*). The page
+document is where that is specified: for each hook, where it leads, what it writes and what it
+refreshes — differently in a user section and an admin (moderation) section — and how the page
+follows §UI20.6.6: the sign-in redirect of rule 2 and the no-dead-actions rule 4. A component
+document specifies the component alone. A gap in a page that has a document is recorded in that
+document's section 6, not in a component document. One first recorded in a component document
+moves there, and an item that moves whole leaves the pointer §UI20.6.4 gives (*A gap moved to a
+page document*).
+
+**The template.** Every page document has these sections, in this order.
+
+| Section | Holds |
+| --- | --- |
+| `# 1. <PageComponentName>` | What the page is for and who uses it, then the bullets **Route** (with its route file and line, and any alias or redirect), **Source**, **Section** — user, or admin (moderation) — **Access** (the route's guard and role list), **Layout** and **Components** (each documented component, linked, and each undocumented building block, by file). |
+| `## 2. Business Rules` | The page-level rules alone — who reaches the page, what it wires, where its hooks lead, what it loads — numbered and MoSCoW-tagged by §UI20.6.4's criteria, each ending in a source tag of §UI20.6.4's forms. |
+| `## 3. Layout` | The columns at desktop width, counting a shell's own sidebar, and how they stack on a narrow screen: a small text diagram of the regions, then a table of each region, its width and its components in order. |
+| `## 4. Components and their hooks` | One subsection per component, and one per child component whose hooks the page wires through its parent: the properties the page sets, and why; then every hook the component can raise, wired or not, with when it is raised, what the page does, and whether that is built today — ✅ Yes with its file and line; ❌ No with the section-6 item that records it; *Not wired — switched off* where the page deliberately turns the action off, with the reason; *Not wired — nothing to do* where the hook only tells the page what the component has already done itself; or *Never raised* where the way the page renders the component leaves no path to the hook, with the reason. A hook nothing handles, on an action the page shows, is a gap (§UI20.6.6 rule 4). |
+| `## 5. Security and access` | Who reaches the page and what each persona sees on it: a role matrix with §UI20.6.4's six persona columns, one row per region or action that differs; then the read-only roles, as the components compose them, cited from their security and access matrices rather than copied. |
+| `## 6. Open Questions and Gaps` | Every question, divergence and gap, as one numbered list, in the form of a component document's section 10: a gap carries the tag of `design.md`'s *Conventions*, and a question states its facts plainly. A page gap first recorded in a component document keeps its facts here and cites the item it came from. |
+
+The `?` and `≠` markers work as §UI20.6.4 gives them. A page document is cited as a component
+document is, by its path relative to `Documentation/Design/` and a number, the whole citation in
+one code span: `UI/Pages/Home.md rule 2.9`, `UI/Pages/Home.md §6 item 3`; inside the document, a
+reference to its own rule or item is written `rule 2.9` or `item 3`.
+
+**The page documents.** The nine product pages that render the documented components (user ruling
+2026-09-27). The other product pages render none of them today, and are candidates for later:
+from `src/routes/staticRoutes.tsx`, `/About-Us`, `/Contact-Us`, the Bible reader
+(`/BibleReferences/BibleReader`, and `/BibleReferences/{reference}` for a chapter),
+`/Style-Guide` and `/Not-Found`; from
+`src/routes/shopRoutes.tsx`, `/Shop-Grid`, `/Shop-Detail`, `/My-Cart`, `/Empty-Cart` and
+`/Checkout`; from `src/routes/adminRoutes.tsx`, `/Dashboard`, `/Admin/Users`, `/Admin/Users/{userId}`,
+`/Admin/ContentItemSettings`, `/Admin/ContentItemSettings/{contentItemSettingId}`,
+`/Admin/ApprovalSettings`, `/Admin/ApprovalSettings/New` and
+`/Admin/ApprovalSettings/{approvalSettingId}`; and the account pages under `/Account/`, from
+`src/routes/accountRoutes.tsx` and `src/routes/passkeyRoutes.tsx`.
+
+| Document | Page | Route | Section | Layout |
+| --- | --- | --- | --- | --- |
+| [Home.md](UI/Pages/Home.md) | `src/pages/home.tsx` | `/` | user | single column |
+| [Posts.md](UI/Pages/Posts.md) | `src/pages/posts.tsx` | `/posts` | user | single column |
+| [PostDetail.md](UI/Pages/PostDetail.md) | `src/pages/postDetail.tsx` | `/posts/{contentItemId}` | user | two columns — main with right sidebar |
+| [Contribute.md](UI/Pages/Contribute.md) | `src/pages/contribute.tsx` | `/posts/contribute` | user | single column |
+| [BibleReference.md](UI/Pages/BibleReference.md) | `src/pages/bibleReference.tsx` | `/BibleReferences`, `/BibleReferences/{reference}` | user | two columns — main with right sidebar |
+| [MyPosts.md](UI/Pages/MyPosts.md) | `src/pages/myPosts.tsx` | `/myposts` | user | single column |
+| [MyPostDetail.md](UI/Pages/MyPostDetail.md) | `src/pages/myPostDetail.tsx` | `/myposts/{contentItemId}` | user | two columns — main with right sidebar |
+| [ContentItemModerationPage.md](UI/Pages/ContentItemModerationPage.md) | `src/pages/admin/contentItemModerationPage.tsx` | `/Admin/Posts` | admin (moderation) | two columns — left sidebar with main |
+| [ContentItemModerationDetailPage.md](UI/Pages/ContentItemModerationDetailPage.md) | `src/pages/admin/contentItemModerationDetailPage.tsx` | `/Admin/Posts/{contentItemId}` | admin (moderation) | three columns |
+
+**The ported blog.** `/Post-Single` and `/Post-Single/{slug}` render `src/pages/postSingle.tsx`,
+the ported template's post page, which shows one sample story whatever the address. It is a mock,
+not a product page: a content item's page is `/posts/{contentItemId}` (`UI/Pages/PostDetail.md`),
+and a content item is shown by the post card, `ContentItemPanel`, which leads there. The ported
+template's blog is sample material (user rulings 2026-09-27): its store, read from `api/posts`, its
+cards and building blocks, `/Post-Single`, and the links to `/Post-Single` from the menu,
+`/Dashboard` and the old admin posts page all belong to the sample pages. So `/Post-Single` is
+counted among the sample pages and has no page document, and nothing of the blog is pointed at
+`/posts/{contentItemId}`: its cards show blog posts, not content items. The template's other blog
+pages — `/Author`, `/Categories`, `/Tag`, `/Post-Grid`, `/Post-List` and
+`/Post-Grid-Masonry-Filter` — and `/Search`, a demo, are sample material too, like `/Post-Single`:
+they are not product pages and have no page documents, and the real search page is `/posts`
+(`UI/Pages/Posts.md rule 2.12`; user ruling 2026-09-27). `/Search-Result` is the same ported
+blog: ported from the template's `SearchResult.razor`, it lists the blog's own posts, read from
+`api/posts`, through `PostListItem` (`src/pages/searchResult.tsx`, lines 8-9 and 24), so it is
+counted with the blog, not among the candidate product pages. The building blocks' own composed
+links stay gaps in §UI20.6.4's list, as the sample material's. These pages are still routed
+beside the product pages, with their lines at 70dc72e7: item 1 below is the move the user ruled
+for `/Post-Single`, and item 2 the move ruled for the others, each tagged as the list of building
+blocks under §UI20.6.4 is.
+
+1. (needs issue) **`/Post-Single` is routed as a product page.** The user ruled on 2026-09-27 that
+   it moves under `/SamplePages`, and that everything that links to it follows it there, to its
+   new address. The two routes are registered among the public post routes
+   (`src/routes/publicPostRoutes.tsx`, lines 27 and 28). The cards that compose a link to it are
+   `BlogSidebar`, `PodcastCard`, `PostCard`, `PostLargeCard`, `PostListItem` and
+   `PostOverlayCard` (§UI20.6.4, its list of building blocks, items 5, 8, 9, 11, 12 and 13), each
+   from the slug of the `PostView` it is handed (`src/models/coreUI/postView.ts`). A `PostView` is
+   a row of the ported blog's own store, read from `api/posts` (`src/brokers/apiBroker.posts.ts`;
+   `Websites/Glory2Him.WebApp/Infrastructure/PostApiEndpoints.cs`), not a content item. Four
+   other links reach the route: the menu (`src/components/coreUI/megaMenu.tsx`, line 57),
+   `/Dashboard` (`src/pages/dashboard.tsx`, line 150), the old admin posts page, now the sample
+   page `/SamplePages/Posts` (`src/pages/admin/postsPage.tsx`, line 95), and the sample page
+   `/SamplePages/Home/Blog-Tech` (`src/pages/samplePages/home/homeBlogTechSample.tsx`, line 66).
+2. (needs issue) **The template's other blog pages, `/Search` and `/Search-Result` are routed as
+   product pages.** The user ruled on 2026-09-27 that the eight move under `/SamplePages`, as
+   `/Post-Single` does (item 1): `/Author`, `/Categories`, `/Tag`, `/Post-Grid`, `/Post-List`,
+   `/Post-Grid-Masonry-Filter`, `/Search` and `/Search-Result`. The first six are registered among
+   the public post routes (`src/routes/publicPostRoutes.tsx`, lines 21-26). Each lists the ported
+   blog's posts, read from `api/posts` (`postService.useGetPosts`, in `author.tsx`,
+   `categories.tsx`, `tag.tsx`, `postGrid.tsx`, `postList.tsx` and `journalMasonry.tsx` under
+   `src/pages/`), through the same cards that link to `/Post-Single` (`PostCard` or
+   `PostListItem`). `/Search` and `/Search-Result` are registered among the static routes
+   (`src/routes/staticRoutes.tsx`, lines 27 and 28). `/Search` calls itself a demo: whatever is
+   typed, the same sample posts come back (`src/pages/search.tsx`, header comment).
+   `/Search-Result` is the ported blog's own search, above. The sample material's own links to
+   them follow them to their new addresses, as the links to `/Post-Single` do (item 1): the
+   building blocks' (§UI20.6.4, its list of building blocks, items 1, 3, 5, 8–13 and 16), the
+   menu's (`src/components/coreUI/megaMenu.tsx`, lines 53 and 73), the blog pages' own
+   (`src/pages/tag.tsx`, lines 41 and 49; `src/pages/postSingle.tsx`, line 70), and the sample
+   pages' under `src/pages/samplePages/`. The product's own links to them lead to `/posts` instead
+   (user ruling 2026-09-27): the layout's and the Bible reader's by §UI20.7 rule 4, whose gaps are
+   `UI/Pages/Home.md §6 item 12` and, for the footer's topic links, `UI/Pages/Home.md §6 item 15`;
+   and, in the user section, the tag panel's default link,
+   `UI/Components/AssociationPanel.TagAssociationPanel.md §10 item 5`. An unreadable Bible
+   reference's link, which reaches `/Search` today, leads to the Bible reference page instead (user
+   ruling 2026-09-28; `UI/Pages/BibleReference.md rule 2.18`), its gap `UI/Pages/Home.md §6 item 14`
+   and the items it names. In the admin section a tag or a Bible reference leads to the queue,
+   `/Admin/Posts`, instead (`UI/Pages/ContentItemModerationPage.md rule 2.13`). Each of these
+   product links changes before the page it points at moves, or with it: a link left pointing at a
+   moved page reaches the Not Found page (`src/routes/staticRoutes.tsx`, line 31). Some of the
+   links into `/Search` are held by design issues, so `/Search` moves only once they have changed:
+   an unreadable Bible reference's and the Bible reference page's own chips, held for #700
+   (`UI/Pages/Home.md §6 item 14` and the items it names, `UI/Pages/BibleReference.md §6 item 4`),
+   and the admin post page's side-panel chips, held for #698
+   (`UI/Pages/ContentItemModerationDetailPage.md §6 item 17`). No held gap links to the other seven
+   pages.
+
 ### UI20.6 Components *(formerly §20.6)*
 
-Planned reusable components based on the Blogzine template:
+Planned reusable components based on the Blogzine template. A component that has a component
+document (§UI20.6.4) links it, and its design lives there:
 
 | Component | Purpose |
 | --- | --- |
 | `Navbar` | Top navigation bar with logo, links, search, and auth state. |
 | `Footer` | Site footer with links and attribution. |
-| `ContentCard` | Feed card for a single content item — header image (§DOM4.9), title, type, excerpt, publish date. |
-| `ContentCardGrid` | Responsive grid of `ContentCard` components. |
+| `ContentCard` | SUPERSEDED — built as `ContentItemPanel`'s view face, the card every feed shows for one item, through `ContentItemDefaultPanel` or its content type's own template ([`UI/Components/ContentItemPanel.md`](UI/Components/ContentItemPanel.md), [`UI/Components/ContentItemPanel.Default.md`](UI/Components/ContentItemPanel.Default.md)). It was planned as a feed card for a single content item — header image (§DOM4.9), title, type, excerpt, publish date. |
+| `ContentCardGrid` | SUPERSEDED — built as `ContentItemListPanel`, which renders the items in one scrolled column through `ContentItemResultsPanel` ([`UI/Components/ContentItemListPanel.md`](UI/Components/ContentItemListPanel.md)). It was planned as a responsive grid of `ContentCard` components. |
 | `ContentCardFeatured` | Hero-style featured content card. |
-| `ContentDetail` | Full content item display — body, author, tags, reactions, comments, Bible references. |
+| `ContentDetail` | SUPERSEDED — built as `ContentItemPanel` on a detail page, with the tags and Bible references beside it in the association panels ([`UI/Components/ContentItemPanel.md`](UI/Components/ContentItemPanel.md)). It was planned as the full content item display — body, author, tags, reactions, comments, Bible references. |
 | `TopicCard` | Card for a topic landing page preview. |
-| `TagBadge` | Individual tag badge. |
-| `TagList` | List of `TagBadge` components. |
-| `ReactionBar` | Row of available reactions with counts. |
+| `TagBadge` | SUPERSEDED — built as the chips of `TagAssociationPanel` ([`UI/Components/AssociationPanel.TagAssociationPanel.md`](UI/Components/AssociationPanel.TagAssociationPanel.md)) and the tag pills of the card's tag section ([`UI/Components/ContentItemPanel.Default.md`](UI/Components/ContentItemPanel.Default.md)). It was planned as an individual tag badge. |
+| `TagList` | SUPERSEDED — built as `TagAssociationPanel` and the card's tag section, as `TagBadge` above. It was planned as a list of `TagBadge` components. |
+| `ReactionBar` | SUPERSEDED — built as the card's Like control and reaction counts ([`UI/Components/ContentItemPanel.md`](UI/Components/ContentItemPanel.md), [`UI/Components/ContentItemPanel.Default.md`](UI/Components/ContentItemPanel.Default.md)). It was planned as a row of available reactions with counts. A core-UI `ReactionBar` (`src/components/coreUI/reactionBar.tsx`) also exists, rendered on `/BibleReferences`, where what a reaction records is to be designed under #700. |
 | `CommentList` | List of approved comments for a content item. |
 | `CommentForm` | Authenticated form to submit a comment. |
 | `BibleReferenceBlock` | Display block for a Bible reference and optional scripture text. |
-| `ApprovalStatusBadge` | Badge showing current approval status. |
-| `ApprovalReviewForm` | Form for a reviewer to submit an approval or rejection decision. |
+| `ApprovalStatusBadge` | SUPERSEDED — built as the card's status pill and ribbon, which a page switches on (`showApprovalStatus`, `showApprovalStatusRibbon`; [`UI/Components/ContentItemPanel.md`](UI/Components/ContentItemPanel.md)), and `ReviewPanel`'s status pill ([`UI/Components/ReviewPanel.md`](UI/Components/ReviewPanel.md)). It was planned as a badge showing the current approval status. |
+| `ApprovalReviewForm` | SUPERSEDED — built as `ReviewPanel`, whose vote records a reviewer's approval or rejection and whose decision is the publisher tier's ([`UI/Components/ReviewPanel.md`](UI/Components/ReviewPanel.md)). It was planned as a form for a reviewer to submit an approval or rejection decision. |
 | `ApprovalCommentForm` | RETIRED — superseded by `ReviewCommentPanel` below, which is the whole thread rather than the box alone. A separate add-only form would have had to re-decide the same three gates. |
-| `ReviewPanel` | The approval round rendered: reviews, the viewer's own vote, block reasons, bypass, the publisher-tier decision, and review requests (§UI20.6.1). |
-| `ReviewCommentPanel` | The round's conversation: the box and its Comment/Question choice, the thread newest-first, the settled tick on asks, and the author's Edit and Delete (§UI20.6.3). |
-| `ContentItemPanel` | One content item on whichever face the moment asks for — the add and edit templates and the per-type view templates, field-shaped per content type and gated per §SEC18.6 (§UI20.6.2). Paste-to-upload for inline images (§DOM5.6.6) is not part of it yet. |
+| `ReviewPanel` | The approval round rendered: reviews, the viewer's own vote, block reasons, bypass, the publisher-tier decision, and review requests ([`UI/Components/ReviewPanel.md`](UI/Components/ReviewPanel.md)). |
+| `ReviewCommentPanel` | The round's conversation: the box and its Comment/Question choice, the thread newest-first, the settled tick on asks, and the author's Edit and Delete ([`UI/Components/ReviewCommentPanel.md`](UI/Components/ReviewCommentPanel.md)). |
+| `ContentItemPanel` | One content item on whichever face the moment asks for — the add and edit templates and the per-type view templates, field-shaped per content type and gated per §SEC18.6 ([`UI/Components/ContentItemPanel.md`](UI/Components/ContentItemPanel.md)). Paste-to-upload for inline images (§DOM5.6.6) is not part of it yet. |
+| `ContentItemAddPanel` | `ContentItemPanel`'s add face: the type picker and a blank form, where a signed-in reader contributes a content item ([`UI/Components/ContentItemPanel.Add.md`](UI/Components/ContentItemPanel.Add.md)). |
+| `ContentItemRestrictedPanel` | `ContentItemPanel`'s restricted face: shown instead of the add face when the reader has no content type left to contribute — a very basic panel whose wording says contributions are not being taken. Not built yet ([`UI/Components/ContentItemPanel.Restricted.md`](UI/Components/ContentItemPanel.Restricted.md)). |
+| `ContentItemEditPanel` | `ContentItemPanel`'s edit face: the item's type, frozen, and a form seeded from the item, with removal riding on it ([`UI/Components/ContentItemPanel.Edit.md`](UI/Components/ContentItemPanel.Edit.md)). |
+| `ContentItemDefaultPanel` | The view template most content types render through — the card a feed or detail page shows for one item — and the base the per-type overrides derive from ([`UI/Components/ContentItemPanel.Default.md`](UI/Components/ContentItemPanel.Default.md)). |
+| `ContentItemQuotesPanel` | The view template for a quote: the quote shown whole, large, as the card's heading, with its author after an em-dash ([`UI/Components/ContentItemPanel.ContentItemQuotesPanel.md`](UI/Components/ContentItemPanel.ContentItemQuotesPanel.md)). |
+| `ContentItemVerseImagePanel` | The view template for a verse image: the verse exactly as written, standing large, with nothing appended ([`UI/Components/ContentItemPanel.ContentItemVerseImagePanel.md`](UI/Components/ContentItemPanel.ContentItemVerseImagePanel.md)). |
+| `ContentItemListPanel` | Many content items, searched and scrolled: the search bar above the results, and every item rendered through `ContentItemPanel` — one family for the public feed, the caller's own posts and the moderation queue ([`UI/Components/ContentItemListPanel.md`](UI/Components/ContentItemListPanel.md)). |
+| `ContentItemSearchBarPanel` | The list's search bar: a query box and Search, an advanced fold-out, and opt-in approval status checkboxes; it raises the committed criteria ([`UI/Components/ContentItemListPanel.ContentItemSearchBarPanel.md`](UI/Components/ContentItemListPanel.ContentItemSearchBarPanel.md)). |
+| `ContentItemResultsPanel` | The list's results: every matched element as one `ContentItemPanel`, scrolled rather than paged, with the first-page load, the empty result and the infinite scroll ([`UI/Components/ContentItemListPanel.ContentItemResultsPanel.md`](UI/Components/ContentItemListPanel.ContentItemResultsPanel.md)). |
+| `ContentItemSettingsPanel` | The `ContentItemSetting` row that governs one content item — its override where it has one, the content type default otherwise — and the writes that narrow that one item ([`UI/Components/ContentItemSettingsPanel.md`](UI/Components/ContentItemSettingsPanel.md)). |
+| `AssociationPanel` | A labelled set of association chips with an optional box beneath for suggesting another — the generic half of the tag and bible reference panels ([`UI/Components/AssociationPanel.md`](UI/Components/AssociationPanel.md)). |
+| `TagAssociationPanel` | `AssociationPanel` dressed as the tag panel: green chips with a hash in front of each ([`UI/Components/AssociationPanel.TagAssociationPanel.md`](UI/Components/AssociationPanel.TagAssociationPanel.md)). |
+| `BibleReferenceAssociationPanel` | `AssociationPanel` dressed as the bible reference panel: blue chips carrying a book icon once approved ([`UI/Components/AssociationPanel.BibleReferenceAssociationPanel.md`](UI/Components/AssociationPanel.BibleReferenceAssociationPanel.md)). |
+| `SharingPanel` | The invitation to contribute — an icon, a title, a description and a button — adapting to its container; it shares nothing outward ([`UI/Components/SharingPanel.md`](UI/Components/SharingPanel.md)). |
 | `HeaderImagePicker` | Header-image candidates for a content item — upload, list, promote the default (§DOM4.9). |
-| `ShareBar` | Share buttons composing real short-link URLs (§DOM19.7). |
-| `SearchBar` | Search input with debounce. |
-| `Pagination` | Paginated navigation for feed and topic child lists. |
+| `SearchBar` | SUPERSEDED — built as `ContentItemSearchBarPanel`, on the core-UI `SearchBarComponent` (`src/components/coreUI/searchBar.tsx`), which commits on Search rather than debouncing ([`UI/Components/ContentItemListPanel.ContentItemSearchBarPanel.md`](UI/Components/ContentItemListPanel.ContentItemSearchBarPanel.md)). It was planned as a search input with debounce. |
+| `Pagination` | SUPERSEDED — built as `ContentItemResultsPanel`'s infinite scroll: the feeds scroll rather than page ([`UI/Components/ContentItemListPanel.ContentItemResultsPanel.md`](UI/Components/ContentItemListPanel.ContentItemResultsPanel.md)). It was planned as paginated navigation for feed and topic child lists. A core-UI `Pagination` (`src/components/coreUI/pagination.tsx`) also exists, rendered by the demo page `/Search`, sample material moving under `/SamplePages` (§UI20.5.1). |
 | `PrivateRoute` | Route guard for authenticated routes. |
 | `RoleRoute` | Route guard for role-restricted routes. |
-| `LoadingSpinner` | Generic loading indicator. |
+| `LoadingSpinner` | SUPERSEDED — built as the core-UI `Spinner` (`src/components/coreUI/spinner.tsx`), which announces itself as a status. It was planned as a generic loading indicator. |
 | `ErrorMessage` | Generic error display. |
 
 #### UI20.6.1 ReviewPanel — contract and dependencies *(formerly §20.6.1)*
 
-`ReviewPanel` is a **pure presentation component**: props in, events out, no fetching, no sockets. Every gate it renders is a courtesy — the orchestration re-decides votes, decisions, bypass and requests against the stored rows (§SEC14.6). Wherever the server has already answered a question per caller (`CanApprove`, `IsBypassAllowedForCurrentUser`), the verdict's answer is used verbatim rather than re-derived from role names; the remaining render gates compose roles per §SEC18.6, capability-last and plural.
-
-**The consumer owns freshness.** The panel shows the world as of the last props it was handed, so its consumer must re-fetch and re-render when the round changes underneath it — another vote cast, a comment added or resolved, a decision or auto-approval, a request made or answered. SignalR, polling, or a refetch after each event callback are all acceptable; without one of them the panel is simply stale. Server side, the EventHighway facts the approval workflow already publishes (§EVN18) are the signal a push channel would forward — a future SignalR hub subscribes to those; it does not add new facts.
-
-**Direct API dependencies** (called by the consumer, never the component):
-
-| Concern | Endpoint |
-| --- | --- |
-| The outcome section | `GET api/Approvals/{entityType}/{entityId}/Verdict` (§ARC16.7.2 — moderation tier only, so the read-only view gets the status pill without block reasons) |
-| The decision | `POST api/Approvals/{entityType}/{entityId}/Decision` (bypass reason mandatory when bypassing) |
-| The viewer's vote | `POST` / `PUT api/ApprovalReviews` |
-| The review rows | `GET api/ApprovalReviews` filtered by `ApprovalId` |
-| The request rows and picker | The §ARC16.7.4 candidates and review-request endpoints |
-| The names on its reviewers and its invitations | `GET api/Approvals/{entityType}/{entityId}/ReviewerDisplayNames` — the §ARC16.7.4 resolver, asked once for the round. Candidates are NOT in it: the candidates read above already carries a display name for every person it offers, and both are composed by the same method, so the two never disagree |
-
-**Indirect dependencies:** the signed-in identity and roles (`/api/accounts/me` via the auth context) for the render gates, and the approval's status for the frozen/live switch — deliberately a prop of its own, because the read-only view has a status to show and no verdict to read it from.
+Moved to [`UI/Components/ReviewPanel.md`](UI/Components/ReviewPanel.md), the component
+document for `ReviewPanel` (§UI20.6.4). Each rule relocated there carries this section's number
+as its source tag, *(§UI20.6.1)*, so a citation of this section still resolves by grep to the
+rule's new home. This heading stays so that the citations in code land one hop from it; it
+holds no design of its own. Cite the component document by its path and rule number —
+`UI/Components/ReviewPanel.md rule 2.3`.
 
 #### UI20.6.2 ContentItemPanel — contract and dependencies *(formerly §20.6.2)*
 
-`ContentItemPanel` is a **pure presentation component**: props in, events out, no fetching, no mutation, no sockets. It is the one dispatcher for a content item's every face: handed a settings collection and no item it renders the add template (`ContentItemAddPanel`); Edit taken in place — or `mode="edit"` passed — renders the edit template (`ContentItemEditPanel`); otherwise the item renders through the view template registered for its content type (`ContentItemDefaultPanel`, or an override such as `ContentItemQuotesPanel` deriving from it via `contentSlot`). `ContentItemListPanel` composes the search bar and the scrolled results, rendering this same panel for every element — one family, one tree, no second detail component to keep in sync. Every face runs on the family's one projection: a self-contained element carrying the item and its §DOM6.4 winning setting, so a list element hands to a detail surface — and seeds its editor — with no further read, and an update is one element swapped by the consumer.
-
-**Security posture.** Every gate it renders decides what to SHOW and nothing more. The foundation and processing services re-decide add, modify and remove against the stored row (§SEC14.6, §SEC14.7 posture A), and must: a hidden button is a courtesy to the reader, never an authorization boundary.
-
-**Where Edit goes is the page's wiring.** A page listening on `onEditClick` alone gets the event and routes to its own edit surface, carrying its back context; a page that switches `showEditSection` on and listens on `onModified`/`onRemoved` gets the editor **in place** — the owner's Edit swaps the card for the edit template, and both a committed Save and Cancel swap the card back (`mode="edit"` lands straight on the editor, still subject to the same gates). What the card then shows is the consumer's element: the page persists and swaps it, so the amendments appear; Cancel discards the draft and reopening seeds from the original.
-
-**`showEditSection` is the surface switch, ahead of every role check**, and it is off by default — the safe posture `AssociationPanel` takes with `showModerationActions`. While it is off the panel renders no action affordance at all: no `Edit`, no `Delete`, no route into the editor however the roles fall, and the edit template refuses outright rather than downgrading — the read surface belongs to the view templates. A public page renders the panel without it and gets a view surface that cannot accidentally become an edit one; a profile or admin area switches it on and the role gates below then decide, per action, what is actually shown. It only ever subtracts.
-
-**Role composition** follows §SEC18.6 — capability last and plural, resolved against the content type IN PLAY (the selected type while adding, the item's own type when reading or editing). Every set is an overridable comma-separated prop in which `{ContentType}` resolves to the enum member name, and `[OWNER]` names the item's contributor, matched on the account id and never on a display name.
-
-| Gate | Default |
-| --- | --- |
-| blocked by | `ReadOnly`, `ContentItem-ReadOnly`, `ContentItem-{ContentType}-ReadOnly` |
-| add | empty — any authenticated reader, since there is no `Contributor` role |
-| edit | `[OWNER]`, `Publishers`, `ContentItem-Publishers`, `ContentItem-{ContentType}-Publishers`, `Administrators` — the non-owner half further confined to `Draft` / `Submitted` |
-| delete | `[OWNER]`, `Administrators` — removal is a takedown, not a moderation step (§SEC14.7 posture A.3) |
-
-**The block set is asked first and outranks every grant**, `[OWNER]` included: a contributor holding `ContentItem-Devotional-ReadOnly` sees no `Edit` and no `Delete` on their own devotional, and no add surface for that type, while stories and quotes stay open to them. The narrow block therefore lands on the **picker**, not only on the form: a blocked tile renders disabled with its reason on it, and only a reader blocked from every available type loses the form. The `Reviewers` tier appears in no set at all — a reviewer reviews.
-
-The panel's block set is still a render courtesy (§SEC14.6), but it is no longer courtesy alone: `ContentItem-{ContentType}-ReadOnly` is a real role now — seeded, and refused by the foundation, the processing layer and the approval surface alike (§SEC18.6 rule 2). The two answers agree by construction rather than by coincidence, because both compose the same name from the row's own content type.
-
-**The content type is create-only** (§ARC12.4.1 rule 7a), so only `add` offers the choice: the edit template wears the same tile layout with every tile disabled and the item's own still selected — one look for both writing faces — falling back to a frozen chip when no default rows were handed over.
-
-**Which fields exist is per content type and is passed in, never fetched — and the panel resolves the EFFECTIVE row itself.** The consumer hands over the `ContentItemSetting` rows it already holds and the most specific one wins, exactly as §DOM6.4 and §ARC12.5.2 business rules 1–2 require: an item-level override takes **full precedence** over the content type default, and a soft-deleted row is excluded from resolution entirely (§DOM6.6). The override is matched on the **item** as well as the type, so a mixed collection is safe — one item's override is never applied to another's. `add` can therefore only ever resolve a default, because an override belongs to an item that does not exist yet.
-
-What the panel reads off the resolved row is the **field shaping and the type's presentation**: `HasTitle`, `HasAuthor`, `ContentTypeName`, `ContentTypeDescription`, `ContentTypeIconCssClass`. `HasTitle` and `HasAuthor` govern every face — the inputs in `add` and `edit`, and the title and author on the view templates (which additionally require the item to carry a value). The `Max*Length` ceilings cap the fields client-side: the input refuses further typing, and a stored value already over a lowered ceiling is refused at submit with the limit named. **A field the reader cannot see contributes nothing, and the row keeps whatever it already had.** One rule, settling both halves. On an amendment it means hiding is never destructive: a value already on the row survives an edit it was not shown for, so a setting changed after the item was written cannot silently blank it. On a contribution it means the opposite is equally true — a title typed under one content type and then abandoned by picking another whose setting has no title is **not** posted, because the contributor can no longer see it, the type is create-only, and no read surface would ever show it again. Where no row resolves at all there is no flag to obey, and the panel shows whichever of the two the item carries. **The page above the panel obeys the same rule**: a heading that named a title the panel deliberately hides would make the suppressed value the loudest thing on the screen, so `/posts/{id}` resolves the effective row through the same shared projection and falls back to the type's name.
-
-**`SharePermission` is the exception, and drops rather than persisting.** It is hidden by the contributor's own answer to a question in front of them — not by a setting they never chose — so "the row keeps what it had" does not apply: a note reading *permission granted by the author* stored against an item its contributor has just declared `Owned` is a provenance claim they withdrew. Nothing server-side correlates the two (the foundation length-checks `SharePermission` and no more), and no read surface renders it once the basis has moved, so preserving it would file a contradiction nobody can see or clear. The field, the placement of its validation messages and what is submitted all read the same flag, so the three cannot disagree. The **facet pairs** (§DOM6.5 — `TagsAllowed`/`ShowTags` and the same for comments, reactions, links, attachments and bible references) govern surfaces this panel does not own; the panels rendering beside it read those, against this same effective row.
-
-**The picker offers the content type defaults carrying `IsAvailableAsGeneralUserContribution`**, which is exactly the question a tile asks. An override is never a tile however the consumer's collection arrived **The tiles are ordered by the rows' own `SortOrder`** (§DOM6.6), ascending, so the order a contributor meets the types in is a decision recorded on the setting rather than an accident of the order the consumer's read answered with. The panel sorts what it is handed — it is a presentation component, so it does not depend on the consumer having ordered the collection — and the type it lands on by default is the first tile in that order. A tie keeps the order the rows arrived in.
-
-**The consumer owns persistence and freshness.** The panel raises `onAdded`, `onModified`, `onRemoved` and `onCancelled`, and does nothing else: the page decides whether `onModified` is a `PUT` or a fork of a new version on a terminal item (§DOM3.4 rule 16), swaps the amended element so the closed editor's card shows it, and re-fetches whenever the item changes underneath it. The panel shows the world as of the last props it was handed.
-
-**Validation comes back from the API, not from the browser — with two ruled exceptions the panel is the right surface for.** A permission basis makes the `SharePermission` box mandatory (a claim of permission with no permission named is not a submission the product accepts), and the effective setting's `Max*Length` ceilings are enforced as above; both speak through the same field-issue channel the server's messages use. Everything else the panel leaves to the server — a second opinion in the browser would drift from it. The consumer submits, and hands the `errors` dictionary of the returned `ValidationProblemDetails` back to the panel as `validationIssues`; the panel matches those keys onto its fields case-insensitively (they are the server's parameter names) and summarises anything it cannot place rather than dropping it. The failure also raises a timed notification through the existing toast framework, carrying the API's own reason rather than a generic one.
-
-**Associations render beside it, never within it.** Tags and bible references belong to `AssociationPanel` and its two wrappers, which have their own approval and role rules and need an item to associate to — so they cannot render on an add surface at all. Approval controls belong to `ReviewPanel` (§UI20.6.1).
-
-**Direct API dependencies** (called by the consumer, never the component):
-
-| Concern | Endpoint |
-| --- | --- |
-| The type picker and field shaping | `GET api/ContentItemSettings` (`[AllowAnonymous]`; `$filter=contentItemId eq null` for the defaults, plus `isAvailableAsGeneralUserContribution eq true` for the contribution surface). A page rendering one item may also pass that item's override row alongside the defaults — the panel resolves which wins. |
-| The contribution | `POST api/ContentItems` — seven caller-supplied members only (`ContentType`, `Title`, `Author`, `Content`, `ShareabilityBasis`, `SharePermission`, `ApprovalStatus`); the processing service mints the identifiers, hashes the content and lands the row unpublished at the status the caller asked for — `Draft` or `Submitted` and nothing else (§APR9.7.1 rule 1), which is what the panel's "Submit as" row answers — and the foundation beneath it stamps the audit trail |
-| The item | `GET api/ContentItems/{contentItemId}` (`[AllowAnonymous]` — the service's own visibility filter decides what a caller may see) |
-| An amendment | `PUT api/ContentItems`, or the version fork on a terminal item |
-
-**Indirect dependencies:** the signed-in identity and roles (`/api/accounts/me` via the auth context) for the render gates, and the item's `ApprovalStatus` for the non-owner edit gate.
-
-**Consumers.** `/posts/contribute` renders the add face and owns the `POST`, the redirect to `/myposts/{contentItemId}`, the notification and the validation readback. `/posts/{contentItemId}` renders the view face with `showEditSection` left off; `/myposts/{contentItemId}` renders it with editing in place; and the feeds (`/`, `/posts`, `/myposts`, `/Admin/Posts`) render every element through this same panel via `ContentItemListPanel`.
+Moved to [`UI/Components/ContentItemPanel.md`](UI/Components/ContentItemPanel.md), the component
+document for `ContentItemPanel` (§UI20.6.4), with the parts that belong to one face in that
+face's story: [`ContentItemPanel.Add.md`](UI/Components/ContentItemPanel.Add.md),
+[`ContentItemPanel.Edit.md`](UI/Components/ContentItemPanel.Edit.md),
+[`ContentItemPanel.Default.md`](UI/Components/ContentItemPanel.Default.md) and
+[`ContentItemPanel.ContentItemQuotesPanel.md`](UI/Components/ContentItemPanel.ContentItemQuotesPanel.md).
+`UI/Components/ContentItemPanel.md §6` lists which part went where. Each rule relocated
+carries this section's number as its source tag, *(§UI20.6.2)*, so a citation of this section
+still resolves by grep to the rule's new home. This heading stays so that the citations in code
+land one hop from it; it holds no design of its own. Cite the component document by its path
+and rule number — `UI/Components/ContentItemPanel.md rule 2.17`.
 
 #### UI20.6.3 ReviewCommentPanel — contract and dependencies *(formerly §20.6.3)*
 
-`ReviewCommentPanel` is a **pure presentation component**: props in, events out, no fetching, no mutation, no sockets. It is the conversation the round is made of — the thing `ReviewPanel` can only report as a count of unresolved comments.
+Moved to [`UI/Components/ReviewCommentPanel.md`](UI/Components/ReviewCommentPanel.md), the
+component document for `ReviewCommentPanel` (§UI20.6.4). Each rule relocated there carries this
+section's number as its source tag, *(§UI20.6.3)*, so a citation of this section still resolves
+by grep to the rule's new home. This heading stays so that the citations in code land one hop
+from it; it holds no design of its own. Cite the component document by its path and rule
+number — `UI/Components/ReviewCommentPanel.md rule 2.11`.
 
-```
-ReviewCommentPanel                 the thread, and who may do what to it
-├── ReviewCommentAddPanel          the box, the Comment/Question radios, Clear / Save
-└── ReviewCommentResultsPanel      the rows, newest first, scrolled rather than paged
-    ├── ReviewCommentViewPanel     READ:  author, chip, timestamp, resolve tick, Edit / Delete
-    └── ReviewCommentEditPanel     EDIT:  the words and the type, Save / Cancel
-```
+#### UI20.6.4 Component documents *(new; user ruling 2026-09-26)*
 
-The dispatcher owns everything the faces share — the ordering, the ownership gate, the resolve tier and the `ReadOnly` veto — and the templates render what it decides, the way `ContentItemPanel` is built (§UI20.6.2).
+Every presentation component documented on its own has a **component document** under
+[`Documentation/Design/UI/Components/`](UI/Components/). The location, the names and the
+template below are the user's ruling. They differ from the layout `design.md` gives feature and
+user story documents (`DesignFeatures/<Feature>.md`, `DesignFeatures/UI/<Story>.md`) and from
+the operation-section format of `Documentation/DesignFeatures/README.md`; for component
+documents, this section wins.
 
-**The type is stated, not inferred.** The add face's radio pair writes `ApprovalCommentType` and derives the birth value of `IsResolved` from it — a `Question` is created outstanding and holds the approval shut, a `Comment` is created settled and never blocks. That is §APR7.8's own sentence rather than a rule the client invents: the flag carries no SHAPE rule, so a caller who said nothing would make every remark a blocker. The client is agreeing with the gate rather than being it — the server refuses the settled ask on both the add and the amend path.
+**Names.** The file name shows where a component stands in the tree.
 
-**Retyping moves the flag with the type, and only then.** The edit face offers the same pair, so an amendment that changes `ApprovalCommentType` re-derives `IsResolved` exactly as birth does — a remark retyped as a question is *outstanding*, a question retyped as a remark is *settled*. Sending the new type over the stored flag was the earlier shape and it could not work: a remark is born settled, so retyping one produced a question already resolved, which is the single pairing the amend gate refuses outright — the save came back a flat refusal and only the words could ever be edited. Where the type does **not** move the flag is left alone, because a settled ask may be edited by its author and re-deriving would silently re-open it; resolving and re-opening answer to their own operation and its tier (§SEC14.7 posture D rule 5).
+- `<Root>.md` is a **feature**: a root presentation component — `ContentItemListPanel.md`.
+- `<Root>.<Child>.md` is a **user story**: a child component of that root —
+  `ContentItemListPanel.ContentItemSearchBarPanel.md`. `<Child>` is the child component's
+  name or, for one of the root's own faces, the face's short name — `ContentItemPanel.Add.md`
+  for `ContentItemAddPanel`.
+- A component that works on its own but is also rendered inside another is a root of its own,
+  so that no file path grows long — `ContentItemPanel.md`, although `ContentItemListPanel`
+  renders it.
 
-**Three gates, and the sanction reaches them differently.** Adding is any authenticated reader (§SEC14.7 posture D rule 5 — submitters converse in review threads), stopped by the global `ReadOnly` alone. Amending and withdrawing are the **author alone**; no role widens them. The settled tick renders on an **ask only**, to the author or the publisher tier for the entity, and is stopped by a `ReadOnly` at any scope the entity composes — because that one control clears a §APR8.5 gate (§SEC18.6 rule 3). Every one of them decides rendering only; the foundation re-decides each write against the stored row (§SEC14.6).
+A child's document names its root as its parent, and the root lists every child. A document
+names the other roots it renders, and a root names every component document and every page that
+renders it, so a component that stands alone says everywhere it is used.
 
-**The consumer owns freshness, and here that is a requirement rather than a note.** Two moderators working the same submission is the case this surface exists for, so the collection must be kept moving — `approvalCommentService.useGetApprovalComments` polls and refetches on focus. It also owns the confirmation: the panel raises which row the reader wants gone, and the page asks "Are you sure?", the same split `ContentItemSettingsPanel` makes for Remove Override.
+**Hooks, not routes** (user rulings 2026-09-26 and 2026-09-27). A presentation component
+exposes hooks and knows no route. It performs no redirect, and it composes no route of its own;
+it is the page's responsibility to wire the hooks. **The page supplies every link and every
+redirect, and the component supplies the hook** — a Must for every component (user ruling
+2026-09-27). Two instances were ruled the same day. A tag click and a Bible reference click each
+raise a hook, and the component performs no navigation and no filtering of its own on the click:
+where the reader goes — typically the search page filtered by the tag, and a page showing the
+verse — is the page's, and differs between a user section and an admin section. And View and
+Edit are two actions with two hooks, each switchable by a `show…` property: View opens the
+item's detail view read-only, on the default template or the type's own, such as the quote's;
+Edit opens the detail view straight in edit mode; where each leads is the page's. A link whose
+route the page supplies — a property the page
+passes, such as a `loginHref`, or a builder the page provides, such as a `chipHrefFor` — is the
+page wiring the hook. A default the component composes for such a property is the coupling.
+Each page specifies its own behaviours for the presentation components it renders: the
+properties it passes, per viewer, and where each hook leads. A component document specifies
+the component alone. Until a page has a document of its own, a gap in the page is recorded in
+section 10 of the component document where it was found, tagged like any other gap and marked
+as the page's: after the tag, the item opens with **Page gap —** and the page's route. The rule
+reaches the documented components and the undocumented building blocks a page or component
+renders — `ContributionPrompt`, `TagPillList` and the `coreUI` post cards that compose their own
+links. Route guards, `Navbar`, `Footer` and the page layouts exist to route, and are outside it
+(user ruling 2026-09-27). A building block's composed link is a gap like a documented
+component's. The building blocks that compose a link or a navigation of their own today are the
+list below, each file under `Websites/Glory2Him.WebApp.React/src/components/coreUI/`, with its
+lines at 70dc72e7. The breadcrumb trails (`breadcrumb.tsx`, `pageHeader.tsx`, `heroBanner.tsx`)
+and the menu (`megaMenu.tsx`) are navigation, and are not listed. Of the pages the list's links
+name, `/Author`, `/Categories`, `/Tag`, `/Post-Single` and `/Search` are the ported blog's,
+sample material moving under `/SamplePages` (§UI20.5.1).
 
-**Direct API dependencies** (called by the consumer, never the component):
+1. (needs issue) **`ArticleCard` composes its links.** Its category badge links to `/Categories`
+   (line 45), and its title link defaults `href` to `'#'` (lines 25 and 54). It renders
+   `TagPillList` (item 16).
+2. (needs issue) **`AuthCard` composes its links.** Its footer link defaults `footerHref` to `'#'`
+   (lines 22 and 36), and its two social sign-in buttons link to `#` (lines 58 and 61).
+3. (needs issue) **`AuthorByline` composes its link.** The author's name links to `/Author`
+   (line 41).
+4. (needs issue) **`BibleChapter` composes its links.** Its two share icons link to `#` (lines 23
+   and 29).
+5. (needs issue) **`BlogSidebar` composes its links.** A recent post links to
+   `/Post-Single/{slug}` (line 52), and a topic to `/Tag?name={topic}` (line 72).
+6. (needs issue) **`CommentThread` composes its link.** *Reply* links to `#reply` (line 36).
+7. (needs issue) **`ContributionPrompt` composes its link.** Its contribution link defaults `href`
+   to `/posts/contribute` (lines 32 and 55). Its sign-in link (line 59) goes to `loginHref`, which
+   the page must supply, so it is not part of this gap.
+8. (needs issue) **`PodcastCard` composes its links.** Its category badge links to `/Categories`
+   (line 37), and its title to `/Post-Single/{slug}` (line 40).
+9. (needs issue) **`PostCard` composes its links.** Its title links to `/Post-Single/{slug}`
+   (lines 12 and 26), and its category badge to `/Categories` (line 20).
+10. (needs issue) **`PostHeroCard` composes its links.** Its category badge links to
+    `/Categories` (line 97), and its title link defaults `href` to `'#'` (lines 41 and 102).
+11. (needs issue) **`PostLargeCard` composes its links.** Its category badge links to
+    `/Categories` (line 34), and its title to `/Post-Single/{slug}` (lines 37-38).
+12. (needs issue) **`PostListItem` composes its links.** Its title links to `/Post-Single/{slug}`
+    (lines 11 and 25), and its category badge to `/Categories` (line 21).
+13. (needs issue) **`PostOverlayCard` composes its links.** Its category badge links to
+    `/Categories` (line 22), and its title to `/Post-Single/{slug}` (line 27).
+14. (needs issue) **`ProductCard` composes its links.** Its image and name link to
+    `/Shop-Detail/{slug}` (lines 25, 30 and 50).
+15. (needs issue) **`ShareLinks` composes its links.** Its four share icons link to `#` (lines 14,
+    20, 26 and 32).
+16. (needs issue) **`TagPillList` composes its links.** A tag links to `/Search?q={tag}` (line 29),
+    and a Bible reference to the route `bibleReferenceHref` builds (line 38).
+17. (needs issue) **`VerseOfTheDay` composes its link.** Its verse link defaults `href` to `'#'`
+    (lines 10 and 21).
 
-| Concern | Endpoint |
+**The template.** Every component document has these sections, in this order. Sections 1–3 are
+the user's; sections 4–10 extend them, and are always present — `None.` where nothing applies,
+or, in a story, *Inherits `UI/Components/<Root>.md §N`; nothing to add.*
+
+| Section | Holds |
 | --- | --- |
-| The thread | `GET api/ApprovalComments` filtered by `ApprovalId` and `IsDeleted eq false` |
-| A new comment | `POST api/ApprovalComments` — the id minted client-side, the audit values stamped server-side |
-| An amend | `PUT api/ApprovalComments` — the whole row that was read, since four fields are pinned against storage |
-| A withdrawal | `DELETE api/ApprovalComments/{id}?deletionReason=` — the SOFT delete, which is what leaves the §APR8.5 block |
-| The settled flag | `POST api/ApprovalComments/{id}/Resolve?isResolved=` — always sent, since the endpoint binds it required |
-| The approval id, and the author names | The §ARC16.7.2 verdict and the §ARC16.7.4 resolver, both already read for `ReviewPanel` |
+| `# 1. <ComponentName>` | The header bullets — **Kind**, **Parent**, **Children**, **Composes**, **Used by**, **Inherits**, **Source**, **Sample page**, and **Relocated from** on a document that received a relocated section — then what the component is for, its intent and purpose. |
+| `## 2. Business Rules` | Every business rule the component follows, MoSCoW-tagged. |
+| `## 3. Presentation / Behaviour rules` | What is visible, hidden, enabled or disabled: `3.1 Driven by properties`, `3.2 Driven by roles`, `3.3 Combinations` — the property switches first, then the roles, and which outranks which — and `3.4 Role matrix`. |
+| `## 4. Properties and Events` | `4.1 Properties` (property, type, default, purpose, what it passes through to), `4.2 Events` (event, payload, when it is raised) and `4.3 Pass-through properties` (§UI20.6.5). |
+| `## 5. Security Requirements` | The security and access matrix first, then the server-side rules the component's gates mirror, and where identity comes from. |
+| `## 6. Composition and Usage` | The component's family, and every page that renders it. |
+| `## 7. Dependencies` | The data the consumer supplies, the API endpoints the consumer calls — never the component — and the indirect dependencies, such as the auth context. |
+| `## 8. States, Validation and Feedback` | Loading, empty, error, validation read-back, confirmation and freshness. |
+| `## 9. Styling and Accessibility` | CSS class properties and hooks, responsive or container behaviour, and ARIA. |
+| `## 10. Open Questions and Gaps` | Every question, every divergence between the design and the code, and every gap, as one numbered list. An item that needs a task is tagged as `design.md`'s *Conventions* rule for a component document's gaps; a question is not. |
 
-Every write invalidates the thread **and** the verdict: an outstanding comment is one of the block reasons `ReviewPanel` prints in the column beside it.
+**Business rules — MoSCoW.** Section 2 numbers its rules `2.1`, `2.2`, … in one flat list, and
+each carries exactly one tag, so re-prioritising a rule never renumbers it. A rule is tagged by
+what it protects, against fixed criteria, never by the modal verb its source uses and never to
+fill a category (user ruling 2026-09-26):
 
-**Where it lands.** Beneath the bible references on `/Admin/Posts/{id}` — in the column with the thing being discussed, not in the decision column, which has to stay readable at a glance while a thread grows without limit.
+- **[Must]** — the component's purpose, a security or visibility gate, data integrity, or the
+  server contract.
+- **[Should]** — feedback and states a user would miss: validation read-back, empty and
+  loading states, ordering.
+- **[Could]** — conveniences and cosmetics: tooltips, icons, default texts, in-place expansion.
+- **[Won't]** — an explicit exclusion.
+
+A priority the user states for a rule stands over the criteria (user ruling 2026-09-26). A
+relocated rule is tagged by the same criteria, and tagging it changes neither its text nor
+its source tag. A story never re-tags a rule it inherits: where it cites a rule of its root,
+its tag is the root's.
+
+**Source tags.** Every numbered rule in sections 2 and 3 ends with its source: a design section
+it applies (`*(§SEC18.6 rule 2)*`, cited, never restated), a statement of the user's
+(`*(user, 2026-09-26)*`), or existing behaviour — `*(code: <file> — <symbol>)*`,
+`*(test: <file> — "<test name>")*` or `*(sample: <doc file>)*`. Existing behaviour is a
+requirement until someone decides otherwise. The component's source and its tests are the
+authority for it; its sample page under `/SamplePages/Components/` is secondary and may be
+stale, so it is never the only source of a rule the component does not bear out, and a sample
+page that disagrees with the component is a gap in section 10. A rule with no source is not
+written: it goes to section 10 as a question.
+
+**Required behaviour, divergence and open questions.** Sections 2 and 3 and the role matrix
+state the behaviour the component is required to have. Where a rule meets another rule, or the
+component, it is one of three cases:
+
+1. **A later design rule settles an earlier one it contradicts.** This case applies only where
+   the later rule was written about the same behaviour: its text, or the commit that made it,
+   addresses what the earlier sentence says. Two rules that merely happen to be dated apart are
+   not this case. The later rule stands; it is not a question. The earlier sentence, relocated
+   or not, is corrected to agree with it and cites it, and section 10 records the correction as
+   a note — no tag and no marker. Both are dated with `git log -S` before either is called the
+   later. Where the earlier sentence sits in a global document (`Security.md`,
+   `Architecture.md`, …), component work does not edit it: the component document follows the
+   later rule, and section 10 records the global correction as an item tagged
+   `(needs issue)`. No marker sits on the component's rules for it, since the rule they follow
+   is settled.
+2. **A clear design rule the component departs from.** The rule or the matrix row states the
+   design and carries the divergence marker — `≠` and the section-10 item, or items, that
+   record the divergence: `≠ item 3`, `≠ items 1 and 3`, or
+   ``≠ `UI/Components/ContentItemPanel.md §10 item 3` `` for an item in another component
+   document. A rule drawn from the code that contradicts a clear section-2 rule is written as
+   the requirement with the marker: what the component does today is stated in section 10
+   alone.
+3. **An unresolved design** — rules that conflict at the same time, or a rule read against a
+   feature it was written before. Two rules are written at the same time when neither was
+   written with the other's behaviour in view: in the same change, for example, or on the same
+   day without either addressing the other. The rule or row states the behaviour the component
+   is built to, since existing behaviour is a requirement until someone decides otherwise, and
+   a section-10 item holds the question for the user.
+
+**The open-question marker.** Every rule and matrix row that stands under an open section-10
+question — the rule as built and the design rule it conflicts with alike — carries `?` and the
+item, or items, that hold the question: `? item 3`, `? items 1 and 3`, or
+``? `UI/Components/ContentItemPanel.md §10 item 3` ``, so a reader of either sees the
+question. A rule or matrix row stands under an open question when at least one answer the
+question offers would change the rule's text or one of the row's cells.
+It is distinct from `≠`, which marks a settled rule the component falls short of.
+A rule carries either marker after its source tag, a matrix row at the end of its condition
+cell, and each carries one marker.
+
+**A gap moved to a page document.** A section-10 gap that moved to a page document (§UI20.5.1)
+keeps its number here as a one-line pointer —
+`N. **Moved to the page documents.** <title> — now <UI/Pages/X.md §6 item M, …>.` — with no
+`(needs issue)` tag and no marker pointing at it, so citations of its number stay valid and the
+sweep counts the gap once; the page item says where it was copied from.
+
+**Relocated rules.** A rule relocated from this file keeps the number of the section it came
+from as its source tag — `*(§UI20.6.2)*`. The tag is provenance, and works like a
+*(formerly …)* annotation: a grep for the old number lands on the rule's new home.
+§UI20.6.1–§UI20.6.3 are pointer stubs, so a document cites the component document for their
+content, never those numbers. They stand in three places only: the **Relocated from** bullet,
+the provenance tag, and prose whose subject is the old section itself.
+
+**The role matrix.** Section 3.4 is a table with the same six persona columns in every
+document:
+
+| Column | Who |
+| --- | --- |
+| Anonymous | no signed-in identity |
+| Signed-in reader | signed in; holds none of the tiers below; does not own the thing on screen |
+| Owner | the account whose id matches the owner of the thing on screen (`[OWNER]`, matched on the account id, never a display name), holding none of the tiers below; each document says what owning means for it — a content item's contributor, a comment's author |
+| Reviewer | holds `Reviewers` at a scope the component composes; not the owner |
+| Publisher | holds `Publishers` at a scope the component composes; not the owner |
+| Administrator | holds `Administrators`; not the owner |
+
+A combined state — an owner who also holds a tier, any persona holding a `ReadOnly` role at any
+scope — is a **row condition**, never an extra column. A cell is `✅ Yes` or `❌ No`, with a
+footnote marker (`✅ Yes¹`) where an extra condition applies, and `➖ n/a` only where the row
+cannot apply to that persona. The rows cover every gated affordance under each property state
+that changes it. A component with no role gate still has the matrix, and says so.
+
+**The security and access matrix** (user rulings 2026-09-27). Section 5 opens with it, before its
+first rule: an unnumbered table headed **Security and access matrix**, with one row per action
+the component offers — every button, link, hook-raising control and gated view:
+
+| Action | Offered to | Blocked by | A blocked-role holder | A signed-out reader | The server decides |
+| --- | --- | --- | --- | --- | --- |
+
+- **Offered to** — the grant: the persona or role set, as the component composes it.
+- **Blocked by** — the read-only roles that withhold the action, composed for what the component
+  represents (§UI20.6.6 rule 3) — a tag suggestion is blocked by `ReadOnly` and `Tag-ReadOnly`, for
+  example — or *none*, with its source.
+- **A blocked-role holder** — ✅ Allowed or ❌ Refused, and what they see instead.
+- **A signed-out reader** — offered, and the hook it raises for the page (§UI20.6.6 rule 2), or
+  not offered.
+- **The server decides** — the design rule that decides the action again on the server, since the
+  render gate is a courtesy (§SEC14.6) — `§SEC14.7 posture A′ rule 1`, for example.
+
+Every cell rests on a source, as a rule does, given in the row or in a footnote. A row carries
+the `?` and `≠` markers as a role-matrix row does, at the end of its first cell. The matrix
+stands beside the section 3.4 role matrix and does not replace it; where the two could disagree,
+they must not.
+
+**Citation form.** A component document has no prefix, so it is cited by its path relative to
+`Documentation/Design/` and a number (§IDX1.5), the whole citation inside one code span:
+`UI/Components/ContentItemPanel.md rule 2.4` for a business rule,
+`UI/Components/ContentItemPanel.md rule 3.2.1` for a presentation rule,
+`UI/Components/ContentItemPanel.md rules 2.1–2.9` for a range,
+`UI/Components/ContentItemPanel.md §7` for a section and
+`UI/Components/ContentItemPanel.md §10 item 3` for a section-10 item — the same form
+everywhere, inside the folder too. Inside a component document, a reference to its own section
+or rule is written `section 4.1` or `rule 3.1.4`, never with a section sign: a section sign
+before an unprefixed dotted number is the bare dotted number §IDX1.5 forbids inside
+`Documentation/`, and every unprefixed number is also an old number of `G2H Design.md`. The
+header bullets **Parent**, **Children**, **Composes** and **Used by** link the documents they
+name with relative markdown links; a citation anywhere else, the **Inherits** bullet included,
+is the code-span form. Code paths are backticked and
+repository-relative.
+
+#### UI20.6.5 Pass-through properties *(new; user ruling 2026-09-26)*
+
+Presentation components use pass-through properties: a parent takes, and hands down unchanged,
+the properties that control each child it renders, so the page can configure the whole tree from
+the top (prop drilling).
+
+Whenever a presentation component is developed or changed, the planner checks that each parent
+that renders it can control it this way — through prop drilling, or pass-through properties.
+
+**Scope — documented children only.** The check covers parent→child control between components
+that have component documents (§UI20.6.4), a root's faces documented inside its file included.
+A core-UI primitive a component renders — `ConfirmDialog`, `Avatar`, `Spinner`, `Card`,
+`Button`, `FormSwitch` and the like — is styled through the parent's own CSS-class and text
+properties, and a setting the parent fixes on it, such as an `Avatar` size, is not a gap
+(user ruling 2026-09-26).
+
+**Exceptions — renamed or withheld, if recorded.** A parent may hand a property down under
+another name — where two names collide, for example — or deliberately withhold one, provided
+its document records the exception and why. Reachability, not the name, is what the check asks
+(user ruling 2026-09-26). A withholding is deliberate only where the code, a test or a design
+rule says so; an omission nobody gave a reason for is a gap.
+
+Each component document records the pass-through in its section 4.3, in both directions: a
+parent names which of its properties reach which child, unchanged; a child names which parent
+properties drive it. Section 4.3 also records each exception: the property, the name it takes
+or that it is withheld, and why. Every other child property its parent cannot reach today is a gap in the
+document's section 10, tagged as `design.md`'s *Conventions* rule for a component document's
+gaps, with the evidence — the parent file, and the property it does not forward.
+
+#### UI20.6.6 Rules every presentation component follows *(new; user rulings 2026-09-27)*
+
+Every presentation component follows these five rules. A component that falls short of one
+carries the divergence marker against a tagged section-10 gap in its document (§UI20.6.4, case
+2).
+
+1. **Every visible string is a property**, whose default is today's text, so a consumer need set
+   nothing and may override anything. A string written for a screen reader alone — an accessible
+   name, or visually hidden text — is a property on the same terms. This is a Must for every
+   component.
+2. **Sign-in is the page's; the component raises a hook.** A signed-out reader who tries to
+   contribute or act raises the component's hook; the page sends them to the sign-in page
+   carrying where they came from, and they return to exactly that place afterwards. One case
+   returns them further on: a reader who accepts the invitation to contribute is returned to the
+   contribution form it leads to, `/posts/contribute`, the place their press was heading for,
+   rather than to the page they pressed it on (user ruling 2026-09-27). There are no
+   sign-in pop-up modals. Sign-in is a global action: one reusable way every page uses, so the
+   sign-in route is defined once. A reader whose sign-in state has not yet been read back is not
+   sent to sign in.
+3. **Blocked roles are stated per action, in a security and access matrix.** Every component
+   document opens its section 5 with one, in the form §UI20.6.4 gives. The component composes its
+   read-only roles itself from what it represents (§SEC18.6: `ReadOnly`, `%EntityType%-ReadOnly`,
+   `ContentItem-%ContentType%-ReadOnly`). **No component takes a blocking-role list from its
+   page**: none has a property for one — the `blockRoles` property the content item form once took
+   is retired (user ruling 2026-09-27) — and a page can neither add to nor remove from the roles
+   a component composes. What a page may hand a component is data the component composes roles
+   from, such as the content type of the post an association panel hangs off. Each component's
+   security and access matrix says which read-only roles it composes, and says that no page
+   supplies them. Where a ruling or
+   design rule does not settle what a blocked-role holder may do for an action, the planner asks
+   the user, and the document records it as a section-10 question until then.
+4. **No dead actions.** An action whose hook nothing handles yet is a gap the planner plans end to
+   end — every task from the presentation layer down to the API, with API work planned too where
+   it is needed — one UI feature at a time: Likes first, then Save, Share and Comments.
+5. **Every loading state is announced** — `role="status"` or equivalent — consistently in every
+   component. A saving or submitting state — a write in flight — is announced on the same terms.
 
 ### UI20.7 Navigation *(formerly §20.7)*
 
@@ -267,6 +660,19 @@ Navigation must support three levels:
 3. **Role-restricted routes** — require a specific role such as `Reviewers` or `Administrators`. Includes approval actions and admin dashboard.
 
 Route guards should redirect unauthenticated users to the login page and unauthorised users to a 403 or not-found page.
+
+The layout — the header, the footer and the off-canvas menu — is on every page, so where its links
+lead is ruled here, with the Bible reader's, whose page has no document yet (§UI20.5.1):
+
+4. **The layout's and the Bible reader's links to the ported blog's pages lead to the journal's
+   search, `/posts`,** with any value carried in the query string (`UI/Pages/Posts.md rule 2.21`;
+   user ruling 2026-09-27). The header's *Search*, the footer's *Journal* and *Authors*, and the
+   off-canvas menu's *Our Journal* lead to `/posts`. The Bible reader,
+   `/BibleReferences/BibleReader`, leads each of its passage's tags to `/posts` with the tag. Each of
+   the footer's topic links leads to `/posts` with its word as a tag (user ruling 2026-09-27). A
+   value handed over lands in its own box, never in the free-text query
+   (`UI/Pages/Posts.md rule 2.22`). The code departs from this rule:
+   `UI/Pages/Home.md §6 items 12 and 15`.
 
 ### UI20.8 Authentication *(formerly §20.8)*
 

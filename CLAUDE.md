@@ -22,10 +22,14 @@ mockup becomes a feature, its user stories and tasks, and merged code.
   `Documentation/G2H Design.md` holds the overview and principles, the numbering
   and citation rules (§IDX1.5), and the map of pre-split section numbers. `Approval.md` and `UI.md` hold two areas designed before features had
   documents of their own. The feature and user story documents under
-  `Documentation/DesignFeatures/` hold what each feature does and how it is
-  built, citing the rules above them and never restating them, with any
-  deviation recorded and reasoned. The design on main is authoritative. An issue
-  that disagrees with it is stale intent, not an instruction; correct the issue.
+  `Documentation/DesignFeatures/` — and, for a presentation component, its
+  documents under `Documentation/Design/UI/Components/` (§UI20.6.4) — hold what
+  each feature does and how it is built, citing the rules above them and never
+  restating them, with any deviation recorded and reasoned. A page's document
+  under `Documentation/Design/UI/Pages/` (§UI20.5.1) holds its layout, the
+  components it renders and what it does with each of their hooks. The design
+  on main is authoritative. An issue that disagrees with it is stale intent, not
+  an instruction; correct the issue.
 - **The CI gates** — `.github/workflows/prLinter.yml` holds the authoritative PR
   title prefixes and fails any PR whose body links no issue or task. `Closes
   #<n>` is the preferred form; `fixes`/`resolves` (and their past-tense
