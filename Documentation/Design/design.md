@@ -71,11 +71,12 @@ before features had documents of their own. A new feature gets a feature documen
 
 ### Features
 
-*None yet.* Add each feature as its document is written, with its sub-features
-and user stories beside it:
+Add each feature as its document is written, with its sub-features and user
+stories beside it:
 
 | Feature | Sub-features | User stories |
 | --- | --- | --- |
+| [Likes.md](../DesignFeatures/Likes.md) | none | [Backend/StorageClient.md](../DesignFeatures/Backend/StorageClient.md), [Backend/StorageBroker.md](../DesignFeatures/Backend/StorageBroker.md), [Backend/AccessBroker.md](../DesignFeatures/Backend/AccessBroker.md), [Backend/EntityTypePersonalisation.md](../DesignFeatures/Backend/EntityTypePersonalisation.md), [Backend/ContentItemService.md](../DesignFeatures/Backend/ContentItemService.md), [Backend/ReactionService.md](../DesignFeatures/Backend/ReactionService.md), [Backend/AssociationService.md](../DesignFeatures/Backend/AssociationService.md), [Backend/AssociationOrchestrationService.md](../DesignFeatures/Backend/AssociationOrchestrationService.md), [Backend/ApprovalOrchestrationService.md](../DesignFeatures/Backend/ApprovalOrchestrationService.md), [Backend/AssociationsController.md](../DesignFeatures/Backend/AssociationsController.md), [UI/AssociationBroker.md](../DesignFeatures/UI/AssociationBroker.md), [UI/AssociationService.md](../DesignFeatures/UI/AssociationService.md), [UI/ContentItemEngagement.md](../DesignFeatures/UI/ContentItemEngagement.md) |
 
 ### Presentation components
 

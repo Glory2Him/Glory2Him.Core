@@ -247,7 +247,7 @@ page is a courtesy (§SEC14.6).
    `contentItemSettings ?? []` (line 86). The page's error answers the item read alone (rule
    2.16), so a failed settings read still shows the card. The page's heading already names the
    type while the settings are on their way (rule 2.4). The same gap on `/` is `UI/Pages/Home.md §6 item 1`.
-2. (needs issue) **Page gap — the page does not act on a chosen reaction.** Copied from
+2. (#743) **Page gap — the page does not act on a chosen reaction.** Copied from
    `UI/Components/ContentItemPanel.md §10 item 17`, this page's share. A signed-out reader who
    chooses a reaction is to be sent to sign in, with return information that brings them back
    afterwards, and a signed-in reader's reaction recorded or cleared
@@ -260,6 +260,12 @@ page is a courtesy (§SEC14.6).
    Recording and withdrawing the reader's own reaction (§ARC16.8.1, designed and not yet built) are this item's work, and so is the redirect, which uses the one
    reusable sign-in action (`UI/Pages/Home.md §6 item 3`), and must not fire while the reader's
    sign-in state is still being read. The same gap on `/` is `UI/Pages/Home.md §6 item 2`.
+   **The card's counts are this item's work too** (the Likes feature, `DesignFeatures/Likes.md`).
+   The page reads no reaction summary, so the card shows none of the reactions its item has been
+   given, and the reader's own reaction is the visit's page state rather than the one they hold
+   (`toContentItemSearchItem.ts` leaves `reactionSummary` unset, lines 71-83). The page hands
+   `useContentItemEngagement` the id of its one card and renders what `withReactions` projects
+   (`DesignFeatures/UI/ContentItemEngagement.md §1`; §ARC16.8).
 3. (needs issue) **Save has nothing behind it.** The card offers Save (rule 2.12), and the
    handler only says *Saving posts is coming soon.* (`useContentItemEngagement.ts`, line 51), to a
    signed-out reader too. Save has no design yet. The same gap, and its plan under §UI20.6.6 rule 4, is

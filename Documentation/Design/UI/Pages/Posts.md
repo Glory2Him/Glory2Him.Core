@@ -218,7 +218,7 @@ Every write a card leads to is decided again by the service (§SEC14.6).
    `contentItemSettings ?? []` (lines 81 and 131). The page's alert answers the list read alone
    (rule 2.18), so a failed settings read still shows the cards. The same gap on `/` is
    `UI/Pages/Home.md §6 item 1`.
-2. (needs issue) **Page gap — the page does not act on a chosen reaction.** Copied from
+2. (#742) **Page gap — the page does not act on a chosen reaction.** Copied from
    `UI/Components/ContentItemPanel.md §10 item 17`, this page's share. A signed-out reader who
    chooses a reaction is to be sent to sign in, with return information that brings them back
    afterwards, and a signed-in reader's reaction recorded or cleared
@@ -230,6 +230,12 @@ Every write a card leads to is decided again by the service (§SEC14.6).
    the one reusable sign-in action (`UI/Pages/Home.md §6 item 3`), and must not fire while the
    reader's sign-in state is still being read — the guard the card holds today. The same gap on
    `/` is `UI/Pages/Home.md §6 item 2`, whose evidence stands for this page too.
+   **The cards' counts are this item's work too** (the Likes feature, `DesignFeatures/Likes.md`).
+   The page reads no reaction summary, so no card shows the reactions its item has been given,
+   and the reader's own reaction is the visit's page state rather than the one they hold
+   (`toContentItemSearchItem.ts` leaves `reactionSummary` unset, lines 71-83). The page hands
+   `useContentItemEngagement` the ids of each page of cards it has delivered and renders what
+   `withReactions` projects (`DesignFeatures/UI/ContentItemEngagement.md §1`; §ARC16.8).
 3. (needs issue) **View and Edit lead to the wrong places.** Rules 2.8 and 2.9 send View to
    `/posts/{id}` and the owner's Edit to `/myposts/{id}` in edit mode. The card has no View
    (`UI/Components/ContentItemPanel.md §10 item 20`), and the list relabels the owner's Edit as
