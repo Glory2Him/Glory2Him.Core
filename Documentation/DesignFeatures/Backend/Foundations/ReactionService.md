@@ -26,7 +26,7 @@ ValueTask<Reaction> AddReactionAsync(
 ```
 
 1. **A negative `SortOrder` is refused** with the add's validation exception, which names `SortOrder`, and nothing is written (§DOM5.2). `0` and every positive value are admitted.
-2. **Both doors refuse it.** `OnAddingReactionAsync` runs the same `DoAddReactionAsync` and its validation, so the task proves the refusal on the direct path and on the event path, and neither door changes otherwise.
+2. **The event door is out of scope.** `OnAddingReactionAsync` runs the same `DoAddReactionAsync` and its validation, so the rule reaches that door by construction. The task proves it on the direct path, as `planner.md` proves what a shared body owns.
 
 ## 3. ModifyReactionAsync (#751)
 
@@ -37,5 +37,5 @@ ValueTask<Reaction> ModifyReactionAsync(
 ```
 
 1. **A negative `SortOrder` is refused** with the modify's validation exception, which names `SortOrder`, before storage is read or written (§DOM5.2). `0` and every positive value are admitted.
-2. **Both doors refuse it**, the event path through `OnModifyingReactionAsync` running the same `DoModifyReactionAsync`, as in §2.
+2. **The event door is out of scope**, as in §2: `OnModifyingReactionAsync` runs the same `DoModifyReactionAsync`.
 3. **Nothing else about modify changes.** `SortOrder` is content under §ARC12.3.1 shared rule 1, so it is not pinned against storage, and an approved or rejected reaction's order is as fixed as its name: shared rule 9 refuses the amendment already.

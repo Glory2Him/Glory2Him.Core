@@ -14,5 +14,10 @@ public int SortOrder { get; set; } = 1000;
 1. **The entity defaults `SortOrder` to `1000`**, the column's default, so a reaction built without an order sorts after the curated ones rather than first.
 2. **The column is required, carries a store default of `1000`, and is `ValueGeneratedNever()`.** The store default serves a raw-SQL insert that names no column. `ValueGeneratedNever()` makes EF always send what the entity holds, so a `0` the caller set is stored as `0` and not replaced by the default (#395). `StorageBrokerStoreDefaultTests` fails without it.
 3. **A new migration adds the column and backfills the five seeded reactions by id** — `10`, `20`, `30`, `40` and `50` for Amen, Love, Joy, Moved and Praying — leaving any other row at `1000`. The seed only inserts a reaction that is missing, so without the backfill every database that has already booted would keep its five rows on `1000`, in an order nobody chose. The `UPDATE` is wrapped in `EXEC`: the deploy path runs the idempotent script as one batch, and SQL Server compiles the whole batch before the new column exists (the comment above the `UPDATE` in `20260830160539_AddSortOrderToContentItemSettings`).
-4. **The seed writes the same five values**, so a fresh database and a backfilled one agree. The values are §DOM5.2's; the seed and the backfill change together.
-5. **No index.** The vocabulary is a handful of rows, read whole.
+4. **No index.** The vocabulary is a handful of rows, read whole.
+5. **The model and its migration are one task.** `planner.md` carves a model and its migration as separate groundwork, but CI's `has-pending-model-changes` step (`build.yml:238`) fails a model change that no migration carries, so neither could merge alone.
+
+## 2. The vocabulary's seed (#754)
+
+1. **The seed writes the same five values** as §1's backfill, so a fresh database and a backfilled one agree. The values are §DOM5.2's, and the seed and the backfill change together.
+2. **The seed keeps its posture:** it inserts only a reaction that is missing and never amends one, which is why §1's migration carries the backfill.

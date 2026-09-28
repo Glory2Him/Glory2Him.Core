@@ -47,13 +47,15 @@ The feature's own user stories, bottom up. Each names this document as its paren
 | [UI/Brokers/AssociationBroker.md](UI/Brokers/AssociationBroker.md) | broker — `AssociationBroker` |
 | [UI/Foundations/AssociationService.md](UI/Foundations/AssociationService.md) | foundation service — `associationService` |
 | [UI/Brokers/ReactionBroker.md](UI/Brokers/ReactionBroker.md) | broker — `ReactionBroker` |
+| [UI/Views/ContentItemReactionOption.md](UI/Views/ContentItemReactionOption.md) | view — `toContentItemReactionOption` |
+| [UI/Views/ChosenReactionSummary.md](UI/Views/ChosenReactionSummary.md) | view — `toChosenReactionSummary` |
+| [UI/Hooks/SignIn.md](UI/Hooks/SignIn.md) | hook — `useSignIn` |
 | [UI/Hooks/ContentItemEngagement.md](UI/Hooks/ContentItemEngagement.md) | hook — `useContentItemEngagement` |
 
 The rest of the UI is already designed in the documents the presentation components and pages own (§UI20.6.4, §UI20.5.1), and this feature's tasks are carved from their gaps:
 
 | Document and gap | What it is |
 | --- | --- |
-| `UI/Pages/Home.md §6 item 3` | the one reusable sign-in action (§UI20.6.6 rule 2) |
 | `UI/Pages/Home.md §6 item 2`, `UI/Pages/Posts.md §6 item 2`, `UI/Pages/PostDetail.md §6 item 2`, `UI/Pages/MyPosts.md §6 item 2`, `UI/Pages/MyPostDetail.md §6 item 4`, `UI/Pages/ContentItemModerationPage.md §6 item 2`, `UI/Pages/ContentItemModerationDetailPage.md §6 item 3` | each page's share: its cards' counts and the reader's own reaction read from the server, and the reaction recorded and withdrawn |
 | `UI/Components/ContentItemPanel.md §10 item 12` | the card stops sending a signed-out reader to sign in itself |
 
@@ -61,7 +63,7 @@ The rest of the UI is already designed in the documents the presentation compone
 
 ## Entity count, events and storage
 
-**Entity count.** The give, change and withdraw flow spans **three** entities — `Association`, `ContentItem` and `Reaction` — plus the `ContentItemSetting` the facet gate asks through `IAccessBroker`, a broker (§ARC16.2.1). The summary read spans **four**: `Association`, `Reaction`, `ContentItem` and `ContentItemSetting` (§ARC16.8). Both are `AssociationOrchestrationService`'s, which already holds seven entity services and is recorded as breaking the dependency-count guidance (§ARC12.5 entry 1's provisional note). **This feature adds no service dependency to it**: `IAccessBroker` is a broker, outside the Florance count (§ARC12.5, *an orchestration holds brokers*). The approval change spans `Approval`, `ApprovalReview` and the association, and adds one subscription to `ApprovalOrchestrationService`, not a dependency (§ARC16.2.2).
+**Entity count.** The give, change and withdraw flow spans **three** entities — `Association`, `ContentItem` and `Reaction` — plus the `ContentItemSetting` the facet gate asks through `IAccessBroker`, a broker (§ARC16.2.1). The summary read spans **four**: `Association`, `Reaction`, `ContentItem` and `ContentItemSetting` (§ARC16.8). Both are `AssociationOrchestrationService`'s, which already holds seven entity services and is recorded as breaking the dependency-count guidance (§ARC12.5 entry 1's provisional note). The owner approved a named deviation for that count on 2026-09-28 (`Backend/Orchestrations/AssociationOrchestrationService.md`, *Deviations*). **This feature adds no service dependency to it**: `IAccessBroker` is a broker, outside the Florance count (§ARC12.5, *an orchestration holds brokers*). The approval change spans `Approval`, `ApprovalReview` and the association, and adds one subscription to `ApprovalOrchestrationService`, not a dependency (§ARC16.2.2).
 
 **Events.** Two new facts, both on `AssociationService`, and one new subscription (§ARC16.2.2):
 
@@ -108,4 +110,4 @@ None. The first draft carried three, and the owner ruled on all three on 2026-09
 
 ## Deviations
 
-None at the feature level. The controller's response codes depart from two rules of `the-standard-exposers`; `Backend/Controllers/AssociationsController.md` records both, and the owner approved both on 2026-09-28.
+None at the feature level. The controller's response codes depart from two rules of `the-standard-exposers`; `Backend/Controllers/AssociationsController.md` records both, and the owner approved both on 2026-09-28. `Backend/Orchestrations/AssociationOrchestrationService.md` records two more, both approved the same day: the service's dependency count, and the summary's viewer members for a reaction outside the public vocabulary.

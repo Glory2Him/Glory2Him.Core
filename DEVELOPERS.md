@@ -735,6 +735,8 @@ field on that command. Use the REST endpoint above.
 
 ## 8. A worked example
 
+*This example follows the Template's generic layout, where a panel is a UI user story. This repository documents a presentation component under `Documentation/Design/UI/Components/` instead, where a root component is a feature (§UI20.6.4). Here, `UI/Components/SavedSearchesPanel.md` would be that document, cited from `Design/`, not a user story under `DesignFeatures/`.*
+
 "Add a saved-searches panel." UI work, and **there is no design yet** — someone
 has a picture and an intention. The design comes first and the tasks fall out of
 it.

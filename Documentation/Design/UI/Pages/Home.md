@@ -294,7 +294,8 @@ write a card leads to is decided again by the service (§SEC14.6).
    query is `UI/Pages/MyPosts.md §6 item 7`.
    **The Likes feature builds the action and its plain return** — back to exactly the place the
    reader left, path, query and fragment — because Like is its first user
-   (`DesignFeatures/Likes.md` rule 4). **The invitation's exception is built with item 10**,
+   (`DesignFeatures/Likes.md` rule 4), as the user story `DesignFeatures/UI/Hooks/SignIn.md`.
+   **The invitation's exception is built with item 10**,
    which is its first user: the return on to `/posts/contribute`, with the origin surviving the
    sign-in step. The card's own redirect goes with the Likes feature
    (`UI/Components/ContentItemPanel.md §10 item 12`); moving the other places that compose the

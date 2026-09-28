@@ -1,0 +1,13 @@
+# Chosen reaction summary
+Parent: [Likes.md](../../Likes.md)
+Level: view — `toChosenReactionSummary` (`Websites/Glory2Him.WebApp.React/src/services/views/contentItems/toChosenReactionSummary.ts`), new
+Inherits: §ARC16.8 (*The projection*), Likes.md rules 3 and 5a
+
+Between a reader's choice and the next read, their card shows an optimistic overlay (`UI/Hooks/ContentItemEngagement.md §2`). This view service computes the counts that overlay shows, so the hook only decides when an overlay is laid and when it goes.
+
+## 1. toChosenReactionSummary (#756)
+
+1. **It returns the summary the card shows until the next read.** It takes the item's `reactionSummary`, the reaction the reader holds (or none), the reaction they chose (or none, for a withdrawal) and the options in the vocabulary's order. It never changes what it is handed.
+2. **The chosen reaction's count goes up by one and the held one's down by one**, and a withdrawal takes one from the held reaction.
+3. **An entry that reaches nought leaves the summary**, as a reaction nobody gave never appears (§ARC16.8, *A reaction with a zero count does not appear*).
+4. **An entry the choice adds takes its place in the options' order**, which is the vocabulary's (`UI/Brokers/ReactionBroker.md §1`), so the cluster does not reorder when the next read lands (§ARC16.8, *The projection*; Likes.md rule 5a).
