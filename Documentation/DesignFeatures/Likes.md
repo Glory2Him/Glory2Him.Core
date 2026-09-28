@@ -1,6 +1,6 @@
 # Likes
 Epic: [INTENT.md](../../INTENT.md)
-Inherits: §DOM4.2, §DOM4.4–§DOM4.6, §DOM4.10, §DOM5.2, §DOM6.4, §DOM6.10, §SEC14.1, §SEC14.3, §SEC14.5, §SEC14.6, §SEC14.7 posture A′, §SEC18.6, §APR7.5.1, §APR8.4, §APR8.8, §APR9.7.4, §APR9.8, §APR9.9, §ARC12.2.1, §ARC16.2.1, §ARC16.2.2, §ARC16.8, §ARC16.8.1, §ARC17.4, §EVN2, §EVN13, §UI20.6.6
+Inherits: §DOM4.2, §DOM4.4–§DOM4.6, §DOM4.10, §DOM5.2, §DOM6.4, §DOM6.10, §SEC14.1, §SEC14.3, §SEC14.5, §SEC14.6, §SEC14.7 posture A′, §SEC18.6, §APR7.5.1, §APR8.4, §APR8.8, §APR9.7.4, §APR9.8, §APR9.9, §ARC12.2.1, §ARC12.3.1, §ARC16.2.1, §ARC16.2.2, §ARC16.8, §ARC16.8.1, §ARC17.4, §EVN2, §EVN13, §UI20.6.6
 Mockups: none. The card's Like control is built and documented (`UI/Components/ContentItemPanel.md rule 3.1.8`, `UI/Components/ContentItemPanel.Default.md rule 3.1.7`); what it lacks is the write behind it and the counts it shows.
 Design task: #706
 
@@ -17,12 +17,14 @@ Every card on the site offers Like, and nothing stands behind it. A chosen react
 3. **Choosing the reaction they already hold withdraws it.** A second press of the same choice is a change of mind, not a second reaction (code: `useContentItemEngagement.ts` — "The same choice again is a change of mind — withdrawn, not doubled"; test: `postDetail.test.tsx` — "should withdraw the reaction when the reader chooses it again"). Giving or changing is a `POST`, withdrawing a `DELETE` (`UI/Components/ContentItemPanel.md §5`, the Like row).
 4. **A signed-out reader who chooses a reaction is sent to sign in**, and returns to exactly where they were; a reader whose sign-in state has not been read back yet is not sent (§UI20.6.6 rule 2, `UI/Components/ContentItemPanel.md rule 3.2.4`).
 5. **Every reader sees each item's reaction counts**, signed in or not, and the same counts whoever asks. Only approved reactions count, a reaction nobody gave does not appear, and the total is the client's sum (§ARC16.8).
+5a. **Reactions appear in the vocabulary's order**: the card lists its counts, and the Like control offers its choices, by `Reaction.SortOrder`, lower first, with `Name` breaking a tie (§DOM5.2; §ARC16.8, *The projection*). The owner ruled it on 2026-09-28: *"They should use the sort order of the reaction"*. `Reaction` had no sort order, so this feature adds one, and the seeded five keep their seeded order: Amen, Love, Joy, Moved, Praying.
 6. **A signed-in reader sees their own reaction marked**, even while it waits on review — the glyph pressed and the count unmoved (§ARC16.8, *What a reader sees when their own reaction is not yet `Approved`*).
 7. **The item's winning setting governs reactions.** A reaction is given, changed or revived only where the setting allows reactions, and only Love where it limits reactions to Love; withdrawing is never gated by it (§ARC16.2.1). The card offers only what the setting allows (`UI/Components/ContentItemPanel.md rule 3.1.8`), and an item whose setting hides reactions shows no counts (§ARC16.8, the rule 6 row of *Which rows are counted*).
 8. **A reader's own reaction is not a contribution.** Giving, changing and withdrawing it asks none of the read-only roles, and the lock after review does not reach it (§SEC14.7 posture A′ rule 1, §APR9.9 rule 6).
-9. **A changed reaction goes back through the approval process**, in a round that starts with no reviews; under the seeded personal tier it is approved in the same act (§DOM4.5 rule 4, §APR9.7.4).
+9. **A changed reaction goes back through the approval process**, in a round that starts with no reviews. Its comments and its outstanding review requests stay as they are, as the generic process leaves them (§APR9.7.4, *What else starts empty*, ruled by the owner on 2026-09-28). Under the seeded personal tier the round is approved in the same act (§DOM4.5 rule 4, §APR9.7.4).
 10. **A withdrawn reaction given again comes back at the status it was withdrawn at; a reaction a moderator took down is never revived**, and the attempt looks to the reader like a reaction already pending (§DOM4.10 rules 7 and 8).
 11. **The Like control works on every page that renders the card with it**: `/`, `/posts`, `/posts/{id}`, `/myposts`, `/myposts/{id}`, `/Admin/Posts` and `/Admin/Posts/{id}` (user, 2026-09-28: *"The UI work includes all pages that has this ContentItemPanel"*). `/posts/contribute` renders the card's add face only, which has no Like (`UI/Components/ContentItemPanel.md §1`). The sample pages under `/SamplePages` are excluded (user, 2026-09-28: *"exclude sample pages, they are just mockups"*). The Bible reference page's reaction bar is not the card, and is held for #700 (`UI/Pages/BibleReference.md §6 item 3`).
+11a. **Like is offered on an item that is not public yet**, on the setting alone, as on any other item (the owner, 2026-09-28: *"Yes, I don't mind it being available there"*). By design only `/myposts`, `/myposts/{id}`, `/Admin/Posts` and `/Admin/Posts/{id}` show such an item (*"General users will NEVER see things that are not approved so they have zero scope to see this"*). `/posts/{id}` shows one today only through a gap its own document records (`UI/Pages/PostDetail.md rule 2.1`, §6 item 12). The reaction is recorded, because the write is bound to an endpoint the caller may see (§ARC12.3.1 rule 5a, as §SEC14.3 recalls it). Neither its count nor the reader's own mark shows on that card until the item is public, because the summary answers only for publicly visible items (§ARC16.8, *Anonymity*), so the reader sees their press take effect and then disappear when the next read lands.
 12. (#702) **Counts update live.** A page already showing an item comes to show another reader's reaction without a reload (user, 2026-09-28: *"We will need to consider #702 as well since this mechanism will be required to update like counts in real time on the UI"*). The mechanism is #702's to design (§ARC12.5.2 business rule 12), and its tasks are carved from that design. Until it is built, a reaction moves the counts on the reacting reader's own page only (§ARC16.8, *Where each shared rule lives*).
 
 ## User stories
@@ -35,6 +37,7 @@ The feature's own user stories, bottom up. Each names this document as its paren
 | [Backend/StorageBroker.md](Backend/StorageBroker.md) | broker — `IStorageBroker` |
 | [Backend/AccessBroker.md](Backend/AccessBroker.md) | broker — `IAccessBroker` |
 | [Backend/EntityTypePersonalisation.md](Backend/EntityTypePersonalisation.md) | model — the personal-type lookup |
+| [Backend/Reaction.md](Backend/Reaction.md) | model — `Reaction.SortOrder`, its column, migration and seed |
 | [Backend/ContentItemService.md](Backend/ContentItemService.md) | foundation — `IContentItemService` |
 | [Backend/ReactionService.md](Backend/ReactionService.md) | foundation — `IReactionService` |
 | [Backend/AssociationService.md](Backend/AssociationService.md) | foundation — `IAssociationService` |
@@ -43,6 +46,7 @@ The feature's own user stories, bottom up. Each names this document as its paren
 | [Backend/AssociationsController.md](Backend/AssociationsController.md) | exposer — `AssociationsController` |
 | [UI/AssociationBroker.md](UI/AssociationBroker.md) | broker — `AssociationBroker` |
 | [UI/AssociationService.md](UI/AssociationService.md) | foundation service — `associationService` |
+| [UI/ReactionBroker.md](UI/ReactionBroker.md) | broker — `ReactionBroker` |
 | [UI/ContentItemEngagement.md](UI/ContentItemEngagement.md) | view — `useContentItemEngagement` |
 
 The rest of the UI is already designed in the documents the presentation components and pages own (§UI20.6.4, §UI20.5.1), and this feature's tasks are carved from their gaps:
@@ -70,13 +74,13 @@ The rest of the UI is already designed in the documents the presentation compone
 
 `Association-Upserting` is **not minted** (§ARC16.2.2), so the upsert has no event path. `Association-Adding` keeps its address and its binding (#631), and refuses a reader's reaction (`Backend/AssociationOrchestrationService.md §2`).
 
-**Storage and migration.** **No migration.** The one-live-row-per-reader guarantee is `UX_Associations_PersonalPair`, built by #627 (`20260923220407_SplitAssociationPairIndexIntoEditorialAndPersonal`, §DOM4.6 rule 2). **No seed change**: the reaction vocabulary is seeded (`ReactionSeedData.cs`), and so is the `(Association, IsPersonal = true)` approval tier that closes a reaction's round on submission (`ApprovalSettingSeedData.cs:202-211`). No role is added.
+**Storage and migration.** **One migration**, for rule 5a: it adds `Reactions.SortOrder` and backfills the five seeded reactions (`Backend/Reaction.md §1`). Nothing else needs one. The one-live-row-per-reader guarantee is `UX_Associations_PersonalPair`, built by #627 (`20260923220407_SplitAssociationPairIndexIntoEditorialAndPersonal`, §DOM4.6 rule 2). **One seed change**, for the same rule: the vocabulary's seed writes each reaction's sort order (`ReactionSeedData.cs`). The `(Association, IsPersonal = true)` approval tier that closes a reaction's round on submission is seeded already (`ApprovalSettingSeedData.cs:202-211`). No role is added.
 
 **The storage client gains one terminal shape** of the three §ARC12.2.1 rule 3 names — the matching rows, optionally projected — and the storage broker a pass-through per entity this feature reads, so every new read here asks its question through a query-shaping function its caller authors and the client awaits (§ARC12.2.1 rules 1–3). The other two shapes, and converting the reads that exist, are §ARC12.2.1's own work and not this feature's.
 
 ## Risks
 
-**Reversible.** Everything here is code: no schema changes, no column, no index. `AddAssociationAsync` is renamed `UpsertAssociationAsync` on the orchestration (§ARC16.8.1), and nothing outside the solution calls it — no controller serves it yet.
+**Reversible.** Everything here is code but one column, `Reactions.SortOrder`, whose migration's `Down` drops it; there is no new index and no new constraint. `AddAssociationAsync` is renamed `UpsertAssociationAsync` on the orchestration (§ARC16.8.1), and nothing outside the solution calls it — no controller serves it yet.
 
 **Not reversible.** The two new event names, `Association-Restored` and `Association-Repointed`, and their stable identifiers: an event name sits inside the envelope's signature, and an identifier never changes once deployed (`EventBrokerIdentifiers.cs`). The new `AssociationSuggestionStatus` member crosses the wire as a number, so it is appended and never renumbered.
 
@@ -95,14 +99,13 @@ The rest of the UI is already designed in the documents the presentation compone
 - **The set-scope pre-check's personal key**, and whether set-scope may change a personal row at all (§DOM4.6, open).
 - **`ApprovalId` on the association row** (§SEC14.7 posture A rule 5, #699, not built). When it is built, the upsert's arms take it from the stored row as that rule says.
 - **Converting the storage broker's existing reads** to query-shaping functions (§ARC12.2.1), and the client's other two terminal shapes.
+- **A surface for setting a reaction's sort order.** No page manages the vocabulary. `POST` and `PUT api/Reactions` carry `SortOrder` as they carry `Name`, and an approved reaction's order is as fixed as its name (§ARC12.3.1 shared rule 9).
 - **Registering `AssociationOrchestrationService` correctly in Core's own registration helper** (§ARC12.5, the singleton note). The host registers it scoped, which is the registration this feature runs under.
 
 ## Open questions
 
-1. **What else a changed reaction's round starts without** — its comments and its outstanding review requests (§APR9.7.4, *Open for the owner*, since #685). The approval ear dismisses the old pair's reviews and nothing more, as designed. Only a tier that requires review has either, so the seeded personal tier is unaffected.
-2. **The order of the reactions in a summary.** §ARC16.8 does not rule one, so the read returns them unordered and its tests compare them as a set. The card renders them in the order it is handed.
-3. **Like on an item that is not public yet.** `/myposts`, `/myposts/{id}`, `/Admin/Posts` and `/Admin/Posts/{id}` show items that are not public — a reader's own draft, a round under review — and the card offers Like on them as on any other, on the setting alone (`UI/Components/ContentItemPanel.md rule 3.1.8`). The upsert admits the reaction, because the write is bound to an endpoint the caller may see — public, their own, or one their review role covers (§ARC12.3.1 rule 5a, as §SEC14.3 recalls it) — but the summary answers only for publicly visible items (§ARC16.8, *Anonymity*), so neither the count nor the reader's own mark shows on that card until the item is public; the reader sees their press take and then fall away when the next read lands. Whether the card should offer Like on an item that is not public is not ruled, and nothing here changes it.
+None. The first draft carried three, and the owner ruled on all three on 2026-09-28. Each is folded in: what a changed reaction's round keeps (rule 9), the order of the reactions (rule 5a), and Like on an item that is not public yet (rule 11a).
 
 ## Deviations
 
-None at the feature level. The controller's response codes depart from two rules of `the-standard-exposers`, and `Backend/AssociationsController.md` records both.
+None at the feature level. The controller's response codes depart from two rules of `the-standard-exposers`; `Backend/AssociationsController.md` records both, and the owner approved both on 2026-09-28.

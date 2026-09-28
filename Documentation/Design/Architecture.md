@@ -234,7 +234,7 @@ Current intended foundation services:
 
 2. **On update the foundation pins named fields against storage; it does not load-and-map.** The earlier wording — *"loads the current entity from storage and maps only the permitted caller-supplied fields onto it"* — describes a mechanism **no service implements**. Each service reads the stored row, runs `ValidateAgainstStorage<Entity>OnModify` to refuse changes to an enumerated pin list, and then writes **the caller's own object**. **`ApprovalId` is not on that list**, and must not be put on it: every write but the insert takes it from the stored row onto the object it writes, whatever the caller's copy carries, and neither compares nor refuses it (§APR9.7.1, *`ApprovalId` is the one exception*; §APR7.4 item 6 — not yet built).
 
-    The difference is not academic: a load-and-map is closed by default and a pin list is open by default, so anything absent from the pin list is silently writable. That is exactly why the gaps in rule 1 exist, and why the natural-key question in rule 2a below has the answer it does. The permitted content fields remain `Name` (`Tag`), `Name` and `UnicodeEmoji` (`Reaction`), `Content` (`Comment`), and `Reference`, `Translation`, `Scripture` (`BibleReference`).
+    The difference is not academic: a load-and-map is closed by default and a pin list is open by default, so anything absent from the pin list is silently writable. That is exactly why the gaps in rule 1 exist, and why the natural-key question in rule 2a below has the answer it does. The permitted content fields remain `Name` (`Tag`), `Name`, `UnicodeEmoji` and `SortOrder` (`Reaction`; `SortOrder` ruled 2026-09-28 and not yet built, §DOM5.2), `Content` (`Comment`), and `Reference`, `Translation`, `Scripture` (`BibleReference`).
 
 2a. **Natural keys are not uniformly protected, and the asymmetry is real.** These three fields are the §APR7.5.1 rule 4 ground for their types being Single-Row, so a rename is a structural act rather than an edit:
 
@@ -1226,6 +1226,8 @@ Both neighbours are pointed at rather than copied; a rule stated twice is a rule
 | `Count` | `int` | **Aggregate** — over the counted set below, which is the `Association` rows satisfying all six §SEC14.3 rules for this host, **grouped by `(EntityAEffectiveId, EntityBKeyId)`**: one result row per reaction per host. |
 
 **The wire carries the entity's names, not the view's** — `Name` and `UnicodeEmoji` per §DOM5.2, never `label` or `glyph`. Renaming into the view's vocabulary is the view service's job.
+
+**`Reactions` is in the vocabulary's order** — `Reaction.SortOrder`, lower first, with `Name` breaking a tie (§DOM5.2) — and the card renders it in the order it is handed (ruled by the owner, 2026-09-28: *"They should use the sort order of the reaction"*; not yet built). The order is the vocabulary read's, and the orchestration keeps it rather than sorting again.
 
 **The total is a client sum and is not a carried field.** The sum of the returned counts *is* the total by construction, since every counted row belongs to exactly one reaction, so carrying one would be a second source of truth for a derived number — and two independently computed numbers eventually disagree. The client already sums, at `contentItemDefaultPanel.tsx:136-137`.
 

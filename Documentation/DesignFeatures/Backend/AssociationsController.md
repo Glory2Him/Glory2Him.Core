@@ -36,7 +36,7 @@ The shared mapping for this controller's actions: a validation exception whose i
 
 ## Deviations
 
-Two, both from `the-standard-exposers`, and both proposed here for approval with this document:
+Two, both from `the-standard-exposers`, and both approved by the owner on 2026-09-28 (*"I agree with this"*):
 
 1. **ts-exposers-003 — *"POST endpoints must return 201 Created with the created resource in the body."*** §1 answers `201` only when a row was created, and `200` when the upsert revived, repointed or found the reader's reaction or the pair already in place; and its body is the result rather than the resource. **Why:** the upsert creates a row on one outcome of six, so `201` on the others would say something that did not happen; and §ARC16.8.1 forbids the row as the body — *"status and id and nothing else … because the row body would leak authorship"*. **Instead:** the status code says whether a row was created, and the body's status says which outcome was reached.
 2. **ts-exposers-006 — *"DELETE endpoints must return 200 OK with the deleted resource."*** §2 answers `204` with no body. **Why:** ruled by §ARC16.8.1 — the end state the caller asked for is the same on both outcomes, a `404` for the second would make the withdrawal a probe for which rows exist, and the deleted row would leak authorship. **Instead:** `204` on both.
