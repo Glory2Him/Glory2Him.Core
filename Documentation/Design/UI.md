@@ -255,7 +255,13 @@ blocks under §UI20.6.4 is.
    and the items it names. In the admin section a tag or a Bible reference leads to the queue,
    `/Admin/Posts`, instead (`UI/Pages/ContentItemModerationPage.md rule 2.13`). Each of these
    product links changes before the page it points at moves, or with it: a link left pointing at a
-   moved page reaches the Not Found page (`src/routes/staticRoutes.tsx`, line 31).
+   moved page reaches the Not Found page (`src/routes/staticRoutes.tsx`, line 31). Some of the
+   links into `/Search` are held by design issues, so `/Search` moves only once they have changed:
+   an unreadable Bible reference's and the Bible reference page's own chips, held for #700
+   (`UI/Pages/Home.md §6 item 14` and the items it names, `UI/Pages/BibleReference.md §6 item 4`),
+   and the admin post page's side-panel chips, held for #698
+   (`UI/Pages/ContentItemModerationDetailPage.md §6 item 17`). No held gap links to the other seven
+   pages.
 
 ### UI20.6 Components *(formerly §20.6)*
 
