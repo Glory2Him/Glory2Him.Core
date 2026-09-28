@@ -205,7 +205,7 @@ below are what the page adds: who reaches it, and the card's actions for those w
    and the reader's own reaction is the visit's page state rather than the one they hold
    (`toContentItemSearchItem.ts` leaves `reactionSummary` unset, lines 71-83). The page hands
    `useContentItemEngagement` the ids of each page of cards it has delivered and renders what
-   `withReactions` projects (`DesignFeatures/UI/ContentItemEngagement.md §1`; §ARC16.8).
+   `withReactions` projects (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §1`; §ARC16.8).
 3. (needs issue) **Page gap — `/Admin/Posts`: Save saves nothing.** The page wires *Save* to the
    toast "Saving posts is coming soon.", a dead action (§UI20.6.6 rule 4), as `/myposts` does
    (`UI/Pages/MyPosts.md §6 item 3`). Save has no design yet (§APR9.9 rule 6).

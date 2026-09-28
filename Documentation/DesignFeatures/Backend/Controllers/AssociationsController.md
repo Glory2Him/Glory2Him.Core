@@ -1,5 +1,5 @@
 # Associations controller
-Parent: [Likes.md](../Likes.md)
+Parent: [Likes.md](../../Likes.md)
 Level: exposer — `AssociationsController` (`Websites/Glory2Him.WebApp/Controllers/Associations/`), new
 Inherits: §ARC17.2 (shape versus served literal), §ARC17.4, §ARC16.8 (*The route*), §ARC16.8.1, §EVN13 rule 3, §SEC14.5, `the-standard-exposers`
 

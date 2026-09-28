@@ -24,7 +24,7 @@ Work is broken down the way Azure DevOps does it:
 | **Epic** | the whole product | Student Portal | `INTENT.md`, and the global design documents |
 | **Feature** | something that ships and works on its own | Student registration | a feature document |
 | **Sub-feature** | a part of a feature too large to plan in one go | Password reset, inside Account management | a sub-feature document |
-| **User story** | one component at one level — it can do something, but need not work on its own | the Student foundation service; a master page | a user story document, under `Backend/` or `UI/` |
+| **User story** | one component at one level — it can do something, but need not work on its own | the Student foundation service; a master page | a user story document, under `Backend/` or `UI/`, in its level's folder |
 | **Task** | one operation of a user story | `IStudentService.AddStudentAsync` | a GitHub issue |
 
 A feature is built by several user stories, usually at several levels — a storage
@@ -168,7 +168,7 @@ Act as the planner. Read issue #512 and plan it.
 
 ```
 Act as the planner. The user story for issue #512 is at
-Documentation/DesignFeatures/Backend/SavedSearchService.md §1. Write its
+Documentation/DesignFeatures/Backend/Foundations/SavedSearchService.md §1. Write its
 acceptance criteria into the issue.
 ```
 
@@ -431,8 +431,8 @@ Documentation/
                            components, what the page does with each hook (§UI20.5.1)
   DesignFeatures/
     <Feature>.md           a feature, or a sub-feature naming its parent feature
-    Backend/<Story>.md     a backend user story — one component at one level
-    UI/<Story>.md          a UI user story — one component at one level
+    Backend/<Level>/<Story>.md   a backend user story, in its level's folder — one component at one level
+    UI/<Level>/<Story>.md        a UI user story, in its level's folder — one component at one level
   Mockups/                 Claude Design exports, linked from the features they feed
   Images/                  static visual assets referenced from issues and design docs
   DependencyGraph/         generated architecture graph and its viewer
@@ -524,7 +524,7 @@ numbering discipline matters:
 // design §14.6 rule 2: either service must be safe when called alone
 // (§EVN2 rule 4, §EVN18(a))
 // design SavedSearches.md rule 3
-// design Backend/SavedSearchService.md §1
+// design Backend/Foundations/SavedSearchService.md §1
 ```
 
 Most of the codebase still cites the pre-split `§N.N` form. That is expected —
@@ -760,8 +760,8 @@ document and the user story documents that build it.
 
 It writes `SavedSearches.md`, the feature: its business rules — rule 3 among them,
 *a saved search can be deleted from the panel*, which only the mockup's hover
-menu showed — and two user stories. `Backend/SavedSearchService.md` is the
-foundation service, and `UI/SavedSearchesPanel.md` the panel component. Each
+menu showed — and two user stories. `Backend/Foundations/SavedSearchService.md` is the
+foundation service, and `UI/Components/SavedSearchesPanel.md` the panel component. Each
 names `SavedSearches.md` as its parent and gives each operation its own section,
 tagged `(needs issue)`: `AddSavedSearchAsync` in the service, the panel in the
 component. It lists all three documents in `design.md`'s map and commits with a
@@ -782,9 +782,9 @@ operations tagged (needs issue) and write tasks for them.
 It greps and finds two operations. `AddSavedSearchAsync` — its logic, validations
 and exceptions together — becomes **issue #512**, `FOUNDATIONS: Add A Saved
 Search`, tier 1 since it is a new service, naming
-`Backend/SavedSearchService.md` §1 as its user story. The panel becomes **#513**,
+`Backend/Foundations/SavedSearchService.md` §1 as its user story. The panel becomes **#513**,
 `COMPONENTS: Add A Saved Searches Panel`, tier 2, naming
-`UI/SavedSearchesPanel.md` §1. Each gets its operation line, its sign-off
+`UI/Components/SavedSearchesPanel.md` §1. Each gets its operation line, its sign-off
 checklist — logic tests for the happy path and the negative path, validation
 tests, exception tests — a `Model - Effort` label, a `design:` area label and
 `status: needs-scoping`, and the planner recommends the build order: the
@@ -836,8 +836,8 @@ off: `ready for development` goes on and `status: needs-scoping` comes off.
 Both findings route to the planner (§3), with context: *"Act as the planner.
 Address QA's round 1 findings on design PR #519."* On the design branch — the
 PR has not merged — it adds §2 `RemoveSavedSearchByIdAsync` to
-`Backend/SavedSearchService.md` and §2, the panel's delete action, to
-`UI/SavedSearchesPanel.md` as further commits, sweeps to open **#514** and
+`Backend/Foundations/SavedSearchService.md` and §2, the panel's delete action, to
+`UI/Components/SavedSearchesPanel.md` as further commits, sweeps to open **#514** and
 **#515** for them, and rewrites #513's criterion 4 as something assertable. Then
 it hands back with the same brief, naming #514 and #515 as well.
 

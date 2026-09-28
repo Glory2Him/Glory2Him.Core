@@ -1,5 +1,5 @@
 # Reaction broker
-Parent: [Likes.md](../Likes.md)
+Parent: [Likes.md](../../Likes.md)
 Level: broker — `ReactionBroker` (`Websites/Glory2Him.WebApp.React/src/brokers/apiBroker.reactions.ts`), existing
 Inherits: §DOM5.2 (`SortOrder`), `UI/Components/ContentItemPanel.md rule 3.1.8`, `the-standard-reacttypescript-brokers`
 

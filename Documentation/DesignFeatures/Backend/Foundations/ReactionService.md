@@ -1,5 +1,5 @@
 # Reaction service
-Parent: [Likes.md](../Likes.md)
+Parent: [Likes.md](../../Likes.md)
 Level: foundation — `IReactionService` (`Glory2Him.Core/Services/Foundations/Reactions/`)
 Inherits: §DOM5.2, §SEC14.3 rules 3 and 4, §ARC12.2.1 rules 3–6, §ARC12.3.1 shared rule 9, §ARC16.8 (*The projection*, *Which rows are counted*, *Anonymity*)
 
@@ -14,7 +14,7 @@ ValueTask<IReadOnlyList<Reaction>> RetrievePublicReactionsAsync(
 
 1. **It returns every reaction that is visible to anybody**: not deleted, `Approved`, published, and a publish date that is null or not after the current moment — an endpoint entity's visibility under §SEC14.3 rule 4.
 2. **It is caller-independent.** It mints no envelope and resolves no `SecurityContext`, so a publisher holding a draft reaction receives the same vocabulary an anonymous visitor does. A count must not move when somebody signs in (§ARC16.8, *Anonymity*).
-3. **The condition is authored here** as a query-shaping function over `Reaction` and handed to `SelectReactionsAsync` (`Backend/StorageBroker.md §4`), which the client awaits with the caller's token (§ARC12.2.1 rule 3). The current moment comes from `IDateTimeBroker`.
+3. **The condition is authored here** as a query-shaping function over `Reaction` and handed to `SelectReactionsAsync` (`Backend/Brokers/StorageBroker.md §4`), which the client awaits with the caller's token (§ARC12.2.1 rule 3). The current moment comes from `IDateTimeBroker`.
 4. **It answers in the vocabulary's order** — `SortOrder`, lower first, with `Name` breaking a tie (§DOM5.2). The order is part of the query-shaping function, so SQL does the ordering. The summary keeps it (§ARC16.8, *The projection*).
 
 ## 2. AddReactionAsync (#750)

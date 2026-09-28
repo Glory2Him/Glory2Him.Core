@@ -383,7 +383,7 @@ access matrices: `UI/Components/ContentItemPanel.md §5`, `UI/Components/Content
    given, and the reader's own reaction is the visit's page state rather than the one they hold
    (`toContentItemSearchItem.ts` leaves `reactionSummary` unset, lines 71-83). The page hands
    `useContentItemEngagement` the id of its one card and renders what `withReactions` projects
-   (`DesignFeatures/UI/ContentItemEngagement.md §1`; §ARC16.8).
+   (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §1`; §ARC16.8).
 4. (needs issue) **Page gap — `/Admin/Posts/{id}`: the moderator's editor prefills the moderator's
    name.** The editor's owned-basis prefill takes the submitter's name from `submittedByDisplayName`,
    not the editor's (`UI/Components/ContentItemPanel.Edit.md rule 2.15`). Without it, the form falls

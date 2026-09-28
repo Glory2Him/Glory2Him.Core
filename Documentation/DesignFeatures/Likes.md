@@ -33,21 +33,21 @@ The feature's own user stories, bottom up. Each names this document as its paren
 
 | User story | Level |
 | --- | --- |
-| [Backend/StorageClient.md](Backend/StorageClient.md) | client — `IEFCoreClient` |
-| [Backend/StorageBroker.md](Backend/StorageBroker.md) | broker — `IStorageBroker` |
-| [Backend/AccessBroker.md](Backend/AccessBroker.md) | broker — `IAccessBroker` |
-| [Backend/EntityTypePersonalisation.md](Backend/EntityTypePersonalisation.md) | model — the personal-type lookup |
-| [Backend/Reaction.md](Backend/Reaction.md) | model — `Reaction.SortOrder`, its column, migration and seed |
-| [Backend/ContentItemService.md](Backend/ContentItemService.md) | foundation — `IContentItemService` |
-| [Backend/ReactionService.md](Backend/ReactionService.md) | foundation — `IReactionService` |
-| [Backend/AssociationService.md](Backend/AssociationService.md) | foundation — `IAssociationService` |
-| [Backend/AssociationOrchestrationService.md](Backend/AssociationOrchestrationService.md) | orchestration — `IAssociationOrchestrationService` |
-| [Backend/ApprovalOrchestrationService.md](Backend/ApprovalOrchestrationService.md) | orchestration — `IApprovalOrchestrationService` |
-| [Backend/AssociationsController.md](Backend/AssociationsController.md) | exposer — `AssociationsController` |
-| [UI/AssociationBroker.md](UI/AssociationBroker.md) | broker — `AssociationBroker` |
-| [UI/AssociationService.md](UI/AssociationService.md) | foundation service — `associationService` |
-| [UI/ReactionBroker.md](UI/ReactionBroker.md) | broker — `ReactionBroker` |
-| [UI/ContentItemEngagement.md](UI/ContentItemEngagement.md) | view — `useContentItemEngagement` |
+| [Backend/Clients/StorageClient.md](Backend/Clients/StorageClient.md) | client — `IEFCoreClient` |
+| [Backend/Brokers/StorageBroker.md](Backend/Brokers/StorageBroker.md) | broker — `IStorageBroker` |
+| [Backend/Brokers/AccessBroker.md](Backend/Brokers/AccessBroker.md) | broker — `IAccessBroker` |
+| [Backend/Models/EntityTypePersonalisation.md](Backend/Models/EntityTypePersonalisation.md) | model — the personal-type lookup |
+| [Backend/Models/Reaction.md](Backend/Models/Reaction.md) | model — `Reaction.SortOrder`, its column, migration and seed |
+| [Backend/Foundations/ContentItemService.md](Backend/Foundations/ContentItemService.md) | foundation — `IContentItemService` |
+| [Backend/Foundations/ReactionService.md](Backend/Foundations/ReactionService.md) | foundation — `IReactionService` |
+| [Backend/Foundations/AssociationService.md](Backend/Foundations/AssociationService.md) | foundation — `IAssociationService` |
+| [Backend/Orchestrations/AssociationOrchestrationService.md](Backend/Orchestrations/AssociationOrchestrationService.md) | orchestration — `IAssociationOrchestrationService` |
+| [Backend/Orchestrations/ApprovalOrchestrationService.md](Backend/Orchestrations/ApprovalOrchestrationService.md) | orchestration — `IApprovalOrchestrationService` |
+| [Backend/Controllers/AssociationsController.md](Backend/Controllers/AssociationsController.md) | exposer — `AssociationsController` |
+| [UI/Brokers/AssociationBroker.md](UI/Brokers/AssociationBroker.md) | broker — `AssociationBroker` |
+| [UI/Foundations/AssociationService.md](UI/Foundations/AssociationService.md) | foundation service — `associationService` |
+| [UI/Brokers/ReactionBroker.md](UI/Brokers/ReactionBroker.md) | broker — `ReactionBroker` |
+| [UI/Hooks/ContentItemEngagement.md](UI/Hooks/ContentItemEngagement.md) | hook — `useContentItemEngagement` |
 
 The rest of the UI is already designed in the documents the presentation components and pages own (§UI20.6.4, §UI20.5.1), and this feature's tasks are carved from their gaps:
 
@@ -72,9 +72,9 @@ The rest of the UI is already designed in the documents the presentation compone
 | `Association-Repointed` *(new)* | the upsert's repoint, live or revived | `ApprovalOrchestrationService.OnAssociationRepointedAsync` *(new)* |
 | `Association-Removed` *(exists)* | the foundation's soft delete the withdrawal ends in | nobody (§APR9.7.6) |
 
-`Association-Upserting` is **not minted** (§ARC16.2.2), so the upsert has no event path. `Association-Adding` keeps its address and its binding (#631), and refuses a reader's reaction (`Backend/AssociationOrchestrationService.md §2`).
+`Association-Upserting` is **not minted** (§ARC16.2.2), so the upsert has no event path. `Association-Adding` keeps its address and its binding (#631), and refuses a reader's reaction (`Backend/Orchestrations/AssociationOrchestrationService.md §2`).
 
-**Storage and migration.** **One migration**, for rule 5a: it adds `Reactions.SortOrder` and backfills the five seeded reactions (`Backend/Reaction.md §1`). Nothing else needs one. The one-live-row-per-reader guarantee is `UX_Associations_PersonalPair`, built by #627 (`20260923220407_SplitAssociationPairIndexIntoEditorialAndPersonal`, §DOM4.6 rule 2). **One seed change**, for the same rule: the vocabulary's seed writes each reaction's sort order (`ReactionSeedData.cs`). The `(Association, IsPersonal = true)` approval tier that closes a reaction's round on submission is seeded already (`ApprovalSettingSeedData.cs:202-211`). No role is added.
+**Storage and migration.** **One migration**, for rule 5a: it adds `Reactions.SortOrder` and backfills the five seeded reactions (`Backend/Models/Reaction.md §1`). Nothing else needs one. The one-live-row-per-reader guarantee is `UX_Associations_PersonalPair`, built by #627 (`20260923220407_SplitAssociationPairIndexIntoEditorialAndPersonal`, §DOM4.6 rule 2). **One seed change**, for the same rule: the vocabulary's seed writes each reaction's sort order (`ReactionSeedData.cs`). The `(Association, IsPersonal = true)` approval tier that closes a reaction's round on submission is seeded already (`ApprovalSettingSeedData.cs:202-211`). No role is added.
 
 **The storage client gains one terminal shape** of the three §ARC12.2.1 rule 3 names — the matching rows, optionally projected — and the storage broker a pass-through per entity this feature reads, so every new read here asks its question through a query-shaping function its caller authors and the client awaits (§ARC12.2.1 rules 1–3). The other two shapes, and converting the reads that exist, are §ARC12.2.1's own work and not this feature's.
 
@@ -108,4 +108,4 @@ None. The first draft carried three, and the owner ruled on all three on 2026-09
 
 ## Deviations
 
-None at the feature level. The controller's response codes depart from two rules of `the-standard-exposers`; `Backend/AssociationsController.md` records both, and the owner approved both on 2026-09-28.
+None at the feature level. The controller's response codes depart from two rules of `the-standard-exposers`; `Backend/Controllers/AssociationsController.md` records both, and the owner approved both on 2026-09-28.

@@ -1,5 +1,5 @@
 # Storage client
-Parent: [Likes.md](../Likes.md)
+Parent: [Likes.md](../../Likes.md)
 Level: client — `IEFCoreClient` (`Clients/StorageClients/G2H.StorageClient/Clients/IEFCoreClient.cs`), the client every storage broker in the solution delegates to
 Inherits: §ARC12.2.1 rules 3–6
 

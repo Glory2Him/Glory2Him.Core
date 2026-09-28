@@ -235,7 +235,7 @@ Every write a card leads to is decided again by the service (§SEC14.6).
    and the reader's own reaction is the visit's page state rather than the one they hold
    (`toContentItemSearchItem.ts` leaves `reactionSummary` unset, lines 71-83). The page hands
    `useContentItemEngagement` the ids of each page of cards it has delivered and renders what
-   `withReactions` projects (`DesignFeatures/UI/ContentItemEngagement.md §1`; §ARC16.8).
+   `withReactions` projects (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §1`; §ARC16.8).
 3. (needs issue) **View and Edit lead to the wrong places.** Rules 2.8 and 2.9 send View to
    `/posts/{id}` and the owner's Edit to `/myposts/{id}` in edit mode. The card has no View
    (`UI/Components/ContentItemPanel.md §10 item 20`), and the list relabels the owner's Edit as

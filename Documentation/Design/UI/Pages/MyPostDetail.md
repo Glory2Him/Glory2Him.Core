@@ -258,7 +258,7 @@ components' security and access matrices, `UI/Components/ContentItemPanel.md §5
    given, and the reader's own reaction is the visit's page state rather than the one they hold
    (`toContentItemSearchItem.ts` leaves `reactionSummary` unset, lines 71-83). The page hands
    `useContentItemEngagement` the id of its one card and renders what `withReactions` projects
-   (`DesignFeatures/UI/ContentItemEngagement.md §1`; §ARC16.8).
+   (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §1`; §ARC16.8).
 5. (needs issue) **Page gap — `/myposts/{id}`: suggesting a tag or a Bible reference sends
    nothing.** The page answers each panel's `onAdd` with a "coming soon" toast and reads no
    associations, so both lists are always empty (`myPostDetail.tsx` — `suggestTag`,

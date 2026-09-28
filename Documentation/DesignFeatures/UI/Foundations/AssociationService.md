@@ -1,7 +1,7 @@
 # Association service (React)
-Parent: [Likes.md](../Likes.md)
+Parent: [Likes.md](../../Likes.md)
 Level: foundation service — `associationService` (`Websites/Glory2Him.WebApp.React/src/services/foundations/associationService.ts`), new
-Inherits: §ARC16.8 (*The set, its bounds*, *Where each shared rule lives*), `UI/AssociationBroker.md`
+Inherits: §ARC16.8 (*The set, its bounds*, *Where each shared rule lives*), `UI/Brokers/AssociationBroker.md`
 
 The React Query hooks over `AssociationBroker`, in the app's foundation-service shape: an exported object whose members are hooks, each holding its broker (`contentItemService.ts`, `reactionService.ts`). The two writes invalidate what they change; the read asks per page.
 

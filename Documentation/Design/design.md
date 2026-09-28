@@ -20,7 +20,7 @@ follows. The planner writes the design. Nobody else does.
 | **Epic** | the whole product | Glory2Him | `INTENT.md`, and the global documents below |
 | **Feature** | something that ships and works on its own | Saved searches | a feature document, `DesignFeatures/<Feature>.md` |
 | **Sub-feature** | a part of a feature too large to plan in one go, coherent on its own | Search alerts, inside Saved searches | a sub-feature document, `DesignFeatures/<SubFeature>.md`, naming its parent feature |
-| **User story** | one component at one level — it can do something, but need not work on its own | the saved-search foundation service; a master page | a user story document, `DesignFeatures/Backend/<Story>.md` or `DesignFeatures/UI/<Story>.md`, naming its parent feature or sub-feature |
+| **User story** | one component at one level — it can do something, but need not work on its own | the saved-search foundation service; a master page | a user story document, `DesignFeatures/Backend/<Level>/<Story>.md` or `DesignFeatures/UI/<Level>/<Story>.md`, naming its parent feature or sub-feature |
 | **Task** | one operation of a user story | `ISavedSearchService.AddSavedSearchAsync` | a GitHub issue, naming its parent user story |
 
 A presentation component's documents live under `Design/UI/Components/` instead, as §UI20.6.4
@@ -38,9 +38,23 @@ stories, and the operations they offer between them — add a user, search for a
 user, view, modify and remove one — are their tasks.
 
 **Every level names its parent.** A sub-feature document names its feature and a
-user story document names its feature or sub-feature, on a `Parent:` line — the
-`Backend/` and `UI/` folders do not show it. A task names its user story, on its
+user story document names its feature or sub-feature, on a `Parent:` line — its
+folder shows its level, not its parent. A task names its user story, on its
 `User story:` line. Each parent lists its children in turn.
+
+**Level folders.** Under `Backend/` and `UI/`, each user story sits in the folder its
+level has in code, so a story is found where its code is:
+
+| Side | Folders |
+| --- | --- |
+| `Backend/` | `Brokers`, `Foundations`, `Processings`, `Orchestrations`, `Coordinations`, `Controllers`, `Clients`, and `Models` for a story that changes a model alone |
+| `UI/` | `Brokers`, `Foundations`, `Views`, `Hooks` |
+
+Any other level takes the name The Standard gives its folder, and a folder is created
+with its first user story. This repository documents its presentation components and
+its pages elsewhere — under `Design/UI/Components/` and `Design/UI/Pages/` (§UI20.6.4,
+§UI20.5.1) — so `UI/` has no `Components` or `Pages` folder, and a citation such as
+`UI/Pages/Home.md` can only mean the page document.
 
 Writing or changing design documents is work too, tracked as a **design task** — a
 `DESIGN:` issue.
@@ -76,7 +90,7 @@ stories beside it:
 
 | Feature | Sub-features | User stories |
 | --- | --- | --- |
-| [Likes.md](../DesignFeatures/Likes.md) | none | [Backend/StorageClient.md](../DesignFeatures/Backend/StorageClient.md), [Backend/StorageBroker.md](../DesignFeatures/Backend/StorageBroker.md), [Backend/AccessBroker.md](../DesignFeatures/Backend/AccessBroker.md), [Backend/EntityTypePersonalisation.md](../DesignFeatures/Backend/EntityTypePersonalisation.md), [Backend/Reaction.md](../DesignFeatures/Backend/Reaction.md), [Backend/ContentItemService.md](../DesignFeatures/Backend/ContentItemService.md), [Backend/ReactionService.md](../DesignFeatures/Backend/ReactionService.md), [Backend/AssociationService.md](../DesignFeatures/Backend/AssociationService.md), [Backend/AssociationOrchestrationService.md](../DesignFeatures/Backend/AssociationOrchestrationService.md), [Backend/ApprovalOrchestrationService.md](../DesignFeatures/Backend/ApprovalOrchestrationService.md), [Backend/AssociationsController.md](../DesignFeatures/Backend/AssociationsController.md), [UI/AssociationBroker.md](../DesignFeatures/UI/AssociationBroker.md), [UI/AssociationService.md](../DesignFeatures/UI/AssociationService.md), [UI/ReactionBroker.md](../DesignFeatures/UI/ReactionBroker.md), [UI/ContentItemEngagement.md](../DesignFeatures/UI/ContentItemEngagement.md) |
+| [Likes.md](../DesignFeatures/Likes.md) | none | [Backend/Clients/StorageClient.md](../DesignFeatures/Backend/Clients/StorageClient.md), [Backend/Brokers/StorageBroker.md](../DesignFeatures/Backend/Brokers/StorageBroker.md), [Backend/Brokers/AccessBroker.md](../DesignFeatures/Backend/Brokers/AccessBroker.md), [Backend/Models/EntityTypePersonalisation.md](../DesignFeatures/Backend/Models/EntityTypePersonalisation.md), [Backend/Models/Reaction.md](../DesignFeatures/Backend/Models/Reaction.md), [Backend/Foundations/ContentItemService.md](../DesignFeatures/Backend/Foundations/ContentItemService.md), [Backend/Foundations/ReactionService.md](../DesignFeatures/Backend/Foundations/ReactionService.md), [Backend/Foundations/AssociationService.md](../DesignFeatures/Backend/Foundations/AssociationService.md), [Backend/Orchestrations/AssociationOrchestrationService.md](../DesignFeatures/Backend/Orchestrations/AssociationOrchestrationService.md), [Backend/Orchestrations/ApprovalOrchestrationService.md](../DesignFeatures/Backend/Orchestrations/ApprovalOrchestrationService.md), [Backend/Controllers/AssociationsController.md](../DesignFeatures/Backend/Controllers/AssociationsController.md), [UI/Brokers/AssociationBroker.md](../DesignFeatures/UI/Brokers/AssociationBroker.md), [UI/Foundations/AssociationService.md](../DesignFeatures/UI/Foundations/AssociationService.md), [UI/Brokers/ReactionBroker.md](../DesignFeatures/UI/Brokers/ReactionBroker.md), [UI/Hooks/ContentItemEngagement.md](../DesignFeatures/UI/Hooks/ContentItemEngagement.md) |
 
 ### Presentation components
 
@@ -150,7 +164,7 @@ for every design document, feature and user story documents included:
 ```csharp
 // design §EVN2 rule 5: a service publishes a fact only about its own unit of work
 // design SavedSearches.md rule 3
-// design Backend/SavedSearchService.md §1
+// design Backend/Foundations/SavedSearchService.md §1
 ```
 
 **Every operation section in a user story document carries exactly one tag,

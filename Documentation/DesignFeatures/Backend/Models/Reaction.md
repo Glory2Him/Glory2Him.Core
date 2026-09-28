@@ -1,5 +1,5 @@
 # Reaction
-Parent: [Likes.md](../Likes.md)
+Parent: [Likes.md](../../Likes.md)
 Level: model — `Reaction` (`Glory2Him.Core/Models/Foundations/Reactions/Reaction.cs`), with its storage configuration, one migration, and the vocabulary's seed (`Websites/Glory2Him.WebApp/Data/ReactionSeedData.cs`)
 Inherits: §DOM5.2 (`SortOrder`), §DOM6.6 (`ContentItemSetting.SortOrder`, the shape this copies), §ARC12.3.1 shared rules 1 and 9
 

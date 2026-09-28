@@ -221,7 +221,7 @@ The read-only roles each action answers to are those components' security and ac
    and the reader's own reaction is the visit's page state rather than the one they hold
    (`toContentItemSearchItem.ts` leaves `reactionSummary` unset, lines 71-83). The page hands
    `useContentItemEngagement` the ids of each page of cards it has delivered and renders what
-   `withReactions` projects (`DesignFeatures/UI/ContentItemEngagement.md §1`; §ARC16.8).
+   `withReactions` projects (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §1`; §ARC16.8).
 3. (needs issue) **Page gap — `/myposts`: Save saves nothing.** The page wires *Save* to a toast,
    "Saving posts is coming soon." (`useContentItemEngagement.ts` — `onSaveClick`), so the action is
    dead (§UI20.6.6 rule 4). Save has no design yet (§APR9.9 rule 6). By the plan §UI20.6.6 rule 4

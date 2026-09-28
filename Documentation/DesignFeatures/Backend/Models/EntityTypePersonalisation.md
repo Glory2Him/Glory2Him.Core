@@ -1,5 +1,5 @@
 # Entity type personalisation
-Parent: [Likes.md](../Likes.md)
+Parent: [Likes.md](../../Likes.md)
 Level: model — `EntityTypePersonalisation` (`Glory2Him.Core/Models/Configurations/`), a declared lookup shaped like `EntityTypeVersioning`
 Inherits: §DOM4.2, §DOM4.10 rules 1, 4 and 5
 

@@ -1,9 +1,9 @@
 # Association service
-Parent: [Likes.md](../Likes.md)
+Parent: [Likes.md](../../Likes.md)
 Level: foundation — `IAssociationService` (`Glory2Him.Core/Services/Foundations/Associations/`)
 Inherits: §DOM4.4 rule 4, §DOM4.5 rule 4, §DOM4.6, §DOM4.10, §SEC14.3 rules 1, 2 and 5, §SEC14.5, §SEC14.6, §SEC14.7 posture A′ rules 1, 2, 4 and 7, §APR9.9 rule 6, §ARC12.2.1 rules 3–6, §ARC16.2.2, §ARC16.8, §EVN2, Likes.md rules 1–3, 5, 6, 8 and 10
 
-The foundation half of a reader's reaction: the one write that gives, changes and revives it, the lookup that finds it, the two reads the summary counts and marks with, and the one change to the soft remove that lets a reader withdraw their own. Every condition below is authored here as a query-shaping function and handed to `SelectAssociationsAsync` (`Backend/StorageBroker.md §1`), which the client awaits with the caller's token (§ARC12.2.1 rule 3); each is unit-tested by executing it (rule 5), and integration proves what an in-memory set cannot (rule 6).
+The foundation half of a reader's reaction: the one write that gives, changes and revives it, the lookup that finds it, the two reads the summary counts and marks with, and the one change to the soft remove that lets a reader withdraw their own. Every condition below is authored here as a query-shaping function and handed to `SelectAssociationsAsync` (`Backend/Brokers/StorageBroker.md §1`), which the client awaits with the caller's token (§ARC12.2.1 rule 3); each is unit-tested by executing it (rule 5), and integration proves what an in-memory set cannot (rule 6).
 
 **The personal-key condition is written once.** §1's lookup and §2's private write body resolve the reader's row with one condition — §DOM4.6 rule 2's personal key, `EntityAType`, `EntityAEffectiveId`, `EntityBType`, `UserId` — as §DOM4.6 already requires of the correction it names: *"write the personal-key lookup that `UpsertPersonalAssociationAsync` needs … and the pre-check reuses that condition rather than writing a second one."* It matches withdrawn rows as well as live ones, because a revive needs the withdrawn row. §DOM4.10 rule 6 allows one row per reader for the life of the relationship; where rows written before this feature break it, the live row is taken first and then the most recently updated, the order the pair probe already uses (`StorageBroker.Association.cs:47`). The effective id is computed from the request's scope, group and key as §DOM4.6 defines it, after §DOM4.4 rule 4's normalisation.
 
@@ -22,7 +22,7 @@ ValueTask<PersonalAssociationMatch?> FindPersonalAssociationAsync(
 3. **It answers only for the signed caller.** The association's `UserId` must be the caller's own, taken from the envelope this member mints; any other `UserId` is refused as unauthorized, and a `null` one — an editorial row — as invalid. A reader never learns anything about another reader's row (§SEC14.7 posture A′ rule 7).
 4. **It is a read, and asks no read-only role** (§SEC14.7 posture A′ rule 3: reads stay exempt).
 
-Its caller is the pair-keyed withdrawal (`Backend/AssociationOrchestrationService.md §3`).
+Its caller is the pair-keyed withdrawal (`Backend/Orchestrations/AssociationOrchestrationService.md §3`).
 
 ## 2. UpsertPersonalAssociationAsync (#719)
 
@@ -73,7 +73,7 @@ ValueTask<IReadOnlyList<AssociationPairCount>> RetrieveContentItemReactionCounts
 4. **It is caller-independent.** It mints no envelope, and every caller receives the same counts (§ARC16.8, *Anonymity*).
 5. **The grouped projection is proven to translate** against the real catalogue in `Glory2Him.Core.Tests.Integration` (§ARC12.2.1 rule 6).
 
-Its caller is the summary read (`Backend/AssociationOrchestrationService.md §4`).
+Its caller is the summary read (`Backend/Orchestrations/AssociationOrchestrationService.md §4`).
 
 ## 4. RetrieveCallerContentItemReactionsAsync (#721)
 
@@ -89,7 +89,7 @@ ValueTask<IReadOnlyList<AssociationPairKey>> RetrieveCallerContentItemReactionsA
 2. **The caller is the envelope's, never a parameter**, so it can never return another reader's row. An anonymous caller has no rows, and is answered with an empty list without a query.
 3. **It decides nothing.** It is an identity-filtered read for display, and no invariant rests on it.
 
-Its caller is the summary read (`Backend/AssociationOrchestrationService.md §4`), which asks it only for a signed-in caller (§ARC16.8, *What a rendered page costs*, the fifth round trip).
+Its caller is the summary read (`Backend/Orchestrations/AssociationOrchestrationService.md §4`), which asks it only for a signed-in caller (§ARC16.8, *What a rendered page costs*, the fifth round trip).
 
 ## 5. RemoveAssociationByIdAsync — a reader's own reaction outside the veto (#722)
 
