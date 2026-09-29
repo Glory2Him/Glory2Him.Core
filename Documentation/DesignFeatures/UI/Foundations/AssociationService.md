@@ -9,7 +9,7 @@ The React Query hooks over `AssociationBroker`, in the app's foundation-service 
 
 ## 1. useUpsertAssociation (#734)
 
-A mutation that sends its request through `AssociationBroker.PostAssociationAsync` and resolves with the suggestion result. When it settles, whether it succeeded or failed, it invalidates the `ReactionSummaries` reads, so the next read replaces whatever the page showed in the meantime (§ARC16.8: the optimistic overlay is discarded on the next read). It leaves the app's global error toast on: a failed reaction is announced as any failed write is.
+A mutation that sends its request through `AssociationBroker.PostAssociationAsync` and resolves with the suggestion result. When it settles, whether it succeeded or failed, it invalidates the `ReactionSummaries` reads, so a read follows every write. Which read replaces the card's overlay is the engagement hook's rule (`UI/Hooks/ContentItemEngagement.md §2` rule 8; §ARC16.8, *Which reaction this viewer holds*). It leaves the app's global error toast on: a failed reaction is announced as any failed write is.
 
 ## 2. useRemoveAssociationByPair (#735)
 
