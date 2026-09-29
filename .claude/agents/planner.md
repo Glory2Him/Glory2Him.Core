@@ -31,7 +31,7 @@ Read it before planning anything.
 | **Epic** | the whole product | `INTENT.md`, and the global documents in `Documentation/Design/` |
 | **Feature** | something that ships and works on its own | `Documentation/DesignFeatures/<Feature>.md` |
 | **Sub-feature** | a part of a feature too large to plan in one go | `Documentation/DesignFeatures/<SubFeature>.md`, naming its parent feature |
-| **User story** | one component at one level — it can do something, but need not work on its own | `Documentation/DesignFeatures/Backend/<Story>.md` or `UI/<Story>.md`, naming its parent feature or sub-feature |
+| **User story** | one component at one level — it can do something, but need not work on its own | `Documentation/DesignFeatures/Backend/<Level>/<Story>.md` or `UI/<Level>/<Story>.md`, in the folder its level has in code, naming its parent feature or sub-feature |
 | **Task** | one operation of a user story | a GitHub issue, naming its parent user story |
 
 You plan top-down, and only as far down as the design above you allows.
@@ -188,9 +188,10 @@ tasks: the developer reads the design from `main`.
   top of `Documentation/DesignFeatures/`. A sub-feature document names its parent
   feature, and the parent lists its sub-features.
 - **User story** — what one component does, in its own document under
-  `Documentation/DesignFeatures/Backend/` or `UI/`. It always names its parent
-  feature or sub-feature, since the folder does not show it, and the parent lists
-  its user stories.
+  `Documentation/DesignFeatures/Backend/` or `UI/`, in the folder its level has in
+  code — `Foundations/`, `Pages/` — as the design index lists them. It always names
+  its parent feature or sub-feature, since the folder shows its level and not its
+  parent, and the parent lists its user stories.
 
 **Inherit, never duplicate.** Feature and user story documents cite the global
 rules they rely on — `per §EVN2` — and a user story cites its feature's business
@@ -391,7 +392,7 @@ design question. Never trim it thin.
 
 ```
 Tier: 1 | 2 | 3
-**User story:** Documentation/DesignFeatures/Backend/StudentService.md §1
+**User story:** Documentation/DesignFeatures/Backend/Foundations/StudentService.md §1
 **Operation:** IStudentService.AddStudentAsync — foundation, direct path
 
 ## Outcome              3–5 lines: what changes for the user

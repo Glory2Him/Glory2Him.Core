@@ -195,11 +195,17 @@ below are what the page adds: who reaches it, and the card's actions for those w
    answers the list read alone (rule 2.9), so a failed settings read still shows the cards. Evidence:
    `contentItemModerationPage.tsx` — `contentItemSettings ?? []`. Copied from
    `UI/Components/ContentItemPanel.md §10 item 15`, this page's share of it.
-2. (needs issue) **Page gap — `/Admin/Posts`: a chosen reaction is not persisted.** The page takes
+2. (#746) **Page gap — `/Admin/Posts`: a chosen reaction is not persisted.** The page takes
    `onReactionSelected` from `useContentItemEngagement`, which toggles the choice in page state for
    the visit only. Recording and withdrawing the reader's own reaction (§ARC16.8.1, designed and not yet built) are this item's work. The sign-in half does not
    arise, because `SecuredRoute` admits no signed-out reader. Copied from
    `UI/Components/ContentItemPanel.md §10 item 17`, this page's share of it.
+   **The cards' counts are this item's work too** (the Likes feature, `DesignFeatures/Likes.md`).
+   The page reads no reaction summary, so no card shows the reactions its item has been given,
+   and the reader's own reaction is the visit's page state rather than the one they hold
+   (`toContentItemSearchItem.ts` leaves `reactionSummary` unset, lines 71-83). The page hands
+   `useContentItemEngagement` the ids of each page of cards it has delivered and renders what
+   `withReactions` projects (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §1`; §ARC16.8).
 3. (needs issue) **Page gap — `/Admin/Posts`: Save saves nothing.** The page wires *Save* to the
    toast "Saving posts is coming soon.", a dead action (§UI20.6.6 rule 4), as `/myposts` does
    (`UI/Pages/MyPosts.md §6 item 3`). Save has no design yet (§APR9.9 rule 6).

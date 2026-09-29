@@ -120,7 +120,7 @@ A citation of a prefixed document is the bare prefixed number and nothing else, 
   `Documentation/Design/design.md` defines it (#692). Its path is its only
   identifier rather than a second one, so a citation gives the path relative to
   `DesignFeatures/` and the rule or section number — `SavedSearches.md rule 3`,
-  `Backend/SavedSearchService.md §1`. A presentation component's documents live
+  `Backend/Foundations/SavedSearchService.md §1`. A presentation component's documents live
   under `Documentation/Design/UI/Components/` instead (§UI20.6.4), and are cited
   by their path relative to `Documentation/Design/` —
   `UI/Components/ContentItemPanel.md rule 2.4`. Its numbers are never cited

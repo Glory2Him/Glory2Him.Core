@@ -248,11 +248,17 @@ components' security and access matrices, `UI/Components/ContentItemPanel.md §5
    The page's error answers the item read alone (rule 2.13), so a failed settings read still shows
    the card. Evidence: `myPostDetail.tsx` — `contentItemSettings ?? []`. Copied from
    `UI/Components/ContentItemPanel.md §10 item 15`, this page's share of it.
-4. (needs issue) **Page gap — `/myposts/{id}`: a chosen reaction is not persisted.** The page takes
+4. (#745) **Page gap — `/myposts/{id}`: a chosen reaction is not persisted.** The page takes
    `onReactionSelected` from `useContentItemEngagement`, which toggles the choice in page state for
    the visit only. Recording and withdrawing the reader's own reaction (§ARC16.8.1, designed and not yet built) are this item's work. The sign-in half of the
    same page gap does not arise, because `SecuredRoute` admits no signed-out reader. Copied from
    `UI/Components/ContentItemPanel.md §10 item 17`, this page's share of it.
+   **The card's counts are this item's work too** (the Likes feature, `DesignFeatures/Likes.md`).
+   The page reads no reaction summary, so the card shows none of the reactions its item has been
+   given, and the reader's own reaction is the visit's page state rather than the one they hold
+   (`toContentItemSearchItem.ts` leaves `reactionSummary` unset, lines 71-83). The page hands
+   `useContentItemEngagement` the id of its one card and renders what `withReactions` projects
+   (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §1`; §ARC16.8).
 5. (needs issue) **Page gap — `/myposts/{id}`: suggesting a tag or a Bible reference sends
    nothing.** The page answers each panel's `onAdd` with a "coming soon" toast and reads no
    associations, so both lists are always empty (`myPostDetail.tsx` — `suggestTag`,

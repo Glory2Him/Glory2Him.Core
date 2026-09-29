@@ -243,7 +243,7 @@ write a card leads to is decided again by the service (§SEC14.6).
    `/posts` (`UI/Pages/Posts.md §6 item 1`) and `/posts/{id}`
    (`UI/Pages/PostDetail.md §6 item 1`). The component's half is
    `UI/Components/ContentItemPanel.md §10 item 5`.
-2. (needs issue) **Page gap — the page does not act on a chosen reaction.** Copied from
+2. (#741) **Page gap — the page does not act on a chosen reaction.** Copied from
    `UI/Components/ContentItemPanel.md §10 item 17`, this page's share. What follows
    `onReactionSelected` is the page's (`UI/Components/ContentItemPanel.md rule 3.2.4`): a
    signed-out reader is sent to sign in, with return information that brings them back
@@ -264,7 +264,13 @@ write a card leads to is decided again by the service (§SEC14.6).
    `UI/Components/ContentItemPanel.md §10 item 12`. A signed-out reader meets the card on `/`,
    `/posts` and `/posts/{id}`; the other two are `UI/Pages/Posts.md §6 item 2` and
    `UI/Pages/PostDetail.md §6 item 2`.
-3. (needs issue) **No reusable sign-in action.** §UI20.6.6 rule 2 makes sign-in a global action:
+   **The cards' counts are this item's work too** (the Likes feature, `DesignFeatures/Likes.md`).
+   The page reads no reaction summary, so no card shows the reactions its item has been given,
+   and the reader's own reaction is the visit's page state rather than the one they hold
+   (`toContentItemSearchItem.ts` leaves `reactionSummary` unset, lines 71-83). The page hands
+   `useContentItemEngagement` the ids of each page of cards it has delivered and renders what
+   `withReactions` projects (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §1`; §ARC16.8).
+3. (#737) **No reusable sign-in action.** §UI20.6.6 rule 2 makes sign-in a global action:
    one reusable way every page uses, so the sign-in route is defined once, returning the reader to
    exactly the place they left. It makes one exception: a reader who accepts the invitation to
    contribute is returned to the contribution form, `/posts/contribute`, where their press was
@@ -286,6 +292,14 @@ write a card leads to is decided again by the service (§SEC14.6).
    item 4`). This item is the action every page needs before it can take those over: this page for
    Like (item 2) and the invitation (item 10), and the pages that cite this item for theirs. The route guard's own loss of the
    query is `UI/Pages/MyPosts.md §6 item 7`.
+   **The Likes feature builds the action and its plain return** — back to exactly the place the
+   reader left, path, query and fragment — because Like is its first user
+   (`DesignFeatures/Likes.md` rule 4), as the user story `DesignFeatures/UI/Hooks/SignIn.md`.
+   **The invitation's exception is built with item 10**,
+   which is its first user: the return on to `/posts/contribute`, with the origin surviving the
+   sign-in step. The card's own redirect goes with the Likes feature
+   (`UI/Components/ContentItemPanel.md §10 item 12`); moving the other places that compose the
+   route onto the action belongs to their own gaps, listed above.
 4. (needs issue) **View and Edit lead to the wrong places.** Rules 2.9 and 2.10 (user rulings
    2026-09-26 and 2026-09-27) send View to the read-only detail view, `/posts/{id}`, and the
    owner's Edit to the detail view in edit mode, `/myposts/{id}`. The card has no View

@@ -590,6 +590,7 @@ Rules:
 | `Id` | Unique reaction identifier. |
 | `Name` | Reaction name. |
 | `UnicodeEmoji` | Emoji representation. |
+| `SortOrder` | Where this reaction sits wherever the vocabulary is presented as a list: the Like control's choices, and each card's reaction counts (§ARC16.8, *The projection*). Lower first, with `Name` breaking a tie. Defaults to `1000`, past every value the seed curates, so a reaction written without a considered order lands after the ordered ones. Must be `0` or greater, and the foundation rejects a negative on both write paths — `ContentItemSetting.SortOrder`'s rule (§DOM6.6). Content, not a control field, under §ARC12.3.1 shared rule 1's subtraction test: `Reaction` does not implement `ISortOrder`. The seeded five take `10`, `20`, `30`, `40` and `50` in their seeded order — Amen, Love, Joy, Moved, Praying. The values are sparse, so a reaction added later can take a place between two without moving an approved one, whose content §ARC12.3.1 shared rule 9 would refuse to change. *(Ruled by the owner, 2026-09-28: "They should use the sort order of the reaction"; #706, not yet built.)* |
 | `GroupId` | Groups all versions of this reaction record together. Populated on creation and shared across all versions. |
 | `Version` | Version number of this reaction record, defaults to 1. |
 | `IsLatestVersion` | Identifies the latest version of this reaction record. |

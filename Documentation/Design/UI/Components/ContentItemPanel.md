@@ -545,7 +545,7 @@ signed-out reader to sign in itself, which rule 3.2.4 leaves to the page (sectio
     §UI20.6.5. The ruling chose which property is shared, not the two new names: section 4.3
     gives example names, and the task that builds the forwarding of items 6 and 7 fixes the two
     names and records them in section 4.3, per §UI20.6.5.
-12. (needs issue) **The panel redirects a signed-out reader itself.** Rule 3.2.4 (user ruling
+12. (#740) **The panel redirects a signed-out reader itself.** Rule 3.2.4 (user ruling
     2026-09-27) has the panel raise `onReactionSelected` whatever the sign-in state and never
     redirect. Sending a signed-out reader to sign in, with return information, and persisting or
     clearing a signed-in reader's reaction are the page's (§UI20.6.4). Today, when a signed-out

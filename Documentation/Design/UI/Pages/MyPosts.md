@@ -208,7 +208,7 @@ The read-only roles each action answers to are those components' security and ac
    The page's alert answers the list read alone (rule 2.11), so a failed settings read still shows
    the cards. Evidence: `myPosts.tsx` — `contentItemSettings ?? []`. Copied from
    `UI/Components/ContentItemPanel.md §10 item 15`, this page's share of it.
-2. (needs issue) **Page gap — `/myposts`: a chosen reaction is not persisted.** What follows
+2. (#744) **Page gap — `/myposts`: a chosen reaction is not persisted.** What follows
    `onReactionSelected` is the page's: a signed-in reader's reaction is persisted or cleared
    (`UI/Components/ContentItemPanel.md rule 3.2.4`). The page takes the hook from
    `useContentItemEngagement`, which only toggles the choice in page state for the visit, so a
@@ -216,6 +216,12 @@ The read-only roles each action answers to are those components' security and ac
    same page gap does not arise here, because `SecuredRoute` admits no signed-out reader. Evidence:
    `src/hooks/useContentItemEngagement.ts` — `onReactionSelected`. Copied from
    `UI/Components/ContentItemPanel.md §10 item 17`, this page's share of it.
+   **The cards' counts are this item's work too** (the Likes feature, `DesignFeatures/Likes.md`).
+   The page reads no reaction summary, so no card shows the reactions its item has been given,
+   and the reader's own reaction is the visit's page state rather than the one they hold
+   (`toContentItemSearchItem.ts` leaves `reactionSummary` unset, lines 71-83). The page hands
+   `useContentItemEngagement` the ids of each page of cards it has delivered and renders what
+   `withReactions` projects (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §1`; §ARC16.8).
 3. (needs issue) **Page gap — `/myposts`: Save saves nothing.** The page wires *Save* to a toast,
    "Saving posts is coming soon." (`useContentItemEngagement.ts` — `onSaveClick`), so the action is
    dead (§UI20.6.6 rule 4). Save has no design yet (§APR9.9 rule 6). By the plan §UI20.6.6 rule 4

@@ -9,15 +9,20 @@ feature, sub-feature, user story and task, and holds the conventions.
 
 ```
 Documentation/DesignFeatures/
-  <Feature>.md           a feature, or a sub-feature naming its parent feature
-  Backend/<Story>.md     a backend user story — one component at one level
-  UI/<Story>.md          a UI user story — one component at one level
+  <Feature>.md                  a feature, or a sub-feature naming its parent feature
+  Backend/<Level>/<Story>.md    a backend user story — one component at one level
+  UI/<Level>/<Story>.md         a UI user story — one component at one level
 ```
 
-`Backend/` and `UI/` are created with their first user story.
+`<Level>` is the folder the story's level has in code — `Brokers`, `Foundations`,
+`Orchestrations`, `Controllers`, `Hooks` and the rest — so a story is found where its
+code is. [design.md](../Design/design.md) lists the folders, and each is created with
+its first user story.
 
-A presentation component's documents are not here: they live under
-[`Documentation/Design/UI/Components/`](../Design/UI/Components/) (§UI20.6.4).
+A presentation component's documents and a page's are not here: they live under
+[`Documentation/Design/UI/Components/`](../Design/UI/Components/) (§UI20.6.4) and
+[`Documentation/Design/UI/Pages/`](../Design/UI/Pages/) (§UI20.5.1), so `UI/` has no
+`Components` or `Pages` folder.
 
 ## A feature document
 
@@ -32,10 +37,10 @@ Mockups: [student-registration](../Mockups/student-registration/)
 1. A student registers with an email address no other student has.
 2. …
 ## User stories
-- [Backend/StudentStorageBroker.md](Backend/StudentStorageBroker.md) — broker
-- [Backend/StudentService.md](Backend/StudentService.md) — foundation
-- [Backend/StudentsController.md](Backend/StudentsController.md) — exposer
-- [UI/RegistrationPage.md](UI/RegistrationPage.md) — page
+- [Backend/Brokers/StudentStorageBroker.md](Backend/Brokers/StudentStorageBroker.md) — broker
+- [Backend/Foundations/StudentService.md](Backend/Foundations/StudentService.md) — foundation
+- [Backend/Controllers/StudentsController.md](Backend/Controllers/StudentsController.md) — exposer
+- [UI/Pages/RegistrationPage.md](../Design/UI/Pages/RegistrationPage.md) — page, in its page document (§UI20.5.1)
 ## Entity count, events and storage
 ## Risks
 ## Out of scope
@@ -53,7 +58,7 @@ Mockups: [student-registration](../Mockups/student-registration/)
 
 ```markdown
 # Student service
-Parent: [StudentRegistration.md](../StudentRegistration.md)
+Parent: [StudentRegistration.md](../../StudentRegistration.md)
 Level: foundation — `IStudentService`
 Inherits: §ARC3, §EVN2–§EVN7, StudentRegistration.md rules 1–4
 
@@ -63,7 +68,7 @@ Inherits: §ARC3, §EVN2–§EVN7, StudentRegistration.md rules 1–4
 ```
 
 - **Parent** names the feature or sub-feature the user story belongs to — always,
-  since the `Backend/` and `UI/` folders do not show it.
+  since its folder shows its level and not its parent.
 - One component at one level: a user story never spans levels.
 - **One section per operation**, since each operation is one task. Each carries
   exactly one tag — the task that delivers it, or `(needs issue)` — and that task
