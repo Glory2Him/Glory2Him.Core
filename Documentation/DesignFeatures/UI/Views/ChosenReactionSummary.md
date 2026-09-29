@@ -7,7 +7,7 @@ Between a reader's choice and the next read, their card shows an optimistic over
 
 ## 1. toChosenReactionSummary (#756)
 
-1. **It returns the summary the card shows until the next read.** It takes the item's `reactionSummary`, the reaction the reader holds (or none), the reaction they chose (or none, for a withdrawal) and the options in the vocabulary's order. It never changes what it is handed.
-2. **The chosen reaction's count goes up by one and the held one's down by one**, and a withdrawal takes one from the held reaction.
+1. **It returns the summary the card shows until the next read.** It takes the item's `reactionSummary`, the reaction the reader holds (or none), the reaction they chose (or none, for a withdrawal) and the options in the vocabulary's order. It never changes what it is handed. An item with no summary yet starts from an empty one.
+2. **The chosen reaction's count goes up by one and the held one's down by one**, and a withdrawal takes one from the held reaction, wherever the held reaction has an entry. A reaction still awaiting review is marked as the reader's without being counted (Likes.md rule 6). It may have no entry, and then nothing is taken and no entry appears for it. It may have an entry that other readers' reactions make up, and then the card shows one short until the next read corrects it. No count goes below nought. Under the seeded personal tier a reaction is approved in the same act, so the reader's own reaction is counted.
 3. **An entry that reaches nought leaves the summary**, as a reaction nobody gave never appears (§ARC16.8, *A reaction with a zero count does not appear*).
 4. **An entry the choice adds takes its place in the options' order**, which is the vocabulary's (`UI/Brokers/ReactionBroker.md §1`), so the cluster does not reorder when the next read lands (§ARC16.8, *The projection*; Likes.md rule 5a).

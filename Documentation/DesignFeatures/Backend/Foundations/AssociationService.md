@@ -19,7 +19,7 @@ ValueTask<PersonalAssociationMatch?> FindPersonalAssociationAsync(
 
 1. **It answers the reader's one row for the association's host and far-end type**, live or withdrawn, or `null` where there is none — over the unfiltered store, through the personal-key condition above.
 2. **It normalises canonical order before the lookup** (§DOM4.4 rule 4), so a request naming the endpoints the other way round finds the same row.
-3. **It answers only for the signed caller.** The association's `UserId` must be the caller's own, taken from the envelope this member mints. A lookup carrying any other `UserId` answers `null` before storage is asked, as a lookup with no row does, because a denied read answers not found (ts-foundations-012). A `null` `UserId`, which means an editorial row, is refused as invalid. A reader never learns anything about another reader's row (§SEC14.7 posture A′ rule 7).
+3. **It answers only for the signed caller.** The association's `UserId` must be the caller's own, taken from the envelope this member mints. A lookup carrying any other `UserId` answers `null` before storage is asked, as a lookup with no row does, because a denied read answers not found. The true reason is logged server-side as a warning, as `RetrieveAssociationByIdAsync` logs its own (`AssociationService.cs:242-244`; ts-foundations-012). A `null` `UserId`, which means an editorial row, is refused as invalid. A reader never learns anything about another reader's row (§SEC14.7 posture A′ rule 7).
 4. **It is a read, and asks no read-only role** (§SEC14.7 posture A′ rule 3: reads stay exempt).
 
 Its caller is the pair-keyed withdrawal (`Backend/Orchestrations/AssociationOrchestrationService.md §3`).
