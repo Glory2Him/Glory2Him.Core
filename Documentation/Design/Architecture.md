@@ -931,7 +931,7 @@ Responsible for:
 | `Comment` | `CommentsAllowed` |
 | `BibleReference` | `BibleReferenceAllowed` |
 | `Link` | `LinksAllowed` |
-| `Attachment` | `AttachmentsAllowed` |
+| `Attachment` | `AttachmentsAllowed` — **not built yet.** No `Attachment` endpoint resolves (`AssociationOrchestrationService.Endpoints.cs:160-164`), so no pair reaches this arm. The change that first resolves one adds the arm and its test (`DesignFeatures/Backend/Orchestrations/AssociationOrchestrationService.md §1` rule 2). A far end with no built arm asks nothing, so that change must not skip it. |
 
 **RULE — the gate runs on three acts and no others: the add, the reaction repoint and the revive.** Those three are the arms of **`UpsertAssociationAsync`** (#624), this service's caller-facing write, that end with the caller **holding** an association — creating one, changing which reaction a personal row points at, and re-giving one that was withdrawn. The gate is written **once** and reached on both entry paths, per the event-path rule above. The **add** arm is the one act that runs on both personalities, editorial and personal; the reaction repoint and the revive are personal-only (#624 §5).
 
