@@ -35,6 +35,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                     await this.eventEnvelopeBroker.CreateAsync(content: association);
 
                 ValidateUserIsAuthenticated(envelope.SecurityContext);
+                ValidateOnFindPersonalAssociation(association);
 
                 string callerUserId =
                     await this.securityAuditBroker.GetUserIdAsync(envelope.SecurityContext);
@@ -82,6 +83,12 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
                 return matches.FirstOrDefault();
             });
+
+        // A null UserId is an editorial row, which has no personal key to look up.
+        private static void ValidateOnFindPersonalAssociation(Association association) =>
+            Validate(
+                message: "Content item association is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(association.UserId), Parameter: nameof(Association.UserId)));
 
         // The personal-key condition, written once (§DOM4.6 rule 2; the user story's preamble):
         // the key UX_Associations_PersonalPair holds — the host's type and effective id, the far
