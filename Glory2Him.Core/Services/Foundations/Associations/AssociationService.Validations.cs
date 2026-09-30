@@ -56,19 +56,28 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         }
 
         // The half of the gate that needs no endpoints: authentication and the global block
-        // role. Split out so the remove path — which is handed an id, not an association —
-        // can still reject an anonymous or globally-blocked caller before it reads storage.
-        // Folding the whole gate below the load would let an anonymous caller probe which
-        // ids exist, and would cost a query per rejected request.
+        // role. The remove path — which is handed an id, not an association — takes the two
+        // apart: authentication above the read, so an anonymous caller cannot probe which ids
+        // exist, and the global block below it, because only the row can say whether it is
+        // the caller's own reaction (§SEC14.7 posture A′ rule 4).
         private static void ValidateUserIsNotGloballyBlockedFromContributing(
             SecurityContext securityContext)
+        {
+            ValidateUserIsAuthenticated(securityContext);
+            ValidateUserIsNotGloballyReadOnly(securityContext);
+        }
+
+        private static void ValidateUserIsAuthenticated(SecurityContext securityContext)
         {
             if (securityContext is null || securityContext.IsAuthenticated is false)
             {
                 throw new UnauthorizedAssociationException(
                     message: "The current user is not authenticated.");
             }
+        }
 
+        private static void ValidateUserIsNotGloballyReadOnly(SecurityContext securityContext)
+        {
             if (securityContext.Roles.Contains(Roles.ReadOnly))
             {
                 throw new UnauthorizedAssociationException(
@@ -304,12 +313,11 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         // removing an association is a takedown, not a moderation step — the owner may
         // remove their own association and an administrator may remove anyone's; Reviewers and
         // Publishers moderate through the approval workflow instead
-        private async ValueTask ValidateUserCanRemoveStorageAssociationAsync(
+        private static void ValidateUserCanRemoveStorageAssociation(
             Association storageAssociation,
-            SecurityContext securityContext)
+            SecurityContext securityContext,
+            string actorUserId)
         {
-            string actorUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
-
             bool isOwner =
                 string.IsNullOrWhiteSpace(actorUserId) is false
                     && storageAssociation.CreatedBy == actorUserId;

@@ -534,14 +534,13 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             EventEnvelope<Association> inboundEnvelope,
             CancellationToken cancellationToken)
         {
-            // only the endpoint-independent half of the contribution gate can run here — the
-            // scoped veto needs the row, and this path is handed an id. Keeping the
-            // authentication and global-block checks above the read means an anonymous or
-            // globally blocked caller never reaches the Associations table, so this surface
-            // cannot be used to probe which association ids exist. (The event path first
-            // touches ProcessedEvents for deduplication; that lookup is keyed on the event
-            // id, not the association id, so it reveals nothing about which rows exist.)
-            ValidateUserIsNotGloballyBlockedFromContributing(inboundEnvelope.SecurityContext);
+            // only authentication runs above the read, so an anonymous caller never reaches
+            // the Associations table and cannot use this surface to probe which association
+            // ids exist. The read-only roles, global and scoped alike, wait for the row.
+            // (The event path first touches ProcessedEvents for deduplication; that lookup is
+            // keyed on the event id, not the association id, so it reveals nothing about which
+            // rows exist.)
+            ValidateUserIsAuthenticated(inboundEnvelope.SecurityContext);
             ValidateOnRemoveAssociationById(associationId, deletionReason);
 
             Association maybeAssociation =
@@ -551,7 +550,14 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
             ValidateStorageAssociation(maybeAssociation, associationId);
 
-            // the endpoint veto, now that both endpoints are known
+            string actorUserId =
+                await this.securityAuditBroker.GetUserIdAsync(inboundEnvelope.SecurityContext);
+
+            // the whole veto, now that both endpoints are known — a globally blocked caller
+            // reaches the table as any signed-in caller does and is refused here (§SEC14.7
+            // posture A′ rule 4)
+            ValidateUserIsNotGloballyReadOnly(inboundEnvelope.SecurityContext);
+
             ValidateUserIsNotBlockedFromEndpoints(
                 securityContext: inboundEnvelope.SecurityContext,
                 firstEntityType: maybeAssociation.EntityAType,
@@ -561,9 +567,10 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
             // permission comes before the idempotent short-circuit, so an unauthorized
             // caller learns nothing about the row's deletion state
-            await ValidateUserCanRemoveStorageAssociationAsync(
+            ValidateUserCanRemoveStorageAssociation(
                 storageAssociation: maybeAssociation,
-                securityContext: inboundEnvelope.SecurityContext);
+                securityContext: inboundEnvelope.SecurityContext,
+                actorUserId: actorUserId);
 
             if (maybeAssociation.IsDeleted)
                 return maybeAssociation;
