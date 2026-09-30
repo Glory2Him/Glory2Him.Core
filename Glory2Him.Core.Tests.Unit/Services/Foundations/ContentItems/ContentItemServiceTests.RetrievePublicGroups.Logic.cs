@@ -212,6 +212,51 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             actualPublicContentItemGroups.Should().BeEmpty();
         }
 
+        [Fact]
+        public async Task ShouldLeaveOutAnIdThatNamesNothingAsync()
+        {
+            // given: one id names a visible version, the other names no row at all
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            Guid unknownContentItemId = Guid.NewGuid();
+
+            ContentItem visibleContentItem =
+                CreateCanonicallyVisibleContentItem(randomDateTimeOffset);
+
+            var storageContentItems = new List<ContentItem> { visibleContentItem };
+
+            IReadOnlyList<Guid> inputContentItemIds = new[]
+            {
+                unknownContentItemId,
+                visibleContentItem.Id
+            };
+
+            var expectedPublicContentItemGroups = new[]
+            {
+                new PublicContentItemGroup(
+                    ContentItemId: visibleContentItem.Id,
+                    GroupId: visibleContentItem.GroupId,
+                    ContentType: visibleContentItem.ContentType)
+            };
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            SetupPublicContentItemGroupsStorage(storageContentItems);
+
+            // when
+            IReadOnlyList<PublicContentItemGroup> actualPublicContentItemGroups =
+                await this.contentItemService.RetrievePublicContentItemGroupsAsync(
+                    contentItemIds: inputContentItemIds,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            // then: left out, not refused - no exception, and nothing logged
+            actualPublicContentItemGroups.Should().BeEquivalentTo(
+                expectedPublicContentItemGroups);
+
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // THE CONDITION RUNS HERE, over the seeded set - never a canned answer. A stub that
         // returned a fixed list would pass whether or not the function it was handed still
         // carried any of its terms.
