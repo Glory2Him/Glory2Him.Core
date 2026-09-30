@@ -28,6 +28,10 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
         ValueTask<IQueryable<Association>> SelectAllAssociationsAsync(
             CancellationToken cancellationToken = default);
 
+        ValueTask<IReadOnlyList<TResult>> SelectAssociationsAsync<TResult>(
+            Func<IQueryable<Association>, IQueryable<TResult>> query,
+            CancellationToken cancellationToken = default);
+
         /// <summary>
         /// The row on one canonical pair — both endpoint types, both EFFECTIVE ids and the owning
         /// user — or null when the pair is free. A LIVE row wins, and otherwise the most recently
