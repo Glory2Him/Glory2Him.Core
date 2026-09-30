@@ -107,8 +107,8 @@ export type ContentItemReactionCount = {
 // One reaction a reader may give — the choices behind the Like control. The page pulls these from
 // GET api/Reactions (approved rows only) and hands them over; the panel invents none.
 export type ContentItemReactionOption = {
-    // The reaction row's id — what choosing this option names to the server. The label, below,
-    // stays the option's identity on the card itself.
+    // The reaction row's id — what choosing this option will name to the server once #739 sends
+    // the choice. The label, below, stays the option's identity on the card itself.
     id: string;
 
     // Identity as well as label: what comes back on onReactionSelected and what
