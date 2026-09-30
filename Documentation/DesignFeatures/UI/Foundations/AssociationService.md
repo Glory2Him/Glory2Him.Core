@@ -31,8 +31,9 @@ useGetReactionSummaries: (contentItemIdPages: ReadonlyArray<ReadonlyArray<string
 useReadReactionSummariesAgain: () => () => Promise<void>
 ```
 
-1. **The function it returns re-reads every `ReactionSummaries` read on the page and waits for the answer.** It sends a fresh read of each, superseding a read already in flight, and resolves once a read sent at or after the call has landed for each of them.
+1. **The function it returns re-reads every active `ReactionSummaries` read and waits for the answer.** The active reads are the enabled ones `useGetReactionSummaries` is serving on the page. A read cached from another screen, or a disabled one such as an empty page's, is neither re-read nor waited for. The function sends a fresh read of each active one, and resolves once a read sent at or after the call has landed for each of them.
 2. **An unchanged answer counts.** The read that lands may answer exactly what the last one did, as for an item that is not public yet (Likes.md rule 11a), and it still ends the wait. TanStack Query keeps the same data when an answer is unchanged and tells no reader, so the wait watches the reads that land, not the data they carry: a query's `dataUpdateCount` and `errorUpdateCount` move on every read that lands.
-3. **A newer read supersedes, and it is waited for.** A call made while another call's read is in flight supersedes that read. The earlier call then resolves on the newer read, which was also sent after it.
-4. **A failed read ends the wait too**, so no caller waits forever. The failure reaches the page as any failed read does (§3 rule 3).
-5. **Its caller is the engagement hook**, which waits on it after each write settles (`UI/Hooks/ContentItemEngagement.md §2` rule 8).
+3. **A read in flight at the call never ends the wait.** TanStack Query can cancel a re-read of a query that already holds an answer, and the fresh read supersedes it. A query's first read cannot be cancelled: a refetch joins it instead (`@tanstack/query-core`, `Query.fetch`). So the wait lets a first read in flight land, and then sends a fresh read after it. From then on every read that lands was sent after the call, and the first to land ends the wait.
+4. **A superseded read is waited past, however often it is superseded.** Another write's refresh, another call's re-read, or both may supersede the call's read. The wait ends only when a read sent at or after the call has landed, never when a superseded read's promise returns.
+5. **A failed read ends the wait too**, so no caller waits forever. The failure reaches the page as any failed read does (§3 rule 3).
+6. **Its caller is the engagement hook**, which waits on it after each write settles (`UI/Hooks/ContentItemEngagement.md §2` rule 8).
