@@ -32,6 +32,11 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             string callerUserId =
                 await this.securityAuditBroker.GetUserIdAsync(envelope.SecurityContext);
 
+            // every stored row is canonical, so the key is taken from the canonical orientation:
+            // a request naming the reaction first would otherwise key the lookup off the reaction
+            // (§DOM4.4 rule 4)
+            association = NormalizeEndpointOrder(association);
+
             Guid entityAEffectiveId = ResolveEffectiveId(
                 association.EntityAScope,
                 association.EntityAGroupId,
