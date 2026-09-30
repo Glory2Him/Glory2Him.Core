@@ -323,6 +323,66 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Theory]
+        [MemberData(nameof(ReadOnlyRolesOverAReaction))]
+        public async Task ShouldFindTheReadersRowWhateverReadOnlyRoleTheyHoldAsync(
+            string readOnlyRole)
+        {
+            // given: a lookup is a read, and reads ask no read-only role (§SEC14.7 posture A′
+            // rule 3)
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(readOnlyRole);
+            Association lookupRequest = CreatePersonalLookupRequest(readerUserId);
+
+            Association readersRow =
+                CreateStoredPersonalRow(lookupRequest, isDeleted: false);
+
+            List<Association> storageAssociations =
+                CreateRandomAssociations().Append(readersRow).ToList();
+
+            using var cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken inputCancellationToken = cancellationTokenSource.Token;
+
+            var expectedMatch = new PersonalAssociationMatch
+            {
+                Id = readersRow.Id,
+                EntityBKeyId = readersRow.EntityBKeyId,
+                IsDeleted = false
+            };
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(readerUserId);
+
+            SetupPersonalLookupOver(storageAssociations, inputCancellationToken);
+
+            // when
+            PersonalAssociationMatch? actualMatch =
+                await this.associationService.FindPersonalAssociationAsync(
+                    lookupRequest,
+                    inputCancellationToken);
+
+            // then
+            actualMatch.Should().BeEquivalentTo(expectedMatch);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(lookupRequest),
+                    Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                    Times.Once);
+
+            VerifyPersonalLookupAsked(inputCancellationToken, Times.Once());
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         public static TheoryData<string> PersonalKeyTerms() =>
             new TheoryData<string>
             {
