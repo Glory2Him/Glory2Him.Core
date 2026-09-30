@@ -16,7 +16,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
@@ -297,6 +299,81 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // then
             actualPublicContentItemGroups.Should().BeEquivalentTo(
                 expectedPublicContentItemGroups);
+        }
+
+        [Fact]
+        public async Task ShouldRetrievePublicGroupsWithoutReadingTheCallerAsync()
+        {
+            // given: a visible group, and a group whose only version is Submitted - a row an
+            // administrator could see through the caller-filtered reads, and an anonymous
+            // visitor could not. Here both must receive the same answer.
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+
+            ContentItem visibleContentItem =
+                CreateCanonicallyVisibleContentItem(randomDateTimeOffset);
+
+            ContentItem submittedContentItem =
+                CreateCanonicallyVisibleContentItem(randomDateTimeOffset);
+
+            submittedContentItem.ApprovalStatus = ApprovalStatus.Submitted;
+            submittedContentItem.IsPublished = false;
+            submittedContentItem.PublishDate = null;
+
+            var storageContentItems = new List<ContentItem>
+            {
+                visibleContentItem,
+                submittedContentItem
+            };
+
+            IReadOnlyList<Guid> inputContentItemIds = new[]
+            {
+                visibleContentItem.Id,
+                submittedContentItem.Id
+            };
+
+            var expectedPublicContentItemGroups = new[]
+            {
+                new PublicContentItemGroup(
+                    ContentItemId: visibleContentItem.Id,
+                    GroupId: visibleContentItem.GroupId,
+                    ContentType: visibleContentItem.ContentType)
+            };
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            SetupPublicContentItemGroupsStorage(storageContentItems);
+
+            // when
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext(Roles.Administrators);
+
+            IReadOnlyList<PublicContentItemGroup> administratorPublicContentItemGroups =
+                await this.contentItemService.RetrievePublicContentItemGroupsAsync(
+                    contentItemIds: inputContentItemIds,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            this.ambientSecurityContext = new SecurityContext { IsAuthenticated = false };
+
+            IReadOnlyList<PublicContentItemGroup> anonymousPublicContentItemGroups =
+                await this.contentItemService.RetrievePublicContentItemGroupsAsync(
+                    contentItemIds: inputContentItemIds,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            administratorPublicContentItemGroups.Should().BeEquivalentTo(
+                expectedPublicContentItemGroups);
+
+            anonymousPublicContentItemGroups.Should().BeEquivalentTo(
+                expectedPublicContentItemGroups);
+
+            // CALLER-INDEPENDENT, structurally: no envelope is minted, no identity resolved and
+            // no access decision asked for, so there is nothing a privilege could widen
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
         }
 
         // THE CONDITION RUNS HERE, over the seeded set - never a canned answer. A stub that
