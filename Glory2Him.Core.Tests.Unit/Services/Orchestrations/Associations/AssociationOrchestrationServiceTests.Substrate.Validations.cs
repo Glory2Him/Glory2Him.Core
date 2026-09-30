@@ -312,6 +312,53 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        // A REFUSAL WRITES NOTHING (#723, AssociationOrchestrationService.md §2 rule 2). The row,
+        // the Association-Added fact and the ProcessedEvents record are all the foundation
+        // handler's, so a refused personal pair has done none of them exactly when that handler
+        // was never reached. The duplicate question is all the foundation is asked, and it
+        // records nothing; nothing is minted here either.
+        [Fact]
+        public async Task ShouldNeverDelegateAPersonalPairToTheFoundationAsync()
+        {
+            // given
+            Association addRequest =
+                CreateHonestAddRequestBetween(EntityType.ContentItem, EntityType.Reaction);
+
+            EventEnvelope<Association> inputEnvelope = CreateRequestEnvelope(addRequest);
+            SetupEventPathEndpointReadsBetween(addRequest, inputEnvelope);
+
+            this.associationServiceMock.Setup(service =>
+                service.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(inputEnvelope);
+
+            // when
+            ValueTask<EventEnvelope<Association>> onAddingTask =
+                this.associationOrchestrationService.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(
+                onAddingTask.AsTask);
+
+            // then
+            this.associationServiceMock.Verify(service =>
+                service.OnAddingAssociationAsync(
+                    It.IsAny<EventEnvelope<Association>>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.associationServiceMock.Verify(service =>
+                service.HasAlreadyAddedAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+        }
+
         // Stubs both endpoint reads as the signed caller would be answered, whatever the two types.
         private void SetupEventPathEndpointReadsBetween(
             Association addRequest,
