@@ -17,7 +17,9 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Force.DeepCloner;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Reactions;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
@@ -117,6 +119,75 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
 
             this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldRetrievePublicReactionsWithoutReadingTheCallerAsync()
+        {
+            // given
+            string publisherUserId = GetRandomString();
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
+            Reaction publicReaction = CreatePubliclyVisibleReaction(currentDateTime);
+
+            // the publisher's own draft, which every caller-aware read hands back to them
+            Reaction publishersDraftReaction = CreatePubliclyVisibleReaction(currentDateTime);
+            publishersDraftReaction.ApprovalStatus = ApprovalStatus.Draft;
+            publishersDraftReaction.IsPublished = false;
+            publishersDraftReaction.PublishDate = null;
+            publishersDraftReaction.CreatedBy = publisherUserId;
+
+            var storageReactions = new List<Reaction>
+            {
+                publicReaction,
+                publishersDraftReaction
+            };
+
+            var expectedReactions = new List<Reaction> { publicReaction.DeepClone() };
+
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext(Roles.Publishers, Roles.ReactionPublishers);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(publisherUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(currentDateTime);
+
+            SetupSelectReactionsToQuery(storageReactions, cancellationToken);
+
+            // when
+            IReadOnlyList<Reaction> publishersReactions =
+                await this.reactionService.RetrievePublicReactionsAsync(cancellationToken);
+
+            this.ambientSecurityContext = null;
+
+            IReadOnlyList<Reaction> anonymousVisitorsReactions =
+                await this.reactionService.RetrievePublicReactionsAsync(cancellationToken);
+
+            // then
+            publishersReactions.Should().BeEquivalentTo(expectedReactions);
+            anonymousVisitorsReactions.Should().BeEquivalentTo(expectedReactions);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Exactly(2));
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectReactionsAsync(
+                    It.IsAny<Func<IQueryable<Reaction>, IQueryable<Reaction>>>(),
+                    cancellationToken),
+                Times.Exactly(2));
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
