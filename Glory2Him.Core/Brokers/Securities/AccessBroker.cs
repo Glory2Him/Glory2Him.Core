@@ -1248,19 +1248,30 @@ namespace Glory2Him.Core.Brokers.Securities
             IReadOnlyList<ContentItemSettingKey> contentItemSettingKeys,
             CancellationToken cancellationToken = default)
         {
-            if (contentItemSettingKeys.Count is 0)
+            List<ContentItemSettingKey> distinctContentItemSettingKeys = contentItemSettingKeys
+                .DistinctBy(contentItemSettingKey =>
+                    (contentItemSettingKey.ContentType, contentItemSettingKey.ContentItemId))
+                .ToList();
+
+            if (distinctContentItemSettingKeys.Count is 0)
             {
                 return new List<EffectiveContentItemSetting>();
             }
 
+            // One subquery per key, each picking that key's single winning row, joined into ONE
+            // query so the selection runs in SQL in one round trip (§ARC16.8, the §DOM6.10 row).
             return await this.storageBroker.SelectContentItemSettingsAsync(
-                contentItemSettings => contentItemSettingKeys
+                contentItemSettings => distinctContentItemSettingKeys
                     .Select(contentItemSettingKey =>
                         SelectEffectiveContentItemSetting(contentItemSettings, contentItemSettingKey))
                     .Aggregate((answered, next) => answered.Concat(next)),
                 cancellationToken);
         }
 
+        // §DOM6.4: the live override for the item and its type where there is one, the type's
+        // live default otherwise — a selection of one row, never a merge of two. Ordering the
+        // override first and taking one is what makes it a selection; the filtered unique
+        // indexes on ContentItemSettings allow at most one live row in each tier.
         private static IQueryable<EffectiveContentItemSetting> SelectEffectiveContentItemSetting(
             IQueryable<ContentItemSetting> contentItemSettings,
             ContentItemSettingKey contentItemSettingKey) =>
