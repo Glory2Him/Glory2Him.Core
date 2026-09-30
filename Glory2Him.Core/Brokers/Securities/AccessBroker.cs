@@ -454,7 +454,7 @@ namespace Glory2Him.Core.Brokers.Securities
                     {
                         Id = approvalReview.Id,
                         CreatedWhen = approvalReview.CreatedWhen,
-                        IsRejection = false,
+                        IsRejection = approvalReview.StatusId == ApprovalStatus.Rejected,
                     }),
                 cancellationToken: cancellationToken);
         }
