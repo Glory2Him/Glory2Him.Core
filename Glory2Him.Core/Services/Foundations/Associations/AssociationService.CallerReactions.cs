@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
 
@@ -33,7 +34,11 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
             return await this.storageBroker.SelectAssociationsAsync(
                 query: associations => associations
-                    .Where(association => association.IsDeleted == false)
+                    .Where(association =>
+                        association.EntityAType == EntityType.ContentItem
+                            && contentItemGroupIds.Contains(association.EntityAEffectiveId)
+                            && association.EntityBType == EntityType.Reaction
+                            && association.IsDeleted == false)
                     .Select(association => new AssociationPairKey
                     {
                         EntityAEffectiveId = association.EntityAEffectiveId,
