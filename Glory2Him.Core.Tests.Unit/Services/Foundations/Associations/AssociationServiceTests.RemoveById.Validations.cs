@@ -207,11 +207,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         }
 
         [Fact]
-        public async Task ShouldThrowValidationExceptionOnRemoveByIdIfUserIsBlockedFromContributingAndLogItAsync()
+        public async Task ShouldBlockRemovingAnEditorialRowWhenTheCallerIsReadOnlyAfterTheLoadAndLogItAsync()
         {
-            // given
+            // given: the caller owns the editorial row, so the veto is the only thing refusing
+            // them — and it now runs after the load, since only the row can say whether it is
+            // the caller's own reaction
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.ReadOnly);
-            Guid someAssociationId = Guid.NewGuid();
+            string actorUserId = GetRandomString();
+            Association storageAssociation = CreateRandomAssociation();
+            storageAssociation.UserId = null;
+            storageAssociation.CreatedBy = actorUserId;
+            Guid someAssociationId = storageAssociation.Id;
 
             var unauthorizedAssociationException = new UnauthorizedAssociationException(
                 message: "The current user is blocked from contributing content item associations.");
@@ -220,6 +226,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 new AssociationValidationException(
                     message: "Content item association validation error occurred, fix the errors and try again.",
                     innerException: unauthorizedAssociationException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAssociationByIdAsync(
+                    someAssociationId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageAssociation);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(actorUserId);
 
             // when
             ValueTask<Association> removeAssociationByIdTask =
@@ -234,6 +250,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // then
             actualAssociationValidationException.Should().BeEquivalentTo(
                 expectedAssociationValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAssociationByIdAsync(
+                    someAssociationId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
