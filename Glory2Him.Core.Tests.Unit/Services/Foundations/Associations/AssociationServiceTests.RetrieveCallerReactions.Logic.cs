@@ -148,6 +148,63 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldLeaveOutTheCallersWithdrawnReactionAsync()
+        {
+            // given
+            string callerUserId = GetRandomString();
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            List<Guid> contentItemGroupIds = CreateRandomContentItemGroupIds(count: 2);
+
+            Association liveReaction =
+                CreateCallerReactionOn(contentItemGroupIds[0], callerUserId);
+
+            Association withdrawnReaction =
+                CreateCallerReactionOn(contentItemGroupIds[1], callerUserId);
+
+            withdrawnReaction.IsDeleted = true;
+            withdrawnReaction.DeletedBy = callerUserId;
+            withdrawnReaction.DeletedWhen = withdrawnReaction.UpdatedWhen;
+
+            var storageAssociations = new List<Association>
+            {
+                liveReaction,
+                withdrawnReaction
+            };
+
+            var expectedPairKeys = new List<AssociationPairKey>
+            {
+                CreatePairKeyFor(liveReaction)
+            };
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(callerUserId);
+
+            SetupSelectAssociationsToQuery(storageAssociations, cancellationToken);
+
+            // when
+            IReadOnlyList<AssociationPairKey> actualPairKeys =
+                await this.associationService.RetrieveCallerContentItemReactionsAsync(
+                    contentItemGroupIds,
+                    cancellationToken);
+
+            // then
+            actualPairKeys.Should().BeEquivalentTo(expectedPairKeys);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                Times.Once);
+
+            VerifySelectAssociationsQueriedOnce(cancellationToken);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         private static List<Guid> CreateRandomContentItemGroupIds(int count) =>
             Enumerable.Range(start: 0, count: count)
                 .Select(_ => Guid.NewGuid())
