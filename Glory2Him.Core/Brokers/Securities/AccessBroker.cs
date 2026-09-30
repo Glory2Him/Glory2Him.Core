@@ -446,6 +446,10 @@ namespace Glory2Him.Core.Brokers.Securities
         {
             return await this.storageBroker.SelectApprovalReviewsAsync(
                 query: approvalReviews => approvalReviews
+                    .Where(approvalReview =>
+                        approvalReview.ApprovalId == approvalId
+                            && approvalReview.IsDeleted == false
+                            && approvalReview.StatusId != ApprovalStatus.Dismissed)
                     .Select(approvalReview => new DismissableApprovalReview
                     {
                         Id = approvalReview.Id,
