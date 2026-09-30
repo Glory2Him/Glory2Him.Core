@@ -173,32 +173,38 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     cancellationToken: cancellationToken);
             });
 
-        public async ValueTask<IReadOnlyList<PublicContentItemGroup>> RetrievePublicContentItemGroupsAsync(
+        public ValueTask<IReadOnlyList<PublicContentItemGroup>> RetrievePublicContentItemGroupsAsync(
             IReadOnlyList<Guid> contentItemIds,
-            CancellationToken cancellationToken = default)
-        {
-            DateTimeOffset currentDateTime =
-                await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
+            CancellationToken cancellationToken = default) =>
+            TryCatchPublicContentItemGroups(async () =>
+            {
+                ValidateOnRetrievePublicContentItemGroups(contentItemIds);
 
-            // THE CONDITION IS AUTHORED HERE (§ARC12.2.1 rule 3): the id match, and §SEC14.1
-            // asked of the GROUP rather than of the row - an id answers when any version of its
-            // group is canonically visible, because a reaction belongs to the group (§ARC16.8).
-            return await this.storageBroker.SelectContentItemsAsync(
-                query: contentItems => contentItems
-                    .Where(contentItem => contentItemIds.Contains(contentItem.Id))
-                    .Where(contentItem => contentItems.Any(groupContentItem =>
-                        groupContentItem.GroupId == contentItem.GroupId
-                            && groupContentItem.IsDeleted == false
-                            && groupContentItem.ApprovalStatus == ApprovalStatus.Approved
-                            && groupContentItem.IsPublished
-                            && (groupContentItem.PublishDate == null
-                                || groupContentItem.PublishDate <= currentDateTime)))
-                    .Select(contentItem => new PublicContentItemGroup(
-                        contentItem.Id,
-                        contentItem.GroupId,
-                        contentItem.ContentType)),
-                cancellationToken: cancellationToken);
-        }
+                // NO ENVELOPE, and none is missing - the feed read's reason: §SEC14.1 is applied
+                // to every caller identically, so a context would be resolved and then ignored.
+                DateTimeOffset currentDateTime =
+                    await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
+
+                // THE CONDITION IS AUTHORED HERE (§ARC12.2.1 rule 3): the id match, and §SEC14.1
+                // asked of the GROUP rather than of the row - an id answers when any version of
+                // its group is canonically visible, because a reaction belongs to the group
+                // (§ARC16.8).
+                return await this.storageBroker.SelectContentItemsAsync(
+                    query: contentItems => contentItems
+                        .Where(contentItem => contentItemIds.Contains(contentItem.Id))
+                        .Where(contentItem => contentItems.Any(groupContentItem =>
+                            groupContentItem.GroupId == contentItem.GroupId
+                                && groupContentItem.IsDeleted == false
+                                && groupContentItem.ApprovalStatus == ApprovalStatus.Approved
+                                && groupContentItem.IsPublished
+                                && (groupContentItem.PublishDate == null
+                                    || groupContentItem.PublishDate <= currentDateTime)))
+                        .Select(contentItem => new PublicContentItemGroup(
+                            contentItem.Id,
+                            contentItem.GroupId,
+                            contentItem.ContentType)),
+                    cancellationToken: cancellationToken);
+            });
 
         public ValueTask<IReadOnlyList<ContentItem>> RetrieveContentItemsByGroupIdAsync(
             Guid groupId,
@@ -247,6 +253,12 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     .ThenBy(contentItem => contentItem.Id)
                     .ToList();
             });
+
+        private static void ValidateOnRetrievePublicContentItemGroups(
+            IReadOnlyList<Guid> contentItemIds) =>
+            Validate(
+                message: "Content item is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(contentItemIds), Parameter: nameof(contentItemIds)));
 
         private static void ValidateOnFindPublishedSiblingContentItem(Guid contentItemId) =>
             Validate(
