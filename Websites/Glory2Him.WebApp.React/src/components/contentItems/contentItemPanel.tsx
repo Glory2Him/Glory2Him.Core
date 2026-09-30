@@ -466,8 +466,8 @@ export function ContentItemPanel({
                 // already on screen — so deciding there would send a signed-in reader to sign
                 // in. SecuredRoute refuses to decide while loading and so does this.
                 if (isAuthenticationLoading === false && isAuthenticated === false) {
-                    // The path alone, URI-encoded: the one return address this application
-                    // carries (securedRoutes.tsx), so the reader lands back on this page.
+                    // The card returns the reader by the path alone, URI-encoded, so the query and
+                    // fragment are lost (UI/Pages/Home.md §6 item 3).
                     navigate(
                         `/Account/Login?returnUrl=${encodeURIComponent(location.pathname)}`);
 

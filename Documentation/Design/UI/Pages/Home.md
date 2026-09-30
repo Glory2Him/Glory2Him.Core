@@ -270,7 +270,7 @@ write a card leads to is decided again by the service (§SEC14.6).
    (`toContentItemSearchItem.ts` leaves `reactionSummary` unset, lines 71-83). The page hands
    `useContentItemEngagement` the ids of each page of cards it has delivered and renders what
    `withReactions` projects (`DesignFeatures/UI/Hooks/ContentItemEngagement.md §1`; §ARC16.8).
-3. (#737) **No reusable sign-in action.** §UI20.6.6 rule 2 makes sign-in a global action:
+3. (#737) **Nothing uses the reusable sign-in action yet.** §UI20.6.6 rule 2 makes sign-in a global action:
    one reusable way every page uses, so the sign-in route is defined once, returning the reader to
    exactly the place they left. It makes one exception: a reader who accepts the invitation to
    contribute is returned to the contribution form, `/posts/contribute`, where their press was
@@ -280,8 +280,10 @@ write a card leads to is decided again by the service (§SEC14.6).
    ends by navigating to its return address with no state (`src/pages/account/login.tsx`, line
    70), hands that address on as `ReturnUrl` when a second factor is asked (line 62), and external
    sign-in posts it to the server as `ReturnUrl` (`src/pages/account/externalLoginPicker.tsx`, line
-   38). So the origin has to reach the form by a way that survives each of the three. No such
-   action exists. The route `/Account/Login?returnUrl=…` is composed in
+   38). So the origin has to reach the form by a way that survives each of the three.
+   **Built:** the action and its plain return, `useSignIn` (`src/hooks/useSignIn.ts`; #737).
+   **Not yet built:** the invitation's exception (item 10), and nothing uses the action yet.
+   The route `/Account/Login?returnUrl=…` is composed in
    five places, each from the path alone, so a reader on `/posts?q=grace` would return to `/posts`
    with the search gone: `src/components/securitys/securedRoutes.tsx` — `goToLogin` (line 28);
    `contentItemPanel.tsx` — the reaction redirect (line 472); `associationPanel.tsx` —
