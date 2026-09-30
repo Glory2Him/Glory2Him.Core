@@ -156,15 +156,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
-        // Every endpoint type the resolver supports, on side B. Side A stays a ContentItem, so
-        // each row also exercises the content-typed read alongside the one under test.
+        // Every endpoint type the resolver supports that this door reads, on side B. Side A stays a
+        // ContentItem, so each row also exercises the content-typed read alongside the one under
+        // test. A Reaction is supported too, but this door refuses it before any read (#723).
         public static TheoryData<EntityType> SupportedEndpointTypes() =>
             new TheoryData<EntityType>
             {
                 EntityType.ContentItem,
                 EntityType.Link,
                 EntityType.Tag,
-                EntityType.Reaction,
                 EntityType.BibleReference,
                 EntityType.Comment,
             };
@@ -322,14 +322,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 case EntityType.Tag:
                     this.tagServiceMock.Verify(service =>
                         service.RetrieveTagByIdAsync(
-                            keyId, inboundEnvelope, TestContext.Current.CancellationToken),
-                        Times.Once);
-
-                    return;
-
-                case EntityType.Reaction:
-                    this.reactionServiceMock.Verify(service =>
-                        service.RetrieveReactionByIdAsync(
                             keyId, inboundEnvelope, TestContext.Current.CancellationToken),
                         Times.Once);
 

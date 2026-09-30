@@ -63,6 +63,8 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                     return null;
                 }
 
+                ValidatePairIsNotPersonal(envelope.Content);
+
                 // THE SAME WRITE FLOW THE METHOD PATH RUNS, on a working copy of the raw endpoints
                 // rather than on the envelope's content: that content is covered by the HMAC, and
                 // the foundation, the ProcessedEvents record and the reply are all built from it,

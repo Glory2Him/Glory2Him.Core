@@ -269,6 +269,15 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             }
         }
 
+        private static void ValidatePairIsNotPersonal(Association association)
+        {
+            if (EntityTypePersonalisation.IsPersonal(association.EntityBType))
+            {
+                throw new InvalidAssociationOrchestrationException(
+                    message: "A personal content item association cannot be added through an event.");
+            }
+        }
+
         // The id-keyed surfaces' own validation. Kept separate from ValidateOnAddAssociation
         // rather than folded into a shared validator: they compose different rules today and
         // sharing the composition would mean a rule added for one silently binds the other.
