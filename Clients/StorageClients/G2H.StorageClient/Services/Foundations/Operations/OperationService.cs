@@ -71,6 +71,7 @@ namespace G2H.StorageClient.Services.Foundations.Operations
             where T : class
         {
             ArgumentNullException.ThrowIfNull(query);
+            cancellationToken.ThrowIfCancellationRequested();
 
             IQueryable<T> source = await storageBroker.SelectAllAsync<T>();
 
