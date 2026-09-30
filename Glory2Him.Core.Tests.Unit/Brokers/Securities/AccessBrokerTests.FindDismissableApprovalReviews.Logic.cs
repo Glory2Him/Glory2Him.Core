@@ -182,6 +182,44 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             VerifyDismissableApprovalReviewsQueriedOnce();
         }
 
+        [Fact]
+        public async Task ShouldGatherNothingWhenTheRoundHasNoActiveReviewAsync()
+        {
+            // given: the table is not empty — the round holds only a withdrawn and a dismissed
+            // review, and the one active review belongs to another round — so an empty answer
+            // comes from the condition rather than from an empty set
+            Guid approvalId = Guid.NewGuid();
+            DateTimeOffset createdWhen = DateTimeOffset.UtcNow.AddHours(-1);
+
+            SetupDismissableApprovalReviewsQueryOver(
+                CreateDismissableApprovalReview(
+                    approvalId: approvalId,
+                    statusId: ApprovalStatus.Rejected,
+                    createdWhen: createdWhen,
+                    isDeleted: true),
+                CreateDismissableApprovalReview(
+                    approvalId: approvalId,
+                    statusId: ApprovalStatus.Dismissed,
+                    createdWhen: createdWhen),
+                CreateDismissableApprovalReview(
+                    approvalId: Guid.NewGuid(),
+                    statusId: ApprovalStatus.Rejected,
+                    createdWhen: createdWhen));
+
+            // when
+            IReadOnlyList<DismissableApprovalReview> actualDismissableApprovalReviews =
+                await this.accessBroker.FindDismissableApprovalReviewsAsync(
+                    approvalId: approvalId,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            actualDismissableApprovalReviews.Should().BeEmpty(
+                because: "a round with no active review has nothing to dismiss, and that is an " +
+                    "empty answer rather than an error");
+
+            VerifyDismissableApprovalReviewsQueriedOnce();
+        }
+
         private void SetupDismissableApprovalReviewsQueryOver(
             params ApprovalReview[] storageApprovalReviews) =>
             this.storageBrokerMock.Setup(broker =>
