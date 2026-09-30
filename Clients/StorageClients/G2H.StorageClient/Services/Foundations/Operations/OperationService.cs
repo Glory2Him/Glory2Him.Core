@@ -65,11 +65,15 @@ namespace G2H.StorageClient.Services.Foundations.Operations
             return await storageBroker.SelectAsync<T>(objectIds, cancellationToken);
         }
 
-        public ValueTask<IReadOnlyList<TResult>> SelectListAsync<T, TResult>(
+        public async ValueTask<IReadOnlyList<TResult>> SelectListAsync<T, TResult>(
             Func<IQueryable<T>, IQueryable<TResult>> query,
             CancellationToken cancellationToken = default)
-            where T : class =>
-                throw new NotImplementedException();
+            where T : class
+        {
+            IQueryable<T> source = await storageBroker.SelectAllAsync<T>();
+
+            return await storageBroker.SelectListAsync(query(source), cancellationToken);
+        }
 
         public async ValueTask<T> UpdateAsync<T>(T @object, CancellationToken cancellationToken = default)
             where T : class
