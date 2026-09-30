@@ -27,6 +27,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             CancellationToken cancellationToken = default) =>
             TryCatch(async () =>
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 ValidateAssociationIsNotNull(association);
 
                 // the envelope captures the caller the lookup answers for: a reader's row is
