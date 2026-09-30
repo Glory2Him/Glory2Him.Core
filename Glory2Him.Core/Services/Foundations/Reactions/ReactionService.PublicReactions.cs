@@ -19,8 +19,14 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
 {
     internal partial class ReactionService
     {
-        public ValueTask<IReadOnlyList<Reaction>> RetrievePublicReactionsAsync(
-            CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
+        public async ValueTask<IReadOnlyList<Reaction>> RetrievePublicReactionsAsync(
+            CancellationToken cancellationToken = default)
+        {
+            DateTimeOffset currentDateTime = await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
+
+            return await this.storageBroker.SelectReactionsAsync(
+                query: reactions => reactions,
+                cancellationToken: cancellationToken);
+        }
     }
 }
