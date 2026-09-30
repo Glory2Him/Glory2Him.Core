@@ -26,7 +26,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
 {
     public partial class ReactionServiceTests
     {
-        // THE ENDPOINT READ ON THE ASSOCIATION-ADDING EVENT PATH (#631). The ambient-context
+        // THE ENDPOINT READ BUILT FOR THE ASSOCIATION-ADDING EVENT PATH (#631), which since #723
+        // refuses a personal pair before either endpoint is read. The ambient-context
         // overload mints its own envelope, so on a substrate delivery it would evaluate this read
         // as nobody, or as whoever published — never necessarily the subject the envelope was
         // signed for. This overload is handed the envelope and must decide as ITS caller.
@@ -44,8 +45,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             // the row's owner, carried on the envelope rather than found in the ambient context
             SecurityContext ownerSecurityContext = CreateAuthenticatedSecurityContext();
 
-            // An Association-sourced envelope, because that is what the only production caller
-            // holds: the association orchestration passes the ADD REQUEST it is handling.
+            // An Association-sourced envelope, because that is what its one call site holds: the
+            // association orchestration's endpoint resolution passes the ADD REQUEST it is handling.
             var inboundEnvelope = new EventEnvelope<Association>
             {
                 Content = new Association { Id = Guid.NewGuid() },
