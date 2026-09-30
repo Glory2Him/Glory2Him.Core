@@ -64,6 +64,65 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldLeaveOutAReactionThatIsNotPubliclyVisibleAsync()
+        {
+            // given
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
+            Reaction publicReaction = CreatePubliclyVisibleReaction(currentDateTime);
+
+            // each row misses on one term alone, so dropping any term reds this test
+            Reaction deletedReaction = CreatePubliclyVisibleReaction(currentDateTime);
+            deletedReaction.IsDeleted = true;
+
+            Reaction submittedReaction = CreatePubliclyVisibleReaction(currentDateTime);
+            submittedReaction.ApprovalStatus = ApprovalStatus.Submitted;
+
+            Reaction unpublishedReaction = CreatePubliclyVisibleReaction(currentDateTime);
+            unpublishedReaction.IsPublished = false;
+
+            Reaction notYetPublishedReaction = CreatePubliclyVisibleReaction(currentDateTime);
+            notYetPublishedReaction.PublishDate = currentDateTime.AddDays(GetRandomNumber());
+
+            var storageReactions = new List<Reaction>
+            {
+                deletedReaction,
+                submittedReaction,
+                publicReaction,
+                unpublishedReaction,
+                notYetPublishedReaction
+            };
+
+            var expectedReactions = new List<Reaction> { publicReaction.DeepClone() };
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(currentDateTime);
+
+            SetupSelectReactionsToQuery(storageReactions, cancellationToken);
+
+            // when
+            IReadOnlyList<Reaction> actualReactions =
+                await this.reactionService.RetrievePublicReactionsAsync(cancellationToken);
+
+            // then
+            actualReactions.Should().BeEquivalentTo(expectedReactions);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            VerifySelectReactionsQueriedOnce(cancellationToken);
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // an approved, published reaction whose publish date has already passed, so it is
         // visible to anybody under §SEC14.3 rule 4
         private static Reaction CreatePubliclyVisibleReaction(DateTimeOffset currentDateTime)
