@@ -3,7 +3,7 @@ Parent: [Likes.md](../../Likes.md)
 Level: hook — `useSignIn` (`Websites/Glory2Him.WebApp.React/src/hooks/useSignIn.ts`), new
 Inherits: §UI20.6.6 rule 2, `UI/Pages/Home.md §6 item 3`, Likes.md rule 4
 
-§UI20.6.6 rule 2 calls for one reusable action that sends a reader to sign in and returns them to exactly where they were. `UI/Pages/Home.md §6 item 3` records that it does not exist: five places compose the sign-in route from the path alone. The Likes feature needs it first, for a signed-out reader who chooses a reaction (Likes.md rule 4), so this user story builds the action and its plain return. The invitation's return on to `/posts/contribute` is built with its first user (`UI/Pages/Home.md §6 item 10`), and the five existing places move onto the action under their own gaps.
+§UI20.6.6 rule 2 calls for one reusable action that sends a reader to sign in and returns them to exactly where they were. `UI/Pages/Home.md §6 item 3` records the five places that compose the sign-in route from the path alone. The Likes feature needs it first, for a signed-out reader who chooses a reaction (Likes.md rule 4), so this user story builds the action and its plain return. The invitation's return on to `/posts/contribute` is built with its first user (`UI/Pages/Home.md §6 item 10`), and the five existing places move onto the action under their own gaps.
 
 ## 1. useSignIn (#737)
 
