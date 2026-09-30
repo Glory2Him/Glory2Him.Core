@@ -28,4 +28,16 @@ describe('useSignIn', () => {
         expect(result.current.location.search).toBe(`?returnUrl=${encodeURIComponent('/posts?q=grace#comments')}`);
         expect(new URLSearchParams(result.current.location.search).get('returnUrl')).toBe('/posts?q=grace#comments');
     });
+
+    it('should send a reader on the home page back to the home page', () => {
+        // given
+        const { result } = renderSignIn('/');
+
+        // when
+        act(() => result.current.signIn());
+
+        // then
+        expect(result.current.location.pathname).toBe('/Account/Login');
+        expect(new URLSearchParams(result.current.location.search).get('returnUrl')).toBe('/');
+    });
 });
