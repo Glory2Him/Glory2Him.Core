@@ -172,10 +172,21 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     cancellationToken: cancellationToken);
             });
 
-        public ValueTask<IReadOnlyList<PublicContentItemGroup>> RetrievePublicContentItemGroupsAsync(
+        public async ValueTask<IReadOnlyList<PublicContentItemGroup>> RetrievePublicContentItemGroupsAsync(
             IReadOnlyList<Guid> contentItemIds,
-            CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
+            CancellationToken cancellationToken = default)
+        {
+            await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
+
+            return await this.storageBroker.SelectContentItemsAsync(
+                query: contentItems => contentItems
+                    .Where(contentItem => contentItemIds.Contains(contentItem.Id))
+                    .Select(contentItem => new PublicContentItemGroup(
+                        contentItem.Id,
+                        contentItem.GroupId,
+                        contentItem.ContentType)),
+                cancellationToken: cancellationToken);
+        }
 
         public ValueTask<IReadOnlyList<ContentItem>> RetrieveContentItemsByGroupIdAsync(
             Guid groupId,
