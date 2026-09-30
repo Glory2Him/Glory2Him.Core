@@ -21,37 +21,40 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 {
     internal partial class AssociationService
     {
-        public async ValueTask<IReadOnlyList<AssociationPairCount>> RetrieveContentItemReactionCountsAsync(
+        public ValueTask<IReadOnlyList<AssociationPairCount>> RetrieveContentItemReactionCountsAsync(
             IReadOnlyList<Guid> contentItemGroupIds,
             IReadOnlyList<Guid> reactionIds,
-            CancellationToken cancellationToken = default)
-        {
-            DateTimeOffset currentDateTime =
-                await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                ValidateOnRetrieveContentItemReactionCounts(contentItemGroupIds, reactionIds);
 
-            return await this.storageBroker.SelectAssociationsAsync(
-                query: associations => associations
-                    .Where(association =>
-                        association.EntityAType == EntityType.ContentItem
-                            && contentItemGroupIds.Contains(association.EntityAEffectiveId)
-                            && association.EntityBType == EntityType.Reaction
-                            && reactionIds.Contains(association.EntityBKeyId)
-                            && association.IsDeleted == false
-                            && association.ApprovalStatus == ApprovalStatus.Approved
-                            && (association.PublishDate == null
-                                || association.PublishDate <= currentDateTime))
-                    .GroupBy(association => new
-                    {
-                        association.EntityAEffectiveId,
-                        association.EntityBKeyId
-                    })
-                    .Select(pair => new AssociationPairCount
-                    {
-                        EntityAEffectiveId = pair.Key.EntityAEffectiveId,
-                        EntityBKeyId = pair.Key.EntityBKeyId,
-                        Count = pair.Count()
-                    }),
-                cancellationToken: cancellationToken);
-        }
+                DateTimeOffset currentDateTime =
+                    await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
+
+                return await this.storageBroker.SelectAssociationsAsync(
+                    query: associations => associations
+                        .Where(association =>
+                            association.EntityAType == EntityType.ContentItem
+                                && contentItemGroupIds.Contains(association.EntityAEffectiveId)
+                                && association.EntityBType == EntityType.Reaction
+                                && reactionIds.Contains(association.EntityBKeyId)
+                                && association.IsDeleted == false
+                                && association.ApprovalStatus == ApprovalStatus.Approved
+                                && (association.PublishDate == null
+                                    || association.PublishDate <= currentDateTime))
+                        .GroupBy(association => new
+                        {
+                            association.EntityAEffectiveId,
+                            association.EntityBKeyId
+                        })
+                        .Select(pair => new AssociationPairCount
+                        {
+                            EntityAEffectiveId = pair.Key.EntityAEffectiveId,
+                            EntityBKeyId = pair.Key.EntityBKeyId,
+                            Count = pair.Count()
+                        }),
+                    cancellationToken: cancellationToken);
+            });
     }
 }

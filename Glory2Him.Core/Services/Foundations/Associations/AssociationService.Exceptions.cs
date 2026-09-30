@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using EFxceptions.Models.Exceptions;
@@ -36,6 +37,9 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             ReturningAssociationEventEnvelopeFunction();
 
         private delegate ValueTask<bool> ReturningBooleanFunction();
+
+        private delegate ValueTask<IReadOnlyList<AssociationPairCount>>
+            ReturningAssociationPairCountsFunction();
 
         // The event-path wrapper: categorizes failures with the same taxonomy as the
         // non-event TryCatch (so the two entry paths cannot diverge), plus the envelope
@@ -495,6 +499,21 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
                 throw await CreateAndLogServiceExceptionAsync(
                     failedAssociationServiceException);
+            }
+        }
+
+        // The grouped reaction count (§ARC16.8).
+        private async ValueTask<IReadOnlyList<AssociationPairCount>> TryCatch(
+            ReturningAssociationPairCountsFunction returningAssociationPairCountsFunction)
+        {
+            try
+            {
+                return await returningAssociationPairCountsFunction();
+            }
+            catch (InvalidAssociationException invalidAssociationException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(
+                    exception: invalidAssociationException);
             }
         }
 
