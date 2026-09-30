@@ -321,6 +321,41 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                 because: "an empty key list answers an empty list");
         }
 
+        [Fact]
+        public async Task ShouldAnswerAnItemOnceWhenTwoKeysNameItAsync()
+        {
+            // given: two separate key instances naming the same item, so only a comparison by
+            // value can tell they are one.
+            Guid contentItemId = Guid.NewGuid();
+
+            ContentItemSetting itemOverride =
+                CreateContentItemSetting(ContentType.Testimony, contentItemId);
+
+            SetupContentItemSettings(itemOverride);
+
+            var contentItemSettingKeys = new List<ContentItemSettingKey>
+            {
+                CreateContentItemSettingKey(ContentType.Testimony, contentItemId),
+                CreateContentItemSettingKey(ContentType.Testimony, contentItemId),
+            };
+
+            var expectedEffectiveContentItemSettings = new List<EffectiveContentItemSetting>
+            {
+                CreateEffectiveContentItemSetting(contentItemId, itemOverride),
+            };
+
+            // when
+            IReadOnlyList<EffectiveContentItemSetting> actualEffectiveContentItemSettings =
+                await this.accessBroker.RetrieveEffectiveContentItemSettingsAsync(
+                    contentItemSettingKeys: contentItemSettingKeys,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            actualEffectiveContentItemSettings.Should().BeEquivalentTo(
+                expectedEffectiveContentItemSettings,
+                because: "two keys naming the same item answer that item once");
+        }
+
         // The function is the one argument matched with It.IsAny, because a function cannot be
         // matched by value. It is proven by applying it instead. The token is matched exactly,
         // so a read that dropped the caller's token answers nothing.
