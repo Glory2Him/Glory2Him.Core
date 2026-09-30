@@ -16,6 +16,8 @@ using System.Threading.Tasks;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Models.Foundations.Reactions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace Glory2Him.Core.Tests.Integration.Brokers
 {
@@ -35,14 +37,62 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
         // and DROPS a schema, so a shared database would let one delete another's rows mid-run.
         private const string CatalogueSuffix = "_Reactions";
 
+        // The migration test's own catalogue. It is built by EF's migrator from the history,
+        // not from the current model, so it can never be the shared fixture's.
+        private const string MigrationCatalogueSuffix = "_ReactionsMigration";
+
         private readonly StorageBroker storageBroker;
 
         public ReactionQueryBroker()
+            : this(CatalogueSuffix) =>
+                IntegrationDatabase.EnsureSchema(this.storageBroker);
+
+        private ReactionQueryBroker(string catalogueSuffix)
         {
             this.storageBroker = new StorageBroker(
-                IntegrationDatabase.BuildConfiguration(CatalogueSuffix));
+                IntegrationDatabase.BuildConfiguration(catalogueSuffix));
+        }
 
-            IntegrationDatabase.EnsureSchema(this.storageBroker);
+        /// <summary>
+        /// A broker over an EMPTY catalogue of its own, for a test that builds the schema by
+        /// migrating it rather than from the current model. Dispose it to drop the catalogue.
+        /// </summary>
+        public static ReactionQueryBroker CreateOverAnEmptyDatabase()
+        {
+            var reactionQueryBroker = new ReactionQueryBroker(MigrationCatalogueSuffix);
+
+            // drops a stale catalogue from a previous run that reused this process id
+            IntegrationDatabase.Drop(reactionQueryBroker.storageBroker);
+
+            return reactionQueryBroker;
+        }
+
+        /// <summary>
+        /// Migrates the catalogue up to, and including, the named migration — through the
+        /// same migrator Database.Migrate() uses.
+        /// </summary>
+        public async ValueTask MigrateToAsync(string targetMigration)
+        {
+            IMigrator migrator = this.storageBroker.GetService<IMigrator>();
+
+            await migrator.MigrateAsync(targetMigration);
+        }
+
+        /// <summary>
+        /// Inserts a reaction in raw SQL naming no SortOrder, so it fits the schema before
+        /// the column existed as well as after.
+        /// </summary>
+        public async ValueTask InsertNamingNoSortOrderAsync(Guid id, string name)
+        {
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            string unicodeEmoji = "🙂";
+            string authoredBy = "integration";
+
+            await this.storageBroker.Database.ExecuteSqlAsync(
+                $@"INSERT INTO [Reactions]
+                       ([Id], [Name], [UnicodeEmoji], [CreatedBy], [CreatedWhen], [UpdatedBy], [UpdatedWhen])
+                   VALUES
+                       ({id}, {name}, {unicodeEmoji}, {authoredBy}, {now}, {authoredBy}, {now})");
         }
 
         /// <summary>
@@ -56,8 +106,17 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
         /// Reads the value the COLUMN holds, straight out of the table and past the change
         /// tracker.
         /// </summary>
-        public async ValueTask<int> GetStoredSortOrderAsync(Guid id) =>
-            await GetStoredSortOrderAsync(this.storageBroker, id);
+        public async ValueTask<int> GetStoredSortOrderAsync(Guid id)
+        {
+            List<int> storedSortOrders = await this.storageBroker.Database
+                .SqlQuery<int>(
+                    $@"SELECT [SortOrder] AS [Value]
+                       FROM [Reactions]
+                       WHERE [Id] = {id}")
+                .ToListAsync();
+
+            return storedSortOrders[0];
+        }
 
         /// <summary>
         /// Builds a reaction nobody set an order on. The name is unique per call because
@@ -97,24 +156,12 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
             this.storageBroker.ChangeTracker.Clear();
         }
 
-        // xUnit disposes a collection fixture once, after the last test in the collection.
+        // xUnit disposes a collection fixture once, after the last test in the collection;
+        // the migration test disposes its own.
         public void Dispose()
         {
             IntegrationDatabase.Drop(this.storageBroker);
             this.storageBroker.Dispose();
-        }
-
-        private static async ValueTask<int> GetStoredSortOrderAsync(
-            StorageBroker storageBroker, Guid id)
-        {
-            List<int> storedSortOrders = await storageBroker.Database
-                .SqlQuery<int>(
-                    $@"SELECT [SortOrder] AS [Value]
-                       FROM [Reactions]
-                       WHERE [Id] = {id}")
-                .ToListAsync();
-
-            return storedSortOrders[0];
         }
     }
 

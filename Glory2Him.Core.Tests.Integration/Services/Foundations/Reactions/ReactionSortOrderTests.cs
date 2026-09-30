@@ -59,6 +59,54 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Reactions
                 because: "an unordered reaction sorts after every one somebody chose the order of");
         }
 
+        [Fact]
+        public async Task ShouldBackfillTheSeededReactionsSortOrderAsync()
+        {
+            // given: a database as it stood before this change — migrated to the migration
+            // before it, holding the five seeded reactions and one other. The ids are
+            // ReactionSeedData's, which are fixed; the backfill matches on them, not on names.
+            const string previousMigration = "SplitAssociationPairIndexIntoEditorialAndPersonal";
+            const string sortOrderMigration = "AddSortOrderToReactions";
+
+            var expectedSortOrders = new Dictionary<Guid, int>
+            {
+                [new Guid("7b2d90c1-4e6a-4f3b-8d21-000000000001")] = 10,
+                [new Guid("7b2d90c1-4e6a-4f3b-8d21-000000000002")] = 20,
+                [new Guid("7b2d90c1-4e6a-4f3b-8d21-000000000003")] = 30,
+                [new Guid("7b2d90c1-4e6a-4f3b-8d21-000000000004")] = 40,
+                [new Guid("7b2d90c1-4e6a-4f3b-8d21-000000000005")] = 50,
+                [Guid.NewGuid()] = 1000
+            };
+
+            using ReactionQueryBroker migratedBroker =
+                ReactionQueryBroker.CreateOverAnEmptyDatabase();
+
+            await migratedBroker.MigrateToAsync(previousMigration);
+
+            foreach (Guid reactionId in expectedSortOrders.Keys)
+            {
+                await migratedBroker.InsertNamingNoSortOrderAsync(
+                    reactionId, reactionId.ToString("N")[^30..]);
+            }
+
+            // when
+            await migratedBroker.MigrateToAsync(sortOrderMigration);
+
+            var storedSortOrders = new Dictionary<Guid, int>();
+
+            foreach (Guid reactionId in expectedSortOrders.Keys)
+            {
+                storedSortOrders[reactionId] =
+                    await migratedBroker.GetStoredSortOrderAsync(reactionId);
+            }
+
+            // then
+            storedSortOrders.Should().BeEquivalentTo(expectedSortOrders,
+                because: "a database that booted before the column keeps its seeded rows, so " +
+                    "the migration gives the five their order and leaves any other on the " +
+                    "column default");
+        }
+
         public void Dispose() =>
             this.broker.ClearAsync(this.seededReactionIds)
                 .AsTask().GetAwaiter().GetResult();
