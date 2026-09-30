@@ -30,6 +30,10 @@ namespace G2H.StorageClient.Brokers.Storages
         ValueTask<T> SelectAsync<T>(object[] objectIds, CancellationToken cancellationToken = default)
             where T : class;
 
+        ValueTask<IReadOnlyList<TResult>> SelectListAsync<TResult>(
+            IQueryable<TResult> query,
+            CancellationToken cancellationToken = default);
+
         ValueTask UpdateObjectStateAsync<T>(T @object, EntityState entityState)
             where T : class;
 
