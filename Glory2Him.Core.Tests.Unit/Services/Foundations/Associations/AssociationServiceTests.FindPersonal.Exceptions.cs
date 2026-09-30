@@ -142,6 +142,54 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldThrowDependencyExceptionOnFindPersonalIfOperationCanceledExceptionOccursAndLogItAsync()
+        {
+            // given: the storage call is cancelled though the caller's token was not — a timeout
+            Association lookupRequest = CreateAllowedPersonalLookupRequest();
+            var operationCanceledException = new OperationCanceledException();
+
+            var timeoutException =
+                new TimeoutException("The dependency operation timed out.");
+
+            var timeoutAssociationException =
+                new TimeoutAssociationException(
+                    message: "Failed content item association timeout error occurred, contact support.",
+                    innerException: timeoutException,
+                    data: timeoutException.Data);
+
+            var expectedAssociationDependencyException = new AssociationDependencyException(
+                message: "Content item association dependency error occurred, contact support.",
+                innerException: timeoutAssociationException);
+
+            SetupPersonalLookupToThrow(operationCanceledException);
+
+            // when
+            ValueTask<PersonalAssociationMatch?> findTask =
+                this.associationService.FindPersonalAssociationAsync(
+                    lookupRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationDependencyException actualAssociationDependencyException =
+                await Assert.ThrowsAsync<AssociationDependencyException>(findTask.AsTask);
+
+            // then
+            actualAssociationDependencyException.Should().BeEquivalentTo(
+                expectedAssociationDependencyException);
+
+            VerifyPersonalLookupAsked(TestContext.Current.CancellationToken, Times.Once());
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationDependencyException))),
+                Times.Once);
+
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // a signed-in reader asking for their own row, so the lookup reaches storage
         private Association CreateAllowedPersonalLookupRequest()
         {
