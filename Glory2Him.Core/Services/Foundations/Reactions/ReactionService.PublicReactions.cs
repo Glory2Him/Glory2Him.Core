@@ -33,7 +33,9 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
                             && reaction.ApprovalStatus == ApprovalStatus.Approved
                             && reaction.IsPublished
                             && (reaction.PublishDate == null
-                                || reaction.PublishDate <= currentDateTime)),
+                                || reaction.PublishDate <= currentDateTime))
+                    .OrderBy(reaction => reaction.SortOrder)
+                    .ThenBy(reaction => reaction.Name),
                 cancellationToken: cancellationToken);
         }
     }
