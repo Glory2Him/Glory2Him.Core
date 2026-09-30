@@ -172,5 +172,70 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldThrowDependencyExceptionOnRetrieveReactionCountsIfOperationCanceledExceptionOccursAndLogItAsync()
+        {
+            // given: the storage call is cancelled although the caller's token never was
+            IReadOnlyList<Guid> someContentItemGroupIds = new List<Guid> { Guid.NewGuid() };
+            IReadOnlyList<Guid> someReactionIds = new List<Guid> { Guid.NewGuid() };
+            var operationCanceledException = new OperationCanceledException();
+
+            var timeoutException =
+                new TimeoutException("The dependency operation timed out.");
+
+            var timeoutAssociationException =
+                new TimeoutAssociationException(
+                    message: "Failed content item association timeout error occurred, contact support.",
+                    innerException: timeoutException,
+                    data: timeoutException.Data);
+
+            var expectedAssociationDependencyException = new AssociationDependencyException(
+                message: "Content item association dependency error occurred, contact support.",
+                innerException: timeoutAssociationException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAssociationsAsync(
+                    It.IsAny<Func<IQueryable<Association>, IQueryable<AssociationPairCount>>>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(operationCanceledException);
+
+            // when
+            ValueTask<IReadOnlyList<AssociationPairCount>> retrieveReactionCountsTask =
+                this.associationService.RetrieveContentItemReactionCountsAsync(
+                    someContentItemGroupIds,
+                    someReactionIds,
+                    TestContext.Current.CancellationToken);
+
+            AssociationDependencyException actualAssociationDependencyException =
+                await Assert.ThrowsAsync<AssociationDependencyException>(
+                    retrieveReactionCountsTask.AsTask);
+
+            // then
+            actualAssociationDependencyException.Should().BeEquivalentTo(
+                expectedAssociationDependencyException);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAssociationsAsync(
+                    It.IsAny<Func<IQueryable<Association>, IQueryable<AssociationPairCount>>>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationDependencyException))),
+                Times.Once);
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
