@@ -161,6 +161,79 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldCountOnlyTheHostsAndReactionsAskedForAsync()
+        {
+            // given
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            Guid contentItemGroupId = Guid.NewGuid();
+            Guid reactionId = Guid.NewGuid();
+            Association countedReaction = CreateCountedReaction(contentItemGroupId, reactionId);
+
+            // not counted: each misses exactly one term of §ARC16.8's predicate
+            Association reactionOnAnotherHost =
+                CreateCountedReaction(Guid.NewGuid(), reactionId);
+
+            Association reactionOnAHostThatIsNotAContentItem =
+                CreateCountedReaction(contentItemGroupId, reactionId);
+
+            reactionOnAHostThatIsNotAContentItem.EntityAType = EntityType.Comment;
+            reactionOnAHostThatIsNotAContentItem.EntityAContentType = null;
+
+            Association anotherReactionOnTheHost =
+                CreateCountedReaction(contentItemGroupId, Guid.NewGuid());
+
+            Association farEndThatIsNotAReaction =
+                CreateCountedReaction(contentItemGroupId, reactionId);
+
+            farEndThatIsNotAReaction.EntityBType = EntityType.Tag;
+
+            var storageAssociations = new List<Association>
+            {
+                countedReaction,
+                reactionOnAnotherHost,
+                reactionOnAHostThatIsNotAContentItem,
+                anotherReactionOnTheHost,
+                farEndThatIsNotAReaction
+            };
+
+            IReadOnlyList<Guid> inputContentItemGroupIds = new List<Guid> { contentItemGroupId };
+            IReadOnlyList<Guid> inputReactionIds = new List<Guid> { reactionId };
+
+            var expectedAssociationPairCounts = new List<AssociationPairCount>
+            {
+                CreateAssociationPairCount(contentItemGroupId, reactionId, count: 1)
+            };
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            SetupReactionCountReadOver(storageAssociations);
+
+            // when
+            IReadOnlyList<AssociationPairCount> actualAssociationPairCounts =
+                await this.associationService.RetrieveContentItemReactionCountsAsync(
+                    inputContentItemGroupIds,
+                    inputReactionIds,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualAssociationPairCounts.Should().BeEquivalentTo(expectedAssociationPairCounts);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            VerifyReactionCountReadAskedOnce();
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // A reader's live, Approved reaction with no publish date: a row every term of the
         // count admits. The host is written AllVersions with a key id that differs from its
         // group id, so a count keyed on the key id rather than the effective id misses it.
