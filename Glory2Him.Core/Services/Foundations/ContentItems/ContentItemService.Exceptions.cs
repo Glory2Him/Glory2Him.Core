@@ -474,6 +474,10 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
 
                 throw await CreateAndLogTimeoutDependencyExceptionAsync(exception: timeoutContentItemException);
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch (InvalidContentItemException invalidContentItemException)
             {
                 throw await CreateAndLogValidationExceptionAsync(exception: invalidContentItemException);
@@ -486,6 +490,15 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     data: sqlException.Data);
 
                 throw await CreateAndLogCriticalDependencyExceptionAsync(exception: failedStorageContentItemException);
+            }
+            catch (Exception exception)
+            {
+                var failedContentItemServiceException = new FailedContentItemServiceException(
+                    message: "Failed content item service error occurred, please contact support.",
+                    innerException: exception,
+                    data: exception.Data);
+
+                throw await CreateAndLogServiceExceptionAsync(exception: failedContentItemServiceException);
             }
         }
 
