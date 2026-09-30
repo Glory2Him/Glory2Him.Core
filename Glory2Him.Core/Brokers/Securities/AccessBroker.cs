@@ -1248,6 +1248,11 @@ namespace Glory2Him.Core.Brokers.Securities
             IReadOnlyList<ContentItemSettingKey> contentItemSettingKeys,
             CancellationToken cancellationToken = default)
         {
+            if (contentItemSettingKeys.Count is 0)
+            {
+                return new List<EffectiveContentItemSetting>();
+            }
+
             return await this.storageBroker.SelectContentItemSettingsAsync(
                 contentItemSettings => contentItemSettingKeys
                     .Select(contentItemSettingKey =>
