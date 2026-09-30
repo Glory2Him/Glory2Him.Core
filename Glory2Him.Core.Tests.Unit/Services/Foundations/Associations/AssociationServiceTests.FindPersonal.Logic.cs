@@ -253,6 +253,76 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task ShouldPreferTheLiveRowThenTheLatestAsync(bool isTheWinnerLive)
+        {
+            // given: two rows of one reader on one host, written before this feature. The losing
+            // row is stored first, so a lookup that took the first match would answer it. Where
+            // the winner is live the loser is the more recently updated, so recency alone would
+            // pick the loser; where both are withdrawn, recency is what decides.
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            Association lookupRequest = CreatePersonalLookupRequest(readerUserId);
+            DateTimeOffset earlierDate = GetRandomDateTimeOffset();
+            DateTimeOffset laterDate = earlierDate.AddDays(GetRandomNumber());
+
+            Association winningRow =
+                CreateStoredPersonalRow(lookupRequest, isDeleted: isTheWinnerLive is false);
+
+            Association losingRow =
+                CreateStoredPersonalRow(lookupRequest, isDeleted: true);
+
+            winningRow.UpdatedWhen = isTheWinnerLive ? earlierDate : laterDate;
+            losingRow.UpdatedWhen = isTheWinnerLive ? laterDate : earlierDate;
+
+            List<Association> storageAssociations =
+                new List<Association> { losingRow, winningRow };
+
+            using var cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken inputCancellationToken = cancellationTokenSource.Token;
+
+            var expectedMatch = new PersonalAssociationMatch
+            {
+                Id = winningRow.Id,
+                EntityBKeyId = winningRow.EntityBKeyId,
+                IsDeleted = winningRow.IsDeleted
+            };
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(readerUserId);
+
+            SetupPersonalLookupOver(storageAssociations, inputCancellationToken);
+
+            // when
+            PersonalAssociationMatch? actualMatch =
+                await this.associationService.FindPersonalAssociationAsync(
+                    lookupRequest,
+                    inputCancellationToken);
+
+            // then
+            actualMatch.Should().BeEquivalentTo(expectedMatch);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(lookupRequest),
+                    Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                    Times.Once);
+
+            VerifyPersonalLookupAsked(inputCancellationToken, Times.Once());
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         public static TheoryData<string> PersonalKeyTerms() =>
             new TheoryData<string>
             {
