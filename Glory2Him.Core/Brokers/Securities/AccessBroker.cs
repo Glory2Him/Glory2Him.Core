@@ -440,10 +440,20 @@ namespace Glory2Him.Core.Brokers.Securities
                 .ToList();
         }
 
-        public ValueTask<IReadOnlyList<DismissableApprovalReview>> FindDismissableApprovalReviewsAsync(
+        public async ValueTask<IReadOnlyList<DismissableApprovalReview>> FindDismissableApprovalReviewsAsync(
             Guid approvalId,
-            CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
+            CancellationToken cancellationToken = default)
+        {
+            return await this.storageBroker.SelectApprovalReviewsAsync(
+                query: approvalReviews => approvalReviews
+                    .Select(approvalReview => new DismissableApprovalReview
+                    {
+                        Id = approvalReview.Id,
+                        CreatedWhen = approvalReview.CreatedWhen,
+                        IsRejection = false,
+                    }),
+                cancellationToken: cancellationToken);
+        }
 
         // Unfiltered, deliberately — see IAccessBroker for why the caller-facing read cannot
         // answer this. The SAME storage read the foundation's round-keyed read uses, so the half
