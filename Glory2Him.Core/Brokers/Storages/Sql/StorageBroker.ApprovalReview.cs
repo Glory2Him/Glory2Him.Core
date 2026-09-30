@@ -32,6 +32,11 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             CancellationToken cancellationToken = default) =>
             await SelectAllAsync<ApprovalReview>(cancellationToken);
 
+        public async ValueTask<IReadOnlyList<TResult>> SelectApprovalReviewsAsync<TResult>(
+            Func<IQueryable<ApprovalReview>, IQueryable<TResult>> query,
+            CancellationToken cancellationToken = default) =>
+            await SelectListAsync(query, cancellationToken);
+
         public async ValueTask<ApprovalReview> SelectApprovalReviewByIdAsync(
             Guid approvalReviewId,
             CancellationToken cancellationToken = default) =>
