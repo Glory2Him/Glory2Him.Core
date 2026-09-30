@@ -25,6 +25,11 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
     /// only. While the address bound the foundation, a publisher could name a content type it
     /// held no role for and have it accepted on that alone.
     ///
+    /// <para><b>It writes no reader's reaction</b> (#723). A personal pair is refused once the
+    /// duplicate question is answered: a reaction is given, changed and brought back through
+    /// one write this door cannot reach, and the foundation's add behind it could insert a
+    /// second row beside the reader's own.</para>
+    ///
     /// <para><b>The foundation keeps everything else.</b> This handler verifies, asks the
     /// duplicate question early, and runs the SAME write flow the method path runs — the
     /// derivation and the occupancy check — refusing a claim that contradicts a derived value
@@ -63,6 +68,10 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                     return null;
                 }
 
+                // AFTER THE DUPLICATE QUESTION AND BEFORE THE DERIVATION (#723): a reader's reaction
+                // has no event path, so a personal pair is refused before either endpoint is read,
+                // and the flow below — shared with the method path — only ever sees editorial pairs
+                // on this door.
                 ValidatePairIsNotPersonal(envelope.Content);
 
                 // THE SAME WRITE FLOW THE METHOD PATH RUNS, on a working copy of the raw endpoints
