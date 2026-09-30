@@ -33,6 +33,17 @@ namespace Glory2Him.Core.Models.Foundations.Reactions
         public string UnicodeEmoji { get; set; } = string.Empty;
 
         /// <summary>
+        /// The position this reaction takes wherever the vocabulary is presented as a list —
+        /// the Like control's choices and every card's counts. Lower sorts first; ties fall
+        /// back to whatever order the rows arrived in.
+        ///
+        /// <para>The default of 1000 sits past every curated value the seed writes, so a
+        /// reaction added without a considered order lands after the ones somebody chose the
+        /// order of rather than in front of them.</para>
+        /// </summary>
+        public int SortOrder { get; set; } = 1000;
+
+        /// <summary>
         /// User identifier for who created the reaction.
         /// </summary>
         public string CreatedBy { get; set; } = string.Empty;
