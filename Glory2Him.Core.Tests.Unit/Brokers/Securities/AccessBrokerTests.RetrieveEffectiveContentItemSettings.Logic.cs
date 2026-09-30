@@ -25,13 +25,14 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
 {
     public partial class AccessBrokerTests
     {
-        // §DOM6.4 precedence, in its one home (§ARC16.8, the §DOM6.10 row). The condition is
-        // authored here as a query-shaping function, so each test below applies the function the
-        // broker hands to storage over an in-memory set (§ARC12.2.1 rule 5): the set carries the
-        // row that should win and, for each term, a row that misses on that term alone.
+        // §DOM6.4 precedence, in its one home (§ARC16.8, the §DOM6.10 row). AccessBroker authors
+        // the condition as a query-shaping function, so each test below applies the function the
+        // broker hands to storage over an in-memory set (§ARC12.2.1 rule 5). Across the tests,
+        // every term of the condition meets a row that misses on that term alone.
         //
-        // Every set lists the row that must LOSE ahead of the one that must win, so a read that
-        // took the first match rather than ordering the override first would answer wrongly.
+        // Where a set holds a row that must lose beside the one that must win, the loser is
+        // listed first, so a read that took the first match rather than ordering the override
+        // first would answer wrongly.
         [Fact]
         public async Task ShouldAnswerTheItemsOwnOverrideWhereOneExistsAsync()
         {

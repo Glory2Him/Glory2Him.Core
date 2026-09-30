@@ -32,7 +32,8 @@ namespace Glory2Him.Core.Brokers.Securities
     ///
     /// <para><b>It returns a verdict, never settings.</b> Handing back an <c>ApprovalSetting</c>
     /// would put the decision logic back inside each of the seven approvable services, which is
-    /// seven places for it to drift.</para>
+    /// seven places for it to drift. <see cref="RetrieveEffectiveContentItemSettingsAsync"/> is
+    /// the one member that hands back settings, a departure §ARC16.2.1 declares.</para>
     /// </summary>
     internal interface IAccessBroker
     {
