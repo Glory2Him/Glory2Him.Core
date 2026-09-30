@@ -243,5 +243,91 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.tagServiceMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        // A READER'S REACTION HAS NO EVENT PATH (#723, AssociationOrchestrationService.md §2 rule
+        // 1). It is given, changed and brought back through one write this door cannot reach —
+        // Association-Upserting is not minted (§ARC16.2.2) — and the foundation's add behind this
+        // door can neither revive nor repoint, so a reaction let through would be inserted beside
+        // the reader's existing row (§DOM4.10 rule 6). Refused AFTER the verify and the duplicate
+        // question, both of which are asked, and BEFORE either endpoint is read. Both reads are
+        // stubbed, so a door without the refusal runs the whole flow through to the foundation.
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddingEventIfThePairIsPersonalAndLogItAsync()
+        {
+            // given
+            Association addRequest =
+                CreateHonestAddRequestBetween(EntityType.ContentItem, EntityType.Reaction);
+
+            EventEnvelope<Association> inputEnvelope = CreateRequestEnvelope(addRequest);
+            SetupEventPathEndpointReadsBetween(addRequest, inputEnvelope);
+
+            var invalidAssociationOrchestrationException =
+                new InvalidAssociationOrchestrationException(
+                    message: "A personal content item association cannot be added through an event.");
+
+            var expectedValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: "Content item association orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: invalidAssociationOrchestrationException);
+
+            // when
+            ValueTask<EventEnvelope<Association>> onAddingTask =
+                this.associationOrchestrationService.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(
+                    onAddingTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedValidationException);
+
+            this.envelopeIntegrityBrokerMock.Verify(broker =>
+                broker.VerifyAsync(
+                    inputEnvelope,
+                    "AssociationAdding",
+                    EnvelopeDirection.Request),
+                Times.Once);
+
+            this.associationServiceMock.Verify(service =>
+                service.HasAlreadyAddedAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
+            // neither endpoint was read
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.tagServiceMock.VerifyNoOtherCalls();
+            this.reactionServiceMock.VerifyNoOtherCalls();
+            this.bibleReferenceServiceMock.VerifyNoOtherCalls();
+            this.commentServiceMock.VerifyNoOtherCalls();
+            this.linkServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // Stubs both endpoint reads as the signed caller would be answered, whatever the two types.
+        private void SetupEventPathEndpointReadsBetween(
+            Association addRequest,
+            EventEnvelope<Association> inboundEnvelope)
+        {
+            SetupEventPathEndpointRead(
+                addRequest.EntityAType,
+                addRequest.EntityAKeyId,
+                addRequest.EntityAGroupId,
+                inboundEnvelope);
+
+            SetupEventPathEndpointRead(
+                addRequest.EntityBType,
+                addRequest.EntityBKeyId,
+                addRequest.EntityBGroupId,
+                inboundEnvelope);
+        }
     }
 }
