@@ -502,7 +502,9 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             }
         }
 
-        // The grouped reaction count (§ARC16.8).
+        // The grouped reaction count (§ARC16.8): a read that validates its id lists and asks
+        // storage once, so it needs the validation catch and the read-style dependency catches —
+        // but none of the write-only ones, which a read cannot raise.
         private async ValueTask<IReadOnlyList<AssociationPairCount>> TryCatch(
             ReturningAssociationPairCountsFunction returningAssociationPairCountsFunction)
         {
