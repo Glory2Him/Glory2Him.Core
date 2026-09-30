@@ -35,8 +35,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             Association firstReaction =
                 CreateCallerReactionOn(contentItemGroupIds[0], callerUserId);
 
+            // hosted on one version only, so the id asked for is its effective id and its
+            // group id is not among those asked: a read keyed on the group would miss it
             Association secondReaction =
-                CreateCallerReactionOn(contentItemGroupIds[2], callerUserId);
+                CreateCallerReactionOnOneVersion(contentItemGroupIds[2], callerUserId);
 
             var storageAssociations = new List<Association>
             {
@@ -285,8 +287,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             Association callersReaction =
                 CreateCallerReactionOn(contentItemGroupIds[0], callerUserId);
 
+            // created by the caller but keyed to the other reader: the row is the other
+            // reader's, so a read keyed on its author would hand it to the caller
             Association otherReadersReaction =
                 CreateCallerReactionOn(contentItemGroupIds[0], otherReaderUserId);
+
+            otherReadersReaction.CreatedBy = callerUserId;
+            otherReadersReaction.UpdatedBy = callerUserId;
 
             var storageAssociations = new List<Association>
             {
@@ -366,6 +373,20 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         {
             Association reaction = CreateRandomReaction(readerUserId);
             reaction.EntityAGroupId = contentItemGroupId;
+
+            return WithDatabaseComputedEffectiveIds(reaction);
+        }
+
+        // a reader's reaction on a single version of a content item: its effective id on
+        // endpoint A is that version's id, and its group id is a different one
+        private static Association CreateCallerReactionOnOneVersion(
+            Guid contentItemId,
+            string readerUserId)
+        {
+            Association reaction = CreateRandomReaction(readerUserId);
+            reaction.EntityAScope = Scope.ThisVersionOnly;
+            reaction.EntityAKeyId = contentItemId;
+            reaction.EntityAGroupId = Guid.NewGuid();
 
             return WithDatabaseComputedEffectiveIds(reaction);
         }
