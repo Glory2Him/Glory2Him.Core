@@ -205,6 +205,73 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldRetrieveOnlyTheCallersReactionsOnTheHostsAskedForAsync()
+        {
+            // given
+            string callerUserId = GetRandomString();
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            List<Guid> contentItemGroupIds = CreateRandomContentItemGroupIds(count: 2);
+
+            Association matchingReaction =
+                CreateCallerReactionOn(contentItemGroupIds[0], callerUserId);
+
+            // each row below misses on exactly one term of the condition
+            Association reactionOnAHostNotAskedFor =
+                CreateCallerReactionOn(Guid.NewGuid(), callerUserId);
+
+            Association reactionOnAHostThatIsNotAContentItem =
+                CreateCallerReactionOn(contentItemGroupIds[1], callerUserId);
+
+            reactionOnAHostThatIsNotAContentItem.EntityAType = EntityType.Attachment;
+            reactionOnAHostThatIsNotAContentItem.EntityAContentType = null;
+
+            Association pairingWithAFarEndThatIsNotAReaction =
+                CreateCallerReactionOn(contentItemGroupIds[1], callerUserId);
+
+            pairingWithAFarEndThatIsNotAReaction.EntityBType = EntityType.Tag;
+
+            var storageAssociations = new List<Association>
+            {
+                matchingReaction,
+                reactionOnAHostNotAskedFor,
+                reactionOnAHostThatIsNotAContentItem,
+                pairingWithAFarEndThatIsNotAReaction
+            };
+
+            var expectedPairKeys = new List<AssociationPairKey>
+            {
+                CreatePairKeyFor(matchingReaction)
+            };
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(callerUserId);
+
+            SetupSelectAssociationsToQuery(storageAssociations, cancellationToken);
+
+            // when
+            IReadOnlyList<AssociationPairKey> actualPairKeys =
+                await this.associationService.RetrieveCallerContentItemReactionsAsync(
+                    contentItemGroupIds,
+                    cancellationToken);
+
+            // then
+            actualPairKeys.Should().BeEquivalentTo(expectedPairKeys);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                Times.Once);
+
+            VerifySelectAssociationsQueriedOnce(cancellationToken);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         private static List<Guid> CreateRandomContentItemGroupIds(int count) =>
             Enumerable.Range(start: 0, count: count)
                 .Select(_ => Guid.NewGuid())
