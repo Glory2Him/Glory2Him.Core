@@ -147,6 +147,71 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 expectedPublicContentItemGroups);
         }
 
+        [Fact]
+        public async Task ShouldLeaveOutAGroupWithNoVisibleVersionAsync()
+        {
+            // given: four groups, each with one version that satisfies every §SEC14.1 term but
+            // one - so dropping or inverting any single term lets its group back in. A fifth,
+            // visible group is stored but not asked for: a sibling test that forgot to match the
+            // GROUP would let it vouch for all four.
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+
+            ContentItem deletedContentItem =
+                CreateCanonicallyVisibleContentItem(randomDateTimeOffset);
+
+            deletedContentItem.IsDeleted = true;
+
+            ContentItem unapprovedContentItem =
+                CreateCanonicallyVisibleContentItem(randomDateTimeOffset);
+
+            unapprovedContentItem.ApprovalStatus = ApprovalStatus.Submitted;
+
+            ContentItem unpublishedContentItem =
+                CreateCanonicallyVisibleContentItem(randomDateTimeOffset);
+
+            unpublishedContentItem.IsPublished = false;
+
+            ContentItem futurePublishedContentItem =
+                CreateCanonicallyVisibleContentItem(randomDateTimeOffset);
+
+            futurePublishedContentItem.PublishDate = randomDateTimeOffset.AddSeconds(1);
+
+            ContentItem unaskedVisibleContentItem =
+                CreateCanonicallyVisibleContentItem(randomDateTimeOffset);
+
+            var storageContentItems = new List<ContentItem>
+            {
+                deletedContentItem,
+                unapprovedContentItem,
+                unpublishedContentItem,
+                futurePublishedContentItem,
+                unaskedVisibleContentItem
+            };
+
+            IReadOnlyList<Guid> inputContentItemIds = new[]
+            {
+                deletedContentItem.Id,
+                unapprovedContentItem.Id,
+                unpublishedContentItem.Id,
+                futurePublishedContentItem.Id
+            };
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            SetupPublicContentItemGroupsStorage(storageContentItems);
+
+            // when
+            IReadOnlyList<PublicContentItemGroup> actualPublicContentItemGroups =
+                await this.contentItemService.RetrievePublicContentItemGroupsAsync(
+                    contentItemIds: inputContentItemIds,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            actualPublicContentItemGroups.Should().BeEmpty();
+        }
+
         // THE CONDITION RUNS HERE, over the seeded set - never a canned answer. A stub that
         // returned a fixed list would pass whether or not the function it was handed still
         // carried any of its terms.
