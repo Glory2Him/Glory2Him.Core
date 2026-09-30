@@ -3,6 +3,10 @@ import {
     ContentItemReactionOption
 } from '../../../models/components/contentItems/contentItemSearchItem';
 
+// The counts a card shows between a reader's choice and the read that follows the item's latest
+// write (UI/Views/ChosenReactionSummary.md §1). The chosen reaction goes up by one and the held
+// one down by one, wherever the held one has an entry; an entry at nought leaves; an added entry
+// takes its place in the options' order, the vocabulary's. A new summary, never an edited one.
 export const toChosenReactionSummary = (
     reactionSummary: ReadonlyArray<ContentItemReactionCount> | undefined,
     heldReactionLabel: string | undefined,
