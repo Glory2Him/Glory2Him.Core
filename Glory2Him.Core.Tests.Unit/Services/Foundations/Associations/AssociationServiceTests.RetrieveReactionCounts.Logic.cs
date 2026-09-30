@@ -16,7 +16,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
@@ -286,6 +288,75 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Theory]
+        [MemberData(nameof(EveryKindOfCaller))]
+        public async Task ShouldRetrieveReactionCountsWithoutReadingTheCallerAsync(
+            SecurityContext callerSecurityContext)
+        {
+            // given: whoever is calling is what an envelope would capture, were one minted
+            this.ambientSecurityContext = callerSecurityContext;
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            Guid contentItemGroupId = Guid.NewGuid();
+            Guid reactionId = Guid.NewGuid();
+
+            var storageAssociations = new List<Association>
+            {
+                CreateCountedReaction(contentItemGroupId, reactionId),
+                CreateCountedReaction(contentItemGroupId, reactionId)
+            };
+
+            IReadOnlyList<Guid> inputContentItemGroupIds = new List<Guid> { contentItemGroupId };
+            IReadOnlyList<Guid> inputReactionIds = new List<Guid> { reactionId };
+
+            var expectedAssociationPairCounts = new List<AssociationPairCount>
+            {
+                CreateAssociationPairCount(contentItemGroupId, reactionId, count: 2)
+            };
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            SetupReactionCountReadOver(storageAssociations);
+
+            // when
+            IReadOnlyList<AssociationPairCount> actualAssociationPairCounts =
+                await this.associationService.RetrieveContentItemReactionCountsAsync(
+                    inputContentItemGroupIds,
+                    inputReactionIds,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualAssociationPairCounts.Should().BeEquivalentTo(expectedAssociationPairCounts);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            VerifyReactionCountReadAskedOnce();
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // §ARC16.8, Anonymity: the same counts for an anonymous visitor, a signed-in reader, a
+        // reviewer and an administrator — none of whom the read may even look at
+        public static TheoryData<SecurityContext> EveryKindOfCaller() =>
+            new TheoryData<SecurityContext>
+            {
+                null,
+                new SecurityContext { IsAuthenticated = false },
+                CreateAuthenticatedSecurityContext(),
+                CreateAuthenticatedSecurityContext(Roles.Reviewers),
+                CreateAuthenticatedSecurityContext(Roles.Administrators)
+            };
 
         // A reader's live, Approved reaction with no publish date: a row every term of the
         // count admits. The host is written AllVersions with a key id that differs from its
