@@ -705,7 +705,9 @@ line 38), and that path is not usable from the app today (its comment, lines 30-
 
 The account pages have no page documents, since §UI20.5.1 counts them among the candidates for
 later. So the gaps in how they send a reader on are recorded here and tagged as this file's other
-gap lists are (`design.md`, *Conventions*), with their lines at a2b8bcbc:
+gap lists are (`design.md`, *Conventions*), with their lines at a2b8bcbc. The four close together,
+in one pull request, so that every way of signing in moves onto the shared return at the same moment
+(user ruling 2026-09-30). Each keeps its own task:
 
 1. (#781) **The sign-in page follows its return address itself after a password sign-in.** It
    checks and follows the address inline (`src/pages/account/login.tsx`, line 70) rather than
