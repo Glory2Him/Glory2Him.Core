@@ -16,6 +16,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Moq;
 
@@ -318,6 +319,32 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 Times.Once);
 
             VerifySelectAssociationsQueriedOnce(cancellationToken);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(UnauthenticatedSecurityContexts))]
+        public async Task ShouldRetrieveNothingForAnAnonymousCallerAsync(
+            SecurityContext unauthenticatedSecurityContext)
+        {
+            // given
+            this.ambientSecurityContext = unauthenticatedSecurityContext;
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            List<Guid> contentItemGroupIds = CreateRandomContentItemGroupIds(count: 2);
+
+            // when
+            IReadOnlyList<AssociationPairKey> actualPairKeys =
+                await this.associationService.RetrieveCallerContentItemReactionsAsync(
+                    contentItemGroupIds,
+                    cancellationToken);
+
+            // then
+            actualPairKeys.Should().BeEmpty();
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
