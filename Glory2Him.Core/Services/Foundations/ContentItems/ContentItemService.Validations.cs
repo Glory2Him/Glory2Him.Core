@@ -622,6 +622,12 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             Message = "Ids are required"
         };
 
+        private static dynamic HasInvalidId(IReadOnlyList<Guid> ids) => new
+        {
+            Condition = ids is not null && ids.Contains(Guid.Empty),
+            Message = "Ids must not contain an empty id"
+        };
+
         private static dynamic IsInvalid(string text) => new
         {
             Condition = string.IsNullOrWhiteSpace(text),

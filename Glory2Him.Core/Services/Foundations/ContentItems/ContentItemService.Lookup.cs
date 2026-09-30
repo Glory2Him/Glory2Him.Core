@@ -258,7 +258,8 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             IReadOnlyList<Guid> contentItemIds) =>
             Validate(
                 message: "Content item is invalid, fix the errors and try again.",
-                (Rule: IsInvalid(contentItemIds), Parameter: nameof(contentItemIds)));
+                (Rule: IsInvalid(contentItemIds), Parameter: nameof(contentItemIds)),
+                (Rule: HasInvalidId(contentItemIds), Parameter: nameof(contentItemIds)));
 
         private static void ValidateOnFindPublishedSiblingContentItem(Guid contentItemId) =>
             Validate(
