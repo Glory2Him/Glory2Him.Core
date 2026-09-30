@@ -88,6 +88,15 @@ QA may hand a question to the planner with context, and a planner change to an
 open, signed-off task, or to the design it cites, goes back through QA before
 the developer acts on it.
 
+The agent that finishes a handover makes it — the user does not. Once the
+developer has opened its PR, or the planner has its tasks and any design PR up,
+it launches QA itself as a fresh `qa` subagent, briefed with the pointer alone
+(`Act as QA. Verify PR #<n> against the acceptance criteria on issue #<m>.`, or
+`Act as QA. Re-verify PR #<n>.` after a fix round). It may add facts about the
+environment, such as the checkout path or a missing tool, but never its own
+account of the work. It relays QA's verdict to the user, fixes the findings QA
+names as its own, and hands back again, until QA passes the work.
+
 | Tier | Applies to | The planner writes |
 | --- | --- | --- |
 | **1: design** | A new entity, a schema change or migration, a new event, a change to the security boundary, or a new service, layer or dependency | The design, then the tasks |
