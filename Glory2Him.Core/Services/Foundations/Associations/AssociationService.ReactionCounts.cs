@@ -32,7 +32,11 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             return await this.storageBroker.SelectAssociationsAsync(
                 query: associations => associations
                     .Where(association =>
-                        association.IsDeleted == false
+                        association.EntityAType == EntityType.ContentItem
+                            && contentItemGroupIds.Contains(association.EntityAEffectiveId)
+                            && association.EntityBType == EntityType.Reaction
+                            && reactionIds.Contains(association.EntityBKeyId)
+                            && association.IsDeleted == false
                             && association.ApprovalStatus == ApprovalStatus.Approved
                             && (association.PublishDate == null
                                 || association.PublishDate <= currentDateTime))
