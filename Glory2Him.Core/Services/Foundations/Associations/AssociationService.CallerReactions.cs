@@ -22,38 +22,41 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 {
     internal partial class AssociationService
     {
-        public async ValueTask<IReadOnlyList<AssociationPairKey>> RetrieveCallerContentItemReactionsAsync(
+        public ValueTask<IReadOnlyList<AssociationPairKey>> RetrieveCallerContentItemReactionsAsync(
             IReadOnlyList<Guid> contentItemGroupIds,
-            CancellationToken cancellationToken = default)
-        {
-            EventEnvelope<Association> envelope =
-                await this.eventEnvelopeBroker.CreateAsync(content: new Association());
-
-            SecurityContext? securityContext = envelope.SecurityContext;
-
-            // an anonymous caller holds no rows, so nothing is asked of storage
-            if (securityContext is null || securityContext.IsAuthenticated is false)
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
             {
-                return Array.Empty<AssociationPairKey>();
-            }
+                ValidateOnRetrieveCallerContentItemReactions(contentItemGroupIds);
 
-            string callerUserId =
-                await this.securityAuditBroker.GetUserIdAsync(securityContext);
+                EventEnvelope<Association> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: new Association());
 
-            return await this.storageBroker.SelectAssociationsAsync(
-                query: associations => associations
-                    .Where(association =>
-                        association.EntityAType == EntityType.ContentItem
-                            && contentItemGroupIds.Contains(association.EntityAEffectiveId)
-                            && association.EntityBType == EntityType.Reaction
-                            && association.UserId == callerUserId
-                            && association.IsDeleted == false)
-                    .Select(association => new AssociationPairKey
-                    {
-                        EntityAEffectiveId = association.EntityAEffectiveId,
-                        EntityBKeyId = association.EntityBKeyId
-                    }),
-                cancellationToken: cancellationToken);
-        }
+                SecurityContext? securityContext = envelope.SecurityContext;
+
+                // an anonymous caller holds no rows, so nothing is asked of storage
+                if (securityContext is null || securityContext.IsAuthenticated is false)
+                {
+                    return Array.Empty<AssociationPairKey>();
+                }
+
+                string callerUserId =
+                    await this.securityAuditBroker.GetUserIdAsync(securityContext);
+
+                return await this.storageBroker.SelectAssociationsAsync(
+                    query: associations => associations
+                        .Where(association =>
+                            association.EntityAType == EntityType.ContentItem
+                                && contentItemGroupIds.Contains(association.EntityAEffectiveId)
+                                && association.EntityBType == EntityType.Reaction
+                                && association.UserId == callerUserId
+                                && association.IsDeleted == false)
+                        .Select(association => new AssociationPairKey
+                        {
+                            EntityAEffectiveId = association.EntityAEffectiveId,
+                            EntityBKeyId = association.EntityBKeyId
+                        }),
+                    cancellationToken: cancellationToken);
+            });
     }
 }

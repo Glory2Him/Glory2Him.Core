@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using EFxceptions.Models.Exceptions;
@@ -36,6 +37,9 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             ReturningAssociationEventEnvelopeFunction();
 
         private delegate ValueTask<bool> ReturningBooleanFunction();
+
+        private delegate ValueTask<IReadOnlyList<AssociationPairKey>>
+            ReturningAssociationPairKeysFunction();
 
         // The event-path wrapper: categorizes failures with the same taxonomy as the
         // non-event TryCatch (so the two entry paths cannot diverge), plus the envelope
@@ -495,6 +499,21 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
                 throw await CreateAndLogServiceExceptionAsync(
                     failedAssociationServiceException);
+            }
+        }
+
+        // the caller's own reactions (#721): a validated identity-filtered read
+        private async ValueTask<IReadOnlyList<AssociationPairKey>> TryCatch(
+            ReturningAssociationPairKeysFunction returningAssociationPairKeysFunction)
+        {
+            try
+            {
+                return await returningAssociationPairKeysFunction();
+            }
+            catch (InvalidAssociationException invalidAssociationException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(
+                    exception: invalidAssociationException);
             }
         }
 
