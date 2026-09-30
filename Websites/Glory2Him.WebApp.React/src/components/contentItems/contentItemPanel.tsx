@@ -466,8 +466,9 @@ export function ContentItemPanel({
                 // already on screen — so deciding there would send a signed-in reader to sign
                 // in. SecuredRoute refuses to decide while loading and so does this.
                 if (isAuthenticationLoading === false && isAuthenticated === false) {
-                    // The path alone, URI-encoded: the one return address this application
-                    // carries (securedRoutes.tsx), so the reader lands back on this page.
+                    // The path alone, URI-encoded, so the reader lands back on this page -
+                    // without its query or fragment, which useSignIn keeps. This redirect
+                    // goes with #740 rather than moving onto it.
                     navigate(
                         `/Account/Login?returnUrl=${encodeURIComponent(location.pathname)}`);
 
