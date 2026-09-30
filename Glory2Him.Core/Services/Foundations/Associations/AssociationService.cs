@@ -49,7 +49,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
     /// elevated role <b>or</b> a scoped role matching <i>at least one</i> endpoint, each
     /// endpoint checked at both the coarse entity-type tier and the narrow content-type tier.
     /// Write permission is the owner or a review role; removal is the owner or <c>Administrators</c>,
-    /// hard removal <c>Administrators</c> only — both additionally subject to the endpoint veto. The
+    /// hard removal <c>Administrators</c> only — both additionally subject to the endpoint veto, save
+    /// that removal asks none of the read-only roles of the caller's own personal row. The
     /// veto is scoped to writes and never consulted on a read, so a moderator holding one
     /// scoped <c>ReadOnly</c> keeps their audit visibility. Reads otherwise follow the
     /// §14.1/§14.5 posture.</para>
@@ -559,7 +560,6 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             // reaches the table as any signed-in caller does and is refused here (rule 4)
             bool isCallersOwnPersonalRow =
                 maybeAssociation.UserId is not null
-                    && string.IsNullOrWhiteSpace(actorUserId) is false
                     && maybeAssociation.UserId == actorUserId;
 
             if (isCallersOwnPersonalRow is false)
