@@ -82,6 +82,63 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldFindTheReadersWithdrawnReactionRowAsync()
+        {
+            // given
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            Association lookupRequest = CreatePersonalLookupRequest(readerUserId);
+
+            Association readersWithdrawnRow =
+                CreateStoredPersonalRow(lookupRequest, isDeleted: true);
+
+            List<Association> storageAssociations =
+                CreateRandomAssociations().Append(readersWithdrawnRow).ToList();
+
+            using var cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken inputCancellationToken = cancellationTokenSource.Token;
+
+            var expectedMatch = new PersonalAssociationMatch
+            {
+                Id = readersWithdrawnRow.Id,
+                EntityBKeyId = readersWithdrawnRow.EntityBKeyId,
+                IsDeleted = true
+            };
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(readerUserId);
+
+            SetupPersonalLookupOver(storageAssociations, inputCancellationToken);
+
+            // when
+            PersonalAssociationMatch? actualMatch =
+                await this.associationService.FindPersonalAssociationAsync(
+                    lookupRequest,
+                    inputCancellationToken);
+
+            // then
+            actualMatch.Should().BeEquivalentTo(expectedMatch);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(lookupRequest),
+                    Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                    Times.Once);
+
+            VerifyPersonalLookupAsked(inputCancellationToken, Times.Once());
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // A reader's reaction on a Quote, as the withdrawal hands it over: the host on endpoint A
         // under AllVersions, with a group id that differs from its key id, so the effective id the
         // lookup keys on is the group's and a lookup keyed on the version would miss the row.
