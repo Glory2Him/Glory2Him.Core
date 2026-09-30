@@ -64,5 +64,23 @@ namespace Glory2Him.Core.Tests.Unit.Models.Configurations
                     because: $"{entityType} must declare whether it is personal");
             }
         }
+
+        [Fact]
+        public void ShouldThrowNotSupportedExceptionForAnUndeclaredEntityType()
+        {
+            // given: an out-of-range value stands in for a member someone added to the enum
+            // and forgot to declare here
+            var undeclaredEntityType = (EntityType)int.MaxValue;
+
+            // when
+            Action lookingUpPersonalisation = () =>
+                EntityTypePersonalisation.IsPersonal(undeclaredEntityType);
+
+            // then: loudly, never a false default that files it as editorial
+            lookingUpPersonalisation.Should().Throw<NotSupportedException>()
+                .Where(exception =>
+                    exception.Message.Contains(undeclaredEntityType.ToString())
+                    && exception.Message.Contains(nameof(EntityTypePersonalisation)));
+        }
     }
 }
