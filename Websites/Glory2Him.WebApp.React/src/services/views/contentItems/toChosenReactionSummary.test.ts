@@ -54,4 +54,15 @@ describe('toChosenReactionSummary', () => {
         // then
         expect(chosenSummary).toEqual([countOf(amen, 4), countOf(love, 2)]);
     });
+
+    it('should place an added entry before the entries that follow it', () => {
+        // given
+        const reactionSummary = [countOf(praying, 1)];
+
+        // when
+        const chosenSummary = toChosenReactionSummary(reactionSummary, undefined, love.label, options);
+
+        // then
+        expect(chosenSummary).toEqual([countOf(love, 1), countOf(praying, 1)]);
+    });
 });
