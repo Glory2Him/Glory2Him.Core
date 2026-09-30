@@ -16,6 +16,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Force.DeepCloner;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Moq;
 
@@ -198,6 +199,93 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(PersonalKeyTerms))]
+        public async Task ShouldFindNoRowThatMissesATermOfThePersonalKeyAsync(string missedTerm)
+        {
+            // given
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            Association lookupRequest = CreatePersonalLookupRequest(readerUserId);
+
+            Association nearMissRow = MissOnePersonalKeyTerm(
+                CreateStoredPersonalRow(lookupRequest, isDeleted: false),
+                missedTerm);
+
+            List<Association> storageAssociations =
+                CreateRandomAssociations().Append(nearMissRow).ToList();
+
+            using var cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken inputCancellationToken = cancellationTokenSource.Token;
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(readerUserId);
+
+            SetupPersonalLookupOver(storageAssociations, inputCancellationToken);
+
+            // when
+            PersonalAssociationMatch? actualMatch =
+                await this.associationService.FindPersonalAssociationAsync(
+                    lookupRequest,
+                    inputCancellationToken);
+
+            // then
+            actualMatch.Should().BeNull();
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(lookupRequest),
+                    Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                    Times.Once);
+
+            VerifyPersonalLookupAsked(inputCancellationToken, Times.Once());
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        public static TheoryData<string> PersonalKeyTerms() =>
+            new TheoryData<string>
+            {
+                nameof(Association.EntityAType),
+                nameof(Association.EntityAEffectiveId),
+                nameof(Association.EntityBType),
+                nameof(Association.UserId)
+            };
+
+        // the reader's row, moved off the request's personal key on the named term alone:
+        // another host type, another host, another far-end type or another reader
+        private static Association MissOnePersonalKeyTerm(Association storedRow, string term)
+        {
+            switch (term)
+            {
+                case nameof(Association.EntityAType):
+                    storedRow.EntityAType = EntityType.BibleReference;
+                    break;
+
+                case nameof(Association.EntityAEffectiveId):
+                    storedRow.EntityAGroupId = Guid.NewGuid();
+                    break;
+
+                case nameof(Association.EntityBType):
+                    storedRow.EntityBType = EntityType.Tag;
+                    break;
+
+                case nameof(Association.UserId):
+                    storedRow.UserId = GetRandomString();
+                    break;
+            }
+
+            return WithDatabaseComputedEffectiveIds(storedRow);
         }
 
         // A reader's reaction on a Quote, as the withdrawal hands it over: the host on endpoint A
