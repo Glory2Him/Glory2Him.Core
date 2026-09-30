@@ -11,6 +11,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.Associations;
@@ -19,10 +20,28 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 {
     internal partial class AssociationService
     {
-        public ValueTask<IReadOnlyList<AssociationPairCount>> RetrieveContentItemReactionCountsAsync(
+        public async ValueTask<IReadOnlyList<AssociationPairCount>> RetrieveContentItemReactionCountsAsync(
             IReadOnlyList<Guid> contentItemGroupIds,
             IReadOnlyList<Guid> reactionIds,
-            CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
+            CancellationToken cancellationToken = default)
+        {
+            DateTimeOffset currentDateTime =
+                await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
+
+            return await this.storageBroker.SelectAssociationsAsync(
+                query: associations => associations
+                    .GroupBy(association => new
+                    {
+                        association.EntityAEffectiveId,
+                        association.EntityBKeyId
+                    })
+                    .Select(pair => new AssociationPairCount
+                    {
+                        EntityAEffectiveId = pair.Key.EntityAEffectiveId,
+                        EntityBKeyId = pair.Key.EntityBKeyId,
+                        Count = pair.Count()
+                    }),
+                cancellationToken: cancellationToken);
+        }
     }
 }
