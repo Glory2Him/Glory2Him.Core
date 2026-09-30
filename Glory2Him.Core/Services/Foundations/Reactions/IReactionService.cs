@@ -54,11 +54,13 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
         /// internal for the same reason: a public member taking a caller-supplied context is a
         /// forgery surface.
         ///
-        /// <para>Used by <c>AssociationOrchestrationService</c> to resolve an endpoint on the
-        /// <c>Association-Adding</c> event path (#631). The overload above mints its own envelope,
-        /// which reads the AMBIENT caller: on a delivery that is nobody, or whoever PUBLISHED —
-        /// never necessarily the subject the envelope was signed for. A read whose answer depends
-        /// on who is asking is passed the envelope it is being made under (§ARC12.5.2).</para>
+        /// <para>Built for <c>AssociationOrchestrationService</c> to resolve an endpoint on the
+        /// <c>Association-Adding</c> event path (#631), which since #723 refuses a personal pair
+        /// before either endpoint is read, so no reaction reaches it through that door. The
+        /// overload above mints its own envelope, which reads the AMBIENT caller: on a delivery
+        /// that is nobody, or whoever PUBLISHED — never necessarily the subject the envelope was
+        /// signed for. A read whose answer depends on who is asking is passed the envelope it is
+        /// being made under (§ARC12.5.2).</para>
         /// </summary>
         internal ValueTask<Reaction> RetrieveReactionByIdAsync<TSource>(
             Guid reactionId,
