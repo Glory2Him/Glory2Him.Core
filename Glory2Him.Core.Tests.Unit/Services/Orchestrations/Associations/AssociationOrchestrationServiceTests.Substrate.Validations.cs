@@ -563,6 +563,77 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        public static TheoryData<string> UndefinedEndpointTypeParameters() =>
+            new TheoryData<string>
+            {
+                nameof(Association.EntityAType),
+                nameof(Association.EntityBType),
+            };
+
+        // THE REFUSAL SET STANDS (#723, Out of scope). An endpoint type outside the enum is
+        // malformed input, and the shared flow's structural validation refuses it as invalid. The
+        // personal refusal runs ahead of that flow, so it must leave such a value for the flow to
+        // refuse, rather than fail on it as a service error.
+        [Theory]
+        [MemberData(nameof(UndefinedEndpointTypeParameters))]
+        public async Task ShouldThrowValidationExceptionOnAddingEventIfAnEndpointTypeIsUndefinedAndLogItAsync(
+            string undefinedParameter)
+        {
+            // given
+            var undefinedEntityType = (EntityType)int.MaxValue;
+            Association addRequest = CreateHonestAddRequest();
+
+            if (undefinedParameter == nameof(Association.EntityAType))
+            {
+                addRequest.EntityAType = undefinedEntityType;
+            }
+            else
+            {
+                addRequest.EntityBType = undefinedEntityType;
+            }
+
+            EventEnvelope<Association> inputEnvelope = CreateRequestEnvelope(addRequest);
+
+            var invalidAssociationOrchestrationException =
+                new InvalidAssociationOrchestrationException(
+                    message: "Content item association is invalid, fix the errors and try again.");
+
+            invalidAssociationOrchestrationException.AddData(
+                key: undefinedParameter,
+                values: "Value is not a recognized entity type");
+
+            var expectedValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: "Content item association orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: invalidAssociationOrchestrationException);
+
+            // when
+            ValueTask<EventEnvelope<Association>> onAddingTask =
+                this.associationOrchestrationService.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(
+                    onAddingTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
+            this.associationServiceMock.Verify(service =>
+                service.OnAddingAssociationAsync(
+                    It.IsAny<EventEnvelope<Association>>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         private static SecurityContext CreateSignedReader() =>
             new SecurityContext
             {
