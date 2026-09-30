@@ -499,6 +499,70 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                 message.Should().NotContainEquivalentOf(status));
         }
 
+        // A Reaction on each side in turn. Canonical order is the foundation's to compute, so a
+        // publisher may name the reaction on either endpoint.
+        public static TheoryData<EntityType, EntityType> PersonalPairs() =>
+            new TheoryData<EntityType, EntityType>
+            {
+                { EntityType.Reaction, EntityType.ContentItem },
+                { EntityType.ContentItem, EntityType.Reaction },
+            };
+
+        // PERSONALITY IS THE LOOKUP'S ANSWER FOR EITHER ENDPOINT (#723; §DOM4.2, §DOM4.10 rule 4):
+        // a pair is personal where either endpoint's type is. A refusal that asked one side only
+        // would let a reaction through whenever the publisher named it on the other. Both reads
+        // are stubbed, so a side left unasked runs through to the foundation.
+        [Theory]
+        [MemberData(nameof(PersonalPairs))]
+        public async Task ShouldRefuseAPersonalPairWhicheverEndpointIsPersonalAsync(
+            EntityType entityAType,
+            EntityType entityBType)
+        {
+            // given
+            Association addRequest = CreateHonestAddRequestBetween(entityAType, entityBType);
+            EventEnvelope<Association> inputEnvelope = CreateRequestEnvelope(addRequest);
+            SetupEventPathEndpointReadsBetween(addRequest, inputEnvelope);
+
+            var invalidAssociationOrchestrationException =
+                new InvalidAssociationOrchestrationException(
+                    message: "A personal content item association cannot be added through an event.");
+
+            var expectedValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: "Content item association orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: invalidAssociationOrchestrationException);
+
+            // when
+            ValueTask<EventEnvelope<Association>> onAddingTask =
+                this.associationOrchestrationService.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(
+                    onAddingTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(
+                expectedValidationException,
+                because: $"a {EntityType.Reaction} on either endpoint makes the pair personal");
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
+            this.associationServiceMock.Verify(service =>
+                service.OnAddingAssociationAsync(
+                    It.IsAny<EventEnvelope<Association>>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.reactionServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         private static SecurityContext CreateSignedReader() =>
             new SecurityContext
             {
