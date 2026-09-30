@@ -103,6 +103,43 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                     + "default (§DOM6.3)");
         }
 
+        [Fact]
+        public async Task ShouldNeverLetADeletedOverrideWinAsync()
+        {
+            // given
+            Guid contentItemId = Guid.NewGuid();
+
+            ContentItemSetting deletedItemOverride =
+                CreateContentItemSetting(ContentType.Testimony, contentItemId, isDeleted: true);
+
+            ContentItemSetting typeDefault =
+                CreateContentItemSetting(ContentType.Testimony, contentItemId: null);
+
+            SetupContentItemSettings(deletedItemOverride, typeDefault);
+
+            var contentItemSettingKeys = new List<ContentItemSettingKey>
+            {
+                CreateContentItemSettingKey(ContentType.Testimony, contentItemId),
+            };
+
+            var expectedEffectiveContentItemSettings = new List<EffectiveContentItemSetting>
+            {
+                CreateEffectiveContentItemSetting(contentItemId, typeDefault),
+            };
+
+            // when
+            IReadOnlyList<EffectiveContentItemSetting> actualEffectiveContentItemSettings =
+                await this.accessBroker.RetrieveEffectiveContentItemSettingsAsync(
+                    contentItemSettingKeys: contentItemSettingKeys,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            actualEffectiveContentItemSettings.Should().BeEquivalentTo(
+                expectedEffectiveContentItemSettings,
+                because: "a soft-deleted setting is excluded from active policy resolution "
+                    + "(§DOM6.6), so the item falls back to its type's default");
+        }
+
         // The function is the one argument matched with It.IsAny, because a function cannot be
         // matched by value. It is proven by applying it instead. The token is matched exactly,
         // so a read that dropped the caller's token answers nothing.
