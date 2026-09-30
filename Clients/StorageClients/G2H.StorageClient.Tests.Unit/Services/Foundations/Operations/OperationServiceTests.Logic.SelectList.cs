@@ -38,12 +38,14 @@ namespace G2H.StorageClient.Tests.Unit.Services.Foundations.Operations
             Func<IQueryable<User>, IQueryable<User>> inputQuery = users =>
                 users.Where(user => user.Surname == matchingSurname);
 
+            IQueryable<User> expectedQuery = inputQuery(storageUsers);
+
             storageBrokerMock.Setup(broker =>
                 broker.SelectAllAsync<User>())
                     .ReturnsAsync(storageUsers);
 
             storageBrokerMock.Setup(broker =>
-                broker.SelectListAsync(It.IsAny<IQueryable<User>>(), inputCancellationToken))
+                broker.SelectListAsync(It.Is(SameQueryAs(expectedQuery)), inputCancellationToken))
                     .ReturnsAsync((IQueryable<User> query, CancellationToken _) => query.ToList());
 
             // When
@@ -58,7 +60,7 @@ namespace G2H.StorageClient.Tests.Unit.Services.Foundations.Operations
                     Times.Once);
 
             storageBrokerMock.Verify(broker =>
-                broker.SelectListAsync(It.IsAny<IQueryable<User>>(), inputCancellationToken),
+                broker.SelectListAsync(It.Is(SameQueryAs(expectedQuery)), inputCancellationToken),
                     Times.Once);
 
             storageBrokerMock.VerifyNoOtherCalls();
@@ -84,12 +86,14 @@ namespace G2H.StorageClient.Tests.Unit.Services.Foundations.Operations
             Func<IQueryable<User>, IQueryable<string>> inputQuery = users =>
                 users.OrderBy(user => user.Username).Select(user => user.Email);
 
+            IQueryable<string> expectedQuery = inputQuery(storageUsers);
+
             storageBrokerMock.Setup(broker =>
                 broker.SelectAllAsync<User>())
                     .ReturnsAsync(storageUsers);
 
             storageBrokerMock.Setup(broker =>
-                broker.SelectListAsync(It.IsAny<IQueryable<string>>(), default))
+                broker.SelectListAsync(It.Is(SameQueryAs(expectedQuery)), default))
                     .ReturnsAsync((IQueryable<string> query, CancellationToken _) => query.ToList());
 
             // When
@@ -103,7 +107,7 @@ namespace G2H.StorageClient.Tests.Unit.Services.Foundations.Operations
                     Times.Once);
 
             storageBrokerMock.Verify(broker =>
-                broker.SelectListAsync(It.IsAny<IQueryable<string>>(), default),
+                broker.SelectListAsync(It.Is(SameQueryAs(expectedQuery)), default),
                     Times.Once);
 
             storageBrokerMock.VerifyNoOtherCalls();
@@ -119,12 +123,14 @@ namespace G2H.StorageClient.Tests.Unit.Services.Foundations.Operations
             Func<IQueryable<User>, IQueryable<User>> inputQuery = users =>
                 users.Where(user => false);
 
+            IQueryable<User> expectedQuery = inputQuery(storageUsers);
+
             storageBrokerMock.Setup(broker =>
                 broker.SelectAllAsync<User>())
                     .ReturnsAsync(storageUsers);
 
             storageBrokerMock.Setup(broker =>
-                broker.SelectListAsync(It.IsAny<IQueryable<User>>(), default))
+                broker.SelectListAsync(It.Is(SameQueryAs(expectedQuery)), default))
                     .ReturnsAsync((IQueryable<User> query, CancellationToken _) => query.ToList());
 
             // When
@@ -138,7 +144,7 @@ namespace G2H.StorageClient.Tests.Unit.Services.Foundations.Operations
                     Times.Once);
 
             storageBrokerMock.Verify(broker =>
-                broker.SelectListAsync(It.IsAny<IQueryable<User>>(), default),
+                broker.SelectListAsync(It.Is(SameQueryAs(expectedQuery)), default),
                     Times.Once);
 
             storageBrokerMock.VerifyNoOtherCalls();

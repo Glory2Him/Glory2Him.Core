@@ -12,9 +12,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using G2H.StorageClient.Brokers.Storages;
 using G2H.StorageClient.Services.Foundations.Operations;
 using G2H.StorageClient.Tests.Unit.Models.Foundations.Users;
+using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Storage;
 using Moq;
 using Tynamix.ObjectFiller;
@@ -32,6 +34,12 @@ namespace G2H.StorageClient.Tests.Unit.Services.Foundations.Operations
             dbContextTransactionMock = new Mock<IDbContextTransaction>();
             this.operationService = new OperationService(storageBrokerMock.Object);
         }
+
+        private static Expression<Func<IQueryable<TResult>, bool>> SameQueryAs<TResult>(
+            IQueryable<TResult> expectedQuery) =>
+                actualQuery => ExpressionEqualityComparer.Instance.Equals(
+                    actualQuery.Expression,
+                    expectedQuery.Expression);
 
         private static int GetRandomNumber() =>
             new IntRange(min: 2, max: 10).GetValue();
