@@ -271,7 +271,11 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
 
         private static void ValidatePairIsNotPersonal(Association association)
         {
-            if (EntityTypePersonalisation.IsPersonal(association.EntityBType))
+            bool isPersonal =
+                EntityTypePersonalisation.IsPersonal(association.EntityAType)
+                || EntityTypePersonalisation.IsPersonal(association.EntityBType);
+
+            if (isPersonal)
             {
                 throw new InvalidAssociationOrchestrationException(
                     message: "A personal content item association cannot be added through an event.");
