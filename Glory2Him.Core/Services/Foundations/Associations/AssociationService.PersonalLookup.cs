@@ -22,46 +22,51 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 {
     internal partial class AssociationService
     {
-        public async ValueTask<PersonalAssociationMatch?> FindPersonalAssociationAsync(
+        public ValueTask<PersonalAssociationMatch?> FindPersonalAssociationAsync(
             Association association,
-            CancellationToken cancellationToken = default)
-        {
-            EventEnvelope<Association> envelope =
-                await this.eventEnvelopeBroker.CreateAsync(content: association);
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                // the envelope captures the caller the lookup answers for: a reader's row is
+                // found for that reader and nobody else
+                EventEnvelope<Association> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: association);
 
-            string callerUserId =
-                await this.securityAuditBroker.GetUserIdAsync(envelope.SecurityContext);
+                ValidateUserIsAuthenticated(envelope.SecurityContext);
 
-            // every stored row is canonical, so the key is taken from the canonical orientation:
-            // a request naming the reaction first would otherwise key the lookup off the reaction
-            // (§DOM4.4 rule 4)
-            association = NormalizeEndpointOrder(association);
+                string callerUserId =
+                    await this.securityAuditBroker.GetUserIdAsync(envelope.SecurityContext);
 
-            Guid entityAEffectiveId = ResolveEffectiveId(
-                association.EntityAScope,
-                association.EntityAGroupId,
-                association.EntityAKeyId);
+                // every stored row is canonical, so the key is taken from the canonical
+                // orientation: a request naming the reaction first would otherwise key the lookup
+                // off the reaction (§DOM4.4 rule 4)
+                association = NormalizeEndpointOrder(association);
 
-            IReadOnlyList<PersonalAssociationMatch> matches =
-                await this.storageBroker.SelectAssociationsAsync(
-                    query: associations =>
-                        SelectPersonalAssociations(
-                            associations,
-                            entityAType: association.EntityAType,
-                            entityAEffectiveId: entityAEffectiveId,
-                            entityBType: association.EntityBType,
-                            userId: callerUserId)
-                                .Take(1)
-                                .Select(match => new PersonalAssociationMatch
-                                {
-                                    Id = match.Id,
-                                    EntityBKeyId = match.EntityBKeyId,
-                                    IsDeleted = match.IsDeleted
-                                }),
-                    cancellationToken: cancellationToken);
+                Guid entityAEffectiveId = ResolveEffectiveId(
+                    association.EntityAScope,
+                    association.EntityAGroupId,
+                    association.EntityAKeyId);
 
-            return matches.FirstOrDefault();
-        }
+                IReadOnlyList<PersonalAssociationMatch> matches =
+                    await this.storageBroker.SelectAssociationsAsync(
+                        query: associations =>
+                            SelectPersonalAssociations(
+                                associations,
+                                entityAType: association.EntityAType,
+                                entityAEffectiveId: entityAEffectiveId,
+                                entityBType: association.EntityBType,
+                                userId: callerUserId)
+                                    .Take(1)
+                                    .Select(match => new PersonalAssociationMatch
+                                    {
+                                        Id = match.Id,
+                                        EntityBKeyId = match.EntityBKeyId,
+                                        IsDeleted = match.IsDeleted
+                                    }),
+                        cancellationToken: cancellationToken);
+
+                return matches.FirstOrDefault();
+            });
 
         // The personal-key condition, written once (§DOM4.6 rule 2; the user story's preamble):
         // the key UX_Associations_PersonalPair holds — the host's type and effective id, the far

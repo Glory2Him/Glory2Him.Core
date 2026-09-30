@@ -32,6 +32,9 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         private delegate ValueTask<AssociationPairMatch?>
             ReturningAssociationPairMatchFunction();
 
+        private delegate ValueTask<PersonalAssociationMatch?>
+            ReturningPersonalAssociationMatchFunction();
+
         private delegate ValueTask<EventEnvelope<Association>?>
             ReturningAssociationEventEnvelopeFunction();
 
@@ -444,6 +447,23 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
                 throw await CreateAndLogServiceExceptionAsync(
                     failedAssociationServiceException);
+            }
+        }
+
+        // The personal-key lookup (#718): a read that validates its caller and its input, so it
+        // takes the validation catches and the read-style dependency catches, and none of the
+        // write-only ones.
+        private async ValueTask<PersonalAssociationMatch?> TryCatch(
+            ReturningPersonalAssociationMatchFunction returningPersonalAssociationMatchFunction)
+        {
+            try
+            {
+                return await returningPersonalAssociationMatchFunction();
+            }
+            catch (UnauthorizedAssociationException unauthorizedAssociationException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(
+                    exception: unauthorizedAssociationException);
             }
         }
 
