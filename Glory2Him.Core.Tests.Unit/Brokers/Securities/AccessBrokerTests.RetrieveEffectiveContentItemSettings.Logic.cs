@@ -140,6 +140,39 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                     + "(§DOM6.6), so the item falls back to its type's default");
         }
 
+        [Fact]
+        public async Task ShouldLeaveOutAnItemThatResolvesNoRowAsync()
+        {
+            // given: the item's type has only a deleted default, and ANOTHER type has a live one.
+            // The second row misses on the type alone, so the item comes back absent only when
+            // the default is matched on its type as well as on being live.
+            Guid contentItemId = Guid.NewGuid();
+
+            ContentItemSetting deletedTypeDefault =
+                CreateContentItemSetting(ContentType.Testimony, contentItemId: null, isDeleted: true);
+
+            ContentItemSetting otherTypeDefault =
+                CreateContentItemSetting(ContentType.Devotional, contentItemId: null);
+
+            SetupContentItemSettings(deletedTypeDefault, otherTypeDefault);
+
+            var contentItemSettingKeys = new List<ContentItemSettingKey>
+            {
+                CreateContentItemSettingKey(ContentType.Testimony, contentItemId),
+            };
+
+            // when
+            IReadOnlyList<EffectiveContentItemSetting> actualEffectiveContentItemSettings =
+                await this.accessBroker.RetrieveEffectiveContentItemSettingsAsync(
+                    contentItemSettingKeys: contentItemSettingKeys,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            actualEffectiveContentItemSettings.Should().BeEmpty(
+                because: "an item that resolves no live row is absent from the answer, and what "
+                    + "that absence means is its caller's to say");
+        }
+
         // The function is the one argument matched with It.IsAny, because a function cannot be
         // matched by value. It is proven by applying it instead. The token is matched exactly,
         // so a read that dropped the caller's token answers nothing.
