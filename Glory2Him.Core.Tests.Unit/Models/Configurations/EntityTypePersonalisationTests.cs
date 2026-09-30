@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using FluentAssertions;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Enums;
@@ -45,6 +46,23 @@ namespace Glory2Him.Core.Tests.Unit.Models.Configurations
 
             // then
             actualIsPersonal.Should().BeFalse();
+        }
+
+        [Fact]
+        public void ShouldDeclareEveryEntityType()
+        {
+            // given: walking the enum, so a member added without a decision fails here
+            // rather than on a request (§DOM4.10 rule 4)
+            foreach (EntityType entityType in Enum.GetValues<EntityType>())
+            {
+                // when
+                Action lookingUpPersonalisation = () =>
+                    EntityTypePersonalisation.IsPersonal(entityType);
+
+                // then
+                lookingUpPersonalisation.Should().NotThrow(
+                    because: $"{entityType} must declare whether it is personal");
+            }
         }
     }
 }
