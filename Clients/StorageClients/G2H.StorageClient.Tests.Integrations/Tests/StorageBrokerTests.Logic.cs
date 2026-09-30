@@ -64,13 +64,14 @@ namespace G2H.StorageClient.Tests.Integrations.Tests
             // Given
             User matchingUser = CreateRandomUser();
             User nonMatchingUser = CreateRandomUser();
-            await storageBroker.InsertUserAsync(matchingUser);
-            await storageBroker.InsertUserAsync(nonMatchingUser);
             var candidateUserIds = new List<Guid> { matchingUser.Id, nonMatchingUser.Id };
             var expectedEmails = new List<string> { matchingUser.Email };
 
             try
             {
+                await storageBroker.InsertUserAsync(matchingUser);
+                await storageBroker.InsertUserAsync(nonMatchingUser);
+
                 // When
                 IReadOnlyList<string> actualEmails = await storageBroker.SelectListOfUsersAsync(users =>
                     users
@@ -83,8 +84,11 @@ namespace G2H.StorageClient.Tests.Integrations.Tests
             }
             finally
             {
-                await storageBroker.DeleteUserAsync(matchingUser);
-                await storageBroker.DeleteUserAsync(nonMatchingUser);
+                foreach (User insertedUser in new[] { matchingUser, nonMatchingUser })
+                {
+                    if (await storageBroker.UserExistsAsync(insertedUser.Id))
+                        await storageBroker.DeleteUserAsync(insertedUser);
+                }
             }
         }
 
