@@ -38,6 +38,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                         association.EntityAType == EntityType.ContentItem
                             && contentItemGroupIds.Contains(association.EntityAEffectiveId)
                             && association.EntityBType == EntityType.Reaction
+                            && association.UserId == callerUserId
                             && association.IsDeleted == false)
                     .Select(association => new AssociationPairKey
                     {
