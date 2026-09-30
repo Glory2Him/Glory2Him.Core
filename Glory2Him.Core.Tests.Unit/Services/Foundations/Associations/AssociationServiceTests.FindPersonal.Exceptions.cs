@@ -98,6 +98,50 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldThrowServiceExceptionOnFindPersonalIfServiceErrorOccursAndLogItAsync()
+        {
+            // given
+            Association lookupRequest = CreateAllowedPersonalLookupRequest();
+            var serviceException = new Exception();
+
+            var failedAssociationServiceException = new FailedAssociationServiceException(
+                message: "Failed content item association service error occurred, please contact support.",
+                innerException: serviceException,
+                data: serviceException.Data);
+
+            var expectedAssociationServiceException = new AssociationServiceException(
+                message: "Content item association service error occurred, contact support.",
+                innerException: failedAssociationServiceException);
+
+            SetupPersonalLookupToThrow(serviceException);
+
+            // when
+            ValueTask<PersonalAssociationMatch?> findTask =
+                this.associationService.FindPersonalAssociationAsync(
+                    lookupRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationServiceException actualAssociationServiceException =
+                await Assert.ThrowsAsync<AssociationServiceException>(findTask.AsTask);
+
+            // then
+            actualAssociationServiceException.Should().BeEquivalentTo(
+                expectedAssociationServiceException);
+
+            VerifyPersonalLookupAsked(TestContext.Current.CancellationToken, Times.Once());
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationServiceException))),
+                Times.Once);
+
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // a signed-in reader asking for their own row, so the lookup reaches storage
         private Association CreateAllowedPersonalLookupRequest()
         {
