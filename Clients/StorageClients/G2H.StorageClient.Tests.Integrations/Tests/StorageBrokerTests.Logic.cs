@@ -15,6 +15,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Force.DeepCloner;
+using G2H.StorageClient.Tests.Integrations.Brokers.Storages;
 using G2H.StorageClient.Tests.Integrations.Models.Users;
 using Microsoft.EntityFrameworkCore;
 
@@ -219,6 +220,35 @@ namespace G2H.StorageClient.Tests.Integrations.Tests
             }
 
             await storageBroker.BulkDeleteUsersAsync(actualUsers);
+        }
+
+        [Fact]
+        public async Task ShouldReturnTheRowsUntrackedAsync()
+        {
+            // Given
+            await using StorageBroker trackingStorageBroker = CreateTrackingStorageBroker();
+            User randomUser = CreateRandomUser();
+            await trackingStorageBroker.InsertUserAsync(randomUser);
+
+            try
+            {
+                IReadOnlyList<User> selectedUsers = await trackingStorageBroker.SelectListOfUsersAsync(users =>
+                    users.Where(user => user.Id == randomUser.Id));
+
+                User updatedUser = selectedUsers.Single().DeepClone();
+                updatedUser.Email = GetRandomString();
+                User expectedUser = updatedUser.DeepClone();
+
+                // When
+                User actualUser = await trackingStorageBroker.UpdateUserAsync(updatedUser);
+
+                // Then
+                actualUser.Should().BeEquivalentTo(expectedUser);
+            }
+            finally
+            {
+                await storageBroker.DeleteUserAsync(randomUser);
+            }
         }
 
         [Fact]
