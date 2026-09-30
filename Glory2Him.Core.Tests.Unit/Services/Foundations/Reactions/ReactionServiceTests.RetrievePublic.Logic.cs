@@ -230,6 +230,77 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldRetrievePublicReactionsInTheirSortOrderAsync()
+        {
+            // given
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
+
+            // SortOrder runs against both the names and the stored order, and the two
+            // reactions sharing 20 are stored against their names, so neither an alphabetical
+            // order, nor the stored one, nor a tie left unbroken passes
+            Reaction lastReaction = CreatePubliclyVisibleReaction(currentDateTime);
+            lastReaction.Name = "Amen";
+            lastReaction.SortOrder = 30;
+
+            Reaction laterOfTheTiedReactions = CreatePubliclyVisibleReaction(currentDateTime);
+            laterOfTheTiedReactions.Name = "Joy";
+            laterOfTheTiedReactions.SortOrder = 20;
+
+            Reaction firstReaction = CreatePubliclyVisibleReaction(currentDateTime);
+            firstReaction.Name = "Zeal";
+            firstReaction.SortOrder = 10;
+
+            Reaction earlierOfTheTiedReactions = CreatePubliclyVisibleReaction(currentDateTime);
+            earlierOfTheTiedReactions.Name = "Bless";
+            earlierOfTheTiedReactions.SortOrder = 20;
+
+            var storageReactions = new List<Reaction>
+            {
+                lastReaction,
+                laterOfTheTiedReactions,
+                firstReaction,
+                earlierOfTheTiedReactions
+            };
+
+            var expectedReactions = new List<Reaction>
+            {
+                firstReaction.DeepClone(),
+                earlierOfTheTiedReactions.DeepClone(),
+                laterOfTheTiedReactions.DeepClone(),
+                lastReaction.DeepClone()
+            };
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(currentDateTime);
+
+            SetupSelectReactionsToQuery(storageReactions, cancellationToken);
+
+            // when
+            IReadOnlyList<Reaction> actualReactions =
+                await this.reactionService.RetrievePublicReactionsAsync(cancellationToken);
+
+            // then
+            actualReactions.Should().BeEquivalentTo(
+                expectedReactions,
+                options => options.WithStrictOrdering());
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            VerifySelectReactionsQueriedOnce(cancellationToken);
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // an approved, published reaction whose publish date has already passed, so it is
         // visible to anybody under §SEC14.3 rule 4
         private static Reaction CreatePubliclyVisibleReaction(DateTimeOffset currentDateTime)
