@@ -100,4 +100,20 @@ describe('toChosenReactionSummary', () => {
         expect(changedSummary).toEqual([countOf(amen, 1), countOf(love, 2), countOf(praying, 1)]);
         expect(withdrawnSummary).toEqual([countOf(amen, 1), countOf(love, 2)]);
     });
+
+    it('should never change what it is handed', () => {
+        // given
+        const reactionSummary = [countOf(joy, 2), countOf(love, 1)];
+        const handedOptions = [...options];
+        const expectedReactionSummary = structuredClone(reactionSummary);
+        const expectedOptions = structuredClone(handedOptions);
+
+        // when
+        const chosenSummary = toChosenReactionSummary(reactionSummary, love.label, praying.label, handedOptions);
+
+        // then
+        expect(chosenSummary).not.toBe(reactionSummary);
+        expect(reactionSummary).toEqual(expectedReactionSummary);
+        expect(handedOptions).toEqual(expectedOptions);
+    });
 });
