@@ -33,6 +33,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
             return await this.storageBroker.SelectAssociationsAsync(
                 query: associations => associations
+                    .Where(association => association.IsDeleted == false)
                     .Select(association => new AssociationPairKey
                     {
                         EntityAEffectiveId = association.EntityAEffectiveId,
