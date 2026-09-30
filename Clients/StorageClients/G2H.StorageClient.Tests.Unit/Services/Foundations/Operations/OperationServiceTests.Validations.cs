@@ -10,6 +10,8 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using G2H.StorageClient.Tests.Unit.Models.Foundations.Users;
 
@@ -70,6 +72,20 @@ namespace G2H.StorageClient.Tests.Unit.Services.Foundations.Operations
 
             // Then
             await Assert.ThrowsAsync<ArgumentNullException>(testCode: selectUserTask.AsTask);
+            storageBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowArgumentNullExceptionWhenQueryIsNull()
+        {
+            // Given
+            Func<IQueryable<User>, IQueryable<User>> nullQuery = null;
+
+            // When
+            ValueTask<IReadOnlyList<User>> selectUsersTask = operationService.SelectListAsync(query: nullQuery);
+
+            // Then
+            await Assert.ThrowsAsync<ArgumentNullException>(testCode: selectUsersTask.AsTask);
             storageBrokerMock.VerifyNoOtherCalls();
         }
     }

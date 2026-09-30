@@ -15,6 +15,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Force.DeepCloner;
+using G2H.StorageClient.Tests.Integrations.Brokers.Storages;
 using G2H.StorageClient.Tests.Integrations.Models.Users;
 using Microsoft.EntityFrameworkCore;
 
@@ -55,6 +56,40 @@ namespace G2H.StorageClient.Tests.Integrations.Tests
             // Then
             actualUser.Should().BeEquivalentTo(expectedUser);
             await storageBroker.DeleteUserAsync(actualUser);
+        }
+
+        [Fact]
+        public async Task ShouldSelectListOfUsersThroughAQueryShapingFunctionAsync()
+        {
+            // Given
+            User matchingUser = CreateRandomUser();
+            User nonMatchingUser = CreateRandomUser();
+            var candidateUserIds = new List<Guid> { matchingUser.Id, nonMatchingUser.Id };
+            var expectedEmails = new List<string> { matchingUser.Email };
+
+            try
+            {
+                await storageBroker.InsertUserAsync(matchingUser);
+                await storageBroker.InsertUserAsync(nonMatchingUser);
+
+                // When
+                IReadOnlyList<string> actualEmails = await storageBroker.SelectListOfUsersAsync(users =>
+                    users
+                        .Where(user => candidateUserIds.Contains(user.Id))
+                        .Where(user => EF.Functions.Like(user.Username, matchingUser.Username))
+                        .Select(user => user.Email));
+
+                // Then
+                actualEmails.Should().Equal(expectedEmails);
+            }
+            finally
+            {
+                foreach (User insertedUser in new[] { matchingUser, nonMatchingUser })
+                {
+                    if (await storageBroker.UserExistsAsync(insertedUser.Id))
+                        await storageBroker.DeleteUserAsync(insertedUser);
+                }
+            }
         }
 
         [Fact]
@@ -219,6 +254,35 @@ namespace G2H.StorageClient.Tests.Integrations.Tests
             }
 
             await storageBroker.BulkDeleteUsersAsync(actualUsers);
+        }
+
+        [Fact]
+        public async Task ShouldReturnTheRowsUntrackedAsync()
+        {
+            // Given
+            await using StorageBroker trackingStorageBroker = CreateTrackingStorageBroker();
+            User randomUser = CreateRandomUser();
+            await trackingStorageBroker.InsertUserAsync(randomUser);
+
+            try
+            {
+                IReadOnlyList<User> selectedUsers = await trackingStorageBroker.SelectListOfUsersAsync(users =>
+                    users.Where(user => user.Id == randomUser.Id));
+
+                User updatedUser = selectedUsers.Single().DeepClone();
+                updatedUser.Email = GetRandomString();
+                User expectedUser = updatedUser.DeepClone();
+
+                // When
+                User actualUser = await trackingStorageBroker.UpdateUserAsync(updatedUser);
+
+                // Then
+                actualUser.Should().BeEquivalentTo(expectedUser);
+            }
+            finally
+            {
+                await storageBroker.DeleteUserAsync(randomUser);
+            }
         }
 
         [Fact]

@@ -56,5 +56,37 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Reactions
                 }
             }
         }
+
+        [Fact]
+        public async Task ShouldGetTheSeededVocabularyInItsSortOrderAsync()
+        {
+            // given
+            // The host's own seed, which has no caller: nothing is posted, so nothing is cleaned
+            // up. Other tests' reactions may share the answer, so the five are picked out of it
+            // by name, keeping the order the read returned them in.
+            var expectedVocabulary = new List<(string Name, int SortOrder)>
+            {
+                ("Amen", 10),
+                ("Love", 20),
+                ("Joy", 30),
+                ("Moved", 40),
+                ("Praying", 50)
+            };
+
+            List<string> seededNames =
+                expectedVocabulary.Select(reaction => reaction.Name).ToList();
+
+            // when
+            List<Reaction> actualReactions =
+                await this.apiBroker.GetAllReactionsAsync(odataQuery: "$orderby=sortOrder,name");
+
+            // then
+            List<(string Name, int SortOrder)> actualVocabulary = actualReactions
+                .Where(reaction => seededNames.Contains(reaction.Name))
+                .Select(reaction => (reaction.Name, reaction.SortOrder))
+                .ToList();
+
+            actualVocabulary.Should().Equal(expectedVocabulary);
+        }
     }
 }

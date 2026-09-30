@@ -166,10 +166,10 @@ const loveOnlySetting: ContentItemSetting = settingFor(
 });
 
 const reactionOptions: ReadonlyArray<ContentItemReactionOption> = [
-    { label: 'Amen', glyph: '👍' },
-    { label: 'Love', glyph: '❤️', isLove: true },
-    { label: 'Joy', glyph: '😄' },
-    { label: 'Praying', glyph: '🙏' }
+    { id: 'demo-reaction-amen', label: 'Amen', glyph: '👍' },
+    { id: 'demo-reaction-love', label: 'Love', glyph: '❤️', isLove: true },
+    { id: 'demo-reaction-joy', label: 'Joy', glyph: '😄' },
+    { id: 'demo-reaction-praying', label: 'Praying', glyph: '🙏' }
 ];
 
 const demoItems: ReadonlyArray<ContentItemSearchItem> = [
