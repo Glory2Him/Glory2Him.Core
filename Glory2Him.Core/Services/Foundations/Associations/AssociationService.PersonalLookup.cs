@@ -51,6 +51,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                             entityAEffectiveId: entityAEffectiveId,
                             entityBType: association.EntityBType,
                             userId: callerUserId)
+                                .Take(1)
                                 .Select(match => new PersonalAssociationMatch
                                 {
                                     Id = match.Id,
@@ -68,16 +69,23 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         // a revive needs the withdrawn row. The far end's key is not a term: a reader has one row
         // per host whichever reaction it points at. The personal upsert resolves the reader's row
         // with this same condition.
+        //
+        // Ordered, because rows written before this feature can give one reader more than one row
+        // on a host (§DOM4.10 rule 6): the live row first, then the most recently updated — the
+        // order the pair probe takes.
         private static IQueryable<Association> SelectPersonalAssociations(
             IQueryable<Association> associations,
             EntityType entityAType,
             Guid entityAEffectiveId,
             EntityType entityBType,
             string userId) =>
-            associations.Where(association =>
-                association.EntityAType == entityAType
-                    && association.EntityAEffectiveId == entityAEffectiveId
-                    && association.EntityBType == entityBType
-                    && association.UserId == userId);
+            associations
+                .Where(association =>
+                    association.EntityAType == entityAType
+                        && association.EntityAEffectiveId == entityAEffectiveId
+                        && association.EntityBType == entityBType
+                        && association.UserId == userId)
+                .OrderBy(association => association.IsDeleted)
+                .ThenByDescending(association => association.UpdatedWhen);
     }
 }
