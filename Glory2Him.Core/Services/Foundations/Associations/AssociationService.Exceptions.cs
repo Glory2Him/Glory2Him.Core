@@ -475,6 +475,17 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 throw await CreateAndLogValidationExceptionAsync(
                     exception: invalidAssociationException);
             }
+            catch (SqlException sqlException)
+            {
+                var failedStorageAssociationException =
+                    new FailedStorageAssociationException(
+                        message: "Failed content item association storage error occurred, contact support.",
+                        innerException: sqlException,
+                        data: sqlException.Data);
+
+                throw await CreateAndLogCriticalDependencyExceptionAsync(
+                    exception: failedStorageAssociationException);
+            }
         }
 
         // The early-dedupe question (#631): a storage read and nothing else, so it needs only the
