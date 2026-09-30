@@ -49,7 +49,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
     /// elevated role <b>or</b> a scoped role matching <i>at least one</i> endpoint, each
     /// endpoint checked at both the coarse entity-type tier and the narrow content-type tier.
     /// Write permission is the owner or a review role; removal is the owner or <c>Administrators</c>,
-    /// hard removal <c>Administrators</c> only — both additionally subject to the endpoint veto. The
+    /// hard removal <c>Administrators</c> only — both additionally subject to the endpoint veto, save
+    /// that removal asks none of the read-only roles of the caller's own personal row. The
     /// veto is scoped to writes and never consulted on a read, so a moderator holding one
     /// scoped <c>ReadOnly</c> keeps their audit visibility. Reads otherwise follow the
     /// §14.1/§14.5 posture.</para>
@@ -534,14 +535,13 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             EventEnvelope<Association> inboundEnvelope,
             CancellationToken cancellationToken)
         {
-            // only the endpoint-independent half of the contribution gate can run here — the
-            // scoped veto needs the row, and this path is handed an id. Keeping the
-            // authentication and global-block checks above the read means an anonymous or
-            // globally blocked caller never reaches the Associations table, so this surface
-            // cannot be used to probe which association ids exist. (The event path first
-            // touches ProcessedEvents for deduplication; that lookup is keyed on the event
-            // id, not the association id, so it reveals nothing about which rows exist.)
-            ValidateUserIsNotGloballyBlockedFromContributing(inboundEnvelope.SecurityContext);
+            // only authentication runs above the read, so an anonymous caller never reaches
+            // the Associations table and cannot use this surface to probe which association
+            // ids exist. The read-only roles, global and scoped alike, wait for the row.
+            // (The event path first touches ProcessedEvents for deduplication; that lookup is
+            // keyed on the event id, not the association id, so it reveals nothing about which
+            // rows exist.)
+            ValidateUserIsAuthenticated(inboundEnvelope.SecurityContext);
             ValidateOnRemoveAssociationById(associationId, deletionReason);
 
             Association maybeAssociation =
@@ -551,19 +551,35 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
             ValidateStorageAssociation(maybeAssociation, associationId);
 
-            // the endpoint veto, now that both endpoints are known
-            ValidateUserIsNotBlockedFromEndpoints(
-                securityContext: inboundEnvelope.SecurityContext,
-                firstEntityType: maybeAssociation.EntityAType,
-                firstContentType: maybeAssociation.EntityAContentType,
-                secondEntityType: maybeAssociation.EntityBType,
-                secondContentType: maybeAssociation.EntityBContentType);
+            string actorUserId =
+                await this.securityAuditBroker.GetUserIdAsync(inboundEnvelope.SecurityContext);
+
+            // a reaction is not a contribution: the caller's own personal row is asked none of
+            // the read-only roles (§SEC14.7 posture A′ rule 1). Every other row is asked the
+            // whole veto, now that both endpoints are known — a globally blocked caller
+            // reaches the table as any signed-in caller does and is refused here (rule 4)
+            bool isCallersOwnPersonalRow =
+                maybeAssociation.UserId is not null
+                    && maybeAssociation.UserId == actorUserId;
+
+            if (isCallersOwnPersonalRow is false)
+            {
+                ValidateUserIsNotGloballyReadOnly(inboundEnvelope.SecurityContext);
+
+                ValidateUserIsNotBlockedFromEndpoints(
+                    securityContext: inboundEnvelope.SecurityContext,
+                    firstEntityType: maybeAssociation.EntityAType,
+                    firstContentType: maybeAssociation.EntityAContentType,
+                    secondEntityType: maybeAssociation.EntityBType,
+                    secondContentType: maybeAssociation.EntityBContentType);
+            }
 
             // permission comes before the idempotent short-circuit, so an unauthorized
             // caller learns nothing about the row's deletion state
-            await ValidateUserCanRemoveStorageAssociationAsync(
+            ValidateUserCanRemoveStorageAssociation(
                 storageAssociation: maybeAssociation,
-                securityContext: inboundEnvelope.SecurityContext);
+                securityContext: inboundEnvelope.SecurityContext,
+                actorUserId: actorUserId);
 
             if (maybeAssociation.IsDeleted)
                 return maybeAssociation;

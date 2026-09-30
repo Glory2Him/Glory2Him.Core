@@ -186,6 +186,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         private static Expression<Func<Xeption, bool>> SameExceptionAs(Xeption expectedException) =>
             actualException => actualException.SameExceptionAs(expectedException);
 
+        // the envelope a write publishes: the stored result, carried under the signed caller
+        private Expression<Func<EventEnvelope<Association>, bool>> SameOutboundEnvelopeAs(
+            Association expectedAssociation) =>
+                actualEnvelope =>
+                    actualEnvelope.Content == expectedAssociation
+                        && actualEnvelope.SecurityContext == this.ambientSecurityContext;
+
         private static SqlException GetSqlException() =>
             (SqlException)RuntimeHelpers.GetUninitializedObject(typeof(SqlException));
 
@@ -251,6 +258,25 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 Roles.Reviewers,
                 Roles.Publishers,
                 Roles.Administrators
+            };
+
+        // every read-only name that covers a reaction on a Quote: the global role, and each
+        // scope over one of the reaction's two endpoints (§SEC14.7 posture A′ rule 1)
+        public static TheoryData<string> ReadOnlyRolesOverAReaction() =>
+            new TheoryData<string>
+            {
+                Roles.ReadOnly,
+                Roles.ReactionReadOnly,
+                Roles.ContentItemReadOnly,
+                Roles.ReadOnlyFor(EntityType.ContentItem, ContentType.Quote)
+            };
+
+        public static TheoryData<string> ScopedReadOnlyRolesOverAReaction() =>
+            new TheoryData<string>
+            {
+                Roles.ReactionReadOnly,
+                Roles.ContentItemReadOnly,
+                Roles.ReadOnlyFor(EntityType.ContentItem, ContentType.Quote)
             };
 
         public static TheoryData<Exception, Xeption> DependencyExceptions()
@@ -360,6 +386,21 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
         private static Association CreateRandomAssociation() =>
             CreateAssociationFiller(dateTimeOffset: GetRandomDateTimeOffset()).Create();
+
+        // a reader's reaction on a Quote: a personal row, created and keyed by one reader
+        private static Association CreateRandomReaction(string readerUserId)
+        {
+            Association reaction = CreateRandomAssociation();
+            reaction.EntityAType = EntityType.ContentItem;
+            reaction.EntityAContentType = ContentType.Quote;
+            reaction.EntityBType = EntityType.Reaction;
+            reaction.EntityBContentType = null;
+            reaction.UserId = readerUserId;
+            reaction.CreatedBy = readerUserId;
+            reaction.UpdatedBy = readerUserId;
+
+            return reaction;
+        }
 
         private static EventEnvelope<Association>
             CreateRandomAssociationRequestEnvelope(
