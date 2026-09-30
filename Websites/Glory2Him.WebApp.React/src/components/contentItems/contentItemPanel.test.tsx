@@ -155,9 +155,9 @@ const withSetting = (
     });
 
 const reactionOptions: ReadonlyArray<ContentItemReactionOption> = [
-    { label: 'Amen', glyph: '👍' },
-    { label: 'Love', glyph: '❤️', isLove: true },
-    { label: 'Joy', glyph: '😄' }
+    { id: 'reaction-amen', label: 'Amen', glyph: '👍' },
+    { id: 'reaction-love', label: 'Love', glyph: '❤️', isLove: true },
+    { id: 'reaction-joy', label: 'Joy', glyph: '😄' }
 ];
 
 describe('ContentItemPanel', () => {

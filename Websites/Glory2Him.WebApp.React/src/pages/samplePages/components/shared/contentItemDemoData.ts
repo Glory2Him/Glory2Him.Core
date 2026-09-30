@@ -152,7 +152,7 @@ export const demoItems: ReadonlyArray<ContentItemSearchItem> =
     [demoStoryItem, demoQuoteItem, demoVerseImageItem];
 
 export const demoReactionOptions: ReadonlyArray<ContentItemReactionOption> = [
-    { label: 'Amen', glyph: '🙏' },
-    { label: 'Love', glyph: '❤️', isLove: true },
-    { label: 'Joy', glyph: '😊' }
+    { id: 'demo-reaction-amen', label: 'Amen', glyph: '🙏' },
+    { id: 'demo-reaction-love', label: 'Love', glyph: '❤️', isLove: true },
+    { id: 'demo-reaction-joy', label: 'Joy', glyph: '😊' }
 ];
