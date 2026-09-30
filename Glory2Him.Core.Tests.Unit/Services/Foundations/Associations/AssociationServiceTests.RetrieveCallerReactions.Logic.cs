@@ -15,6 +15,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Moq;
 
@@ -47,6 +48,77 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 CreatePairKeyFor(firstReaction),
                 CreatePairKeyFor(secondReaction)
             };
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(callerUserId);
+
+            SetupSelectAssociationsToQuery(storageAssociations, cancellationToken);
+
+            // when
+            IReadOnlyList<AssociationPairKey> actualPairKeys =
+                await this.associationService.RetrieveCallerContentItemReactionsAsync(
+                    contentItemGroupIds,
+                    cancellationToken);
+
+            // then
+            actualPairKeys.Should().BeEquivalentTo(expectedPairKeys);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                Times.Once);
+
+            VerifySelectAssociationsQueriedOnce(cancellationToken);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldRetrieveTheCallersReactionWhateverItsApprovalAsync()
+        {
+            // given
+            string callerUserId = GetRandomString();
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
+            List<Guid> contentItemGroupIds = CreateRandomContentItemGroupIds(count: 2);
+
+            Association submittedReaction =
+                CreateCallerReactionOn(contentItemGroupIds[0], callerUserId);
+
+            submittedReaction.ApprovalStatus = ApprovalStatus.Submitted;
+            submittedReaction.IsPublished = false;
+            submittedReaction.PublishDate = null;
+
+            Association notYetPublishedReaction =
+                CreateCallerReactionOn(contentItemGroupIds[1], callerUserId);
+
+            notYetPublishedReaction.ApprovalStatus = ApprovalStatus.Approved;
+            notYetPublishedReaction.IsPublished = true;
+
+            notYetPublishedReaction.PublishDate =
+                currentDateTime.AddDays(GetRandomNumber());
+
+            var storageAssociations = new List<Association>
+            {
+                submittedReaction,
+                notYetPublishedReaction
+            };
+
+            var expectedPairKeys = new List<AssociationPairKey>
+            {
+                CreatePairKeyFor(submittedReaction),
+                CreatePairKeyFor(notYetPublishedReaction)
+            };
+
+            // the clock answers, so a read that asked the publish date would drop the row
+            // rather than fail on an unstubbed call
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(currentDateTime);
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.GetUserIdAsync(this.ambientSecurityContext))
