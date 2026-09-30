@@ -186,6 +186,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         private static Expression<Func<Xeption, bool>> SameExceptionAs(Xeption expectedException) =>
             actualException => actualException.SameExceptionAs(expectedException);
 
+        // the envelope a write publishes: the stored result, carried under the signed caller
+        private Expression<Func<EventEnvelope<Association>, bool>> SameOutboundEnvelopeAs(
+            Association expectedAssociation) =>
+                actualEnvelope =>
+                    actualEnvelope.Content == expectedAssociation
+                        && actualEnvelope.SecurityContext == this.ambientSecurityContext;
+
         private static SqlException GetSqlException() =>
             (SqlException)RuntimeHelpers.GetUninitializedObject(typeof(SqlException));
 
