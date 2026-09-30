@@ -25,6 +25,7 @@ using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.ApprovalSettings;
+using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 using Glory2Him.Core.Models.Securities;
 
 namespace Glory2Him.Core.Brokers.Securities
@@ -1243,9 +1244,28 @@ namespace Glory2Him.Core.Brokers.Securities
             };
         }
 
-        public ValueTask<IReadOnlyList<EffectiveContentItemSetting>> RetrieveEffectiveContentItemSettingsAsync(
+        public async ValueTask<IReadOnlyList<EffectiveContentItemSetting>> RetrieveEffectiveContentItemSettingsAsync(
             IReadOnlyList<ContentItemSettingKey> contentItemSettingKeys,
-            CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
+            CancellationToken cancellationToken = default)
+        {
+            return await this.storageBroker.SelectContentItemSettingsAsync(
+                contentItemSettings => contentItemSettingKeys
+                    .Select(contentItemSettingKey =>
+                        SelectEffectiveContentItemSetting(contentItemSettings, contentItemSettingKey))
+                    .Aggregate((answered, next) => answered.Concat(next)),
+                cancellationToken);
+        }
+
+        private static IQueryable<EffectiveContentItemSetting> SelectEffectiveContentItemSetting(
+            IQueryable<ContentItemSetting> contentItemSettings,
+            ContentItemSettingKey contentItemSettingKey) =>
+            contentItemSettings
+                .Where(contentItemSetting =>
+                    contentItemSetting.ContentItemId == contentItemSettingKey.ContentItemId)
+                .Select(contentItemSetting => new EffectiveContentItemSetting
+                {
+                    ContentItemId = contentItemSettingKey.ContentItemId,
+                    ContentItemSetting = contentItemSetting,
+                });
     }
 }
