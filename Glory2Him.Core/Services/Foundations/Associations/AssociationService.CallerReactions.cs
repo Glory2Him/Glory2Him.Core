@@ -27,6 +27,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             CancellationToken cancellationToken = default) =>
             TryCatch(async () =>
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 ValidateOnRetrieveCallerContentItemReactions(contentItemGroupIds);
 
                 EventEnvelope<Association> envelope =
