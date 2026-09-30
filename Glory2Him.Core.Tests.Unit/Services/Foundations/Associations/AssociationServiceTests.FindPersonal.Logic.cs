@@ -20,6 +20,7 @@ using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.Associations.Exceptions;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
@@ -432,6 +433,83 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Theory]
+        [MemberData(nameof(CallerRoleSetsAskingForAnotherReadersRow))]
+        public async Task ShouldFindNothingForAnotherReadersUserIdAsync(string[] callerRoles)
+        {
+            // given: both readers hold a row on the item, so a lookup that answered for the
+            // caller or for the named reader would each find something
+            string callerUserId = GetRandomString();
+            string anotherReaderUserId = GetRandomString();
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(callerRoles);
+            Association lookupRequest = CreatePersonalLookupRequest(anotherReaderUserId);
+
+            Association anotherReadersRow =
+                CreateStoredPersonalRow(lookupRequest, isDeleted: false);
+
+            Association callersRow =
+                CreateStoredPersonalRow(lookupRequest, isDeleted: false);
+
+            callersRow.UserId = callerUserId;
+
+            List<Association> storageAssociations =
+                new List<Association> { anotherReadersRow, callersRow };
+
+            using var cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken inputCancellationToken = cancellationTokenSource.Token;
+
+            string expectedWarning =
+                "Personal content item association lookup denied. User " +
+                $"\"{callerUserId}\" asked for another user's row; reported to the caller as " +
+                "not found.";
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(callerUserId);
+
+            SetupPersonalLookupOver(storageAssociations, inputCancellationToken);
+
+            // when
+            PersonalAssociationMatch? actualMatch =
+                await this.associationService.FindPersonalAssociationAsync(
+                    lookupRequest,
+                    inputCancellationToken);
+
+            // then: the same answer as a reader with no row, and storage never asked
+            actualMatch.Should().BeNull();
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(lookupRequest),
+                    Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                    Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogWarningAsync(expectedWarning),
+                    Times.Once);
+
+            VerifyPersonalLookupAsked(inputCancellationToken, Times.Never());
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // the lookup serves the owner alone, so no role lets a caller find another reader's row —
+        // the review tier's audit reads another reader's row by other means (§SEC14.7 posture A′
+        // rule 7)
+        public static TheoryData<string[]> CallerRoleSetsAskingForAnotherReadersRow() =>
+            new TheoryData<string[]>
+            {
+                new string[0],
+                new[] { Roles.Administrators }
+            };
 
         public static TheoryData<string> PersonalKeyTerms() =>
             new TheoryData<string>
