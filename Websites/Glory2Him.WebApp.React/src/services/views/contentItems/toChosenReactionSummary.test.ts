@@ -87,4 +87,17 @@ describe('toChosenReactionSummary', () => {
         // then
         expect(chosenSummary).toEqual([countOf(love, 1)]);
     });
+
+    it('should take nothing from a held reaction that has no entry', () => {
+        // given
+        const reactionSummary = [countOf(amen, 1), countOf(love, 2)];
+
+        // when
+        const changedSummary = toChosenReactionSummary(reactionSummary, joy.label, praying.label, options);
+        const withdrawnSummary = toChosenReactionSummary(reactionSummary, joy.label, undefined, options);
+
+        // then
+        expect(changedSummary).toEqual([countOf(amen, 1), countOf(love, 2), countOf(praying, 1)]);
+        expect(withdrawnSummary).toEqual([countOf(amen, 1), countOf(love, 2)]);
+    });
 });
