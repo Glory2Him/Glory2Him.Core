@@ -211,6 +211,45 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                 because: "an override applies only to the content item it names (§DOM6.4)");
         }
 
+        [Fact]
+        public async Task ShouldMatchAnOverrideOnTheItemAndTheTypeTogetherAsync()
+        {
+            // given: an override naming the item asked about, but under a different content type
+            // from the key's. It misses on the type alone, as resolveContentItemSetting.ts on the
+            // client would miss it.
+            Guid contentItemId = Guid.NewGuid();
+
+            ContentItemSetting otherTypeItemOverride =
+                CreateContentItemSetting(ContentType.Devotional, contentItemId);
+
+            ContentItemSetting typeDefault =
+                CreateContentItemSetting(ContentType.Testimony, contentItemId: null);
+
+            SetupContentItemSettings(otherTypeItemOverride, typeDefault);
+
+            var contentItemSettingKeys = new List<ContentItemSettingKey>
+            {
+                CreateContentItemSettingKey(ContentType.Testimony, contentItemId),
+            };
+
+            var expectedEffectiveContentItemSettings = new List<EffectiveContentItemSetting>
+            {
+                CreateEffectiveContentItemSetting(contentItemId, typeDefault),
+            };
+
+            // when
+            IReadOnlyList<EffectiveContentItemSetting> actualEffectiveContentItemSettings =
+                await this.accessBroker.RetrieveEffectiveContentItemSettingsAsync(
+                    contentItemSettingKeys: contentItemSettingKeys,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            actualEffectiveContentItemSettings.Should().BeEquivalentTo(
+                expectedEffectiveContentItemSettings,
+                because: "an override is matched on the item and its type together, so one "
+                    + "filed under another type is not the item's");
+        }
+
         // The function is the one argument matched with It.IsAny, because a function cannot be
         // matched by value. It is proven by applying it instead. The token is matched exactly,
         // so a read that dropped the caller's token answers nothing.
