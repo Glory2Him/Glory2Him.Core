@@ -43,4 +43,15 @@ describe('toChosenReactionSummary', () => {
         // then
         expect(chosenSummary).toEqual([countOf(amen, 4)]);
     });
+
+    it('should take one from a count above one', () => {
+        // given
+        const reactionSummary = [countOf(amen, 4), countOf(love, 3)];
+
+        // when
+        const chosenSummary = toChosenReactionSummary(reactionSummary, love.label, undefined, options);
+
+        // then
+        expect(chosenSummary).toEqual([countOf(amen, 4), countOf(love, 2)]);
+    });
 });
