@@ -59,6 +59,36 @@ namespace G2H.StorageClient.Tests.Integrations.Tests
         }
 
         [Fact]
+        public async Task ShouldSelectListOfUsersThroughAQueryShapingFunctionAsync()
+        {
+            // Given
+            User matchingUser = CreateRandomUser();
+            User nonMatchingUser = CreateRandomUser();
+            await storageBroker.InsertUserAsync(matchingUser);
+            await storageBroker.InsertUserAsync(nonMatchingUser);
+            var candidateUserIds = new List<Guid> { matchingUser.Id, nonMatchingUser.Id };
+            var expectedEmails = new List<string> { matchingUser.Email };
+
+            try
+            {
+                // When
+                IReadOnlyList<string> actualEmails = await storageBroker.SelectListOfUsersAsync(users =>
+                    users
+                        .Where(user => candidateUserIds.Contains(user.Id))
+                        .Where(user => EF.Functions.Like(user.Username, matchingUser.Username))
+                        .Select(user => user.Email));
+
+                // Then
+                actualEmails.Should().Equal(expectedEmails);
+            }
+            finally
+            {
+                await storageBroker.DeleteUserAsync(matchingUser);
+                await storageBroker.DeleteUserAsync(nonMatchingUser);
+            }
+        }
+
+        [Fact]
         public async Task ShouldSelectUserAsync()
         {
             // Given
