@@ -10,6 +10,9 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -358,6 +361,151 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.associationServiceMock.VerifyNoOtherCalls();
             this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
         }
+
+        // ONE ANSWER FOR EVERY PERSONAL PAIR (#723, AssociationOrchestrationService.md §2 rule 2),
+        // after #631's single occupancy message. Two requests that share no value — not the side
+        // the reaction is named on, not an id, not a reader, not a status, and not the signed
+        // caller — are both refused, and the two refusals are compared with each other, message
+        // and data. Neither may name a row, a reader or an approval state, so a publisher learns
+        // that the pair is personal and nothing about it.
+        [Fact]
+        public async Task ShouldRefuseEveryPersonalPairWithOneMessageAsync()
+        {
+            // given
+            var firstRequest = new Association
+            {
+                Id = Guid.NewGuid(),
+                EntityAType = EntityType.ContentItem,
+                EntityAKeyId = Guid.NewGuid(),
+                EntityAGroupId = Guid.NewGuid(),
+                EntityAScope = Scope.AllVersions,
+                EntityAContentType = ContentType.Story,
+                EntityBType = EntityType.Reaction,
+                EntityBKeyId = Guid.NewGuid(),
+                EntityBGroupId = Guid.NewGuid(),
+                EntityBScope = Scope.ThisVersionOnly,
+                EntityBContentType = null,
+                UserId = $"reader-{Guid.NewGuid()}",
+                SortOrder = 1,
+                ConfidenceScore = 0.25m,
+                ConfidenceReason = $"reason-{Guid.NewGuid()}",
+                SourceBatchId = Guid.NewGuid(),
+                ModelVersion = $"model-{Guid.NewGuid()}",
+                CreatedBy = $"creator-{Guid.NewGuid()}",
+                CreatedWhen = DateTimeOffset.UnixEpoch,
+                UpdatedBy = $"updater-{Guid.NewGuid()}",
+                UpdatedWhen = DateTimeOffset.UnixEpoch,
+                DeletedBy = null,
+                DeletedWhen = null,
+                IsDeleted = false,
+                DeletionReason = null,
+                PublishDate = null,
+                IsPublished = false,
+                ApprovalStatus = ApprovalStatus.Submitted,
+                IsApprovedByBypass = false,
+                ApprovedByBypassReason = null,
+            };
+
+            var secondRequest = new Association
+            {
+                Id = Guid.NewGuid(),
+                EntityAType = EntityType.Reaction,
+                EntityAKeyId = Guid.NewGuid(),
+                EntityAGroupId = Guid.NewGuid(),
+                EntityAScope = Scope.ThisVersionOnly,
+                EntityAContentType = null,
+                EntityBType = EntityType.Tag,
+                EntityBKeyId = Guid.NewGuid(),
+                EntityBGroupId = Guid.NewGuid(),
+                EntityBScope = Scope.AllVersions,
+                EntityBContentType = ContentType.Testimony,
+                UserId = $"reader-{Guid.NewGuid()}",
+                SortOrder = 2,
+                ConfidenceScore = 0.75m,
+                ConfidenceReason = $"reason-{Guid.NewGuid()}",
+                SourceBatchId = Guid.NewGuid(),
+                ModelVersion = $"model-{Guid.NewGuid()}",
+                CreatedBy = $"creator-{Guid.NewGuid()}",
+                CreatedWhen = DateTimeOffset.UnixEpoch.AddDays(1),
+                UpdatedBy = $"updater-{Guid.NewGuid()}",
+                UpdatedWhen = DateTimeOffset.UnixEpoch.AddDays(1),
+                DeletedBy = $"deleter-{Guid.NewGuid()}",
+                DeletedWhen = DateTimeOffset.UnixEpoch.AddDays(2),
+                IsDeleted = true,
+                DeletionReason = $"deletion-{Guid.NewGuid()}",
+                PublishDate = DateTimeOffset.UnixEpoch.AddDays(1),
+                IsPublished = true,
+                ApprovalStatus = ApprovalStatus.Approved,
+                IsApprovedByBypass = true,
+                ApprovedByBypassReason = $"bypass-{Guid.NewGuid()}",
+            };
+
+            SecurityContext firstCaller = CreateSignedReader();
+            SecurityContext secondCaller = CreateSignedReader();
+            var refusals = new List<(string Message, IDictionary Data)>();
+
+            var personalRequests = new[]
+            {
+                (Request: firstRequest, Caller: firstCaller),
+                (Request: secondRequest, Caller: secondCaller),
+            };
+
+            foreach ((Association request, SecurityContext caller) in personalRequests)
+            {
+                EventEnvelope<Association> inputEnvelope = CreateRequestEnvelope(request, caller);
+
+                // when
+                ValueTask<EventEnvelope<Association>> onAddingTask =
+                    this.associationOrchestrationService.OnAddingAssociationAsync(
+                        inputEnvelope,
+                        TestContext.Current.CancellationToken);
+
+                AssociationOrchestrationValidationException actualException =
+                    await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(
+                        onAddingTask.AsTask);
+
+                refusals.Add((actualException.InnerException.Message, actualException.InnerException.Data));
+            }
+
+            // then
+            refusals[1].Message.Should().Be(refusals[0].Message);
+            refusals[1].Data.Should().BeEquivalentTo(refusals[0].Data);
+
+            string message = refusals[0].Message;
+
+            personalRequests
+                .SelectMany(personalRequest => new[]
+                {
+                    personalRequest.Request.Id,
+                    personalRequest.Request.EntityAKeyId,
+                    personalRequest.Request.EntityAGroupId,
+                    personalRequest.Request.EntityBKeyId,
+                    personalRequest.Request.EntityBGroupId,
+                })
+                .Should().AllSatisfy(rowId =>
+                    message.Should().NotContainEquivalentOf(rowId.ToString()));
+
+            personalRequests
+                .SelectMany(personalRequest => new[]
+                {
+                    personalRequest.Request.UserId,
+                    personalRequest.Caller.SubjectId,
+                    personalRequest.Caller.Username,
+                })
+                .Should().AllSatisfy(reader =>
+                    message.Should().NotContainEquivalentOf(reader));
+
+            Enum.GetNames<ApprovalStatus>().Should().AllSatisfy(status =>
+                message.Should().NotContainEquivalentOf(status));
+        }
+
+        private static SecurityContext CreateSignedReader() =>
+            new SecurityContext
+            {
+                IsAuthenticated = true,
+                SubjectId = $"subject-{Guid.NewGuid()}",
+                Username = $"reader-{Guid.NewGuid()}",
+            };
 
         // Stubs both endpoint reads as the signed caller would be answered, whatever the two types.
         private void SetupEventPathEndpointReadsBetween(
