@@ -250,6 +250,56 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                     + "filed under another type is not the item's");
         }
 
+        [Fact]
+        public async Task ShouldAnswerEveryKeyFromOneQueryAsync()
+        {
+            // given: two items of two types, neither with an override, and each type with its own
+            // default. Each default misses the OTHER key on the type alone.
+            Guid testimonyItemId = Guid.NewGuid();
+            Guid devotionalItemId = Guid.NewGuid();
+
+            ContentItemSetting devotionalDefault =
+                CreateContentItemSetting(ContentType.Devotional, contentItemId: null);
+
+            ContentItemSetting testimonyDefault =
+                CreateContentItemSetting(ContentType.Testimony, contentItemId: null);
+
+            SetupContentItemSettings(devotionalDefault, testimonyDefault);
+
+            var contentItemSettingKeys = new List<ContentItemSettingKey>
+            {
+                CreateContentItemSettingKey(ContentType.Testimony, testimonyItemId),
+                CreateContentItemSettingKey(ContentType.Devotional, devotionalItemId),
+            };
+
+            var expectedEffectiveContentItemSettings = new List<EffectiveContentItemSetting>
+            {
+                CreateEffectiveContentItemSetting(testimonyItemId, testimonyDefault),
+                CreateEffectiveContentItemSetting(devotionalItemId, devotionalDefault),
+            };
+
+            // when
+            IReadOnlyList<EffectiveContentItemSetting> actualEffectiveContentItemSettings =
+                await this.accessBroker.RetrieveEffectiveContentItemSettingsAsync(
+                    contentItemSettingKeys: contentItemSettingKeys,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            actualEffectiveContentItemSettings.Should().BeEquivalentTo(
+                expectedEffectiveContentItemSettings,
+                because: "each item is answered from its own content type");
+
+            // One round trip for every key, so the selection runs in SQL and nothing is picked
+            // over in memory (§ARC16.8, the §DOM6.10 row).
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectContentItemSettingsAsync(
+                    It.IsAny<Func<IQueryable<ContentItemSetting>, IQueryable<EffectiveContentItemSetting>>>(),
+                    TestContext.Current.CancellationToken),
+                        Times.Once);
+
+            this.storageBrokerMock.VerifyNoOtherCalls();
+        }
+
         // The function is the one argument matched with It.IsAny, because a function cannot be
         // matched by value. It is proven by applying it instead. The token is matched exactly,
         // so a read that dropped the caller's token answers nothing.
