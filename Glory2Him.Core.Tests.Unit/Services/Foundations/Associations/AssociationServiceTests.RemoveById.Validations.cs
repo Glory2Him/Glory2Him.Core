@@ -315,7 +315,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                         .ReturnsAsync(storageAssociation);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                broker.GetUserIdAsync(this.ambientSecurityContext))
                     .ReturnsAsync(actorUserId);
 
             // when
@@ -339,7 +339,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                broker.GetUserIdAsync(this.ambientSecurityContext),
                 Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
@@ -385,7 +385,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                         .ReturnsAsync(storageAssociation);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                broker.GetUserIdAsync(this.ambientSecurityContext))
                     .ReturnsAsync(actorUserId);
 
             // when
@@ -409,7 +409,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                broker.GetUserIdAsync(this.ambientSecurityContext),
                 Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
