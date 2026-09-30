@@ -85,6 +85,24 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// Which of the given ids belong to a version group anybody may see, each with its group
+        /// and content type — the hosts the reaction summary read counts for (§ARC16.8).
+        ///
+        /// <para>Answered at GROUP level: an id is answered when any version of its group is
+        /// canonically visible under §SEC14.1, so a draft of a published item answers with the
+        /// group. An id that names nothing, or whose group has no visible version, is left out —
+        /// never refused (§SEC14.5 rule 4).</para>
+        ///
+        /// <para><b>CALLER-INDEPENDENT</b>, exactly as <see cref="RetrieveContentItemFeedAsync"/>
+        /// is: no envelope is minted and no <c>SecurityContext</c> is resolved, so the counts the
+        /// summary returns are the same for every reader (§ARC16.8, <i>Anonymity</i>). Bounding
+        /// the set is the caller's rule, not this read's.</para>
+        /// </summary>
+        ValueTask<IReadOnlyList<PublicContentItemGroup>> RetrievePublicContentItemGroupsAsync(
+            IReadOnlyList<Guid> contentItemIds,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Answers whether any non-deleted content item of the given type already carries
         /// the given content hash, optionally ignoring one group (the duplicate-content
         /// rule of design §3.4.2). Deliberately computed over the UNFILTERED store —

@@ -172,6 +172,11 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     cancellationToken: cancellationToken);
             });
 
+        public ValueTask<IReadOnlyList<PublicContentItemGroup>> RetrievePublicContentItemGroupsAsync(
+            IReadOnlyList<Guid> contentItemIds,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
         public ValueTask<IReadOnlyList<ContentItem>> RetrieveContentItemsByGroupIdAsync(
             Guid groupId,
             CancellationToken cancellationToken = default) =>
