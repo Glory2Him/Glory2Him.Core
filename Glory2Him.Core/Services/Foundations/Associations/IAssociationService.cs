@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -30,6 +31,17 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
         ValueTask<Association> RetrieveAssociationByIdAsync(
             Guid associationId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// The signed caller's own live reaction on each of the given content items, whatever
+        /// its approval status and publish date, so a card can show a reaction pressed while its
+        /// count has not moved (§ARC16.8). The caller is the envelope's, never a parameter, and an
+        /// anonymous caller is answered with an empty list. An identity-filtered read for
+        /// display: it decides nothing.
+        /// </summary>
+        ValueTask<IReadOnlyList<AssociationPairKey>> RetrieveCallerContentItemReactionsAsync(
+            IReadOnlyList<Guid> contentItemGroupIds,
             CancellationToken cancellationToken = default);
 
         /// <summary>

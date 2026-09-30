@@ -1,0 +1,125 @@
+// ────────────────────────────────────────────────────────────────────────────────
+// Copyright (c) Glory 2 Him. All rights reserved.
+// Licensed under the Glory 2 Him Software License (G2HSL).
+// See License.txt in the project root for full license information.
+// FREE TO USE TO HELP SHARE THE GOSPEL
+// John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
+//                  No one comes to the Father except through me.’"
+// https://john.bible/john-14-6
+// If Jesus is who He said He is, what does that mean for you, today?
+// ────────────────────────────────────────────────────────────────────────────────
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using FluentAssertions;
+using Glory2Him.Core.Models.Foundations.Associations;
+using Moq;
+
+namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
+{
+    public partial class AssociationServiceTests
+    {
+        [Fact]
+        public async Task ShouldRetrieveTheCallersOwnReactionOnEachItemAsync()
+        {
+            // given
+            string callerUserId = GetRandomString();
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            List<Guid> contentItemGroupIds = CreateRandomContentItemGroupIds(count: 3);
+
+            Association firstReaction =
+                CreateCallerReactionOn(contentItemGroupIds[0], callerUserId);
+
+            Association secondReaction =
+                CreateCallerReactionOn(contentItemGroupIds[2], callerUserId);
+
+            var storageAssociations = new List<Association>
+            {
+                firstReaction,
+                secondReaction
+            };
+
+            var expectedPairKeys = new List<AssociationPairKey>
+            {
+                CreatePairKeyFor(firstReaction),
+                CreatePairKeyFor(secondReaction)
+            };
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(callerUserId);
+
+            SetupSelectAssociationsToQuery(storageAssociations, cancellationToken);
+
+            // when
+            IReadOnlyList<AssociationPairKey> actualPairKeys =
+                await this.associationService.RetrieveCallerContentItemReactionsAsync(
+                    contentItemGroupIds,
+                    cancellationToken);
+
+            // then
+            actualPairKeys.Should().BeEquivalentTo(expectedPairKeys);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                Times.Once);
+
+            VerifySelectAssociationsQueriedOnce(cancellationToken);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        private static List<Guid> CreateRandomContentItemGroupIds(int count) =>
+            Enumerable.Range(start: 0, count: count)
+                .Select(_ => Guid.NewGuid())
+                .ToList();
+
+        // a reader's reaction as storage would hand it back: hosted on the content item's
+        // group, so its effective id on endpoint A is that group id
+        private static Association CreateCallerReactionOn(
+            Guid contentItemGroupId,
+            string readerUserId)
+        {
+            Association reaction = CreateRandomReaction(readerUserId);
+            reaction.EntityAGroupId = contentItemGroupId;
+
+            return WithDatabaseComputedEffectiveIds(reaction);
+        }
+
+        private static AssociationPairKey CreatePairKeyFor(Association reaction) =>
+            new AssociationPairKey
+            {
+                EntityAEffectiveId = reaction.EntityAEffectiveId,
+                EntityBKeyId = reaction.EntityBKeyId
+            };
+
+        // the condition is the service's, so the mock executes whatever function it is handed
+        // over the seeded rows (§ARC12.2.1 rule 5): receiving a function proves nothing
+        private void SetupSelectAssociationsToQuery(
+            List<Association> storageAssociations,
+            CancellationToken cancellationToken) =>
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAssociationsAsync(
+                    It.IsAny<Func<IQueryable<Association>, IQueryable<AssociationPairKey>>>(),
+                    cancellationToken))
+                        .Returns((
+                            Func<IQueryable<Association>, IQueryable<AssociationPairKey>> query,
+                            CancellationToken _) =>
+                            new ValueTask<IReadOnlyList<AssociationPairKey>>(
+                                query(storageAssociations.AsQueryable()).ToList()));
+
+        private void VerifySelectAssociationsQueriedOnce(CancellationToken cancellationToken) =>
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAssociationsAsync(
+                    It.IsAny<Func<IQueryable<Association>, IQueryable<AssociationPairKey>>>(),
+                    cancellationToken),
+                Times.Once);
+    }
+}
