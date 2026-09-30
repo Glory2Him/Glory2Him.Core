@@ -75,7 +75,7 @@ namespace G2H.StorageClient.Services.Foundations.Operations
 
             IQueryable<T> source = await storageBroker.SelectAllAsync<T>();
 
-            return await storageBroker.SelectListAsync(query(source), cancellationToken);
+            return await storageBroker.SelectListAsync(query(source.AsNoTracking()), cancellationToken);
         }
 
         public async ValueTask<T> UpdateAsync<T>(T @object, CancellationToken cancellationToken = default)
