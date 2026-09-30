@@ -1242,5 +1242,10 @@ namespace Glory2Him.Core.Brokers.Securities
                 ActiveRequests = activeRequests,
             };
         }
+
+        public ValueTask<IReadOnlyList<EffectiveContentItemSetting>> RetrieveEffectiveContentItemSettingsAsync(
+            IReadOnlyList<ContentItemSettingKey> contentItemSettingKeys,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
     }
 }

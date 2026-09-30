@@ -447,5 +447,26 @@ namespace Glory2Him.Core.Brokers.Securities
             EntityType entityType,
             Guid entityId,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// The winning <c>ContentItemSetting</c> for each content item asked: its own live
+        /// override where it has one, its type's live default otherwise (§DOM6.4). The tiers are
+        /// a selection and never a merge, and a soft-deleted row never wins (§DOM6.6).
+        ///
+        /// <para>The single home of that precedence (§ARC16.8, the §DOM6.10 row). The facet gate
+        /// on the association write and the reaction summary's display rule both ask it here
+        /// rather than restating it.</para>
+        ///
+        /// <para>Answered by one query, shaped here and run in SQL, so no candidate list is picked
+        /// over in memory. An item that resolves no row is absent from the answer, and what that
+        /// absence means is its caller's to say.</para>
+        ///
+        /// <para>Settings, not a verdict — the one departure from this broker's charter, declared
+        /// in §ARC16.2.1. Which switch matters is the caller's question, and this decides
+        /// nothing further.</para>
+        /// </summary>
+        ValueTask<IReadOnlyList<EffectiveContentItemSetting>> RetrieveEffectiveContentItemSettingsAsync(
+            IReadOnlyList<ContentItemSettingKey> contentItemSettingKeys,
+            CancellationToken cancellationToken = default);
     }
 }

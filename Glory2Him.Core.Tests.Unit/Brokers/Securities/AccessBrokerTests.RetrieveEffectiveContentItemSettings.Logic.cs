@@ -1,0 +1,118 @@
+// ────────────────────────────────────────────────────────────────────────────────
+// Copyright (c) Glory 2 Him. All rights reserved.
+// Licensed under the Glory 2 Him Software License (G2HSL).
+// See License.txt in the project root for full license information.
+// FREE TO USE TO HELP SHARE THE GOSPEL
+// John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
+//                  No one comes to the Father except through me.’"
+// https://john.bible/john-14-6
+// If Jesus is who He said He is, what does that mean for you, today?
+// ────────────────────────────────────────────────────────────────────────────────
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Foundations.ContentItemSettings;
+using Glory2Him.Core.Models.Securities;
+using Moq;
+using Xunit;
+
+namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
+{
+    public partial class AccessBrokerTests
+    {
+        // §DOM6.4 precedence, in its one home (§ARC16.8, the §DOM6.10 row). The condition is
+        // authored here as a query-shaping function, so each test below applies the function the
+        // broker hands to storage over an in-memory set (§ARC12.2.1 rule 5): the set carries the
+        // row that should win and, for each term, a row that misses on that term alone.
+        //
+        // Every set lists the row that must LOSE ahead of the one that must win, so a read that
+        // took the first match rather than ordering the override first would answer wrongly.
+        [Fact]
+        public async Task ShouldAnswerTheItemsOwnOverrideWhereOneExistsAsync()
+        {
+            // given
+            Guid contentItemId = Guid.NewGuid();
+
+            ContentItemSetting typeDefault =
+                CreateContentItemSetting(ContentType.Testimony, contentItemId: null);
+
+            ContentItemSetting itemOverride =
+                CreateContentItemSetting(ContentType.Testimony, contentItemId);
+
+            SetupContentItemSettings(typeDefault, itemOverride);
+
+            var contentItemSettingKeys = new List<ContentItemSettingKey>
+            {
+                CreateContentItemSettingKey(ContentType.Testimony, contentItemId),
+            };
+
+            var expectedEffectiveContentItemSettings = new List<EffectiveContentItemSetting>
+            {
+                CreateEffectiveContentItemSetting(contentItemId, itemOverride),
+            };
+
+            // when
+            IReadOnlyList<EffectiveContentItemSetting> actualEffectiveContentItemSettings =
+                await this.accessBroker.RetrieveEffectiveContentItemSettingsAsync(
+                    contentItemSettingKeys: contentItemSettingKeys,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            actualEffectiveContentItemSettings.Should().BeEquivalentTo(
+                expectedEffectiveContentItemSettings,
+                because: "an item's own live override takes full precedence over its type's "
+                    + "default (§DOM6.4)");
+        }
+
+        // The function is the one argument matched with It.IsAny, because a function cannot be
+        // matched by value. It is proven by applying it instead. The token is matched exactly,
+        // so a read that dropped the caller's token answers nothing.
+        private void SetupContentItemSettings(params ContentItemSetting[] contentItemSettings) =>
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectContentItemSettingsAsync(
+                    It.IsAny<Func<IQueryable<ContentItemSetting>, IQueryable<EffectiveContentItemSetting>>>(),
+                    TestContext.Current.CancellationToken))
+                        .Returns((
+                            Func<IQueryable<ContentItemSetting>, IQueryable<EffectiveContentItemSetting>> query,
+                            CancellationToken cancellationToken) =>
+                                ValueTask.FromResult<IReadOnlyList<EffectiveContentItemSetting>>(
+                                    query(contentItemSettings.AsQueryable()).ToList()));
+
+        // The ContentType is always set by the caller, never left to a filler: a type left at its
+        // default is the same on every row, and the type term would then go unexercised.
+        private static ContentItemSetting CreateContentItemSetting(
+            ContentType contentType,
+            Guid? contentItemId,
+            bool isDeleted = false) =>
+            new ContentItemSetting
+            {
+                Id = Guid.NewGuid(),
+                ContentType = contentType,
+                ContentItemId = contentItemId,
+                IsDeleted = isDeleted,
+            };
+
+        private static ContentItemSettingKey CreateContentItemSettingKey(
+            ContentType contentType,
+            Guid contentItemId) =>
+            new ContentItemSettingKey
+            {
+                ContentType = contentType,
+                ContentItemId = contentItemId,
+            };
+
+        private static EffectiveContentItemSetting CreateEffectiveContentItemSetting(
+            Guid contentItemId,
+            ContentItemSetting contentItemSetting) =>
+            new EffectiveContentItemSetting
+            {
+                ContentItemId = contentItemId,
+                ContentItemSetting = contentItemSetting,
+            };
+    }
+}
