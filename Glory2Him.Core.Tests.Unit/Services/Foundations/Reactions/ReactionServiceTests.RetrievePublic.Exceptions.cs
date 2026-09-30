@@ -80,5 +80,66 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldThrowDependencyExceptionOnRetrievePublicIfTimeoutOccursAndLogItAsync()
+        {
+            // given
+            var operationCanceledException = new OperationCanceledException();
+
+            var timeoutException =
+                new TimeoutException("The dependency operation timed out.");
+
+            var timeoutReactionException =
+                new TimeoutReactionException(
+                    message: "Failed reaction timeout error occurred, contact support.",
+                    innerException: timeoutException,
+                    data: timeoutException.Data);
+
+            var expectedReactionDependencyException = new ReactionDependencyException(
+                message: "Reaction dependency error occurred, contact support.",
+                innerException: timeoutReactionException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectReactionsAsync(
+                    It.IsAny<Func<IQueryable<Reaction>, IQueryable<Reaction>>>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(operationCanceledException);
+
+            // when
+            ValueTask<IReadOnlyList<Reaction>> retrievePublicReactionsTask =
+                this.reactionService.RetrievePublicReactionsAsync(
+                    TestContext.Current.CancellationToken);
+
+            ReactionDependencyException actualReactionDependencyException =
+                await Assert.ThrowsAsync<ReactionDependencyException>(
+                    retrievePublicReactionsTask.AsTask);
+
+            // then
+            actualReactionDependencyException.Should().BeEquivalentTo(
+                expectedReactionDependencyException);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectReactionsAsync(
+                    It.IsAny<Func<IQueryable<Reaction>, IQueryable<Reaction>>>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedReactionDependencyException))),
+                Times.Once);
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
