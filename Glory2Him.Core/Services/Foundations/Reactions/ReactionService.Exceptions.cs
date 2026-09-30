@@ -347,6 +347,10 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
 
                 throw await CreateAndLogTimeoutDependencyExceptionAsync(exception: timeoutReactionException);
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch (SqlException sqlException)
             {
                 var failedStorageReactionException = new FailedStorageReactionException(
@@ -355,6 +359,15 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
                     data: sqlException.Data);
 
                 throw await CreateAndLogCriticalDependencyExceptionAsync(exception: failedStorageReactionException);
+            }
+            catch (Exception exception)
+            {
+                var failedReactionServiceException = new FailedReactionServiceException(
+                    message: "Failed reaction service error occurred, please contact support.",
+                    innerException: exception,
+                    data: exception.Data);
+
+                throw await CreateAndLogServiceExceptionAsync(failedReactionServiceException);
             }
         }
 
