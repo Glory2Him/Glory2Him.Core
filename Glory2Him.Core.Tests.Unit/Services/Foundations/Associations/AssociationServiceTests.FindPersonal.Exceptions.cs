@@ -67,6 +67,37 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnFindPersonalIfCancellationRequestedAsync()
+        {
+            // given
+            Association lookupRequest = CreateAllowedPersonalLookupRequest();
+            var cancelledToken = new CancellationToken(canceled: true);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAssociationsAsync(
+                    It.IsAny<Func<IQueryable<Association>, IQueryable<PersonalAssociationMatch>>>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(Array.Empty<PersonalAssociationMatch>());
+
+            // when
+            ValueTask<PersonalAssociationMatch?> findTask =
+                this.associationService.FindPersonalAssociationAsync(
+                    lookupRequest,
+                    cancelledToken);
+
+            // then
+            await Assert.ThrowsAsync<OperationCanceledException>(findTask.AsTask);
+
+            // the guard sits above the envelope, so nothing at all is asked
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // a signed-in reader asking for their own row, so the lookup reaches storage
         private Association CreateAllowedPersonalLookupRequest()
         {
