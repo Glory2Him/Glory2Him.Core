@@ -333,6 +333,20 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
             {
                 return await returningReactionListFunction();
             }
+            catch (OperationCanceledException operationCanceledException)
+                when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
+            {
+                var timeoutException =
+                    new TimeoutException("The dependency operation timed out.");
+
+                var timeoutReactionException =
+                    new TimeoutReactionException(
+                        message: "Failed reaction timeout error occurred, contact support.",
+                        innerException: timeoutException,
+                        data: timeoutException.Data);
+
+                throw await CreateAndLogTimeoutDependencyExceptionAsync(exception: timeoutReactionException);
+            }
             catch (SqlException sqlException)
             {
                 var failedStorageReactionException = new FailedStorageReactionException(
