@@ -105,6 +105,40 @@ namespace G2H.StorageClient.Clients
             where T : class;
 
         /// <summary>
+        /// Runs a query the caller shapes over all entities of type <typeparamref name="T"/> and
+        /// returns the rows it selects.
+        /// </summary>
+        /// <typeparam name="T">The entity type the query starts from. Must be a reference type.</typeparam>
+        /// <typeparam name="TResult">The type of each row the query returns.</typeparam>
+        /// <param name="query">
+        /// A function that shapes the queryable of <typeparamref name="T"/> — filtering, ordering or
+        /// projecting it — and returns the shaped query. It runs in the database, not in memory.
+        /// Must not be <see langword="null"/>.
+        /// </param>
+        /// <param name="cancellationToken">
+        /// A token that can be used to request cancellation of the operation.
+        /// Defaults to <see cref="CancellationToken.None"/>.
+        /// </param>
+        /// <returns>
+        /// A <see cref="ValueTask{T}"/> that resolves to the rows the query selects, in the order it
+        /// orders them, untracked. An empty list when it selects nothing, never <see langword="null"/>.
+        /// </returns>
+        /// <exception cref="ArgumentNullException">
+        /// Thrown when <paramref name="query"/> is <see langword="null"/>.
+        /// </exception>
+        /// <exception cref="InvalidOperationException">
+        /// Thrown when the entity type <typeparamref name="T"/> is not registered in the
+        /// <see cref="DbContext"/> model, or when the query cannot be translated to SQL.
+        /// </exception>
+        /// <exception cref="OperationCanceledException">
+        /// Thrown when the operation is cancelled via <paramref name="cancellationToken"/>.
+        /// </exception>
+        ValueTask<IReadOnlyList<TResult>> SelectListAsync<T, TResult>(
+            Func<IQueryable<T>, IQueryable<TResult>> query,
+            CancellationToken cancellationToken = default)
+            where T : class;
+
+        /// <summary>
         /// Updates a single existing entity of type <typeparamref name="T"/> in the data store.
         /// </summary>
         /// <typeparam name="T">The entity type to update. Must be a reference type.</typeparam>

@@ -67,6 +67,13 @@ namespace G2H.StorageClient.Clients
                 await this.operationService.SelectAsync<T>(objectIds, cancellationToken);
 
         /// <inheritdoc/>
+        public ValueTask<IReadOnlyList<TResult>> SelectListAsync<T, TResult>(
+            Func<IQueryable<T>, IQueryable<TResult>> query,
+            CancellationToken cancellationToken = default)
+            where T : class =>
+                throw new NotImplementedException();
+
+        /// <inheritdoc/>
         public async ValueTask<T> UpdateAsync<T>(T @object, CancellationToken cancellationToken = default)
             where T : class =>
                 await this.operationService.UpdateAsync(@object, cancellationToken);
