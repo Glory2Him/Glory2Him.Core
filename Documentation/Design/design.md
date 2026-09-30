@@ -91,6 +91,7 @@ stories beside it:
 | Feature | Sub-features | User stories |
 | --- | --- | --- |
 | [Likes.md](../DesignFeatures/Likes.md) | none | [Backend/Clients/StorageClient.md](../DesignFeatures/Backend/Clients/StorageClient.md), [Backend/Brokers/StorageBroker.md](../DesignFeatures/Backend/Brokers/StorageBroker.md), [Backend/Brokers/AccessBroker.md](../DesignFeatures/Backend/Brokers/AccessBroker.md), [Backend/Models/EntityTypePersonalisation.md](../DesignFeatures/Backend/Models/EntityTypePersonalisation.md), [Backend/Models/Reaction.md](../DesignFeatures/Backend/Models/Reaction.md), [Backend/Foundations/ContentItemService.md](../DesignFeatures/Backend/Foundations/ContentItemService.md), [Backend/Foundations/ReactionService.md](../DesignFeatures/Backend/Foundations/ReactionService.md), [Backend/Foundations/AssociationService.md](../DesignFeatures/Backend/Foundations/AssociationService.md), [Backend/Orchestrations/AssociationOrchestrationService.md](../DesignFeatures/Backend/Orchestrations/AssociationOrchestrationService.md), [Backend/Orchestrations/ApprovalOrchestrationService.md](../DesignFeatures/Backend/Orchestrations/ApprovalOrchestrationService.md), [Backend/Controllers/AssociationsController.md](../DesignFeatures/Backend/Controllers/AssociationsController.md), [UI/Brokers/AssociationBroker.md](../DesignFeatures/UI/Brokers/AssociationBroker.md), [UI/Foundations/AssociationService.md](../DesignFeatures/UI/Foundations/AssociationService.md), [UI/Brokers/ReactionBroker.md](../DesignFeatures/UI/Brokers/ReactionBroker.md), [UI/Views/ContentItemReactionOption.md](../DesignFeatures/UI/Views/ContentItemReactionOption.md), [UI/Views/ChosenReactionSummary.md](../DesignFeatures/UI/Views/ChosenReactionSummary.md), [UI/Hooks/SignIn.md](../DesignFeatures/UI/Hooks/SignIn.md), [UI/Hooks/ContentItemEngagement.md](../DesignFeatures/UI/Hooks/ContentItemEngagement.md) |
+| [UI.md §UI20.8](UI.md), authentication, designed before feature documents | none | [UI/Hooks/SignInReturn.md](../DesignFeatures/UI/Hooks/SignInReturn.md) |
 
 ### Presentation components
 
@@ -205,8 +206,8 @@ straight after the item's number, before anything else on the line:
 `(needs issue)` becomes `(#N)` once the task exists, as an operation's tag does. A
 question for the user carries no tag: it becomes work, and takes one, only once it
 is answered. A page document (§UI20.5.1) tags the items of its section 6 the same
-way, and so does `UI.md` its gaps — the list of building-block gaps under §UI20.6.4, and the
-ported blog's under §UI20.5.1. One sweep
+way, and so does `UI.md` its gaps — the list of building-block gaps under §UI20.6.4, the
+ported blog's under §UI20.5.1, and the account pages' under §UI20.8.1. One sweep
 covers all three:
 
 ```bash

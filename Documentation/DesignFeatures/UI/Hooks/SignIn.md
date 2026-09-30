@@ -12,5 +12,5 @@ useSignIn(): () => void
 ```
 
 1. **Calling what it returns sends the reader to sign in**: it navigates to `/Account/Login?returnUrl=<path + search + hash>`, with the path, query and fragment they left encoded as one query value.
-2. **The return is the sign-in page's own, relied on as it stands.** The page navigates to `returnUrl` where it begins with `/` (`src/pages/account/login.tsx`, line 70), hands it on as `ReturnUrl` when a second factor is asked (line 62), and external sign-in posts it as `ReturnUrl` (`src/pages/account/externalLoginPicker.tsx`, line 38). No test covers that return today, and pinning it is the sign-in page's work, not this hook's.
+2. **The return belongs to the sign-in pages, not to this hook.** Every way of signing in follows `returnUrl` through the one shared return, `UI/Hooks/SignInReturn.md`, as far as §SEC18.7.1 rule 7 allows (§UI20.8.1). The sign-in page hands it on as `ReturnUrl` when a second factor is asked (`src/pages/account/login.tsx`, line 62), and external sign-in posts it as `ReturnUrl` (`src/pages/account/externalLoginPicker.tsx`, line 38). Pinning that return is the sign-in pages' work (§UI20.8.1 items 1–4), not this hook's.
 3. **It decides nothing about who is sent.** Never sending a reader whose sign-in state is still being read is the caller's rule (§UI20.6.6 rule 2; `UI/Hooks/ContentItemEngagement.md §2`).

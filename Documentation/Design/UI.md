@@ -44,6 +44,7 @@ an old citation resolves by grep even though the citable number is now prefixed.
     - [UI20.6.6 Rules every presentation component follows](#ui2066-rules-every-presentation-component-follows-new-user-rulings-2026-09-27)
   - [UI20.7 Navigation](#ui207-navigation-formerly-207)
   - [UI20.8 Authentication](#ui208-authentication-formerly-208)
+    - [UI20.8.1 The return after sign-in](#ui2081-the-return-after-sign-in-new)
   - [UI20.9 Services and Brokers](#ui209-services-and-brokers-formerly-209)
 
 ---
@@ -684,6 +685,43 @@ The following authentication behaviour is required:
 4. The `Navbar` must reflect auth state — showing login or logout depending on session presence.
 5. Role claims from the token must be used to control visibility of role-restricted navigation items.
 6. Token refresh or silent renewal must be handled transparently.
+
+#### UI20.8.1 The return after sign-in *(new)*
+
+Rule 2 sends a reader back to the page they originally requested, and §SEC18.7.1 rule 7 says
+which return addresses may be followed. The app follows one in four places, one for each way of
+signing in: a password on the sign-in page, `/Account/Login`; an authenticator code on the
+second-factor page, `/Account/LoginWith2fa`; a recovery code on the recovery-code page,
+`/Account/LoginWithRecoveryCode`; and a passkey, from the sign-in page's passkey button. **Each
+sends the reader on through the one shared return, `useSignInReturn`
+(`DesignFeatures/UI/Hooks/SignInReturn.md`), so the rule is applied in one place and none of them
+decides it for itself.** Pages hold no business logic, so the rule is the hook's and not theirs.
+What a page does instead of returning the reader, such as sending a locked-out reader to
+`/Account/Lockout` or a reader who needs a second factor to `/Account/LoginWith2fa`, stays the
+page's. The external sign-in form
+carries the address to the server rather than following it (`src/pages/account/externalLoginPicker.tsx`,
+line 38), and that path is not usable from the app today (its comment, lines 30-34).
+§SEC18.7.1 rule 7 governs it when it is.
+
+The account pages have no page documents, since §UI20.5.1 counts them among the candidates for
+later. So the gaps in how they send a reader on are recorded here and tagged as this file's other
+gap lists are (`design.md`, *Conventions*), with their lines at a2b8bcbc:
+
+1. (#781) **The sign-in page follows its return address itself after a password sign-in.** It
+   checks and follows the address inline (`src/pages/account/login.tsx`, line 70) rather than
+   through `useSignInReturn`. When a second factor is asked, it hands the address on as
+   `ReturnUrl` (line 62), unchanged, which is what §SEC18.7.1 rule 7 asks of a step that carries
+   it.
+2. (#782) **The second-factor page follows its return address itself.** It checks and follows
+   the address inline (`src/pages/account/loginWith2fa.tsx`, line 59) rather than through
+   `useSignInReturn`.
+3. (#783) **The recovery-code page follows its return address itself.** It checks and follows
+   the address inline (`src/pages/account/loginWithRecoveryCode.tsx`, line 45) rather than
+   through `useSignInReturn`.
+4. (#784) **The passkey button follows its return address itself.** It checks and follows the
+   address the sign-in page hands it (`src/pages/account/login.tsx`, line 168) inline
+   (`src/pages/account/passkeySignInButton.tsx`, line 23) rather than through
+   `useSignInReturn`.
 
 ### UI20.9 Services and Brokers *(formerly §20.9)*
 
