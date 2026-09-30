@@ -300,6 +300,27 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             this.storageBrokerMock.VerifyNoOtherCalls();
         }
 
+        // The task's edge cases, beside the criteria they bound.
+        [Fact]
+        public async Task ShouldAnswerNothingWhenNoKeyIsAskedAsync()
+        {
+            // given
+            SetupContentItemSettings(
+                CreateContentItemSetting(ContentType.Testimony, contentItemId: null));
+
+            var contentItemSettingKeys = new List<ContentItemSettingKey>();
+
+            // when
+            IReadOnlyList<EffectiveContentItemSetting> actualEffectiveContentItemSettings =
+                await this.accessBroker.RetrieveEffectiveContentItemSettingsAsync(
+                    contentItemSettingKeys: contentItemSettingKeys,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            actualEffectiveContentItemSettings.Should().BeEmpty(
+                because: "an empty key list answers an empty list");
+        }
+
         // The function is the one argument matched with It.IsAny, because a function cannot be
         // matched by value. It is proven by applying it instead. The token is matched exactly,
         // so a read that dropped the caller's token answers nothing.
