@@ -79,5 +79,61 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldThrowDependencyExceptionOnRetrievePublicGroupsIfTimeoutOccursAndLogItAsync()
+        {
+            // given: an OperationCanceledException with no cancellation REQUESTED is the
+            // dependency timing out, not the caller walking away
+            var operationCanceledException = new OperationCanceledException();
+            IReadOnlyList<Guid> someContentItemIds = new[] { Guid.NewGuid() };
+
+            var timeoutException =
+                new TimeoutException("The dependency operation timed out.");
+
+            var timeoutContentItemException =
+                new TimeoutContentItemException(
+                    message: "Failed content item timeout error occurred, contact support.",
+                    innerException: timeoutException,
+                    data: timeoutException.Data);
+
+            var expectedContentItemDependencyException = new ContentItemDependencyException(
+                message: "Content item dependency error occurred, contact support.",
+                innerException: timeoutContentItemException);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(GetRandomDateTimeOffset());
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectContentItemsAsync(
+                    It.IsAny<Func<IQueryable<ContentItem>, IQueryable<PublicContentItemGroup>>>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(operationCanceledException);
+
+            // when
+            ValueTask<IReadOnlyList<PublicContentItemGroup>> retrievePublicContentItemGroupsTask =
+                this.contentItemService.RetrievePublicContentItemGroupsAsync(
+                    contentItemIds: someContentItemIds,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            ContentItemDependencyException actualContentItemDependencyException =
+                await Assert.ThrowsAsync<ContentItemDependencyException>(
+                    retrievePublicContentItemGroupsTask.AsTask);
+
+            // then
+            actualContentItemDependencyException.Should().BeEquivalentTo(
+                expectedContentItemDependencyException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemDependencyException))),
+                Times.Once);
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
