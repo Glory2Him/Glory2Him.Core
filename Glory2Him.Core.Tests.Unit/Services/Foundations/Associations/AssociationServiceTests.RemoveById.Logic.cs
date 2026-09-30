@@ -26,12 +26,18 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 {
     public partial class AssociationServiceTests
     {
-        [Fact]
-        public async Task ShouldRemoveAssociationByIdAsync()
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task ShouldRemoveAssociationByIdAsync(bool isCallersOwnPersonalRow)
         {
             // given
             Association randomAssociation = CreateRandomAssociation();
             randomAssociation.IsDeleted = false;
+
+            if (isCallersOwnPersonalRow)
+                randomAssociation.UserId = randomAssociation.CreatedBy;
+
             Association storageAssociation = randomAssociation;
 
             Association auditedAssociation = storageAssociation.DeepClone();
