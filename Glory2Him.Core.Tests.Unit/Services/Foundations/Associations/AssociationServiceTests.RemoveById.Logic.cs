@@ -48,24 +48,24 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.storageBrokerMock.Setup(broker =>
                 broker.SelectAssociationByIdAsync(
                     randomAssociation.Id,
-                    It.IsAny<CancellationToken>()))
+                    TestContext.Current.CancellationToken))
                         .ReturnsAsync(storageAssociation);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                broker.GetUserIdAsync(this.ambientSecurityContext))
                     .ReturnsAsync(storageAssociation.CreatedBy);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyRemoveAuditValuesAsync(storageAssociation, It.IsAny<SecurityContext>()))
+                broker.ApplyRemoveAuditValuesAsync(storageAssociation, this.ambientSecurityContext))
                     .ReturnsAsync(auditedAssociation);
 
             this.storageBrokerMock.Setup(broker =>
-                broker.UpdateAssociationAsync(auditedAssociation, It.IsAny<CancellationToken>()))
+                broker.UpdateAssociationAsync(auditedAssociation, TestContext.Current.CancellationToken))
                     .ReturnsAsync(expectedAssociation);
 
             this.eventBrokerMock.Setup(broker =>
                 broker.PublishAssociationAsync(
-                    It.IsAny<EventEnvelope<Association>>(),
+                    It.Is(SameOutboundEnvelopeAs(expectedAssociation)),
                     AssociationEventOperation.Removed))
                     .Returns(new ValueTask<EventPublishResult<Association>>(
                         new EventPublishResult<Association>()));
@@ -83,24 +83,24 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.storageBrokerMock.Verify(broker =>
                 broker.SelectAssociationByIdAsync(
                     randomAssociation.Id,
-                    It.IsAny<CancellationToken>()),
+                    TestContext.Current.CancellationToken),
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                broker.GetUserIdAsync(this.ambientSecurityContext),
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyRemoveAuditValuesAsync(storageAssociation, It.IsAny<SecurityContext>()),
+                broker.ApplyRemoveAuditValuesAsync(storageAssociation, this.ambientSecurityContext),
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.UpdateAssociationAsync(auditedAssociation, It.IsAny<CancellationToken>()),
+                broker.UpdateAssociationAsync(auditedAssociation, TestContext.Current.CancellationToken),
                 Times.Once);
 
             this.eventBrokerMock.Verify(broker =>
                 broker.PublishAssociationAsync(
-                    It.IsAny<EventEnvelope<Association>>(),
+                    It.Is(SameOutboundEnvelopeAs(expectedAssociation)),
                     AssociationEventOperation.Removed),
                 Times.Once);
 
@@ -110,7 +110,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                         processedEvent.ReceiverName ==
                             EventBrokerIdentifiers
                                 .AssociationOnRemovingAssociationByIdSubscriptionName),
-                    It.IsAny<CancellationToken>()),
+                    TestContext.Current.CancellationToken),
                 Times.Exactly(2));
 
             this.dateTimeBrokerMock.Verify(broker =>
