@@ -264,6 +264,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 Roles.ReadOnlyFor(EntityType.ContentItem, ContentType.Quote)
             };
 
+        public static TheoryData<string> ScopedReadOnlyRolesOverAReaction() =>
+            new TheoryData<string>
+            {
+                Roles.ReactionReadOnly,
+                Roles.ContentItemReadOnly,
+                Roles.ReadOnlyFor(EntityType.ContentItem, ContentType.Quote)
+            };
+
         public static TheoryData<Exception, Xeption> DependencyExceptions()
         {
             var operationCanceledException = new OperationCanceledException();

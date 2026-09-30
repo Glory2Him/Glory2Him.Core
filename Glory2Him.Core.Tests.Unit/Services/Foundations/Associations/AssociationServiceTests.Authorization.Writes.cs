@@ -877,5 +877,71 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 Times.Never);
         }
 
+        [Theory]
+        [MemberData(nameof(ScopedReadOnlyRolesOverAReaction))]
+        public async Task ShouldBlockAnAdministratorWithAScopedReadOnlyRoleFromRemovingAnotherReadersReactionAsync(
+            string scopedReadOnlyRole)
+        {
+            // given: the owner test admits Administrators, so only the veto refuses this caller
+            // — and it can only do so once the row names the endpoints
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext(Roles.Administrators, scopedReadOnlyRole);
+
+            string actorUserId = GetRandomString();
+            Association storageAssociation = CreateRandomReaction(readerUserId: GetRandomString());
+
+            var unauthorizedAssociationException = new UnauthorizedAssociationException(
+                message: "The current user is blocked from contributing content item associations.");
+
+            var expectedAssociationValidationException = new AssociationValidationException(
+                message: "Content item association validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedAssociationException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAssociationByIdAsync(storageAssociation.Id, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(storageAssociation);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(actorUserId);
+
+            // when
+            ValueTask<Association> removeTask =
+                this.associationService.RemoveAssociationByIdAsync(
+                    storageAssociation.Id,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            AssociationValidationException actual =
+                await Assert.ThrowsAsync<AssociationValidationException>(removeTask.AsTask);
+
+            // then
+            actual.Should().BeEquivalentTo(expectedAssociationValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAssociationByIdAsync(storageAssociation.Id, It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyRemoveAuditValuesAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<SecurityContext>(),
+                    It.IsAny<string>()),
+                Times.Never);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateAssociationAsync(It.IsAny<Association>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishAssociationAsync(
+                    It.IsAny<EventEnvelope<Association>>(),
+                    It.IsAny<AssociationEventOperation>()),
+                Times.Never);
+        }
     }
 }
