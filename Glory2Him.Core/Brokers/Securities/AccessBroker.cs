@@ -440,6 +440,11 @@ namespace Glory2Him.Core.Brokers.Securities
                 .ToList();
         }
 
+        public ValueTask<IReadOnlyList<DismissableApprovalReview>> FindDismissableApprovalReviewsAsync(
+            Guid approvalId,
+            CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
         // Unfiltered, deliberately — see IAccessBroker for why the caller-facing read cannot
         // answer this. The SAME storage read the foundation's round-keyed read uses, so the half
         // that decides WHAT to return to pending and the half that reports Berean's status to a
