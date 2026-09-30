@@ -257,6 +257,48 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldAnswerADuplicatedIdOnceAsync()
+        {
+            // given
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+
+            ContentItem visibleContentItem =
+                CreateCanonicallyVisibleContentItem(randomDateTimeOffset);
+
+            var storageContentItems = new List<ContentItem> { visibleContentItem };
+
+            IReadOnlyList<Guid> inputContentItemIds = new[]
+            {
+                visibleContentItem.Id,
+                visibleContentItem.Id
+            };
+
+            var expectedPublicContentItemGroups = new[]
+            {
+                new PublicContentItemGroup(
+                    ContentItemId: visibleContentItem.Id,
+                    GroupId: visibleContentItem.GroupId,
+                    ContentType: visibleContentItem.ContentType)
+            };
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            SetupPublicContentItemGroupsStorage(storageContentItems);
+
+            // when
+            IReadOnlyList<PublicContentItemGroup> actualPublicContentItemGroups =
+                await this.contentItemService.RetrievePublicContentItemGroupsAsync(
+                    contentItemIds: inputContentItemIds,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            actualPublicContentItemGroups.Should().BeEquivalentTo(
+                expectedPublicContentItemGroups);
+        }
+
         // THE CONDITION RUNS HERE, over the seeded set - never a canned answer. A stub that
         // returned a fixed list would pass whether or not the function it was handed still
         // carried any of its terms.
