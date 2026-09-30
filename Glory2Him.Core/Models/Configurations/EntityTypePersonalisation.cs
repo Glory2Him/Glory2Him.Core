@@ -9,14 +9,20 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
-using System;
+using System.Collections.Generic;
 using Glory2Him.Core.Models.Enums;
 
 namespace Glory2Him.Core.Models.Configurations
 {
     public static class EntityTypePersonalisation
     {
+        private static readonly IReadOnlyDictionary<EntityType, bool> PersonalByEntityType =
+            new Dictionary<EntityType, bool>
+            {
+                [EntityType.Reaction] = true
+            };
+
         public static bool IsPersonal(EntityType entityType) =>
-            throw new NotImplementedException();
+            PersonalByEntityType[entityType];
     }
 }
