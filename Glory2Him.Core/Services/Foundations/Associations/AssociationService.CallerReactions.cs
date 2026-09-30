@@ -29,8 +29,16 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             EventEnvelope<Association> envelope =
                 await this.eventEnvelopeBroker.CreateAsync(content: new Association());
 
+            SecurityContext? securityContext = envelope.SecurityContext;
+
+            // an anonymous caller holds no rows, so nothing is asked of storage
+            if (securityContext is null || securityContext.IsAuthenticated is false)
+            {
+                return Array.Empty<AssociationPairKey>();
+            }
+
             string callerUserId =
-                await this.securityAuditBroker.GetUserIdAsync(envelope.SecurityContext);
+                await this.securityAuditBroker.GetUserIdAsync(securityContext);
 
             return await this.storageBroker.SelectAssociationsAsync(
                 query: associations => associations
