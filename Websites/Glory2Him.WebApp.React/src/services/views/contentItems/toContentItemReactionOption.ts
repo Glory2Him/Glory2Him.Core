@@ -13,6 +13,7 @@ import {
 // leaves love-only types offering nothing — which is why it is documented here rather than
 // hidden: when the vocabulary grows its own flag, this line is the only one that changes.
 export const toContentItemReactionOption = (reaction: Reaction): ContentItemReactionOption => ({
+    id: reaction.id,
     label: reaction.name,
     glyph: reaction.unicodeEmoji,
     isLove: reaction.name.trim().toLowerCase() === 'love'
