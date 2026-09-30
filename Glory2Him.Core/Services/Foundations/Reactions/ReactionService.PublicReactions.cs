@@ -25,6 +25,8 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
             CancellationToken cancellationToken = default) =>
             TryCatch(async () =>
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 DateTimeOffset currentDateTime =
                     await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
 
