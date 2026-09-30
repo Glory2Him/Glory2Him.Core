@@ -158,6 +158,27 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             return addRequest;
         }
 
+        // An honest add request between two named endpoint types, for a pair CreateHonestAddRequest
+        // does not cover. Each endpoint is a ContentItem — a Story in its own version group — or a
+        // non-versioned type, which states no content type and no group.
+        private static Association CreateHonestAddRequestBetween(
+            EntityType entityAType,
+            EntityType entityBType)
+        {
+            return new Association
+            {
+                EntityAType = entityAType,
+                EntityAKeyId = Guid.NewGuid(),
+                EntityAGroupId = entityAType == EntityType.ContentItem ? Guid.NewGuid() : Guid.Empty,
+                EntityAContentType = entityAType == EntityType.ContentItem ? ContentType.Story : null,
+                EntityBType = entityBType,
+                EntityBKeyId = Guid.NewGuid(),
+                EntityBGroupId = entityBType == EntityType.ContentItem ? Guid.NewGuid() : Guid.Empty,
+                EntityBContentType = entityBType == EntityType.ContentItem ? ContentType.Story : null,
+                UserId = null,
+            };
+        }
+
         // A request envelope as the substrate hands one over: content, the signed caller, and the
         // event id ProcessedEvents deduplicates on. Integrity is left to the broker mock.
         private static EventEnvelope<Association> CreateRequestEnvelope(
