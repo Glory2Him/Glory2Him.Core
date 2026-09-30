@@ -17,7 +17,9 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Force.DeepCloner;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Foundations.Associations.Exceptions;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
@@ -374,6 +376,54 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     Times.Once);
 
             VerifyPersonalLookupAsked(inputCancellationToken, Times.Once());
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(UnauthenticatedSecurityContexts))]
+        public async Task ShouldThrowValidationExceptionOnFindPersonalIfUserIsNotAuthenticatedAndLogItAsync(
+            SecurityContext unauthenticatedSecurityContext)
+        {
+            // given
+            this.ambientSecurityContext = unauthenticatedSecurityContext;
+            Association lookupRequest = CreatePersonalLookupRequest(GetRandomString());
+
+            var unauthorizedAssociationException =
+                new UnauthorizedAssociationException(
+                    message: "The current user is not authenticated.");
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: unauthorizedAssociationException);
+
+            // when
+            ValueTask<PersonalAssociationMatch?> findTask =
+                this.associationService.FindPersonalAssociationAsync(
+                    lookupRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(findTask.AsTask);
+
+            // then
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(lookupRequest),
+                    Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
 
             this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
