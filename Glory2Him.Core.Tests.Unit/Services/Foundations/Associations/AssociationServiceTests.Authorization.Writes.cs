@@ -653,6 +653,79 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             await Assert.ThrowsAsync<AssociationValidationException>(removeTask.AsTask);
         }
 
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task ShouldThrowValidationExceptionOnRemoveByIdIfUserIsNotOwnerAndNotAdminAndAssociationIsAlreadyDeletedAndLogItAsync(
+            bool isAnotherReadersReaction)
+        {
+            // given: the owner test runs before the idempotent already-deleted short-circuit, so a
+            // caller who may not remove the row learns nothing about whether it is deleted
+            // (§SEC14.7 posture A rule 3). The caller holds no role, so the veto passes and only
+            // the owner test refuses them.
+            string actorUserId = GetRandomString();
+
+            Association storageAssociation =
+                isAnotherReadersReaction
+                    ? CreateRandomReaction(readerUserId: GetRandomString())
+                    : CreateRandomAssociation();
+
+            if (isAnotherReadersReaction is false)
+                storageAssociation.UserId = null;
+
+            storageAssociation.IsDeleted = true;
+
+            var unauthorizedAssociationException = new UnauthorizedAssociationException(
+                message: "The current user is not allowed to remove this content item association.");
+
+            var expectedAssociationValidationException = new AssociationValidationException(
+                message: "Content item association validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedAssociationException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAssociationByIdAsync(
+                    storageAssociation.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageAssociation);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(actorUserId);
+
+            // when
+            ValueTask<Association> removeTask =
+                this.associationService.RemoveAssociationByIdAsync(
+                    storageAssociation.Id,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            AssociationValidationException actual =
+                await Assert.ThrowsAsync<AssociationValidationException>(removeTask.AsTask);
+
+            // then
+            actual.Should().BeEquivalentTo(expectedAssociationValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAssociationByIdAsync(
+                    storageAssociation.Id,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         [Fact]
         public async Task ShouldBlockHardRemoveWhenAnEndpointIsBannedAndLogItAsync()
         {
