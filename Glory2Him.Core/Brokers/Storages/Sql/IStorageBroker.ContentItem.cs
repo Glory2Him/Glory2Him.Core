@@ -28,6 +28,10 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
         ValueTask<IQueryable<ContentItem>> SelectAllContentItemsAsync(
             CancellationToken cancellationToken = default);
 
+        ValueTask<IReadOnlyList<TResult>> SelectContentItemsAsync<TResult>(
+            Func<IQueryable<ContentItem>, IQueryable<TResult>> query,
+            CancellationToken cancellationToken = default);
+
         /// <summary>
         /// Every row of one group, materialised, for the reads that need the ROWS: the group's
         /// edit tip and its published row. A group holds a handful of versions, so serving both
