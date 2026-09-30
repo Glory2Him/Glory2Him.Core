@@ -34,7 +34,7 @@ All methods accept an optional `CancellationToken`. The bulk write operations (`
 | `ArgumentNullException` | A required argument (`object`, `objectIds`, `objects` collection, or `query` function) is `null`. |
 | `DbUpdateException` | The database rejects a write - e.g. unique constraint, foreign key violation, or `NOT NULL` failure. |
 | `DbUpdateConcurrencyException` | A concurrency conflict is detected on update or delete (subclass of `DbUpdateException`). |
-| `InvalidOperationException` | The entity type is not registered in the `DbContext` model, or an incompatible primary key is supplied. |
+| `InvalidOperationException` | The entity type is not registered in the `DbContext` model, an incompatible primary key is supplied, or a query passed to `SelectListAsync` cannot be translated to SQL. |
 | `OperationCanceledException` | The operation was cancelled via the `CancellationToken`. |
 
 ## Thread Safety
@@ -170,6 +170,12 @@ public partial class StorageBroker : EFxceptionsContext, IStorageBroker
     private async ValueTask<T> SelectAsync<T>(object[] objectIds, CancellationToken cancellationToken = default)
         where T : class =>
             await efCoreClient.SelectAsync<T>(objectIds, cancellationToken);
+
+    private async ValueTask<IReadOnlyList<TResult>> SelectListAsync<T, TResult>(
+        Func<IQueryable<T>, IQueryable<TResult>> query,
+        CancellationToken cancellationToken = default)
+        where T : class =>
+            await efCoreClient.SelectListAsync(query, cancellationToken);
 
     private async ValueTask<T> UpdateAsync<T>(T @object, CancellationToken cancellationToken = default)
         where T : class =>
