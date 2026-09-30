@@ -272,8 +272,8 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         private static void ValidatePairIsNotPersonal(Association association)
         {
             bool isPersonal =
-                EntityTypePersonalisation.IsPersonal(association.EntityAType)
-                || EntityTypePersonalisation.IsPersonal(association.EntityBType);
+                IsPersonalEndpoint(association.EntityAType)
+                || IsPersonalEndpoint(association.EntityBType);
 
             if (isPersonal)
             {
@@ -281,6 +281,10 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                     message: "A personal content item association cannot be added through an event.");
             }
         }
+
+        private static bool IsPersonalEndpoint(EntityType entityType) =>
+            Enum.IsDefined(entityType)
+            && EntityTypePersonalisation.IsPersonal(entityType);
 
         // The id-keyed surfaces' own validation. Kept separate from ValidateOnAddAssociation
         // rather than folded into a shared validator: they compose different rules today and
