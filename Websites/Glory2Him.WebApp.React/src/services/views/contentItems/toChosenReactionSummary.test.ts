@@ -32,4 +32,15 @@ describe('toChosenReactionSummary', () => {
         // then
         expect(chosenSummary).toEqual([countOf(joy, 1), countOf(love, 2)]);
     });
+
+    it('should drop an entry that reaches nought', () => {
+        // given
+        const reactionSummary = [countOf(amen, 4), countOf(love, 1)];
+
+        // when
+        const chosenSummary = toChosenReactionSummary(reactionSummary, love.label, undefined, options);
+
+        // then
+        expect(chosenSummary).toEqual([countOf(amen, 4)]);
+    });
 });
