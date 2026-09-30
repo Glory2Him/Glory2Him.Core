@@ -76,4 +76,15 @@ describe('toChosenReactionSummary', () => {
         // then
         expect(chosenSummary).toEqual([countOf(amen, 1), countOf(joy, 1), countOf(praying, 1)]);
     });
+
+    it('should start a summary for an item that has none', () => {
+        // given
+        const reactionSummary = undefined;
+
+        // when
+        const chosenSummary = toChosenReactionSummary(reactionSummary, undefined, love.label, options);
+
+        // then
+        expect(chosenSummary).toEqual([countOf(love, 1)]);
+    });
 });
