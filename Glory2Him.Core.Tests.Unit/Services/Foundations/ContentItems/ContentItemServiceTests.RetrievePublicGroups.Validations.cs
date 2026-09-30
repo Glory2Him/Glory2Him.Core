@@ -64,5 +64,54 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnRetrievePublicGroupsIfAnIdIsEmptyAndLogItAsync()
+        {
+            // given: the empty id sits among valid ones - one bad member refuses the list
+            IReadOnlyList<Guid> invalidContentItemIds = new[]
+            {
+                Guid.NewGuid(),
+                Guid.Empty,
+                Guid.NewGuid()
+            };
+
+            var invalidContentItemException = new InvalidContentItemException(
+                message: "Content item is invalid, fix the errors and try again.");
+
+            invalidContentItemException.UpsertDataList(
+                key: "contentItemIds",
+                value: "Ids must not contain an empty id");
+
+            var expectedContentItemValidationException = new ContentItemValidationException(
+                message: "Content item validation error occurred, fix the errors and try again.",
+                innerException: invalidContentItemException);
+
+            // when
+            ValueTask<IReadOnlyList<PublicContentItemGroup>> retrievePublicContentItemGroupsTask =
+                this.contentItemService.RetrievePublicContentItemGroupsAsync(
+                    contentItemIds: invalidContentItemIds,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            ContentItemValidationException actualContentItemValidationException =
+                await Assert.ThrowsAsync<ContentItemValidationException>(
+                    retrievePublicContentItemGroupsTask.AsTask);
+
+            // then
+            actualContentItemValidationException.Should().BeEquivalentTo(
+                expectedContentItemValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemValidationException))),
+                Times.Once);
+
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
