@@ -82,5 +82,29 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnRetrieveCallerReactionsIfCancellationRequestedAsync()
+        {
+            // given
+            List<Guid> someContentItemGroupIds = CreateRandomContentItemGroupIds(count: 2);
+            var cancellationToken = new CancellationToken(canceled: true);
+
+            // when
+            ValueTask<IReadOnlyList<AssociationPairKey>> retrieveCallerReactionsTask =
+                this.associationService.RetrieveCallerContentItemReactionsAsync(
+                    someContentItemGroupIds,
+                    cancellationToken);
+
+            // then
+            await Assert.ThrowsAsync<OperationCanceledException>(
+                retrieveCallerReactionsTask.AsTask);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
