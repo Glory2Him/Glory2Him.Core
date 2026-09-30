@@ -11,8 +11,10 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.Reactions;
 
 namespace Glory2Him.Core.Services.Foundations.Reactions
@@ -25,7 +27,13 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
             DateTimeOffset currentDateTime = await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
 
             return await this.storageBroker.SelectReactionsAsync(
-                query: reactions => reactions,
+                query: reactions => reactions
+                    .Where(reaction =>
+                        reaction.IsDeleted == false
+                            && reaction.ApprovalStatus == ApprovalStatus.Approved
+                            && reaction.IsPublished
+                            && (reaction.PublishDate == null
+                                || reaction.PublishDate <= currentDateTime)),
                 cancellationToken: cancellationToken);
         }
     }
