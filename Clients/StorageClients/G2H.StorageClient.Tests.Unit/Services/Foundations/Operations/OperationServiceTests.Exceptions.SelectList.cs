@@ -14,28 +14,49 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using FluentAssertions;
 using G2H.StorageClient.Tests.Unit.Models.Foundations.Users;
+using Moq;
 
 namespace G2H.StorageClient.Tests.Unit.Services.Foundations.Operations
 {
     public partial class OperationServiceTests
     {
         [Fact]
-        public async Task ShouldThrowOperationCanceledExceptionOnSelectListWhenTokenIsCancelledAsync()
+        public async Task ShouldPropagateAQueryFailureUnchangedAsync()
         {
             // Given
-            var cancellationTokenSource = new CancellationTokenSource();
-            cancellationTokenSource.Cancel();
-            CancellationToken cancelledToken = cancellationTokenSource.Token;
+            List<User> randomUsers = CreateRandomUsers();
+            IQueryable<User> storageUsers = randomUsers.AsQueryable();
+            var queryFailureException = new InvalidOperationException(message: GetRandomString());
 
             Func<IQueryable<User>, IQueryable<User>> inputQuery = users => users;
 
+            storageBrokerMock.Setup(broker =>
+                broker.SelectAllAsync<User>())
+                    .ReturnsAsync(storageUsers);
+
+            storageBrokerMock.Setup(broker =>
+                broker.SelectListAsync(It.IsAny<IQueryable<User>>(), default))
+                    .ThrowsAsync(queryFailureException);
+
             // When
-            ValueTask<IReadOnlyList<User>> selectUsersTask =
-                operationService.SelectListAsync(inputQuery, cancelledToken);
+            ValueTask<IReadOnlyList<User>> selectUsersTask = operationService.SelectListAsync(inputQuery);
+
+            InvalidOperationException actualException =
+                await Assert.ThrowsAsync<InvalidOperationException>(testCode: selectUsersTask.AsTask);
 
             // Then
-            await Assert.ThrowsAsync<OperationCanceledException>(testCode: selectUsersTask.AsTask);
+            actualException.Should().BeSameAs(queryFailureException);
+
+            storageBrokerMock.Verify(broker =>
+                broker.SelectAllAsync<User>(),
+                    Times.Once);
+
+            storageBrokerMock.Verify(broker =>
+                broker.SelectListAsync(It.IsAny<IQueryable<User>>(), default),
+                    Times.Once);
+
             storageBrokerMock.VerifyNoOtherCalls();
         }
     }

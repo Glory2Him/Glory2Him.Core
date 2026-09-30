@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using System.Linq;
 using G2H.StorageClient.Tests.Integrations.Brokers.Storages;
 using G2H.StorageClient.Tests.Integrations.Models.Users;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Tynamix.ObjectFiller;
 
@@ -21,6 +22,7 @@ namespace G2H.StorageClient.Tests.Integrations.Tests
 {
     public partial class StorageBrokerTests
     {
+        private readonly IConfiguration configuration;
         private readonly IStorageBroker storageBroker;
 
         public StorageBrokerTests()
@@ -29,8 +31,16 @@ namespace G2H.StorageClient.Tests.Integrations.Tests
                 .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
                 .AddEnvironmentVariables();
 
-            IConfiguration configuration = configurationBuilder.Build();
-            this.storageBroker = new StorageBroker(configuration);
+            this.configuration = configurationBuilder.Build();
+            this.storageBroker = new StorageBroker(this.configuration);
+        }
+
+        private StorageBroker CreateTrackingStorageBroker()
+        {
+            var trackingStorageBroker = new StorageBroker(this.configuration);
+            trackingStorageBroker.ChangeTracker.QueryTrackingBehavior = QueryTrackingBehavior.TrackAll;
+
+            return trackingStorageBroker;
         }
 
         private static int GetRandomNumber() =>

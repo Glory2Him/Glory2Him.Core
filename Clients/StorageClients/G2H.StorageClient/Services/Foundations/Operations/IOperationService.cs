@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -25,6 +26,11 @@ namespace G2H.StorageClient.Services.Foundations.Operations
             where T : class;
 
         ValueTask<T> SelectAsync<T>(object[] objectIds, CancellationToken cancellationToken = default)
+            where T : class;
+
+        ValueTask<IReadOnlyList<TResult>> SelectListAsync<T, TResult>(
+            Func<IQueryable<T>, IQueryable<TResult>> query,
+            CancellationToken cancellationToken = default)
             where T : class;
 
         ValueTask<T> UpdateAsync<T>(T @object, CancellationToken cancellationToken = default)

@@ -44,6 +44,11 @@ namespace G2H.StorageClient.Brokers.Storages
             where T : class =>
                 await this.dbContext.FindAsync<T>(objectIds, cancellationToken);
 
+        public async ValueTask<IReadOnlyList<TResult>> SelectListAsync<TResult>(
+            IQueryable<TResult> query,
+            CancellationToken cancellationToken = default) =>
+                await query.ToListAsync(cancellationToken);
+
         public async ValueTask UpdateObjectStateAsync<T>(T @object, EntityState entityState)
             where T : class =>
                 this.dbContext.Entry(@object).State = entityState;

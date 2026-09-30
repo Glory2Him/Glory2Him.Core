@@ -28,6 +28,10 @@ namespace G2H.StorageClient.Tests.Integrations.Brokers.Storages
         public async ValueTask<IQueryable<User>> SelectAllUsersAsync() =>
             await SelectAllAsync<User>();
 
+        public async ValueTask<IReadOnlyList<TResult>> SelectListOfUsersAsync<TResult>(
+            Func<IQueryable<User>, IQueryable<TResult>> query) =>
+                await efCoreClient.SelectListAsync(query);
+
         public async ValueTask<User> SelectUserByIdAsync(Guid userId) =>
             await SelectAsync<User>(userId);
 
