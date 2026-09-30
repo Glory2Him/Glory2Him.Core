@@ -440,11 +440,13 @@ namespace Glory2Him.Core.Brokers.Securities
                 .ToList();
         }
 
-        public async ValueTask<IReadOnlyList<DismissableApprovalReview>> FindDismissableApprovalReviewsAsync(
+        // Unfiltered, deliberately — see IAccessBroker for why the caller-facing read cannot
+        // answer this. The same active set FindDismissableApprovalReviewIdsAsync answers, shaped
+        // here and awaited in the storage client (§ARC12.2.1 rule 3), so it runs in SQL.
+        public ValueTask<IReadOnlyList<DismissableApprovalReview>> FindDismissableApprovalReviewsAsync(
             Guid approvalId,
-            CancellationToken cancellationToken = default)
-        {
-            return await this.storageBroker.SelectApprovalReviewsAsync(
+            CancellationToken cancellationToken = default) =>
+            this.storageBroker.SelectApprovalReviewsAsync(
                 query: approvalReviews => approvalReviews
                     .Where(approvalReview =>
                         approvalReview.ApprovalId == approvalId
@@ -457,7 +459,6 @@ namespace Glory2Him.Core.Brokers.Securities
                         IsRejection = approvalReview.StatusId == ApprovalStatus.Rejected,
                     }),
                 cancellationToken: cancellationToken);
-        }
 
         // Unfiltered, deliberately — see IAccessBroker for why the caller-facing read cannot
         // answer this. The SAME storage read the foundation's round-keyed read uses, so the half
