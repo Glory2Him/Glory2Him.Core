@@ -18,3 +18,9 @@ Sends `DELETE /api/associations/pair`, the request's four fields on the query st
 ## 3. GetReactionSummariesAsync (#733)
 
 Sends `GET /api/associations/reactionsummaries` with one `contentItemIds` parameter per id it is handed, in the order handed, and returns the summaries. It sends exactly the ids it is given: bounding and chunking the set is its caller's (§ARC16.8, *The set, its bounds*; `UI/Foundations/AssociationService.md §3`).
+
+## Deviations
+
+One, from `the-standard-reacttypescript-brokers`. It is awaiting the owner's approval.
+
+1. **tsr-brokers-003 and tsr-brokers-015 — *"Brokers MUST catch external exceptions and wrap them in broker-specific exceptions."*** No member catches or wraps: a failed call rejects with the `AxiosError` that `ApiBroker` raised, unchanged. **Why:** the app's callers read that error as it is. `toContentItemApiFailure.ts` and `apiErrorMessage.ts` read the server's problem body off `error.response.data`, and `contributorService.ts` reads a `404` off `error.response.status`. Each tests the error with `axios.isAxiosError` first. A broker-specific exception would hide all three unless it copied the response through, which is the same error under another name. No broker in the app wraps (`src/brokers/apiBroker.*.ts`), and this one follows them. **Instead:** the error reaches the service unchanged, and the app's global handler announces it (`apiBroker.globals.ts`) unless the caller opts out with `meta.suppressGlobalErrorToast`.

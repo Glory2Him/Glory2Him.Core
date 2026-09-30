@@ -9,3 +9,7 @@ The Like control offers the vocabulary that `GET api/Reactions` returns, in the 
 
 1. **It asks for the vocabulary ordered by `sortOrder`, then `name`** — `$orderby=sortOrder,name`, sent beside today's filter, which does not change. The server does the ordering: the route is `[EnableQuery]`, and the host enables `$orderby` (`Program.cs`).
 2. **The wire model gains nothing.** The client does no ordering of its own, and `reaction.ts` types only what the choices surface reads.
+
+## Deviations
+
+One, from `the-standard-reacttypescript-brokers`: tsr-brokers-003 and tsr-brokers-015. Like every broker in the app, this broker lets `ApiBroker`'s `AxiosError` through unchanged instead of wrapping it. `AssociationBroker.md`'s *Deviations* rule 1 gives the reasoning, and it applies here unchanged.
