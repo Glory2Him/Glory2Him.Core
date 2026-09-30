@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
 using Glory2Him.Core.Models.Foundations.ContentItems;
@@ -176,11 +177,22 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             IReadOnlyList<Guid> contentItemIds,
             CancellationToken cancellationToken = default)
         {
-            await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
+            DateTimeOffset currentDateTime =
+                await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
 
+            // THE CONDITION IS AUTHORED HERE (§ARC12.2.1 rule 3): the id match, and §SEC14.1
+            // asked of the GROUP rather than of the row - an id answers when any version of its
+            // group is canonically visible, because a reaction belongs to the group (§ARC16.8).
             return await this.storageBroker.SelectContentItemsAsync(
                 query: contentItems => contentItems
                     .Where(contentItem => contentItemIds.Contains(contentItem.Id))
+                    .Where(contentItem => contentItems.Any(groupContentItem =>
+                        groupContentItem.GroupId == contentItem.GroupId
+                            && groupContentItem.IsDeleted == false
+                            && groupContentItem.ApprovalStatus == ApprovalStatus.Approved
+                            && groupContentItem.IsPublished
+                            && (groupContentItem.PublishDate == null
+                                || groupContentItem.PublishDate <= currentDateTime)))
                     .Select(contentItem => new PublicContentItemGroup(
                         contentItem.Id,
                         contentItem.GroupId,
