@@ -8,4 +8,10 @@ export const toChosenReactionSummary = (
     heldReactionLabel: string | undefined,
     chosenReactionLabel: string | undefined,
     options: ReadonlyArray<ContentItemReactionOption>
-): ReadonlyArray<ContentItemReactionCount> => [];
+): ReadonlyArray<ContentItemReactionCount> =>
+    (reactionSummary ?? []).map((reactionCount) => ({
+        ...reactionCount,
+        count: reactionCount.count
+            - (reactionCount.label === heldReactionLabel ? 1 : 0)
+            + (reactionCount.label === chosenReactionLabel ? 1 : 0)
+    }));
