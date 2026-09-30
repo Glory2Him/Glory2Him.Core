@@ -769,8 +769,15 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
 
             farEndThatIsNotAReaction.EntityBType = EntityType.Tag;
 
+            // pinned to another version of the first host: its group id is the one asked for, but
+            // the effective id the database computes is that version's key id
+            Association reactionOnAnotherVersionOfTheHost =
+                CreateGivenReactionOnOneVersion(Guid.NewGuid(), loveReactionId);
+
+            reactionOnAnotherVersionOfTheHost.EntityAGroupId = firstContentItemGroupId;
+
             await SeedAsync(
-                CreateGivenReaction(firstContentItemGroupId, loveReactionId),
+                CreateGivenReactionOnOneVersion(firstContentItemGroupId, loveReactionId),
                 dueNowReaction,
                 pastReaction,
                 CreateGivenReaction(firstContentItemGroupId, joyReactionId),
@@ -781,7 +788,8 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
                 CreateGivenReaction(Guid.NewGuid(), loveReactionId),
                 reactionOnAHostThatIsNotAContentItem,
                 CreateGivenReaction(firstContentItemGroupId, Guid.NewGuid()),
-                farEndThatIsNotAReaction);
+                farEndThatIsNotAReaction,
+                reactionOnAnotherVersionOfTheHost);
 
             IAssociationService associationService =
                 CreateAssociationServiceAt(currentDateTime);
@@ -868,8 +876,12 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
         }
 
         // A reader's live, Approved reaction on a content item with no publish date: a row every
-        // term of the count admits. The host is AllVersions with a key id unlike its group id, so
-        // the effective id the database computes is the group id and a key-id count would miss it.
+        // term of the count admits. Every id column holds its own value, so a read keyed on the
+        // wrong column misses the row. The host is AllVersions with a key id unlike its group id,
+        // so the effective id the database computes is the group id. The far end is AllVersions
+        // with a group id unlike its key id, so its effective id and group id both differ from the
+        // key id the count asks for. A far-end reaction is derived ThisVersionOnly in production;
+        // it is not here only so that the three columns differ.
         private static Association CreateGivenReaction(Guid contentItemGroupId, Guid reactionId)
         {
             string readerUserId = Guid.NewGuid().ToString();
@@ -884,9 +896,9 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
                 EntityAKeyId = Guid.NewGuid(),
                 EntityAScope = Scope.AllVersions,
                 EntityBType = EntityType.Reaction,
-                EntityBGroupId = reactionId,
+                EntityBGroupId = Guid.NewGuid(),
                 EntityBKeyId = reactionId,
-                EntityBScope = Scope.ThisVersionOnly,
+                EntityBScope = Scope.AllVersions,
                 UserId = readerUserId,
                 ApprovalStatus = ApprovalStatus.Approved,
                 PublishDate = null,
@@ -897,6 +909,19 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
                 DeletedBy = null,
                 DeletedWhen = null,
             };
+        }
+
+        // The same row with its host pinned to one version: ThisVersionOnly, so the effective id
+        // the database computes is the version's key id and the group id is another value.
+        private static Association CreateGivenReactionOnOneVersion(
+            Guid contentItemEffectiveId,
+            Guid reactionId)
+        {
+            Association reaction = CreateGivenReaction(Guid.NewGuid(), reactionId);
+            reaction.EntityAKeyId = contentItemEffectiveId;
+            reaction.EntityAScope = Scope.ThisVersionOnly;
+
+            return reaction;
         }
 
         // The real service over this fixture's real broker. Only the clock is pinned; this read

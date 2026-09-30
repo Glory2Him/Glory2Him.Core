@@ -42,7 +42,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             {
                 CreateCountedReaction(firstContentItemGroupId, loveReactionId),
                 CreateCountedReaction(firstContentItemGroupId, loveReactionId),
-                CreateCountedReaction(firstContentItemGroupId, loveReactionId),
+                CreateCountedReactionOnOneVersion(firstContentItemGroupId, loveReactionId),
                 CreateCountedReaction(firstContentItemGroupId, joyReactionId),
                 CreateCountedReaction(secondContentItemGroupId, loveReactionId)
             };
@@ -195,9 +195,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             farEndThatIsNotAReaction.EntityBType = EntityType.Tag;
 
+            // pinned to another version of the host: its group id is the one asked for, but its
+            // effective id is that version's key id, which was not asked for
+            Association reactionOnAnotherVersionOfTheHost =
+                CreateCountedReactionOnOneVersion(Guid.NewGuid(), reactionId);
+
+            reactionOnAnotherVersionOfTheHost.EntityAGroupId = contentItemGroupId;
+
             var storageAssociations = new List<Association>
             {
                 countedReaction,
+                reactionOnAnotherVersionOfTheHost,
                 reactionOnAnotherHost,
                 reactionOnAHostThatIsNotAContentItem,
                 anotherReactionOnTheHost,
@@ -367,8 +375,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             };
 
         // A reader's live, Approved reaction with no publish date: a row every term of the
-        // count admits. The host is written AllVersions with a key id that differs from its
-        // group id, so a count keyed on the key id rather than the effective id misses it.
+        // count admits. Every id column holds its own value, so a read keyed on the wrong column
+        // misses the row. The host is AllVersions with a key id unlike its group id, so its
+        // effective id is the group id and a count on the key id misses it. The far end is
+        // AllVersions with a group id unlike its key id, so its effective id and group id both
+        // differ from the key id the count asks for. A far-end reaction is derived
+        // ThisVersionOnly in production; it is not here only so that the three columns differ.
         private static Association CreateCountedReaction(Guid contentItemGroupId, Guid reactionId)
         {
             Association reaction = CreateRandomReaction(readerUserId: Guid.NewGuid().ToString());
@@ -376,11 +388,25 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             reaction.EntityAGroupId = contentItemGroupId;
             reaction.EntityAScope = Scope.AllVersions;
             reaction.EntityBKeyId = reactionId;
-            reaction.EntityBGroupId = reactionId;
-            reaction.EntityBScope = Scope.ThisVersionOnly;
+            reaction.EntityBGroupId = Guid.NewGuid();
+            reaction.EntityBScope = Scope.AllVersions;
             reaction.IsDeleted = false;
             reaction.ApprovalStatus = ApprovalStatus.Approved;
             reaction.PublishDate = null;
+
+            return WithDatabaseComputedEffectiveIds(reaction);
+        }
+
+        // The same counted row with its host pinned to one version: ThisVersionOnly, so its
+        // effective id is the version's key id and its group id is another value. A count that
+        // filters or groups on the host's group id rather than its effective id misses it.
+        private static Association CreateCountedReactionOnOneVersion(
+            Guid contentItemEffectiveId,
+            Guid reactionId)
+        {
+            Association reaction = CreateCountedReaction(Guid.NewGuid(), reactionId);
+            reaction.EntityAKeyId = contentItemEffectiveId;
+            reaction.EntityAScope = Scope.ThisVersionOnly;
 
             return WithDatabaseComputedEffectiveIds(reaction);
         }
