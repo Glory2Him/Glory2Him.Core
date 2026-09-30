@@ -943,5 +943,66 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     It.IsAny<AssociationEventOperation>()),
                 Times.Never);
         }
+
+        [Fact]
+        public async Task ShouldBlockRemovingTheCallersPersonalRowWhenAnotherAccountCreatedItAndLogItAsync()
+        {
+            // given: the row is the caller's own personal row, so the veto does not refuse them;
+            // the owner test stays the row's CreatedBy (§SEC14.7 posture A′ rule 7) and does.
+            // No designed write produces such a row — built directly, as a backfill could.
+            string readerUserId = GetRandomString();
+            Association storageAssociation = CreateRandomReaction(readerUserId);
+            storageAssociation.CreatedBy = GetRandomString();
+
+            var unauthorizedAssociationException = new UnauthorizedAssociationException(
+                message: "The current user is not allowed to remove this content item association.");
+
+            var expectedAssociationValidationException = new AssociationValidationException(
+                message: "Content item association validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedAssociationException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAssociationByIdAsync(
+                    storageAssociation.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageAssociation);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(readerUserId);
+
+            // when
+            ValueTask<Association> removeTask =
+                this.associationService.RemoveAssociationByIdAsync(
+                    storageAssociation.Id,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            AssociationValidationException actual =
+                await Assert.ThrowsAsync<AssociationValidationException>(removeTask.AsTask);
+
+            // then
+            actual.Should().BeEquivalentTo(expectedAssociationValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAssociationByIdAsync(
+                    storageAssociation.Id,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
