@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using EFxceptions.Models.Exceptions;
@@ -26,6 +27,7 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
     {
         private delegate ValueTask<Reaction> ReturningReactionFunction();
         private delegate ValueTask<IQueryable<Reaction>> ReturningReactionsFunction();
+        private delegate ValueTask<IReadOnlyList<Reaction>> ReturningReactionListFunction();
 
         private delegate ValueTask<EventEnvelope<Reaction>?>
             ReturningReactionEventEnvelopeFunction();
@@ -320,6 +322,25 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
                     data: exception.Data);
 
                 throw await CreateAndLogServiceExceptionAsync(failedReactionServiceException);
+            }
+        }
+
+        // the caller-independent public vocabulary (#717): a materialised read with no input
+        private async ValueTask<IReadOnlyList<Reaction>> TryCatch(
+            ReturningReactionListFunction returningReactionListFunction)
+        {
+            try
+            {
+                return await returningReactionListFunction();
+            }
+            catch (SqlException sqlException)
+            {
+                var failedStorageReactionException = new FailedStorageReactionException(
+                    message: "Failed reaction storage error occurred, contact support.",
+                    innerException: sqlException,
+                    data: sqlException.Data);
+
+                throw await CreateAndLogCriticalDependencyExceptionAsync(exception: failedStorageReactionException);
             }
         }
 

@@ -21,22 +21,24 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
 {
     internal partial class ReactionService
     {
-        public async ValueTask<IReadOnlyList<Reaction>> RetrievePublicReactionsAsync(
-            CancellationToken cancellationToken = default)
-        {
-            DateTimeOffset currentDateTime = await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
+        public ValueTask<IReadOnlyList<Reaction>> RetrievePublicReactionsAsync(
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                DateTimeOffset currentDateTime =
+                    await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
 
-            return await this.storageBroker.SelectReactionsAsync(
-                query: reactions => reactions
-                    .Where(reaction =>
-                        reaction.IsDeleted == false
-                            && reaction.ApprovalStatus == ApprovalStatus.Approved
-                            && reaction.IsPublished
-                            && (reaction.PublishDate == null
-                                || reaction.PublishDate <= currentDateTime))
-                    .OrderBy(reaction => reaction.SortOrder)
-                    .ThenBy(reaction => reaction.Name),
-                cancellationToken: cancellationToken);
-        }
+                return await this.storageBroker.SelectReactionsAsync(
+                    query: reactions => reactions
+                        .Where(reaction =>
+                            reaction.IsDeleted == false
+                                && reaction.ApprovalStatus == ApprovalStatus.Approved
+                                && reaction.IsPublished
+                                && (reaction.PublishDate == null
+                                    || reaction.PublishDate <= currentDateTime))
+                        .OrderBy(reaction => reaction.SortOrder)
+                        .ThenBy(reaction => reaction.Name),
+                    cancellationToken: cancellationToken);
+            });
     }
 }
