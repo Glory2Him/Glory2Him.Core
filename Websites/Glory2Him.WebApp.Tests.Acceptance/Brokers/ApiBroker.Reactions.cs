@@ -26,6 +26,10 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
         public async ValueTask<List<Reaction>> GetAllReactionsAsync() =>
             await this.apiFactoryClient.GetContentAsync<List<Reaction>>($"{reactionsRelativeUrl}/");
 
+        public async ValueTask<List<Reaction>> GetAllReactionsAsync(string odataQuery) =>
+            await this.apiFactoryClient.GetContentAsync<List<Reaction>>(
+                $"{reactionsRelativeUrl}?{odataQuery}");
+
         public async ValueTask<List<Reaction>> GetSpecificReactionByIdAsync(Guid reactionId) =>
             await this.apiFactoryClient.GetContentAsync<List<Reaction>>(
                 $"{reactionsRelativeUrl}?$filter=Id eq {reactionId}");
