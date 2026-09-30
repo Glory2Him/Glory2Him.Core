@@ -27,6 +27,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             CancellationToken cancellationToken = default) =>
             TryCatch(async () =>
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 ValidateOnRetrieveContentItemReactionCounts(contentItemGroupIds, reactionIds);
 
                 DateTimeOffset currentDateTime =
