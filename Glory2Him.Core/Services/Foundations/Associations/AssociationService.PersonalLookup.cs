@@ -37,6 +37,19 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 string callerUserId =
                     await this.securityAuditBroker.GetUserIdAsync(envelope.SecurityContext);
 
+                // a denied read answers not found, as a reader with no row is answered, and the
+                // true reason stays server-side (ts-foundations-012). No role lifts this: the
+                // lookup serves the owner alone (§SEC14.7 posture A′ rule 7).
+                if (association.UserId != callerUserId)
+                {
+                    await this.loggingBroker.LogWarningAsync(
+                        message: "Personal content item association lookup denied. User " +
+                            $"\"{callerUserId}\" asked for another user's row; reported to the " +
+                            "caller as not found.");
+
+                    return null;
+                }
+
                 // every stored row is canonical, so the key is taken from the canonical
                 // orientation: a request naming the reaction first would otherwise key the lookup
                 // off the reaction (§DOM4.4 rule 4)
