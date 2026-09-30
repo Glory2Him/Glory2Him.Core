@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -90,6 +91,12 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
         private async ValueTask<IQueryable<T>> SelectAllAsync<T>(CancellationToken cancellationToken = default)
             where T : class =>
                 await efCoreClient.SelectAllAsync<T>(cancellationToken);
+
+        private async ValueTask<IReadOnlyList<TResult>> SelectListAsync<T, TResult>(
+            Func<IQueryable<T>, IQueryable<TResult>> query,
+            CancellationToken cancellationToken = default)
+                where T : class =>
+                    await efCoreClient.SelectListAsync(query, cancellationToken);
 
         private async ValueTask<T> SelectAsync<T>(object[] @objectIds, CancellationToken cancellationToken = default)
             where T : class =>
