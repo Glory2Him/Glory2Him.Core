@@ -11,17 +11,34 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
 
 namespace Glory2Him.Core.Services.Foundations.Associations
 {
     internal partial class AssociationService
     {
-        public ValueTask<IReadOnlyList<AssociationPairKey>> RetrieveCallerContentItemReactionsAsync(
+        public async ValueTask<IReadOnlyList<AssociationPairKey>> RetrieveCallerContentItemReactionsAsync(
             IReadOnlyList<Guid> contentItemGroupIds,
-            CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
+            CancellationToken cancellationToken = default)
+        {
+            EventEnvelope<Association> envelope =
+                await this.eventEnvelopeBroker.CreateAsync(content: new Association());
+
+            string callerUserId =
+                await this.securityAuditBroker.GetUserIdAsync(envelope.SecurityContext);
+
+            return await this.storageBroker.SelectAssociationsAsync(
+                query: associations => associations
+                    .Select(association => new AssociationPairKey
+                    {
+                        EntityAEffectiveId = association.EntityAEffectiveId,
+                        EntityBKeyId = association.EntityBKeyId
+                    }),
+                cancellationToken: cancellationToken);
+        }
     }
 }
