@@ -315,6 +315,61 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        // AFTER THE DUPLICATE QUESTION'S ANSWER, not merely after it is asked (#723 criterion 2).
+        // A re-delivered personal envelope the foundation has already applied settles as a replay,
+        // as an editorial one does. Refused instead, a settled event would be recorded as a failed
+        // delivery and retried, which is what #631's early duplicate question exists to prevent.
+        [Fact]
+        public async Task ShouldShortCircuitAnAlreadyAppliedPersonalPairBeforeRefusingItAsync()
+        {
+            // given
+            Association addRequest =
+                CreateHonestAddRequestBetween(EntityType.ContentItem, EntityType.Reaction);
+
+            EventEnvelope<Association> inputEnvelope = CreateRequestEnvelope(addRequest);
+            SetupEventPathEndpointReadsBetween(addRequest, inputEnvelope);
+
+            this.associationServiceMock.Setup(service =>
+                service.HasAlreadyAddedAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(true);
+
+            // when
+            EventEnvelope<Association> actualReplyEnvelope =
+                await this.associationOrchestrationService.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualReplyEnvelope.Should().BeNull();
+
+            this.envelopeIntegrityBrokerMock.Verify(broker =>
+                broker.VerifyAsync(
+                    inputEnvelope,
+                    "AssociationAdding",
+                    EnvelopeDirection.Request),
+                Times.Once);
+
+            this.associationServiceMock.Verify(service =>
+                service.HasAlreadyAddedAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            // nothing refused and logged, nothing read, nothing delegated
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.tagServiceMock.VerifyNoOtherCalls();
+            this.reactionServiceMock.VerifyNoOtherCalls();
+            this.bibleReferenceServiceMock.VerifyNoOtherCalls();
+            this.commentServiceMock.VerifyNoOtherCalls();
+            this.linkServiceMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // A REFUSAL WRITES NOTHING (#723, AssociationOrchestrationService.md §2 rule 2). The row,
         // the Association-Added fact and the ProcessedEvents record are all the foundation
         // handler's, so a refused personal pair has done none of them exactly when that handler
