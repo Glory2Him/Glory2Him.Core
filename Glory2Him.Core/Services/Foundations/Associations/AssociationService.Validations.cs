@@ -864,8 +864,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
         private static dynamic IsInvalid(IReadOnlyList<Guid> ids) => new
         {
-            Condition = ids is null,
-            Message = "List is required"
+            Condition = ids is null || ids.Contains(Guid.Empty),
+            Message = ids is null ? "List is required" : "Every id is required"
         };
 
         private static dynamic IsInvalid(string text) => new
