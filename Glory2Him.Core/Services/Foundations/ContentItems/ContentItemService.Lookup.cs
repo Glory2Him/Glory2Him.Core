@@ -155,10 +155,11 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                // NO ENVELOPE, and none is missing. Every other read on this service mints one
-                // to capture the ambient security context its visibility filter runs against.
-                // This read has no branch to run one through: §SEC14.1 is applied to every
-                // caller identically, so a context would be resolved and then ignored.
+                // NO ENVELOPE, and none is missing. The caller-filtered reads on this service mint
+                // one to capture the ambient security context their visibility filter runs
+                // against. This read, like RetrievePublicContentItemGroupsAsync, has no branch to
+                // run one through: §SEC14.1 is applied to every caller identically, so a context
+                // would be resolved and then ignored.
                 DateTimeOffset currentDateTime =
                     await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
 

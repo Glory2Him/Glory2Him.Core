@@ -33,14 +33,20 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ContentItems
 {
     /// <summary>
     /// Proves the content-item NARROW READS against a real catalogue — the group slice, the
-    /// version high-water mark, the published-slot incumbent, the content-type pin, and the
-    /// duplicate-content check.
+    /// version high-water mark, the published-slot incumbent, the content-type pin, the
+    /// duplicate-content check, and the public-groups read.
     ///
     /// <para>Each predicate used to be composed in <c>ContentItemService</c> or
     /// <c>ContentItemProcessingService</c> onto a live queryable and executed synchronously; they
     /// moved to the broker so the query could be awaited with the caller's cancellation token.
     /// The unit suite proved them against LINQ-to-Objects, which no longer stands in for SQL, so
     /// the cases that turn on storage semantics live here.</para>
+    ///
+    /// <para>The public-groups read is the exception: its condition is written in
+    /// <c>ContentItemService</c> as a query-shaping function and handed to the broker
+    /// (§ARC12.2.1 rule 3). Its unit tests execute that function over LINQ-to-Objects, and
+    /// <see cref="ShouldAnswerThePublicContentItemGroupsInSqlAsync"/> proves that the same
+    /// function translates and answers in SQL (rule 6).</para>
     /// </summary>
     [Collection(NarrowReadIntegrationCollection.Name)]
     public sealed class ContentItemNarrowReadTests : IDisposable
