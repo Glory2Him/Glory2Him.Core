@@ -1,7 +1,7 @@
 # Association broker
 Parent: [Likes.md](../../Likes.md)
 Level: broker — `AssociationBroker` (`Websites/Glory2Him.WebApp.React/src/brokers/apiBroker.associations.ts`), new
-Inherits: §ARC16.8 (*The route*), §ARC16.8.1, §ARC17.4, `Backend/Controllers/AssociationsController.md`, `the-standard-reacttypescript-brokers`
+Inherits: §ARC16.8 (*The route*), §ARC16.8.1, §ARC17.4, `Backend/Controllers/AssociationsController.md`, `the-standard-reacttypescript-brokers` as §UI20.9.1 departs from it
 
 The React app's door to the three association routes the Likes feature serves. It follows the app's broker shape — a default-exported class in `src/brokers/apiBroker.<resource>.ts`, holding an `ApiBroker` and one `<Verb><Entity>Async` member per call (`apiBroker.reactions.ts`, `apiBroker.contentItems.ts`) — and holds no logic: it forms the request, sends it and hands back what came.
 

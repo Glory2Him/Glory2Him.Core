@@ -46,6 +46,7 @@ an old citation resolves by grep even though the citable number is now prefixed.
   - [UI20.8 Authentication](#ui208-authentication-formerly-208)
     - [UI20.8.1 The return after sign-in](#ui2081-the-return-after-sign-in-new)
   - [UI20.9 Services and Brokers](#ui209-services-and-brokers-formerly-209)
+    - [UI20.9.1 Departures from the broker skill](#ui2091-departures-from-the-broker-skill-new)
 
 ---
 
@@ -741,3 +742,14 @@ own task:
 | `FeedService` | Builds feed page data from `FeedBroker`. |
 | `ApprovalService` | Manages approval queue data and submission actions. |
 | `AuthService` | Manages session state, role extraction, and token lifecycle. |
+
+#### UI20.9.1 Departures from the broker skill *(new)*
+
+The React app's brokers depart from `the-standard-reacttypescript-brokers` in the four ways below. Every broker document inherits this section, so a feature records none of these as a deviation of its own. **This section is awaiting the owner's approval.**
+
+The app's broker shape is a default-exported class, `<Entity>Broker`, in `src/brokers/apiBroker.<resource>.ts`. It holds an `ApiBroker` and has one `<Verb><Entity>Async` member per call (`apiBroker.reactions.ts`, `apiBroker.contentItems.ts`).
+
+1. **tsr-brokers-003 — *"Brokers MUST map external exceptions to broker-layer exceptions with meaningful messages."* — and tsr-brokers-015 — *"Brokers MUST catch external exceptions and wrap them in broker-specific exceptions."*** No entity broker catches or wraps. A failed call rejects with the `AxiosError` that axios raised, unchanged. **Why:** the app's error contract is the `AxiosError` itself. The code that turns a failure into what a reader sees first tests it with `axios.isAxiosError`, then reads the server's answer off it: the problem body in `toContentItemApiFailure.ts`, `apiErrorMessage.ts` and `statusMessage.tsx`, and the status in `contributorService.ts`. Connectivity reporting reads it the same way, in `apiBroker.ts`'s response interceptor. A broker-layer exception would have to carry the response through for any of that to work, which is the same error under another name. And a wrapped error from some brokers alone would give every shared consumer two shapes to handle. **Instead:** the error reaches the service unchanged. The app's global handler announces it (`apiBroker.globals.ts`) unless the caller opts out with `meta.suppressGlobalErrorToast`, and a view that needs the detail reads it off the `AxiosError`.
+2. **tsr-brokers-005 — *"Broker method names MUST follow pattern: `{verb}{Entity}Async` (e.g., `getPatientAsync`, `postPatientAsync`)."*** Members are PascalCase: `GetApprovedReactionsAsync`, `PostAssociationAsync`. **Why:** the members take the server's C# names for the same operations. A reader can find the controller action from the broker member by name, with no translation between them. **Instead:** `<Verb><Entity>Async` in PascalCase, the pattern kept and only the first letter's case differing.
+3. **tsr-brokers-011 — *"Brokers MUST be organized by external dependency type: apis/, storages/, loggings/, datetimes/."* — and tsr-brokers-012 — *"Broker class names MUST follow pattern: `{Entity}{Type}Broker` (e.g., `PatientApiBroker`, `LocalStorageBroker`)."*** Brokers live flat in `src/brokers/`. The dependency type is the file name's prefix (`apiBroker.<resource>.ts`, `toastBroker.<kind>.ts`), and the class is `<Entity>Broker` (`ReactionBroker`, `AssociationBroker`). **Why:** the app has two kinds of broker, the API and the toast, so a folder per kind would hold one prefix's worth of files that the prefix already groups. The class name drops the type because an entity has one broker, and it is always the API one. **Instead:** §UI20.4's `brokers/` folder, the type in the file name's prefix, and the class named for its entity.
+4. **tsr-brokers-019 — *"Brokers MUST NOT call other brokers — composition happens in services."*** Every entity broker holds and calls `ApiBroker`. **Why:** `ApiBroker` is not a broker another broker composes with. It is the app's one wrapper over axios: it carries the request configuration (`withCredentials`) and registers the connectivity interceptors (`apiBroker.ts`). An entity broker adds a route and a shape to it and nothing else, so nothing is composed. Calling axios from each entity broker would repeat the configuration in every one. **Instead:** entity brokers call `ApiBroker`, and no production code outside `src/brokers/` does.
