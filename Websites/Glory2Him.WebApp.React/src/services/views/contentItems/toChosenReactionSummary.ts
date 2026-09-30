@@ -14,4 +14,4 @@ export const toChosenReactionSummary = (
         count: reactionCount.count
             - (reactionCount.label === heldReactionLabel ? 1 : 0)
             + (reactionCount.label === chosenReactionLabel ? 1 : 0)
-    }));
+    })).filter((reactionCount) => reactionCount.count > 0);
