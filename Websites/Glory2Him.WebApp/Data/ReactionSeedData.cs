@@ -36,14 +36,17 @@ namespace Glory2Him.WebApp.Data
 
         // The five the design's picker carries. Love is the member LimitReactionsToLoveOnly
         // narrows to (§6.5) — renaming it is a decision with a consequence, and the projection
-        // that marks it says so at the match site.
-        private static readonly (Guid Id, string Name, string UnicodeEmoji)[] Vocabulary =
+        // that marks it says so at the match site. The sort orders are §DOM5.2's, and the
+        // AddSortOrderToReactions migration backfills the same five into a database seeded
+        // before the column existed — the seed never amends a row, so the two change together.
+        private static readonly (Guid Id, string Name, string UnicodeEmoji, int SortOrder)[]
+            Vocabulary =
         [
-            (new Guid("7b2d90c1-4e6a-4f3b-8d21-000000000001"), "Amen", "👍"),
-            (new Guid("7b2d90c1-4e6a-4f3b-8d21-000000000002"), "Love", "❤️"),
-            (new Guid("7b2d90c1-4e6a-4f3b-8d21-000000000003"), "Joy", "😄"),
-            (new Guid("7b2d90c1-4e6a-4f3b-8d21-000000000004"), "Moved", "😢"),
-            (new Guid("7b2d90c1-4e6a-4f3b-8d21-000000000005"), "Praying", "🙏")
+            (new Guid("7b2d90c1-4e6a-4f3b-8d21-000000000001"), "Amen", "👍", 10),
+            (new Guid("7b2d90c1-4e6a-4f3b-8d21-000000000002"), "Love", "❤️", 20),
+            (new Guid("7b2d90c1-4e6a-4f3b-8d21-000000000003"), "Joy", "😄", 30),
+            (new Guid("7b2d90c1-4e6a-4f3b-8d21-000000000004"), "Moved", "😢", 40),
+            (new Guid("7b2d90c1-4e6a-4f3b-8d21-000000000005"), "Praying", "🙏", 50)
         ];
 
         public static async Task SeedAsync(IServiceProvider serviceProvider)
@@ -53,7 +56,7 @@ namespace Glory2Him.WebApp.Data
             var storageBroker = services.GetRequiredService<IStorageBroker>();
             DateTimeOffset seededWhen = DateTimeOffset.UtcNow;
 
-            foreach ((Guid id, string name, string unicodeEmoji) in Vocabulary)
+            foreach ((Guid id, string name, string unicodeEmoji, int sortOrder) in Vocabulary)
             {
                 bool alreadySeeded = await storageBroker.ExistsReactionAsync(id);
 
@@ -64,6 +67,7 @@ namespace Glory2Him.WebApp.Data
                         Id = id,
                         Name = name,
                         UnicodeEmoji = unicodeEmoji,
+                        SortOrder = sortOrder,
                         ApprovalStatus = ApprovalStatus.Approved,
                         IsApprovedByBypass = false,
                         ApprovedByBypassReason = null,
