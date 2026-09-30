@@ -24,5 +24,16 @@ export const toChosenReactionSummary = (
             .filter((option) => option.label === chosenReactionLabel)
             .map((option) => ({ label: option.label, glyph: option.glyph, count: 1 }));
 
-    return [...addedSummary, ...movedSummary];
+    const rankOf = (label: string | undefined): number =>
+        options.findIndex((option) => option.label === label);
+
+    const addedAt = movedSummary
+        .filter((reactionCount) => rankOf(reactionCount.label) < rankOf(chosenReactionLabel))
+        .length;
+
+    return [
+        ...movedSummary.slice(0, addedAt),
+        ...addedSummary,
+        ...movedSummary.slice(addedAt)
+    ];
 };
