@@ -677,6 +677,7 @@ Role claims from the identity token must be used to control visibility of role-r
 4. The cookie is sent automatically on subsequent requests.
 5. Logout clears the cookie and redirects to the home page.
 6. Role claims from the cookie identity are used for route guards and UI state.
+7. **After signing in, a reader is sent on only to a return address local to this site.** Any way of signing in may carry the address a reader is to be sent on to once they have signed in. That address is followed only when it is written as a path, beginning with `/`, and when, resolved against this site's own address, it names this site's origin. A full address is not followed, even one naming this site. With no return address, an empty one, or one this rule refuses, the reader is sent to the home page, `/`, and the refusal is not an error. An address that is followed is followed whole, with its path, query and fragment. The rule applies where the address is followed, not where it is carried: a step of signing in that hands the address on to the next step hands it on unchanged. The React app applies it in one place (§UI20.8.1).
 
 #### SEC18.7.2 API (JWT Bearer) *(formerly §18.7.2)*
 
