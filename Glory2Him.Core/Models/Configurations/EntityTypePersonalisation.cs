@@ -19,7 +19,14 @@ namespace Glory2Him.Core.Models.Configurations
         private static readonly IReadOnlyDictionary<EntityType, bool> PersonalByEntityType =
             new Dictionary<EntityType, bool>
             {
-                [EntityType.Reaction] = true
+                [EntityType.Reaction] = true,
+                [EntityType.ContentItem] = false,
+                [EntityType.Tag] = false,
+                [EntityType.BibleReference] = false,
+                [EntityType.Comment] = false,
+                [EntityType.Link] = false,
+                [EntityType.Attachment] = false,
+                [EntityType.Association] = false
             };
 
         public static bool IsPersonal(EntityType entityType) =>
