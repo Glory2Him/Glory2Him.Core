@@ -12,5 +12,5 @@ useSignInReturn(): (returnUrl: string | null | undefined) => void
 ```
 
 1. **Calling what it returns sends the signed-in reader on.** The reader goes to the return address when §SEC18.7.1 rule 7 allows it to be followed, whole, with its path, query and fragment. Otherwise they go to the home page, `/`.
-2. **A refused address is not an error.** Nothing is shown and nothing is thrown. The reader goes to the home page.
+2. **A refused address is not an error.** The hook throws nothing and hands no error to its caller. The reader goes to the home page.
 3. **It decides nothing about who is sent on.** It is called once the reader has signed in. Whether they have, and what happens instead when a second factor is needed or the account is locked out, is the calling page's decision (§UI20.8.1).

@@ -695,8 +695,7 @@ second-factor page, `/Account/LoginWith2fa`; a recovery code on the recovery-cod
 `/Account/LoginWithRecoveryCode`; and a passkey, from the sign-in page's passkey button. **Each
 sends the reader on through the one shared return, `useSignInReturn`
 (`DesignFeatures/UI/Hooks/SignInReturn.md`), so the rule is applied in one place and none of them
-decides it for itself.** Pages hold no business logic, so the rule is the hook's and not theirs.
-What a page does instead of returning the reader, such as sending a locked-out reader to
+decides it for itself.** What a page does instead of returning the reader, such as sending a locked-out reader to
 `/Account/Lockout` or a reader who needs a second factor to `/Account/LoginWith2fa`, stays the
 page's. The external sign-in form
 carries the address to the server rather than following it (`src/pages/account/externalLoginPicker.tsx`,
@@ -707,7 +706,8 @@ The account pages have no page documents, since §UI20.5.1 counts them among the
 later. So the gaps in how they send a reader on are recorded here and tagged as this file's other
 gap lists are (`design.md`, *Conventions*), with their lines at a2b8bcbc. The four close together,
 in one pull request, so that every way of signing in moves onto the shared return at the same moment
-(user ruling 2026-09-30). Each keeps its own task:
+(user ruling 2026-09-30). The hook's own task, #780, lands in that pull request too. Each keeps its
+own task:
 
 1. (#781) **The sign-in page follows its return address itself after a password sign-in.** It
    checks and follows the address inline (`src/pages/account/login.tsx`, line 70) rather than
