@@ -69,6 +69,40 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                     + "default (§DOM6.4)");
         }
 
+        [Fact]
+        public async Task ShouldAnswerTheTypeDefaultWhereTheItemHasNoOverrideAsync()
+        {
+            // given
+            Guid contentItemId = Guid.NewGuid();
+
+            ContentItemSetting typeDefault =
+                CreateContentItemSetting(ContentType.Testimony, contentItemId: null);
+
+            SetupContentItemSettings(typeDefault);
+
+            var contentItemSettingKeys = new List<ContentItemSettingKey>
+            {
+                CreateContentItemSettingKey(ContentType.Testimony, contentItemId),
+            };
+
+            var expectedEffectiveContentItemSettings = new List<EffectiveContentItemSetting>
+            {
+                CreateEffectiveContentItemSetting(contentItemId, typeDefault),
+            };
+
+            // when
+            IReadOnlyList<EffectiveContentItemSetting> actualEffectiveContentItemSettings =
+                await this.accessBroker.RetrieveEffectiveContentItemSettingsAsync(
+                    contentItemSettingKeys: contentItemSettingKeys,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            actualEffectiveContentItemSettings.Should().BeEquivalentTo(
+                expectedEffectiveContentItemSettings,
+                because: "with no override of its own, an item takes its content type's live "
+                    + "default (§DOM6.3)");
+        }
+
         // The function is the one argument matched with It.IsAny, because a function cannot be
         // matched by value. It is proven by applying it instead. The token is matched exactly,
         // so a read that dropped the caller's token answers nothing.
