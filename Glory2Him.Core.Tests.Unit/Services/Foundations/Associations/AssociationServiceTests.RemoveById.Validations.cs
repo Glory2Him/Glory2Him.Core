@@ -273,6 +273,88 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task ShouldBlockRemovingAnAlreadyDeletedEditorialRowWhenTheCallerIsReadOnlyAndLogItAsync(
+            bool isCallerAnAdministrator)
+        {
+            // given: the owner test admits both callers — the row's creator, and an
+            // administrator who did not create it — so only the veto refuses them. It must run
+            // above the already-deleted short-circuit, or they get the stored row back as a
+            // success
+            string actorUserId = GetRandomString();
+            string anotherUserId = GetRandomString();
+
+            this.ambientSecurityContext = isCallerAnAdministrator
+                ? CreateAuthenticatedSecurityContext(Roles.Administrators, Roles.ReadOnly)
+                : CreateAuthenticatedSecurityContext(Roles.ReadOnly);
+
+            Association storageAssociation = CreateRandomAssociation();
+            storageAssociation.UserId = null;
+            storageAssociation.IsDeleted = true;
+
+            storageAssociation.CreatedBy = isCallerAnAdministrator
+                ? anotherUserId
+                : actorUserId;
+
+            Guid someAssociationId = storageAssociation.Id;
+
+            var unauthorizedAssociationException = new UnauthorizedAssociationException(
+                message: "The current user is blocked from contributing content item associations.");
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: unauthorizedAssociationException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAssociationByIdAsync(
+                    someAssociationId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageAssociation);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(actorUserId);
+
+            // when
+            ValueTask<Association> removeAssociationByIdTask =
+                this.associationService.RemoveAssociationByIdAsync(
+                    someAssociationId,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(
+                    removeAssociationByIdTask.AsTask);
+
+            // then
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAssociationByIdAsync(
+                    someAssociationId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         [Fact]
         public async Task ShouldThrowValidationExceptionOnRemoveByIdIfUserIsNotOwnerAndNotAdminAndLogItAsync()
         {
