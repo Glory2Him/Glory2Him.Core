@@ -70,6 +70,8 @@ namespace G2H.StorageClient.Services.Foundations.Operations
             CancellationToken cancellationToken = default)
             where T : class
         {
+            ArgumentNullException.ThrowIfNull(query);
+
             IQueryable<T> source = await storageBroker.SelectAllAsync<T>();
 
             return await storageBroker.SelectListAsync(query(source), cancellationToken);
