@@ -140,6 +140,48 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             VerifyDismissableApprovalReviewsQueriedOnce();
         }
 
+        [Fact]
+        public async Task ShouldMarkOnlyARejectedReviewAsARejectionAsync()
+        {
+            // given: one active review in every status the gather returns, so a rejection test
+            // that matched any status but Rejected — or keyed on "not Approved" — marks a row
+            // it should not. Dismissed is not returned at all (see the test above).
+            Guid approvalId = Guid.NewGuid();
+            DateTimeOffset createdWhen = DateTimeOffset.UtcNow.AddHours(-1);
+
+            List<ApprovalReview> storageApprovalReviews = Enum.GetValues<ApprovalStatus>()
+                .Where(statusId => statusId != ApprovalStatus.Dismissed)
+                .Select(statusId => CreateDismissableApprovalReview(
+                    approvalId: approvalId,
+                    statusId: statusId,
+                    createdWhen: createdWhen))
+                .ToList();
+
+            SetupDismissableApprovalReviewsQueryOver(storageApprovalReviews.ToArray());
+
+            List<DismissableApprovalReview> expectedDismissableApprovalReviews =
+                storageApprovalReviews
+                    .Select(approvalReview => new DismissableApprovalReview
+                    {
+                        Id = approvalReview.Id,
+                        CreatedWhen = createdWhen,
+                        IsRejection = approvalReview.StatusId == ApprovalStatus.Rejected,
+                    })
+                    .ToList();
+
+            // when
+            IReadOnlyList<DismissableApprovalReview> actualDismissableApprovalReviews =
+                await this.accessBroker.FindDismissableApprovalReviewsAsync(
+                    approvalId: approvalId,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            actualDismissableApprovalReviews.Should().BeEquivalentTo(
+                expectedDismissableApprovalReviews);
+
+            VerifyDismissableApprovalReviewsQueriedOnce();
+        }
+
         private void SetupDismissableApprovalReviewsQueryOver(
             params ApprovalReview[] storageApprovalReviews) =>
             this.storageBrokerMock.Setup(broker =>
