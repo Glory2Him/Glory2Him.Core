@@ -178,6 +178,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             CancellationToken cancellationToken = default) =>
             TryCatchPublicContentItemGroups(async () =>
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 ValidateOnRetrievePublicContentItemGroups(contentItemIds);
 
                 // NO ENVELOPE, and none is missing - the feed read's reason: §SEC14.1 is applied
