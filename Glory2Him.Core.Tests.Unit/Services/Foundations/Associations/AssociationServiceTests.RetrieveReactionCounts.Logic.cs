@@ -84,6 +84,83 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldCountOnlyVisibleReactionRowsAsync()
+        {
+            // given
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            Guid contentItemGroupId = Guid.NewGuid();
+            Guid reactionId = Guid.NewGuid();
+
+            // counted: no publish date, a publish date at the current moment, and one before it
+            Association unscheduledReaction =
+                CreateCountedReaction(contentItemGroupId, reactionId);
+
+            Association dueNowReaction = CreateCountedReaction(contentItemGroupId, reactionId);
+            dueNowReaction.PublishDate = randomDateTimeOffset;
+
+            Association pastReaction = CreateCountedReaction(contentItemGroupId, reactionId);
+            pastReaction.PublishDate = randomDateTimeOffset.AddDays(GetRandomNegativeNumber());
+
+            // not counted: each misses exactly one term of §SEC14.3 rules 1, 2 and 5
+            Association softDeletedReaction =
+                CreateCountedReaction(contentItemGroupId, reactionId);
+
+            softDeletedReaction.IsDeleted = true;
+
+            Association submittedReaction = CreateCountedReaction(contentItemGroupId, reactionId);
+            submittedReaction.ApprovalStatus = ApprovalStatus.Submitted;
+
+            Association futureReaction = CreateCountedReaction(contentItemGroupId, reactionId);
+            futureReaction.PublishDate = randomDateTimeOffset.AddDays(GetRandomNumber());
+
+            var storageAssociations = new List<Association>
+            {
+                unscheduledReaction,
+                dueNowReaction,
+                pastReaction,
+                softDeletedReaction,
+                submittedReaction,
+                futureReaction
+            };
+
+            IReadOnlyList<Guid> inputContentItemGroupIds = new List<Guid> { contentItemGroupId };
+            IReadOnlyList<Guid> inputReactionIds = new List<Guid> { reactionId };
+
+            var expectedAssociationPairCounts = new List<AssociationPairCount>
+            {
+                CreateAssociationPairCount(contentItemGroupId, reactionId, count: 3)
+            };
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            SetupReactionCountReadOver(storageAssociations);
+
+            // when
+            IReadOnlyList<AssociationPairCount> actualAssociationPairCounts =
+                await this.associationService.RetrieveContentItemReactionCountsAsync(
+                    inputContentItemGroupIds,
+                    inputReactionIds,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualAssociationPairCounts.Should().BeEquivalentTo(expectedAssociationPairCounts);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            VerifyReactionCountReadAskedOnce();
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // A reader's live, Approved reaction with no publish date: a row every term of the
         // count admits. The host is written AllVersions with a key id that differs from its
         // group id, so a count keyed on the key id rather than the effective id misses it.
