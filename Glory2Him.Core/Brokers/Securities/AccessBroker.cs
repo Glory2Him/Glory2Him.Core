@@ -1262,6 +1262,7 @@ namespace Glory2Him.Core.Brokers.Securities
             contentItemSettings
                 .Where(contentItemSetting =>
                     contentItemSetting.IsDeleted == false
+                        && contentItemSetting.ContentType == contentItemSettingKey.ContentType
                         && (contentItemSetting.ContentItemId == contentItemSettingKey.ContentItemId
                             || contentItemSetting.ContentItemId == null))
                 .OrderBy(contentItemSetting => contentItemSetting.ContentItemId == null)
