@@ -553,17 +553,26 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             string actorUserId =
                 await this.securityAuditBroker.GetUserIdAsync(inboundEnvelope.SecurityContext);
 
-            // the whole veto, now that both endpoints are known — a globally blocked caller
-            // reaches the table as any signed-in caller does and is refused here (§SEC14.7
-            // posture A′ rule 4)
-            ValidateUserIsNotGloballyReadOnly(inboundEnvelope.SecurityContext);
+            // a reaction is not a contribution: the caller's own personal row is asked none of
+            // the read-only roles (§SEC14.7 posture A′ rule 1). Every other row is asked the
+            // whole veto, now that both endpoints are known — a globally blocked caller
+            // reaches the table as any signed-in caller does and is refused here (rule 4)
+            bool isCallersOwnPersonalRow =
+                maybeAssociation.UserId is not null
+                    && string.IsNullOrWhiteSpace(actorUserId) is false
+                    && maybeAssociation.UserId == actorUserId;
 
-            ValidateUserIsNotBlockedFromEndpoints(
-                securityContext: inboundEnvelope.SecurityContext,
-                firstEntityType: maybeAssociation.EntityAType,
-                firstContentType: maybeAssociation.EntityAContentType,
-                secondEntityType: maybeAssociation.EntityBType,
-                secondContentType: maybeAssociation.EntityBContentType);
+            if (isCallersOwnPersonalRow is false)
+            {
+                ValidateUserIsNotGloballyReadOnly(inboundEnvelope.SecurityContext);
+
+                ValidateUserIsNotBlockedFromEndpoints(
+                    securityContext: inboundEnvelope.SecurityContext,
+                    firstEntityType: maybeAssociation.EntityAType,
+                    firstContentType: maybeAssociation.EntityAContentType,
+                    secondEntityType: maybeAssociation.EntityBType,
+                    secondContentType: maybeAssociation.EntityBContentType);
+            }
 
             // permission comes before the idempotent short-circuit, so an unauthorized
             // caller learns nothing about the row's deletion state
