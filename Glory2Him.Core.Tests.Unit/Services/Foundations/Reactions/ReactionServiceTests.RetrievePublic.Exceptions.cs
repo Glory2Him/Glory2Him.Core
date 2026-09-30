@@ -163,5 +163,62 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldThrowServiceExceptionOnRetrievePublicIfServiceErrorOccursAndLogItAsync()
+        {
+            // given
+            var serviceException = new Exception();
+
+            var failedReactionServiceException = new FailedReactionServiceException(
+                message: "Failed reaction service error occurred, please contact support.",
+                innerException: serviceException,
+                data: serviceException.Data);
+
+            var expectedReactionServiceException = new ReactionServiceException(
+                message: "Reaction service error occurred, contact support.",
+                innerException: failedReactionServiceException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectReactionsAsync(
+                    It.IsAny<Func<IQueryable<Reaction>, IQueryable<Reaction>>>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(serviceException);
+
+            // when
+            ValueTask<IReadOnlyList<Reaction>> retrievePublicReactionsTask =
+                this.reactionService.RetrievePublicReactionsAsync(
+                    TestContext.Current.CancellationToken);
+
+            ReactionServiceException actualReactionServiceException =
+                await Assert.ThrowsAsync<ReactionServiceException>(
+                    retrievePublicReactionsTask.AsTask);
+
+            // then
+            actualReactionServiceException.Should().BeEquivalentTo(
+                expectedReactionServiceException);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectReactionsAsync(
+                    It.IsAny<Func<IQueryable<Reaction>, IQueryable<Reaction>>>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedReactionServiceException))),
+                Times.Once);
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
