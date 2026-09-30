@@ -11,6 +11,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Brokers.DateTimes;
@@ -44,6 +46,9 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
     {
         private readonly NarrowReadQueryBroker broker;
         private readonly List<Association> seededAssociations;
+
+        // what SQL answered for the grouped reaction count, before the service returned it
+        private IReadOnlyList<AssociationPairCount> sqlAssociationPairCounts;
 
         public AssociationNarrowReadTests(NarrowReadQueryBroker broker)
         {
@@ -821,6 +826,7 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
 
             // then
             actualAssociationPairCounts.Should().BeEquivalentTo(expectedAssociationPairCounts);
+            actualAssociationPairCounts.Should().BeSameAs(this.sqlAssociationPairCounts);
         }
 
         // AllVersions on both endpoints unless a test narrows one, so each EFFECTIVE id the
@@ -894,7 +900,10 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
         }
 
         // The real service over this fixture's real broker. Only the clock is pinned; this read
-        // mints no envelope and reaches no other broker.
+        // mints no envelope and reaches no other broker. The grouped read is forwarded to the real
+        // broker unchanged, and the list SQL answered is kept, so the test can require that the
+        // service hands back exactly that list: the grouping and the count then ran in SQL, not
+        // over rows the service filtered, grouped or counted after the await.
         private IAssociationService CreateAssociationServiceAt(DateTimeOffset currentDateTime)
         {
             var dateTimeBrokerMock = new Mock<IDateTimeBroker>();
@@ -903,8 +912,19 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
                 broker.GetCurrentDateTimeOffsetAsync())
                     .ReturnsAsync(currentDateTime);
 
+            var storageBrokerMock = new Mock<IStorageBroker>();
+
+            storageBrokerMock.Setup(broker =>
+                broker.SelectAssociationsAsync(
+                    It.IsAny<Func<IQueryable<Association>, IQueryable<AssociationPairCount>>>(),
+                    It.IsAny<CancellationToken>()))
+                        .Returns((
+                            Func<IQueryable<Association>, IQueryable<AssociationPairCount>> query,
+                            CancellationToken cancellationToken) =>
+                            SelectAssociationPairCountsInSqlAsync(query, cancellationToken));
+
             return new AssociationService(
-                storageBroker: this.broker.StorageBroker,
+                storageBroker: storageBrokerMock.Object,
                 dateTimeBroker: dateTimeBrokerMock.Object,
                 identifierBroker: new Mock<IIdentifierBroker>().Object,
                 eventBroker: new Mock<IEventBroker>().Object,
@@ -913,6 +933,17 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
                 accessBroker: new Mock<IAccessBroker>().Object,
                 envelopeIntegrityBroker: new Mock<IEnvelopeIntegrityBroker>().Object,
                 loggingBroker: new Mock<ILoggingBroker>().Object);
+        }
+
+        private async ValueTask<IReadOnlyList<AssociationPairCount>>
+            SelectAssociationPairCountsInSqlAsync(
+                Func<IQueryable<Association>, IQueryable<AssociationPairCount>> query,
+                CancellationToken cancellationToken)
+        {
+            this.sqlAssociationPairCounts =
+                await this.broker.StorageBroker.SelectAssociationsAsync(query, cancellationToken);
+
+            return this.sqlAssociationPairCounts;
         }
 
         private async Task SeedAsync(params Association[] associations)
