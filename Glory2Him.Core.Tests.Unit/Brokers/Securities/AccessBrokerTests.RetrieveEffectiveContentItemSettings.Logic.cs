@@ -173,6 +173,44 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                     + "that absence means is its caller's to say");
         }
 
+        [Fact]
+        public async Task ShouldNeverApplyOneItemsOverrideToAnotherAsync()
+        {
+            // given: an override for one item of the type, and a second item of the same type
+            // asked about. The override misses on the item alone.
+            Guid contentItemId = Guid.NewGuid();
+            Guid otherContentItemId = Guid.NewGuid();
+
+            ContentItemSetting otherItemOverride =
+                CreateContentItemSetting(ContentType.Testimony, otherContentItemId);
+
+            ContentItemSetting typeDefault =
+                CreateContentItemSetting(ContentType.Testimony, contentItemId: null);
+
+            SetupContentItemSettings(otherItemOverride, typeDefault);
+
+            var contentItemSettingKeys = new List<ContentItemSettingKey>
+            {
+                CreateContentItemSettingKey(ContentType.Testimony, contentItemId),
+            };
+
+            var expectedEffectiveContentItemSettings = new List<EffectiveContentItemSetting>
+            {
+                CreateEffectiveContentItemSetting(contentItemId, typeDefault),
+            };
+
+            // when
+            IReadOnlyList<EffectiveContentItemSetting> actualEffectiveContentItemSettings =
+                await this.accessBroker.RetrieveEffectiveContentItemSettingsAsync(
+                    contentItemSettingKeys: contentItemSettingKeys,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            actualEffectiveContentItemSettings.Should().BeEquivalentTo(
+                expectedEffectiveContentItemSettings,
+                because: "an override applies only to the content item it names (§DOM6.4)");
+        }
+
         // The function is the one argument matched with It.IsAny, because a function cannot be
         // matched by value. It is proven by applying it instead. The token is matched exactly,
         // so a read that dropped the caller's token answers nothing.
