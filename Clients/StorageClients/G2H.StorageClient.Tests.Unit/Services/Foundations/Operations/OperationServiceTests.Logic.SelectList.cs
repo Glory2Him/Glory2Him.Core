@@ -63,5 +63,85 @@ namespace G2H.StorageClient.Tests.Unit.Services.Foundations.Operations
 
             storageBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldReturnTheProjectionTheQueryShapesInItsOrderAsync()
+        {
+            // Given
+            List<User> randomUsers = CreateRandomUsers();
+
+            for (int index = 0; index < randomUsers.Count; index++)
+                randomUsers[index].Username = $"{randomUsers.Count - index:D2}";
+
+            IQueryable<User> storageUsers = randomUsers.AsQueryable();
+
+            List<string> expectedEmails = randomUsers
+                .AsEnumerable()
+                .Reverse()
+                .Select(user => user.Email)
+                .ToList();
+
+            Func<IQueryable<User>, IQueryable<string>> inputQuery = users =>
+                users.OrderBy(user => user.Username).Select(user => user.Email);
+
+            storageBrokerMock.Setup(broker =>
+                broker.SelectAllAsync<User>())
+                    .ReturnsAsync(storageUsers);
+
+            storageBrokerMock.Setup(broker =>
+                broker.SelectListAsync(It.IsAny<IQueryable<string>>(), default))
+                    .ReturnsAsync((IQueryable<string> query, CancellationToken _) => query.ToList());
+
+            // When
+            IReadOnlyList<string> actualEmails = await operationService.SelectListAsync(inputQuery);
+
+            // Then
+            actualEmails.Should().Equal(expectedEmails);
+
+            storageBrokerMock.Verify(broker =>
+                broker.SelectAllAsync<User>(),
+                    Times.Once);
+
+            storageBrokerMock.Verify(broker =>
+                broker.SelectListAsync(It.IsAny<IQueryable<string>>(), default),
+                    Times.Once);
+
+            storageBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldReturnAnEmptyListWhenTheQuerySelectsNothingAsync()
+        {
+            // Given
+            List<User> randomUsers = CreateRandomUsers();
+            IQueryable<User> storageUsers = randomUsers.AsQueryable();
+
+            Func<IQueryable<User>, IQueryable<User>> inputQuery = users =>
+                users.Where(user => false);
+
+            storageBrokerMock.Setup(broker =>
+                broker.SelectAllAsync<User>())
+                    .ReturnsAsync(storageUsers);
+
+            storageBrokerMock.Setup(broker =>
+                broker.SelectListAsync(It.IsAny<IQueryable<User>>(), default))
+                    .ReturnsAsync((IQueryable<User> query, CancellationToken _) => query.ToList());
+
+            // When
+            IReadOnlyList<User> actualUsers = await operationService.SelectListAsync(inputQuery);
+
+            // Then
+            actualUsers.Should().NotBeNull().And.BeEmpty();
+
+            storageBrokerMock.Verify(broker =>
+                broker.SelectAllAsync<User>(),
+                    Times.Once);
+
+            storageBrokerMock.Verify(broker =>
+                broker.SelectListAsync(It.IsAny<IQueryable<User>>(), default),
+                    Times.Once);
+
+            storageBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
