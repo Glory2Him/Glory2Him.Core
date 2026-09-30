@@ -29,5 +29,22 @@ namespace Glory2Him.Core.Tests.Unit.Models.Configurations
             // then
             actualIsPersonal.Should().BeTrue();
         }
+
+        [Theory]
+        [InlineData(EntityType.ContentItem)]
+        [InlineData(EntityType.Tag)]
+        [InlineData(EntityType.BibleReference)]
+        [InlineData(EntityType.Comment)]
+        [InlineData(EntityType.Link)]
+        [InlineData(EntityType.Attachment)]
+        [InlineData(EntityType.Association)]
+        public void ShouldDeclareEveryOtherEntityTypeNotPersonal(EntityType entityType)
+        {
+            // when
+            bool actualIsPersonal = EntityTypePersonalisation.IsPersonal(entityType);
+
+            // then
+            actualIsPersonal.Should().BeFalse();
+        }
     }
 }
