@@ -27,6 +27,10 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
         ValueTask<IQueryable<Reaction>> SelectAllReactionsAsync(
             CancellationToken cancellationToken = default);
 
+        ValueTask<IReadOnlyList<TResult>> SelectReactionsAsync<TResult>(
+            Func<IQueryable<Reaction>, IQueryable<TResult>> query,
+            CancellationToken cancellationToken = default);
+
         ValueTask<Reaction> SelectReactionByIdAsync(
             Guid reactionId,
             CancellationToken cancellationToken = default);
