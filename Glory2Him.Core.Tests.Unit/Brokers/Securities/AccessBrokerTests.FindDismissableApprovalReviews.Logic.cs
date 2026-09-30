@@ -78,6 +78,68 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             VerifyDismissableApprovalReviewsQueriedOnce();
         }
 
+        [Fact]
+        public async Task ShouldGatherOnlyTheRoundsOwnActiveReviewsAsync()
+        {
+            // given: the round's one active review, and beside it three rows that each miss on
+            // exactly one term, so dropping any term lets its row through
+            Guid approvalId = Guid.NewGuid();
+            DateTimeOffset createdWhen = DateTimeOffset.UtcNow.AddHours(-1);
+
+            ApprovalReview activeReview = CreateDismissableApprovalReview(
+                approvalId: approvalId,
+                statusId: ApprovalStatus.Approved,
+                createdWhen: createdWhen);
+
+            // Same round, withdrawn: §9.5 keeps the row for audit, not for counting.
+            ApprovalReview softDeletedReview = CreateDismissableApprovalReview(
+                approvalId: approvalId,
+                statusId: ApprovalStatus.Approved,
+                createdWhen: createdWhen,
+                isDeleted: true);
+
+            // Same round, already dismissed: dismissing it again would throw at the transition.
+            ApprovalReview dismissedReview = CreateDismissableApprovalReview(
+                approvalId: approvalId,
+                statusId: ApprovalStatus.Dismissed,
+                createdWhen: createdWhen);
+
+            // Another round entirely: without this term one reader's change would reach every
+            // round's reviews in the table.
+            ApprovalReview otherRoundsReview = CreateDismissableApprovalReview(
+                approvalId: Guid.NewGuid(),
+                statusId: ApprovalStatus.Approved,
+                createdWhen: createdWhen);
+
+            SetupDismissableApprovalReviewsQueryOver(
+                activeReview,
+                softDeletedReview,
+                dismissedReview,
+                otherRoundsReview);
+
+            var expectedDismissableApprovalReviews = new List<DismissableApprovalReview>
+            {
+                new DismissableApprovalReview
+                {
+                    Id = activeReview.Id,
+                    CreatedWhen = createdWhen,
+                    IsRejection = false,
+                },
+            };
+
+            // when
+            IReadOnlyList<DismissableApprovalReview> actualDismissableApprovalReviews =
+                await this.accessBroker.FindDismissableApprovalReviewsAsync(
+                    approvalId: approvalId,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            actualDismissableApprovalReviews.Should().BeEquivalentTo(
+                expectedDismissableApprovalReviews);
+
+            VerifyDismissableApprovalReviewsQueriedOnce();
+        }
+
         private void SetupDismissableApprovalReviewsQueryOver(
             params ApprovalReview[] storageApprovalReviews) =>
             this.storageBrokerMock.Setup(broker =>
