@@ -112,4 +112,18 @@ describe('Login', () => {
         expect(landed.pathname).toBe('/Account/LoginWith2fa');
         expect(landed.searchParams.get('ReturnUrl')).toBe('/posts?q=grace#comments');
     });
+
+    it('should keep a reader whose password sign-in is refused on the sign-in page', () => {
+        // given
+        mocks.loginMutate.mockImplementation((_request: unknown, callbacks: LoginCallbacks) =>
+            callbacks.onError(new Error('Invalid login attempt.')));
+
+        renderLogin(loginWithReturnUrl('/posts'));
+
+        // when
+        signInWithPassword();
+
+        // then
+        expect(landedOn()).toBe(loginWithReturnUrl('/posts'));
+    });
 });
