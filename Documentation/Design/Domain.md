@@ -528,7 +528,7 @@ Rules:
 
 ### DOM4.10 Personal Associations — Ownership, Replacement and Revival
 
-**Status: partly built.** The foundation's upsert keeps these rules (`UpsertPersonalAssociationAsync`, #719); the caller-facing members of §ARC16.8.1 are not built. A **personal** association is one whose `UserId` is set (§DOM4.2) — today a reader's reaction and nothing else; an **editorial** association is one whose `UserId` is null. Every rule in this section is personal-only, and none of them reaches an editorial row. The members that perform these writes are recorded in §ARC16.8.1 (the caller-facing surface) and §ARC16.2.2 (the foundation transition and its facts); this section rules what is true of the row, and points at those two rather than copying them.
+**Status: partly built.** The foundation's upsert keeps rules 6–8 (`UpsertPersonalAssociationAsync`, #719); the caller-facing members of §ARC16.8.1 are not built. A **personal** association is one whose `UserId` is set (§DOM4.2) — today a reader's reaction and nothing else; an **editorial** association is one whose `UserId` is null. Every rule in this section is personal-only, and none of them reaches an editorial row. The members that perform these writes are recorded in §ARC16.8.1 (the caller-facing surface) and §ARC16.2.2 (the foundation transition and its facts); this section rules what is true of the row, and points at those two rather than copying them.
 
 **`UserId` is derived, and the null-forcing gate survives.**
 
