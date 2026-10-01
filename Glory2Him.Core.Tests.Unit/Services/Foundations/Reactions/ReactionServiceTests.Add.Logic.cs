@@ -115,13 +115,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             Reaction auditAppliedReaction = inputReaction.DeepClone();
             Reaction storageReaction = auditAppliedReaction.DeepClone();
             Reaction expectedReaction = storageReaction.DeepClone();
+            SecurityContext expectedSecurityContext = this.ambientSecurityContext;
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyAddAuditValuesAsync(inputReaction, It.IsAny<SecurityContext>()))
+                broker.ApplyAddAuditValuesAsync(inputReaction, expectedSecurityContext))
                     .ReturnsAsync(auditAppliedReaction);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                broker.GetUserIdAsync(expectedSecurityContext))
                     .ReturnsAsync(auditAppliedReaction.CreatedBy);
 
             this.dateTimeBrokerMock.Setup(broker =>
@@ -129,11 +131,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
                     .ReturnsAsync(randomDateTimeOffset);
 
             this.storageBrokerMock.Setup(broker =>
-                broker.InsertReactionAsync(auditAppliedReaction, It.IsAny<CancellationToken>()))
+                broker.InsertReactionAsync(auditAppliedReaction, cancellationToken))
                     .ReturnsAsync(storageReaction);
 
             this.eventBrokerMock.Setup(broker =>
-                broker.PublishReactionAsync(It.IsAny<EventEnvelope<Reaction>>(), ReactionEventOperation.Added))
+                broker.PublishReactionAsync(
+                    It.Is<EventEnvelope<Reaction>>(envelope =>
+                        envelope.Content == storageReaction
+                            && envelope.SecurityContext == expectedSecurityContext),
+                    ReactionEventOperation.Added))
                     .Returns(new ValueTask<EventPublishResult<Reaction>>(
                         new EventPublishResult<Reaction>()));
 
@@ -141,18 +147,18 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             Reaction actualReaction =
                 await this.reactionService.AddReactionAsync(
                     inputReaction,
-                    TestContext.Current.CancellationToken);
+                    cancellationToken);
 
             // then
             actualReaction.Should().BeEquivalentTo(expectedReaction);
             actualReaction.SortOrder.Should().Be(0);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                    broker.ApplyAddAuditValuesAsync(inputReaction, It.IsAny<SecurityContext>()),
+                    broker.ApplyAddAuditValuesAsync(inputReaction, expectedSecurityContext),
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                    broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                    broker.GetUserIdAsync(expectedSecurityContext),
                 Times.Once);
 
             this.dateTimeBrokerMock.Verify(broker =>
@@ -163,12 +169,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
                     broker.InsertReactionAsync(
                         It.Is<Reaction>(reaction =>
                             reaction == auditAppliedReaction && reaction.SortOrder == 0),
-                        It.IsAny<CancellationToken>()),
+                        cancellationToken),
                 Times.Once);
 
             this.eventBrokerMock.Verify(broker =>
                 broker.PublishReactionAsync(
-                    It.IsAny<EventEnvelope<Reaction>>(),
+                    It.Is<EventEnvelope<Reaction>>(envelope =>
+                        envelope.Content == storageReaction
+                            && envelope.SecurityContext == expectedSecurityContext),
                     ReactionEventOperation.Added),
                 Times.Once);
 
@@ -177,7 +185,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
                     It.Is<ProcessedEvent>(processedEvent =>
                         processedEvent.ReceiverName ==
                             EventBrokerIdentifiers.ReactionOnAddingReactionSubscriptionName),
-                    It.IsAny<CancellationToken>()),
+                    cancellationToken),
                 Times.Exactly(2));
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
