@@ -7,5 +7,7 @@ The Like control offers the vocabulary that `GET api/Reactions` returns, in the 
 
 ## 1. GetApprovedReactionsAsync (#752)
 
+**On hold, pending #814.** Today this broker writes the vocabulary's filter, and rule 1 below adds an order. Both are query conditions, and the owner ruled on 2026-10-01 that a broker holds no logic (§UI20.9.1, *Scope*). #814 rules where a React read's condition lives and re-carves #752 against that ruling. The order the reader sees (§DOM5.2) is unchanged; only where it is asked for moves.
+
 1. **It asks for the vocabulary ordered by `sortOrder`, then `name`** — `$orderby=sortOrder,name`, sent beside today's filter, which does not change. The server does the ordering: the route is `[EnableQuery]`, and the host enables `$orderby` (`Program.cs`).
 2. **The wire model gains nothing.** The client does no ordering of its own, and `reaction.ts` types only what the choices surface reads.
