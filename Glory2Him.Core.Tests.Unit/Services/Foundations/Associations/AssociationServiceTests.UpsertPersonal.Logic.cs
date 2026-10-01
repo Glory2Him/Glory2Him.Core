@@ -703,11 +703,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 ? CreateStoredPersonalRowOnTheSameReaction(upsertRequest, isDeleted: true)
                 : CreateStoredPersonalRow(upsertRequest, isDeleted: true);
 
-            // the moderator last stamped the row with a write of their own, such as a decision, before
-            // taking it down (a takedown stamps only the Deleted fields), so only the row's UserId
-            // tells the takedown apart from the reader's withdrawal
+            // the moderator created the row on the reader's behalf and last stamped it with a write of
+            // their own, such as a decision, before taking it down (a takedown stamps only the
+            // Deleted fields), so neither CreatedBy nor UpdatedBy tells the takedown apart from the
+            // reader's withdrawal, and only the row's UserId does
             string moderatorUserId = $"moderator-{Guid.NewGuid()}";
             takenDownRow.DeletedBy = moderatorUserId;
+            takenDownRow.CreatedBy = moderatorUserId;
             takenDownRow.UpdatedBy = moderatorUserId;
 
             List<Association> storageAssociations =
