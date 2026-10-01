@@ -414,6 +414,54 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task ShouldThrowDependencyExceptionOnUpsertPersonalIfDatabaseUpdateErrorOccursAndLogItAsync(
+            bool isUpdate)
+        {
+            // given: the write fails with a database update error, on the create arm's insert or
+            // on an existing row's update
+            var dbUpdateException = new DbUpdateException();
+
+            Association upsertRequest =
+                ArrangePersonalUpsertWriteToThrow(isUpdate, dbUpdateException);
+
+            var failedStorageAssociationException =
+                new FailedStorageAssociationException(
+                    message: "Failed content item association storage error occurred, contact support.",
+                    innerException: dbUpdateException,
+                    data: dbUpdateException.Data);
+
+            var expectedAssociationDependencyException = new AssociationDependencyException(
+                message: "Content item association dependency error occurred, contact support.",
+                innerException: failedStorageAssociationException);
+
+            // when
+            ValueTask<PersonalAssociationUpsert> upsertTask =
+                this.associationService.UpsertPersonalAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationDependencyException actualAssociationDependencyException =
+                await Assert.ThrowsAsync<AssociationDependencyException>(upsertTask.AsTask);
+
+            // then
+            actualAssociationDependencyException.Should().BeEquivalentTo(
+                expectedAssociationDependencyException);
+
+            VerifyPersonalUpsertWriteAsked(isUpdate);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationDependencyException))),
+                Times.Once);
+
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // A reader's request that reaches a write: the create arm's insert, or, with the reader's
         // live row on another reaction stored, an existing row's update. The write throws.
         private Association ArrangePersonalUpsertWriteToThrow(bool isUpdate, Exception exception)
