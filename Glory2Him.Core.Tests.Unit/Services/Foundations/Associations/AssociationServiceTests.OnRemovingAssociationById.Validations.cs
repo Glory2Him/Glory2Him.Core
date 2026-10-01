@@ -190,5 +190,82 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Theory]
+        [MemberData(nameof(UnauthenticatedSecurityContexts))]
+        public async Task ShouldThrowValidationExceptionOnRemovingAssociationByIdEventIfUserIsNotAuthenticatedAndLogItAsync(
+            SecurityContext invalidSecurityContext)
+        {
+            // given: the ambient caller stays authenticated, so only the inbound envelope's
+            // caller explains the refusal (§6 rule 1)
+            var requestEnvelope = new EventEnvelope<Association>
+            {
+                SecurityContext = invalidSecurityContext,
+                Content = new Association { Id = Guid.NewGuid() },
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            var unauthorizedAssociationException = new UnauthorizedAssociationException(
+                message: "The current user is not authenticated.");
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: unauthorizedAssociationException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectProcessedEventExistsAsync(
+                    requestEnvelope.Metadata.EventId,
+                    EventBrokerIdentifiers.AssociationOnRemovingAssociationByIdSubscriptionName,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(false);
+
+            // when
+            ValueTask<EventEnvelope<Association>?> onRemovingTask =
+                this.associationService.OnRemovingAssociationByIdAsync(
+                    requestEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(
+                    onRemovingTask.AsTask);
+
+            // then
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectProcessedEventExistsAsync(
+                    requestEnvelope.Metadata.EventId,
+                    EventBrokerIdentifiers.AssociationOnRemovingAssociationByIdSubscriptionName,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAssociationByIdAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Never);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(It.IsAny<Association>()),
+                Times.Never);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
