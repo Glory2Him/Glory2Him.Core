@@ -172,6 +172,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             readersWithdrawnRow.ApprovalStatus = ApprovalStatus.Approved;
 
+            // last stamped by somebody other than the reader, so only the row's UserId tells the
+            // reader's withdrawal apart from a takedown (§DOM4.10 rule 7)
+            readersWithdrawnRow.CreatedBy = $"administrator-{Guid.NewGuid()}";
+            readersWithdrawnRow.UpdatedBy = $"moderator-{Guid.NewGuid()}";
+
             Association readersOlderWithdrawnRow =
                 CreateStoredPersonalRow(upsertRequest, isDeleted: true);
 
@@ -279,6 +284,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 CreateStoredPersonalRow(upsertRequest, isDeleted: true);
 
             readersWithdrawnRow.ApprovalStatus = ApprovalStatus.Approved;
+
+            // last stamped by somebody other than the reader, so only the row's UserId tells the
+            // reader's withdrawal apart from a takedown (§DOM4.10 rule 7)
+            readersWithdrawnRow.CreatedBy = $"administrator-{Guid.NewGuid()}";
+            readersWithdrawnRow.UpdatedBy = $"moderator-{Guid.NewGuid()}";
 
             List<Association> storageAssociations =
                 CreateRandomAssociations().Append(readersWithdrawnRow).ToList();
@@ -647,7 +657,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 ? CreateStoredPersonalRowOnTheSameReaction(upsertRequest, isDeleted: true)
                 : CreateStoredPersonalRow(upsertRequest, isDeleted: true);
 
-            takenDownRow.DeletedBy = $"moderator-{Guid.NewGuid()}";
+            // the takedown is the moderator's last write, so the row's UpdatedBy is theirs too,
+            // and only its UserId tells the takedown apart from the reader's withdrawal
+            string moderatorUserId = $"moderator-{Guid.NewGuid()}";
+            takenDownRow.DeletedBy = moderatorUserId;
+            takenDownRow.UpdatedBy = moderatorUserId;
 
             List<Association> storageAssociations =
                 CreateRandomAssociations().Append(takenDownRow).ToList();
