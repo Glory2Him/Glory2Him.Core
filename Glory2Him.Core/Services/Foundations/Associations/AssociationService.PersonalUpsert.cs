@@ -82,6 +82,10 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             {
                 ValidatePersonalAssociationOnCreate(association);
 
+                // the new row's Id is minted here and never taken from the caller, whose request
+                // carries two endpoints and nothing else (§2 rule 10)
+                association.Id = await this.identifierBroker.GetIdentifierAsync();
+
                 Association auditedAssociation =
                     await this.securityAuditBroker.ApplyAddAuditValuesAsync(
                         entity: association,
