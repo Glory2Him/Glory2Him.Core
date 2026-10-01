@@ -9,8 +9,10 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.Associations.Exceptions;
 using Moq;
@@ -181,6 +183,131 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(ApprovalStatesOnANewPersonalRow))]
+        public async Task ShouldThrowValidationExceptionOnUpsertPersonalIfTheNewRowCarriesApprovalStateAndLogItAsync(
+            string invalidField,
+            object invalidValue,
+            string expectedMessage)
+        {
+            // given: the reader has no row, so the request would be inserted, and a contribution
+            // is created unpublished at Draft or Submitted - publication and a verdict are the
+            // approval workflow's to record
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+
+            Association upsertRequest = SetApprovalState(
+                CreatePersonalUpsertRequest(readerUserId),
+                invalidField,
+                invalidValue);
+
+            var invalidAssociationException = new InvalidAssociationException(
+                message: "Content item association is invalid, fix the errors and try again.");
+
+            invalidAssociationException.UpsertDataList(
+                key: invalidField,
+                value: expectedMessage);
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: invalidAssociationException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(readerUserId);
+
+            SetupPersonalUpsertLookupOver(
+                CreateRandomAssociations(),
+                TestContext.Current.CancellationToken);
+
+            // when
+            ValueTask<PersonalAssociationUpsert> upsertTask =
+                this.associationService.UpsertPersonalAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(upsertTask.AsTask);
+
+            // then: the create is refused, naming the field, and nothing is stamped or written
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(upsertRequest),
+                    Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                    Times.Once);
+
+            VerifyPersonalUpsertLookupAsked(TestContext.Current.CancellationToken, Times.Once());
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // every approval state a new row may not carry, with the add's message for it
+        public static TheoryData<string, object, string> ApprovalStatesOnANewPersonalRow() =>
+            new TheoryData<string, object, string>
+            {
+                {
+                    nameof(Association.ApprovalStatus),
+                    ApprovalStatus.Approved,
+                    "Value must be Draft or Submitted on add"
+                },
+                {
+                    nameof(Association.ApprovalStatus),
+                    ApprovalStatus.Rejected,
+                    "Value must be Draft or Submitted on add"
+                },
+                {
+                    nameof(Association.ApprovalStatus),
+                    ApprovalStatus.Dismissed,
+                    "Value must be Draft or Submitted on add"
+                },
+                {
+                    nameof(Association.IsPublished),
+                    true,
+                    "Value is not allowed on add"
+                },
+                {
+                    nameof(Association.PublishDate),
+                    GetRandomDateTimeOffset(),
+                    "Date is not allowed on add"
+                }
+            };
+
+        private static Association SetApprovalState(Association request, string field, object value)
+        {
+            switch (field)
+            {
+                case nameof(Association.ApprovalStatus):
+                    request.ApprovalStatus = (ApprovalStatus)value;
+                    break;
+
+                case nameof(Association.IsPublished):
+                    request.IsPublished = (bool)value;
+                    break;
+
+                case nameof(Association.PublishDate):
+                    request.PublishDate = (DateTimeOffset)value;
+                    break;
+            }
+
+            return request;
         }
 
         public static TheoryData<string, string> InvalidPersonalUpsertEndpoints() =>
