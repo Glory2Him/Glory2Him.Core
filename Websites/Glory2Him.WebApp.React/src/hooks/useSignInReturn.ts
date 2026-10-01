@@ -4,6 +4,6 @@ export const useSignInReturn = (): ((returnUrl: string | null | undefined) => vo
     const navigate = useNavigate();
 
     return (returnUrl) => {
-        navigate(returnUrl as string);
+        navigate(returnUrl ?? '/');
     };
 };
