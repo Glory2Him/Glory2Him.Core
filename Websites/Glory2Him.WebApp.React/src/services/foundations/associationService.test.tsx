@@ -1,8 +1,9 @@
 import { ReactNode } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { associationService } from './associationService';
+import { queryClientGlobalOptions } from '../../brokers/apiBroker.globals';
 import { EntityType } from '../../models/foundations/approvalSettings/approvalSetting';
 import { AssociationRequest } from '../../models/foundations/associations/associationRequest';
 
@@ -18,6 +19,13 @@ vi.mock('../../brokers/apiBroker.associations', () => ({
         PostAssociationAsync = postAssociationAsync;
     }
 }));
+
+vi.mock('../../brokers/toastBroker.error', () => ({
+    toastError: vi.fn()
+}));
+
+const { toastError } = await import('../../brokers/toastBroker.error');
+const toastErrorMock = vi.mocked(toastError);
 
 const reactionRequest: AssociationRequest = {
     entityAType: EntityType.ContentItem,
@@ -100,5 +108,43 @@ describe('associationService.useUpsertAssociation', () => {
 
         // then
         expect(invalidated).toEqual([['ReactionSummaries']]);
+    });
+
+    // A FAILED REACTION IS ANNOUNCED as every failed write is. Driven through the app's own
+    // global handler, so what is proven is the toast the reader sees, not the absence of a flag.
+    // The handler rethrows by design, which react-query surfaces as an unhandled rejection; it
+    // is swallowed here and nowhere else, so the decision to toast stays the app's.
+    it("should fail with the broker's error and leave the global toast on", async () => {
+        // given
+        const brokerError = new Error('refused');
+        postAssociationAsync.mockRejectedValue(brokerError);
+
+        const globalOnError =
+            queryClientGlobalOptions.getMutationCache().config.onError!;
+
+        const globalClient = new QueryClient({
+            mutationCache: new MutationCache({
+                onError: (...args) => {
+                    try {
+                        globalOnError(...args);
+                    } catch {
+                        // the global handler's deliberate rethrow
+                    }
+                }
+            })
+        });
+
+        const globalWrapper = ({ children }: { children: ReactNode }) => (
+            <QueryClientProvider client={globalClient}>{children}</QueryClientProvider>
+        );
+
+        const { result } = renderHook(
+            () => associationService.useUpsertAssociation(), { wrapper: globalWrapper });
+
+        // when
+        await expect(result.current.mutateAsync(reactionRequest)).rejects.toBe(brokerError);
+
+        // then
+        expect(toastErrorMock).toHaveBeenCalledTimes(1);
     });
 });
