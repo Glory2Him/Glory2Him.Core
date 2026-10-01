@@ -171,11 +171,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             {
                 { nameof(Association.EntityAKeyId), "Id is required" },
                 { nameof(Association.EntityBKeyId), "Id is required" },
+                { nameof(Association.EntityAGroupId), "Id is required" },
+                { nameof(Association.EntityBGroupId), "Id is required" },
                 { nameof(Association.EntityAType), "Value is not a supported entity type" },
                 { nameof(Association.EntityBType), "Value is not a supported entity type" }
             };
 
-        // an empty key, or a type outside EntityType — a stale client sending a removed member
+        // an empty key or group id, or a type outside EntityType — a stale client sending a removed member
         private static Association InvalidateEndpointField(Association request, string field)
         {
             var undefinedEntityType = (EntityType)(-1);
@@ -188,6 +190,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
                 case nameof(Association.EntityBKeyId):
                     request.EntityBKeyId = Guid.Empty;
+                    break;
+
+                case nameof(Association.EntityAGroupId):
+                    request.EntityAGroupId = Guid.Empty;
+                    break;
+
+                case nameof(Association.EntityBGroupId):
+                    request.EntityBGroupId = Guid.Empty;
                     break;
 
                 case nameof(Association.EntityAType):
