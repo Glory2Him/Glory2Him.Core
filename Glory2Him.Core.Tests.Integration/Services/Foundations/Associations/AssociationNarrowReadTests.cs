@@ -923,6 +923,45 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
             actualPairKeys.Should().BeEmpty();
         }
 
+        /// <summary>
+        /// #721 criterion 16: <c>Association.UserId</c> ignores letter case (the owner's ruling of
+        /// 2026-10-01). The caller term compares under the column's collation, the catalogue's
+        /// case-insensitive default, so a caller whose id differs from the row's only in letter
+        /// case reads the row as their own. The unit tests compare ordinally and cannot show this.
+        /// </summary>
+        [Fact]
+        public async Task ShouldRetrieveTheCallersReactionWhateverTheLetterCaseOfTheirUserIdAsync()
+        {
+            // given
+            string storedUserId = $"Reader-{Guid.NewGuid():N}".ToUpperInvariant();
+            string callerUserId = storedUserId.ToLowerInvariant();
+            Guid contentItemGroupId = Guid.NewGuid();
+            Guid reactionId = Guid.NewGuid();
+
+            await SeedAsync(CreateCallersReaction(contentItemGroupId, reactionId, storedUserId));
+
+            IAssociationService associationService = CreateAssociationServiceFor(callerUserId);
+
+            var expectedPairKeys = new List<AssociationPairKey>
+            {
+                new AssociationPairKey
+                {
+                    EntityAEffectiveId = contentItemGroupId,
+                    EntityBKeyId = reactionId
+                }
+            };
+
+            // when
+            IReadOnlyList<AssociationPairKey> actualPairKeys =
+                await associationService.RetrieveCallerContentItemReactionsAsync(
+                    contentItemGroupIds: new List<Guid> { contentItemGroupId },
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            callerUserId.Should().NotBe(storedUserId);
+            actualPairKeys.Should().BeEquivalentTo(expectedPairKeys);
+        }
+
         // AllVersions on both endpoints unless a test narrows one, so each EFFECTIVE id the
         // database computes is that endpoint's group id — which is what the reads above are keyed
         // on. entityBType is a parameter because the B-endpoint tests need a VERSIONED endpoint
