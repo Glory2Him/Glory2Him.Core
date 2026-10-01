@@ -28,6 +28,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             CancellationToken cancellationToken = default) =>
             TryCatch(async () =>
             {
+                ValidateAssociationIsNotNull(association);
+
                 EventEnvelope<Association> envelope =
                     await this.eventEnvelopeBroker.CreateAsync(content: association);
 

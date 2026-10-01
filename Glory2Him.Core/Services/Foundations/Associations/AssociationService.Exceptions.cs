@@ -535,6 +535,11 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 throw await CreateAndLogValidationExceptionAsync(
                     exception: unauthorizedAssociationException);
             }
+            catch (NullAssociationException nullAssociationException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(
+                    exception: nullAssociationException);
+            }
         }
 
         // The early-dedupe question (#631): a storage read and nothing else, so it needs only the
