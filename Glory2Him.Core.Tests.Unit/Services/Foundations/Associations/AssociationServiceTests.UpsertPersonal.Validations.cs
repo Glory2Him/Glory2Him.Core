@@ -528,6 +528,206 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Theory]
+        [MemberData(nameof(InvalidNewPersonalRows))]
+        public async Task ShouldThrowValidationExceptionOnUpsertPersonalIfTheNewRowIsInvalidAndLogItAsync(
+            string invalidity,
+            string invalidField,
+            string expectedMessage)
+        {
+            // given: the reader has no row, so the request would be inserted, and it breaks one of
+            // the add's rules that no earlier check asks. The new row is validated as the add
+            // validates one, after canonical order is restored, so a content type names the field
+            // the new row stores it in (§2 rules 1 and 4).
+            string readerUserId = invalidity == nameof(Association.UserId)
+                ? GetRandomStringWithLengthOf(256)
+                : GetRandomString();
+
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+
+            Association upsertRequest = MakeNewPersonalRowInvalid(
+                CreatePersonalUpsertRequest(readerUserId),
+                invalidity);
+
+            var invalidAssociationException = new InvalidAssociationException(
+                message: "Content item association is invalid, fix the errors and try again.");
+
+            invalidAssociationException.UpsertDataList(
+                key: invalidField,
+                value: expectedMessage);
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: invalidAssociationException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(readerUserId);
+
+            SetupPersonalUpsertLookupOver(
+                CreateRandomAssociations(),
+                TestContext.Current.CancellationToken);
+
+            // when
+            ValueTask<PersonalAssociationUpsert> upsertTask =
+                this.associationService.UpsertPersonalAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(upsertTask.AsTask);
+
+            // then: the create is refused, naming the field, and nothing is minted, stamped or
+            // inserted
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(upsertRequest),
+                    Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                    Times.Once);
+
+            VerifyPersonalUpsertLookupAsked(TestContext.Current.CancellationToken, Times.Once());
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // each rule of the add that no earlier check of the upsert asks, save the empty Id the
+        // create arm mints over (§2 rule 10), with the field and the add's message for it
+        public static TheoryData<string, string, string> InvalidNewPersonalRows() =>
+            new TheoryData<string, string, string>
+            {
+                {
+                    "EntityAContentTypeNotApplicable",
+                    nameof(Association.EntityAContentType),
+                    "Value is only applicable to a ContentItem endpoint"
+                },
+                {
+                    "EntityAContentTypeUndefined",
+                    nameof(Association.EntityAContentType),
+                    "Value is not a supported content type"
+                },
+                {
+                    "EntityBContentTypeNotApplicable",
+                    nameof(Association.EntityBContentType),
+                    "Value is only applicable to a ContentItem endpoint"
+                },
+                {
+                    "EntityBContentTypeUndefined",
+                    nameof(Association.EntityBContentType),
+                    "Value is not a supported content type"
+                },
+                {
+                    "ReactionNamedAsEndpointACarryingAContentType",
+                    nameof(Association.EntityBContentType),
+                    "Value is only applicable to a ContentItem endpoint"
+                },
+                {
+                    nameof(Association.UserId),
+                    nameof(Association.UserId),
+                    "Text exceed max length of 255 characters"
+                },
+                {
+                    nameof(Association.ConfidenceReason),
+                    nameof(Association.ConfidenceReason),
+                    "Text exceed max length of 500 characters"
+                },
+                {
+                    nameof(Association.ModelVersion),
+                    nameof(Association.ModelVersion),
+                    "Text exceed max length of 128 characters"
+                },
+                {
+                    "ConfidenceScoreBelowZero",
+                    nameof(Association.ConfidenceScore),
+                    "Value is not within range of 0 and 10"
+                },
+                {
+                    "ConfidenceScoreAboveTen",
+                    nameof(Association.ConfidenceScore),
+                    "Value is not within range of 0 and 10"
+                }
+            };
+
+        // Each pair is otherwise valid for the upsert: every non-versioned endpoint's group is its
+        // key and every scope is the one its type takes. Canonical order is ordinal on the type's
+        // name, so a BibleReference stays endpoint A beside a reaction or a content item.
+        private static Association MakeNewPersonalRowInvalid(Association request, string invalidity)
+        {
+            var undefinedContentType = (ContentType)int.MaxValue;
+
+            switch (invalidity)
+            {
+                case "EntityAContentTypeNotApplicable":
+                    request.EntityAType = EntityType.BibleReference;
+                    request.EntityAGroupId = request.EntityAKeyId;
+                    request.EntityAScope = Scope.ThisVersionOnly;
+                    request.EntityAContentType = ContentType.Quote;
+                    break;
+
+                case "EntityAContentTypeUndefined":
+                    request.EntityAContentType = undefinedContentType;
+                    break;
+
+                case "EntityBContentTypeNotApplicable":
+                    request.EntityBContentType = ContentType.Quote;
+                    break;
+
+                case "EntityBContentTypeUndefined":
+                    request.EntityBType = EntityType.ContentItem;
+                    request.EntityBScope = Scope.AllVersions;
+                    request.EntityBGroupId = Guid.NewGuid();
+                    request.EntityBContentType = undefinedContentType;
+                    request.EntityAType = EntityType.BibleReference;
+                    request.EntityAGroupId = request.EntityAKeyId;
+                    request.EntityAScope = Scope.ThisVersionOnly;
+                    request.EntityAContentType = null;
+                    break;
+
+                case "ReactionNamedAsEndpointACarryingAContentType":
+                    request.EntityAContentType = null;
+                    request.EntityBContentType = ContentType.Quote;
+                    request = ReverseEndpoints(request);
+                    break;
+
+                case nameof(Association.UserId):
+                    break;
+
+                case nameof(Association.ConfidenceReason):
+                    request.ConfidenceReason = GetRandomStringWithLengthOf(501);
+                    break;
+
+                case nameof(Association.ModelVersion):
+                    request.ModelVersion = GetRandomStringWithLengthOf(129);
+                    break;
+
+                case "ConfidenceScoreBelowZero":
+                    request.ConfidenceScore = -1;
+                    break;
+
+                case "ConfidenceScoreAboveTen":
+                    request.ConfidenceScore = 11;
+                    break;
+            }
+
+            return request;
+        }
+
         // every approval state a new row may not carry, with the add's message for it
         public static TheoryData<string, object, string> ApprovalStatesOnANewPersonalRow() =>
             new TheoryData<string, object, string>
