@@ -97,8 +97,9 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             });
 
         // A null UserId is an editorial row, which has no personal key to look up. The endpoints
-        // must be identified — a supported type and a key each side — because the key the lookup
-        // runs on is taken from them.
+        // must be identified — a supported type, a key and a group each side — because the key the
+        // lookup runs on is taken from them: under AllVersions the effective id is the group id,
+        // so an empty group would key the lookup off nothing and answer "no row".
         private static void ValidateOnFindPersonalAssociation(Association association) =>
             Validate(
                 message: "Content item association is invalid, fix the errors and try again.",
@@ -106,7 +107,9 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 (Rule: IsInvalid(association.EntityAType), Parameter: nameof(Association.EntityAType)),
                 (Rule: IsInvalid(association.EntityBType), Parameter: nameof(Association.EntityBType)),
                 (Rule: IsInvalid(association.EntityAKeyId), Parameter: nameof(Association.EntityAKeyId)),
-                (Rule: IsInvalid(association.EntityBKeyId), Parameter: nameof(Association.EntityBKeyId)));
+                (Rule: IsInvalid(association.EntityBKeyId), Parameter: nameof(Association.EntityBKeyId)),
+                (Rule: IsInvalid(association.EntityAGroupId), Parameter: nameof(Association.EntityAGroupId)),
+                (Rule: IsInvalid(association.EntityBGroupId), Parameter: nameof(Association.EntityBGroupId)));
 
         // The personal-key condition, written once (§DOM4.6 rule 2; the user story's preamble):
         // the key UX_Associations_PersonalPair holds — the host's type and effective id, the far
