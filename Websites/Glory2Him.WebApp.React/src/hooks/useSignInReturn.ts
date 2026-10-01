@@ -5,7 +5,11 @@ const isLocal = (returnUrl: string | null | undefined): returnUrl is string => {
         return false;
     }
 
-    return new URL(returnUrl, window.location.origin).origin === window.location.origin;
+    try {
+        return new URL(returnUrl, window.location.origin).origin === window.location.origin;
+    } catch {
+        return false;
+    }
 };
 
 export const useSignInReturn = (): ((returnUrl: string | null | undefined) => void) => {
