@@ -15,14 +15,16 @@ using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 namespace Glory2Him.Core.Models.Securities
 {
     /// <summary>
-    /// The <c>ContentItemSetting</c> row that wins for one content item — its own live override
-    /// where it has one, its type's live default otherwise (§DOM6.4).
+    /// The <c>ContentItemSetting</c> row that wins for one key, one content item under one
+    /// content type: the item's live override for that type where it has one, the type's live
+    /// default otherwise (§DOM6.4).
     ///
     /// <para>The item's id is carried beside the row because a default row answers every item of
-    /// its type and names none of them.</para>
+    /// its type and names none of them. The key's type is the row's own <c>ContentType</c>, so an
+    /// item asked under two types comes back twice, told apart by that.</para>
     ///
     /// <para>Init properties rather than a constructor, because the access broker projects into
-    /// this inside the query it hands to storage, one subquery per item joined by a set operation.
+    /// this inside the query it hands to storage, one subquery per key joined by set operations.
     /// EF refuses a set operation over a constructor projection, which it can only run in memory
     /// after the fact.</para>
     /// </summary>

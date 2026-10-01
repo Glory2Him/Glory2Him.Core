@@ -469,16 +469,20 @@ namespace Glory2Him.Core.Brokers.Securities
             CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// The winning <c>ContentItemSetting</c> for each content item asked: its own live
-        /// override where it has one, its type's live default otherwise (§DOM6.4). The tiers are
-        /// a selection and never a merge, and a soft-deleted row never wins (§DOM6.6).
+        /// The winning <c>ContentItemSetting</c> for each key asked, a key being one content item
+        /// under one content type: the item's live override for that type where it has one, the
+        /// type's live default otherwise (§DOM6.4). The tiers are a selection and never a merge,
+        /// and a soft-deleted row never wins (§DOM6.6).
+        ///
+        /// <para>The answer is per key, not per item. An item asked under two types is two keys,
+        /// answered once for each that resolves a row.</para>
         ///
         /// <para>The single home of that precedence (§ARC16.8, the §DOM6.10 row). The facet gate
         /// on the association write and the reaction summary's display rule both ask it here
         /// rather than restating it.</para>
         ///
         /// <para>Answered by one query, shaped here and run in SQL, so no candidate list is picked
-        /// over in memory. An item that resolves no row is absent from the answer, and what that
+        /// over in memory. A key that resolves no row is absent from the answer, and what that
         /// absence means is its caller's to say.</para>
         ///
         /// <para>One query is one statement, and SQL Server takes at most 2,100 parameters in one.
