@@ -83,4 +83,22 @@ describe('associationService.useUpsertAssociation', () => {
         // then
         expect(invalidated).toEqual([['ReactionSummaries']]);
     });
+
+    // A FAILED WRITE MAY STILL HAVE LANDED: the server can write the row and the answer be lost
+    // on the way back, so the summaries are read again either way and the card shows what the
+    // server holds rather than what the page guessed.
+    it('should read the summaries again when a reaction write fails', async () => {
+        // given
+        postAssociationAsync.mockRejectedValue(new Error('refused'));
+
+        const { result } = renderHook(
+            () => associationService.useUpsertAssociation(), { wrapper });
+
+        // when
+        await expect(result.current.mutateAsync(reactionRequest)).rejects.toThrow('refused');
+        await waitFor(() => expect(invalidated.length).toBeGreaterThan(0));
+
+        // then
+        expect(invalidated).toEqual([['ReactionSummaries']]);
+    });
 });
