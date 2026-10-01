@@ -218,6 +218,54 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldThrowDependencyExceptionOnUpsertPersonalIfOperationCanceledExceptionOccursAndLogItAsync()
+        {
+            // given: the storage call is cancelled though the caller's token was not — a timeout
+            Association upsertRequest = CreateAllowedPersonalUpsertRequest();
+            var operationCanceledException = new OperationCanceledException();
+
+            var timeoutException =
+                new TimeoutException("The dependency operation timed out.");
+
+            var timeoutAssociationException =
+                new TimeoutAssociationException(
+                    message: "Failed content item association timeout error occurred, contact support.",
+                    innerException: timeoutException,
+                    data: timeoutException.Data);
+
+            var expectedAssociationDependencyException = new AssociationDependencyException(
+                message: "Content item association dependency error occurred, contact support.",
+                innerException: timeoutAssociationException);
+
+            SetupPersonalUpsertLookupToThrow(operationCanceledException);
+
+            // when
+            ValueTask<PersonalAssociationUpsert> upsertTask =
+                this.associationService.UpsertPersonalAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationDependencyException actualAssociationDependencyException =
+                await Assert.ThrowsAsync<AssociationDependencyException>(upsertTask.AsTask);
+
+            // then: reported as a timeout, and nothing written or announced
+            actualAssociationDependencyException.Should().BeEquivalentTo(
+                expectedAssociationDependencyException);
+
+            VerifyPersonalUpsertLookupAsked(TestContext.Current.CancellationToken, Times.Once());
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationDependencyException))),
+                Times.Once);
+
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // a signed-in reader giving their own reaction, so the upsert reaches storage
         private Association CreateAllowedPersonalUpsertRequest()
         {
