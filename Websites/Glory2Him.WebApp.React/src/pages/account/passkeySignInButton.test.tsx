@@ -113,4 +113,19 @@ describe('PasskeySignInButton', () => {
         // then
         expect(landedOn()).toBe('/');
     });
+
+    it('should send a reader signed in by passkey to the home page when the return address is not local', () => {
+        for (const returnUrl of refusedReturnUrls) {
+            // given
+            acceptPasskey();
+            const { unmount } = renderPasskeySignInButton(returnUrl);
+
+            // when
+            signInWithPasskey();
+
+            // then
+            expect(landedOn()).toBe('/');
+            unmount();
+        }
+    });
 });
