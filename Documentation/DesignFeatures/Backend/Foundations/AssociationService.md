@@ -88,12 +88,11 @@ ValueTask<IReadOnlyList<AssociationPairKey>> RetrieveCallerContentItemReactionsA
 1. **It answers the signed caller's own live reaction on each host**, whatever its approval status and publish date — which is what lets the card show a reaction pressed while its count has not moved (§ARC16.8, *What a reader sees when their own reaction is not yet `Approved`*). An empty list of hosts is valid, and answers an empty list.
 2. **The caller is the envelope's, never a parameter**, so it can never return another reader's row. An anonymous caller has no rows, and is answered with an empty list without a query. So is a signed-in caller whose identity carries no user id — null, empty or whitespace. An editorial row's `UserId` is null (§DOM4.6 rule 2), so it is nobody's own. A caller term with no id would answer every editorial reaction row on the hosts asked for as the caller's own. The caller with no user id is logged as a warning, because a signed-in identity without a user id is a misconfiguration. The anonymous answer is ordinary traffic and is not logged.
 3. **It decides nothing.** It is an identity-filtered read for display, and no invariant rests on it.
-4. **The shaped query is proven against the real catalogue** in `Glory2Him.Core.Tests.Integration` (§ARC12.2.1 rule 6). The proof covers three things the unit tests' in-memory evaluation cannot show:
+4. **The shaped query is proven against the real catalogue** in `Glory2Him.Core.Tests.Integration` (§ARC12.2.1 rule 6). The proof covers two things the unit tests' in-memory evaluation cannot show:
    - the `IN` over the list and the projection translate;
-   - an empty list answers an empty list in SQL;
-   - how the caller term compares `UserId`.
+   - an empty list answers an empty list in SQL.
 
-   The caller term compares under the column's own collation. That collation is case-insensitive, while the unit tests compare ordinally, and it is the collation `UX_Associations_PersonalPair` keys on (§DOM4.6 rule 2). So the caller's user id written in another letter case matches the caller, just as it would collide in that index, and this read and the index agree on which rows are one reader's. This read sets no collation of its own.
+   **Open, not ruled: how the caller term compares letter case.** `UserId` has no collation of its own. The caller term and `UX_Associations_PersonalPair` (§DOM4.6 rule 2) therefore both follow the catalogue's default collation, which here is case-insensitive, while the unit tests compare ordinally. The term and the index agree because they share that default, not by construction. Whether `Association.UserId` is an identifier pinned to a binary collation, as §EVN25 pinned `ReceiverName`, would be a schema change to the association table and its personal index, and this read does not rule on it. Until it is ruled, nothing here pins how two user ids that differ only in letter case compare.
 
 Its caller is the summary read (`Backend/Orchestrations/AssociationOrchestrationService.md §4`), which asks it only for a signed-in caller (§ARC16.8, *What a rendered page costs*, the fifth round trip).
 
