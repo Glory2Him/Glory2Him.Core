@@ -138,4 +138,19 @@ describe('Login', () => {
         // then
         expect(landedOn()).toBe('/');
     });
+
+    it('should send a reader signed in by password to the home page when the return address is not local', () => {
+        for (const returnUrl of refusedReturnUrls) {
+            // given
+            acceptSignIn(false);
+            const { unmount } = renderLogin(loginWithReturnUrl(returnUrl));
+
+            // when
+            signInWithPassword();
+
+            // then
+            expect(landedOn()).toBe('/');
+            unmount();
+        }
+    });
 });
