@@ -33,11 +33,14 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
 {
     /// <summary>
     /// Proves the association NARROW READS against a real catalogue: the exact-pair probe, the
-    /// overlap probe, the scope-change duplicate check and the grouped reaction count.
+    /// overlap probe, the scope-change duplicate check, the grouped reaction count and the
+    /// caller's own reactions.
     ///
     /// <para>The probes and the duplicate check key on <c>EntityAEffectiveId</c> and
     /// <c>EntityBEffectiveId</c>; the grouped reaction count keys on <c>EntityAEffectiveId</c>
-    /// and <c>EntityBKeyId</c>. Each effective id is a PERSISTED COMPUTED column — the value the
+    /// and <c>EntityBKeyId</c>; the caller's own reactions key on <c>EntityAEffectiveId</c> and
+    /// <c>UserId</c>, whose comparison follows the column's collation, so its letter-case test
+    /// can only run here. Each effective id is a PERSISTED COMPUTED column — the value the
     /// read matches on is produced by the database, not by the row the test hands it. That alone
     /// is a reason these belong here: an in-memory queryable would compare a default Guid on both
     /// sides and agree with itself.</para>
