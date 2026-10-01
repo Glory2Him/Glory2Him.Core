@@ -83,4 +83,19 @@ describe('Login', () => {
         // then
         expect(landedOn()).toBe('/posts?q=grace#comments');
     });
+
+    it('should send a reader signed in by password on unchanged to every local return address', () => {
+        for (const returnUrl of acceptedReturnUrls) {
+            // given
+            acceptSignIn(false);
+            const { unmount } = renderLogin(loginWithReturnUrl(returnUrl));
+
+            // when
+            signInWithPassword();
+
+            // then
+            expect(landedOn()).toBe(returnUrl);
+            unmount();
+        }
+    });
 });
