@@ -604,6 +604,17 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 throw await CreateAndLogDependencyValidationExceptionAsync(
                     alreadyExistsAssociationException);
             }
+            catch (ForeignKeyConstraintConflictException foreignKeyConstraintConflictException)
+            {
+                var invalidAssociationReferenceException =
+                    new InvalidAssociationReferenceException(
+                        message: "Invalid content item association reference error occurred.",
+                        innerException: foreignKeyConstraintConflictException,
+                        data: foreignKeyConstraintConflictException.Data);
+
+                throw await CreateAndLogDependencyValidationExceptionAsync(
+                    invalidAssociationReferenceException);
+            }
             catch (Exception exception)
             {
                 var failedAssociationServiceException =
