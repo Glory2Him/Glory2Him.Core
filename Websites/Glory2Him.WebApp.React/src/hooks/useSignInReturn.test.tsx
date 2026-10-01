@@ -28,6 +28,15 @@ const landedOn = ({ pathname, search, hash }: Location) => `${pathname}${search}
 // from its address once the query string is decoded.
 const acceptedReturnUrls = ['/%2F%2Fevil.example', '/posts?q=grace#comments'];
 
+// The inputs the same table lists as refused, read the same way.
+const refusedReturnUrls = [
+    '//evil.example',
+    '/\\evil.example',
+    'https://evil.example',
+    'javascript:alert(1)',
+    '/	/evil.example'
+];
+
 describe('useSignInReturn', () => {
     it('should send the reader on to a local return address with its path, query and fragment', () => {
         // given
@@ -90,5 +99,19 @@ describe('useSignInReturn', () => {
 
         // then
         expect(landedOn(result.current.location)).toBe('/');
+    });
+
+    it('should send the reader to the home page when the return address is not local', () => {
+        for (const returnUrl of refusedReturnUrls) {
+            // given
+            const { result, unmount } = renderSignInReturn();
+
+            // when
+            act(() => result.current.signInReturn(returnUrl));
+
+            // then
+            expect(landedOn(result.current.location)).toBe('/');
+            unmount();
+        }
     });
 });
