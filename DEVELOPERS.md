@@ -81,7 +81,8 @@ session did. Either way, the artifact each role leaves behind is the whole of th
 handoff. Where QA cannot post its round or apply its labels itself, the session
 that launched it posts the round as QA wrote it and applies the labels QA's
 verdict carries, as `.claude/agents/qa.md` defines them; the ruling stays QA's.
-Two of the rows are decisions only you can make: merging the design, and merging
+Every other arrow stays yours: you start the planner and the developer. Two of
+the rows are decisions only you can make: merging the design, and merging
 the work. Approving the criteria is QA's: its `ready for development` label is
 what the developer starts on.
 
