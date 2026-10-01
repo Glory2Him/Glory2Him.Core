@@ -530,14 +530,22 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         // another host type, another host, another far-end type or another reader
         private static Association MissOnePersonalKeyTerm(Association storedRow, string term)
         {
+            storedRow = WithDatabaseComputedEffectiveIds(storedRow);
+
             switch (term)
             {
                 case nameof(Association.EntityAType):
                     storedRow.EntityAType = EntityType.BibleReference;
                     break;
 
+                // the host row keeps the match's group and differs in the stored effective id
+                // alone, so a condition comparing the group id rather than the effective id
+                // would still find it
                 case nameof(Association.EntityAEffectiveId):
-                    storedRow.EntityAGroupId = Guid.NewGuid();
+                    typeof(Association)
+                        .GetProperty(nameof(Association.EntityAEffectiveId))
+                        .SetValue(storedRow, Guid.NewGuid());
+
                     break;
 
                 case nameof(Association.EntityBType):
@@ -549,7 +557,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     break;
             }
 
-            return WithDatabaseComputedEffectiveIds(storedRow);
+            return storedRow;
         }
 
         // A reader's reaction on a Quote, as the withdrawal hands it over: the host on endpoint A
