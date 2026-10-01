@@ -353,10 +353,21 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
             if (publishResult.HasFailedDeliveries)
             {
+                // composed outside the try, so only the sink is contained: a fault composing the
+                // report is a defect here, not a sink that is down
                 FailedEventDeliveryException deliveryReport =
                     FailedEventDeliveryException.ForFailedDeliveries(publishResult, operation);
 
-                await this.loggingBroker.LogCriticalAsync(deliveryReport);
+                // The report must not throw either (§EVN23 rule 2). Every exception is contained,
+                // cancellation included: LogCriticalAsync takes no token, so a cancellation raised
+                // there is the sink failing, never the caller cancelling.
+                try
+                {
+                    await this.loggingBroker.LogCriticalAsync(deliveryReport);
+                }
+                catch (Exception)
+                {
+                }
             }
         }
     }
