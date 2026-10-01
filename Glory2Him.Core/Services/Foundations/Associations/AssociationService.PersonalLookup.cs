@@ -97,9 +97,10 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             });
 
         // A null UserId is an editorial row, which has no personal key to look up. The endpoints
-        // must be identified — a supported type, a key and a group each side — because the key the
-        // lookup runs on is taken from them: under AllVersions the effective id is the group id,
-        // so an empty group would key the lookup off nothing and answer "no row".
+        // must be identified — a supported type and scope, a key and a group each side — because
+        // the key the lookup runs on is taken from them: under AllVersions the effective id is the
+        // group id, so an empty group would key the lookup off nothing, and a scope that is
+        // neither would be keyed as ThisVersionOnly — each answering "no row" rather than refusing.
         private static void ValidateOnFindPersonalAssociation(Association association) =>
             Validate(
                 message: "Content item association is invalid, fix the errors and try again.",
@@ -109,7 +110,9 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 (Rule: IsInvalid(association.EntityAKeyId), Parameter: nameof(Association.EntityAKeyId)),
                 (Rule: IsInvalid(association.EntityBKeyId), Parameter: nameof(Association.EntityBKeyId)),
                 (Rule: IsInvalid(association.EntityAGroupId), Parameter: nameof(Association.EntityAGroupId)),
-                (Rule: IsInvalid(association.EntityBGroupId), Parameter: nameof(Association.EntityBGroupId)));
+                (Rule: IsInvalid(association.EntityBGroupId), Parameter: nameof(Association.EntityBGroupId)),
+                (Rule: IsInvalid(association.EntityAScope), Parameter: nameof(Association.EntityAScope)),
+                (Rule: IsInvalid(association.EntityBScope), Parameter: nameof(Association.EntityBScope)));
 
         // The personal-key condition, written once (§DOM4.6 rule 2; the user story's preamble):
         // the key UX_Associations_PersonalPair holds — the host's type and effective id, the far
