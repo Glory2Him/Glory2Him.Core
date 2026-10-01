@@ -703,8 +703,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 ? CreateStoredPersonalRowOnTheSameReaction(upsertRequest, isDeleted: true)
                 : CreateStoredPersonalRow(upsertRequest, isDeleted: true);
 
-            // the takedown is the moderator's last write, so the row's UpdatedBy is theirs too,
-            // and only its UserId tells the takedown apart from the reader's withdrawal
+            // the moderator last stamped the row with a write of their own, such as a decision, before
+            // taking it down (a takedown stamps only the Deleted fields), so only the row's UserId
+            // tells the takedown apart from the reader's withdrawal
             string moderatorUserId = $"moderator-{Guid.NewGuid()}";
             takenDownRow.DeletedBy = moderatorUserId;
             takenDownRow.UpdatedBy = moderatorUserId;
@@ -772,6 +773,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             readersWithdrawnRow.PublishDate = GetRandomDateTimeOffset();
             readersWithdrawnRow.SortOrder = GetRandomNumber();
             readersWithdrawnRow.DeletionReason = GetRandomString();
+            readersWithdrawnRow.IsApprovedByBypass = false;
 
             upsertRequest.ApprovalStatus = ApprovalStatus.Submitted;
             upsertRequest.IsPublished = false;
