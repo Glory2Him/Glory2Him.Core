@@ -34,8 +34,8 @@ namespace Glory2Him.Core.Models.Foundations.Reactions
 
         /// <summary>
         /// The position this reaction takes wherever the vocabulary is presented as a list —
-        /// the Like control's choices and every card's counts. Lower sorts first; ties fall
-        /// back to whatever order the rows arrived in.
+        /// the Like control's choices and every card's counts. Lower sorts first, with
+        /// <c>Name</c> breaking a tie (§DOM5.2).
         ///
         /// <para>The default of 1000 sits past every curated value the seed writes, so a
         /// reaction added without a considered order lands after the ones somebody chose the

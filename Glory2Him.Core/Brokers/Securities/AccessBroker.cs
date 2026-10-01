@@ -25,6 +25,7 @@ using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.ApprovalSettings;
+using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 using Glory2Him.Core.Models.Securities;
 
 namespace Glory2Him.Core.Brokers.Securities
@@ -439,6 +440,26 @@ namespace Glory2Him.Core.Brokers.Securities
                 .Select(approvalReview => approvalReview.Id)
                 .ToList();
         }
+
+        // Unfiltered, deliberately — see IAccessBroker for why the caller-facing read cannot
+        // answer this. The same active set FindDismissableApprovalReviewIdsAsync answers, shaped
+        // here and awaited in the storage client (§ARC12.2.1 rule 3), so it runs in SQL.
+        public ValueTask<IReadOnlyList<DismissableApprovalReview>> FindDismissableApprovalReviewsAsync(
+            Guid approvalId,
+            CancellationToken cancellationToken = default) =>
+            this.storageBroker.SelectApprovalReviewsAsync(
+                query: approvalReviews => approvalReviews
+                    .Where(approvalReview =>
+                        approvalReview.ApprovalId == approvalId
+                            && approvalReview.IsDeleted == false
+                            && approvalReview.StatusId != ApprovalStatus.Dismissed)
+                    .Select(approvalReview => new DismissableApprovalReview
+                    {
+                        Id = approvalReview.Id,
+                        CreatedWhen = approvalReview.CreatedWhen,
+                        IsRejection = approvalReview.StatusId == ApprovalStatus.Rejected,
+                    }),
+                cancellationToken: cancellationToken);
 
         // Unfiltered, deliberately — see IAccessBroker for why the caller-facing read cannot
         // answer this. The SAME storage read the foundation's round-keyed read uses, so the half
@@ -1242,5 +1263,68 @@ namespace Glory2Him.Core.Brokers.Securities
                 ActiveRequests = activeRequests,
             };
         }
+
+        public async ValueTask<IReadOnlyList<EffectiveContentItemSetting>> RetrieveEffectiveContentItemSettingsAsync(
+            IReadOnlyList<ContentItemSettingKey> contentItemSettingKeys,
+            CancellationToken cancellationToken = default)
+        {
+            List<ContentItemSettingKey> distinctContentItemSettingKeys = contentItemSettingKeys
+                .DistinctBy(contentItemSettingKey =>
+                    (contentItemSettingKey.ContentType, contentItemSettingKey.ContentItemId))
+                .ToList();
+
+            if (distinctContentItemSettingKeys.Count is 0)
+            {
+                return new List<EffectiveContentItemSetting>();
+            }
+
+            // One subquery per key, each picking that key's single winning row, joined into ONE
+            // query so the selection runs in SQL in one round trip (§ARC16.8, the §DOM6.10 row).
+            return await this.storageBroker.SelectContentItemSettingsAsync(
+                contentItemSettings => ConcatPairwise(distinctContentItemSettingKeys
+                    .Select(contentItemSettingKey =>
+                        SelectEffectiveContentItemSetting(contentItemSettings, contentItemSettingKey))
+                    .ToList()),
+                cancellationToken);
+        }
+
+        // Joins the subqueries in pairs, then the pairs in pairs, so the query nests about log2(n)
+        // set operations deep rather than one per key. EF walks that nesting recursively, and
+        // joining each subquery onto the result so far overflowed the stack at a few hundred
+        // keys, ending the process rather than failing the request.
+        private static IQueryable<EffectiveContentItemSetting> ConcatPairwise(
+            List<IQueryable<EffectiveContentItemSetting>> subqueries)
+        {
+            while (subqueries.Count > 1)
+            {
+                subqueries = subqueries
+                    .Chunk(2)
+                    .Select(pair => pair.Length is 2 ? pair[0].Concat(pair[1]) : pair[0])
+                    .ToList();
+            }
+
+            return subqueries[0];
+        }
+
+        // §DOM6.4: the live override for the item and its type where there is one, the type's
+        // live default otherwise — a selection of one row, never a merge of two. Ordering the
+        // override first and taking one is what makes it a selection; the filtered unique
+        // indexes on ContentItemSettings allow at most one live row in each tier.
+        private static IQueryable<EffectiveContentItemSetting> SelectEffectiveContentItemSetting(
+            IQueryable<ContentItemSetting> contentItemSettings,
+            ContentItemSettingKey contentItemSettingKey) =>
+            contentItemSettings
+                .Where(contentItemSetting =>
+                    contentItemSetting.IsDeleted == false
+                        && contentItemSetting.ContentType == contentItemSettingKey.ContentType
+                        && (contentItemSetting.ContentItemId == contentItemSettingKey.ContentItemId
+                            || contentItemSetting.ContentItemId == null))
+                .OrderBy(contentItemSetting => contentItemSetting.ContentItemId == null)
+                .Take(1)
+                .Select(contentItemSetting => new EffectiveContentItemSetting
+                {
+                    ContentItemId = contentItemSettingKey.ContentItemId,
+                    ContentItemSetting = contentItemSetting,
+                });
     }
 }
