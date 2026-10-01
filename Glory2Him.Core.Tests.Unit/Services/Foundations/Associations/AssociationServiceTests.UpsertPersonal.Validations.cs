@@ -259,6 +259,78 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Theory]
+        [InlineData(nameof(Association.EntityAScope))]
+        [InlineData(nameof(Association.EntityBScope))]
+        public async Task ShouldThrowValidationExceptionOnUpsertPersonalIfAnEndpointScopeIsUndefinedAndLogItAsync(
+            string invalidField)
+        {
+            // given: the reader's row was taken down. A scope outside the enum keys the host on its
+            // key id rather than its group, so the lookup would miss that row and insert a second
+            // one beside it, answering Created where a takedown answers TakenDown (§DOM4.10 rules 6
+            // and 7). Either endpoint may be A once canonical order is restored, so both are refused.
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+
+            Association invalidRequest = InvalidateEndpointField(
+                CreatePersonalUpsertRequest(readerUserId),
+                invalidField);
+
+            Association takenDownRow =
+                CreateStoredPersonalRow(CreatePersonalUpsertRequest(readerUserId), isDeleted: true);
+
+            takenDownRow.DeletedBy = $"moderator-{Guid.NewGuid()}";
+
+            var invalidAssociationException = new InvalidAssociationException(
+                message: "Content item association is invalid, fix the errors and try again.");
+
+            invalidAssociationException.UpsertDataList(
+                key: invalidField,
+                value: "Value is not a supported scope");
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: invalidAssociationException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(readerUserId);
+
+            SetupPersonalUpsertLookupOver(
+                new[] { takenDownRow },
+                TestContext.Current.CancellationToken);
+
+            // when
+            ValueTask<PersonalAssociationUpsert> upsertTask =
+                this.associationService.UpsertPersonalAssociationAsync(
+                    invalidRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(upsertTask.AsTask);
+
+            // then: refused before the row is resolved, naming the field
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(invalidRequest),
+                    Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // every approval state a new row may not carry, with the add's message for it
         public static TheoryData<string, object, string> ApprovalStatesOnANewPersonalRow() =>
             new TheoryData<string, object, string>
