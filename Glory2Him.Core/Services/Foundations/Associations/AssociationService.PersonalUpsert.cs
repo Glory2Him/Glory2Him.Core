@@ -46,6 +46,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         {
             // a reaction is the signed caller's own, so an anonymous caller has none to give
             ValidateUserIsAuthenticated(inboundEnvelope.SecurityContext);
+            ValidateOnUpsertPersonalAssociation(association);
 
             string callerUserId =
                 await this.securityAuditBroker.GetUserIdAsync(inboundEnvelope.SecurityContext);
@@ -161,6 +162,13 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 Association = updatedRow
             };
         }
+
+        // A null UserId is an editorial row, which this member never reaches: the repoint
+        // exception is personal-only (§ARC16.2.2).
+        private static void ValidateOnUpsertPersonalAssociation(Association association) =>
+            Validate(
+                message: "Content item association is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(association.UserId), Parameter: nameof(Association.UserId)));
 
         // The upsert acts for the signed caller alone, so a request naming any other reader is
         // refused, whatever role the caller holds (§SEC14.7 posture A′ rule 2: acting for that
