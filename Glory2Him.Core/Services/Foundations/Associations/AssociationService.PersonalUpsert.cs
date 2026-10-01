@@ -88,6 +88,15 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
             bool isSameReaction = readersRow.EntityBKeyId == association.EntityBKeyId;
 
+            if (readersRow.IsDeleted is false && isSameReaction)
+            {
+                return new PersonalAssociationUpsert
+                {
+                    Outcome = PersonalAssociationUpsertOutcome.Unchanged,
+                    Association = readersRow
+                };
+            }
+
             if (readersRow.IsDeleted)
             {
                 readersRow.IsDeleted = false;
