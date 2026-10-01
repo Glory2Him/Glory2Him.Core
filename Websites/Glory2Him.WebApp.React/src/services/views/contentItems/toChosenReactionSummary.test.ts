@@ -101,6 +101,17 @@ describe('toChosenReactionSummary', () => {
         expect(withdrawnSummary).toEqual([countOf(amen, 1), countOf(love, 2)]);
     });
 
+    it('should add an entry for a chosen reaction that has none when the held one has one', () => {
+        // given
+        const reactionSummary = [countOf(amen, 1), countOf(love, 2), countOf(praying, 1)];
+
+        // when
+        const chosenSummary = toChosenReactionSummary(reactionSummary, love.label, joy.label, options);
+
+        // then
+        expect(chosenSummary).toEqual([countOf(amen, 1), countOf(love, 1), countOf(joy, 1), countOf(praying, 1)]);
+    });
+
     it('should never change what it is handed', () => {
         // given
         const reactionSummary = [countOf(joy, 2), countOf(love, 1)];
