@@ -297,6 +297,25 @@ namespace Glory2Him.Core.Brokers.Securities
             CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// The same active reviews <see cref="FindDismissableApprovalReviewIdsAsync"/> answers,
+        /// each with when it was written and whether it rejects — read from storage without
+        /// regard to who is asking.
+        /// </summary>
+        /// <remarks>
+        /// <para>Unfiltered for the reason <see cref="FindDismissableApprovalReviewIdsAsync"/>
+        /// records: the changed-reaction flow runs as the reader who changed their reaction, who
+        /// may see none of the round's reviews, and an identity-filtered read never decides an
+        /// invariant (§APR9.7.4).</para>
+        ///
+        /// <para>Not bounded by a time. The flow compares each review's <c>CreatedWhen</c> with
+        /// the change's itself, because one of its cases needs the new pair's rejections as well
+        /// as the old pair's.</para>
+        /// </remarks>
+        ValueTask<IReadOnlyList<DismissableApprovalReview>> FindDismissableApprovalReviewsAsync(
+            Guid approvalId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// The id of the round's ONE live <c>AIReviewerAssignment</c> when it still reports a
         /// finished pass — Berean's half of what a dismissal has to take back — or <c>null</c>
         /// when there is nothing to return to pending.

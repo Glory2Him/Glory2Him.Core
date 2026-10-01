@@ -442,6 +442,26 @@ namespace Glory2Him.Core.Brokers.Securities
         }
 
         // Unfiltered, deliberately — see IAccessBroker for why the caller-facing read cannot
+        // answer this. The same active set FindDismissableApprovalReviewIdsAsync answers, shaped
+        // here and awaited in the storage client (§ARC12.2.1 rule 3), so it runs in SQL.
+        public ValueTask<IReadOnlyList<DismissableApprovalReview>> FindDismissableApprovalReviewsAsync(
+            Guid approvalId,
+            CancellationToken cancellationToken = default) =>
+            this.storageBroker.SelectApprovalReviewsAsync(
+                query: approvalReviews => approvalReviews
+                    .Where(approvalReview =>
+                        approvalReview.ApprovalId == approvalId
+                            && approvalReview.IsDeleted == false
+                            && approvalReview.StatusId != ApprovalStatus.Dismissed)
+                    .Select(approvalReview => new DismissableApprovalReview
+                    {
+                        Id = approvalReview.Id,
+                        CreatedWhen = approvalReview.CreatedWhen,
+                        IsRejection = approvalReview.StatusId == ApprovalStatus.Rejected,
+                    }),
+                cancellationToken: cancellationToken);
+
+        // Unfiltered, deliberately — see IAccessBroker for why the caller-facing read cannot
         // answer this. The SAME storage read the foundation's round-keyed read uses, so the half
         // that decides WHAT to return to pending and the half that reports Berean's status to a
         // moderation panel read one view of one row.
