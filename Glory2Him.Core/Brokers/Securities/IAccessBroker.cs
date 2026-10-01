@@ -32,7 +32,8 @@ namespace Glory2Him.Core.Brokers.Securities
     ///
     /// <para><b>It returns a verdict, never settings.</b> Handing back an <c>ApprovalSetting</c>
     /// would put the decision logic back inside each of the seven approvable services, which is
-    /// seven places for it to drift.</para>
+    /// seven places for it to drift. <see cref="RetrieveEffectiveContentItemSettingsAsync"/> is
+    /// the one member that hands back settings, a departure §ARC16.2.1 declares.</para>
     /// </summary>
     internal interface IAccessBroker
     {
@@ -296,6 +297,25 @@ namespace Glory2Him.Core.Brokers.Securities
             CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// The same active reviews <see cref="FindDismissableApprovalReviewIdsAsync"/> answers,
+        /// each with when it was written and whether it rejects — read from storage without
+        /// regard to who is asking.
+        /// </summary>
+        /// <remarks>
+        /// <para>Unfiltered for the reason <see cref="FindDismissableApprovalReviewIdsAsync"/>
+        /// records: the changed-reaction flow runs as the reader who changed their reaction, who
+        /// may see none of the round's reviews, and an identity-filtered read never decides an
+        /// invariant (§APR9.7.4).</para>
+        ///
+        /// <para>Not bounded by a time. The flow compares each review's <c>CreatedWhen</c> with
+        /// the change's itself, because one of its cases needs the new pair's rejections as well
+        /// as the old pair's.</para>
+        /// </remarks>
+        ValueTask<IReadOnlyList<DismissableApprovalReview>> FindDismissableApprovalReviewsAsync(
+            Guid approvalId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// The id of the round's ONE live <c>AIReviewerAssignment</c> when it still reports a
         /// finished pass — Berean's half of what a dismissal has to take back — or <c>null</c>
         /// when there is nothing to return to pending.
@@ -446,6 +466,35 @@ namespace Glory2Him.Core.Brokers.Securities
         ValueTask<ApprovalReviewerScope?> RetrieveApprovalReviewerScopeByEntityAsync(
             EntityType entityType,
             Guid entityId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// The winning <c>ContentItemSetting</c> for each key asked, a key being one content item
+        /// under one content type: the item's live override for that type where it has one, the
+        /// type's live default otherwise (§DOM6.4). The tiers are a selection and never a merge,
+        /// and a soft-deleted row never wins (§DOM6.6).
+        ///
+        /// <para>The answer is per key, not per item. An item asked under two types is two keys,
+        /// answered once for each that resolves a row.</para>
+        ///
+        /// <para>The single home of that precedence (§ARC16.8, the §DOM6.10 row). The facet gate
+        /// on the association write and the reaction summary's display rule both ask it here
+        /// rather than restating it.</para>
+        ///
+        /// <para>Answered by one query, shaped here and run in SQL, so no candidate list is picked
+        /// over in memory. A key that resolves no row is absent from the answer, and what that
+        /// absence means is its caller's to say.</para>
+        ///
+        /// <para>One query is one statement, and SQL Server takes at most 2,100 parameters in one.
+        /// Each distinct key adds three, so a call asks fewer than 700 keys; past that the storage
+        /// call fails rather than answering. Its callers ask 25 or fewer.</para>
+        ///
+        /// <para>Settings, not a verdict — the one departure from this broker's charter, declared
+        /// in §ARC16.2.1. Which switch matters is the caller's question, and this decides
+        /// nothing further.</para>
+        /// </summary>
+        ValueTask<IReadOnlyList<EffectiveContentItemSetting>> RetrieveEffectiveContentItemSettingsAsync(
+            IReadOnlyList<ContentItemSettingKey> contentItemSettingKeys,
             CancellationToken cancellationToken = default);
     }
 }
