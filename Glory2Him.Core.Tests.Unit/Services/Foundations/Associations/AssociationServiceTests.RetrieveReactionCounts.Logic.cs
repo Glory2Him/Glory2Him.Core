@@ -374,6 +374,63 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 CreateAuthenticatedSecurityContext(Roles.Administrators)
             };
 
+        [Theory]
+        [MemberData(nameof(ReactionCountRequestsWithAnEmptyList))]
+        public async Task ShouldReturnNoCountsForAnEmptyListAsync(
+            bool isContentItemGroupIdListEmpty,
+            bool isReactionIdListEmpty)
+        {
+            // given: visible rows, so a function handed to storage has rows to leave out. Whether
+            // storage is asked at all is not decided (§3 rule 1), so only the answer is asserted.
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            Guid contentItemGroupId = Guid.NewGuid();
+            Guid reactionId = Guid.NewGuid();
+
+            var storageAssociations = new List<Association>
+            {
+                CreateCountedReaction(contentItemGroupId, reactionId),
+                CreateCountedReactionOnOneVersion(contentItemGroupId, reactionId)
+            };
+
+            IReadOnlyList<Guid> inputContentItemGroupIds = isContentItemGroupIdListEmpty
+                ? new List<Guid>()
+                : new List<Guid> { contentItemGroupId };
+
+            IReadOnlyList<Guid> inputReactionIds = isReactionIdListEmpty
+                ? new List<Guid>()
+                : new List<Guid> { reactionId };
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            SetupReactionCountReadOver(storageAssociations);
+
+            // when
+            IReadOnlyList<AssociationPairCount> actualAssociationPairCounts =
+                await this.associationService.RetrieveContentItemReactionCountsAsync(
+                    inputContentItemGroupIds,
+                    inputReactionIds,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualAssociationPairCounts.Should().BeEmpty();
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // one case each: an empty list of hosts, an empty list of reactions, and both empty
+        public static TheoryData<bool, bool> ReactionCountRequestsWithAnEmptyList() =>
+            new TheoryData<bool, bool>
+            {
+                { true, false },
+                { false, true },
+                { true, true }
+            };
+
         // A reader's live, Approved reaction with no publish date: a row every term of the
         // count admits. Every id column holds its own value, so a read keyed on the wrong column
         // misses the row. The host is AllVersions with a key id unlike its group id, so its
