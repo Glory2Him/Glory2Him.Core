@@ -187,9 +187,11 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 (Rule: IsInvalid(association.UserId), Parameter: nameof(Association.UserId)),
                 (Rule: IsInvalid(association.EntityAType), Parameter: nameof(Association.EntityAType)),
                 (Rule: IsInvalid(association.EntityAKeyId), Parameter: nameof(Association.EntityAKeyId)),
+                (Rule: IsInvalid(association.EntityAGroupId), Parameter: nameof(Association.EntityAGroupId)),
                 (Rule: IsInvalid(association.EntityAScope), Parameter: nameof(Association.EntityAScope)),
                 (Rule: IsInvalid(association.EntityBType), Parameter: nameof(Association.EntityBType)),
                 (Rule: IsInvalid(association.EntityBKeyId), Parameter: nameof(Association.EntityBKeyId)),
+                (Rule: IsInvalid(association.EntityBGroupId), Parameter: nameof(Association.EntityBGroupId)),
                 (Rule: IsInvalid(association.EntityBScope), Parameter: nameof(Association.EntityBScope)),
 
                 (Rule: IsNotTheScopeItsTypeTakes(association.EntityAType, association.EntityAScope),
