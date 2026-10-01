@@ -20,6 +20,7 @@ using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Foundations.Associations.Exceptions;
 using Glory2Him.Core.Models.Securities;
 using Moq;
 
@@ -893,6 +894,64 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 broker.UpdateAssociationAsync(It.IsAny<Association>(), inputCancellationToken),
                     act == PersonalAssociationUpsertOutcome.Created ? Times.Never() : Times.Once());
 
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(UnauthenticatedSecurityContexts))]
+        public async Task ShouldThrowValidationExceptionOnUpsertPersonalIfUserIsNotAuthenticatedAndLogItAsync(
+            SecurityContext unauthenticatedSecurityContext)
+        {
+            // given: an anonymous caller owns no reaction. The store holds the named reader's row,
+            // so an upsert that reached it would find something to write.
+            this.ambientSecurityContext = unauthenticatedSecurityContext;
+            Association upsertRequest = CreatePersonalUpsertRequest(GetRandomString());
+
+            Association namedReadersRow =
+                CreateStoredPersonalRow(upsertRequest, isDeleted: false);
+
+            var unauthorizedAssociationException =
+                new UnauthorizedAssociationException(
+                    message: "The current user is not authenticated.");
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: unauthorizedAssociationException);
+
+            SetupPersonalUpsertLookupOver(
+                new[] { namedReadersRow },
+                TestContext.Current.CancellationToken);
+
+            // when
+            ValueTask<PersonalAssociationUpsert> upsertTask =
+                this.associationService.UpsertPersonalAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(upsertTask.AsTask);
+
+            // then: refused before anything else is asked, storage included
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(upsertRequest),
+                    Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
+
+            VerifyPersonalUpsertLookupAsked(TestContext.Current.CancellationToken, Times.Never());
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
