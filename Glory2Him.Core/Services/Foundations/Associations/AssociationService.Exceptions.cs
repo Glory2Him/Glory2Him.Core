@@ -33,6 +33,9 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         private delegate ValueTask<AssociationPairMatch?>
             ReturningAssociationPairMatchFunction();
 
+        private delegate ValueTask<PersonalAssociationMatch?>
+            ReturningPersonalAssociationMatchFunction();
+
         private delegate ValueTask<EventEnvelope<Association>?>
             ReturningAssociationEventEnvelopeFunction();
 
@@ -416,6 +419,70 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             {
                 throw await CreateAndLogValidationExceptionAsync(
                     exception: unauthorizedAssociationException);
+            }
+            catch (NullAssociationException nullAssociationException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(
+                    exception: nullAssociationException);
+            }
+            catch (InvalidAssociationException invalidAssociationException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(
+                    exception: invalidAssociationException);
+            }
+            catch (SqlException sqlException)
+            {
+                var failedStorageAssociationException =
+                    new FailedStorageAssociationException(
+                        message: "Failed content item association storage error occurred, contact support.",
+                        innerException: sqlException,
+                        data: sqlException.Data);
+
+                throw await CreateAndLogCriticalDependencyExceptionAsync(
+                    exception: failedStorageAssociationException);
+            }
+            catch (Exception exception)
+            {
+                var failedAssociationServiceException =
+                    new FailedAssociationServiceException(
+                        message: "Failed content item association service error occurred, please contact support.",
+                        innerException: exception,
+                        data: exception.Data);
+
+                throw await CreateAndLogServiceExceptionAsync(
+                    failedAssociationServiceException);
+            }
+        }
+
+        // The personal-key lookup (#718): a read that validates its input, so it takes the
+        // validation catches and the read-style dependency catches, and none of the write-only
+        // ones. A caller it may not answer is answered null rather than refused, so it raises
+        // no unauthorized exception to catch.
+        private async ValueTask<PersonalAssociationMatch?> TryCatch(
+            ReturningPersonalAssociationMatchFunction returningPersonalAssociationMatchFunction)
+        {
+            try
+            {
+                return await returningPersonalAssociationMatchFunction();
+            }
+            catch (OperationCanceledException operationCanceledException)
+                when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
+            {
+                var timeoutException =
+                    new TimeoutException("The dependency operation timed out.");
+
+                var timeoutAssociationException =
+                    new TimeoutAssociationException(
+                        message: "Failed content item association timeout error occurred, contact support.",
+                        innerException: timeoutException,
+                        data: timeoutException.Data);
+
+                throw await CreateAndLogTimeoutDependencyExceptionAsync(
+                    exception: timeoutAssociationException);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (NullAssociationException nullAssociationException)
             {
