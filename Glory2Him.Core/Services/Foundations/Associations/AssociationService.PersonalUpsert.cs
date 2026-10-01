@@ -14,6 +14,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Configurations;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Associations;
@@ -190,8 +192,26 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 (Rule: IsInvalid(association.EntityBKeyId), Parameter: nameof(Association.EntityBKeyId)),
                 (Rule: IsInvalid(association.EntityBScope), Parameter: nameof(Association.EntityBScope)),
 
+                (Rule: IsNotTheScopeItsTypeTakes(association.EntityAType, association.EntityAScope),
+                    Parameter: nameof(Association.EntityAScope)),
+
+                (Rule: IsNotTheScopeItsTypeTakes(association.EntityBType, association.EntityBScope),
+                    Parameter: nameof(Association.EntityBScope)),
+
                 (Rule: IsSameEndpoint(association.EntityAGroupId, association.EntityBGroupId),
                     Parameter: nameof(Association.EntityBGroupId)));
+
+        // The scope a type takes is EntityTypeVersioning's answer, never an inline test of the type
+        // (§DOM4.5 rule 1, §APR7.5.1). An undefined scope, or an endpoint of an undefined type, is
+        // refused by its own rule, so neither is compared here.
+        private static dynamic IsNotTheScopeItsTypeTakes(EntityType entityType, Scope scope) => new
+        {
+            Condition = Enum.IsDefined(entityType)
+                && Enum.IsDefined(scope)
+                && scope != EntityTypeVersioning.DefaultScopeFor(entityType),
+
+            Message = "Value is not the scope its endpoint's type takes"
+        };
 
         // A new row is a contribution, so it is created unpublished at Draft or Submitted, as the
         // add creates one: publication and a verdict are the approval workflow's to record. Only
