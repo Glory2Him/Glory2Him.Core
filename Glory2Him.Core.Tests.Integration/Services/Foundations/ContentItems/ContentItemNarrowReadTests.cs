@@ -380,9 +380,10 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ContentItems
         /// <summary>
         /// The public-groups read's query-shaping function, run against the real catalogue
         /// (§ARC12.2.1 rule 6). Its unit tests execute it over LINQ-to-Objects; what only SQL
-        /// answers is whether EF translates the id match over a supplied list, the correlated
-        /// test for a visible version in the same group, and the nullable publish-date term -
-        /// and whether the translated query answers as criteria 1 to 4 require.
+        /// answers is whether EF translates the id match over a supplied list, §SEC14.1 asked of
+        /// each version, and the nullable publish-date term - and whether the translated query
+        /// answers as criteria 1 to 4 require, including leaving out a version that is not
+        /// visible though its group is.
         /// </summary>
         [Fact]
         public async Task ShouldAnswerThePublicContentItemGroupsInSqlAsync()
@@ -398,8 +399,22 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ContentItems
 
             visibleContentItem.ContentType = ContentType.Devotional;
 
+            // three versions of the visible group that are not visible themselves - the kinds
+            // the group's one published slot lets sit beside a visible version
             ContentItem draftContentItem = CreateContentItem(groupId: visibleGroupId, version: 2);
             draftContentItem.ContentType = ContentType.Devotional;
+
+            ContentItem deletedSiblingContentItem = CreateCanonicallyVisibleContentItem(
+                groupId: visibleGroupId, version: 3, publishDate: null);
+
+            deletedSiblingContentItem.ContentType = ContentType.Devotional;
+            deletedSiblingContentItem.IsDeleted = true;
+
+            ContentItem unpublishedSiblingContentItem = CreateCanonicallyVisibleContentItem(
+                groupId: visibleGroupId, version: 4, publishDate: null);
+
+            unpublishedSiblingContentItem.ContentType = ContentType.Devotional;
+            unpublishedSiblingContentItem.IsPublished = false;
 
             ContentItem boundaryContentItem = CreateCanonicallyVisibleContentItem(
                 groupId: Guid.NewGuid(), version: 1, publishDate: currentDateTime);
@@ -425,6 +440,8 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ContentItems
             await SeedAsync(
                 visibleContentItem,
                 draftContentItem,
+                deletedSiblingContentItem,
+                unpublishedSiblingContentItem,
                 boundaryContentItem,
                 deletedContentItem,
                 unapprovedContentItem,
@@ -434,6 +451,8 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ContentItems
             IReadOnlyList<Guid> inputContentItemIds = new[]
             {
                 draftContentItem.Id,
+                deletedSiblingContentItem.Id,
+                unpublishedSiblingContentItem.Id,
                 visibleContentItem.Id,
                 boundaryContentItem.Id,
                 deletedContentItem.Id,
@@ -447,9 +466,6 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ContentItems
             {
                 new PublicContentItemGroup(
                     visibleContentItem.Id, visibleGroupId, ContentType.Devotional),
-
-                new PublicContentItemGroup(
-                    draftContentItem.Id, visibleGroupId, ContentType.Devotional),
 
                 new PublicContentItemGroup(
                     boundaryContentItem.Id, boundaryContentItem.GroupId, ContentType.Testimony)
