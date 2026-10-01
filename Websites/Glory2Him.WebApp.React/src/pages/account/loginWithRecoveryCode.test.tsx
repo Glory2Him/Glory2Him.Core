@@ -75,4 +75,19 @@ describe('LoginWithRecoveryCode', () => {
         // then
         expect(landedOn()).toBe('/posts?q=grace#comments');
     });
+
+    it('should send a reader signed in by a recovery code on unchanged to every local return address', () => {
+        for (const returnUrl of acceptedReturnUrls) {
+            // given
+            answerCode(false);
+            const { unmount } = renderLoginWithRecoveryCode(loginWithRecoveryCodeWithReturnUrl(returnUrl));
+
+            // when
+            enterRecoveryCode();
+
+            // then
+            expect(landedOn()).toBe(returnUrl);
+            unmount();
+        }
+    });
 });
