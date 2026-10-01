@@ -1,7 +1,7 @@
 # Association service
 Parent: [Likes.md](../../Likes.md)
 Level: foundation — `IAssociationService` (`Glory2Him.Core/Services/Foundations/Associations/`)
-Inherits: §DOM4.4 rule 4, §DOM4.5 rule 4, §DOM4.6, §DOM4.10, §SEC14.3 rules 1, 2 and 5, §SEC14.5, §SEC14.6, §SEC14.7 posture A′ rules 1, 2, 4 and 7, §APR9.9 rule 6, §ARC12.2.1 rules 3–6, §ARC16.2.2, §ARC16.8, §EVN2, §EVN17 rule 3, §EVN20 rule 9, Likes.md rules 1–3, 5, 6, 8 and 10
+Inherits: §DOM4.3, §DOM4.4 rule 4, §DOM4.5 rules 1, 2 and 4, §DOM4.6, §DOM4.10, §SEC14.3 rules 1, 2 and 5, §SEC14.5, §SEC14.6, §SEC14.7 posture A′ rules 1, 2, 4 and 7, §APR7.5.1, §APR9.9 rule 6, §ARC12.2.1 rules 3–6, §ARC16.2.2, §ARC16.8, §EVN2, §EVN17 rule 3, §EVN20 rule 9, §EVN23 rules 1–3, Likes.md rules 1–3, 5, 6, 8 and 10
 
 The foundation half of a reader's reaction: the one write that gives, changes and revives it, the lookup that finds it, the two reads the summary counts and marks with, and the one change to the soft remove that lets a reader withdraw their own. Every condition below is authored here as a query-shaping function and handed to `SelectAssociationsAsync` (`Backend/Brokers/StorageBroker.md §1`), which the client awaits with the caller's token (§ARC12.2.1 rule 3); each is unit-tested by executing it (rule 5), and integration proves what an in-memory set cannot (rule 6).
 
@@ -41,7 +41,7 @@ ValueTask<PersonalAssociationUpsert> UpsertPersonalAssociationAsync(
 
    | The reader's row | What is written | Fact | Outcome |
    | --- | --- | --- | --- |
-   | none | a new row, validated as the add validates one, at the status the caller set | `Association-Added` | `Created` |
+   | none | a new row under an `Id` this member mints (rule 10), validated as the add validates one, at the status the caller set | `Association-Added` | `Created` |
    | withdrawn by the reader, same reaction | revived: `IsDeleted`, `DeletedBy` and `DeletedWhen` cleared; the status left as it was (§DOM4.10 rule 8) | `Association-Restored` | `Restored` |
    | withdrawn by the reader, another reaction | revived and repointed in one write (§DOM4.10, *What the reader sees*) | `Association-Repointed` | `Repointed` |
    | live, another reaction | repointed: `EntityBKeyId` and `EntityBGroupId`; the status left as it was (§DOM4.5 rule 4) | `Association-Repointed` | `Repointed` |
@@ -51,10 +51,17 @@ ValueTask<PersonalAssociationUpsert> UpsertPersonalAssociationAsync(
    "Withdrawn by the reader" is `DeletedBy` equal to the row's `UserId`, and nothing else (§DOM4.10 rule 7).
 5. **A repoint is admitted whatever the row's status**, `Approved` and `Rejected` included. It is the terminal bar's one exception (§SEC14.7 posture A′ rule 2), and `ModifyAssociationAsync` keeps the bar unconditionally.
 6. **On an existing row only the enumerated fields change** — `EntityBKeyId`, `EntityBGroupId`, `IsDeleted`, `DeletedBy`, `DeletedWhen` — beside the audit stamp every write carries. Every other field keeps its stored value, whatever the caller's copy says (§ARC16.2.2). The stamp's `UpdatedWhen` is the change's time the approval ear reads (§APR9.7.4).
-7. **The facts are published as the add publishes its own**, with the written row as their content, on two new addresses: `Association-Restored` and `Association-Repointed` join `EventBrokerIdentifiers.Association`, each with a stable identifier, and `AssociationEventOperation` gains a member for each, appended.
+7. **The facts are published with the written row as their content, and the result of every publish is inspected** (§EVN23 rules 1–3), the create arm's `Association-Added` included. The facts are on two new addresses: `Association-Restored` and `Association-Repointed` join `EventBrokerIdentifiers.Association`, each with a stable identifier, and `AssociationEventOperation` gains a member for each, appended.
 8. **A second first reaction racing the first is refused by the personal index** (`UX_Associations_PersonalPair`, §DOM4.6 rule 2) and reaches the caller as the add's duplicate does — `AlreadyExistsAssociationException`, as a dependency validation failure.
+9. **It checks the endpoint fields it is handed, and derives none of them.** Its caller derives each endpoint's scope and group (`Backend/Orchestrations/AssociationOrchestrationService.md` §1 rule 1 step 3), and this member takes the personal key and the repoint from them. So before the row is resolved it refuses as invalid:
+   - a scope other than the one §DOM4.5 rule 1 derives for the endpoint's type — `AllVersions` on a versioned type and `ThisVersionOnly` on any other, as `EntityTypeVersioning` answers it (§APR7.5.1) — a value outside the `Scope` enum (§DOM4.3) included;
+   - an empty group id;
+   - a group other than the key on an endpoint whose type is not versioned (§DOM4.5 rule 2).
 
-`Association-Upserting` is not minted, so this member has no event path (§ARC16.2.2).
+   Both endpoints are checked, because either may be A once canonical order is restored (rule 1), and each refusal names the field the request carries. **A versioned endpoint's group is not checked against its row**: the foundation may not read that row, so it keeps the group it is handed, as the add does (§DOM4.5 rule 2), and the caller's derivation from the resolved row is what makes it right. The refusals do not breach §DOM4.10 rule 2's overwrite-never-refuse house rule, which the caller applies where it derives these fields. This member checks what it is handed, as rule 2 does for `UserId`.
+10. **The create arm mints the new row's `Id`**, through the identifier broker this service already holds, and never takes the caller's. Its caller sends two endpoints and nothing else (§ARC16.8.1), and nothing between the request and this member sets an `Id`, so whatever `Id` the request carries is overwritten. The add's empty-`Id` rule is therefore not asked of the new row. An existing row keeps its own `Id` (rule 6).
+
+`Association-Upserting` is not minted, so this member has no event path (§ARC16.2.2). It records no `ProcessedEvents` row, because nothing deduplicates against one, so no bookkeeping follows its publish.
 
 ## 3. RetrieveContentItemReactionCountsAsync (#720)
 
