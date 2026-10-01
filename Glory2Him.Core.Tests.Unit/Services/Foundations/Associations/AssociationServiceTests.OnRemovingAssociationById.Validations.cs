@@ -360,5 +360,99 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Theory]
+        [MemberData(nameof(ReadOnlyRolesOverAReaction))]
+        public async Task ShouldBlockAnAdministratorWithAReadOnlyRoleFromRemovingAnotherReadersReactionOnRemovingAssociationByIdEventAndLogItAsync(
+            string readOnlyRole)
+        {
+            // given: the owner test admits Administrators, and the exemption belongs only to the
+            // reader whose UserId the row carries, so the veto is the only refusal (§5 rule 4)
+            string actorUserId = GetRandomString();
+            string anotherReaderUserId = GetRandomString();
+            Association storageAssociation = CreateRandomReaction(anotherReaderUserId);
+            storageAssociation.IsDeleted = false;
+
+            var requestEnvelope = new EventEnvelope<Association>
+            {
+                SecurityContext = CreateAuthenticatedSecurityContext(
+                    Roles.Administrators,
+                    readOnlyRole),
+                Content = new Association { Id = storageAssociation.Id },
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            var unauthorizedAssociationException = new UnauthorizedAssociationException(
+                message: "The current user is blocked from contributing content item associations.");
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: unauthorizedAssociationException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectProcessedEventExistsAsync(
+                    requestEnvelope.Metadata.EventId,
+                    EventBrokerIdentifiers.AssociationOnRemovingAssociationByIdSubscriptionName,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(false);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAssociationByIdAsync(
+                    storageAssociation.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageAssociation);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(requestEnvelope.SecurityContext))
+                    .ReturnsAsync(actorUserId);
+
+            // when
+            ValueTask<EventEnvelope<Association>?> onRemovingTask =
+                this.associationService.OnRemovingAssociationByIdAsync(
+                    requestEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(
+                    onRemovingTask.AsTask);
+
+            // then
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectProcessedEventExistsAsync(
+                    requestEnvelope.Metadata.EventId,
+                    EventBrokerIdentifiers.AssociationOnRemovingAssociationByIdSubscriptionName,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAssociationByIdAsync(
+                    storageAssociation.Id,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(requestEnvelope.SecurityContext),
+                Times.Once);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(It.IsAny<Association>()),
+                Times.Never);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
