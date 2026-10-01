@@ -450,9 +450,10 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             }
         }
 
-        // The personal-key lookup (#718): a read that validates its caller and its input, so it
-        // takes the validation catches and the read-style dependency catches, and none of the
-        // write-only ones.
+        // The personal-key lookup (#718): a read that validates its input, so it takes the
+        // validation catches and the read-style dependency catches, and none of the write-only
+        // ones. A caller it may not answer is answered null rather than refused, so it raises
+        // no unauthorized exception to catch.
         private async ValueTask<PersonalAssociationMatch?> TryCatch(
             ReturningPersonalAssociationMatchFunction returningPersonalAssociationMatchFunction)
         {
@@ -478,11 +479,6 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             catch (OperationCanceledException)
             {
                 throw;
-            }
-            catch (UnauthorizedAssociationException unauthorizedAssociationException)
-            {
-                throw await CreateAndLogValidationExceptionAsync(
-                    exception: unauthorizedAssociationException);
             }
             catch (NullAssociationException nullAssociationException)
             {
