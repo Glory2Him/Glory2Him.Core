@@ -87,7 +87,8 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         // WHOSE read each branch makes is the one thing the entry path decides. With no read
         // envelope the endpoint's service mints its own, capturing the AMBIENT caller — right on
         // an HTTP request, where the ambient caller is the caller. The Association-Adding event
-        // path hands the inbound envelope instead, so every branch reads as the SIGNED caller: a
+        // path hands the inbound envelope instead, so every branch it reaches (since #723 not the
+        // Reaction one, as that door refuses a personal pair first) reads as the SIGNED caller: a
         // delivery runs synchronously inside a publish and HttpContextAccessor flows on an
         // AsyncLocal, so a minted envelope there would inherit whoever PUBLISHED (§ARC12.5.2,
         // "a read whose answer depends on who is asking is passed the envelope it is being made

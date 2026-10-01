@@ -269,6 +269,39 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             }
         }
 
+        // THE EVENT PATH'S REFUSAL OF A PERSONAL PAIR (#723, AssociationOrchestrationService.md
+        // §2). A reader's reaction has no event path: Association-Upserting is not minted
+        // (§ARC16.2.2), and the foundation's add behind this door can neither revive nor repoint,
+        // so it would insert a second row where §DOM4.10 rule 6 allows one. A pair is personal
+        // where either endpoint's type is (§DOM4.2), and that is the lookup's answer, never a test
+        // of this service's own (§DOM4.10 rule 4).
+        //
+        // Asked of the RAW endpoint types, so it needs no read, and it is the event path's alone:
+        // the method path takes a personal pair through the shared flow. Like the occupancy
+        // refusal, it is ONE message for every personal pair, naming no row, no reader and no
+        // status.
+        private static void ValidatePairIsNotPersonal(Association association)
+        {
+            bool isPersonal =
+                IsPersonalEndpoint(association.EntityAType)
+                || IsPersonalEndpoint(association.EntityBType);
+
+            if (isPersonal)
+            {
+                throw new InvalidAssociationOrchestrationException(
+                    message: "A personal content item association cannot be added through an event.");
+            }
+        }
+
+        // A value outside the enum is malformed input, not a member the lookup was never told
+        // about, so the lookup is not asked. Asking would turn it into the lookup's hard error, a
+        // service exception, where the shared flow's structural validation refuses it as invalid.
+        // Every member of the enum is still asked, so a member added without a decision still
+        // fails loudly here.
+        private static bool IsPersonalEndpoint(EntityType entityType) =>
+            Enum.IsDefined(entityType)
+            && EntityTypePersonalisation.IsPersonal(entityType);
+
         // The id-keyed surfaces' own validation. Kept separate from ValidateOnAddAssociation
         // rather than folded into a shared validator: they compose different rules today and
         // sharing the composition would mean a rule added for one silently binds the other.

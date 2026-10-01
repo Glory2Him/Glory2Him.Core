@@ -1406,6 +1406,10 @@ namespace Glory2Him.Core.Migrations
                     b.Property<DateTimeOffset?>("PublishDate")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int")
+                        .HasDefaultValue(1000);
+
                     b.Property<string>("UnicodeEmoji")
                         .IsRequired()
                         .HasMaxLength(16)

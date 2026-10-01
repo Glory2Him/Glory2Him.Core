@@ -21,6 +21,7 @@ namespace G2H.StorageClient.Tests.Integrations.Brokers.Storages
     {
         ValueTask<User> InsertUserAsync(User user);
         ValueTask<IQueryable<User>> SelectAllUsersAsync();
+        ValueTask<IReadOnlyList<TResult>> SelectListOfUsersAsync<TResult>(Func<IQueryable<User>, IQueryable<TResult>> query);
         ValueTask<User> SelectUserByIdAsync(Guid userId);
         ValueTask<User> UpdateUserAsync(User user);
         ValueTask<User> DeleteUserAsync(User user);

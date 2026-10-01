@@ -155,9 +155,9 @@ const withSetting = (
     });
 
 const reactionOptions: ReadonlyArray<ContentItemReactionOption> = [
-    { label: 'Amen', glyph: '👍' },
-    { label: 'Love', glyph: '❤️', isLove: true },
-    { label: 'Joy', glyph: '😄' }
+    { id: 'reaction-amen', label: 'Amen', glyph: '👍' },
+    { id: 'reaction-love', label: 'Love', glyph: '❤️', isLove: true },
+    { id: 'reaction-joy', label: 'Joy', glyph: '😄' }
 ];
 
 describe('ContentItemPanel', () => {
@@ -1117,7 +1117,7 @@ describe('ContentItemPanel', () => {
             await userEvent.click(screen.getByRole('button', { name: /Like/ }));
             await userEvent.click(screen.getByRole('menuitem', { name: 'Love' }));
 
-            // then: the path alone, URI-encoded — the shape every redirect in this app uses
+            // then: the path alone, URI-encoded — what the card sends
             expect(navigate).toHaveBeenCalledWith('/Account/Login?returnUrl=%2Fposts');
 
             // when: the same card on a different public page

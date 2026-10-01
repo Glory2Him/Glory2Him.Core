@@ -1,7 +1,7 @@
 # Association service
 Parent: [Likes.md](../../Likes.md)
 Level: foundation — `IAssociationService` (`Glory2Him.Core/Services/Foundations/Associations/`)
-Inherits: §DOM4.4 rule 4, §DOM4.5 rule 4, §DOM4.6, §DOM4.10, §SEC14.3 rules 1, 2 and 5, §SEC14.5, §SEC14.6, §SEC14.7 posture A′ rules 1, 2, 4 and 7, §APR9.9 rule 6, §ARC12.2.1 rules 3–6, §ARC16.2.2, §ARC16.8, §EVN2, Likes.md rules 1–3, 5, 6, 8 and 10
+Inherits: §DOM4.4 rule 4, §DOM4.5 rule 4, §DOM4.6, §DOM4.10, §SEC14.3 rules 1, 2 and 5, §SEC14.5, §SEC14.6, §SEC14.7 posture A′ rules 1, 2, 4 and 7, §APR9.9 rule 6, §ARC12.2.1 rules 3–6, §ARC16.2.2, §ARC16.8, §EVN2, §EVN17 rule 3, §EVN20 rule 9, Likes.md rules 1–3, 5, 6, 8 and 10
 
 The foundation half of a reader's reaction: the one write that gives, changes and revives it, the lookup that finds it, the two reads the summary counts and marks with, and the one change to the soft remove that lets a reader withdraw their own. Every condition below is authored here as a query-shaping function and handed to `SelectAssociationsAsync` (`Backend/Brokers/StorageBroker.md §1`), which the client awaits with the caller's token (§ARC12.2.1 rule 3); each is unit-tested by executing it (rule 5), and integration proves what an in-memory set cannot (rule 6).
 
@@ -67,7 +67,7 @@ ValueTask<IReadOnlyList<AssociationPairCount>> RetrieveContentItemReactionCounts
 
 `AssociationPairCount` is `(Guid EntityAEffectiveId, Guid EntityBKeyId, int Count)` — §ARC16.8's narrow native row.
 
-1. **It counts the reactions given to each host**, over the rows that satisfy §SEC14.3 rules 1, 2 and 5: not deleted, `Approved`, and a publish date that is null or not after the current moment.
+1. **It counts the reactions given to each host**, over the rows that satisfy §SEC14.3 rules 1, 2 and 5: not deleted, `Approved`, and a publish date that is null or not after the current moment. An empty list of hosts, of reactions or of both is valid, and answers an empty list.
 2. **Its predicate is §ARC16.8's**: `EntityAType = ContentItem AND EntityAEffectiveId IN (contentItemGroupIds) AND EntityBType = Reaction AND EntityBKeyId IN (reactionIds)`. It pins the host on endpoint A and the reaction on B, which `CK_Association_CanonicalOrder` guarantees for this pair (§ARC16.8, *The predicate, and what pins it*).
 3. **It groups on `(EntityAEffectiveId, EntityBKeyId)` and counts in the projection**, inside the shaping function, so the aggregate runs in SQL (§ARC16.8, *Where the GROUP BY runs*). A pair nobody gave has no row, and so no entry.
 4. **It is caller-independent.** It mints no envelope, and every caller receives the same counts (§ARC16.8, *Anonymity*).
@@ -103,3 +103,12 @@ An existing member, changed. Its signature, its owner test and its facts are unc
 6. **Both entry paths converge on `DoRemoveAssociationByIdAsync`**, so `OnRemovingAssociationByIdAsync` takes the same order against the inbound envelope's caller.
 
 What it gives up is recorded in §SEC14.7 posture A′ rule 4: on this one surface a globally blocked caller reaches the table as any signed-in caller does, and is refused after the load rather than before it.
+
+## 6. OnRemovingAssociationByIdAsync — the remove by id's gate on the event door (#775)
+
+An existing member, unchanged: the handler for `Association-RemovingById`. §5 rule 6 already rules that it converges on `DoRemoveAssociationByIdAsync`, and §5 owns the gate and its order. This section proves them on this door, and restates neither.
+
+1. **The gate is asked of the inbound envelope's caller alone** (§5 rule 6; §SEC14.6 rule 4). An unauthenticated caller, a read-only caller on a row outside the exemption and a caller who fails the owner test are each refused here as §5 rules 1, 4 and 5 refuse them on the direct path. A reader's own reaction is removed here whatever read-only role they hold (§5 rule 3).
+2. **No envelope is minted on this path.** The `Association-Removed` fact and the reply are each made next from the inbound envelope, which carries its security context forward (§EVN17 rule 3; §EVN20 rule 9). Neither can carry the ambient caller.
+3. **An envelope with no content or no metadata, or one whose signature does not verify for `Association-RemovingById` in the request direction, is refused before anything else is asked** (§SEC14.6 rule 4).
+4. **Its tests are pins.** The handler already does all of this, so they pass as soon as they are written, and they are committed as pins. The order of the gate's steps among themselves belongs to the shared body, so its pins belong to §5.

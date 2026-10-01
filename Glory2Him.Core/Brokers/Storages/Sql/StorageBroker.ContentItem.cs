@@ -116,6 +116,11 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             CancellationToken cancellationToken = default) =>
             await SelectAllAsync<ContentItem>(cancellationToken);
 
+        public async ValueTask<IReadOnlyList<TResult>> SelectContentItemsAsync<TResult>(
+            Func<IQueryable<ContentItem>, IQueryable<TResult>> query,
+            CancellationToken cancellationToken = default) =>
+            await SelectListAsync(query, cancellationToken);
+
         public async ValueTask<ContentItem> SelectContentItemByIdAsync(
             Guid contentItemId,
             CancellationToken cancellationToken = default) =>

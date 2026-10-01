@@ -48,6 +48,12 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
         }
 
         /// <summary>
+        /// The real broker, for a test that drives a caller over it — the access broker's
+        /// effective-setting gather, whose query must translate against this catalogue.
+        /// </summary>
+        internal IStorageBroker StorageBroker => this.storageBroker;
+
+        /// <summary>
         /// Inserts through the broker — the same call, on the same model, that
         /// ContentItemSettingSeedData makes at startup.
         /// </summary>

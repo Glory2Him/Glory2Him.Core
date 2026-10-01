@@ -10,6 +10,9 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -242,6 +245,474 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             this.contentItemServiceMock.VerifyNoOtherCalls();
             this.tagServiceMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // A READER'S REACTION HAS NO EVENT PATH (#723, AssociationOrchestrationService.md §2 rule
+        // 1). It is given, changed and brought back through one write this door cannot reach —
+        // Association-Upserting is not minted (§ARC16.2.2) — and the foundation's add behind this
+        // door can neither revive nor repoint, so a reaction let through would be inserted beside
+        // the reader's existing row (§DOM4.10 rule 6). Refused AFTER the verify and the duplicate
+        // question, both of which are asked, and BEFORE either endpoint is read. Both reads are
+        // stubbed, so a door without the refusal runs the whole flow through to the foundation.
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddingEventIfThePairIsPersonalAndLogItAsync()
+        {
+            // given
+            Association addRequest =
+                CreateHonestAddRequestBetween(EntityType.ContentItem, EntityType.Reaction);
+
+            EventEnvelope<Association> inputEnvelope = CreateRequestEnvelope(addRequest);
+            SetupEventPathEndpointReadsBetween(addRequest, inputEnvelope);
+
+            var invalidAssociationOrchestrationException =
+                new InvalidAssociationOrchestrationException(
+                    message: "A personal content item association cannot be added through an event.");
+
+            var expectedValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: "Content item association orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: invalidAssociationOrchestrationException);
+
+            // when
+            ValueTask<EventEnvelope<Association>> onAddingTask =
+                this.associationOrchestrationService.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(
+                    onAddingTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedValidationException);
+
+            this.envelopeIntegrityBrokerMock.Verify(broker =>
+                broker.VerifyAsync(
+                    inputEnvelope,
+                    "AssociationAdding",
+                    EnvelopeDirection.Request),
+                Times.Once);
+
+            this.associationServiceMock.Verify(service =>
+                service.HasAlreadyAddedAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
+            // neither endpoint was read
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.tagServiceMock.VerifyNoOtherCalls();
+            this.reactionServiceMock.VerifyNoOtherCalls();
+            this.bibleReferenceServiceMock.VerifyNoOtherCalls();
+            this.commentServiceMock.VerifyNoOtherCalls();
+            this.linkServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // AFTER THE DUPLICATE QUESTION'S ANSWER, not merely after it is asked (#723 criterion 2).
+        // A re-delivered personal envelope the foundation has already applied settles as a replay,
+        // as an editorial one does. Refused instead, a settled event would be recorded as a failed
+        // delivery and retried, which is what #631's early duplicate question exists to prevent.
+        [Fact]
+        public async Task ShouldShortCircuitAnAlreadyAppliedPersonalPairBeforeRefusingItAsync()
+        {
+            // given
+            Association addRequest =
+                CreateHonestAddRequestBetween(EntityType.ContentItem, EntityType.Reaction);
+
+            EventEnvelope<Association> inputEnvelope = CreateRequestEnvelope(addRequest);
+            SetupEventPathEndpointReadsBetween(addRequest, inputEnvelope);
+
+            this.associationServiceMock.Setup(service =>
+                service.HasAlreadyAddedAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(true);
+
+            // when
+            EventEnvelope<Association> actualReplyEnvelope =
+                await this.associationOrchestrationService.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualReplyEnvelope.Should().BeNull();
+
+            this.envelopeIntegrityBrokerMock.Verify(broker =>
+                broker.VerifyAsync(
+                    inputEnvelope,
+                    "AssociationAdding",
+                    EnvelopeDirection.Request),
+                Times.Once);
+
+            this.associationServiceMock.Verify(service =>
+                service.HasAlreadyAddedAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            // nothing refused and logged, nothing read, nothing delegated
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.tagServiceMock.VerifyNoOtherCalls();
+            this.reactionServiceMock.VerifyNoOtherCalls();
+            this.bibleReferenceServiceMock.VerifyNoOtherCalls();
+            this.commentServiceMock.VerifyNoOtherCalls();
+            this.linkServiceMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // A REFUSAL WRITES NOTHING (#723, AssociationOrchestrationService.md §2 rule 2). The row,
+        // the Association-Added fact and the ProcessedEvents record are all the foundation
+        // handler's, so a refused personal pair has done none of them exactly when that handler
+        // was never reached. The duplicate question is all the foundation is asked, and it
+        // records nothing; nothing is minted here either.
+        [Fact]
+        public async Task ShouldNeverDelegateAPersonalPairToTheFoundationAsync()
+        {
+            // given
+            Association addRequest =
+                CreateHonestAddRequestBetween(EntityType.ContentItem, EntityType.Reaction);
+
+            EventEnvelope<Association> inputEnvelope = CreateRequestEnvelope(addRequest);
+            SetupEventPathEndpointReadsBetween(addRequest, inputEnvelope);
+
+            this.associationServiceMock.Setup(service =>
+                service.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(inputEnvelope);
+
+            // when
+            ValueTask<EventEnvelope<Association>> onAddingTask =
+                this.associationOrchestrationService.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(
+                onAddingTask.AsTask);
+
+            // then
+            this.associationServiceMock.Verify(service =>
+                service.OnAddingAssociationAsync(
+                    It.IsAny<EventEnvelope<Association>>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.associationServiceMock.Verify(service =>
+                service.HasAlreadyAddedAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.associationServiceMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // ONE ANSWER FOR EVERY PERSONAL PAIR (#723, AssociationOrchestrationService.md §2 rule 2),
+        // after #631's single occupancy message. Two requests that share no value — not the side
+        // the reaction is named on, not an id, not a reader, not a status, and not the signed
+        // caller — are both refused, and the two refusals are compared with each other, message
+        // and data. Neither may name a row, a reader or an approval state, so a publisher learns
+        // that the pair is personal and nothing about it.
+        [Fact]
+        public async Task ShouldRefuseEveryPersonalPairWithOneMessageAsync()
+        {
+            // given
+            var firstRequest = new Association
+            {
+                Id = Guid.NewGuid(),
+                EntityAType = EntityType.ContentItem,
+                EntityAKeyId = Guid.NewGuid(),
+                EntityAGroupId = Guid.NewGuid(),
+                EntityAScope = Scope.AllVersions,
+                EntityAContentType = ContentType.Story,
+                EntityBType = EntityType.Reaction,
+                EntityBKeyId = Guid.NewGuid(),
+                EntityBGroupId = Guid.NewGuid(),
+                EntityBScope = Scope.ThisVersionOnly,
+                EntityBContentType = null,
+                UserId = $"reader-{Guid.NewGuid()}",
+                SortOrder = 1,
+                ConfidenceScore = 0.25m,
+                ConfidenceReason = $"reason-{Guid.NewGuid()}",
+                SourceBatchId = Guid.NewGuid(),
+                ModelVersion = $"model-{Guid.NewGuid()}",
+                CreatedBy = $"creator-{Guid.NewGuid()}",
+                CreatedWhen = DateTimeOffset.UnixEpoch,
+                UpdatedBy = $"updater-{Guid.NewGuid()}",
+                UpdatedWhen = DateTimeOffset.UnixEpoch,
+                DeletedBy = null,
+                DeletedWhen = null,
+                IsDeleted = false,
+                DeletionReason = null,
+                PublishDate = null,
+                IsPublished = false,
+                ApprovalStatus = ApprovalStatus.Submitted,
+                IsApprovedByBypass = false,
+                ApprovedByBypassReason = null,
+            };
+
+            var secondRequest = new Association
+            {
+                Id = Guid.NewGuid(),
+                EntityAType = EntityType.Reaction,
+                EntityAKeyId = Guid.NewGuid(),
+                EntityAGroupId = Guid.NewGuid(),
+                EntityAScope = Scope.ThisVersionOnly,
+                EntityAContentType = null,
+                EntityBType = EntityType.Tag,
+                EntityBKeyId = Guid.NewGuid(),
+                EntityBGroupId = Guid.NewGuid(),
+                EntityBScope = Scope.AllVersions,
+                EntityBContentType = ContentType.Testimony,
+                UserId = $"reader-{Guid.NewGuid()}",
+                SortOrder = 2,
+                ConfidenceScore = 0.75m,
+                ConfidenceReason = $"reason-{Guid.NewGuid()}",
+                SourceBatchId = Guid.NewGuid(),
+                ModelVersion = $"model-{Guid.NewGuid()}",
+                CreatedBy = $"creator-{Guid.NewGuid()}",
+                CreatedWhen = DateTimeOffset.UnixEpoch.AddDays(1),
+                UpdatedBy = $"updater-{Guid.NewGuid()}",
+                UpdatedWhen = DateTimeOffset.UnixEpoch.AddDays(1),
+                DeletedBy = $"deleter-{Guid.NewGuid()}",
+                DeletedWhen = DateTimeOffset.UnixEpoch.AddDays(2),
+                IsDeleted = true,
+                DeletionReason = $"deletion-{Guid.NewGuid()}",
+                PublishDate = DateTimeOffset.UnixEpoch.AddDays(1),
+                IsPublished = true,
+                ApprovalStatus = ApprovalStatus.Approved,
+                IsApprovedByBypass = true,
+                ApprovedByBypassReason = $"bypass-{Guid.NewGuid()}",
+            };
+
+            SecurityContext firstCaller = CreateSignedReader();
+            SecurityContext secondCaller = CreateSignedReader();
+            var refusals = new List<(string Message, IDictionary Data)>();
+
+            var personalRequests = new[]
+            {
+                (Request: firstRequest, Caller: firstCaller),
+                (Request: secondRequest, Caller: secondCaller),
+            };
+
+            foreach ((Association request, SecurityContext caller) in personalRequests)
+            {
+                EventEnvelope<Association> inputEnvelope = CreateRequestEnvelope(request, caller);
+
+                // when
+                ValueTask<EventEnvelope<Association>> onAddingTask =
+                    this.associationOrchestrationService.OnAddingAssociationAsync(
+                        inputEnvelope,
+                        TestContext.Current.CancellationToken);
+
+                AssociationOrchestrationValidationException actualException =
+                    await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(
+                        onAddingTask.AsTask);
+
+                refusals.Add((actualException.InnerException.Message, actualException.InnerException.Data));
+            }
+
+            // then
+            refusals[1].Message.Should().Be(refusals[0].Message);
+            refusals[1].Data.Should().BeEquivalentTo(refusals[0].Data);
+
+            string message = refusals[0].Message;
+
+            personalRequests
+                .SelectMany(personalRequest => new[]
+                {
+                    personalRequest.Request.Id,
+                    personalRequest.Request.EntityAKeyId,
+                    personalRequest.Request.EntityAGroupId,
+                    personalRequest.Request.EntityBKeyId,
+                    personalRequest.Request.EntityBGroupId,
+                })
+                .Should().AllSatisfy(rowId =>
+                    message.Should().NotContainEquivalentOf(rowId.ToString()));
+
+            personalRequests
+                .SelectMany(personalRequest => new[]
+                {
+                    personalRequest.Request.UserId,
+                    personalRequest.Caller.SubjectId,
+                    personalRequest.Caller.Username,
+                })
+                .Should().AllSatisfy(reader =>
+                    message.Should().NotContainEquivalentOf(reader));
+
+            Enum.GetNames<ApprovalStatus>().Should().AllSatisfy(status =>
+                message.Should().NotContainEquivalentOf(status));
+        }
+
+        // A Reaction on each side in turn. Canonical order is the foundation's to compute, so a
+        // publisher may name the reaction on either endpoint.
+        public static TheoryData<EntityType, EntityType> PersonalPairs() =>
+            new TheoryData<EntityType, EntityType>
+            {
+                { EntityType.Reaction, EntityType.ContentItem },
+                { EntityType.ContentItem, EntityType.Reaction },
+            };
+
+        // PERSONALITY IS THE LOOKUP'S ANSWER FOR EITHER ENDPOINT (#723; §DOM4.2, §DOM4.10 rule 4):
+        // a pair is personal where either endpoint's type is. A refusal that asked one side only
+        // would let a reaction through whenever the publisher named it on the other. Both reads
+        // are stubbed, so a side left unasked runs through to the foundation.
+        [Theory]
+        [MemberData(nameof(PersonalPairs))]
+        public async Task ShouldRefuseAPersonalPairWhicheverEndpointIsPersonalAsync(
+            EntityType entityAType,
+            EntityType entityBType)
+        {
+            // given
+            Association addRequest = CreateHonestAddRequestBetween(entityAType, entityBType);
+            EventEnvelope<Association> inputEnvelope = CreateRequestEnvelope(addRequest);
+            SetupEventPathEndpointReadsBetween(addRequest, inputEnvelope);
+
+            var invalidAssociationOrchestrationException =
+                new InvalidAssociationOrchestrationException(
+                    message: "A personal content item association cannot be added through an event.");
+
+            var expectedValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: "Content item association orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: invalidAssociationOrchestrationException);
+
+            // when
+            ValueTask<EventEnvelope<Association>> onAddingTask =
+                this.associationOrchestrationService.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(
+                    onAddingTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(
+                expectedValidationException,
+                because: $"a {EntityType.Reaction} on either endpoint makes the pair personal");
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
+            this.associationServiceMock.Verify(service =>
+                service.OnAddingAssociationAsync(
+                    It.IsAny<EventEnvelope<Association>>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.reactionServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        public static TheoryData<string> UndefinedEndpointTypeParameters() =>
+            new TheoryData<string>
+            {
+                nameof(Association.EntityAType),
+                nameof(Association.EntityBType),
+            };
+
+        // THE REFUSAL SET STANDS (#723, Out of scope). An endpoint type outside the enum is
+        // malformed input, and the shared flow's structural validation refuses it as invalid. The
+        // personal refusal runs ahead of that flow, so it must leave such a value for the flow to
+        // refuse, rather than fail on it as a service error.
+        [Theory]
+        [MemberData(nameof(UndefinedEndpointTypeParameters))]
+        public async Task ShouldThrowValidationExceptionOnAddingEventIfAnEndpointTypeIsUndefinedAndLogItAsync(
+            string undefinedParameter)
+        {
+            // given
+            var undefinedEntityType = (EntityType)int.MaxValue;
+            Association addRequest = CreateHonestAddRequest();
+
+            if (undefinedParameter == nameof(Association.EntityAType))
+            {
+                addRequest.EntityAType = undefinedEntityType;
+            }
+            else
+            {
+                addRequest.EntityBType = undefinedEntityType;
+            }
+
+            EventEnvelope<Association> inputEnvelope = CreateRequestEnvelope(addRequest);
+
+            var invalidAssociationOrchestrationException =
+                new InvalidAssociationOrchestrationException(
+                    message: "Content item association is invalid, fix the errors and try again.");
+
+            invalidAssociationOrchestrationException.AddData(
+                key: undefinedParameter,
+                values: "Value is not a recognized entity type");
+
+            var expectedValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: "Content item association orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: invalidAssociationOrchestrationException);
+
+            // when
+            ValueTask<EventEnvelope<Association>> onAddingTask =
+                this.associationOrchestrationService.OnAddingAssociationAsync(
+                    inputEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(
+                    onAddingTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
+            this.associationServiceMock.Verify(service =>
+                service.OnAddingAssociationAsync(
+                    It.IsAny<EventEnvelope<Association>>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        private static SecurityContext CreateSignedReader() =>
+            new SecurityContext
+            {
+                IsAuthenticated = true,
+                SubjectId = $"subject-{Guid.NewGuid()}",
+                Username = $"reader-{Guid.NewGuid()}",
+            };
+
+        // Stubs both endpoint reads as the signed caller would be answered, whatever the two types.
+        private void SetupEventPathEndpointReadsBetween(
+            Association addRequest,
+            EventEnvelope<Association> inboundEnvelope)
+        {
+            SetupEventPathEndpointRead(
+                addRequest.EntityAType,
+                addRequest.EntityAKeyId,
+                addRequest.EntityAGroupId,
+                inboundEnvelope);
+
+            SetupEventPathEndpointRead(
+                addRequest.EntityBType,
+                addRequest.EntityBKeyId,
+                addRequest.EntityBGroupId,
+                inboundEnvelope);
         }
     }
 }

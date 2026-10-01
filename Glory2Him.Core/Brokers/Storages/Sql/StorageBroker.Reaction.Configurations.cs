@@ -46,6 +46,21 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                 .HasMaxLength(16)
                 .IsRequired();
 
+            // The default matches the entity's own, so a reaction inserted without one lands
+            // past the curated seed values rather than at zero, where every unordered reaction
+            // would otherwise pile up ahead of the ones somebody chose the order of.
+            //
+            // ValueGeneratedNever is what lets a SEEDED zero survive (#395). HasDefaultValue on
+            // its own marks the property ValueGenerated.OnAdd, and on insert EF omits any value
+            // equal to the CLR default - so 0 was the one value the column default overwrote
+            // with 1000. The default stays for raw-SQL inserts that name no column; EF now
+            // always sends what the entity holds.
+            model
+                .Property(reaction => reaction.SortOrder)
+                .IsRequired()
+                .HasDefaultValue(1000)
+                .ValueGeneratedNever();
+
             model
                 .Property(reaction => reaction.CreatedBy)
                 .HasMaxLength(255)

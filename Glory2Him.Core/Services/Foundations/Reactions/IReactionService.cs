@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -43,6 +44,17 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
         ValueTask<IQueryable<Reaction>> RetrieveAllReactionsAsync(
             CancellationToken cancellationToken = default);
 
+        /// <summary>
+        /// The reactions anybody may see — not deleted, approved, published, and a publish date
+        /// that is null or not after the current moment (§SEC14.3 rule 4) — in the vocabulary's
+        /// order: <c>SortOrder</c>, lower
+        /// first, with <c>Name</c> breaking a tie (§DOM5.2). Caller-independent: it reads no
+        /// security context, so every caller receives the vocabulary an anonymous visitor does
+        /// and a reaction count never moves when somebody signs in (§ARC16.8, <i>Anonymity</i>).
+        /// </summary>
+        ValueTask<IReadOnlyList<Reaction>> RetrievePublicReactionsAsync(
+            CancellationToken cancellationToken = default);
+
         ValueTask<Reaction> RetrieveReactionByIdAsync(
             Guid reactionId,
             CancellationToken cancellationToken = default);
@@ -54,11 +66,13 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
         /// internal for the same reason: a public member taking a caller-supplied context is a
         /// forgery surface.
         ///
-        /// <para>Used by <c>AssociationOrchestrationService</c> to resolve an endpoint on the
-        /// <c>Association-Adding</c> event path (#631). The overload above mints its own envelope,
-        /// which reads the AMBIENT caller: on a delivery that is nobody, or whoever PUBLISHED —
-        /// never necessarily the subject the envelope was signed for. A read whose answer depends
-        /// on who is asking is passed the envelope it is being made under (§ARC12.5.2).</para>
+        /// <para>Built for <c>AssociationOrchestrationService</c> to resolve an endpoint on the
+        /// <c>Association-Adding</c> event path (#631), which since #723 refuses a personal pair
+        /// before either endpoint is read, so no reaction reaches it through that door. The
+        /// overload above mints its own envelope, which reads the AMBIENT caller: on a delivery
+        /// that is nobody, or whoever PUBLISHED — never necessarily the subject the envelope was
+        /// signed for. A read whose answer depends on who is asking is passed the envelope it is
+        /// being made under (§ARC12.5.2).</para>
         /// </summary>
         internal ValueTask<Reaction> RetrieveReactionByIdAsync<TSource>(
             Guid reactionId,
