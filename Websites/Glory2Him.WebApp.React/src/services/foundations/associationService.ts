@@ -12,7 +12,7 @@ export const associationService = {
             mutationFn: async (association: AssociationRequest) =>
                 await associationBroker.PostAssociationAsync(association),
 
-            onSuccess: () => {
+            onSettled: () => {
                 queryClient.invalidateQueries({ queryKey: ['ReactionSummaries'] });
             }
         });
