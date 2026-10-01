@@ -108,6 +108,47 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
         }
 
         [Fact]
+        public async Task ShouldRetrieveAReactionPublishedAtTheCurrentMomentAsync()
+        {
+            // given
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
+
+            // a publish date not after the current moment is visible, so equal to it is too
+            Reaction reactionPublishedNow = CreatePubliclyVisibleReaction(currentDateTime);
+            reactionPublishedNow.PublishDate = currentDateTime;
+
+            var storageReactions = new List<Reaction> { reactionPublishedNow };
+            var expectedReactions = new List<Reaction> { reactionPublishedNow.DeepClone() };
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(currentDateTime);
+
+            SetupSelectReactionsToQuery(storageReactions, cancellationToken);
+
+            // when
+            IReadOnlyList<Reaction> actualReactions =
+                await this.reactionService.RetrievePublicReactionsAsync(cancellationToken);
+
+            // then
+            actualReactions.Should().BeEquivalentTo(expectedReactions);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            VerifySelectReactionsQueriedOnce(cancellationToken);
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
         public async Task ShouldLeaveOutAReactionThatIsNotPubliclyVisibleAsync()
         {
             // given
