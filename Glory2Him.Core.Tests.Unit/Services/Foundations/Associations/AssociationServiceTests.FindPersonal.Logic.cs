@@ -394,43 +394,44 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
         [Theory]
         [MemberData(nameof(UnauthenticatedSecurityContexts))]
-        public async Task ShouldThrowValidationExceptionOnFindPersonalIfUserIsNotAuthenticatedAndLogItAsync(
+        public async Task ShouldFindNothingForAnAnonymousCallerAsync(
             SecurityContext unauthenticatedSecurityContext)
         {
-            // given
+            // given: an anonymous caller owns no row. The store holds a row for the named reader,
+            // so a lookup that reached it would find something.
             this.ambientSecurityContext = unauthenticatedSecurityContext;
             Association lookupRequest = CreatePersonalLookupRequest(GetRandomString());
 
-            var unauthorizedAssociationException =
-                new UnauthorizedAssociationException(
-                    message: "The current user is not authenticated.");
+            Association namedReadersRow =
+                CreateStoredPersonalRow(lookupRequest, isDeleted: false);
 
-            var expectedAssociationValidationException =
-                new AssociationValidationException(
-                    message: "Content item association validation error occurred, fix the errors and try again.",
-                    innerException: unauthorizedAssociationException);
+            using var cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken inputCancellationToken = cancellationTokenSource.Token;
+
+            string expectedWarning =
+                "Personal content item association lookup denied. The caller is not " +
+                "authenticated; reported to the caller as not found.";
+
+            SetupPersonalLookupOver(new[] { namedReadersRow }, inputCancellationToken);
 
             // when
-            ValueTask<PersonalAssociationMatch?> findTask =
-                this.associationService.FindPersonalAssociationAsync(
+            PersonalAssociationMatch? actualMatch =
+                await this.associationService.FindPersonalAssociationAsync(
                     lookupRequest,
-                    TestContext.Current.CancellationToken);
+                    inputCancellationToken);
 
-            AssociationValidationException actualAssociationValidationException =
-                await Assert.ThrowsAsync<AssociationValidationException>(findTask.AsTask);
-
-            // then
-            actualAssociationValidationException.Should().BeEquivalentTo(
-                expectedAssociationValidationException);
+            // then: the same answer as a reader with no row, and storage never asked
+            actualMatch.Should().BeNull();
 
             this.eventEnvelopeBrokerMock.Verify(broker =>
                 broker.CreateAsync(lookupRequest),
                     Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
-                broker.LogErrorAsync(It.Is(
-                    SameExceptionAs(expectedAssociationValidationException))),
-                Times.Once);
+                broker.LogWarningAsync(expectedWarning),
+                    Times.Once);
+
+            VerifyPersonalLookupAsked(inputCancellationToken, Times.Never());
 
             this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
