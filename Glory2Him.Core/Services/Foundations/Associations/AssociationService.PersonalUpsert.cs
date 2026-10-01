@@ -164,11 +164,19 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         }
 
         // A null UserId is an editorial row, which this member never reaches: the repoint
-        // exception is personal-only (§ARC16.2.2).
+        // exception is personal-only (§ARC16.2.2). The endpoints are refused as the add refuses
+        // them, because the personal key is taken from them.
         private static void ValidateOnUpsertPersonalAssociation(Association association) =>
             Validate(
                 message: "Content item association is invalid, fix the errors and try again.",
-                (Rule: IsInvalid(association.UserId), Parameter: nameof(Association.UserId)));
+                (Rule: IsInvalid(association.UserId), Parameter: nameof(Association.UserId)),
+                (Rule: IsInvalid(association.EntityAType), Parameter: nameof(Association.EntityAType)),
+                (Rule: IsInvalid(association.EntityAKeyId), Parameter: nameof(Association.EntityAKeyId)),
+                (Rule: IsInvalid(association.EntityBType), Parameter: nameof(Association.EntityBType)),
+                (Rule: IsInvalid(association.EntityBKeyId), Parameter: nameof(Association.EntityBKeyId)),
+
+                (Rule: IsSameEndpoint(association.EntityAGroupId, association.EntityBGroupId),
+                    Parameter: nameof(Association.EntityBGroupId)));
 
         // The upsert acts for the signed caller alone, so a request naming any other reader is
         // refused, whatever role the caller holds (§SEC14.7 posture A′ rule 2: acting for that
