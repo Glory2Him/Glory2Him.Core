@@ -1,6 +1,7 @@
 import { FormEvent, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { accountService } from '../../services/foundations/accountService';
+import { useSignInReturn } from '../../hooks/useSignInReturn';
 import { StatusMessage, extractApiErrorMessage } from './statusMessage';
 
 // Ported from Blazor's Account/Pages/LoginWith2fa.razor. The login page navigates here
@@ -8,6 +9,7 @@ import { StatusMessage, extractApiErrorMessage } from './statusMessage';
 export function LoginWith2fa() {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
+    const signInReturn = useSignInReturn();
 
     const returnUrl = searchParams.get('ReturnUrl') ?? searchParams.get('returnUrl');
     const rememberMe = searchParams.get('RememberMe') === 'true';
@@ -56,7 +58,7 @@ export function LoginWith2fa() {
                     return;
                 }
 
-                navigate(returnUrl != null && returnUrl.startsWith('/') ? returnUrl : '/');
+                signInReturn(returnUrl);
             },
             onError: (error: unknown) => {
                 setMessage(extractApiErrorMessage(
