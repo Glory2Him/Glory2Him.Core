@@ -41,6 +41,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 message: "Content item association dependency error occurred, contact support.",
                 innerException: failedStorageAssociationException);
 
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(GetRandomString());
+
             this.storageBrokerMock.Setup(broker =>
                 broker.SelectAssociationsAsync(
                     It.IsAny<Func<IQueryable<Association>, IQueryable<AssociationPairKey>>>(),
@@ -123,6 +127,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 message: "Content item association service error occurred, contact support.",
                 innerException: failedAssociationServiceException);
 
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(GetRandomString());
+
             this.storageBrokerMock.Setup(broker =>
                 broker.SelectAssociationsAsync(
                     It.IsAny<Func<IQueryable<Association>, IQueryable<AssociationPairKey>>>(),
@@ -184,6 +192,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             var expectedAssociationDependencyException = new AssociationDependencyException(
                 message: "Content item association dependency error occurred, contact support.",
                 innerException: timeoutAssociationException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(GetRandomString());
 
             this.storageBrokerMock.Setup(broker =>
                 broker.SelectAssociationsAsync(

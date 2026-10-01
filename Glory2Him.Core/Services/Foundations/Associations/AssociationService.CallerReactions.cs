@@ -44,6 +44,17 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 string callerUserId =
                     await this.securityAuditBroker.GetUserIdAsync(securityContext);
 
+                // an editorial row's UserId is null, so a caller with no id owns no row; a
+                // signed-in identity without one is a misconfiguration, so it is logged
+                if (string.IsNullOrWhiteSpace(callerUserId))
+                {
+                    await this.loggingBroker.LogWarningAsync(
+                        message: "Content item association caller reactions read answered empty. " +
+                            "The caller is signed in but their identity carries no user id.");
+
+                    return Array.Empty<AssociationPairKey>();
+                }
+
                 return await this.storageBroker.SelectAssociationsAsync(
                     query: associations => associations
                         .Where(association =>
