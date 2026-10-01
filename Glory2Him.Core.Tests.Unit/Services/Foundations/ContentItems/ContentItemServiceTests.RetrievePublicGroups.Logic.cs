@@ -182,12 +182,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         }
 
         [Fact]
-        public async Task ShouldLeaveOutAGroupWithNoVisibleVersionAsync()
+        public async Task ShouldLeaveOutAVersionThatIsNotVisibleAsync()
         {
-            // given: four groups, each with one version that satisfies every §SEC14.1 term but
-            // one - so dropping or inverting any single term lets its group back in. A fifth,
-            // visible group is stored but not asked for: a sibling test that forgot to match the
-            // GROUP would let it vouch for all four.
+            // given: four versions, each alone in its group, each satisfying every §SEC14.1 term
+            // but one - so dropping or inverting any single term lets that version back in. A
+            // fifth, visible version is stored but not asked for: a condition that tested some
+            // visible row rather than the row the id names would let it vouch for all four.
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
             ContentItem deletedContentItem =
