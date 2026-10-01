@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { renderHook } from '@testing-library/react';
+import { renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { associationService } from './associationService';
 import { EntityType } from '../../models/foundations/approvalSettings/approvalSetting';
@@ -33,6 +33,7 @@ const createdResult: AssociationSuggestionResult = {
 
 describe('associationService.useUpsertAssociation', () => {
     let queryClient: QueryClient;
+    let invalidated: Array<ReadonlyArray<unknown>>;
 
     const wrapper = ({ children }: { children: ReactNode }) => (
         <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
@@ -41,9 +42,16 @@ describe('associationService.useUpsertAssociation', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         postAssociationAsync.mockResolvedValue(createdResult);
+        invalidated = [];
 
         queryClient = new QueryClient({
             defaultOptions: { queries: { retry: false } }
+        });
+
+        vi.spyOn(queryClient, 'invalidateQueries').mockImplementation((filters) => {
+            invalidated.push((filters?.queryKey ?? []) as ReadonlyArray<unknown>);
+
+            return Promise.resolve();
         });
     });
 
@@ -59,5 +67,20 @@ describe('associationService.useUpsertAssociation', () => {
         expect(postAssociationAsync).toHaveBeenCalledTimes(1);
         expect(postAssociationAsync).toHaveBeenCalledWith(reactionRequest);
         expect(actualResult).toEqual(createdResult);
+    });
+
+    // Matched by PREFIX: a summary read is keyed on the page of ids it asked for, and every
+    // page holding the item is stale once its reaction is written.
+    it('should read the summaries again once a reaction is written', async () => {
+        // given
+        const { result } = renderHook(
+            () => associationService.useUpsertAssociation(), { wrapper });
+
+        // when
+        await result.current.mutateAsync(reactionRequest);
+        await waitFor(() => expect(invalidated.length).toBeGreaterThan(0));
+
+        // then
+        expect(invalidated).toEqual([['ReactionSummaries']]);
     });
 });
