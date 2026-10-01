@@ -626,6 +626,18 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 throw await CreateAndLogDependencyValidationExceptionAsync(
                     lockedAssociationException);
             }
+            // after the concurrency catch above, which DbUpdateConcurrencyException must still reach
+            catch (DbUpdateException dbUpdateException)
+            {
+                var failedStorageAssociationException =
+                    new FailedStorageAssociationException(
+                        message: "Failed content item association storage error occurred, contact support.",
+                        innerException: dbUpdateException,
+                        data: dbUpdateException.Data);
+
+                throw await CreateAndLogDependencyExceptionAsync(
+                    failedStorageAssociationException);
+            }
             catch (Exception exception)
             {
                 var failedAssociationServiceException =
