@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using EFxceptions.Models.Exceptions;
@@ -26,6 +27,7 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
     {
         private delegate ValueTask<Reaction> ReturningReactionFunction();
         private delegate ValueTask<IQueryable<Reaction>> ReturningReactionsFunction();
+        private delegate ValueTask<IReadOnlyList<Reaction>> ReturningReactionListFunction();
 
         private delegate ValueTask<EventEnvelope<Reaction>?>
             ReturningReactionEventEnvelopeFunction();
@@ -284,6 +286,52 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
             try
             {
                 return await returningReactionsFunction();
+            }
+            catch (OperationCanceledException operationCanceledException)
+                when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
+            {
+                var timeoutException =
+                    new TimeoutException("The dependency operation timed out.");
+
+                var timeoutReactionException =
+                    new TimeoutReactionException(
+                        message: "Failed reaction timeout error occurred, contact support.",
+                        innerException: timeoutException,
+                        data: timeoutException.Data);
+
+                throw await CreateAndLogTimeoutDependencyExceptionAsync(exception: timeoutReactionException);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SqlException sqlException)
+            {
+                var failedStorageReactionException = new FailedStorageReactionException(
+                    message: "Failed reaction storage error occurred, contact support.",
+                    innerException: sqlException,
+                    data: sqlException.Data);
+
+                throw await CreateAndLogCriticalDependencyExceptionAsync(exception: failedStorageReactionException);
+            }
+            catch (Exception exception)
+            {
+                var failedReactionServiceException = new FailedReactionServiceException(
+                    message: "Failed reaction service error occurred, please contact support.",
+                    innerException: exception,
+                    data: exception.Data);
+
+                throw await CreateAndLogServiceExceptionAsync(failedReactionServiceException);
+            }
+        }
+
+        // the caller-independent public vocabulary (#717): a materialised read with no input
+        private async ValueTask<IReadOnlyList<Reaction>> TryCatch(
+            ReturningReactionListFunction returningReactionListFunction)
+        {
+            try
+            {
+                return await returningReactionListFunction();
             }
             catch (OperationCanceledException operationCanceledException)
                 when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
