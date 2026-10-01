@@ -77,17 +77,20 @@ YOU               merge
 work to QA itself, launching QA as a fresh subagent with its brief. A role whose
 session has none — running as a subagent, or as a main thread started as that
 role — ends with the brief for the session that launched it, or for you where no
-session did. Either way, the artifact each role leaves behind is the whole of the
-handoff. Where QA cannot post its round or apply its labels itself, the session
-that launched it posts the round as QA wrote it and applies the labels QA's
-verdict carries, as `.claude/agents/qa.md` defines them; the ruling stays QA's.
-QA's findings go back to the role whose work it reviewed the same way: to the
-agent that launched QA, through the session that launched the role, or through
-you where no session did. These arrows stay yours: you start the planner and the developer on a task, and a
-finding QA names as another role's comes to you, with QA's brief for its owner.
-Two of the rows are decisions only you can make: merging the design, and merging
-the work. Approving the criteria is QA's: its `ready for development` label is
-what the developer starts on.
+session did. Either way, the artifact each role leaves behind is the whole of
+the handoff. Where QA cannot post its round or apply its labels itself, the
+session that launched it posts the round as QA wrote it and applies the labels
+QA's verdict carries, as `.claude/agents/qa.md` defines them; the ruling stays
+QA's. QA's BLOCKING findings go back to the role whose work it reviewed the same
+way: to the agent that launched QA, through the session that launched the role,
+or through you where no session did; an ADVISORY finding is fixed only when you
+ask for it. These arrows stay yours: you start the planner and the developer on
+a task, you start a role a session relaunched on an ADVISORY finding of its own
+that you want fixed, only once QA has passed the work, and a finding QA names as
+another role's comes to you, with QA's brief for its owner. Two of the rows are
+decisions only you can make: merging the design, and merging the work. Approving
+the criteria is QA's: its `ready for development` label is what the developer
+starts on.
 
 **Every handover to QA is fresh.** QA starts with an empty context and a brief
 that points — the tasks, the design PR, the PR — never the other agent's summary
@@ -104,11 +107,14 @@ task, or the design it cites — takes `ready for development` off until QA has
 agreed it, and the developer waits for any design change to reach `main`, so it
 never acts on criteria QA has not seen. When a round has findings for both the
 planner and the developer, route the planner's first: the developer's fix round
-waits until the changed task is signed off again — or, when the planner settles
-its findings without changing the task, until your brief says so. A disputed
-finding comes to you: the planner rules when the developer disputes one about a
-task or the design, and anything else — including a finding the planner disputes
-about its own work — is yours to decide.
+waits only on the planner's BLOCKING findings and on an ADVISORY one you have
+asked to be fixed, since an ADVISORY one you have not asked for counts as
+settled without changing the task. It waits until the changed task is signed off
+again — or, when the planner settles its findings without changing the task,
+until your brief says so. A disputed finding comes to you: the planner rules
+when the developer disputes one about a task or the design, and anything else —
+including a finding the planner disputes about its own work — is yours to
+decide.
 
 **The planner pushes back when the design is too high-level.** It goes straight
 from the design to tasks when the change is simple, but it will not invent the

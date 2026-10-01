@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Enums;
@@ -613,6 +614,18 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         {
             Condition = id == Guid.Empty,
             Message = "Id is required"
+        };
+
+        private static dynamic IsInvalid(IReadOnlyList<Guid> ids) => new
+        {
+            Condition = ids is null,
+            Message = "Ids are required"
+        };
+
+        private static dynamic HasInvalidId(IReadOnlyList<Guid> ids) => new
+        {
+            Condition = ids is not null && ids.Contains(Guid.Empty),
+            Message = "Ids must not contain an empty id"
         };
 
         private static dynamic IsInvalid(string text) => new

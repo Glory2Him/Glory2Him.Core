@@ -44,6 +44,17 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// The signed caller's own live reaction on each of the given content items, whatever
+        /// its approval status and publish date, so a card can show a reaction pressed while its
+        /// count has not moved (§ARC16.8). The caller is the envelope's, never a parameter, and an
+        /// anonymous caller is answered with an empty list. An identity-filtered read for
+        /// display: it decides nothing.
+        /// </summary>
+        ValueTask<IReadOnlyList<AssociationPairKey>> RetrieveCallerContentItemReactionsAsync(
+            IReadOnlyList<Guid> contentItemGroupIds,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Looks up the row that occupies the same canonical pair as <paramref name="association"/>
         /// — the same endpoint effective ids <c>UX_Associations_EditorialPair</c> keys on, and
         /// its <c>UserId</c> — over the UNFILTERED store, spanning soft-deleted rows (design §7.4,

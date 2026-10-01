@@ -136,6 +136,127 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
         }
 
         [Fact]
+        public async Task ShouldModifyReactionToASortOrderOfZeroAsync()
+        {
+            // given
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            Reaction randomReaction = CreateRandomModifyReaction(randomDateTimeOffset, randomUserId);
+            randomReaction.ApprovalStatus = ApprovalStatus.Draft;
+            randomReaction.SortOrder = 0;
+            Reaction inputReaction = randomReaction;
+            Reaction auditAppliedReaction = inputReaction.DeepClone();
+            Reaction storageReaction = auditAppliedReaction.DeepClone();
+            storageReaction.UpdatedWhen = storageReaction.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+            storageReaction.SortOrder = GetRandomNumber();
+            Reaction auditPreservedReaction = auditAppliedReaction.DeepClone();
+            Reaction updatedReaction = auditPreservedReaction.DeepClone();
+            Reaction expectedReaction = updatedReaction.DeepClone();
+            SecurityContext expectedSecurityContext = this.ambientSecurityContext;
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(expectedSecurityContext))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(inputReaction, expectedSecurityContext))
+                    .ReturnsAsync(auditAppliedReaction);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectReactionByIdAsync(
+                    auditAppliedReaction.Id,
+                    cancellationToken))
+                        .ReturnsAsync(storageReaction);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    auditAppliedReaction,
+                    storageReaction))
+                        .ReturnsAsync(auditPreservedReaction);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateReactionAsync(auditPreservedReaction, cancellationToken))
+                    .ReturnsAsync(updatedReaction);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishReactionAsync(
+                    It.Is<EventEnvelope<Reaction>>(envelope =>
+                        envelope.Content == updatedReaction
+                            && envelope.SecurityContext == expectedSecurityContext),
+                    ReactionEventOperation.Modified))
+                    .Returns(new ValueTask<EventPublishResult<Reaction>>(
+                        new EventPublishResult<Reaction>()));
+
+            // when
+            Reaction actualReaction =
+                await this.reactionService.ModifyReactionAsync(
+                    inputReaction,
+                    cancellationToken);
+
+            // then
+            actualReaction.Should().BeEquivalentTo(expectedReaction);
+            actualReaction.SortOrder.Should().Be(0);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                    broker.GetUserIdAsync(expectedSecurityContext),
+                Times.Exactly(2));
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                    broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Exactly(3));
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                    broker.ApplyModifyAuditValuesAsync(inputReaction, expectedSecurityContext),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                    broker.SelectReactionByIdAsync(
+                        auditAppliedReaction.Id,
+                        cancellationToken),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                    broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                        auditAppliedReaction,
+                        storageReaction),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                    broker.UpdateReactionAsync(
+                        It.Is<Reaction>(reaction =>
+                            reaction == auditPreservedReaction && reaction.SortOrder == 0),
+                        cancellationToken),
+                Times.Once);
+
+            this.eventBrokerMock.Verify(broker =>
+                    broker.PublishReactionAsync(
+                        It.Is<EventEnvelope<Reaction>>(envelope =>
+                            envelope.Content == updatedReaction
+                                && envelope.SecurityContext == expectedSecurityContext),
+                        ReactionEventOperation.Modified),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertProcessedEventAsync(
+                    It.Is<ProcessedEvent>(processedEvent =>
+                        processedEvent.ReceiverName ==
+                            EventBrokerIdentifiers.ReactionOnModifyingReactionSubscriptionName),
+                    cancellationToken),
+                Times.Exactly(2));
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
         public async Task ShouldModifyWhenOwnerMovesStatusToSubmittedAsync()
         {
             // given

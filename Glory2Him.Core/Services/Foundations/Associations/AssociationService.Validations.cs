@@ -836,6 +836,12 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 (Rule: IsInvalid(contentItemGroupIds), Parameter: nameof(contentItemGroupIds)),
                 (Rule: IsInvalid(reactionIds), Parameter: nameof(reactionIds)));
 
+        private static void ValidateOnRetrieveCallerContentItemReactions(
+            IReadOnlyList<Guid> contentItemGroupIds) =>
+            Validate(
+                message: "Content item association is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(contentItemGroupIds), Parameter: nameof(contentItemGroupIds)));
+
         private static void ValidateStorageAssociation(
             Association maybeAssociation,
             Guid associationId)

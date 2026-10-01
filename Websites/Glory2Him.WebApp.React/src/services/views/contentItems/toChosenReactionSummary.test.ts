@@ -15,6 +15,10 @@ const praying: ContentItemReactionOption = { id: 'reaction-praying', label: 'Pra
 // The vocabulary's order, which an added entry takes its place in.
 const options: ReadonlyArray<ContentItemReactionOption> = [amen, love, joy, praying];
 
+// A reaction the summary can name and the options do not list, as when the options were read
+// before the vocabulary changed. Not one of the seeded five.
+const hallelujah: ContentItemReactionOption = { id: 'reaction-hallelujah', label: 'Hallelujah', glyph: '🎉' };
+
 const countOf = (option: ContentItemReactionOption, count: number): ContentItemReactionCount => ({
     label: option.label,
     glyph: option.glyph,
@@ -99,6 +103,50 @@ describe('toChosenReactionSummary', () => {
         // then
         expect(changedSummary).toEqual([countOf(amen, 1), countOf(love, 2), countOf(praying, 1)]);
         expect(withdrawnSummary).toEqual([countOf(amen, 1), countOf(love, 2)]);
+    });
+
+    it('should add an entry for a chosen reaction that has none when the held one has one', () => {
+        // given
+        const reactionSummary = [countOf(amen, 1), countOf(love, 2), countOf(praying, 1)];
+
+        // when
+        const chosenSummary = toChosenReactionSummary(reactionSummary, love.label, joy.label, options);
+
+        // then
+        expect(chosenSummary).toEqual([countOf(amen, 1), countOf(love, 1), countOf(joy, 1), countOf(praying, 1)]);
+    });
+
+    it('should place an added entry among the entries left once the held one leaves', () => {
+        // given
+        const reactionSummary = [countOf(amen, 1), countOf(love, 1), countOf(praying, 1)];
+
+        // when
+        const chosenSummary = toChosenReactionSummary(reactionSummary, love.label, joy.label, options);
+
+        // then
+        expect(chosenSummary).toEqual([countOf(amen, 1), countOf(joy, 1), countOf(praying, 1)]);
+    });
+
+    it.each([
+        {
+            position: 'last',
+            reactionSummary: [countOf(amen, 1), countOf(praying, 1), countOf(hallelujah, 1)],
+            expectedSummary: [countOf(amen, 1), countOf(joy, 1), countOf(praying, 1), countOf(hallelujah, 1)]
+        },
+        {
+            position: 'first',
+            reactionSummary: [countOf(hallelujah, 1), countOf(amen, 1), countOf(praying, 1)],
+            expectedSummary: [countOf(hallelujah, 1), countOf(amen, 1), countOf(joy, 1), countOf(praying, 1)]
+        }
+    ])('should place an added entry among the entries the options rank (unlisted $position)', ({
+        reactionSummary,
+        expectedSummary
+    }) => {
+        // when
+        const chosenSummary = toChosenReactionSummary(reactionSummary, undefined, joy.label, options);
+
+        // then
+        expect(chosenSummary).toEqual(expectedSummary);
     });
 
     it('should never change what it is handed', () => {

@@ -212,6 +212,9 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
                 (Rule: IsGreaterThan(reaction.UpdatedBy, 255),
                     Parameter: nameof(Reaction.UpdatedBy)),
 
+                (Rule: IsLessThan(reaction.SortOrder, 0),
+                    Parameter: nameof(Reaction.SortOrder)),
+
                 (Rule: IsNotSame(
                         firstDate: reaction.UpdatedWhen,
                         secondDate: reaction.CreatedWhen,
@@ -274,6 +277,9 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
 
                 (Rule: IsGreaterThan(reaction.UpdatedBy, 255),
                     Parameter: nameof(Reaction.UpdatedBy)),
+
+                (Rule: IsLessThan(reaction.SortOrder, 0),
+                    Parameter: nameof(Reaction.SortOrder)),
 
                 (Rule: IsNotSame(
                         first: currentUserId,
@@ -468,6 +474,12 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
         {
             Condition = (text ?? string.Empty).Length > maxLength,
             Message = $"Text exceed max length of {maxLength} characters"
+        };
+
+        private static dynamic IsLessThan(int number, int minimum) => new
+        {
+            Condition = number < minimum,
+            Message = $"Value is less than the minimum of {minimum}"
         };
 
         private static dynamic IsSame(

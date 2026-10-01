@@ -14,24 +14,39 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Brokers.DateTimes;
+using Glory2Him.Core.Brokers.EventEnvelopes;
+using Glory2Him.Core.Brokers.Events;
+using Glory2Him.Core.Brokers.Identifiers;
+using Glory2Him.Core.Brokers.Integrities;
+using Glory2Him.Core.Brokers.Loggings;
+using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.ContentItems;
+using Glory2Him.Core.Services.Foundations.ContentItems;
 using Glory2Him.Core.Tests.Integration.Brokers;
+using Moq;
 using Xunit;
 
 namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ContentItems
 {
     /// <summary>
     /// Proves the content-item NARROW READS against a real catalogue — the group slice, the
-    /// version high-water mark, the published-slot incumbent, the content-type pin, and the
-    /// duplicate-content check.
+    /// version high-water mark, the published-slot incumbent, the content-type pin, the
+    /// duplicate-content check, and the public-groups read.
     ///
     /// <para>Each predicate used to be composed in <c>ContentItemService</c> or
     /// <c>ContentItemProcessingService</c> onto a live queryable and executed synchronously; they
     /// moved to the broker so the query could be awaited with the caller's cancellation token.
     /// The unit suite proved them against LINQ-to-Objects, which no longer stands in for SQL, so
     /// the cases that turn on storage semantics live here.</para>
+    ///
+    /// <para>The public-groups read is the exception: its condition is written in
+    /// <c>ContentItemService</c> as a query-shaping function and handed to the broker
+    /// (§ARC12.2.1 rule 3). Its unit tests execute that function over LINQ-to-Objects, and
+    /// <see cref="ShouldAnswerThePublicContentItemGroupsInSqlAsync"/> proves that the same
+    /// function translates and answers in SQL (rule 6).</para>
     /// </summary>
     [Collection(NarrowReadIntegrationCollection.Name)]
     public sealed class ContentItemNarrowReadTests : IDisposable
@@ -360,6 +375,148 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ContentItems
 
             // then
             exists.Should().BeFalse();
+        }
+
+        /// <summary>
+        /// The public-groups read's query-shaping function, run against the real catalogue
+        /// (§ARC12.2.1 rule 6). Its unit tests execute it over LINQ-to-Objects; what only SQL
+        /// answers is whether EF translates the id match over a supplied list, §SEC14.1 asked of
+        /// each version, and the nullable publish-date term - and whether the translated query
+        /// answers as criteria 1 to 4 require, including leaving out a version that is not
+        /// visible though its group is.
+        /// </summary>
+        [Fact]
+        public async Task ShouldAnswerThePublicContentItemGroupsInSqlAsync()
+        {
+            // given: whole seconds, so the boundary row compares equal in SQL as it does in .NET
+            DateTimeOffset currentDateTime = DateTimeOffset.FromUnixTimeSeconds(
+                DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+
+            Guid visibleGroupId = Guid.NewGuid();
+
+            ContentItem visibleContentItem = CreateCanonicallyVisibleContentItem(
+                groupId: visibleGroupId, version: 1, publishDate: null);
+
+            visibleContentItem.ContentType = ContentType.Devotional;
+
+            // three versions of the visible group that are not visible themselves - the kinds
+            // the group's one published slot lets sit beside a visible version
+            ContentItem draftContentItem = CreateContentItem(groupId: visibleGroupId, version: 2);
+            draftContentItem.ContentType = ContentType.Devotional;
+
+            ContentItem deletedSiblingContentItem = CreateCanonicallyVisibleContentItem(
+                groupId: visibleGroupId, version: 3, publishDate: null);
+
+            deletedSiblingContentItem.ContentType = ContentType.Devotional;
+            deletedSiblingContentItem.IsDeleted = true;
+
+            ContentItem unpublishedSiblingContentItem = CreateCanonicallyVisibleContentItem(
+                groupId: visibleGroupId, version: 4, publishDate: null);
+
+            unpublishedSiblingContentItem.ContentType = ContentType.Devotional;
+            unpublishedSiblingContentItem.IsPublished = false;
+
+            ContentItem boundaryContentItem = CreateCanonicallyVisibleContentItem(
+                groupId: Guid.NewGuid(), version: 1, publishDate: currentDateTime);
+
+            ContentItem deletedContentItem = CreateCanonicallyVisibleContentItem(
+                groupId: Guid.NewGuid(), version: 1, publishDate: null);
+
+            deletedContentItem.IsDeleted = true;
+
+            ContentItem unapprovedContentItem = CreateCanonicallyVisibleContentItem(
+                groupId: Guid.NewGuid(), version: 1, publishDate: null);
+
+            unapprovedContentItem.ApprovalStatus = ApprovalStatus.Submitted;
+
+            ContentItem unpublishedContentItem = CreateCanonicallyVisibleContentItem(
+                groupId: Guid.NewGuid(), version: 1, publishDate: null);
+
+            unpublishedContentItem.IsPublished = false;
+
+            ContentItem futurePublishedContentItem = CreateCanonicallyVisibleContentItem(
+                groupId: Guid.NewGuid(), version: 1, publishDate: currentDateTime.AddMinutes(1));
+
+            await SeedAsync(
+                visibleContentItem,
+                draftContentItem,
+                deletedSiblingContentItem,
+                unpublishedSiblingContentItem,
+                boundaryContentItem,
+                deletedContentItem,
+                unapprovedContentItem,
+                unpublishedContentItem,
+                futurePublishedContentItem);
+
+            IReadOnlyList<Guid> inputContentItemIds = new[]
+            {
+                draftContentItem.Id,
+                deletedSiblingContentItem.Id,
+                unpublishedSiblingContentItem.Id,
+                visibleContentItem.Id,
+                boundaryContentItem.Id,
+                deletedContentItem.Id,
+                unapprovedContentItem.Id,
+                unpublishedContentItem.Id,
+                futurePublishedContentItem.Id,
+                Guid.NewGuid()
+            };
+
+            var expectedPublicContentItemGroups = new[]
+            {
+                new PublicContentItemGroup(
+                    visibleContentItem.Id, visibleGroupId, ContentType.Devotional),
+
+                new PublicContentItemGroup(
+                    boundaryContentItem.Id, boundaryContentItem.GroupId, ContentType.Testimony)
+            };
+
+            IContentItemService contentItemService = CreateContentItemService(currentDateTime);
+
+            // when
+            IReadOnlyList<PublicContentItemGroup> actualPublicContentItemGroups =
+                await contentItemService.RetrievePublicContentItemGroupsAsync(
+                    inputContentItemIds, TestContext.Current.CancellationToken);
+
+            // then
+            actualPublicContentItemGroups.Should().BeEquivalentTo(
+                expectedPublicContentItemGroups);
+        }
+
+        // A real service over the real storage broker, so the condition under test is the one
+        // the service authors rather than a copy of it. Only the clock is set; the read consults
+        // no other broker.
+        private IContentItemService CreateContentItemService(DateTimeOffset currentDateTime)
+        {
+            var dateTimeBrokerMock = new Mock<IDateTimeBroker>();
+
+            dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(currentDateTime);
+
+            return new ContentItemService(
+                storageBroker: this.broker.StorageBroker,
+                dateTimeBroker: dateTimeBrokerMock.Object,
+                identifierBroker: new Mock<IIdentifierBroker>().Object,
+                eventBroker: new Mock<IEventBroker>().Object,
+                eventEnvelopeBroker: new Mock<IEventEnvelopeBroker>().Object,
+                securityAuditBroker: new Mock<ISecurityAuditBroker>().Object,
+                accessBroker: new Mock<IAccessBroker>().Object,
+                envelopeIntegrityBroker: new Mock<IEnvelopeIntegrityBroker>().Object,
+                loggingBroker: new Mock<ILoggingBroker>().Object);
+        }
+
+        private static ContentItem CreateCanonicallyVisibleContentItem(
+            Guid groupId,
+            int version,
+            DateTimeOffset? publishDate)
+        {
+            ContentItem contentItem = CreateContentItem(groupId, version);
+            contentItem.ApprovalStatus = ApprovalStatus.Approved;
+            contentItem.IsPublished = true;
+            contentItem.PublishDate = publishDate;
+
+            return contentItem;
         }
 
         private static ContentItem CreateContentItem(Guid groupId, int version)

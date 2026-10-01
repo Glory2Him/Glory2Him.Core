@@ -47,6 +47,9 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         private delegate ValueTask<IReadOnlyList<AssociationPairCount>>
             ReturningAssociationPairCountsFunction();
 
+        private delegate ValueTask<IReadOnlyList<AssociationPairKey>>
+            ReturningAssociationPairKeysFunction();
+
         // The event-path wrapper: categorizes failures with the same taxonomy as the
         // non-event TryCatch (so the two entry paths cannot diverge), plus the envelope
         // guard that only exists on this path, and ALWAYS rethrows so the substrate records
@@ -662,6 +665,62 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             try
             {
                 return await returningAssociationPairCountsFunction();
+            }
+            catch (OperationCanceledException operationCanceledException)
+                when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
+            {
+                var timeoutException =
+                    new TimeoutException("The dependency operation timed out.");
+
+                var timeoutAssociationException =
+                    new TimeoutAssociationException(
+                        message: "Failed content item association timeout error occurred, contact support.",
+                        innerException: timeoutException,
+                        data: timeoutException.Data);
+
+                throw await CreateAndLogTimeoutDependencyExceptionAsync(
+                    exception: timeoutAssociationException);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (InvalidAssociationException invalidAssociationException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(
+                    exception: invalidAssociationException);
+            }
+            catch (SqlException sqlException)
+            {
+                var failedStorageAssociationException =
+                    new FailedStorageAssociationException(
+                        message: "Failed content item association storage error occurred, contact support.",
+                        innerException: sqlException,
+                        data: sqlException.Data);
+
+                throw await CreateAndLogCriticalDependencyExceptionAsync(
+                    exception: failedStorageAssociationException);
+            }
+            catch (Exception exception)
+            {
+                var failedAssociationServiceException =
+                    new FailedAssociationServiceException(
+                        message: "Failed content item association service error occurred, please contact support.",
+                        innerException: exception,
+                        data: exception.Data);
+
+                throw await CreateAndLogServiceExceptionAsync(
+                    failedAssociationServiceException);
+            }
+        }
+
+        // the caller's own reactions (#721): a validated identity-filtered read
+        private async ValueTask<IReadOnlyList<AssociationPairKey>> TryCatch(
+            ReturningAssociationPairKeysFunction returningAssociationPairKeysFunction)
+        {
+            try
+            {
+                return await returningAssociationPairKeysFunction();
             }
             catch (OperationCanceledException operationCanceledException)
                 when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
