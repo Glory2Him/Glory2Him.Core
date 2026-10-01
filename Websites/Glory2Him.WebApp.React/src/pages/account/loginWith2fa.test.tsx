@@ -90,4 +90,17 @@ describe('LoginWith2fa', () => {
             unmount();
         }
     });
+
+    it('should hand the return address on unchanged to the recovery-code page', () => {
+        // given
+        renderLoginWith2fa(loginWith2faWithReturnUrl('/posts?q=grace#comments'));
+
+        // when
+        fireEvent.click(screen.getByRole('link', { name: 'log in with a recovery code' }));
+
+        // then
+        const landed = new URL(landedOn() ?? '', window.location.origin);
+        expect(landed.pathname).toBe('/Account/LoginWithRecoveryCode');
+        expect(landed.searchParams.get('ReturnUrl')).toBe('/posts?q=grace#comments');
+    });
 });
