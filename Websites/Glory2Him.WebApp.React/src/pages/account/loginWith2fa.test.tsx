@@ -129,4 +129,16 @@ describe('LoginWith2fa', () => {
         // then
         expect(landedOn()).toBe(loginWith2faWithReturnUrl('/posts'));
     });
+
+    it('should send a reader signed in by a second factor to the home page when there is no return address', () => {
+        // given
+        answerCode(false);
+        renderLoginWith2fa('/Account/LoginWith2fa?RememberMe=false');
+
+        // when
+        enterAuthenticatorCode();
+
+        // then
+        expect(landedOn()).toBe('/');
+    });
 });
