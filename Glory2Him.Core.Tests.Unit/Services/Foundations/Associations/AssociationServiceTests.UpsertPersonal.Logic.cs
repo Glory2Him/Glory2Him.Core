@@ -825,6 +825,111 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     Times.Never);
         }
 
+        [Theory]
+        [MemberData(nameof(ReadOnlyRolesOverAReactionByPersonalAct))]
+        public async Task ShouldUpsertTheReadersReactionWhateverReadOnlyRoleTheyHoldAsync(
+            string readOnlyRole,
+            PersonalAssociationUpsertOutcome act)
+        {
+            // given: a reaction is not a contribution, so a reader's own is outside the read-only
+            // veto, and giving, changing and reviving it asks none of the scopes over it (§SEC14.7
+            // posture A′ rule 1)
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(readOnlyRole);
+            Association upsertRequest = CreatePersonalUpsertRequest(readerUserId);
+
+            List<Association> storageAssociations = CreateRandomAssociations().ToList();
+
+            if (act == PersonalAssociationUpsertOutcome.Repointed)
+            {
+                storageAssociations.Add(CreateStoredPersonalRow(upsertRequest, isDeleted: false));
+            }
+
+            if (act == PersonalAssociationUpsertOutcome.Restored)
+            {
+                storageAssociations.Add(
+                    CreateStoredPersonalRowOnTheSameReaction(upsertRequest, isDeleted: true));
+            }
+
+            using var cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken inputCancellationToken = cancellationTokenSource.Token;
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(readerUserId);
+
+            SetupPersonalUpsertLookupOver(storageAssociations, inputCancellationToken);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(It.IsAny<Association>(), this.ambientSecurityContext))
+                    .ReturnsAsync((Association entity, SecurityContext _) => entity);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(It.IsAny<Association>(), this.ambientSecurityContext))
+                    .ReturnsAsync((Association entity, SecurityContext _) => entity);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.InsertAssociationAsync(It.IsAny<Association>(), inputCancellationToken))
+                    .ReturnsAsync((Association entity, CancellationToken _) => entity);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateAssociationAsync(It.IsAny<Association>(), inputCancellationToken))
+                    .ReturnsAsync((Association entity, CancellationToken _) => entity);
+
+            // when
+            PersonalAssociationUpsert actualUpsert =
+                await this.associationService.UpsertPersonalAssociationAsync(
+                    upsertRequest,
+                    inputCancellationToken);
+
+            // then: written, as for a reader holding none
+            actualUpsert.Outcome.Should().Be(act);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertAssociationAsync(It.IsAny<Association>(), inputCancellationToken),
+                    act == PersonalAssociationUpsertOutcome.Created ? Times.Once() : Times.Never());
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateAssociationAsync(It.IsAny<Association>(), inputCancellationToken),
+                    act == PersonalAssociationUpsertOutcome.Created ? Times.Never() : Times.Once());
+
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // every read-only scope over a reader's reaction on a Quote, for each personal act: give
+        // (no row, so Created), change (a live row on another reaction, so Repointed) and revive
+        // (their withdrawn row on the same reaction, so Restored)
+        public static TheoryData<string, PersonalAssociationUpsertOutcome>
+            ReadOnlyRolesOverAReactionByPersonalAct()
+        {
+            var data = new TheoryData<string, PersonalAssociationUpsertOutcome>();
+
+            string[] readOnlyRoles =
+            {
+                Roles.ReadOnly,
+                Roles.ReactionReadOnly,
+                Roles.ContentItemReadOnly,
+                Roles.ReadOnlyFor(EntityType.ContentItem, ContentType.Quote)
+            };
+
+            PersonalAssociationUpsertOutcome[] acts =
+            {
+                PersonalAssociationUpsertOutcome.Created,
+                PersonalAssociationUpsertOutcome.Repointed,
+                PersonalAssociationUpsertOutcome.Restored
+            };
+
+            foreach (string readOnlyRole in readOnlyRoles)
+            {
+                foreach (PersonalAssociationUpsertOutcome act in acts)
+                {
+                    data.Add(readOnlyRole, act);
+                }
+            }
+
+            return data;
+        }
+
         // A reader's reaction on a Quote as the orchestration hands it over (§ARC16.8.1): the host on
         // endpoint A under AllVersions, with a group id that differs from its key id, and the
         // reaction on B, a non-versioned endpoint, so ThisVersionOnly with its group its key.
