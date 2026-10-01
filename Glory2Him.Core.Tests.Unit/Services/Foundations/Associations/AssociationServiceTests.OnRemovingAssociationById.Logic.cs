@@ -156,7 +156,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         {
             // given: the signed caller holds the read-only role and the ambient caller holds
             // none, so the exemption is asked of the inbound envelope's caller alone, and a
-            // fact minted through CreateAsync would carry the wrong caller (§6 rules 1 and 2)
+            // fact minted through CreateAsync would carry the wrong caller
+            // (Backend/Foundations/AssociationService.md §6 rules 1 and 2)
             string randomDeletionReason = GetRandomString();
             string readerUserId = GetRandomString();
             Association storageAssociation = CreateRandomReaction(readerUserId);

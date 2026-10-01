@@ -190,7 +190,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         public async Task ShouldThrowValidationExceptionOnRemovingAssociationByIdEventWhenIntegrityVerificationFailsAsync()
         {
             // given: the fixture verifies any other name or direction, so only a check against
-            // Association-RemovingById in the request direction is refused (§6 rule 3)
+            // Association-RemovingById in the request direction is refused
+            // (Backend/Foundations/AssociationService.md §6 rule 3)
             string expectedEventName =
                 $"{nameof(Association)}{AssociationEventOperation.RemovingById}";
 
@@ -390,7 +391,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             SecurityContext invalidSecurityContext)
         {
             // given: the ambient caller stays authenticated, so only the inbound envelope's
-            // caller explains the refusal (§6 rule 1)
+            // caller explains the refusal (Backend/Foundations/AssociationService.md §6 rule 1)
             var requestEnvelope = new EventEnvelope<Association>
             {
                 SecurityContext = invalidSecurityContext,
@@ -466,7 +467,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         {
             // given: the signed caller created the editorial row, so the owner test admits them
             // and the veto is the only refusal. The ambient caller holds no read-only role, so
-            // only the inbound envelope's caller explains it (§6 rule 1)
+            // only the inbound envelope's caller explains it
+            // (Backend/Foundations/AssociationService.md §6 rule 1)
             string actorUserId = GetRandomString();
             Association storageAssociation = CreateRandomAssociation();
             storageAssociation.IsDeleted = false;
@@ -559,7 +561,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             string readOnlyRole)
         {
             // given: the owner test admits Administrators, and the exemption belongs only to the
-            // reader whose UserId the row carries, so the veto is the only refusal (§5 rule 4)
+            // reader whose UserId the row carries, so the veto is the only refusal
+            // (Backend/Foundations/AssociationService.md §5 rule 4)
             string actorUserId = GetRandomString();
             string anotherReaderUserId = GetRandomString();
             Association storageAssociation = CreateRandomReaction(anotherReaderUserId);
@@ -651,7 +654,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         public async Task ShouldThrowValidationExceptionOnRemovingAssociationByIdEventIfUserIsNotOwnerAndNotAdminAndLogItAsync()
         {
             // given: the signed caller holds no role, so the veto admits them, and neither
-            // created the row nor is in Administrators, so the owner test refuses them (§5 rule 5)
+            // created the row nor is in Administrators, so the owner test refuses them
+            // (Backend/Foundations/AssociationService.md §5 rule 5)
             string actorUserId = GetRandomString();
             string anotherUserId = GetRandomString();
             Association storageAssociation = CreateRandomAssociation();
