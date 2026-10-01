@@ -103,4 +103,16 @@ describe('LoginWith2fa', () => {
         expect(landed.pathname).toBe('/Account/LoginWithRecoveryCode');
         expect(landed.searchParams.get('ReturnUrl')).toBe('/posts?q=grace#comments');
     });
+
+    it('should send a locked-out reader to the lockout page instead of their return address', () => {
+        // given
+        answerCode(true);
+        renderLoginWith2fa(loginWith2faWithReturnUrl('/posts'));
+
+        // when
+        enterAuthenticatorCode();
+
+        // then
+        expect(landedOn()).toBe('/Account/Lockout');
+    });
 });
