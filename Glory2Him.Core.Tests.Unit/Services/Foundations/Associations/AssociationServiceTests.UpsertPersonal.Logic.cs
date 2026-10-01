@@ -24,6 +24,7 @@ using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.Associations.Exceptions;
 using Glory2Him.Core.Models.Securities;
 using Moq;
+using Xeptions;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 {
@@ -1114,6 +1115,77 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(SinkFailuresOnEachPublishingUpsertArm))]
+        public async Task ShouldContainASinkFailureOnUpsertPersonalAsync(
+            string arm,
+            PersonalAssociationUpsertOutcome expectedOutcome,
+            AssociationEventOperation expectedOperation,
+            Exception sinkException)
+        {
+            // given: the fact's delivery failed, and the critical log that reports it fails too.
+            // LogCriticalAsync takes no token, so even a cancellation raised there is the sink
+            // failing, not the caller cancelling (§EVN23 rule 2).
+            using var cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken inputCancellationToken = cancellationTokenSource.Token;
+
+            Association upsertRequest =
+                ArrangePublishingUpsertArm(arm, inputCancellationToken);
+
+            EventPublishResult<Association> failedPublishResult = CreateFailedPublishResult();
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishAssociationAsync(
+                    It.IsAny<EventEnvelope<Association>>(),
+                    expectedOperation))
+                        .ReturnsAsync(failedPublishResult);
+
+            this.loggingBrokerMock.Setup(broker =>
+                broker.LogCriticalAsync(It.IsAny<Xeption>()))
+                    .ThrowsAsync(sinkException);
+
+            // when
+            PersonalAssociationUpsert actualUpsert =
+                await this.associationService.UpsertPersonalAssociationAsync(
+                    upsertRequest,
+                    inputCancellationToken);
+
+            // then: the outcome still comes back, and nothing reaches the caller
+            actualUpsert.Outcome.Should().Be(expectedOutcome);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogCriticalAsync(It.Is(
+                    SameExceptionAs(
+                        FailedEventDeliveryException.ForFailedDeliveries(
+                            failedPublishResult,
+                            expectedOperation)))),
+                Times.Once);
+
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // each sink failure, an exception and a cancellation, on each arm that publishes
+        public static TheoryData<string, PersonalAssociationUpsertOutcome, AssociationEventOperation, Exception>
+            SinkFailuresOnEachPublishingUpsertArm()
+        {
+            var data = new TheoryData<
+                string,
+                PersonalAssociationUpsertOutcome,
+                AssociationEventOperation,
+                Exception>();
+
+            foreach (var publishingArm in PublishingUpsertArms())
+            {
+                (string arm, PersonalAssociationUpsertOutcome outcome, AssociationEventOperation operation) =
+                    publishingArm.Data;
+
+                data.Add(arm, outcome, operation, new Exception());
+                data.Add(arm, outcome, operation, new OperationCanceledException());
+            }
+
+            return data;
         }
 
         // every arm that publishes, with its outcome and its fact: the create, the revive, the
