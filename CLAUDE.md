@@ -145,19 +145,27 @@ for it and hands back to QA once the role returns. It relaunches a role for
 BLOCKING findings only, and the relaunched role fixes the BLOCKING findings QA
 named as its own. An ADVISORY finding of a relaunched role that the user wants
 fixed is the user's to start that role on, as they start the planner and the
-developer on a task; the session does not carry the user's ask to the role.
-Where no session launched the role, the user carries the handover, as before.
-Where QA cannot post its round or apply its labels itself, the session that
-launched QA posts the round word for word where `.claude/agents/qa.md` says it
-goes, and applies or removes the labels QA's verdict carries and no others:
-`.claude/agents/qa.md` "The label is your mandatory outcome" ties each verdict
-to its labels, including the labels a verdict takes off —
-`status: needs-scoping` from a task QA signs off, for one. The round and the
-labels stay QA's ruling. That holds on the session's own work too — the planner
-applying `ready for development` to its own tasks and `ready for review` to its
-own design PR, the developer applying `ready for review` to its own PR — and
-deliberately overrides `.claude/agents/planner.md` "Writing the tasks" (only QA
-applies `ready for development`), "Handing over to QA" (QA labels the design PR
+developer on a task; the session does not carry the user's ask to the role. When
+a FAIL names no BLOCKING finding as the relaunched role's own, the session
+relaunches nobody for it. It hands the work back to QA itself once every finding
+that holds the role's fix round is settled, with the brief the role's agent file
+gives for handing back after a fix round — `.claude/agents/developer.md`
+"Handing over" for the developer, `.claude/agents/planner.md` "Handing over to
+QA" for the planner. The user starts a relaunched role on an ADVISORY finding of
+its own only once QA has passed the work, so that no fix round of that role the
+session runs is still open on the same work. Where no session launched the role,
+the user carries the handover, as before. Where QA cannot post its round or
+apply its labels itself, the session that launched QA posts the round word for
+word where `.claude/agents/qa.md` says it goes, and applies or removes the
+labels QA's verdict carries and no others: `.claude/agents/qa.md` "The label is
+your mandatory outcome" ties each verdict to its labels, including the labels a
+verdict takes off — `status: needs-scoping` from a task QA signs off, for one.
+The round and the labels stay QA's ruling. That holds on the session's own work
+too — the planner applying `ready for development` to its own tasks and
+`ready for review` to its own design PR, the developer applying
+`ready for review` to its own PR — and deliberately overrides
+`.claude/agents/planner.md` "Writing the tasks" (only QA applies
+`ready for development`), "Handing over to QA" (QA labels the design PR
 `ready for review`) and "Hard rules" (`ready for development` is QA's label),
 and `.claude/agents/developer.md` "Handing over" (QA labels the PR
 `ready for review`). The override is of who applies the label only: signing off
