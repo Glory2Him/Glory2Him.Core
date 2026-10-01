@@ -174,6 +174,50 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldThrowServiceExceptionOnUpsertPersonalIfServiceErrorOccursAndLogItAsync()
+        {
+            // given
+            Association upsertRequest = CreateAllowedPersonalUpsertRequest();
+            var serviceException = new Exception();
+
+            var failedAssociationServiceException = new FailedAssociationServiceException(
+                message: "Failed content item association service error occurred, please contact support.",
+                innerException: serviceException,
+                data: serviceException.Data);
+
+            var expectedAssociationServiceException = new AssociationServiceException(
+                message: "Content item association service error occurred, contact support.",
+                innerException: failedAssociationServiceException);
+
+            SetupPersonalUpsertLookupToThrow(serviceException);
+
+            // when
+            ValueTask<PersonalAssociationUpsert> upsertTask =
+                this.associationService.UpsertPersonalAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationServiceException actualAssociationServiceException =
+                await Assert.ThrowsAsync<AssociationServiceException>(upsertTask.AsTask);
+
+            // then
+            actualAssociationServiceException.Should().BeEquivalentTo(
+                expectedAssociationServiceException);
+
+            VerifyPersonalUpsertLookupAsked(TestContext.Current.CancellationToken, Times.Once());
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationServiceException))),
+                Times.Once);
+
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // a signed-in reader giving their own reaction, so the upsert reaches storage
         private Association CreateAllowedPersonalUpsertRequest()
         {
