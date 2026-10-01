@@ -116,6 +116,17 @@ describe('toChosenReactionSummary', () => {
         expect(chosenSummary).toEqual([countOf(amen, 1), countOf(love, 1), countOf(joy, 1), countOf(praying, 1)]);
     });
 
+    it('should place an added entry among the entries left once the held one leaves', () => {
+        // given
+        const reactionSummary = [countOf(amen, 1), countOf(love, 1), countOf(praying, 1)];
+
+        // when
+        const chosenSummary = toChosenReactionSummary(reactionSummary, love.label, joy.label, options);
+
+        // then
+        expect(chosenSummary).toEqual([countOf(amen, 1), countOf(joy, 1), countOf(praying, 1)]);
+    });
+
     it.each([
         {
             position: 'last',
