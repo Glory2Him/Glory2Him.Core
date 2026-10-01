@@ -73,12 +73,21 @@ qa                adversarial verification against the criteria, fresh
 YOU               merge
 ```
 
-**Every arrow is yours.** The agents do not hand work to each other — none of
-them can invoke another, because none has a Task tool. You are the only thing
-that moves work between roles, and the artifact each role leaves behind is the
-whole of the handoff. Two of the rows are also decisions only you can make:
-merging the design, and merging the work. Approving the criteria is QA's: its
-`ready for development` label is what the developer starts on.
+**Who carries each arrow.** A role whose session has the Agent tool hands its
+work to QA itself, launching QA as a fresh subagent with its brief. A role whose
+session has none — running as a subagent, or as a main thread started as that
+role — ends with the brief for the session that launched it, or for you where no
+session did. Either way, the artifact each role leaves behind is the whole of the
+handoff. Where QA cannot post its round or apply its labels itself, the session
+that launched it posts the round as QA wrote it and applies the labels QA's
+verdict carries, as `.claude/agents/qa.md` defines them; the ruling stays QA's.
+QA's findings go back to the role whose work it reviewed the same way: to the
+agent that launched QA, through the session that launched the role, or through
+you where no session did. These arrows stay yours: you start the planner and the developer on a task, and a
+finding QA names as another role's comes to you, with QA's brief for its owner.
+Two of the rows are decisions only you can make: merging the design, and merging
+the work. Approving the criteria is QA's: its `ready for development` label is
+what the developer starts on.
 
 **Every handover to QA is fresh.** QA starts with an empty context and a brief
 that points — the tasks, the design PR, the PR — never the other agent's summary
@@ -186,10 +195,13 @@ previous session's transcript in — if an agent needs something to do its job a
 cannot find it, that is a signal the artifact is incomplete, and the fix is to
 improve the artifact rather than to narrate it.
 
-QA's brief is the strictest: the mode and the numbers, nothing more — never what
-the other agent did, what it fixed, or what to look at. Each agent ends its run
-with the brief for the next one — QA's for whoever owns its findings — so you
-rarely write one. The planner and the developer, by contrast, get QA's findings
+QA's brief is the strictest: the mode and the numbers and, at most, the
+environment facts `CLAUDE.md` defines — never what the other agent did, what it
+fixed, or what to look at. Each agent ends its run with the brief for the next
+one — QA's for whoever owns its findings — so you rarely write one. The agent
+carries its brief to QA itself when its session has the Agent tool; otherwise
+the session that launched it carries it, or you do where no session did. The
+planner and the developer, by contrast, get QA's findings
 as context: their brief points at the round comment.
 
 #### Two briefs that need more than a pointer
@@ -386,8 +398,9 @@ marked BLOCKING or ADVISORY. It never fixes anything, deliberately: the person
 who broke it should fix it, and a reviewer who patches defects stops looking for
 more.
 
-It verifies against the code, never against another agent's account: always run
-it in a fresh session, briefed with pointers only — that is the whole point of
+It verifies against the code, never against another agent's account: it always
+runs in a fresh session, briefed with pointers and at most the environment facts
+§2 allows, launched by whoever carries the handover — that is the whole point of
 it. After round 1, each round reviews only what changed since the last one and
 what that touches.
 
@@ -401,7 +414,7 @@ developer starts on, and labels the design PR `ready for review` once every task
 it carries is signed off — and where a feature has more than one task, nothing
 else in the pipeline ever asks whether the set is complete.
 
-Say which mode you want when you brief it; verifying a diff is the default.
+The brief names the mode; verifying a diff is the default.
 
 **Route failures by owner** — QA names one on every finding: implementation
 defects to the developer, including code that departs from a sound design;
@@ -792,7 +805,7 @@ tests, exception tests — a `Model - Effort` label, a `design:` area label and
 `status: needs-scoping`, and the planner recommends the build order: the
 foundation first, since the panel builds on it. It retags both sections with
 their tasks, pushes, and opens design PR #519, which closes #511 — the design and
-its tags travel together — and ends with the brief for QA.
+its tags travel together — and launches QA itself.
 
 A real feature carries more user stories than these two — the storage user
 story's model, migration and broker methods beneath the service, and a controller
@@ -800,20 +813,18 @@ between the service and the panel. The example leaves them out so the flow stays
 visible.
 
 **4 — QA, on the design and the tasks.** Before a line of code exists. The unit
-of review here is the **feature**, not one task. Run the planner's brief in a
-fresh session:
+of review here is the **feature**, not one task. The planner launches QA, in a
+fresh session, with its brief:
 
 ```
 Act as QA, reviewing the tasks rather than a change. The saved-searches feature
-is designed in design PR #519 — Documentation/DesignFeatures/SavedSearches.md
-and its user stories — and the planner has carved tasks #512 and #513 from them.
-There is no code yet — do not look for any.
+is designed in design PR #519, with tasks #512 and #513. No code exists yet.
 ```
 
 That is the whole brief. `.claude/agents/qa.md` defines the mode and carries the
 checklist — coverage, completeness across the feature, the parent chain, size,
-criteria quality and the `Model - Effort` label — so you name the feature and the
-tasks, and say there is no code. Naming the mode matters: the default is
+criteria quality and the `Model - Effort` label — so the brief names the feature
+and the tasks, and says there is no code. Naming the mode matters: the default is
 verifying a diff, and it will go looking for one.
 
 **This step is never optional: its label is the approval.** Where a feature has
@@ -835,8 +846,8 @@ planner as the owner of both. Neither finding is against #512, so QA signs it
 off: `ready for development` goes on and `status: needs-scoping` comes off.
 #513 keeps `status: needs-scoping`.
 
-Both findings route to the planner (§3), with context: *"Act as the planner.
-Address QA's round 1 findings on design PR #519."* On the design branch — the
+QA's verdict comes back to the planner that launched it, which fixes the
+findings named as its own. On the design branch — the
 PR has not merged — it adds §2 `RemoveSavedSearchByIdAsync` to
 `Backend/Foundations/SavedSearchService.md` and §2, the panel's delete action, to
 `UI/Components/SavedSearchesPanel.md` as further commits, sweeps to open **#514** and
@@ -860,7 +871,8 @@ the foundation the panel builds on.
 
 **6 — Developer.** Set the session effort to match the task's `Model - Effort`
 label first; nothing does this for you. Fresh session: *"Act as the developer.
-Implement issue #512. It carries `ready for development`."* It branches
+Implement issue #512. It carries `ready for development`."* You move the task to
+`status: in-progress` as it starts. It branches
 `users/<your-handle>/foundations-savedsearch-add`, then per criterion commits
 `ShouldAddSavedSearchAsync -> FAIL` followed by `ShouldAddSavedSearchAsync -> PASS`,
 ticking the criterion's box, and opens a PR titled:
@@ -870,19 +882,22 @@ FOUNDATIONS: Add A Saved Search
 ```
 
 with `Closes #512` in the body — opened once every criterion is committed, and
-before it hands over, since QA reviews a PR and never a branch. It ends with the
-brief for QA. You move the task to `status: in-progress`.
+before it hands over, since QA reviews a PR and never a branch. Then the
+developer launches QA itself.
 
 **7 — QA, on the work.** A *different* fresh session from step 4 — carrying the
 criteria review's context into the code review is exactly what fresh contexts are
-for: *"Act as QA. Verify PR #520 against the acceptance criteria on issue #512."*
-Move the task to `status: in-qa`. Round 1 finds one BLOCKING gap — the test for
-criterion 3 asserts less than the criterion does — and posts it to PR #520 at the
-commit it reviewed, with the developer as its owner. The task goes back to
-`status: in-progress`, and the finding goes to the developer with context:
-*"Act as the developer. Address the QA findings on PR #520."* It pushes the fix
-as a commit on the same PR — never a new one — and hands back: *"Act as QA.
-Re-verify PR #520."* Round 2, back at `status: in-qa`, reads round 1's finding
+for. The developer's brief launches it: *"Act as QA. Verify PR #520 against the
+acceptance criteria on issue #512."* Round 1 finds one BLOCKING gap — the test
+for criterion 3 asserts less than the criterion does — and posts it to PR #520 at
+the commit it reviewed, with the developer as its owner. The verdict comes back
+to the developer, which fixes its finding as a commit on the same PR — never a
+new one — and hands back itself: *"Act as QA. Re-verify PR #520."* The status
+moves stay yours, and each records a step of the developer's session: the task
+goes to `status: in-qa` as the developer launches QA, back to
+`status: in-progress` as it relays round 1's FAIL, and back to `status: in-qa`
+as it hands back. You make each from what the developer's session reports, so a
+move can come after the step it records. Round 2 reads round 1's finding
 and the one commit since, checks the fix and what it touches, runs the suite,
 and stops: nothing else changed, so nothing else is reviewed. It passes, and QA
 applies `ready for review` to PR #520 itself — a label on the PR, separate from
@@ -989,8 +1004,8 @@ Act as QA, reviewing the tasks rather than a change. Task #512 changed under a
 ruling. Code for it exists; do not review it.
 ```
 
-The last two are QA's second mode. Name it explicitly — verifying a diff is the
-default, and it will go looking for one. §8 step 4 has the reasoning; the
+The last two briefs name QA's second mode explicitly — verifying a diff is the
+default, and QA will go looking for one. §8 step 4 has the reasoning; the
 checklist is in `.claude/agents/qa.md`. A re-review uses the same brief as the
 first round, naming any task added since. None of these briefs says what
 changed or what to look at: QA works that out from its last round.
