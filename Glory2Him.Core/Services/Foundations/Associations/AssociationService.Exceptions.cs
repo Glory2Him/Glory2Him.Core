@@ -530,6 +530,10 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             {
                 return await returningPersonalAssociationUpsertFunction();
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch (UnauthorizedAssociationException unauthorizedAssociationException)
             {
                 throw await CreateAndLogValidationExceptionAsync(
@@ -569,6 +573,17 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
                 throw await CreateAndLogDependencyValidationExceptionAsync(
                     alreadyExistsAssociationException);
+            }
+            catch (Exception exception)
+            {
+                var failedAssociationServiceException =
+                    new FailedAssociationServiceException(
+                        message: "Failed content item association service error occurred, please contact support.",
+                        innerException: exception,
+                        data: exception.Data);
+
+                throw await CreateAndLogServiceExceptionAsync(
+                    failedAssociationServiceException);
             }
         }
 
