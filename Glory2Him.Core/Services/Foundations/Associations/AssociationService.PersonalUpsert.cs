@@ -168,14 +168,22 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         // A null UserId is an editorial row, which this member never reaches: the repoint
         // exception is personal-only (§ARC16.2.2). The endpoints are refused as the add refuses
         // them, because the personal key is taken from them.
+        //
+        // The scope is checked rather than derived, because the caller derives it: this member
+        // checks what it is handed. A scope outside the enum keys the host on its key id rather
+        // than its group, so the lookup would miss the reader's row and insert a second one beside
+        // it (§DOM4.10 rule 6). Both are checked, because either endpoint may be A once canonical
+        // order is restored.
         private static void ValidateOnUpsertPersonalAssociation(Association association) =>
             Validate(
                 message: "Content item association is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(association.UserId), Parameter: nameof(Association.UserId)),
                 (Rule: IsInvalid(association.EntityAType), Parameter: nameof(Association.EntityAType)),
                 (Rule: IsInvalid(association.EntityAKeyId), Parameter: nameof(Association.EntityAKeyId)),
+                (Rule: IsInvalid(association.EntityAScope), Parameter: nameof(Association.EntityAScope)),
                 (Rule: IsInvalid(association.EntityBType), Parameter: nameof(Association.EntityBType)),
                 (Rule: IsInvalid(association.EntityBKeyId), Parameter: nameof(Association.EntityBKeyId)),
+                (Rule: IsInvalid(association.EntityBScope), Parameter: nameof(Association.EntityBScope)),
 
                 (Rule: IsSameEndpoint(association.EntityAGroupId, association.EntityBGroupId),
                     Parameter: nameof(Association.EntityBGroupId)));
