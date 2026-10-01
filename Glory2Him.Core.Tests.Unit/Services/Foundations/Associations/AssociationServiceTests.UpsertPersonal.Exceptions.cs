@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -268,6 +269,103 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowDependencyValidationExceptionOnUpsertPersonalIfTheIdAlreadyExistsAndLogItAsync()
+        {
+            // given: the new row's minted Id is already taken, so the insert is refused
+            string someMessage = GetRandomString();
+            var duplicateKeyException = new DuplicateKeyException(someMessage);
+
+            Association upsertRequest =
+                ArrangePersonalUpsertWriteToThrow(isUpdate: false, duplicateKeyException);
+
+            var alreadyExistsAssociationException =
+                new AlreadyExistsAssociationException(
+                    message: "Content item association already exists with the same Id.",
+                    innerException: duplicateKeyException,
+                    data: duplicateKeyException.Data);
+
+            var expectedAssociationDependencyValidationException =
+                new AssociationDependencyValidationException(
+                    message: "Content item association dependency validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: alreadyExistsAssociationException);
+
+            // when
+            ValueTask<PersonalAssociationUpsert> upsertTask =
+                this.associationService.UpsertPersonalAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationDependencyValidationException actualAssociationDependencyValidationException =
+                await Assert.ThrowsAsync<AssociationDependencyValidationException>(upsertTask.AsTask);
+
+            // then: refused as the add refuses it, and nothing announced
+            actualAssociationDependencyValidationException.Should().BeEquivalentTo(
+                expectedAssociationDependencyValidationException);
+
+            VerifyPersonalUpsertWriteAsked(isUpdate: false);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationDependencyValidationException))),
+                Times.Once);
+
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // A reader's request that reaches a write: the create arm's insert, or, with the reader's
+        // live row on another reaction stored, an existing row's update. The write throws.
+        private Association ArrangePersonalUpsertWriteToThrow(bool isUpdate, Exception exception)
+        {
+            Association upsertRequest = CreateAllowedPersonalUpsertRequest();
+            DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
+            List<Association> storageAssociations = CreateRandomAssociations().ToList();
+
+            if (isUpdate)
+            {
+                storageAssociations.Add(CreateStoredPersonalRow(upsertRequest, isDeleted: false));
+            }
+
+            SetupPersonalUpsertLookupOver(
+                storageAssociations,
+                TestContext.Current.CancellationToken);
+
+            SetupPersonalUpsertNewRowStamp(upsertRequest.UserId, currentDateTime);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(It.IsAny<Association>(), It.IsAny<SecurityContext>()))
+                    .ReturnsAsync((Association entity, SecurityContext _) =>
+                        StampModifyAudit(entity.DeepClone(), upsertRequest.UserId, currentDateTime));
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.InsertAssociationAsync(It.IsAny<Association>(), It.IsAny<CancellationToken>()))
+                    .ThrowsAsync(exception);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateAssociationAsync(It.IsAny<Association>(), It.IsAny<CancellationToken>()))
+                    .ThrowsAsync(exception);
+
+            return upsertRequest;
+        }
+
+        // the reader's row was resolved and the one write the arm makes was asked, with the
+        // caller's token
+        private void VerifyPersonalUpsertWriteAsked(bool isUpdate)
+        {
+            VerifyPersonalUpsertLookupAsked(TestContext.Current.CancellationToken, Times.Once());
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertAssociationAsync(It.IsAny<Association>(), TestContext.Current.CancellationToken),
+                    isUpdate ? Times.Never() : Times.Once());
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateAssociationAsync(It.IsAny<Association>(), TestContext.Current.CancellationToken),
+                    isUpdate ? Times.Once() : Times.Never());
         }
 
         // a signed-in reader giving their own reaction, so the upsert reaches storage
