@@ -110,29 +110,55 @@ nothing and returns, as its final message, its round word for word, header line
 included, and the labels its verdict carries. Nothing else goes in the brief:
 never the agent's own account of the work — what it did, what it changed or
 fixed, or what to look at. The agent relays QA's verdict to the user, fixes the
-findings QA names as its own, and hands back again, until QA passes the work. A
+BLOCKING findings QA names as its own, and hands back again, until QA passes the
+work. An ADVISORY finding QA names as the agent's own is fixed only when the
+user asks for it, as `.claude/agents/qa.md` "Output format" rules. The agent
+relays each ADVISORY finding to the user with QA's verdict, on a PASS as on a
+FAIL, and a PASS carrying only ADVISORY findings ends the loop. Once the user
+asks the agent to fix an ADVISORY finding of its own while the work QA reviewed
+is still open, the agent fixes it the way its agent file has it fix any finding
+of its own — `.claude/agents/developer.md` "Handing over" for the developer,
+`.claude/agents/planner.md` "Handing over to QA" and "Handling changes" for the
+planner — and hands back to QA. Once that work has merged, an ADVISORY finding
+the user asks to be fixed is new work: a task the planner raises for it. A
 finding QA names as another role's goes to the user with QA's brief for that
-owner, and the developer does not start its fix round while a finding QA named
-as the planner's is unsettled, as `.claude/agents/developer.md` "Handing over"
-orders it. A finding the agent disputes is not worked around: it goes where the
-agent's file sends it — the developer's to the planner when it is about the task
-or the design and to the user otherwise, the planner's about its own work to the
-user. The agent launches no session but QA's, and the role a session relaunches
-as below: a finding it sends to the planner reaches the planner through the
-user, as `DEVELOPERS.md` §1 "A disputed finding comes to you" has it. A role
-whose session has no Agent tool — a role running as a subagent, or a main thread
-started as that role — cannot launch QA: it ends with the brief as its agent
-file says, and the session that launched it carries the handover in its place.
-That session launches QA with that brief, adding only the environment facts
-above, relays QA's verdict to the user, sends a finding QA names as another
-role's to the user as above, and, for a fix round of the role it launched,
-launches that role again with QA's brief for it and hands back to QA once the
-role returns. Where no session launched the role, the user carries the handover,
-as before. Where QA cannot post its round or apply its labels itself, the
-session that launched QA posts the round word for word where
-`.claude/agents/qa.md` says it goes, and applies or removes the labels QA's
-verdict carries and no others: `.claude/agents/qa.md` "The label is your
-mandatory outcome" ties each verdict to its labels, including the labels a
+owner, and a finding QA named as the planner's holds the developer's fix round
+only when it is BLOCKING, or ADVISORY and the user has asked for it to be fixed.
+An ADVISORY one the user has not asked for counts as settled without changing
+the task, which deliberately overrides, for such a finding,
+`.claude/agents/developer.md` "Handing over" (findings named as the planner's go
+first) and `.claude/agents/qa.md` "Output format" (the developer's fix round
+waits until the changed task is signed off again). A finding the agent disputes
+is not worked around: it goes where the agent's file sends it — the developer's
+to the planner when it is about the task or the design and to the user
+otherwise, the planner's about its own work to the user. The agent launches no
+session but QA's, and the role a session relaunches as below: a finding it sends
+to the planner reaches the planner through the user, as `DEVELOPERS.md` §1 "A
+disputed finding comes to you" has it. A role whose session has no Agent tool —
+a role running as a subagent, or a main thread started as that role — cannot
+launch QA: it ends with the brief as its agent file says, and the session that
+launched it carries the handover in its place. That session launches QA with
+that brief, adding only the environment facts above, relays QA's verdict to the
+user, sends a finding QA names as another role's to the user as above, and, for
+a fix round of the role it launched, launches that role again with QA's brief
+for it and hands back to QA once the role returns. It relaunches a role for
+BLOCKING findings only, and the relaunched role fixes the BLOCKING findings QA
+named as its own. An ADVISORY finding of a relaunched role that the user wants
+fixed is the user's to start that role on, as they start the planner and the
+developer on a task; the session does not carry the user's ask to the role. When
+a FAIL names no BLOCKING finding as the relaunched role's own, the session
+relaunches nobody for it. It hands the work back to QA itself once every finding
+that holds the role's fix round is settled, with the brief the role's agent file
+gives for handing back after a fix round — `.claude/agents/developer.md`
+"Handing over" for the developer, `.claude/agents/planner.md` "Handing over to
+QA" for the planner. The user starts a relaunched role on an ADVISORY finding of
+its own only once QA has passed the work, so that no fix round of that role the
+session runs is still open on the same work. Where no session launched the role,
+the user carries the handover, as before. Where QA cannot post its round or
+apply its labels itself, the session that launched QA posts the round word for
+word where `.claude/agents/qa.md` says it goes, and applies or removes the
+labels QA's verdict carries and no others: `.claude/agents/qa.md` "The label is
+your mandatory outcome" ties each verdict to its labels, including the labels a
 verdict takes off — `status: needs-scoping` from a task QA signs off, for one.
 The round and the labels stay QA's ruling. That holds on the session's own work
 too — the planner applying `ready for development` to its own tasks and
