@@ -245,12 +245,38 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 Message = "Value is not the key of its non-versioned endpoint"
             };
 
-        // A new row is a contribution, so it is created unpublished at Draft or Submitted, as the
-        // add creates one: publication and a verdict are the approval workflow's to record. Only
-        // the create arm takes ApprovalStatus at all (§ARC16.2.2).
+        // The new row is validated as the add validates one (§2 rule 4), asked of it after
+        // canonical order is restored, so each rule names the field the new row stores. Its Id is
+        // minted after this, so the add's empty-Id rule is not asked (§2 rule 10). A new row is a
+        // contribution, so it is created unpublished at Draft or Submitted, as the add creates
+        // one: publication and a verdict are the approval workflow's to record. Only the create
+        // arm takes ApprovalStatus at all (§ARC16.2.2).
         private static void ValidatePersonalAssociationOnCreate(Association association) =>
             Validate(
                 message: "Content item association is invalid, fix the errors and try again.",
+                (Rule: IsContentTypeNotApplicable(association.EntityAType, association.EntityAContentType),
+                    Parameter: nameof(Association.EntityAContentType)),
+
+                (Rule: IsInvalid(association.EntityAContentType),
+                    Parameter: nameof(Association.EntityAContentType)),
+
+                (Rule: IsContentTypeNotApplicable(association.EntityBType, association.EntityBContentType),
+                    Parameter: nameof(Association.EntityBContentType)),
+
+                (Rule: IsInvalid(association.EntityBContentType),
+                    Parameter: nameof(Association.EntityBContentType)),
+
+                (Rule: IsGreaterThan(association.UserId, 255), Parameter: nameof(Association.UserId)),
+
+                (Rule: IsGreaterThan(association.ConfidenceReason, 500),
+                    Parameter: nameof(Association.ConfidenceReason)),
+
+                (Rule: IsGreaterThan(association.ModelVersion, 128),
+                    Parameter: nameof(Association.ModelVersion)),
+
+                (Rule: IsNotWithinRange(association.ConfidenceScore, 0, 10),
+                    Parameter: nameof(Association.ConfidenceScore)),
+
                 (Rule: IsSetOnAdd(association.IsPublished), Parameter: nameof(Association.IsPublished)),
                 (Rule: IsSetOnAdd(association.PublishDate), Parameter: nameof(Association.PublishDate)),
 
