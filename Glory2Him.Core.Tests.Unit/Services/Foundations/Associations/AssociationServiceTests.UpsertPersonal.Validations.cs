@@ -445,6 +445,45 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 expectedMessage: "Id is required");
         }
 
+        [Theory]
+        [InlineData(true, nameof(Association.EntityAGroupId))]
+        [InlineData(false, nameof(Association.EntityBGroupId))]
+        public async Task ShouldThrowValidationExceptionOnUpsertPersonalIfANonVersionedEndpointsGroupIsNotItsKeyAndLogItAsync(
+            bool isReversed,
+            string invalidField)
+        {
+            // given: the reaction, on whichever side the request names it, carrying a group other
+            // than its key. A non-versioned endpoint's group is its key (§DOM4.5 rule 2), and the
+            // repoint would otherwise write the wrong one onto the stored row (§2 rule 9).
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            Association request = CreatePersonalUpsertRequest(readerUserId);
+            Association invalidRequest = isReversed ? ReverseEndpoints(request) : request;
+
+            if (invalidField == nameof(Association.EntityAGroupId))
+            {
+                invalidRequest.EntityAGroupId = Guid.NewGuid();
+            }
+            else
+            {
+                invalidRequest.EntityBGroupId = Guid.NewGuid();
+            }
+
+            // when
+            ValueTask<PersonalAssociationUpsert> upsertTask =
+                this.associationService.UpsertPersonalAssociationAsync(
+                    invalidRequest,
+                    TestContext.Current.CancellationToken);
+
+            // then: refused before the row is resolved, naming the field the request carries
+            await VerifyUpsertRefusedBeforeTheLookupAsync(
+                upsertTask,
+                invalidRequest,
+                readerUserId,
+                invalidField,
+                expectedMessage: "Value is not the key of its non-versioned endpoint");
+        }
+
         // the request is refused as invalid naming one field, before the caller's id is asked or the
         // row resolved, and nothing is read, written or announced
         private async Task VerifyUpsertRefusedBeforeTheLookupAsync(
