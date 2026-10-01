@@ -76,11 +76,16 @@ describe('associationService.useUpsertAssociation', () => {
 
     // THE SUMMARY READS A WRITE MUST REACH, seeded for real rather than spied on: one a card is
     // serving (active, so it is read again at once) and one cached from another screen
-    // (inactive, so it is marked stale). Both are keyed on a page of ids under the
-    // ReactionSummaries prefix, as every summary read is, and the write is held open so what
+    // (inactive, so it is marked stale and NOT fetched). Both are keyed on a page of ids under
+    // the ReactionSummaries prefix, as every summary read is, and the write is held open so what
     // happens before it settles can be told apart from what happens after.
-    const seedSummaryReads = () => {
+    //
+    // A cached read outside the family stands beside them: the write invalidates what it
+    // changes and nothing else, so a filter that widens past the prefix reds the test.
+    const seedSummaryReads = async () => {
         const activeSummaryRead = vi.fn().mockResolvedValue([]);
+        const cachedSummaryRead = vi.fn().mockResolvedValue([]);
+        const unrelatedRead = vi.fn().mockResolvedValue([]);
 
         renderHook(
             () => useQuery({
@@ -89,13 +94,23 @@ describe('associationService.useUpsertAssociation', () => {
             }),
             { wrapper });
 
-        queryClient.setQueryData(['ReactionSummaries', ['quote-2']], []);
+        await queryClient.prefetchQuery({
+            queryKey: ['ReactionSummaries', ['quote-2']],
+            queryFn: cachedSummaryRead
+        });
 
-        return activeSummaryRead;
+        await queryClient.prefetchQuery({
+            queryKey: ['ContentItemsSearch'],
+            queryFn: unrelatedRead
+        });
+
+        await waitFor(() => expect(activeSummaryRead).toHaveBeenCalledTimes(1));
+
+        return { activeSummaryRead, cachedSummaryRead, unrelatedRead };
     };
 
-    const isCachedSummaryReadStale = () =>
-        queryClient.getQueryState(['ReactionSummaries', ['quote-2']])?.isInvalidated;
+    const isStale = (queryKey: ReadonlyArray<unknown>) =>
+        queryClient.getQueryState(queryKey)?.isInvalidated;
 
     const holdTheWriteOpen = () => {
         let settle: { resolve: (value: unknown) => void; reject: (reason: unknown) => void } =
@@ -109,27 +124,29 @@ describe('associationService.useUpsertAssociation', () => {
 
     const expectTheSummariesReadAgainOnSettle = async (
         settleTheWrite: () => Promise<unknown>,
-        activeSummaryRead: ReturnType<typeof vi.fn>) => {
+        reads: Awaited<ReturnType<typeof seedSummaryReads>>) => {
 
         // then, before the write settles
         await waitFor(() => expect(postAssociationAsync).toHaveBeenCalledTimes(1));
-        expect(activeSummaryRead).toHaveBeenCalledTimes(1);
-        expect(isCachedSummaryReadStale()).toBe(false);
+        expect(reads.activeSummaryRead).toHaveBeenCalledTimes(1);
+        expect(isStale(['ReactionSummaries', ['quote-2']])).toBe(false);
 
         // when
         await settleTheWrite();
 
         // then
-        await waitFor(() => expect(activeSummaryRead).toHaveBeenCalledTimes(2));
-        expect(isCachedSummaryReadStale()).toBe(true);
+        await waitFor(() => expect(reads.activeSummaryRead).toHaveBeenCalledTimes(2));
+        expect(isStale(['ReactionSummaries', ['quote-2']])).toBe(true);
+        expect(reads.cachedSummaryRead).toHaveBeenCalledTimes(1);
+        expect(isStale(['ContentItemsSearch'])).toBe(false);
+        expect(reads.unrelatedRead).toHaveBeenCalledTimes(1);
     };
 
     // Matched by PREFIX: a summary read is keyed on the page of ids it asked for, and every
     // page holding the item is stale once its reaction is written.
     it('should read the summaries again once a reaction is written', async () => {
         // given
-        const activeSummaryRead = seedSummaryReads();
-        await waitFor(() => expect(activeSummaryRead).toHaveBeenCalledTimes(1));
+        const reads = await seedSummaryReads();
         const settle = holdTheWriteOpen();
 
         const { result } = renderHook(
@@ -144,7 +161,7 @@ describe('associationService.useUpsertAssociation', () => {
                 settle().resolve(createdResult);
                 await write;
             },
-            activeSummaryRead);
+            reads);
     });
 
     // A FAILED WRITE MAY STILL HAVE LANDED: the server can write the row and the answer be lost
@@ -152,8 +169,7 @@ describe('associationService.useUpsertAssociation', () => {
     // server holds rather than what the page guessed.
     it('should read the summaries again when a reaction write fails', async () => {
         // given
-        const activeSummaryRead = seedSummaryReads();
-        await waitFor(() => expect(activeSummaryRead).toHaveBeenCalledTimes(1));
+        const reads = await seedSummaryReads();
         const settle = holdTheWriteOpen();
 
         const { result } = renderHook(
@@ -168,7 +184,7 @@ describe('associationService.useUpsertAssociation', () => {
                 settle().reject(new Error('refused'));
                 await expect(write).rejects.toThrow('refused');
             },
-            activeSummaryRead);
+            reads);
     });
 
     // A FAILED REACTION IS ANNOUNCED as every failed write is. Driven through the app's own
