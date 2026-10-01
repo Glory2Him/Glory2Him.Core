@@ -955,6 +955,89 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Theory]
+        [MemberData(nameof(CallerRoleSetsActingForAnotherReader))]
+        public async Task ShouldThrowValidationExceptionOnUpsertPersonalIfUserIdIsNotTheCallersAndLogItAsync(
+            string[] callerRoles)
+        {
+            // given: both readers hold a row on the item, so an upsert keyed on either would find
+            // something to write
+            string callerUserId = GetRandomString();
+            string anotherReaderUserId = GetRandomString();
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(callerRoles);
+            Association upsertRequest = CreatePersonalUpsertRequest(anotherReaderUserId);
+
+            Association anotherReadersRow =
+                CreateStoredPersonalRow(upsertRequest, isDeleted: false);
+
+            Association callersRow =
+                CreateStoredPersonalRow(upsertRequest, isDeleted: false);
+
+            callersRow.UserId = callerUserId;
+
+            var unauthorizedAssociationException =
+                new UnauthorizedAssociationException(
+                    message: "The current user is not allowed to write another user's " +
+                        "personal content item association.");
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: unauthorizedAssociationException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(callerUserId);
+
+            SetupPersonalUpsertLookupOver(
+                new[] { anotherReadersRow, callersRow },
+                TestContext.Current.CancellationToken);
+
+            // when
+            ValueTask<PersonalAssociationUpsert> upsertTask =
+                this.associationService.UpsertPersonalAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(upsertTask.AsTask);
+
+            // then: refused before storage is asked
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(upsertRequest),
+                    Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                    Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
+
+            VerifyPersonalUpsertLookupAsked(TestContext.Current.CancellationToken, Times.Never());
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // the upsert acts for the signed caller alone, so no role lets a caller write another
+        // reader's reaction, Administrators included (§SEC14.7 posture A′ rule 2)
+        public static TheoryData<string[]> CallerRoleSetsActingForAnotherReader() =>
+            new TheoryData<string[]>
+            {
+                new string[0],
+                new[] { Roles.Administrators }
+            };
+
         // every read-only scope over a reader's reaction on a Quote, for each personal act: give
         // (no row, so Created), change (a live row on another reaction, so Repointed) and revive
         // (their withdrawn row on the same reaction, so Restored)
