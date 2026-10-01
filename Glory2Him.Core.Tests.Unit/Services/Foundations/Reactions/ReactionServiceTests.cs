@@ -376,6 +376,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
                 .OnProperty(reaction => reaction.CreatedBy).Use(userId)
                 .OnProperty(reaction => reaction.UpdatedBy).Use(userId)
 
+                // A negative SortOrder is a validation failure on add, so a valid row must never
+                // be handed one by the draw — pinned rather than trusted to the filler's int range,
+                // the same reason IsDeleted is pinned above.
+                .OnProperty(reaction => reaction.SortOrder).Use(GetRandomNumber())
+
                 // A contribution is unpublished and unapproved: add refuses a caller-supplied IsPublished,
                 // PublishDate or verdict status, and modify pins all three against storage. Drawing them
                 // would make every write test fail on the draw rather than on what it is testing.
