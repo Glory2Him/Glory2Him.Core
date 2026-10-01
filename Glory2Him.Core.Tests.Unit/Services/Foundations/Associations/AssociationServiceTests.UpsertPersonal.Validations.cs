@@ -331,6 +331,89 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Theory]
+        [InlineData(false, nameof(Association.EntityAScope), Scope.ThisVersionOnly)]
+        [InlineData(true, nameof(Association.EntityBScope), Scope.ThisVersionOnly)]
+        [InlineData(false, nameof(Association.EntityBScope), Scope.AllVersions)]
+        [InlineData(true, nameof(Association.EntityAScope), Scope.AllVersions)]
+        public async Task ShouldThrowValidationExceptionOnUpsertPersonalIfAnEndpointScopeIsNotItsTypesAndLogItAsync(
+            bool isReversed,
+            string invalidField,
+            Scope wrongScope)
+        {
+            // given: the content item under ThisVersionOnly, or the reaction under AllVersions, on
+            // whichever side the request names it. A content item keyed on its key id misses the
+            // reader's row and takes the none arm; a reaction under AllVersions is a row §DOM4.5
+            // rule 1 forbids (§2 rule 9).
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            Association request = CreatePersonalUpsertRequest(readerUserId);
+            Association invalidRequest = isReversed ? ReverseEndpoints(request) : request;
+
+            if (invalidField == nameof(Association.EntityAScope))
+            {
+                invalidRequest.EntityAScope = wrongScope;
+            }
+            else
+            {
+                invalidRequest.EntityBScope = wrongScope;
+            }
+
+            Association takenDownRow =
+                CreateStoredPersonalRow(CreatePersonalUpsertRequest(readerUserId), isDeleted: true);
+
+            takenDownRow.DeletedBy = $"moderator-{Guid.NewGuid()}";
+
+            var invalidAssociationException = new InvalidAssociationException(
+                message: "Content item association is invalid, fix the errors and try again.");
+
+            invalidAssociationException.UpsertDataList(
+                key: invalidField,
+                value: "Value is not the scope its endpoint's type takes");
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: invalidAssociationException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(readerUserId);
+
+            SetupPersonalUpsertLookupOver(
+                new[] { takenDownRow },
+                TestContext.Current.CancellationToken);
+
+            // when
+            ValueTask<PersonalAssociationUpsert> upsertTask =
+                this.associationService.UpsertPersonalAssociationAsync(
+                    invalidRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(upsertTask.AsTask);
+
+            // then: refused before the row is resolved, naming the field the request carries
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(invalidRequest),
+                    Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // every approval state a new row may not carry, with the add's message for it
         public static TheoryData<string, object, string> ApprovalStatesOnANewPersonalRow() =>
             new TheoryData<string, object, string>
