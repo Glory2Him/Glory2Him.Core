@@ -414,6 +414,81 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Theory]
+        [InlineData(nameof(Association.EntityAGroupId))]
+        [InlineData(nameof(Association.EntityBGroupId))]
+        public async Task ShouldThrowValidationExceptionOnUpsertPersonalIfAnEndpointGroupIsEmptyAndLogItAsync(
+            string invalidField)
+        {
+            // given: under AllVersions the host's group is its effective id, so an empty one keys the
+            // lookup on no host; the reaction's group is what a repoint writes onto the stored row
+            // (§2 rule 9). Either endpoint may be A once canonical order is restored.
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+
+            Association invalidRequest = InvalidateEndpointField(
+                CreatePersonalUpsertRequest(readerUserId),
+                invalidField);
+
+            // when
+            ValueTask<PersonalAssociationUpsert> upsertTask =
+                this.associationService.UpsertPersonalAssociationAsync(
+                    invalidRequest,
+                    TestContext.Current.CancellationToken);
+
+            // then: refused before the row is resolved, naming the field
+            await VerifyUpsertRefusedBeforeTheLookupAsync(
+                upsertTask,
+                invalidRequest,
+                readerUserId,
+                invalidField,
+                expectedMessage: "Id is required");
+        }
+
+        // the request is refused as invalid naming one field, before the caller's id is asked or the
+        // row resolved, and nothing is read, written or announced
+        private async Task VerifyUpsertRefusedBeforeTheLookupAsync(
+            ValueTask<PersonalAssociationUpsert> upsertTask,
+            Association invalidRequest,
+            string readerUserId,
+            string invalidField,
+            string expectedMessage)
+        {
+            var invalidAssociationException = new InvalidAssociationException(
+                message: "Content item association is invalid, fix the errors and try again.");
+
+            invalidAssociationException.UpsertDataList(
+                key: invalidField,
+                value: expectedMessage);
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: invalidAssociationException);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(upsertTask.AsTask);
+
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(invalidRequest),
+                    Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // every approval state a new row may not carry, with the add's message for it
         public static TheoryData<string, object, string> ApprovalStatesOnANewPersonalRow() =>
             new TheoryData<string, object, string>
