@@ -1,5 +1,10 @@
 import { ReactNode } from 'react';
-import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import {
+    MutationCache,
+    QueryClient,
+    QueryClientProvider,
+    useQuery
+} from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { associationService } from './associationService';
@@ -41,7 +46,6 @@ const createdResult: AssociationSuggestionResult = {
 
 describe('associationService.useUpsertAssociation', () => {
     let queryClient: QueryClient;
-    let invalidated: Array<ReadonlyArray<unknown>>;
 
     const wrapper = ({ children }: { children: ReactNode }) => (
         <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
@@ -50,16 +54,9 @@ describe('associationService.useUpsertAssociation', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         postAssociationAsync.mockResolvedValue(createdResult);
-        invalidated = [];
 
         queryClient = new QueryClient({
             defaultOptions: { queries: { retry: false } }
-        });
-
-        vi.spyOn(queryClient, 'invalidateQueries').mockImplementation((filters) => {
-            invalidated.push((filters?.queryKey ?? []) as ReadonlyArray<unknown>);
-
-            return Promise.resolve();
         });
     });
 
@@ -77,19 +74,77 @@ describe('associationService.useUpsertAssociation', () => {
         expect(actualResult).toEqual(createdResult);
     });
 
+    // THE SUMMARY READS A WRITE MUST REACH, seeded for real rather than spied on: one a card is
+    // serving (active, so it is read again at once) and one cached from another screen
+    // (inactive, so it is marked stale). Both are keyed on a page of ids under the
+    // ReactionSummaries prefix, as every summary read is, and the write is held open so what
+    // happens before it settles can be told apart from what happens after.
+    const seedSummaryReads = () => {
+        const activeSummaryRead = vi.fn().mockResolvedValue([]);
+
+        renderHook(
+            () => useQuery({
+                queryKey: ['ReactionSummaries', ['quote-1']],
+                queryFn: activeSummaryRead
+            }),
+            { wrapper });
+
+        queryClient.setQueryData(['ReactionSummaries', ['quote-2']], []);
+
+        return activeSummaryRead;
+    };
+
+    const isCachedSummaryReadStale = () =>
+        queryClient.getQueryState(['ReactionSummaries', ['quote-2']])?.isInvalidated;
+
+    const holdTheWriteOpen = () => {
+        let settle: { resolve: (value: unknown) => void; reject: (reason: unknown) => void } =
+            { resolve: () => undefined, reject: () => undefined };
+
+        postAssociationAsync.mockReturnValue(
+            new Promise((resolve, reject) => { settle = { resolve, reject }; }));
+
+        return () => settle;
+    };
+
+    const expectTheSummariesReadAgainOnSettle = async (
+        settleTheWrite: () => Promise<unknown>,
+        activeSummaryRead: ReturnType<typeof vi.fn>) => {
+
+        // then, before the write settles
+        await waitFor(() => expect(postAssociationAsync).toHaveBeenCalledTimes(1));
+        expect(activeSummaryRead).toHaveBeenCalledTimes(1);
+        expect(isCachedSummaryReadStale()).toBe(false);
+
+        // when
+        await settleTheWrite();
+
+        // then
+        await waitFor(() => expect(activeSummaryRead).toHaveBeenCalledTimes(2));
+        expect(isCachedSummaryReadStale()).toBe(true);
+    };
+
     // Matched by PREFIX: a summary read is keyed on the page of ids it asked for, and every
     // page holding the item is stale once its reaction is written.
     it('should read the summaries again once a reaction is written', async () => {
         // given
+        const activeSummaryRead = seedSummaryReads();
+        await waitFor(() => expect(activeSummaryRead).toHaveBeenCalledTimes(1));
+        const settle = holdTheWriteOpen();
+
         const { result } = renderHook(
             () => associationService.useUpsertAssociation(), { wrapper });
 
         // when
-        await result.current.mutateAsync(reactionRequest);
-        await waitFor(() => expect(invalidated.length).toBeGreaterThan(0));
+        const write = result.current.mutateAsync(reactionRequest);
 
         // then
-        expect(invalidated).toEqual([['ReactionSummaries']]);
+        await expectTheSummariesReadAgainOnSettle(
+            async () => {
+                settle().resolve(createdResult);
+                await write;
+            },
+            activeSummaryRead);
     });
 
     // A FAILED WRITE MAY STILL HAVE LANDED: the server can write the row and the answer be lost
@@ -97,17 +152,23 @@ describe('associationService.useUpsertAssociation', () => {
     // server holds rather than what the page guessed.
     it('should read the summaries again when a reaction write fails', async () => {
         // given
-        postAssociationAsync.mockRejectedValue(new Error('refused'));
+        const activeSummaryRead = seedSummaryReads();
+        await waitFor(() => expect(activeSummaryRead).toHaveBeenCalledTimes(1));
+        const settle = holdTheWriteOpen();
 
         const { result } = renderHook(
             () => associationService.useUpsertAssociation(), { wrapper });
 
         // when
-        await expect(result.current.mutateAsync(reactionRequest)).rejects.toThrow('refused');
-        await waitFor(() => expect(invalidated.length).toBeGreaterThan(0));
+        const write = result.current.mutateAsync(reactionRequest);
 
         // then
-        expect(invalidated).toEqual([['ReactionSummaries']]);
+        await expectTheSummariesReadAgainOnSettle(
+            async () => {
+                settle().reject(new Error('refused'));
+                await expect(write).rejects.toThrow('refused');
+            },
+            activeSummaryRead);
     });
 
     // A FAILED REACTION IS ANNOUNCED as every failed write is. Driven through the app's own
