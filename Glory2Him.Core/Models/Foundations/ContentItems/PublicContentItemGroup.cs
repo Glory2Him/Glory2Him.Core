@@ -15,8 +15,8 @@ using Glory2Him.Core.Models.Enums;
 namespace Glory2Him.Core.Models.Foundations.ContentItems
 {
     /// <summary>
-    /// One supplied content item id whose version group has at least one canonically visible
-    /// version (§SEC14.1), with that group and the content type — the answer
+    /// One supplied content item id that names a canonically visible version (§SEC14.1), with
+    /// that version's group and content type — the answer
     /// <c>IContentItemService.RetrievePublicContentItemGroupsAsync</c> gives the reaction summary
     /// read (§ARC16.8). The content type is carried because the summary keys each host's winning
     /// setting on it.

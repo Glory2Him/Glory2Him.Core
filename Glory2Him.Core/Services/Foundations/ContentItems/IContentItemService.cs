@@ -85,13 +85,14 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Which of the given ids belong to a version group anybody may see, each with its group
-        /// and content type — the hosts the reaction summary read counts for (§ARC16.8).
+        /// Which of the given ids name a version anybody may see, each with its group and content
+        /// type — the hosts the reaction summary read counts for, at group level (§ARC16.8).
         ///
-        /// <para>Answered at GROUP level: an id is answered when any version of its group is
-        /// canonically visible under §SEC14.1, so a draft of a published item answers with the
-        /// group. An id that names nothing, or whose group has no visible version, is left out —
-        /// never refused (§SEC14.5 rule 4).</para>
+        /// <para>Asked of the VERSION the id names: an id is answered only when that version is
+        /// itself canonically visible under §SEC14.1, whatever its group holds, so a draft of a
+        /// published item is absent (§SEC14.5 rules 1 and 3). An id that names nothing, or
+        /// names a version that is not visible, is left out — never refused (§SEC14.5
+        /// rule 4).</para>
         ///
         /// <para><b>CALLER-INDEPENDENT</b>, exactly as <see cref="RetrieveContentItemFeedAsync"/>
         /// is: no envelope is minted and no <c>SecurityContext</c> is resolved, so the counts the
