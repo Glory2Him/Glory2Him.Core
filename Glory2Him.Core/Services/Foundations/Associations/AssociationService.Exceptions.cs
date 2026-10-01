@@ -578,6 +578,18 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 throw await CreateAndLogCriticalDependencyExceptionAsync(
                     exception: failedStorageAssociationException);
             }
+            // the create arm's minted Id already taken, refused as the add refuses it
+            catch (DuplicateKeyException duplicateKeyException)
+            {
+                var alreadyExistsAssociationException =
+                    new AlreadyExistsAssociationException(
+                        message: "Content item association already exists with the same Id.",
+                        innerException: duplicateKeyException,
+                        data: duplicateKeyException.Data);
+
+                throw await CreateAndLogDependencyValidationExceptionAsync(
+                    alreadyExistsAssociationException);
+            }
             // a second first reaction racing the first is refused by UX_Associations_PersonalPair,
             // and reaches the caller as the add's duplicate does (§DOM4.6 rule 2)
             catch (DuplicateKeyWithUniqueIndexException duplicateKeyWithUniqueIndexException)
