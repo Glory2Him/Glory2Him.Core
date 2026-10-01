@@ -148,6 +148,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             Reaction auditAppliedReaction = inputReaction.DeepClone();
             Reaction storageReaction = auditAppliedReaction.DeepClone();
             storageReaction.UpdatedWhen = storageReaction.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+            storageReaction.SortOrder = GetRandomNumber();
             Reaction auditPreservedReaction = auditAppliedReaction.DeepClone();
             Reaction updatedReaction = auditPreservedReaction.DeepClone();
             Reaction expectedReaction = updatedReaction.DeepClone();
@@ -222,7 +223,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.UpdateReactionAsync(auditPreservedReaction, It.IsAny<CancellationToken>()),
+                    broker.UpdateReactionAsync(
+                        It.Is<Reaction>(reaction =>
+                            reaction == auditPreservedReaction && reaction.SortOrder == 0),
+                        It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.eventBrokerMock.Verify(broker =>
