@@ -67,7 +67,7 @@ ValueTask<IReadOnlyList<AssociationPairCount>> RetrieveContentItemReactionCounts
 
 `AssociationPairCount` is `(Guid EntityAEffectiveId, Guid EntityBKeyId, int Count)` — §ARC16.8's narrow native row.
 
-1. **It counts the reactions given to each host**, over the rows that satisfy §SEC14.3 rules 1, 2 and 5: not deleted, `Approved`, and a publish date that is null or not after the current moment.
+1. **It counts the reactions given to each host**, over the rows that satisfy §SEC14.3 rules 1, 2 and 5: not deleted, `Approved`, and a publish date that is null or not after the current moment. An empty list of hosts, of reactions or of both is valid, and answers an empty list.
 2. **Its predicate is §ARC16.8's**: `EntityAType = ContentItem AND EntityAEffectiveId IN (contentItemGroupIds) AND EntityBType = Reaction AND EntityBKeyId IN (reactionIds)`. It pins the host on endpoint A and the reaction on B, which `CK_Association_CanonicalOrder` guarantees for this pair (§ARC16.8, *The predicate, and what pins it*).
 3. **It groups on `(EntityAEffectiveId, EntityBKeyId)` and counts in the projection**, inside the shaping function, so the aggregate runs in SQL (§ARC16.8, *Where the GROUP BY runs*). A pair nobody gave has no row, and so no entry.
 4. **It is caller-independent.** It mints no envelope, and every caller receives the same counts (§ARC16.8, *Anonymity*).

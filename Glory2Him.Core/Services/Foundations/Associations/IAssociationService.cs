@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -30,6 +31,16 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
         ValueTask<Association> RetrieveAssociationByIdAsync(
             Guid associationId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// How many readers gave each asked-for reaction to each asked-for content item, counted
+        /// in SQL over the rows §SEC14.3 rules 1, 2 and 5 admit (§ARC16.8). Caller-independent:
+        /// it mints no envelope, and every caller receives the same counts.
+        /// </summary>
+        ValueTask<IReadOnlyList<AssociationPairCount>> RetrieveContentItemReactionCountsAsync(
+            IReadOnlyList<Guid> contentItemGroupIds,
+            IReadOnlyList<Guid> reactionIds,
             CancellationToken cancellationToken = default);
 
         /// <summary>
@@ -92,6 +103,21 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         internal ValueTask<AssociationPairMatch?> FindOverlappingAssociationAsync(
             Association association,
             EventEnvelope<Association> inboundEnvelope,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Finds the signed caller's own row for <paramref name="association"/>'s host and far-end
+        /// type — live or withdrawn — through the personal key <c>UX_Associations_PersonalPair</c>
+        /// keys on (§DOM4.6 rule 2), or <c>null</c> where there is none. An anonymous caller, and a
+        /// lookup naming any other <c>UserId</c>, are answered <c>null</c> as well, before storage
+        /// is asked: a denied read answers not found. It is a read, so it asks no read-only role.
+        /// The host is matched on its effective id — the group under <c>AllVersions</c>, the
+        /// version under <c>ThisVersionOnly</c> — whatever the row's status. Returns a non-leaking
+        /// <see cref="PersonalAssociationMatch"/> — id, reaction key id and withdrawn — and never
+        /// the row (<c>Backend/Foundations/AssociationService.md §1</c>).
+        /// </summary>
+        ValueTask<PersonalAssociationMatch?> FindPersonalAssociationAsync(
+            Association association,
             CancellationToken cancellationToken = default);
 
         ValueTask<Association> ModifyAssociationAsync(
