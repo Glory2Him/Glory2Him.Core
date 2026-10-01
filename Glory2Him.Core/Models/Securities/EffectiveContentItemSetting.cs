@@ -21,7 +21,8 @@ namespace Glory2Him.Core.Models.Securities
     ///
     /// <para>The item's id is carried beside the row because a default row answers every item of
     /// its type and names none of them. The key's type is the row's own <c>ContentType</c>, so an
-    /// item asked under two types comes back twice, told apart by that.</para>
+    /// item asked under two types comes back once for each type that resolves a row, and its
+    /// answers are told apart by that.</para>
     ///
     /// <para>Init properties rather than a constructor, because the access broker projects into
     /// this inside the query it hands to storage, one subquery per key joined by set operations.
