@@ -403,6 +403,49 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData("   ")]
+        public async Task ShouldRetrieveNothingForACallerWithNoUserIdAndLogItAsync(
+            string missingUserId)
+        {
+            // given
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            List<Guid> contentItemGroupIds = CreateRandomContentItemGroupIds(count: 2);
+
+            string expectedWarning =
+                "Content item association caller reactions read answered empty. The caller is " +
+                "signed in but their identity carries no user id.";
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(missingUserId);
+
+            // when
+            IReadOnlyList<AssociationPairKey> actualPairKeys =
+                await this.associationService.RetrieveCallerContentItemReactionsAsync(
+                    contentItemGroupIds,
+                    cancellationToken);
+
+            // then
+            actualPairKeys.Should().BeEmpty();
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogWarningAsync(expectedWarning),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         private static List<Guid> CreateRandomContentItemGroupIds(int count) =>
             Enumerable.Range(start: 0, count: count)
                 .Select(_ => Guid.NewGuid())
