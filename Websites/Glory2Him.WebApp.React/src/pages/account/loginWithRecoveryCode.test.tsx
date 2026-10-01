@@ -117,4 +117,16 @@ describe('LoginWithRecoveryCode', () => {
         // then
         expect(landedOn()).toBe(loginWithRecoveryCodeWithReturnUrl('/posts'));
     });
+
+    it('should send a reader signed in by a recovery code to the home page when there is no return address', () => {
+        // given
+        answerCode(false);
+        renderLoginWithRecoveryCode('/Account/LoginWithRecoveryCode');
+
+        // when
+        enterRecoveryCode();
+
+        // then
+        expect(landedOn()).toBe('/');
+    });
 });
