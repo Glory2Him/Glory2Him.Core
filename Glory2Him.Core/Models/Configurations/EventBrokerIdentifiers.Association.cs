@@ -87,6 +87,14 @@ namespace Glory2Him.Core.Models.Configurations
         public static readonly Guid AssociationScopedEventAddressId =
             new Guid("019fd991-a284-73b0-b736-5fe28310fb62");
 
+        // The personal upsert's facts (§ARC16.2.2): fact addresses with no request address behind
+        // them, because Association-Upserting is not minted.
+        public static readonly Guid AssociationRestoredEventAddressId =
+            new Guid("01a0f8b7-9081-79f2-a311-88010c968408");
+
+        public static readonly Guid AssociationRepointedEventAddressId =
+            new Guid("01a0f8b7-9084-7e66-9681-7f57a6f2a8e2");
+
         internal static readonly IReadOnlyDictionary<AssociationEventOperation, Guid>
             AssociationEventAddressIds = new Dictionary<AssociationEventOperation, Guid>
             {
@@ -113,7 +121,9 @@ namespace Glory2Him.Core.Models.Configurations
                 { AssociationEventOperation.Rejected, AssociationRejectedEventAddressId },
                 { AssociationEventOperation.Sorted, AssociationSortedEventAddressId },
                 { AssociationEventOperation.ConfidenceSet, AssociationConfidenceSetEventAddressId },
-                { AssociationEventOperation.Scoped, AssociationScopedEventAddressId }
+                { AssociationEventOperation.Scoped, AssociationScopedEventAddressId },
+                { AssociationEventOperation.Restored, AssociationRestoredEventAddressId },
+                { AssociationEventOperation.Repointed, AssociationRepointedEventAddressId }
             };
 
         internal static readonly IReadOnlyDictionary<Guid, string> AssociationEventAddresses =
@@ -135,7 +145,9 @@ namespace Glory2Him.Core.Models.Configurations
                 { AssociationRejectedEventAddressId, "Association-Rejected" },
                 { AssociationSortedEventAddressId, "Association-Sorted" },
                 { AssociationConfidenceSetEventAddressId, "Association-ConfidenceSet" },
-                { AssociationScopedEventAddressId, "Association-Scoped" }
+                { AssociationScopedEventAddressId, "Association-Scoped" },
+                { AssociationRestoredEventAddressId, "Association-Restored" },
+                { AssociationRepointedEventAddressId, "Association-Repointed" }
             };
 
         public static readonly Guid AssociationOnAddingAssociationSubscriptionId =

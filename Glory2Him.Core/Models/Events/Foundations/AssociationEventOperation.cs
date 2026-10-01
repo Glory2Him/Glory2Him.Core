@@ -68,6 +68,12 @@ namespace Glory2Him.Core.Models.Events.Foundations
         Rejected,
         Sorted,
         ConfidenceSet,
-        Scoped
+        Scoped,
+
+        // The personal upsert's two facts of its own (§ARC16.2.2). They name the outcome reached
+        // rather than the operation invoked, and its third outcome, a row created, publishes
+        // Added. They have no request address behind them: Association-Upserting is not minted.
+        Restored,
+        Repointed
     }
 }
