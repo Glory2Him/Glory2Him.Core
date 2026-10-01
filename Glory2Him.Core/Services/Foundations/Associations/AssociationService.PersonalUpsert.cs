@@ -86,6 +86,17 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 };
             }
 
+            // "withdrawn by the reader" is DeletedBy equal to the row's UserId, and nothing else: a
+            // takedown is never revived, whatever reaction is given (§DOM4.10 rule 7)
+            if (readersRow.IsDeleted && readersRow.DeletedBy != readersRow.UserId)
+            {
+                return new PersonalAssociationUpsert
+                {
+                    Outcome = PersonalAssociationUpsertOutcome.TakenDown,
+                    Association = readersRow
+                };
+            }
+
             bool isSameReaction = readersRow.EntityBKeyId == association.EntityBKeyId;
 
             if (readersRow.IsDeleted is false && isSameReaction)
