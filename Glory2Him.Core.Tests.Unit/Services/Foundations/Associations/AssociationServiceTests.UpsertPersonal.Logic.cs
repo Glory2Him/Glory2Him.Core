@@ -124,6 +124,115 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldReviveTheReadersWithdrawnRowAtItsOwnStatusAsync()
+        {
+            // given: the reader withdrew this reaction themselves, at Approved, and the caller sends
+            // Submitted, so a revive that wrote a status would show. An older withdrawn row of theirs
+            // on the item, written before this feature and pointing at another reaction, comes
+            // first in the store: the most recently updated row is the one revived (§DOM4.10 rule 6).
+            string readerUserId = GetRandomString();
+            DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            Association upsertRequest = CreatePersonalUpsertRequest(readerUserId);
+
+            Association readersWithdrawnRow =
+                CreateStoredPersonalRowOnTheSameReaction(upsertRequest, isDeleted: true);
+
+            readersWithdrawnRow.ApprovalStatus = ApprovalStatus.Approved;
+
+            Association readersOlderWithdrawnRow =
+                CreateStoredPersonalRow(upsertRequest, isDeleted: true);
+
+            readersOlderWithdrawnRow.UpdatedWhen =
+                readersWithdrawnRow.UpdatedWhen.AddDays(-GetRandomNumber());
+
+            List<Association> storageAssociations =
+                new List<Association> { readersOlderWithdrawnRow, readersWithdrawnRow }
+                    .Concat(CreateRandomAssociations())
+                    .ToList();
+
+            Association expectedSavedAssociation = readersWithdrawnRow.DeepClone();
+            expectedSavedAssociation.IsDeleted = false;
+            expectedSavedAssociation.DeletedBy = null;
+            expectedSavedAssociation.DeletedWhen = null;
+            StampModifyAudit(expectedSavedAssociation, readerUserId, currentDateTime);
+
+            Association savedAssociation = null;
+            Association updatedAssociation = null;
+
+            using var cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken inputCancellationToken = cancellationTokenSource.Token;
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(readerUserId);
+
+            SetupPersonalUpsertLookupOver(storageAssociations, inputCancellationToken);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(It.IsAny<Association>(), this.ambientSecurityContext))
+                    .ReturnsAsync((Association entity, SecurityContext _) =>
+                        StampModifyAudit(entity.DeepClone(), readerUserId, currentDateTime));
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateAssociationAsync(It.IsAny<Association>(), inputCancellationToken))
+                    .ReturnsAsync((Association entity, CancellationToken _) =>
+                    {
+                        savedAssociation = entity.DeepClone();
+                        updatedAssociation = entity.DeepClone();
+
+                        return updatedAssociation;
+                    });
+
+            // when
+            PersonalAssociationUpsert actualUpsert =
+                await this.associationService.UpsertPersonalAssociationAsync(
+                    upsertRequest,
+                    inputCancellationToken);
+
+            // then: the reader's row, live again at the status it was withdrawn at
+            savedAssociation.Should().BeEquivalentTo(expectedSavedAssociation);
+            savedAssociation.ApprovalStatus.Should().Be(ApprovalStatus.Approved);
+            actualUpsert.Outcome.Should().Be(PersonalAssociationUpsertOutcome.Restored);
+            actualUpsert.Association.Should().BeSameAs(updatedAssociation);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(upsertRequest),
+                    Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                    Times.Once);
+
+            VerifyPersonalUpsertLookupAsked(inputCancellationToken, Times.Once());
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyModifyAuditValuesAsync(It.IsAny<Association>(), this.ambientSecurityContext),
+                    Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateAssociationAsync(It.IsAny<Association>(), inputCancellationToken),
+                    Times.Once);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateNextAsync(It.IsAny<EventEnvelope<Association>>(), updatedAssociation),
+                    Times.Once);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishAssociationAsync(
+                    It.Is(SameOutboundEnvelopeAs(updatedAssociation)),
+                    AssociationEventOperation.Restored),
+                Times.Once);
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // A reader's reaction on a Quote as the orchestration hands it over (§ARC16.8.1): the host on
         // endpoint A under AllVersions, with a group id that differs from its key id, and the
         // reaction on B, a non-versioned endpoint, so ThisVersionOnly with its group its key.
@@ -149,6 +258,30 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 MissOnePersonalKeyTerm(
                     CreateStoredPersonalRow(upsertRequest, isDeleted: false),
                     term));
+
+        // The reader's stored row on the request's host, pointing at the reaction the request names.
+        private static Association CreateStoredPersonalRowOnTheSameReaction(
+            Association upsertRequest,
+            bool isDeleted)
+        {
+            Association storedRow = CreateStoredPersonalRow(upsertRequest, isDeleted);
+            storedRow.EntityBKeyId = upsertRequest.EntityBKeyId;
+            storedRow.EntityBGroupId = upsertRequest.EntityBGroupId;
+
+            return WithDatabaseComputedEffectiveIds(storedRow);
+        }
+
+        // what the audit broker does with a row being changed: the caller signed on the envelope, now
+        private static Association StampModifyAudit(
+            Association association,
+            string userId,
+            DateTimeOffset currentDateTime)
+        {
+            association.UpdatedBy = userId;
+            association.UpdatedWhen = currentDateTime;
+
+            return association;
+        }
 
         // what the audit broker does with a new row: the caller signed on the envelope, now
         private static Association StampAddAudit(
