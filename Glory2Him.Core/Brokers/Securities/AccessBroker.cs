@@ -1281,11 +1281,29 @@ namespace Glory2Him.Core.Brokers.Securities
             // One subquery per key, each picking that key's single winning row, joined into ONE
             // query so the selection runs in SQL in one round trip (§ARC16.8, the §DOM6.10 row).
             return await this.storageBroker.SelectContentItemSettingsAsync(
-                contentItemSettings => distinctContentItemSettingKeys
+                contentItemSettings => ConcatPairwise(distinctContentItemSettingKeys
                     .Select(contentItemSettingKey =>
                         SelectEffectiveContentItemSetting(contentItemSettings, contentItemSettingKey))
-                    .Aggregate((answered, next) => answered.Concat(next)),
+                    .ToList()),
                 cancellationToken);
+        }
+
+        // Joins the subqueries in pairs, then the pairs in pairs, so the query nests about log2(n)
+        // set operations deep rather than one per key. EF walks that nesting recursively, and
+        // joining each subquery onto the result so far overflowed the stack at a few hundred
+        // keys, ending the process rather than failing the request.
+        private static IQueryable<EffectiveContentItemSetting> ConcatPairwise(
+            List<IQueryable<EffectiveContentItemSetting>> subqueries)
+        {
+            while (subqueries.Count > 1)
+            {
+                subqueries = subqueries
+                    .Chunk(2)
+                    .Select(pair => pair.Length is 2 ? pair[0].Concat(pair[1]) : pair[0])
+                    .ToList();
+            }
+
+            return subqueries[0];
         }
 
         // §DOM6.4: the live override for the item and its type where there is one, the type's
