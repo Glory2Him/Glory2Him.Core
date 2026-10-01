@@ -86,9 +86,17 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 };
             }
 
+            bool isSameReaction = readersRow.EntityBKeyId == association.EntityBKeyId;
+
             readersRow.IsDeleted = false;
             readersRow.DeletedBy = null;
             readersRow.DeletedWhen = null;
+
+            if (isSameReaction is false)
+            {
+                readersRow.EntityBKeyId = association.EntityBKeyId;
+                readersRow.EntityBGroupId = association.EntityBGroupId;
+            }
 
             Association auditedRow =
                 await this.securityAuditBroker.ApplyModifyAuditValuesAsync(
@@ -103,11 +111,16 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             await PublishPersonalUpsertFactAsync(
                 inboundEnvelope: inboundEnvelope,
                 association: updatedRow,
-                operation: AssociationEventOperation.Restored);
+                operation: isSameReaction
+                    ? AssociationEventOperation.Restored
+                    : AssociationEventOperation.Repointed);
 
             return new PersonalAssociationUpsert
             {
-                Outcome = PersonalAssociationUpsertOutcome.Restored,
+                Outcome = isSameReaction
+                    ? PersonalAssociationUpsertOutcome.Restored
+                    : PersonalAssociationUpsertOutcome.Repointed,
+
                 Association = updatedRow
             };
         }
