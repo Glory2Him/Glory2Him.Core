@@ -11,6 +11,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Brokers.Securities;
@@ -99,6 +100,40 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.ContentItemSetti
                 because: "SQL Server must select each key's row as §DOM6.4 does in memory: the "
                     + "live override, else the live default, and nothing for an item neither "
                     + "resolves");
+        }
+
+        [Fact]
+        public async Task ShouldSelectTheEffectiveSettingsOfManyKeysInOneQueryAsync()
+        {
+            // given: far more keys than either caller asks for (25 at most). Each key adds a
+            // subquery to the one query, and the way they are joined decides how deep the
+            // expression EF has to walk. Joined one after another, a few hundred keys overflow the
+            // stack, which ends the process rather than failing the request.
+            const int keyCount = 500;
+
+            ContentItemSetting testimonyDefault =
+                await SeedAsync(ContentType.Testimony, contentItemId: null);
+
+            List<ContentItemSettingKey> contentItemSettingKeys = Enumerable.Range(0, keyCount)
+                .Select(_ => CreateKey(ContentType.Testimony, Guid.NewGuid()))
+                .ToList();
+
+            List<EffectiveContentItemSetting> expectedEffectiveContentItemSettings =
+                contentItemSettingKeys
+                    .Select(key => CreateEffective(key.ContentItemId, testimonyDefault))
+                    .ToList();
+
+            // when
+            IReadOnlyList<EffectiveContentItemSetting> actualEffectiveContentItemSettings =
+                await this.accessBroker.RetrieveEffectiveContentItemSettingsAsync(
+                    contentItemSettingKeys: contentItemSettingKeys,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            actualEffectiveContentItemSettings.Should().BeEquivalentTo(
+                expectedEffectiveContentItemSettings,
+                because: "every key is answered in one query however many are asked, within what "
+                    + "SQL Server accepts in one statement");
         }
 
         private async Task<ContentItemSetting> SeedAsync(
