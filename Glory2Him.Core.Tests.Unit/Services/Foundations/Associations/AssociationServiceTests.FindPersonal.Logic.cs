@@ -516,6 +516,70 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldFindTheReadersRowOnTheVersionNamedUnderThisVersionOnlyAsync()
+        {
+            // given: under ThisVersionOnly the effective id is the version's key id, which differs
+            // from the item's group id, so a lookup keyed on the group would miss the row
+            // (§DOM4.3, §DOM4.6). It pins how such a request is keyed and nothing else: whether a
+            // personal row may be narrowed to one version is §DOM4.6's open set-scope question.
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            Association lookupRequest = CreatePersonalLookupRequest(readerUserId);
+            lookupRequest.EntityAScope = Scope.ThisVersionOnly;
+
+            Association readersRow = lookupRequest.DeepClone();
+            readersRow.Id = Guid.NewGuid();
+            readersRow = WithDatabaseComputedEffectiveIds(readersRow);
+
+            List<Association> storageAssociations =
+                CreateRandomAssociations().Append(readersRow).ToList();
+
+            using var cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken inputCancellationToken = cancellationTokenSource.Token;
+
+            var expectedMatch = new PersonalAssociationMatch
+            {
+                Id = readersRow.Id,
+                EntityBKeyId = readersRow.EntityBKeyId,
+                IsDeleted = false
+            };
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(readerUserId);
+
+            SetupPersonalLookupOver(storageAssociations, inputCancellationToken);
+
+            // when
+            PersonalAssociationMatch? actualMatch =
+                await this.associationService.FindPersonalAssociationAsync(
+                    lookupRequest,
+                    inputCancellationToken);
+
+            // then
+            readersRow.EntityAEffectiveId.Should().Be(lookupRequest.EntityAKeyId);
+            readersRow.EntityAEffectiveId.Should().NotBe(lookupRequest.EntityAGroupId);
+            actualMatch.Should().BeEquivalentTo(expectedMatch);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(lookupRequest),
+                    Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                    Times.Once);
+
+            VerifyPersonalLookupAsked(inputCancellationToken, Times.Once());
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         [Theory]
         [MemberData(nameof(UnauthenticatedSecurityContexts))]
         public async Task ShouldFindNothingForAnAnonymousCallerAsync(
