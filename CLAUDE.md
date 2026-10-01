@@ -77,8 +77,9 @@ conversation.
    labels it `ready for review` when it passes. Reports BLOCKING and ADVISORY
    findings. Never fixes anything.
 
-Every handover to QA is a fresh session briefed with pointers only — never
-another agent's account of its work. The planner always hands its design and
+Every handover to QA is a fresh session briefed with pointers and, at most, the
+environment facts the paragraph below defines — never another agent's account
+of its work. The planner always hands its design and
 tasks to QA and corrects what QA finds, until QA has signed every task off —
 and passed the design PR, where there is one, with `ready for review`. The
 developer hands over its PR, fixes QA's findings as commits on it, and hands
@@ -88,14 +89,71 @@ QA may hand a question to the planner with context, and a planner change to an
 open, signed-off task, or to the design it cites, goes back through QA before
 the developer acts on it.
 
-The agent that finishes a handover makes it — the user does not. Once the
-developer has opened its PR, or the planner has its tasks and any design PR up,
-it launches QA itself as a fresh `qa` subagent, briefed with the pointer alone
-(`Act as QA. Verify PR #<n> against the acceptance criteria on issue #<m>.`, or
-`Act as QA. Re-verify PR #<n>.` after a fix round). It may add facts about the
-environment, such as the checkout path or a missing tool, but never its own
-account of the work. It relays QA's verdict to the user, fixes the findings QA
-names as its own, and hands back again, until QA passes the work.
+The agent that finishes a handover to QA makes it, and the user does not,
+whenever the agent's session has the Agent tool — what decides it is whether the
+session has that tool, not whether it is top-level. The developer hands over
+once it has opened its PR; the planner once it has its tasks, and any design PR,
+up. The agent launches QA itself, as a fresh `qa` subagent, briefed with the
+brief its own agent file gives: `.claude/agents/developer.md` "Handing over"
+defines the developer's brief and its brief after a fix round, and
+`.claude/agents/planner.md` "Handing over to QA" the planner's briefs. It may
+add environment facts to that brief, and nothing else is an environment fact:
+the checkout and worktree paths; for a checkout QA shares with the session that
+launched it, the branch it has checked out, and that QA leaves its branch and
+files as it found them; which tools are missing or refused, such as a missing
+`gh` or a hook that refuses a command; a tool that reaches GitHub but whose
+writes the repository refuses, such as `gh` present with every write it makes
+gaining an attribution footer; and where scratch work may go. Each tool fact
+comes with what QA does about it, as the shared checkout comes with leaving it
+as QA found it: where QA cannot post its round or apply its labels, it posts
+nothing and returns, as its final message, its round word for word, header line
+included, and the labels its verdict carries. Nothing else goes in the brief:
+never the agent's own account of the work — what it did, what it changed or
+fixed, or what to look at. The agent relays QA's verdict to the user, fixes the
+findings QA names as its own, and hands back again, until QA passes the work. A
+finding QA names as another role's goes to the user with QA's brief for that
+owner, and the developer does not start its fix round while a finding QA named
+as the planner's is unsettled, as `.claude/agents/developer.md` "Handing over"
+orders it. A finding the agent disputes is not worked around: it goes where the
+agent's file sends it — the developer's to the planner when it is about the task
+or the design and to the user otherwise, the planner's about its own work to the
+user. The agent launches no session but QA's, and the role a session relaunches
+as below: a finding it sends to the planner reaches the planner through the
+user, as `DEVELOPERS.md` §1 "A disputed finding comes to you" has it. A role
+whose session has no Agent tool — a role running as a subagent, or a main thread
+started as that role — cannot launch QA: it ends with the brief as its agent
+file says, and the session that launched it carries the handover in its place.
+That session launches QA with that brief, adding only the environment facts
+above, relays QA's verdict to the user, sends a finding QA names as another
+role's to the user as above, and, for a fix round of the role it launched,
+launches that role again with QA's brief for it and hands back to QA once the
+role returns. Where no session launched the role, the user carries the handover,
+as before. Where QA cannot post its round or apply its labels itself, the
+session that launched QA posts the round word for word where
+`.claude/agents/qa.md` says it goes, and applies or removes the labels QA's
+verdict carries and no others: `.claude/agents/qa.md` "The label is your
+mandatory outcome" ties each verdict to its labels, including the labels a
+verdict takes off — `status: needs-scoping` from a task QA signs off, for one.
+The round and the labels stay QA's ruling. That holds on the session's own work
+too — the planner applying `ready for development` to its own tasks and
+`ready for review` to its own design PR, the developer applying
+`ready for review` to its own PR — and deliberately overrides
+`.claude/agents/planner.md` "Writing the tasks" (only QA applies
+`ready for development`), "Handing over to QA" (QA labels the design PR
+`ready for review`) and "Hard rules" (`ready for development` is QA's label),
+and `.claude/agents/developer.md` "Handing over" (QA labels the PR
+`ready for review`). The override is of who applies the label only: signing off
+a task and passing a PR or a design PR stay QA's call. On QA's behalf the
+session applies only the labels QA's verdict carries, and never signs off a task
+or passes a PR on its own judgment. The labels the agent files have a role apply
+in its own right are not affected — the planner's `Model - Effort`, `design:`
+and `status: needs-scoping` on a task it writes, and its taking
+`ready for development` off before it edits a signed-off task. Nor is taking a
+stale `ready for review` off: the developer's off its PR when it pushes after
+the label went on (`.claude/agents/developer.md` "Branch and pull request"), and
+the planner's off its design PR when it corrects a passed design
+(`.claude/agents/planner.md` "Handing over to QA"). Each applies whether QA
+applied the label or the session applied it on QA's verdict.
 
 | Tier | Applies to | The planner writes |
 | --- | --- | --- |
