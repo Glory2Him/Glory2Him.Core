@@ -231,11 +231,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
 
             var expectedReactions = new List<Reaction> { publicReaction.DeepClone() };
 
-            this.ambientSecurityContext =
+            SecurityContext publisherSecurityContext =
                 CreateAuthenticatedSecurityContext(Roles.Publishers, Roles.ReactionPublishers);
 
+            this.ambientSecurityContext = publisherSecurityContext;
+
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                broker.GetUserIdAsync(publisherSecurityContext))
                     .ReturnsAsync(publisherUserId);
 
             this.dateTimeBrokerMock.Setup(broker =>
