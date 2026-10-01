@@ -360,6 +360,49 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldRetrieveNothingForAnEmptyListOfItemsAsync()
+        {
+            // given
+            string callerUserId = GetRandomString();
+            CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+            var emptyContentItemGroupIds = new List<Guid>();
+
+            // the caller's own rows, so the function storage is handed has rows to leave out
+            var storageAssociations = new List<Association>
+            {
+                CreateCallerReactionOn(Guid.NewGuid(), callerUserId),
+                CreateCallerReactionOn(Guid.NewGuid(), callerUserId)
+            };
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(callerUserId);
+
+            SetupSelectAssociationsToQuery(storageAssociations, cancellationToken);
+
+            // when
+            IReadOnlyList<AssociationPairKey> actualPairKeys =
+                await this.associationService.RetrieveCallerContentItemReactionsAsync(
+                    emptyContentItemGroupIds,
+                    cancellationToken);
+
+            // then
+            actualPairKeys.Should().BeEmpty();
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                Times.Once);
+
+            VerifySelectAssociationsQueriedOnce(cancellationToken);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         private static List<Guid> CreateRandomContentItemGroupIds(int count) =>
             Enumerable.Range(start: 0, count: count)
                 .Select(_ => Guid.NewGuid())
