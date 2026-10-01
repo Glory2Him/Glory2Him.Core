@@ -73,6 +73,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 broker.GetIdentifierAsync())
                     .ReturnsAsync(mintedId);
 
+            // the new row's stamp is checked for recency as the add checks it
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(currentDateTime);
+
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyAddAuditValuesAsync(It.IsAny<Association>(), this.ambientSecurityContext))
                     .ReturnsAsync((Association entity, SecurityContext _) =>
@@ -115,6 +120,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             this.identifierBrokerMock.Verify(broker =>
                 broker.GetIdentifierAsync(),
+                    Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
                     Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
@@ -855,6 +864,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // veto, and giving, changing and reviving it asks none of the scopes over it (§SEC14.7
             // posture A′ rule 1)
             string readerUserId = GetRandomString();
+            DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(readOnlyRole);
             Association upsertRequest = CreatePersonalUpsertRequest(readerUserId);
 
@@ -882,7 +892,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyAddAuditValuesAsync(It.IsAny<Association>(), this.ambientSecurityContext))
-                    .ReturnsAsync((Association entity, SecurityContext _) => entity);
+                    .ReturnsAsync((Association entity, SecurityContext _) =>
+                        StampAddAudit(entity.DeepClone(), readerUserId, currentDateTime));
+
+            // the new row's stamp is checked for recency as the add checks it
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(currentDateTime);
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyModifyAuditValuesAsync(It.IsAny<Association>(), this.ambientSecurityContext))

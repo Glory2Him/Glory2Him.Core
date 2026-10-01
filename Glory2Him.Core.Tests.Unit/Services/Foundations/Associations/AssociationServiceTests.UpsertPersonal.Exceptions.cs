@@ -14,6 +14,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EFxceptions.Models.Exceptions;
+using Force.DeepCloner;
 using FluentAssertions;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
@@ -33,6 +34,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // theirs landed before this one was inserted, so the personal index refuses it
             // (§DOM4.6 rule 2)
             Association upsertRequest = CreateAllowedPersonalUpsertRequest();
+            DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
             string someMessage = GetRandomString();
 
             var duplicateKeyWithUniqueIndexException =
@@ -55,9 +57,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 CreateRandomAssociations(),
                 TestContext.Current.CancellationToken);
 
-            this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyAddAuditValuesAsync(It.IsAny<Association>(), It.IsAny<SecurityContext>()))
-                    .ReturnsAsync((Association entity, SecurityContext _) => entity);
+            SetupPersonalUpsertNewRowStamp(upsertRequest.UserId, currentDateTime);
 
             this.storageBrokerMock.Setup(broker =>
                 broker.InsertAssociationAsync(It.IsAny<Association>(), It.IsAny<CancellationToken>()))
@@ -92,6 +92,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     It.IsAny<EventEnvelope<Association>>(),
                     It.IsAny<Association>()),
                 Times.Never);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                    Times.Once);
 
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
@@ -277,6 +281,20 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     .ReturnsAsync(readerUserId);
 
             return CreatePersonalUpsertRequest(readerUserId);
+        }
+
+        // the reader's add stamp on the new row, at a moment the clock calls recent, so the create
+        // arm reaches its insert
+        private void SetupPersonalUpsertNewRowStamp(string readerUserId, DateTimeOffset currentDateTime)
+        {
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(It.IsAny<Association>(), It.IsAny<SecurityContext>()))
+                    .ReturnsAsync((Association entity, SecurityContext _) =>
+                        StampAddAudit(entity.DeepClone(), readerUserId, currentDateTime));
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(currentDateTime);
         }
 
         private void SetupPersonalUpsertLookupToThrow(Exception exception) =>

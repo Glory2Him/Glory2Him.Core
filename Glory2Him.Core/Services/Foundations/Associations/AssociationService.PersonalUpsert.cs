@@ -93,6 +93,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                         entity: association,
                         securityContext: inboundEnvelope.SecurityContext);
 
+                await ValidatePersonalAssociationAuditOnCreateAsync(auditedAssociation, callerUserId);
+
                 Association addedAssociation =
                     await this.storageBroker.InsertAssociationAsync(
                         auditedAssociation,
@@ -282,6 +284,38 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
                 (Rule: IsNotContributableStatus(association.ApprovalStatus),
                     Parameter: nameof(Association.ApprovalStatus)));
+
+        // The add's audit rules, asked of the row the audit broker stamped, before the insert, as
+        // the add asks them (§2 rule 4)
+        private async ValueTask ValidatePersonalAssociationAuditOnCreateAsync(
+            Association association,
+            string callerUserId) =>
+            Validate(
+                message: "Content item association is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(association.CreatedBy), Parameter: nameof(Association.CreatedBy)),
+                (Rule: IsInvalid(association.UpdatedBy), Parameter: nameof(Association.UpdatedBy)),
+                (Rule: IsInvalid(association.CreatedWhen), Parameter: nameof(Association.CreatedWhen)),
+                (Rule: IsInvalid(association.UpdatedWhen), Parameter: nameof(Association.UpdatedWhen)),
+                (Rule: IsGreaterThan(association.CreatedBy, 255), Parameter: nameof(Association.CreatedBy)),
+                (Rule: IsGreaterThan(association.UpdatedBy, 255), Parameter: nameof(Association.UpdatedBy)),
+
+                (Rule: IsNotSame(
+                        firstDate: association.UpdatedWhen,
+                        secondDate: association.CreatedWhen,
+                        secondDateName: nameof(Association.CreatedWhen)),
+                    Parameter: nameof(Association.UpdatedWhen)),
+
+                (Rule: IsNotSame(first: callerUserId, second: association.CreatedBy),
+                    Parameter: nameof(Association.CreatedBy)),
+
+                (Rule: IsNotSame(
+                        first: association.UpdatedBy,
+                        second: association.CreatedBy,
+                        secondName: nameof(Association.CreatedBy)),
+                    Parameter: nameof(Association.UpdatedBy)),
+
+                (Rule: await IsNotRecentAsync(association.CreatedWhen),
+                    Parameter: nameof(Association.CreatedWhen)));
 
         // The upsert acts for the signed caller alone, so a request naming any other reader is
         // refused, whatever role the caller holds (§SEC14.7 posture A′ rule 2: acting for that
