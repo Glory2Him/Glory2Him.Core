@@ -17,6 +17,7 @@ using System.Threading.Tasks;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Foundations.Associations.Exceptions;
 
 namespace Glory2Him.Core.Services.Foundations.Associations
 {
@@ -46,6 +47,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
             string callerUserId =
                 await this.securityAuditBroker.GetUserIdAsync(inboundEnvelope.SecurityContext);
+
+            ValidateUserIsTheReader(association.UserId, callerUserId);
 
             // canonical order before the row is resolved and before any storage call: the personal
             // key holds the host on A, and CK_Association_CanonicalOrder refuses any other row
@@ -155,6 +158,19 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
                 Association = updatedRow
             };
+        }
+
+        // The upsert acts for the signed caller alone, so a request naming any other reader is
+        // refused, whatever role the caller holds (§SEC14.7 posture A′ rule 2: acting for that
+        // same UserId).
+        private static void ValidateUserIsTheReader(string? userId, string callerUserId)
+        {
+            if (userId != callerUserId)
+            {
+                throw new UnauthorizedAssociationException(
+                    message: "The current user is not allowed to write another user's " +
+                        "personal content item association.");
+            }
         }
 
         // the facts are published as the add publishes its own, with the written row as their
