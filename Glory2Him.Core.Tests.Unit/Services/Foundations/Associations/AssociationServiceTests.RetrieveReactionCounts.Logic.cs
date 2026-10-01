@@ -480,11 +480,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             };
 
         // §ARC12.2.1 rule 5: the mocked read EXECUTES the query-shaping function the service
-        // hands it over the in-memory rows, and keeps the list that function produced. Each logic
-        // test asserts that the service returns THAT list, the same instance, and that it holds
-        // the expected counts. So the condition, the grouping and the count are under test only
-        // as parts of the function storage runs: a service that filtered, grouped or counted after
-        // the await would return a list of its own and fail. The function is authored inside the
+        // hands it over the in-memory rows, and keeps the list that function produced. Every logic
+        // test that asks for at least one host and one reaction asserts that the service returns
+        // THAT list, the same instance, and that it holds the expected counts. So the condition,
+        // the grouping and the count are under test only as parts of the function storage runs: a
+        // service that filtered, grouped or counted after the await would return a list of its own
+        // and fail. The empty-list test asserts only that the answer is empty, because whether an
+        // empty list reaches storage is not decided (§3 rule 1). The function is authored inside the
         // service and cannot be named here, which is why it is the one argument matched by type;
         // the token is matched exactly.
         private void SetupReactionCountReadOver(IEnumerable<Association> storageAssociations) =>
