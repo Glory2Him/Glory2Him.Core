@@ -615,6 +615,17 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 throw await CreateAndLogDependencyValidationExceptionAsync(
                     invalidAssociationReferenceException);
             }
+            // a revive or repoint whose row another write changed or removed since the lookup
+            catch (DbUpdateConcurrencyException dbUpdateConcurrencyException)
+            {
+                var lockedAssociationException = new LockedAssociationException(
+                    message: "Locked content item association record, please try again later.",
+                    innerException: dbUpdateConcurrencyException,
+                    data: dbUpdateConcurrencyException.Data);
+
+                throw await CreateAndLogDependencyValidationExceptionAsync(
+                    lockedAssociationException);
+            }
             catch (Exception exception)
             {
                 var failedAssociationServiceException =
