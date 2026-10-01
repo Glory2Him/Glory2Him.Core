@@ -1,0 +1,26 @@
+// ────────────────────────────────────────────────────────────────────────────────
+// Copyright (c) Glory 2 Him. All rights reserved.
+// Licensed under the Glory 2 Him Software License (G2HSL).
+// See License.txt in the project root for full license information.
+// FREE TO USE TO HELP SHARE THE GOSPEL
+// John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
+//                  No one comes to the Father except through me.’"
+// https://john.bible/john-14-6
+// If Jesus is who He said He is, what does that mean for you, today?
+// ────────────────────────────────────────────────────────────────────────────────
+
+namespace Glory2Him.Core.Models.Foundations.Associations
+{
+    /// <summary>
+    /// What the personal upsert answers with: the arm it took and the reader's row as it stands
+    /// after the call (<c>Backend/Foundations/AssociationService.md §2</c>).
+    /// </summary>
+    public class PersonalAssociationUpsert
+    {
+        /// <summary>Which arm the upsert took.</summary>
+        public PersonalAssociationUpsertOutcome Outcome { get; set; }
+
+        /// <summary>The reader's row as it stands after the call.</summary>
+        public Association Association { get; set; } = null!;
+    }
+}
