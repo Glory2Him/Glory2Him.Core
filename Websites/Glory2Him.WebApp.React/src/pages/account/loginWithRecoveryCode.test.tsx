@@ -90,4 +90,16 @@ describe('LoginWithRecoveryCode', () => {
             unmount();
         }
     });
+
+    it('should send a locked-out reader to the lockout page instead of their return address', () => {
+        // given
+        answerCode(true);
+        renderLoginWithRecoveryCode(loginWithRecoveryCodeWithReturnUrl('/posts'));
+
+        // when
+        enterRecoveryCode();
+
+        // then
+        expect(landedOn()).toBe('/Account/Lockout');
+    });
 });
