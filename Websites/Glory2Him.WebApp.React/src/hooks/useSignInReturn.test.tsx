@@ -1,15 +1,22 @@
 import { ReactNode } from 'react';
-import { Location, MemoryRouter, useLocation } from 'react-router-dom';
+import { Location, MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { useSignInReturn } from './useSignInReturn';
 
 // The hook is rendered beside useLocation in the same router, so the test reads where the
 // signed-in reader landed from the router itself rather than from a mocked navigate. The reader
-// starts on the sign-in page, so landing on the home page always means they were sent there.
+// starts on the sign-in page's route, as in the app, so an address resolves from where it would
+// there and landing on the home page always means they were sent there. The catch-all route keeps
+// the hook rendered wherever they land.
 const renderSignInReturn = () => {
     const wrapper = ({ children }: { children: ReactNode }) => (
-        <MemoryRouter initialEntries={['/Account/Login']}>{children}</MemoryRouter>
+        <MemoryRouter initialEntries={['/Account/Login']}>
+            <Routes>
+                <Route path="/Account/Login" element={children} />
+                <Route path="*" element={children} />
+            </Routes>
+        </MemoryRouter>
     );
 
     return renderHook(() => ({ signInReturn: useSignInReturn(), location: useLocation() }), { wrapper });
@@ -61,5 +68,16 @@ describe('useSignInReturn', () => {
             expect(landedOn(result.current.location)).toBe('/');
             unmount();
         }
+    });
+
+    it('should send the reader to the home page when the return address is empty', () => {
+        // given
+        const { result } = renderSignInReturn();
+
+        // when
+        act(() => result.current.signInReturn(''));
+
+        // then
+        expect(landedOn(result.current.location)).toBe('/');
     });
 });
