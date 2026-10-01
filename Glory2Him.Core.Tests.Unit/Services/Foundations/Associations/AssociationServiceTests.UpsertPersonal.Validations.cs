@@ -12,7 +12,9 @@
 using System;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Force.DeepCloner;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.Associations.Exceptions;
 using Moq;
@@ -726,6 +728,218 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             }
 
             return request;
+        }
+
+        [Theory]
+        [InlineData("CreatedByEmpty")]
+        [InlineData("UpdatedByEmpty")]
+        [InlineData("CreatedWhenUnset")]
+        [InlineData("UpdatedWhenUnset")]
+        [InlineData("CreatedByTooLong")]
+        [InlineData("UpdatedByTooLong")]
+        [InlineData("CreatedByNotTheCaller")]
+        [InlineData("UpdatedByNotCreatedBy")]
+        [InlineData("UpdatedWhenNotCreatedWhen")]
+        [InlineData("CreatedWhenNotRecent")]
+        public async Task ShouldThrowValidationExceptionOnUpsertPersonalIfTheNewRowsAuditStampIsInvalidAndLogItAsync(
+            string invalidity)
+        {
+            // given: the reader has no row, and the stamp on the row ApplyAddAuditValuesAsync
+            // returns breaks one of the add's audit rules, asked of that row before the insert as
+            // the add asks them (§2 rule 4)
+            string readerUserId = GetRandomString();
+            DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            Association upsertRequest = CreatePersonalUpsertRequest(readerUserId);
+
+            (Action<Association> breakStamp, (string Field, string Message)[] expectedErrors) =
+                BreakNewRowsAuditStamp(invalidity, readerUserId, currentDateTime);
+
+            var invalidAssociationException = new InvalidAssociationException(
+                message: "Content item association is invalid, fix the errors and try again.");
+
+            foreach ((string field, string message) in expectedErrors)
+            {
+                invalidAssociationException.UpsertDataList(key: field, value: message);
+            }
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: invalidAssociationException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(readerUserId);
+
+            SetupPersonalUpsertLookupOver(
+                CreateRandomAssociations(),
+                TestContext.Current.CancellationToken);
+
+            this.identifierBrokerMock.Setup(broker =>
+                broker.GetIdentifierAsync())
+                    .ReturnsAsync(Guid.NewGuid());
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(It.IsAny<Association>(), this.ambientSecurityContext))
+                    .ReturnsAsync((Association entity, SecurityContext _) =>
+                    {
+                        Association auditedAssociation =
+                            StampAddAudit(entity.DeepClone(), readerUserId, currentDateTime);
+
+                        breakStamp(auditedAssociation);
+
+                        return auditedAssociation;
+                    });
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(currentDateTime);
+
+            // when
+            ValueTask<PersonalAssociationUpsert> upsertTask =
+                this.associationService.UpsertPersonalAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(upsertTask.AsTask);
+
+            // then: the create is refused, naming the field, and nothing is inserted or announced
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyAddAuditValuesAsync(It.IsAny<Association>(), this.ambientSecurityContext),
+                    Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                    Times.Once);
+
+            VerifyPersonalUpsertLookupAsked(TestContext.Current.CancellationToken, Times.Once());
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
+
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // How each case breaks the stamp, and every error the add's rules then raise, in the order
+        // the add asks them: a stamp broken one way can break a second rule that compares with it.
+        private static (Action<Association>, (string, string)[]) BreakNewRowsAuditStamp(
+            string invalidity,
+            string readerUserId,
+            DateTimeOffset currentDateTime)
+        {
+            string otherUserId = GetRandomString();
+            string tooLongUserId = GetRandomStringWithLengthOf(256);
+            string notTheSameAsCreatedBy = "Text is not the same as CreatedBy";
+            string notTheSameAsCreatedWhen = "Date is not the same as CreatedWhen";
+
+            string NotTheCaller(string createdBy) =>
+                $"Expected value to be '{readerUserId}' but found '{createdBy}'.";
+
+            string NotRecent(DateTimeOffset date) =>
+                $"Date is not recent. Expected a value between {currentDateTime.AddSeconds(-90)} "
+                    + $"and {currentDateTime} but found {date}";
+
+            DateTimeOffset staleDateTime = currentDateTime.AddDays(-1);
+
+            return invalidity switch
+            {
+                "CreatedByEmpty" => (
+                    association => association.CreatedBy = " ",
+                    new[]
+                    {
+                        (nameof(Association.CreatedBy), "Text is required"),
+                        (nameof(Association.CreatedBy), NotTheCaller(" ")),
+                        (nameof(Association.UpdatedBy), notTheSameAsCreatedBy)
+                    }),
+
+                "UpdatedByEmpty" => (
+                    association => association.UpdatedBy = " ",
+                    new[]
+                    {
+                        (nameof(Association.UpdatedBy), "Text is required"),
+                        (nameof(Association.UpdatedBy), notTheSameAsCreatedBy)
+                    }),
+
+                "CreatedWhenUnset" => (
+                    association => association.CreatedWhen = default,
+                    new[]
+                    {
+                        (nameof(Association.CreatedWhen), "Date is required"),
+                        (nameof(Association.UpdatedWhen), notTheSameAsCreatedWhen),
+                        (nameof(Association.CreatedWhen), NotRecent(default))
+                    }),
+
+                "UpdatedWhenUnset" => (
+                    association => association.UpdatedWhen = default,
+                    new[]
+                    {
+                        (nameof(Association.UpdatedWhen), "Date is required"),
+                        (nameof(Association.UpdatedWhen), notTheSameAsCreatedWhen)
+                    }),
+
+                "CreatedByTooLong" => (
+                    association => association.CreatedBy = tooLongUserId,
+                    new[]
+                    {
+                        (nameof(Association.CreatedBy), "Text exceed max length of 255 characters"),
+                        (nameof(Association.CreatedBy), NotTheCaller(tooLongUserId)),
+                        (nameof(Association.UpdatedBy), notTheSameAsCreatedBy)
+                    }),
+
+                "UpdatedByTooLong" => (
+                    association => association.UpdatedBy = tooLongUserId,
+                    new[]
+                    {
+                        (nameof(Association.UpdatedBy), "Text exceed max length of 255 characters"),
+                        (nameof(Association.UpdatedBy), notTheSameAsCreatedBy)
+                    }),
+
+                "CreatedByNotTheCaller" => (
+                    association =>
+                    {
+                        association.CreatedBy = otherUserId;
+                        association.UpdatedBy = otherUserId;
+                    },
+                    new[]
+                    {
+                        (nameof(Association.CreatedBy), NotTheCaller(otherUserId))
+                    }),
+
+                "UpdatedByNotCreatedBy" => (
+                    association => association.UpdatedBy = otherUserId,
+                    new[]
+                    {
+                        (nameof(Association.UpdatedBy), notTheSameAsCreatedBy)
+                    }),
+
+                "UpdatedWhenNotCreatedWhen" => (
+                    association => association.UpdatedWhen = currentDateTime.AddSeconds(-1),
+                    new[]
+                    {
+                        (nameof(Association.UpdatedWhen), notTheSameAsCreatedWhen)
+                    }),
+
+                _ => (
+                    association =>
+                    {
+                        association.CreatedWhen = staleDateTime;
+                        association.UpdatedWhen = staleDateTime;
+                    },
+                    new[]
+                    {
+                        (nameof(Association.CreatedWhen), NotRecent(staleDateTime))
+                    })
+            };
         }
 
         // every approval state a new row may not carry, with the add's message for it
