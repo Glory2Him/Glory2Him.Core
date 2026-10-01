@@ -545,6 +545,20 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 throw await CreateAndLogValidationExceptionAsync(
                     exception: invalidAssociationException);
             }
+            // a second first reaction racing the first is refused by UX_Associations_PersonalPair,
+            // and reaches the caller as the add's duplicate does (§DOM4.6 rule 2)
+            catch (DuplicateKeyWithUniqueIndexException duplicateKeyWithUniqueIndexException)
+            {
+                var alreadyExistsAssociationException =
+                    new AlreadyExistsAssociationException(
+                        message: "Content item association already exists, "
+                            + "a uniqueness rule rejected the write.",
+                        innerException: duplicateKeyWithUniqueIndexException,
+                        data: duplicateKeyWithUniqueIndexException.Data);
+
+                throw await CreateAndLogDependencyValidationExceptionAsync(
+                    alreadyExistsAssociationException);
+            }
         }
 
         // The early-dedupe question (#631): a storage read and nothing else, so it needs only the
