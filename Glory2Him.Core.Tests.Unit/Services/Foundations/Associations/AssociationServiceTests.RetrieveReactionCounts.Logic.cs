@@ -381,7 +381,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             bool isReactionIdListEmpty)
         {
             // given: visible rows, so a function handed to storage has rows to leave out. Whether
-            // storage is asked at all is not decided (§3 rule 1), so only the answer is asserted.
+            // storage is asked at all is not decided
+            // (Backend/Foundations/AssociationService.md §3 rule 1), so only the answer is
+            // asserted.
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             Guid contentItemGroupId = Guid.NewGuid();
             Guid reactionId = Guid.NewGuid();
@@ -486,9 +488,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         // the grouping and the count are under test only as parts of the function storage runs: a
         // service that filtered, grouped or counted after the await would return a list of its own
         // and fail. The empty-list test asserts only that the answer is empty, because whether an
-        // empty list reaches storage is not decided (§3 rule 1). The function is authored inside the
-        // service and cannot be named here, which is why it is the one argument matched by type;
-        // the token is matched exactly.
+        // empty list reaches storage is not decided
+        // (Backend/Foundations/AssociationService.md §3 rule 1). The function is authored inside
+        // the service and cannot be named here, which is why it is the one argument matched by
+        // type; the token is matched exactly.
         private void SetupReactionCountReadOver(IEnumerable<Association> storageAssociations) =>
             this.storageBrokerMock.Setup(broker =>
                 broker.SelectAssociationsAsync(
