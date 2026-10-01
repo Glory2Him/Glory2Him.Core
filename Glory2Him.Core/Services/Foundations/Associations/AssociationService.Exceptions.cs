@@ -36,6 +36,9 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         private delegate ValueTask<PersonalAssociationMatch?>
             ReturningPersonalAssociationMatchFunction();
 
+        private delegate ValueTask<PersonalAssociationUpsert>
+            ReturningPersonalAssociationUpsertFunction();
+
         private delegate ValueTask<EventEnvelope<Association>?>
             ReturningAssociationEventEnvelopeFunction();
 
@@ -515,6 +518,22 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
                 throw await CreateAndLogServiceExceptionAsync(
                     failedAssociationServiceException);
+            }
+        }
+
+        // The personal upsert (#719): a write that refuses its caller and its input before it
+        // resolves the reader's row.
+        private async ValueTask<PersonalAssociationUpsert> TryCatch(
+            ReturningPersonalAssociationUpsertFunction returningPersonalAssociationUpsertFunction)
+        {
+            try
+            {
+                return await returningPersonalAssociationUpsertFunction();
+            }
+            catch (UnauthorizedAssociationException unauthorizedAssociationException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(
+                    exception: unauthorizedAssociationException);
             }
         }
 

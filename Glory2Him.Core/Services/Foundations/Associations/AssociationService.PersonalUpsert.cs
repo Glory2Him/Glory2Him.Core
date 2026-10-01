@@ -22,24 +22,28 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 {
     internal partial class AssociationService
     {
-        public async ValueTask<PersonalAssociationUpsert> UpsertPersonalAssociationAsync(
+        public ValueTask<PersonalAssociationUpsert> UpsertPersonalAssociationAsync(
             Association association,
-            CancellationToken cancellationToken = default)
-        {
-            EventEnvelope<Association> envelope =
-                await this.eventEnvelopeBroker.CreateAsync(content: association);
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                EventEnvelope<Association> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: association);
 
-            return await DoUpsertPersonalAssociationAsync(
-                association: association,
-                inboundEnvelope: envelope,
-                cancellationToken: cancellationToken);
-        }
+                return await DoUpsertPersonalAssociationAsync(
+                    association: association,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
+            });
 
         private async ValueTask<PersonalAssociationUpsert> DoUpsertPersonalAssociationAsync(
             Association association,
             EventEnvelope<Association> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            // a reaction is the signed caller's own, so an anonymous caller has none to give
+            ValidateUserIsAuthenticated(inboundEnvelope.SecurityContext);
+
             string callerUserId =
                 await this.securityAuditBroker.GetUserIdAsync(inboundEnvelope.SecurityContext);
 
