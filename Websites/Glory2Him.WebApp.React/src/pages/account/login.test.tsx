@@ -98,4 +98,18 @@ describe('Login', () => {
             unmount();
         }
     });
+
+    it('should hand the return address on unchanged when a second factor is asked', () => {
+        // given
+        acceptSignIn(true);
+        renderLogin(loginWithReturnUrl('/posts?q=grace#comments'));
+
+        // when
+        signInWithPassword();
+
+        // then
+        const landed = new URL(landedOn() ?? '', window.location.origin);
+        expect(landed.pathname).toBe('/Account/LoginWith2fa');
+        expect(landed.searchParams.get('ReturnUrl')).toBe('/posts?q=grace#comments');
+    });
 });
