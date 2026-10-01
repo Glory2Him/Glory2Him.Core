@@ -102,54 +102,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         }
 
         [Fact]
-        public async Task ShouldAnswerAVersionWhoseGroupHasAVisibleVersionAsync()
-        {
-            // given: v1 is the group's visible version and is not asked for; the draft v2 of
-            // the same group is. The answer is at group level, so the draft answers.
-            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
-
-            ContentItem visibleContentItem =
-                CreateCanonicallyVisibleContentItem(randomDateTimeOffset);
-
-            ContentItem draftContentItem = CreateRandomContentItem(randomDateTimeOffset);
-            draftContentItem.GroupId = visibleContentItem.GroupId;
-            draftContentItem.ContentType = visibleContentItem.ContentType;
-            draftContentItem.Version = visibleContentItem.Version + 1;
-
-            var storageContentItems = new List<ContentItem>
-            {
-                visibleContentItem,
-                draftContentItem
-            };
-
-            IReadOnlyList<Guid> inputContentItemIds = new[] { draftContentItem.Id };
-
-            var expectedPublicContentItemGroups = new[]
-            {
-                new PublicContentItemGroup(
-                    ContentItemId: draftContentItem.Id,
-                    GroupId: visibleContentItem.GroupId,
-                    ContentType: draftContentItem.ContentType)
-            };
-
-            this.dateTimeBrokerMock.Setup(broker =>
-                broker.GetCurrentDateTimeOffsetAsync())
-                    .ReturnsAsync(randomDateTimeOffset);
-
-            SetupPublicContentItemGroupsStorage(storageContentItems);
-
-            // when
-            IReadOnlyList<PublicContentItemGroup> actualPublicContentItemGroups =
-                await this.contentItemService.RetrievePublicContentItemGroupsAsync(
-                    contentItemIds: inputContentItemIds,
-                    cancellationToken: TestContext.Current.CancellationToken);
-
-            // then
-            actualPublicContentItemGroups.Should().BeEquivalentTo(
-                expectedPublicContentItemGroups);
-        }
-
-        [Fact]
         public async Task ShouldLeaveOutAVersionThatIsNotVisibleThoughItsGroupIsAsync()
         {
             // given: one group holding its visible version beside one version of each kind that

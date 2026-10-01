@@ -188,19 +188,19 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
 
                 // THE CONDITION IS AUTHORED HERE (§ARC12.2.1 rule 3): the id match, and §SEC14.1
-                // asked of the GROUP rather than of the row - an id answers when any version of
-                // its group is canonically visible, because a reaction belongs to the group
-                // (§ARC16.8).
+                // asked of the VERSION the id names, never of its group. A version that is not
+                // itself canonically visible is absent even where its group has a visible
+                // version, so a draft of a public item reads as an id that names nothing
+                // (§SEC14.5 rules 1 and 3). The answer still names the group, which is where the
+                // summary counts (§ARC16.8).
                 return await this.storageBroker.SelectContentItemsAsync(
                     query: contentItems => contentItems
-                        .Where(contentItem => contentItemIds.Contains(contentItem.Id))
-                        .Where(contentItem => contentItems.Any(groupContentItem =>
-                            groupContentItem.GroupId == contentItem.GroupId
-                                && groupContentItem.IsDeleted == false
-                                && groupContentItem.ApprovalStatus == ApprovalStatus.Approved
-                                && groupContentItem.IsPublished
-                                && (groupContentItem.PublishDate == null
-                                    || groupContentItem.PublishDate <= currentDateTime)))
+                        .Where(contentItem => contentItemIds.Contains(contentItem.Id)
+                            && contentItem.IsDeleted == false
+                            && contentItem.ApprovalStatus == ApprovalStatus.Approved
+                            && contentItem.IsPublished
+                            && (contentItem.PublishDate == null
+                                || contentItem.PublishDate <= currentDateTime))
                         .Select(contentItem => new PublicContentItemGroup(
                             contentItem.Id,
                             contentItem.GroupId,
