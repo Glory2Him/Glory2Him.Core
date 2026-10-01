@@ -143,6 +143,37 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnUpsertPersonalIfCancellationRequestedAsync()
+        {
+            // given: storage would answer if it were asked
+            Association upsertRequest = CreateAllowedPersonalUpsertRequest();
+            var cancelledToken = new CancellationToken(canceled: true);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAssociationsAsync(
+                    It.IsAny<Func<IQueryable<Association>, IQueryable<Association>>>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(Array.Empty<Association>());
+
+            // when
+            ValueTask<PersonalAssociationUpsert> upsertTask =
+                this.associationService.UpsertPersonalAssociationAsync(
+                    upsertRequest,
+                    cancelledToken);
+
+            // then
+            await Assert.ThrowsAsync<OperationCanceledException>(upsertTask.AsTask);
+
+            // the guard sits above the envelope, so nothing at all is read or written
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // a signed-in reader giving their own reaction, so the upsert reaches storage
         private Association CreateAllowedPersonalUpsertRequest()
         {
