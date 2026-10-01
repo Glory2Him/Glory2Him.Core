@@ -22,6 +22,7 @@ using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Services.Foundations.Associations;
 using Glory2Him.Core.Tests.Integration.Brokers;
@@ -32,11 +33,14 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
 {
     /// <summary>
     /// Proves the association NARROW READS against a real catalogue: the exact-pair probe, the
-    /// overlap probe, the scope-change duplicate check and the grouped reaction count.
+    /// overlap probe, the scope-change duplicate check, the grouped reaction count and the
+    /// caller's own reactions.
     ///
     /// <para>The probes and the duplicate check key on <c>EntityAEffectiveId</c> and
     /// <c>EntityBEffectiveId</c>; the grouped reaction count keys on <c>EntityAEffectiveId</c>
-    /// and <c>EntityBKeyId</c>. Each effective id is a PERSISTED COMPUTED column — the value the
+    /// and <c>EntityBKeyId</c>; the caller's own reactions key on <c>EntityAEffectiveId</c> and
+    /// <c>UserId</c>, whose comparison follows the column's collation, so its letter-case test
+    /// can only run here. Each effective id is a PERSISTED COMPUTED column — the value the
     /// read matches on is produced by the database, not by the row the test hands it. That alone
     /// is a reason these belong here: an in-memory queryable would compare a default Guid on both
     /// sides and agree with itself.</para>
@@ -833,6 +837,134 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
             actualAssociationPairCounts.Should().BeEquivalentTo(expectedAssociationPairCounts);
         }
 
+        /// <summary>
+        /// §ARC12.2.1 rule 6 for the caller's own reactions (#721 criterion 13): the function
+        /// <see cref="AssociationService"/> authors runs in SQL over the real broker, and its
+        /// projection to <see cref="AssociationPairKey"/> translates. Each host is AllVersions
+        /// with a key id unlike its group id, so the effective id the database computes is the
+        /// group id the caller asked for.
+        /// </summary>
+        [Fact]
+        public async Task ShouldRetrieveTheCallersOwnReactionsInSqlAsync()
+        {
+            // given
+            string callerUserId = Guid.NewGuid().ToString();
+            Guid firstContentItemGroupId = Guid.NewGuid();
+            Guid secondContentItemGroupId = Guid.NewGuid();
+            Guid thirdContentItemGroupId = Guid.NewGuid();
+            Guid loveReactionId = Guid.NewGuid();
+            Guid joyReactionId = Guid.NewGuid();
+
+            await SeedAsync(
+                CreateCallersReaction(firstContentItemGroupId, loveReactionId, callerUserId),
+                CreateCallersReaction(thirdContentItemGroupId, joyReactionId, callerUserId));
+
+            IAssociationService associationService = CreateAssociationServiceFor(callerUserId);
+
+            var expectedPairKeys = new List<AssociationPairKey>
+            {
+                new AssociationPairKey
+                {
+                    EntityAEffectiveId = firstContentItemGroupId,
+                    EntityBKeyId = loveReactionId
+                },
+                new AssociationPairKey
+                {
+                    EntityAEffectiveId = thirdContentItemGroupId,
+                    EntityBKeyId = joyReactionId
+                }
+            };
+
+            // when
+            IReadOnlyList<AssociationPairKey> actualPairKeys =
+                await associationService.RetrieveCallerContentItemReactionsAsync(
+                    contentItemGroupIds: new List<Guid>
+                    {
+                        firstContentItemGroupId,
+                        secondContentItemGroupId,
+                        thirdContentItemGroupId
+                    },
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            actualPairKeys.Should().BeEquivalentTo(expectedPairKeys);
+        }
+
+        /// <summary>
+        /// #721 criterion 15: an empty <c>IN</c> over <c>EntityAEffectiveId</c> runs in SQL and
+        /// answers no rows. The positive control first finds the seeded reaction by its host, so
+        /// the empty answer cannot come from a seed the read could never have found.
+        /// </summary>
+        [Fact]
+        public async Task ShouldRetrieveNothingInSqlForAnEmptyListOfItemsAsync()
+        {
+            // given
+            string callerUserId = Guid.NewGuid().ToString();
+            Guid contentItemGroupId = Guid.NewGuid();
+            Guid reactionId = Guid.NewGuid();
+
+            await SeedAsync(CreateCallersReaction(contentItemGroupId, reactionId, callerUserId));
+
+            IAssociationService associationService = CreateAssociationServiceFor(callerUserId);
+
+            IReadOnlyList<AssociationPairKey> controlPairKeys =
+                await associationService.RetrieveCallerContentItemReactionsAsync(
+                    contentItemGroupIds: new List<Guid> { contentItemGroupId },
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            controlPairKeys.Should().ContainSingle(pairKey =>
+                pairKey.EntityAEffectiveId == contentItemGroupId
+                    && pairKey.EntityBKeyId == reactionId);
+
+            // when
+            IReadOnlyList<AssociationPairKey> actualPairKeys =
+                await associationService.RetrieveCallerContentItemReactionsAsync(
+                    contentItemGroupIds: new List<Guid>(),
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            actualPairKeys.Should().BeEmpty();
+        }
+
+        /// <summary>
+        /// #721 criterion 16: <c>Association.UserId</c> ignores letter case (the owner's ruling of
+        /// 2026-10-01). The caller term compares under the column's collation, the catalogue's
+        /// case-insensitive default, so a caller whose id differs from the row's only in letter
+        /// case reads the row as their own. The unit tests compare ordinally and cannot show this.
+        /// </summary>
+        [Fact]
+        public async Task ShouldRetrieveTheCallersReactionWhateverTheLetterCaseOfTheirUserIdAsync()
+        {
+            // given
+            string storedUserId = $"Reader-{Guid.NewGuid():N}".ToUpperInvariant();
+            string callerUserId = storedUserId.ToLowerInvariant();
+            Guid contentItemGroupId = Guid.NewGuid();
+            Guid reactionId = Guid.NewGuid();
+
+            await SeedAsync(CreateCallersReaction(contentItemGroupId, reactionId, storedUserId));
+
+            IAssociationService associationService = CreateAssociationServiceFor(callerUserId);
+
+            var expectedPairKeys = new List<AssociationPairKey>
+            {
+                new AssociationPairKey
+                {
+                    EntityAEffectiveId = contentItemGroupId,
+                    EntityBKeyId = reactionId
+                }
+            };
+
+            // when
+            IReadOnlyList<AssociationPairKey> actualPairKeys =
+                await associationService.RetrieveCallerContentItemReactionsAsync(
+                    contentItemGroupIds: new List<Guid> { contentItemGroupId },
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            callerUserId.Should().NotBe(storedUserId);
+            actualPairKeys.Should().BeEquivalentTo(expectedPairKeys);
+        }
+
         // AllVersions on both endpoints unless a test narrows one, so each EFFECTIVE id the
         // database computes is that endpoint's group id — which is what the reads above are keyed
         // on. entityBType is a parameter because the B-endpoint tests need a VERSIONED endpoint
@@ -937,6 +1069,58 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
                 eventBroker: new Mock<IEventBroker>().Object,
                 eventEnvelopeBroker: new Mock<IEventEnvelopeBroker>().Object,
                 securityAuditBroker: new Mock<ISecurityAuditBroker>().Object,
+                accessBroker: new Mock<IAccessBroker>().Object,
+                envelopeIntegrityBroker: new Mock<IEnvelopeIntegrityBroker>().Object,
+                loggingBroker: new Mock<ILoggingBroker>().Object);
+        }
+
+        // A reader's live reaction on a content item, keyed to the given user. The host is
+        // AllVersions with a key id unlike its group id, so the effective id the database computes
+        // is the group id; the far end's group id differs from the reaction key id it names.
+        private static Association CreateCallersReaction(
+            Guid contentItemGroupId,
+            Guid reactionId,
+            string userId)
+        {
+            Association reaction = CreateGivenReaction(contentItemGroupId, reactionId);
+            reaction.UserId = userId;
+            reaction.CreatedBy = userId;
+            reaction.UpdatedBy = userId;
+
+            return reaction;
+        }
+
+        // The real service over this fixture's real broker, acting for a signed-in caller whose
+        // user id the test controls: the envelope this read mints carries an authenticated
+        // context, and that context resolves to the given id.
+        private IAssociationService CreateAssociationServiceFor(string callerUserId)
+        {
+            var securityContext = new SecurityContext { IsAuthenticated = true };
+            var eventEnvelopeBrokerMock = new Mock<IEventEnvelopeBroker>();
+            var securityAuditBrokerMock = new Mock<ISecurityAuditBroker>();
+
+            eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateAsync(It.IsAny<Association>()))
+                    .Returns((Association content) =>
+                        new ValueTask<EventEnvelope<Association>>(
+                            new EventEnvelope<Association>
+                            {
+                                Content = content,
+                                SecurityContext = securityContext,
+                                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+                            }));
+
+            securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(securityContext))
+                    .ReturnsAsync(callerUserId);
+
+            return new AssociationService(
+                storageBroker: this.broker.StorageBroker,
+                dateTimeBroker: new Mock<IDateTimeBroker>().Object,
+                identifierBroker: new Mock<IIdentifierBroker>().Object,
+                eventBroker: new Mock<IEventBroker>().Object,
+                eventEnvelopeBroker: eventEnvelopeBrokerMock.Object,
+                securityAuditBroker: securityAuditBrokerMock.Object,
                 accessBroker: new Mock<IAccessBroker>().Object,
                 envelopeIntegrityBroker: new Mock<IEnvelopeIntegrityBroker>().Object,
                 loggingBroker: new Mock<ILoggingBroker>().Object);
