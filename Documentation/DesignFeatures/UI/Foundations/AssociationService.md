@@ -22,7 +22,7 @@ useGetReactionSummaries: (contentItemIdPages: ReadonlyArray<ReadonlyArray<string
 ```
 
 1. **One query per page of ids it is handed**, keyed `['ReactionSummaries', <that page's ids>]`, so a list that loads a third page asks for the third page's ids alone and the first two stay cached (§ARC16.8: *keyed on the ids of the page just delivered, never on the accumulated list*). A detail page hands one page of one id.
-2. **A page of more than 25 ids is asked in chunks of 25**, and the chunks' answers are one answer (§ARC16.8: *a caller ever holding more than 25 ids in one ask chunks at 25*). An empty page asks nothing.
+2. **A page of more than 25 ids is asked in chunks of 25**, and the chunks' answers are one answer (§ARC16.8: *a caller ever holding more than 25 ids in one ask chunks at 25*). A chunk that fails fails its page, as rule 3 treats a failed page: none of that page's ids has a summary, even those a chunk that answered asked for. An empty page asks nothing.
 3. **It answers one summary per content item id across every page**, keyed on the id, together with whether any page is still loading and whether any failed. A page that failed leaves its ids without a summary; it does not take the others' away.
 
 ## 4. useReadReactionSummariesAgain (#759)
