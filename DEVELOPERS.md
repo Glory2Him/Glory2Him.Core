@@ -86,7 +86,7 @@ way: to the agent that launched QA, through the session that launched the role,
 or through you where no session did; an ADVISORY finding is fixed only when you
 ask for it. These arrows stay yours: you start the planner and the developer on
 a task, you start a role a session relaunched on an ADVISORY finding of its own
-that you want fixed, once QA has passed the work, and a finding QA names as
+that you want fixed, only once QA has passed the work, and a finding QA names as
 another role's comes to you, with QA's brief for its owner. Two of the rows are
 decisions only you can make: merging the design, and merging the work. Approving
 the criteria is QA's: its `ready for development` label is what the developer
