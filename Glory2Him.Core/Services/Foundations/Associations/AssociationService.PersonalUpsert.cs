@@ -79,6 +79,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
             if (readersRow is null)
             {
+                ValidatePersonalAssociationOnCreate(association);
+
                 Association auditedAssociation =
                     await this.securityAuditBroker.ApplyAddAuditValuesAsync(
                         entity: association,
@@ -177,6 +179,18 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
                 (Rule: IsSameEndpoint(association.EntityAGroupId, association.EntityBGroupId),
                     Parameter: nameof(Association.EntityBGroupId)));
+
+        // A new row is a contribution, so it is created unpublished at Draft or Submitted, as the
+        // add creates one: publication and a verdict are the approval workflow's to record. Only
+        // the create arm takes ApprovalStatus at all (§ARC16.2.2).
+        private static void ValidatePersonalAssociationOnCreate(Association association) =>
+            Validate(
+                message: "Content item association is invalid, fix the errors and try again.",
+                (Rule: IsSetOnAdd(association.IsPublished), Parameter: nameof(Association.IsPublished)),
+                (Rule: IsSetOnAdd(association.PublishDate), Parameter: nameof(Association.PublishDate)),
+
+                (Rule: IsNotContributableStatus(association.ApprovalStatus),
+                    Parameter: nameof(Association.ApprovalStatus)));
 
         // The upsert acts for the signed caller alone, so a request naming any other reader is
         // refused, whatever role the caller holds (§SEC14.7 posture A′ rule 2: acting for that
