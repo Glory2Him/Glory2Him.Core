@@ -757,6 +757,74 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     Times.Once);
         }
 
+        [Fact]
+        public async Task ShouldNormaliseTheEndpointsBeforeResolvingTheRowAsync()
+        {
+            // given: the reader holds Love and gives Moved, in a request that names the reaction on
+            // endpoint A and the host on B — the order a caller cannot be expected to know, and one
+            // no stored row is ever in. Keyed as sent, the lookup would key off the reaction and miss
+            // the reader's row.
+            string readerUserId = GetRandomString();
+            DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            Association canonicalRequest = CreatePersonalUpsertRequest(readerUserId);
+            Association reversedRequest = ReverseEndpoints(canonicalRequest);
+
+            Association readersLiveRow =
+                CreateStoredPersonalRow(canonicalRequest, isDeleted: false);
+
+            List<Association> storageAssociations =
+                CreateRandomAssociations().Append(readersLiveRow).ToList();
+
+            Association expectedSavedAssociation = readersLiveRow.DeepClone();
+            expectedSavedAssociation.EntityBKeyId = canonicalRequest.EntityBKeyId;
+            expectedSavedAssociation.EntityBGroupId = canonicalRequest.EntityBGroupId;
+            StampModifyAudit(expectedSavedAssociation, readerUserId, currentDateTime);
+
+            Association savedAssociation = null;
+
+            using var cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken inputCancellationToken = cancellationTokenSource.Token;
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(readerUserId);
+
+            SetupPersonalUpsertLookupOver(storageAssociations, inputCancellationToken);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(It.IsAny<Association>(), this.ambientSecurityContext))
+                    .ReturnsAsync((Association entity, SecurityContext _) =>
+                        StampModifyAudit(entity.DeepClone(), readerUserId, currentDateTime));
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateAssociationAsync(It.IsAny<Association>(), inputCancellationToken))
+                    .ReturnsAsync((Association entity, CancellationToken _) =>
+                    {
+                        savedAssociation = entity.DeepClone();
+
+                        return entity;
+                    });
+
+            // when
+            PersonalAssociationUpsert actualUpsert =
+                await this.associationService.UpsertPersonalAssociationAsync(
+                    reversedRequest,
+                    inputCancellationToken);
+
+            // then: the reader's own row, repointed to the reaction the request named first
+            savedAssociation.Should().BeEquivalentTo(expectedSavedAssociation);
+            actualUpsert.Outcome.Should().Be(PersonalAssociationUpsertOutcome.Repointed);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateAssociationAsync(It.IsAny<Association>(), inputCancellationToken),
+                    Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertAssociationAsync(It.IsAny<Association>(), It.IsAny<CancellationToken>()),
+                    Times.Never);
+        }
+
         // A reader's reaction on a Quote as the orchestration hands it over (§ARC16.8.1): the host on
         // endpoint A under AllVersions, with a group id that differs from its key id, and the
         // reaction on B, a non-versioned endpoint, so ThisVersionOnly with its group its key.
