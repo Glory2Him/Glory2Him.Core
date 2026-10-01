@@ -200,6 +200,18 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 (Rule: IsNotTheScopeItsTypeTakes(association.EntityBType, association.EntityBScope),
                     Parameter: nameof(Association.EntityBScope)),
 
+                (Rule: IsNotTheKeyOfANonVersionedEndpoint(
+                        association.EntityAType,
+                        association.EntityAKeyId,
+                        association.EntityAGroupId),
+                    Parameter: nameof(Association.EntityAGroupId)),
+
+                (Rule: IsNotTheKeyOfANonVersionedEndpoint(
+                        association.EntityBType,
+                        association.EntityBKeyId,
+                        association.EntityBGroupId),
+                    Parameter: nameof(Association.EntityBGroupId)),
+
                 (Rule: IsSameEndpoint(association.EntityAGroupId, association.EntityBGroupId),
                     Parameter: nameof(Association.EntityBGroupId)));
 
@@ -214,6 +226,24 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
             Message = "Value is not the scope its endpoint's type takes"
         };
+
+        // A non-versioned endpoint has one row, so its group is its key (§DOM4.5 rule 2). Whether a
+        // type is versioned is EntityTypeVersioning's answer. An empty key or group is refused by its
+        // own rule, so it is not compared here; a versioned endpoint's group is never checked against
+        // its row, which this foundation may not read.
+        private static dynamic IsNotTheKeyOfANonVersionedEndpoint(
+            EntityType entityType,
+            Guid keyId,
+            Guid groupId) => new
+            {
+                Condition = Enum.IsDefined(entityType)
+                    && EntityTypeVersioning.IsVersioned(entityType) is false
+                    && keyId != Guid.Empty
+                    && groupId != Guid.Empty
+                    && groupId != keyId,
+
+                Message = "Value is not the key of its non-versioned endpoint"
+            };
 
         // A new row is a contribution, so it is created unpublished at Draft or Submitted, as the
         // add creates one: publication and a verdict are the approval workflow's to record. Only

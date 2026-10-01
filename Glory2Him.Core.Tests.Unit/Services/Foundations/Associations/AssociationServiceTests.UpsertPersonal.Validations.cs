@@ -593,8 +593,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         // the far end in the host's own group
         private static Association InvalidatePersonalUpsertEndpoint(Association request, string field)
         {
+            // a reaction keyed on the host's group, so its group is still its key and only the
+            // one-group rule is broken (§DOM4.5 rule 2)
             if (field == nameof(Association.EntityBGroupId))
             {
+                request.EntityBKeyId = request.EntityAGroupId;
                 request.EntityBGroupId = request.EntityAGroupId;
 
                 return request;
