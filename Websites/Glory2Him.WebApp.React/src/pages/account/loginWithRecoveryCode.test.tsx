@@ -102,4 +102,19 @@ describe('LoginWithRecoveryCode', () => {
         // then
         expect(landedOn()).toBe('/Account/Lockout');
     });
+
+    it('should keep a reader whose recovery code is refused on the recovery-code page', () => {
+        // given
+        mocks.loginWithRecoveryCodeMutate.mockImplementation(
+            (_recoveryCode: unknown, callbacks: LoginWithRecoveryCodeCallbacks) =>
+                callbacks.onError(new Error('Invalid recovery code entered.')));
+
+        renderLoginWithRecoveryCode(loginWithRecoveryCodeWithReturnUrl('/posts'));
+
+        // when
+        enterRecoveryCode();
+
+        // then
+        expect(landedOn()).toBe(loginWithRecoveryCodeWithReturnUrl('/posts'));
+    });
 });
