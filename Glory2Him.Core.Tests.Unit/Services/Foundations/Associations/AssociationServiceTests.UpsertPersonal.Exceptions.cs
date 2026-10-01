@@ -22,6 +22,7 @@ using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.Associations.Exceptions;
 using Glory2Him.Core.Models.Securities;
 using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
@@ -356,6 +357,52 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 expectedAssociationDependencyValidationException);
 
             VerifyPersonalUpsertWriteAsked(isUpdate: false);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationDependencyValidationException))),
+                Times.Once);
+
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowDependencyValidationExceptionOnUpsertPersonalIfDatabaseUpdateConcurrencyErrorOccursAndLogItAsync()
+        {
+            // given: another write changed or removed the reader's row between the lookup and this
+            // repoint's update
+            var dbUpdateConcurrencyException = new DbUpdateConcurrencyException();
+
+            Association upsertRequest =
+                ArrangePersonalUpsertWriteToThrow(isUpdate: true, dbUpdateConcurrencyException);
+
+            var lockedAssociationException = new LockedAssociationException(
+                message: "Locked content item association record, please try again later.",
+                innerException: dbUpdateConcurrencyException,
+                data: dbUpdateConcurrencyException.Data);
+
+            var expectedAssociationDependencyValidationException =
+                new AssociationDependencyValidationException(
+                    message: "Content item association dependency validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: lockedAssociationException);
+
+            // when
+            ValueTask<PersonalAssociationUpsert> upsertTask =
+                this.associationService.UpsertPersonalAssociationAsync(
+                    upsertRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationDependencyValidationException actualAssociationDependencyValidationException =
+                await Assert.ThrowsAsync<AssociationDependencyValidationException>(upsertTask.AsTask);
+
+            // then
+            actualAssociationDependencyValidationException.Should().BeEquivalentTo(
+                expectedAssociationDependencyValidationException);
+
+            VerifyPersonalUpsertWriteAsked(isUpdate: true);
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
