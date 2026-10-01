@@ -1,9 +1,9 @@
 # Association service (React)
 Parent: [Likes.md](../../Likes.md)
 Level: foundation service — `associationService` (`Websites/Glory2Him.WebApp.React/src/services/foundations/associationService.ts`), new
-Inherits: §ARC16.8 (*The set, its bounds*, *Where each shared rule lives*), `UI/Brokers/AssociationBroker.md`, §UI20.9.1 departure 4
+Inherits: §ARC16.8 (*The set, its bounds*, *Where each shared rule lives*), `UI/Brokers/AssociationBroker.md`, §UI20.9.1 departure 4, `the-standard-reacttypescript-services` as §UI20.9.2 departs from it
 
-The React Query hooks over `AssociationBroker`, in the app's foundation-service shape: an exported object whose members are hooks, each constructing its own broker (§UI20.9.1 departure 4). The two writes invalidate what they change; the read asks per page.
+The React Query hooks over `AssociationBroker`, in the app's foundation-service shape: an exported object whose members are hooks, each that calls the broker constructing its own (§UI20.9.1 departure 4). The two writes invalidate what they change; the read asks per page.
 
 **One query key family, `ReactionSummaries`**, so a write can invalidate every summary read holding its item by prefix, as `useModifyContentItem` invalidates `ContentItemsSearch`.
 
@@ -18,12 +18,13 @@ A mutation that sends its request through `AssociationBroker.DeleteAssociationPa
 ## 3. useGetReactionSummaries (#736)
 
 ```ts
-useGetReactionSummaries: (contentItemIdPages: ReadonlyArray<ReadonlyArray<string>>) => ...
+useGetReactionSummaries: (contentItemIdPages: ReadonlyArray<ReadonlyArray<string>>, readerId: string | null | undefined) => ...
 ```
 
-1. **One query per page of ids it is handed**, keyed `['ReactionSummaries', <that page's ids>]`, so a list that loads a third page asks for the third page's ids alone and the first two stay cached (§ARC16.8: *keyed on the ids of the page just delivered, never on the accumulated list*). A detail page hands one page of one id.
-2. **A page of more than 25 ids is asked in chunks of 25**, and the chunks' answers are one answer (§ARC16.8: *a caller ever holding more than 25 ids in one ask chunks at 25*). A chunk that fails fails its page, as rule 3 treats a failed page: none of that page's ids has a summary, even those a chunk that answered asked for. An empty page asks nothing.
+1. **One query per page of ids it is handed**, keyed `['ReactionSummaries', <readerId>, <that page's ids>]`, so a list that loads a third page asks for the third page's ids alone and the first two stay cached (§ARC16.8: *keyed on the ids of the page just delivered, never on the accumulated list*). A detail page hands one page of one id.
+2. **A page of more than 25 ids is asked in chunks of 25**, and the chunks' answers are one answer (§ARC16.8: *a caller ever holding more than 25 ids in one ask chunks at 25*). A chunk that fails fails its page, as rule 3 treats a failed page: none of that page's ids has a summary, even those a chunk that answered asked for. An empty page asks nothing, and is never loading.
 3. **It answers one summary per content item id across every page**, keyed on the id, together with whether any page is still loading and whether any failed. A page that failed leaves its ids without a summary; it does not take the others' away.
+4. **Its answers are kept per reader.** A summary carries the reader's own reaction (§ARC16.8, `ViewerReactionId`), so a read is keyed on who asked: `readerId` is the signed-in reader's id, `null` for a signed-out reader, and `undefined` while the sign-in state is still being read. Nothing is asked while it is `undefined`, so no answer is ever kept under the wrong reader, and a reader who signs out or in is never shown another reader's reaction from the cache. The id only separates the cached answers: it is never sent, and the server answers for the signed-in caller alone.
 
 ## 4. useReadReactionSummariesAgain (#759)
 
