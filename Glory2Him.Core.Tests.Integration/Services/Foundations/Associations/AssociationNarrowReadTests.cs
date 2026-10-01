@@ -887,6 +887,42 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
             actualPairKeys.Should().BeEquivalentTo(expectedPairKeys);
         }
 
+        /// <summary>
+        /// #721 criterion 15: an empty <c>IN</c> over <c>EntityAEffectiveId</c> runs in SQL and
+        /// answers no rows. The positive control first finds the seeded reaction by its host, so
+        /// the empty answer cannot come from a seed the read could never have found.
+        /// </summary>
+        [Fact]
+        public async Task ShouldRetrieveNothingInSqlForAnEmptyListOfItemsAsync()
+        {
+            // given
+            string callerUserId = Guid.NewGuid().ToString();
+            Guid contentItemGroupId = Guid.NewGuid();
+            Guid reactionId = Guid.NewGuid();
+
+            await SeedAsync(CreateCallersReaction(contentItemGroupId, reactionId, callerUserId));
+
+            IAssociationService associationService = CreateAssociationServiceFor(callerUserId);
+
+            IReadOnlyList<AssociationPairKey> controlPairKeys =
+                await associationService.RetrieveCallerContentItemReactionsAsync(
+                    contentItemGroupIds: new List<Guid> { contentItemGroupId },
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            controlPairKeys.Should().ContainSingle(pairKey =>
+                pairKey.EntityAEffectiveId == contentItemGroupId
+                    && pairKey.EntityBKeyId == reactionId);
+
+            // when
+            IReadOnlyList<AssociationPairKey> actualPairKeys =
+                await associationService.RetrieveCallerContentItemReactionsAsync(
+                    contentItemGroupIds: new List<Guid>(),
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            actualPairKeys.Should().BeEmpty();
+        }
+
         // AllVersions on both endpoints unless a test narrows one, so each EFFECTIVE id the
         // database computes is that endpoint's group id — which is what the reads above are keyed
         // on. entityBType is a parameter because the B-endpoint tests need a VERSIONED endpoint
