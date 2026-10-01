@@ -661,6 +661,102 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldWriteOnlyTheEnumeratedFieldsOfAnExistingRowAsync()
+        {
+            // given: the reader's withdrawn row and another reaction, the arm that writes all five
+            // of the fields in scope (§ARC16.2.2). The request differs from the stored row in every
+            // field outside them that does not name the host and the reaction, so a field taken from
+            // the caller's copy would show.
+            string readerUserId = GetRandomString();
+            DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            Association upsertRequest = CreatePersonalUpsertRequest(readerUserId);
+
+            Association readersWithdrawnRow =
+                CreateStoredPersonalRow(upsertRequest, isDeleted: true);
+
+            readersWithdrawnRow.ApprovalStatus = ApprovalStatus.Approved;
+            readersWithdrawnRow.IsPublished = true;
+            readersWithdrawnRow.PublishDate = GetRandomDateTimeOffset();
+            readersWithdrawnRow.SortOrder = GetRandomNumber();
+            readersWithdrawnRow.DeletionReason = GetRandomString();
+
+            upsertRequest.ApprovalStatus = ApprovalStatus.Submitted;
+            upsertRequest.IsPublished = false;
+            upsertRequest.PublishDate = readersWithdrawnRow.PublishDate.Value.AddDays(GetRandomNumber());
+            upsertRequest.SortOrder = readersWithdrawnRow.SortOrder + GetRandomNumber();
+            upsertRequest.EntityAContentType = ContentType.Testimony;
+            upsertRequest.EntityBContentType = ContentType.Story;
+            upsertRequest.CreatedBy = $"caller-{Guid.NewGuid()}";
+            upsertRequest.CreatedWhen = readersWithdrawnRow.CreatedWhen.AddDays(GetRandomNumber());
+            upsertRequest.UpdatedBy = $"caller-{Guid.NewGuid()}";
+            upsertRequest.UpdatedWhen = readersWithdrawnRow.UpdatedWhen.AddDays(GetRandomNumber());
+            upsertRequest.DeletedBy = $"caller-{Guid.NewGuid()}";
+            upsertRequest.DeletedWhen = readersWithdrawnRow.DeletedWhen?.AddDays(GetRandomNumber());
+            upsertRequest.DeletionReason = GetRandomString();
+            upsertRequest.ConfidenceScore = GetRandomConfidenceScore();
+            upsertRequest.ConfidenceReason = GetRandomString();
+            upsertRequest.SourceBatchId = Guid.NewGuid();
+            upsertRequest.ModelVersion = GetRandomString();
+            upsertRequest.IsApprovedByBypass = true;
+            upsertRequest.ApprovedByBypassReason = GetRandomString();
+
+            List<Association> storageAssociations =
+                CreateRandomAssociations().Append(readersWithdrawnRow).ToList();
+
+            // the stored row, with the five fields in scope written and the audit stamp beside them
+            Association expectedSavedAssociation = readersWithdrawnRow.DeepClone();
+            expectedSavedAssociation.EntityBKeyId = upsertRequest.EntityBKeyId;
+            expectedSavedAssociation.EntityBGroupId = upsertRequest.EntityBGroupId;
+            expectedSavedAssociation.IsDeleted = false;
+            expectedSavedAssociation.DeletedBy = null;
+            expectedSavedAssociation.DeletedWhen = null;
+            expectedSavedAssociation.UpdatedBy = readerUserId;
+            expectedSavedAssociation.UpdatedWhen = currentDateTime;
+
+            Association savedAssociation = null;
+
+            using var cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken inputCancellationToken = cancellationTokenSource.Token;
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(readerUserId);
+
+            SetupPersonalUpsertLookupOver(storageAssociations, inputCancellationToken);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(It.IsAny<Association>(), this.ambientSecurityContext))
+                    .ReturnsAsync((Association entity, SecurityContext _) =>
+                        StampModifyAudit(entity.DeepClone(), readerUserId, currentDateTime));
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateAssociationAsync(It.IsAny<Association>(), inputCancellationToken))
+                    .ReturnsAsync((Association entity, CancellationToken _) =>
+                    {
+                        savedAssociation = entity.DeepClone();
+
+                        return entity;
+                    });
+
+            // when
+            await this.associationService.UpsertPersonalAssociationAsync(
+                upsertRequest,
+                inputCancellationToken);
+
+            // then: every other field kept its stored value, whatever the caller's copy said
+            savedAssociation.Should().BeEquivalentTo(expectedSavedAssociation);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyModifyAuditValuesAsync(It.IsAny<Association>(), this.ambientSecurityContext),
+                    Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateAssociationAsync(It.IsAny<Association>(), inputCancellationToken),
+                    Times.Once);
+        }
+
         // A reader's reaction on a Quote as the orchestration hands it over (§ARC16.8.1): the host on
         // endpoint A under AllVersions, with a group id that differs from its key id, and the
         // reaction on B, a non-versioned endpoint, so ThisVersionOnly with its group its key.
