@@ -75,4 +75,19 @@ describe('LoginWith2fa', () => {
         // then
         expect(landedOn()).toBe('/posts?q=grace#comments');
     });
+
+    it('should send a reader signed in by a second factor on unchanged to every local return address', () => {
+        for (const returnUrl of acceptedReturnUrls) {
+            // given
+            answerCode(false);
+            const { unmount } = renderLoginWith2fa(loginWith2faWithReturnUrl(returnUrl));
+
+            // when
+            enterAuthenticatorCode();
+
+            // then
+            expect(landedOn()).toBe(returnUrl);
+            unmount();
+        }
+    });
 });
