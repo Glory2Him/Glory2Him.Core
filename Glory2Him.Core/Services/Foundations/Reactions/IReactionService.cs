@@ -45,8 +45,9 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
             CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// The reactions anybody may see — not deleted, approved, published and past their
-        /// publish date (§SEC14.3 rule 4) — in the vocabulary's order: <c>SortOrder</c>, lower
+        /// The reactions anybody may see — not deleted, approved, published, and a publish date
+        /// that is null or not after the current moment (§SEC14.3 rule 4) — in the vocabulary's
+        /// order: <c>SortOrder</c>, lower
         /// first, with <c>Name</c> breaking a tie (§DOM5.2). Caller-independent: it reads no
         /// security context, so every caller receives the vocabulary an anonymous visitor does
         /// and a reaction count never moves when somebody signs in (§ARC16.8, <i>Anonymity</i>).
