@@ -87,4 +87,18 @@ describe('PasskeySignInButton', () => {
             unmount();
         }
     });
+
+    it('should keep a reader whose passkey sign-in is refused on the sign-in page', () => {
+        // given
+        mocks.passkeySignInMutate.mockImplementation((_email: unknown, callbacks: PasskeySignInCallbacks) =>
+            callbacks.onError(new Error('Invalid login attempt.')));
+
+        renderPasskeySignInButton('/posts');
+
+        // when
+        signInWithPasskey();
+
+        // then
+        expect(landedOn()).toBe('/Account/Login');
+    });
 });
