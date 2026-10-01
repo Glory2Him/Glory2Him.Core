@@ -126,6 +126,66 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         }
 
         [Fact]
+        public async Task ShouldThrowValidationExceptionOnRemovingAssociationByIdEventWhenMetadataIsNullAsync()
+        {
+            // given
+            var requestEnvelope = new EventEnvelope<Association>
+            {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
+                Content = new Association { Id = Guid.NewGuid() },
+                Metadata = null!
+            };
+
+            var invalidAssociationEventException =
+                new InvalidAssociationEventException(
+                    message: "Invalid content item association event. " +
+                        "The event envelope, its content and metadata are required.");
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: invalidAssociationEventException);
+
+            // when
+            ValueTask<EventEnvelope<Association>?> onRemovingTask =
+                this.associationService.OnRemovingAssociationByIdAsync(
+                    requestEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(
+                    onRemovingTask.AsTask);
+
+            // then
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.envelopeIntegrityBrokerMock.Verify(broker =>
+                broker.VerifyAsync(
+                    It.IsAny<EventEnvelope<Association>>(),
+                    It.IsAny<string>(),
+                    It.IsAny<EnvelopeDirection>()),
+                Times.Never);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(It.IsAny<Association>()),
+                Times.Never);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
+
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
         public async Task ShouldThrowValidationExceptionOnRemovingAssociationByIdEventWhenIdIsInvalidAsync()
         {
             // given
