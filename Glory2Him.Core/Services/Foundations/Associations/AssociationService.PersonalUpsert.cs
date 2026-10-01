@@ -17,6 +17,7 @@ using System.Threading.Tasks;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Exceptions;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.Associations.Exceptions;
@@ -330,8 +331,11 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             }
         }
 
-        // the facts are published as the add publishes its own, with the written row as their
-        // content (§ARC16.2.2)
+        // Every arm that writes publishes through this one step, with the written row as the
+        // fact's content, and the result of every publish is inspected (§2 rule 7; §EVN23 rules
+        // 1–3). The row is already written, so a failed delivery is logged as critical and never
+        // thrown: failing the caller now would report a completed write as a failed one. The
+        // inspection is unconditional, because an unsubscribed address reports no deliveries.
         private async ValueTask PublishPersonalUpsertFactAsync(
             EventEnvelope<Association> inboundEnvelope,
             Association association,
@@ -342,9 +346,18 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                     sourceEnvelope: inboundEnvelope,
                     content: association);
 
-            await this.eventBroker.PublishAssociationAsync(
-                envelope: outboundEnvelope,
-                operation: operation);
+            EventPublishResult<Association> publishResult =
+                await this.eventBroker.PublishAssociationAsync(
+                    envelope: outboundEnvelope,
+                    operation: operation);
+
+            if (publishResult.HasFailedDeliveries)
+            {
+                FailedEventDeliveryException deliveryReport =
+                    FailedEventDeliveryException.ForFailedDeliveries(publishResult, operation);
+
+                await this.loggingBroker.LogCriticalAsync(deliveryReport);
+            }
         }
     }
 }
