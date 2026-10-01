@@ -115,4 +115,18 @@ describe('LoginWith2fa', () => {
         // then
         expect(landedOn()).toBe('/Account/Lockout');
     });
+
+    it('should keep a reader whose authenticator code is refused on the second-factor page', () => {
+        // given
+        mocks.loginWith2faMutate.mockImplementation((_request: unknown, callbacks: LoginWith2faCallbacks) =>
+            callbacks.onError(new Error('Invalid authenticator code.')));
+
+        renderLoginWith2fa(loginWith2faWithReturnUrl('/posts'));
+
+        // when
+        enterAuthenticatorCode();
+
+        // then
+        expect(landedOn()).toBe(loginWith2faWithReturnUrl('/posts'));
+    });
 });
