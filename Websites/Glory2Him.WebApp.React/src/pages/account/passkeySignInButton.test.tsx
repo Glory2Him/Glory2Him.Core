@@ -101,4 +101,16 @@ describe('PasskeySignInButton', () => {
         // then
         expect(landedOn()).toBe('/Account/Login');
     });
+
+    it('should send a reader signed in by passkey to the home page when there is no return address', () => {
+        // given
+        acceptPasskey();
+        renderPasskeySignInButton();
+
+        // when
+        signInWithPasskey();
+
+        // then
+        expect(landedOn()).toBe('/');
+    });
 });
