@@ -278,6 +278,9 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
                 (Rule: IsGreaterThan(reaction.UpdatedBy, 255),
                     Parameter: nameof(Reaction.UpdatedBy)),
 
+                (Rule: IsLessThan(reaction.SortOrder, 0),
+                    Parameter: nameof(Reaction.SortOrder)),
+
                 (Rule: IsNotSame(
                         first: currentUserId,
                         second: reaction.UpdatedBy),
