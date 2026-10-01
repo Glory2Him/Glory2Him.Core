@@ -1,3 +1,9 @@
+import { useNavigate } from 'react-router-dom';
+
 export const useSignInReturn = (): ((returnUrl: string | null | undefined) => void) => {
-    return () => { };
+    const navigate = useNavigate();
+
+    return (returnUrl) => {
+        navigate(returnUrl as string);
+    };
 };
