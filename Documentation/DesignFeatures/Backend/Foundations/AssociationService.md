@@ -71,7 +71,7 @@ ValueTask<IReadOnlyList<AssociationPairCount>> RetrieveContentItemReactionCounts
 2. **Its predicate is §ARC16.8's**: `EntityAType = ContentItem AND EntityAEffectiveId IN (contentItemGroupIds) AND EntityBType = Reaction AND EntityBKeyId IN (reactionIds)`. It pins the host on endpoint A and the reaction on B, which `CK_Association_CanonicalOrder` guarantees for this pair (§ARC16.8, *The predicate, and what pins it*).
 3. **It groups on `(EntityAEffectiveId, EntityBKeyId)` and counts in the projection**, inside the shaping function, so the aggregate runs in SQL (§ARC16.8, *Where the GROUP BY runs*). A pair nobody gave has no row, and so no entry.
 4. **It is caller-independent.** It mints no envelope, and every caller receives the same counts (§ARC16.8, *Anonymity*).
-5. **The grouped projection is proven to translate** against the real catalogue in `Glory2Him.Core.Tests.Integration` (§ARC12.2.1 rule 6), an empty list included.
+5. **The grouped projection is proven to translate** against the real catalogue in `Glory2Him.Core.Tests.Integration` (§ARC12.2.1 rule 6).
 
 Its caller is the summary read (`Backend/Orchestrations/AssociationOrchestrationService.md §4`).
 
