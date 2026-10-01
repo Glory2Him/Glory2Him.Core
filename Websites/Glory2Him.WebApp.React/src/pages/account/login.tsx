@@ -1,6 +1,7 @@
 import { FormEvent, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { accountService } from '../../services/foundations/accountService';
+import { useSignInReturn } from '../../hooks/useSignInReturn';
 import { StatusMessage, extractApiErrorMessage } from './statusMessage';
 import { PasskeySignInButton } from './passkeySignInButton';
 import { ExternalLoginPicker } from './externalLoginPicker';
@@ -22,6 +23,7 @@ export function Login() {
 
     const login = accountService.useLogin();
     const navigate = useNavigate();
+    const signInReturn = useSignInReturn();
 
     const registerUrl = returnUrl != null
         ? `/Account/Register?ReturnUrl=${encodeURIComponent(returnUrl)}`
@@ -67,7 +69,7 @@ export function Login() {
                     return;
                 }
 
-                navigate(returnUrl != null && returnUrl.startsWith('/') ? returnUrl : '/');
+                signInReturn(returnUrl);
             },
             onError: (error: unknown) => {
                 setErrorMessage(extractApiErrorMessage(error, 'Error: Invalid login attempt.'));

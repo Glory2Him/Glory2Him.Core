@@ -1,5 +1,5 @@
-import { useNavigate } from 'react-router-dom';
 import { PasskeyCeremonyError } from '../../hooks/usePasskeys';
+import { useSignInReturn } from '../../hooks/useSignInReturn';
 import { passkeyService } from '../../services/foundations/passkeyService';
 import { extractApiErrorMessage } from './statusMessage';
 
@@ -15,12 +15,12 @@ export interface PasskeySignInButtonProps {
 
 export function PasskeySignInButton({ email, returnUrl, onError }: PasskeySignInButtonProps) {
     const passkeySignIn = passkeyService.usePasskeySignIn();
-    const navigate = useNavigate();
+    const signInReturn = useSignInReturn();
 
     const onSignInWithPasskey = () => {
         passkeySignIn.mutate(email, {
             onSuccess: () => {
-                navigate(returnUrl != null && returnUrl.startsWith('/') ? returnUrl : '/');
+                signInReturn(returnUrl);
             },
             onError: (error: unknown) => {
                 if (error instanceof PasskeyCeremonyError) {

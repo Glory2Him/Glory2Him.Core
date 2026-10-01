@@ -1,12 +1,14 @@
 import { FormEvent, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { accountService } from '../../services/foundations/accountService';
+import { useSignInReturn } from '../../hooks/useSignInReturn';
 import { StatusMessage, extractApiErrorMessage } from './statusMessage';
 
 // Ported from Blazor's Account/Pages/LoginWithRecoveryCode.razor.
 export function LoginWithRecoveryCode() {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
+    const signInReturn = useSignInReturn();
 
     const returnUrl = searchParams.get('ReturnUrl') ?? searchParams.get('returnUrl');
 
@@ -42,7 +44,7 @@ export function LoginWithRecoveryCode() {
                     return;
                 }
 
-                navigate(returnUrl != null && returnUrl.startsWith('/') ? returnUrl : '/');
+                signInReturn(returnUrl);
             },
             onError: (error: unknown) => {
                 setMessage(extractApiErrorMessage(
