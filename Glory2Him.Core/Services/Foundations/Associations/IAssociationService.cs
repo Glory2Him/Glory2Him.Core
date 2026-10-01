@@ -34,6 +34,16 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// How many readers gave each asked-for reaction to each asked-for content item, counted
+        /// in SQL over the rows §SEC14.3 rules 1, 2 and 5 admit (§ARC16.8). Caller-independent:
+        /// it mints no envelope, and every caller receives the same counts.
+        /// </summary>
+        ValueTask<IReadOnlyList<AssociationPairCount>> RetrieveContentItemReactionCountsAsync(
+            IReadOnlyList<Guid> contentItemGroupIds,
+            IReadOnlyList<Guid> reactionIds,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// The signed caller's own live reaction on each of the given content items, whatever
         /// its approval status and publish date, so a card can show a reaction pressed while its
         /// count has not moved (§ARC16.8). The caller is the envelope's, never a parameter, and an

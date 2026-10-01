@@ -120,9 +120,9 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             // (§ARC16.8, the "§SEC14.3 rules 3, 4 and 6" row), and it is not merely a later build
             // date: rules 3 and 4 are answered by each endpoint's own collection read and compose
             // INTO the query, while rule 6 is a §DOM6.4 SELECTION — the narrowest scope wins
-            // outright — which no query composition can express and which an IAccessBroker arm
-            // that does not exist yet must gather. Landing it adds a term here. It must not add a
-            // second evaluator.
+            // outright — which no query composition can express and which
+            // IAccessBroker.RetrieveEffectiveContentItemSettingsAsync must gather. Landing it adds
+            // a term here. It must not add a second evaluator.
             //
             // Composed in System.Linq only, and never with Microsoft.EntityFrameworkCore: a
             // service importing EF to shape a query is a finding (§ARC12.2.1 rule 3). Nothing is

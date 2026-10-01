@@ -38,6 +38,9 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
         private delegate ValueTask<bool> ReturningBooleanFunction();
 
+        private delegate ValueTask<IReadOnlyList<AssociationPairCount>>
+            ReturningAssociationPairCountsFunction();
+
         private delegate ValueTask<IReadOnlyList<AssociationPairKey>>
             ReturningAssociationPairKeysFunction();
 
@@ -477,6 +480,64 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             catch (OperationCanceledException)
             {
                 throw;
+            }
+            catch (SqlException sqlException)
+            {
+                var failedStorageAssociationException =
+                    new FailedStorageAssociationException(
+                        message: "Failed content item association storage error occurred, contact support.",
+                        innerException: sqlException,
+                        data: sqlException.Data);
+
+                throw await CreateAndLogCriticalDependencyExceptionAsync(
+                    exception: failedStorageAssociationException);
+            }
+            catch (Exception exception)
+            {
+                var failedAssociationServiceException =
+                    new FailedAssociationServiceException(
+                        message: "Failed content item association service error occurred, please contact support.",
+                        innerException: exception,
+                        data: exception.Data);
+
+                throw await CreateAndLogServiceExceptionAsync(
+                    failedAssociationServiceException);
+            }
+        }
+
+        // The grouped reaction count (§ARC16.8): a read that validates its id lists and asks
+        // storage once, so it needs the validation catch and the read-style dependency catches —
+        // but none of the write-only ones, which a read cannot raise.
+        private async ValueTask<IReadOnlyList<AssociationPairCount>> TryCatch(
+            ReturningAssociationPairCountsFunction returningAssociationPairCountsFunction)
+        {
+            try
+            {
+                return await returningAssociationPairCountsFunction();
+            }
+            catch (OperationCanceledException operationCanceledException)
+                when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
+            {
+                var timeoutException =
+                    new TimeoutException("The dependency operation timed out.");
+
+                var timeoutAssociationException =
+                    new TimeoutAssociationException(
+                        message: "Failed content item association timeout error occurred, contact support.",
+                        innerException: timeoutException,
+                        data: timeoutException.Data);
+
+                throw await CreateAndLogTimeoutDependencyExceptionAsync(
+                    exception: timeoutAssociationException);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (InvalidAssociationException invalidAssociationException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(
+                    exception: invalidAssociationException);
             }
             catch (SqlException sqlException)
             {

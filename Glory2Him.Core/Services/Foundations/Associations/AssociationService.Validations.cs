@@ -828,6 +828,14 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 message: "Content item association is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(associationId), Parameter: nameof(Association.Id)));
 
+        private static void ValidateOnRetrieveContentItemReactionCounts(
+            IReadOnlyList<Guid> contentItemGroupIds,
+            IReadOnlyList<Guid> reactionIds) =>
+            Validate(
+                message: "Content item association is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(contentItemGroupIds), Parameter: nameof(contentItemGroupIds)),
+                (Rule: IsInvalid(reactionIds), Parameter: nameof(reactionIds)));
+
         private static void ValidateOnRetrieveCallerContentItemReactions(
             IReadOnlyList<Guid> contentItemGroupIds) =>
             Validate(
@@ -863,7 +871,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         private static dynamic IsInvalid(IReadOnlyList<Guid> ids) => new
         {
             Condition = ids is null || ids.Contains(Guid.Empty),
-            Message = ids is null ? "List is required" : "Id is required"
+            Message = ids is null ? "List is required" : "Every id is required"
         };
 
         private static dynamic IsInvalid(string text) => new

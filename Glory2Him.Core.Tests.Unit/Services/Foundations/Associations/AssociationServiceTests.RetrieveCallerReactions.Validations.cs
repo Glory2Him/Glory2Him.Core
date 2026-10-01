@@ -69,7 +69,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             new TheoryData<List<Guid>, string>
             {
                 { null, "List is required" },
-                { new List<Guid> { Guid.NewGuid(), Guid.Empty }, "Id is required" }
+                { new List<Guid> { Guid.NewGuid(), Guid.Empty }, "Every id is required" }
             };
     }
 }
