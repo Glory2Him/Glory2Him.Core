@@ -683,7 +683,7 @@ The following authentication behaviour is required:
 
 1. Login redirects to the identity provider or displays a username/password form depending on the configured auth strategy.
 2. On successful login, a token or session is stored and the user is redirected to the page they originally requested.
-3. Logout clears the session and redirects to the home page.
+3. Logout clears the session and redirects to the home page. Once the session is cleared, it removes every cached read, the current user's included, so nothing read for one reader is shown after they sign out, and the app reads who is signed in afresh. A logout that fails removes nothing: the session still stands.
 4. The `Navbar` must reflect auth state — showing login or logout depending on session presence.
 5. Role claims from the token must be used to control visibility of role-restricted navigation items.
 6. Token refresh or silent renewal must be handled transparently.
