@@ -43,6 +43,11 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             string callerUserId =
                 await this.securityAuditBroker.GetUserIdAsync(inboundEnvelope.SecurityContext);
 
+            // canonical order before the row is resolved and before any storage call: the personal
+            // key holds the host on A, and CK_Association_CanonicalOrder refuses any other row
+            // (§DOM4.4 rule 4)
+            association = NormalizeEndpointOrder(association);
+
             Guid entityAEffectiveId = ResolveEffectiveId(
                 association.EntityAScope,
                 association.EntityAGroupId,
