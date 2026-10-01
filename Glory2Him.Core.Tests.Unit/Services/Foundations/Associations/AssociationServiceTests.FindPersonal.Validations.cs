@@ -174,13 +174,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 { nameof(Association.EntityAGroupId), "Id is required" },
                 { nameof(Association.EntityBGroupId), "Id is required" },
                 { nameof(Association.EntityAType), "Value is not a supported entity type" },
-                { nameof(Association.EntityBType), "Value is not a supported entity type" }
+                { nameof(Association.EntityBType), "Value is not a supported entity type" },
+                { nameof(Association.EntityAScope), "Value is not a supported scope" },
+                { nameof(Association.EntityBScope), "Value is not a supported scope" }
             };
 
-        // an empty key or group id, or a type outside EntityType — a stale client sending a removed member
+        // an empty key or group id, or a type or scope outside its enum — a stale client sending a removed member
         private static Association InvalidateEndpointField(Association request, string field)
         {
             var undefinedEntityType = (EntityType)(-1);
+            var undefinedScope = (Scope)7;
 
             switch (field)
             {
@@ -206,6 +209,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
                 case nameof(Association.EntityBType):
                     request.EntityBType = undefinedEntityType;
+                    break;
+
+                case nameof(Association.EntityAScope):
+                    request.EntityAScope = undefinedScope;
+                    break;
+
+                case nameof(Association.EntityBScope):
+                    request.EntityBScope = undefinedScope;
                     break;
             }
 
