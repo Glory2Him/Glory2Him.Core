@@ -18,6 +18,7 @@ using FluentAssertions;
 using Force.DeepCloner;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Exceptions;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.Associations.Exceptions;
@@ -1063,6 +1064,166 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Theory]
+        [MemberData(nameof(PublishingUpsertArms))]
+        public async Task ShouldLogCriticalWhenTheUpsertFactDeliveryFailsAsync(
+            string arm,
+            PersonalAssociationUpsertOutcome expectedOutcome,
+            AssociationEventOperation expectedOperation)
+        {
+            // given: a subscriber reports its delivery of the fact this arm publishes as failed.
+            // The row is already written, so the failure is reported and never thrown (§2 rule 7;
+            // §EVN23 rules 1–3).
+            using var cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken inputCancellationToken = cancellationTokenSource.Token;
+
+            Association upsertRequest =
+                ArrangePublishingUpsertArm(arm, inputCancellationToken);
+
+            EventPublishResult<Association> failedPublishResult = CreateFailedPublishResult();
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishAssociationAsync(
+                    It.IsAny<EventEnvelope<Association>>(),
+                    expectedOperation))
+                        .ReturnsAsync(failedPublishResult);
+
+            // when
+            PersonalAssociationUpsert actualUpsert =
+                await this.associationService.UpsertPersonalAssociationAsync(
+                    upsertRequest,
+                    inputCancellationToken);
+
+            // then: the outcome still comes back, and the failed delivery is logged as critical
+            actualUpsert.Outcome.Should().Be(expectedOutcome);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishAssociationAsync(
+                    It.IsAny<EventEnvelope<Association>>(),
+                    expectedOperation),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogCriticalAsync(It.Is(
+                    SameExceptionAs(
+                        FailedEventDeliveryException.ForFailedDeliveries(
+                            failedPublishResult,
+                            expectedOperation)))),
+                Times.Once);
+
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        // every arm that publishes, with its outcome and its fact: the create, the revive, the
+        // revive-and-repoint and the live repoint
+        public static TheoryData<string, PersonalAssociationUpsertOutcome, AssociationEventOperation>
+            PublishingUpsertArms() =>
+            new TheoryData<string, PersonalAssociationUpsertOutcome, AssociationEventOperation>
+            {
+                {
+                    "Create",
+                    PersonalAssociationUpsertOutcome.Created,
+                    AssociationEventOperation.Added
+                },
+                {
+                    "Revive",
+                    PersonalAssociationUpsertOutcome.Restored,
+                    AssociationEventOperation.Restored
+                },
+                {
+                    "ReviveAndRepoint",
+                    PersonalAssociationUpsertOutcome.Repointed,
+                    AssociationEventOperation.Repointed
+                },
+                {
+                    "LiveRepoint",
+                    PersonalAssociationUpsertOutcome.Repointed,
+                    AssociationEventOperation.Repointed
+                }
+            };
+
+        // A signed-in reader's request that reaches the given arm, with every broker the arm asks
+        // answering as it would: the reader's row as the arm needs it, a valid stamp, and storage
+        // handing the written row back.
+        private Association ArrangePublishingUpsertArm(string arm, CancellationToken cancellationToken)
+        {
+            string readerUserId = GetRandomString();
+            DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            Association upsertRequest = CreatePersonalUpsertRequest(readerUserId);
+            List<Association> storageAssociations = CreateRandomAssociations().ToList();
+
+            switch (arm)
+            {
+                case "Revive":
+                    storageAssociations.Add(
+                        CreateStoredPersonalRowOnTheSameReaction(upsertRequest, isDeleted: true));
+
+                    break;
+
+                case "ReviveAndRepoint":
+                    storageAssociations.Add(CreateStoredPersonalRow(upsertRequest, isDeleted: true));
+                    break;
+
+                case "LiveRepoint":
+                    storageAssociations.Add(CreateStoredPersonalRow(upsertRequest, isDeleted: false));
+                    break;
+            }
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(readerUserId);
+
+            SetupPersonalUpsertLookupOver(storageAssociations, cancellationToken);
+
+            this.identifierBrokerMock.Setup(broker =>
+                broker.GetIdentifierAsync())
+                    .ReturnsAsync(Guid.NewGuid());
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(currentDateTime);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(It.IsAny<Association>(), this.ambientSecurityContext))
+                    .ReturnsAsync((Association entity, SecurityContext _) =>
+                        StampAddAudit(entity.DeepClone(), readerUserId, currentDateTime));
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(It.IsAny<Association>(), this.ambientSecurityContext))
+                    .ReturnsAsync((Association entity, SecurityContext _) =>
+                        StampModifyAudit(entity.DeepClone(), readerUserId, currentDateTime));
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.InsertAssociationAsync(It.IsAny<Association>(), cancellationToken))
+                    .ReturnsAsync((Association entity, CancellationToken _) => entity.DeepClone());
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateAssociationAsync(It.IsAny<Association>(), cancellationToken))
+                    .ReturnsAsync((Association entity, CancellationToken _) => entity.DeepClone());
+
+            return upsertRequest;
+        }
+
+        private static EventPublishResult<Association> CreateFailedPublishResult() =>
+            new EventPublishResult<Association>
+            {
+                EventId = Guid.NewGuid(),
+                Deliveries = new List<EventDelivery<Association>>
+                {
+                    new EventDelivery<Association>
+                    {
+                        SubscriptionId = Guid.NewGuid(),
+                        IsSuccess = false,
+                        IsFailure = true,
+                        Status = "Error",
+                        ResponseCode = "500",
+                        ResponseMessage = "the handler failed",
+                    },
+                },
+            };
 
         // the upsert acts for the signed caller alone, so no role lets a caller write another
         // reader's reaction, Administrators included (§SEC14.7 posture A′ rule 2)
