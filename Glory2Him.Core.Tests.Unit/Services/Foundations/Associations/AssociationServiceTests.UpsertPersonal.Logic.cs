@@ -12,9 +12,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using KellermanSoftware.CompareNetObjects;
 using Force.DeepCloner;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
@@ -24,7 +26,6 @@ using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.Associations.Exceptions;
 using Glory2Him.Core.Models.Securities;
 using Moq;
-using Xeptions;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 {
@@ -60,7 +61,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             expectedInsertedAssociation.Id = mintedId;
 
             Association insertedAssociation = null;
-            Association storedAssociation = null;
+
+            Association storedAssociation =
+                WithDatabaseComputedEffectiveIds(expectedInsertedAssociation.DeepClone());
 
             using var cancellationTokenSource = new CancellationTokenSource();
             CancellationToken inputCancellationToken = cancellationTokenSource.Token;
@@ -81,19 +84,24 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     .ReturnsAsync(currentDateTime);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyAddAuditValuesAsync(It.IsAny<Association>(), this.ambientSecurityContext))
-                    .ReturnsAsync((Association entity, SecurityContext _) =>
-                        StampAddAudit(entity.DeepClone(), readerUserId, currentDateTime));
+                broker.ApplyAddAuditValuesAsync(
+                    It.Is(SameAssociationBeforeItsAddStampAs(expectedInsertedAssociation)),
+                    this.ambientSecurityContext))
+                        .ReturnsAsync((Association entity, SecurityContext _) =>
+                            StampAddAudit(entity.DeepClone(), readerUserId, currentDateTime));
 
             this.storageBrokerMock.Setup(broker =>
-                broker.InsertAssociationAsync(It.IsAny<Association>(), inputCancellationToken))
-                    .ReturnsAsync((Association entity, CancellationToken _) =>
-                    {
-                        insertedAssociation = entity.DeepClone();
-                        storedAssociation = WithDatabaseComputedEffectiveIds(entity.DeepClone());
+                broker.InsertAssociationAsync(
+                    It.Is(SameAssociationAs(expectedInsertedAssociation)),
+                    inputCancellationToken))
+                        .Callback<Association, CancellationToken>((entity, _) =>
+                            insertedAssociation = entity.DeepClone())
+                        .ReturnsAsync(storedAssociation);
 
-                        return storedAssociation;
-                    });
+            EventEnvelope<Association> inboundEnvelope = SetupInboundEnvelopeFor(upsertRequest);
+
+            EventEnvelope<Association> outboundEnvelope =
+                SetupOutboundEnvelopeFor(inboundEnvelope, storedAssociation);
 
             // when
             PersonalAssociationUpsert actualUpsert =
@@ -129,22 +137,24 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyAddAuditValuesAsync(It.IsAny<Association>(), this.ambientSecurityContext),
-                    Times.Once);
+                broker.ApplyAddAuditValuesAsync(
+                    It.Is(SameAssociationBeforeItsAddStampAs(expectedInsertedAssociation)),
+                    this.ambientSecurityContext),
+                Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.InsertAssociationAsync(It.IsAny<Association>(), inputCancellationToken),
-                    Times.Once);
+                broker.InsertAssociationAsync(
+                    It.Is(SameAssociationAs(expectedInsertedAssociation)),
+                    inputCancellationToken),
+                Times.Once);
 
             this.eventEnvelopeBrokerMock.Verify(broker =>
-                broker.CreateNextAsync(It.IsAny<EventEnvelope<Association>>(), storedAssociation),
+                broker.CreateNextAsync(inboundEnvelope, storedAssociation),
                     Times.Once);
 
             this.eventBrokerMock.Verify(broker =>
-                broker.PublishAssociationAsync(
-                    It.Is(SameOutboundEnvelopeAs(storedAssociation)),
-                    AssociationEventOperation.Added),
-                Times.Once);
+                broker.PublishAssociationAsync(outboundEnvelope, AssociationEventOperation.Added),
+                    Times.Once);
 
             this.identifierBrokerMock.VerifyNoOtherCalls();
             this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
@@ -195,7 +205,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             StampModifyAudit(expectedSavedAssociation, readerUserId, currentDateTime);
 
             Association savedAssociation = null;
-            Association updatedAssociation = null;
+            Association updatedAssociation = expectedSavedAssociation.DeepClone();
 
             using var cancellationTokenSource = new CancellationTokenSource();
             CancellationToken inputCancellationToken = cancellationTokenSource.Token;
@@ -207,19 +217,24 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             SetupPersonalUpsertLookupOver(storageAssociations, inputCancellationToken);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyModifyAuditValuesAsync(It.IsAny<Association>(), this.ambientSecurityContext))
-                    .ReturnsAsync((Association entity, SecurityContext _) =>
-                        StampModifyAudit(entity.DeepClone(), readerUserId, currentDateTime));
+                broker.ApplyModifyAuditValuesAsync(
+                    It.Is(SameAssociationBeforeItsModifyStampAs(expectedSavedAssociation)),
+                    this.ambientSecurityContext))
+                        .ReturnsAsync((Association entity, SecurityContext _) =>
+                            StampModifyAudit(entity.DeepClone(), readerUserId, currentDateTime));
 
             this.storageBrokerMock.Setup(broker =>
-                broker.UpdateAssociationAsync(It.IsAny<Association>(), inputCancellationToken))
-                    .ReturnsAsync((Association entity, CancellationToken _) =>
-                    {
-                        savedAssociation = entity.DeepClone();
-                        updatedAssociation = entity.DeepClone();
+                broker.UpdateAssociationAsync(
+                    It.Is(SameAssociationAs(expectedSavedAssociation)),
+                    inputCancellationToken))
+                        .Callback<Association, CancellationToken>((entity, _) =>
+                            savedAssociation = entity.DeepClone())
+                        .ReturnsAsync(updatedAssociation);
 
-                        return updatedAssociation;
-                    });
+            EventEnvelope<Association> inboundEnvelope = SetupInboundEnvelopeFor(upsertRequest);
+
+            EventEnvelope<Association> outboundEnvelope =
+                SetupOutboundEnvelopeFor(inboundEnvelope, updatedAssociation);
 
             // when
             PersonalAssociationUpsert actualUpsert =
@@ -244,20 +259,24 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             VerifyPersonalUpsertLookupAsked(inputCancellationToken, Times.Once());
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyModifyAuditValuesAsync(It.IsAny<Association>(), this.ambientSecurityContext),
-                    Times.Once);
+                broker.ApplyModifyAuditValuesAsync(
+                    It.Is(SameAssociationBeforeItsModifyStampAs(expectedSavedAssociation)),
+                    this.ambientSecurityContext),
+                Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.UpdateAssociationAsync(It.IsAny<Association>(), inputCancellationToken),
-                    Times.Once);
+                broker.UpdateAssociationAsync(
+                    It.Is(SameAssociationAs(expectedSavedAssociation)),
+                    inputCancellationToken),
+                Times.Once);
 
             this.eventEnvelopeBrokerMock.Verify(broker =>
-                broker.CreateNextAsync(It.IsAny<EventEnvelope<Association>>(), updatedAssociation),
+                broker.CreateNextAsync(inboundEnvelope, updatedAssociation),
                     Times.Once);
 
             this.eventBrokerMock.Verify(broker =>
                 broker.PublishAssociationAsync(
-                    It.Is(SameOutboundEnvelopeAs(updatedAssociation)),
+                    outboundEnvelope,
                     AssociationEventOperation.Restored),
                 Times.Once);
 
@@ -302,7 +321,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             StampModifyAudit(expectedSavedAssociation, readerUserId, currentDateTime);
 
             Association savedAssociation = null;
-            Association updatedAssociation = null;
+            Association updatedAssociation = expectedSavedAssociation.DeepClone();
 
             using var cancellationTokenSource = new CancellationTokenSource();
             CancellationToken inputCancellationToken = cancellationTokenSource.Token;
@@ -314,19 +333,24 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             SetupPersonalUpsertLookupOver(storageAssociations, inputCancellationToken);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyModifyAuditValuesAsync(It.IsAny<Association>(), this.ambientSecurityContext))
-                    .ReturnsAsync((Association entity, SecurityContext _) =>
-                        StampModifyAudit(entity.DeepClone(), readerUserId, currentDateTime));
+                broker.ApplyModifyAuditValuesAsync(
+                    It.Is(SameAssociationBeforeItsModifyStampAs(expectedSavedAssociation)),
+                    this.ambientSecurityContext))
+                        .ReturnsAsync((Association entity, SecurityContext _) =>
+                            StampModifyAudit(entity.DeepClone(), readerUserId, currentDateTime));
 
             this.storageBrokerMock.Setup(broker =>
-                broker.UpdateAssociationAsync(It.IsAny<Association>(), inputCancellationToken))
-                    .ReturnsAsync((Association entity, CancellationToken _) =>
-                    {
-                        savedAssociation = entity.DeepClone();
-                        updatedAssociation = entity.DeepClone();
+                broker.UpdateAssociationAsync(
+                    It.Is(SameAssociationAs(expectedSavedAssociation)),
+                    inputCancellationToken))
+                        .Callback<Association, CancellationToken>((entity, _) =>
+                            savedAssociation = entity.DeepClone())
+                        .ReturnsAsync(updatedAssociation);
 
-                        return updatedAssociation;
-                    });
+            EventEnvelope<Association> inboundEnvelope = SetupInboundEnvelopeFor(upsertRequest);
+
+            EventEnvelope<Association> outboundEnvelope =
+                SetupOutboundEnvelopeFor(inboundEnvelope, updatedAssociation);
 
             // when
             PersonalAssociationUpsert actualUpsert =
@@ -350,20 +374,24 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             VerifyPersonalUpsertLookupAsked(inputCancellationToken, Times.Once());
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyModifyAuditValuesAsync(It.IsAny<Association>(), this.ambientSecurityContext),
-                    Times.Once);
+                broker.ApplyModifyAuditValuesAsync(
+                    It.Is(SameAssociationBeforeItsModifyStampAs(expectedSavedAssociation)),
+                    this.ambientSecurityContext),
+                Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.UpdateAssociationAsync(It.IsAny<Association>(), inputCancellationToken),
-                    Times.Once);
+                broker.UpdateAssociationAsync(
+                    It.Is(SameAssociationAs(expectedSavedAssociation)),
+                    inputCancellationToken),
+                Times.Once);
 
             this.eventEnvelopeBrokerMock.Verify(broker =>
-                broker.CreateNextAsync(It.IsAny<EventEnvelope<Association>>(), updatedAssociation),
+                broker.CreateNextAsync(inboundEnvelope, updatedAssociation),
                     Times.Once);
 
             this.eventBrokerMock.Verify(broker =>
                 broker.PublishAssociationAsync(
-                    It.Is(SameOutboundEnvelopeAs(updatedAssociation)),
+                    outboundEnvelope,
                     AssociationEventOperation.Repointed),
                 Times.Once);
 
@@ -411,7 +439,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             StampModifyAudit(expectedSavedAssociation, readerUserId, currentDateTime);
 
             Association savedAssociation = null;
-            Association updatedAssociation = null;
+            Association updatedAssociation = expectedSavedAssociation.DeepClone();
 
             using var cancellationTokenSource = new CancellationTokenSource();
             CancellationToken inputCancellationToken = cancellationTokenSource.Token;
@@ -423,19 +451,24 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             SetupPersonalUpsertLookupOver(storageAssociations, inputCancellationToken);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyModifyAuditValuesAsync(It.IsAny<Association>(), this.ambientSecurityContext))
-                    .ReturnsAsync((Association entity, SecurityContext _) =>
-                        StampModifyAudit(entity.DeepClone(), readerUserId, currentDateTime));
+                broker.ApplyModifyAuditValuesAsync(
+                    It.Is(SameAssociationBeforeItsModifyStampAs(expectedSavedAssociation)),
+                    this.ambientSecurityContext))
+                        .ReturnsAsync((Association entity, SecurityContext _) =>
+                            StampModifyAudit(entity.DeepClone(), readerUserId, currentDateTime));
 
             this.storageBrokerMock.Setup(broker =>
-                broker.UpdateAssociationAsync(It.IsAny<Association>(), inputCancellationToken))
-                    .ReturnsAsync((Association entity, CancellationToken _) =>
-                    {
-                        savedAssociation = entity.DeepClone();
-                        updatedAssociation = entity.DeepClone();
+                broker.UpdateAssociationAsync(
+                    It.Is(SameAssociationAs(expectedSavedAssociation)),
+                    inputCancellationToken))
+                        .Callback<Association, CancellationToken>((entity, _) =>
+                            savedAssociation = entity.DeepClone())
+                        .ReturnsAsync(updatedAssociation);
 
-                        return updatedAssociation;
-                    });
+            EventEnvelope<Association> inboundEnvelope = SetupInboundEnvelopeFor(upsertRequest);
+
+            EventEnvelope<Association> outboundEnvelope =
+                SetupOutboundEnvelopeFor(inboundEnvelope, updatedAssociation);
 
             // when
             PersonalAssociationUpsert actualUpsert =
@@ -460,20 +493,24 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             VerifyPersonalUpsertLookupAsked(inputCancellationToken, Times.Once());
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyModifyAuditValuesAsync(It.IsAny<Association>(), this.ambientSecurityContext),
-                    Times.Once);
+                broker.ApplyModifyAuditValuesAsync(
+                    It.Is(SameAssociationBeforeItsModifyStampAs(expectedSavedAssociation)),
+                    this.ambientSecurityContext),
+                Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.UpdateAssociationAsync(It.IsAny<Association>(), inputCancellationToken),
-                    Times.Once);
+                broker.UpdateAssociationAsync(
+                    It.Is(SameAssociationAs(expectedSavedAssociation)),
+                    inputCancellationToken),
+                Times.Once);
 
             this.eventEnvelopeBrokerMock.Verify(broker =>
-                broker.CreateNextAsync(It.IsAny<EventEnvelope<Association>>(), updatedAssociation),
+                broker.CreateNextAsync(inboundEnvelope, updatedAssociation),
                     Times.Once);
 
             this.eventBrokerMock.Verify(broker =>
                 broker.PublishAssociationAsync(
-                    It.Is(SameOutboundEnvelopeAs(updatedAssociation)),
+                    outboundEnvelope,
                     AssociationEventOperation.Repointed),
                 Times.Once);
 
@@ -513,7 +550,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             StampModifyAudit(expectedSavedAssociation, readerUserId, currentDateTime);
 
             Association savedAssociation = null;
-            Association updatedAssociation = null;
+            Association updatedAssociation = expectedSavedAssociation.DeepClone();
 
             using var cancellationTokenSource = new CancellationTokenSource();
             CancellationToken inputCancellationToken = cancellationTokenSource.Token;
@@ -525,19 +562,24 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             SetupPersonalUpsertLookupOver(storageAssociations, inputCancellationToken);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyModifyAuditValuesAsync(It.IsAny<Association>(), this.ambientSecurityContext))
-                    .ReturnsAsync((Association entity, SecurityContext _) =>
-                        StampModifyAudit(entity.DeepClone(), readerUserId, currentDateTime));
+                broker.ApplyModifyAuditValuesAsync(
+                    It.Is(SameAssociationBeforeItsModifyStampAs(expectedSavedAssociation)),
+                    this.ambientSecurityContext))
+                        .ReturnsAsync((Association entity, SecurityContext _) =>
+                            StampModifyAudit(entity.DeepClone(), readerUserId, currentDateTime));
 
             this.storageBrokerMock.Setup(broker =>
-                broker.UpdateAssociationAsync(It.IsAny<Association>(), inputCancellationToken))
-                    .ReturnsAsync((Association entity, CancellationToken _) =>
-                    {
-                        savedAssociation = entity.DeepClone();
-                        updatedAssociation = entity.DeepClone();
+                broker.UpdateAssociationAsync(
+                    It.Is(SameAssociationAs(expectedSavedAssociation)),
+                    inputCancellationToken))
+                        .Callback<Association, CancellationToken>((entity, _) =>
+                            savedAssociation = entity.DeepClone())
+                        .ReturnsAsync(updatedAssociation);
 
-                        return updatedAssociation;
-                    });
+            EventEnvelope<Association> inboundEnvelope = SetupInboundEnvelopeFor(upsertRequest);
+
+            EventEnvelope<Association> outboundEnvelope =
+                SetupOutboundEnvelopeFor(inboundEnvelope, updatedAssociation);
 
             // when
             PersonalAssociationUpsert actualUpsert =
@@ -562,20 +604,24 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             VerifyPersonalUpsertLookupAsked(inputCancellationToken, Times.Once());
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyModifyAuditValuesAsync(It.IsAny<Association>(), this.ambientSecurityContext),
-                    Times.Once);
+                broker.ApplyModifyAuditValuesAsync(
+                    It.Is(SameAssociationBeforeItsModifyStampAs(expectedSavedAssociation)),
+                    this.ambientSecurityContext),
+                Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.UpdateAssociationAsync(It.IsAny<Association>(), inputCancellationToken),
-                    Times.Once);
+                broker.UpdateAssociationAsync(
+                    It.Is(SameAssociationAs(expectedSavedAssociation)),
+                    inputCancellationToken),
+                Times.Once);
 
             this.eventEnvelopeBrokerMock.Verify(broker =>
-                broker.CreateNextAsync(It.IsAny<EventEnvelope<Association>>(), updatedAssociation),
+                broker.CreateNextAsync(inboundEnvelope, updatedAssociation),
                     Times.Once);
 
             this.eventBrokerMock.Verify(broker =>
                 broker.PublishAssociationAsync(
-                    It.Is(SameOutboundEnvelopeAs(updatedAssociation)),
+                    outboundEnvelope,
                     AssociationEventOperation.Repointed),
                 Times.Once);
 
@@ -772,18 +818,22 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             SetupPersonalUpsertLookupOver(storageAssociations, inputCancellationToken);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyModifyAuditValuesAsync(It.IsAny<Association>(), this.ambientSecurityContext))
-                    .ReturnsAsync((Association entity, SecurityContext _) =>
-                        StampModifyAudit(entity.DeepClone(), readerUserId, currentDateTime));
+                broker.ApplyModifyAuditValuesAsync(
+                    It.Is(SameAssociationBeforeItsModifyStampAs(expectedSavedAssociation)),
+                    this.ambientSecurityContext))
+                        .ReturnsAsync((Association entity, SecurityContext _) =>
+                            StampModifyAudit(entity.DeepClone(), readerUserId, currentDateTime));
 
             this.storageBrokerMock.Setup(broker =>
-                broker.UpdateAssociationAsync(It.IsAny<Association>(), inputCancellationToken))
-                    .ReturnsAsync((Association entity, CancellationToken _) =>
-                    {
-                        savedAssociation = entity.DeepClone();
+                broker.UpdateAssociationAsync(
+                    It.Is(SameAssociationAs(expectedSavedAssociation)),
+                    inputCancellationToken))
+                        .ReturnsAsync((Association entity, CancellationToken _) =>
+                        {
+                            savedAssociation = entity.DeepClone();
 
-                        return entity;
-                    });
+                            return entity;
+                        });
 
             // when
             await this.associationService.UpsertPersonalAssociationAsync(
@@ -794,12 +844,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             savedAssociation.Should().BeEquivalentTo(expectedSavedAssociation);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyModifyAuditValuesAsync(It.IsAny<Association>(), this.ambientSecurityContext),
-                    Times.Once);
+                broker.ApplyModifyAuditValuesAsync(
+                    It.Is(SameAssociationBeforeItsModifyStampAs(expectedSavedAssociation)),
+                    this.ambientSecurityContext),
+                Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.UpdateAssociationAsync(It.IsAny<Association>(), inputCancellationToken),
-                    Times.Once);
+                broker.UpdateAssociationAsync(
+                    It.Is(SameAssociationAs(expectedSavedAssociation)),
+                    inputCancellationToken),
+                Times.Once);
         }
 
         [Fact]
@@ -838,18 +892,22 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             SetupPersonalUpsertLookupOver(storageAssociations, inputCancellationToken);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyModifyAuditValuesAsync(It.IsAny<Association>(), this.ambientSecurityContext))
-                    .ReturnsAsync((Association entity, SecurityContext _) =>
-                        StampModifyAudit(entity.DeepClone(), readerUserId, currentDateTime));
+                broker.ApplyModifyAuditValuesAsync(
+                    It.Is(SameAssociationBeforeItsModifyStampAs(expectedSavedAssociation)),
+                    this.ambientSecurityContext))
+                        .ReturnsAsync((Association entity, SecurityContext _) =>
+                            StampModifyAudit(entity.DeepClone(), readerUserId, currentDateTime));
 
             this.storageBrokerMock.Setup(broker =>
-                broker.UpdateAssociationAsync(It.IsAny<Association>(), inputCancellationToken))
-                    .ReturnsAsync((Association entity, CancellationToken _) =>
-                    {
-                        savedAssociation = entity.DeepClone();
+                broker.UpdateAssociationAsync(
+                    It.Is(SameAssociationAs(expectedSavedAssociation)),
+                    inputCancellationToken))
+                        .ReturnsAsync((Association entity, CancellationToken _) =>
+                        {
+                            savedAssociation = entity.DeepClone();
 
-                        return entity;
-                    });
+                            return entity;
+                        });
 
             // when
             PersonalAssociationUpsert actualUpsert =
@@ -862,12 +920,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             actualUpsert.Outcome.Should().Be(PersonalAssociationUpsertOutcome.Repointed);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.UpdateAssociationAsync(It.IsAny<Association>(), inputCancellationToken),
-                    Times.Once);
+                broker.UpdateAssociationAsync(
+                    It.Is(SameAssociationAs(expectedSavedAssociation)),
+                    inputCancellationToken),
+                Times.Once);
 
-            this.storageBrokerMock.Verify(broker =>
-                broker.InsertAssociationAsync(It.IsAny<Association>(), It.IsAny<CancellationToken>()),
-                    Times.Never);
+            // the reader's row was found, so nothing was inserted beside it
+            VerifyPersonalUpsertLookupAsked(inputCancellationToken, Times.Once());
+            this.storageBrokerMock.VerifyNoOtherCalls();
         }
 
         [Theory]
@@ -886,15 +946,23 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             List<Association> storageAssociations = CreateRandomAssociations().ToList();
 
+            // the row each act writes: a new one under the minted Id, or the reader's own
+            Guid writtenRowId = Guid.NewGuid();
+
             if (act == PersonalAssociationUpsertOutcome.Repointed)
             {
-                storageAssociations.Add(CreateStoredPersonalRow(upsertRequest, isDeleted: false));
+                Association readersLiveRow = CreateStoredPersonalRow(upsertRequest, isDeleted: false);
+                writtenRowId = readersLiveRow.Id;
+                storageAssociations.Add(readersLiveRow);
             }
 
             if (act == PersonalAssociationUpsertOutcome.Restored)
             {
-                storageAssociations.Add(
-                    CreateStoredPersonalRowOnTheSameReaction(upsertRequest, isDeleted: true));
+                Association readersWithdrawnRow =
+                    CreateStoredPersonalRowOnTheSameReaction(upsertRequest, isDeleted: true);
+
+                writtenRowId = readersWithdrawnRow.Id;
+                storageAssociations.Add(readersWithdrawnRow);
             }
 
             using var cancellationTokenSource = new CancellationTokenSource();
@@ -906,10 +974,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             SetupPersonalUpsertLookupOver(storageAssociations, inputCancellationToken);
 
+            this.identifierBrokerMock.Setup(broker =>
+                broker.GetIdentifierAsync())
+                    .ReturnsAsync(writtenRowId);
+
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyAddAuditValuesAsync(It.IsAny<Association>(), this.ambientSecurityContext))
-                    .ReturnsAsync((Association entity, SecurityContext _) =>
-                        StampAddAudit(entity.DeepClone(), readerUserId, currentDateTime));
+                broker.ApplyAddAuditValuesAsync(
+                    It.Is<Association>(association => association.Id == writtenRowId),
+                    this.ambientSecurityContext))
+                        .ReturnsAsync((Association entity, SecurityContext _) =>
+                            StampAddAudit(entity.DeepClone(), readerUserId, currentDateTime));
 
             // the new row's stamp is checked for recency as the add checks it
             this.dateTimeBrokerMock.Setup(broker =>
@@ -917,16 +991,22 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     .ReturnsAsync(currentDateTime);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyModifyAuditValuesAsync(It.IsAny<Association>(), this.ambientSecurityContext))
-                    .ReturnsAsync((Association entity, SecurityContext _) => entity);
+                broker.ApplyModifyAuditValuesAsync(
+                    It.Is<Association>(association => association.Id == writtenRowId),
+                    this.ambientSecurityContext))
+                        .ReturnsAsync((Association entity, SecurityContext _) => entity);
 
             this.storageBrokerMock.Setup(broker =>
-                broker.InsertAssociationAsync(It.IsAny<Association>(), inputCancellationToken))
-                    .ReturnsAsync((Association entity, CancellationToken _) => entity);
+                broker.InsertAssociationAsync(
+                    It.Is<Association>(association => association.Id == writtenRowId),
+                    inputCancellationToken))
+                        .ReturnsAsync((Association entity, CancellationToken _) => entity);
 
             this.storageBrokerMock.Setup(broker =>
-                broker.UpdateAssociationAsync(It.IsAny<Association>(), inputCancellationToken))
-                    .ReturnsAsync((Association entity, CancellationToken _) => entity);
+                broker.UpdateAssociationAsync(
+                    It.Is<Association>(association => association.Id == writtenRowId),
+                    inputCancellationToken))
+                        .ReturnsAsync((Association entity, CancellationToken _) => entity);
 
             // when
             PersonalAssociationUpsert actualUpsert =
@@ -938,12 +1018,20 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             actualUpsert.Outcome.Should().Be(act);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.InsertAssociationAsync(It.IsAny<Association>(), inputCancellationToken),
-                    act == PersonalAssociationUpsertOutcome.Created ? Times.Once() : Times.Never());
+                broker.InsertAssociationAsync(
+                    It.Is<Association>(association => association.Id == writtenRowId),
+                    inputCancellationToken),
+                act == PersonalAssociationUpsertOutcome.Created ? Times.Once() : Times.Never());
 
             this.storageBrokerMock.Verify(broker =>
-                broker.UpdateAssociationAsync(It.IsAny<Association>(), inputCancellationToken),
-                    act == PersonalAssociationUpsertOutcome.Created ? Times.Never() : Times.Once());
+                broker.UpdateAssociationAsync(
+                    It.Is<Association>(association => association.Id == writtenRowId),
+                    inputCancellationToken),
+                act == PersonalAssociationUpsertOutcome.Created ? Times.Never() : Times.Once());
+
+            // the one write the act makes, and no other
+            VerifyPersonalUpsertLookupAsked(inputCancellationToken, Times.Once());
+            this.storageBrokerMock.VerifyNoOtherCalls();
 
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
@@ -1093,14 +1181,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             using var cancellationTokenSource = new CancellationTokenSource();
             CancellationToken inputCancellationToken = cancellationTokenSource.Token;
 
-            Association upsertRequest =
+            (Association upsertRequest, EventEnvelope<Association> outboundEnvelope) =
                 ArrangePublishingUpsertArm(arm, inputCancellationToken);
 
             EventPublishResult<Association> failedPublishResult = CreateFailedPublishResult();
 
             this.eventBrokerMock.Setup(broker =>
                 broker.PublishAssociationAsync(
-                    It.IsAny<EventEnvelope<Association>>(),
+                    outboundEnvelope,
                     expectedOperation))
                         .ReturnsAsync(failedPublishResult);
 
@@ -1115,7 +1203,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             this.eventBrokerMock.Verify(broker =>
                 broker.PublishAssociationAsync(
-                    It.IsAny<EventEnvelope<Association>>(),
+                    outboundEnvelope,
                     expectedOperation),
                 Times.Once);
 
@@ -1145,19 +1233,23 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             using var cancellationTokenSource = new CancellationTokenSource();
             CancellationToken inputCancellationToken = cancellationTokenSource.Token;
 
-            Association upsertRequest =
+            (Association upsertRequest, EventEnvelope<Association> outboundEnvelope) =
                 ArrangePublishingUpsertArm(arm, inputCancellationToken);
 
             EventPublishResult<Association> failedPublishResult = CreateFailedPublishResult();
 
             this.eventBrokerMock.Setup(broker =>
                 broker.PublishAssociationAsync(
-                    It.IsAny<EventEnvelope<Association>>(),
+                    outboundEnvelope,
                     expectedOperation))
                         .ReturnsAsync(failedPublishResult);
 
             this.loggingBrokerMock.Setup(broker =>
-                broker.LogCriticalAsync(It.IsAny<Xeption>()))
+                broker.LogCriticalAsync(It.Is(
+                    SameExceptionAs(
+                        FailedEventDeliveryException.ForFailedDeliveries(
+                            failedPublishResult,
+                            expectedOperation)))))
                     .ThrowsAsync(sinkException);
 
             // when
@@ -1233,29 +1325,38 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         // A signed-in reader's request that reaches the given arm, with every broker the arm asks
         // answering as it would: the reader's row as the arm needs it, a valid stamp, and storage
         // handing the written row back.
-        private Association ArrangePublishingUpsertArm(string arm, CancellationToken cancellationToken)
+        private (Association, EventEnvelope<Association>) ArrangePublishingUpsertArm(
+            string arm,
+            CancellationToken cancellationToken)
         {
             string readerUserId = GetRandomString();
             DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
             Association upsertRequest = CreatePersonalUpsertRequest(readerUserId);
             List<Association> storageAssociations = CreateRandomAssociations().ToList();
+            Association readersRow = null;
 
             switch (arm)
             {
                 case "Revive":
-                    storageAssociations.Add(
-                        CreateStoredPersonalRowOnTheSameReaction(upsertRequest, isDeleted: true));
-
+                    readersRow = CreateStoredPersonalRowOnTheSameReaction(upsertRequest, isDeleted: true);
                     break;
 
                 case "ReviveAndRepoint":
-                    storageAssociations.Add(CreateStoredPersonalRow(upsertRequest, isDeleted: true));
+                    readersRow = CreateStoredPersonalRow(upsertRequest, isDeleted: true);
                     break;
 
                 case "LiveRepoint":
-                    storageAssociations.Add(CreateStoredPersonalRow(upsertRequest, isDeleted: false));
+                    readersRow = CreateStoredPersonalRow(upsertRequest, isDeleted: false);
                     break;
+            }
+
+            // the row the arm writes: a new one under the minted Id, or the reader's own
+            Guid writtenRowId = readersRow?.Id ?? Guid.NewGuid();
+
+            if (readersRow is not null)
+            {
+                storageAssociations.Add(readersRow);
             }
 
             this.securityAuditBrokerMock.Setup(broker =>
@@ -1266,31 +1367,54 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             this.identifierBrokerMock.Setup(broker =>
                 broker.GetIdentifierAsync())
-                    .ReturnsAsync(Guid.NewGuid());
+                    .ReturnsAsync(writtenRowId);
 
             this.dateTimeBrokerMock.Setup(broker =>
                 broker.GetCurrentDateTimeOffsetAsync())
                     .ReturnsAsync(currentDateTime);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyAddAuditValuesAsync(It.IsAny<Association>(), this.ambientSecurityContext))
-                    .ReturnsAsync((Association entity, SecurityContext _) =>
-                        StampAddAudit(entity.DeepClone(), readerUserId, currentDateTime));
+                broker.ApplyAddAuditValuesAsync(
+                    It.Is<Association>(association => association.Id == writtenRowId),
+                    this.ambientSecurityContext))
+                        .ReturnsAsync((Association entity, SecurityContext _) =>
+                            StampAddAudit(entity.DeepClone(), readerUserId, currentDateTime));
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyModifyAuditValuesAsync(It.IsAny<Association>(), this.ambientSecurityContext))
-                    .ReturnsAsync((Association entity, SecurityContext _) =>
-                        StampModifyAudit(entity.DeepClone(), readerUserId, currentDateTime));
+                broker.ApplyModifyAuditValuesAsync(
+                    It.Is<Association>(association => association.Id == writtenRowId),
+                    this.ambientSecurityContext))
+                        .ReturnsAsync((Association entity, SecurityContext _) =>
+                            StampModifyAudit(entity.DeepClone(), readerUserId, currentDateTime));
 
             this.storageBrokerMock.Setup(broker =>
-                broker.InsertAssociationAsync(It.IsAny<Association>(), cancellationToken))
-                    .ReturnsAsync((Association entity, CancellationToken _) => entity.DeepClone());
+                broker.InsertAssociationAsync(
+                    It.Is<Association>(association => association.Id == writtenRowId),
+                    cancellationToken))
+                        .ReturnsAsync((Association entity, CancellationToken _) => entity.DeepClone());
 
             this.storageBrokerMock.Setup(broker =>
-                broker.UpdateAssociationAsync(It.IsAny<Association>(), cancellationToken))
-                    .ReturnsAsync((Association entity, CancellationToken _) => entity.DeepClone());
+                broker.UpdateAssociationAsync(
+                    It.Is<Association>(association => association.Id == writtenRowId),
+                    cancellationToken))
+                        .ReturnsAsync((Association entity, CancellationToken _) => entity.DeepClone());
 
-            return upsertRequest;
+            // the fact follows the request's own envelope, made for the written row
+            EventEnvelope<Association> inboundEnvelope = SetupInboundEnvelopeFor(upsertRequest);
+
+            var outboundEnvelope = new EventEnvelope<Association>
+            {
+                SecurityContext = inboundEnvelope.SecurityContext,
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateNextAsync(
+                    inboundEnvelope,
+                    It.Is<Association>(association => association.Id == writtenRowId)))
+                        .ReturnsAsync(outboundEnvelope);
+
+            return (upsertRequest, outboundEnvelope);
         }
 
         private static EventPublishResult<Association> CreateFailedPublishResult() =>
@@ -1405,6 +1529,78 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         }
 
         // what the audit broker does with a new row: the caller signed on the envelope, now
+        // the row as expected, field for field
+        private static Expression<Func<Association, bool>> SameAssociationAs(
+            Association expectedAssociation) =>
+            actualAssociation => IsSameAssociation(expectedAssociation, actualAssociation);
+
+        // the row the audit broker is handed: the expected one, save the stamp the broker then
+        // writes onto it
+        private static Expression<Func<Association, bool>> SameAssociationBeforeItsModifyStampAs(
+            Association expectedAssociation) =>
+            actualAssociation => IsSameAssociation(
+                expectedAssociation,
+                actualAssociation,
+                nameof(Association.UpdatedBy),
+                nameof(Association.UpdatedWhen));
+
+        private static Expression<Func<Association, bool>> SameAssociationBeforeItsAddStampAs(
+            Association expectedAssociation) =>
+            actualAssociation => IsSameAssociation(
+                expectedAssociation,
+                actualAssociation,
+                nameof(Association.CreatedBy),
+                nameof(Association.CreatedWhen),
+                nameof(Association.UpdatedBy),
+                nameof(Association.UpdatedWhen));
+
+        private static bool IsSameAssociation(
+            Association expectedAssociation,
+            Association actualAssociation,
+            params string[] membersToIgnore)
+        {
+            var compareLogic = new CompareLogic(
+                new ComparisonConfig { MembersToIgnore = membersToIgnore.ToList() });
+
+            return compareLogic.Compare(expectedAssociation, actualAssociation).AreEqual;
+        }
+
+        // the envelope the upsert mints for this request, so the fact's causation is provable
+        private EventEnvelope<Association> SetupInboundEnvelopeFor(Association request)
+        {
+            var inboundEnvelope = new EventEnvelope<Association>
+            {
+                Content = request,
+                SecurityContext = this.ambientSecurityContext,
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateAsync(request))
+                    .ReturnsAsync(inboundEnvelope);
+
+            return inboundEnvelope;
+        }
+
+        // the envelope that follows the inbound one, carrying the written row as the fact
+        private EventEnvelope<Association> SetupOutboundEnvelopeFor(
+            EventEnvelope<Association> inboundEnvelope,
+            Association writtenAssociation)
+        {
+            var outboundEnvelope = new EventEnvelope<Association>
+            {
+                Content = writtenAssociation,
+                SecurityContext = inboundEnvelope.SecurityContext,
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateNextAsync(inboundEnvelope, writtenAssociation))
+                    .ReturnsAsync(outboundEnvelope);
+
+            return outboundEnvelope;
+        }
+
         private static Association StampAddAudit(
             Association association,
             string userId,
