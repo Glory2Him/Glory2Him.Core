@@ -545,6 +545,17 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 throw await CreateAndLogValidationExceptionAsync(
                     exception: invalidAssociationException);
             }
+            catch (SqlException sqlException)
+            {
+                var failedStorageAssociationException =
+                    new FailedStorageAssociationException(
+                        message: "Failed content item association storage error occurred, contact support.",
+                        innerException: sqlException,
+                        data: sqlException.Data);
+
+                throw await CreateAndLogCriticalDependencyExceptionAsync(
+                    exception: failedStorageAssociationException);
+            }
             // a second first reaction racing the first is refused by UX_Associations_PersonalPair,
             // and reaches the caller as the add's duplicate does (§DOM4.6 rule 2)
             catch (DuplicateKeyWithUniqueIndexException duplicateKeyWithUniqueIndexException)
