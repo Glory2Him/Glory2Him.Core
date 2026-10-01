@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
 using Glory2Him.Core.Models.Foundations.ContentItems;
@@ -154,10 +155,11 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                // NO ENVELOPE, and none is missing. Every other read on this service mints one
-                // to capture the ambient security context its visibility filter runs against.
-                // This read has no branch to run one through: §SEC14.1 is applied to every
-                // caller identically, so a context would be resolved and then ignored.
+                // NO ENVELOPE, and none is missing. The caller-filtered reads on this service mint
+                // one to capture the ambient security context their visibility filter runs
+                // against. This read, like RetrievePublicContentItemGroupsAsync, has no branch to
+                // run one through: §SEC14.1 is applied to every caller identically, so a context
+                // would be resolved and then ignored.
                 DateTimeOffset currentDateTime =
                     await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
 
@@ -169,6 +171,40 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     asOfDateTime: currentDateTime,
                     skip: skip,
                     take: take,
+                    cancellationToken: cancellationToken);
+            });
+
+        public ValueTask<IReadOnlyList<PublicContentItemGroup>> RetrievePublicContentItemGroupsAsync(
+            IReadOnlyList<Guid> contentItemIds,
+            CancellationToken cancellationToken = default) =>
+            TryCatchPublicContentItemGroups(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ValidateOnRetrievePublicContentItemGroups(contentItemIds);
+
+                // NO ENVELOPE, and none is missing - the feed read's reason: §SEC14.1 is applied
+                // to every caller identically, so a context would be resolved and then ignored.
+                DateTimeOffset currentDateTime =
+                    await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
+
+                // THE CONDITION IS AUTHORED HERE (§ARC12.2.1 rule 3): the id match, and §SEC14.1
+                // asked of the VERSION the id names, never of its group. A version that is not
+                // itself canonically visible is absent even where its group has a visible
+                // version, so a draft of a public item reads as an id that names nothing
+                // (§SEC14.5 rules 1 and 3). The answer still names the group, which is where the
+                // summary counts (§ARC16.8).
+                return await this.storageBroker.SelectContentItemsAsync(
+                    query: contentItems => contentItems
+                        .Where(contentItem => contentItemIds.Contains(contentItem.Id)
+                            && contentItem.IsDeleted == false
+                            && contentItem.ApprovalStatus == ApprovalStatus.Approved
+                            && contentItem.IsPublished
+                            && (contentItem.PublishDate == null
+                                || contentItem.PublishDate <= currentDateTime))
+                        .Select(contentItem => new PublicContentItemGroup(
+                            contentItem.Id,
+                            contentItem.GroupId,
+                            contentItem.ContentType)),
                     cancellationToken: cancellationToken);
             });
 
@@ -219,6 +255,13 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     .ThenBy(contentItem => contentItem.Id)
                     .ToList();
             });
+
+        private static void ValidateOnRetrievePublicContentItemGroups(
+            IReadOnlyList<Guid> contentItemIds) =>
+            Validate(
+                message: "Content item is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(contentItemIds), Parameter: nameof(contentItemIds)),
+                (Rule: HasInvalidId(contentItemIds), Parameter: nameof(contentItemIds)));
 
         private static void ValidateOnFindPublishedSiblingContentItem(Guid contentItemId) =>
             Validate(

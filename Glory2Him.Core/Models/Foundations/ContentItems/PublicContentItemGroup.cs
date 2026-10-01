@@ -1,0 +1,28 @@
+﻿// ────────────────────────────────────────────────────────────────────────────────
+// Copyright (c) Glory 2 Him. All rights reserved.
+// Licensed under the Glory 2 Him Software License (G2HSL).
+// See License.txt in the project root for full license information.
+// FREE TO USE TO HELP SHARE THE GOSPEL
+// John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
+//                  No one comes to the Father except through me.’"
+// https://john.bible/john-14-6
+// If Jesus is who He said He is, what does that mean for you, today?
+// ────────────────────────────────────────────────────────────────────────────────
+
+using System;
+using Glory2Him.Core.Models.Enums;
+
+namespace Glory2Him.Core.Models.Foundations.ContentItems
+{
+    /// <summary>
+    /// One supplied content item id that names a canonically visible version (§SEC14.1), with
+    /// that version's group and content type — the answer
+    /// <c>IContentItemService.RetrievePublicContentItemGroupsAsync</c> gives the reaction summary
+    /// read (§ARC16.8). The content type is carried because the summary keys each host's winning
+    /// setting on it.
+    /// </summary>
+    public sealed record PublicContentItemGroup(
+        Guid ContentItemId,
+        Guid GroupId,
+        ContentType ContentType);
+}
