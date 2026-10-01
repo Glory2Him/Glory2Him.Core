@@ -38,6 +38,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             Association readersRow =
                 CreateStoredPersonalRow(lookupRequest, isDeleted: false);
 
+            // a reaction still waiting on review: a condition carrying a status, publish-date
+            // or IsPublished term would miss it, and the lookup runs over the unfiltered store
+            readersRow.ApprovalStatus = ApprovalStatus.Submitted;
+            readersRow.IsPublished = false;
+            readersRow.PublishDate = DateTimeOffset.UtcNow.AddDays(GetRandomNumber());
+
             // the unrelated rows come first, so a lookup that took the first row of the
             // store rather than the reader's would answer one of them
             List<Association> storageAssociations =
