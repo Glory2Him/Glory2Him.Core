@@ -150,6 +150,86 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         }
 
         [Fact]
+        public async Task ShouldLeaveOutAVersionThatIsNotVisibleThoughItsGroupIsAsync()
+        {
+            // given: one group holding its visible version beside one version of each kind that
+            // can sit next to it - soft-deleted, Approved but unpublished, and a draft. Each is
+            // asked for, and none answers: a version is answered only when it is itself
+            // visible, so the draft of a public item reads exactly as an id that names nothing
+            // (§SEC14.5 rules 1 and 3).
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+
+            ContentItem visibleContentItem =
+                CreateCanonicallyVisibleContentItem(randomDateTimeOffset);
+
+            ContentItem deletedContentItem =
+                CreateCanonicallyVisibleContentItem(randomDateTimeOffset);
+
+            deletedContentItem.IsDeleted = true;
+
+            ContentItem unpublishedContentItem =
+                CreateCanonicallyVisibleContentItem(randomDateTimeOffset);
+
+            unpublishedContentItem.IsPublished = false;
+
+            ContentItem draftContentItem = CreateRandomContentItem(randomDateTimeOffset);
+
+            var groupContentItems = new[]
+            {
+                deletedContentItem,
+                unpublishedContentItem,
+                draftContentItem
+            };
+
+            for (int index = 0; index < groupContentItems.Length; index++)
+            {
+                groupContentItems[index].GroupId = visibleContentItem.GroupId;
+                groupContentItems[index].ContentType = visibleContentItem.ContentType;
+                groupContentItems[index].Version = visibleContentItem.Version + index + 1;
+            }
+
+            var storageContentItems = new List<ContentItem>
+            {
+                visibleContentItem,
+                deletedContentItem,
+                unpublishedContentItem,
+                draftContentItem
+            };
+
+            IReadOnlyList<Guid> inputContentItemIds = new[]
+            {
+                deletedContentItem.Id,
+                unpublishedContentItem.Id,
+                draftContentItem.Id,
+                visibleContentItem.Id
+            };
+
+            var expectedPublicContentItemGroups = new[]
+            {
+                new PublicContentItemGroup(
+                    ContentItemId: visibleContentItem.Id,
+                    GroupId: visibleContentItem.GroupId,
+                    ContentType: visibleContentItem.ContentType)
+            };
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            SetupPublicContentItemGroupsStorage(storageContentItems);
+
+            // when
+            IReadOnlyList<PublicContentItemGroup> actualPublicContentItemGroups =
+                await this.contentItemService.RetrievePublicContentItemGroupsAsync(
+                    contentItemIds: inputContentItemIds,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            actualPublicContentItemGroups.Should().BeEquivalentTo(
+                expectedPublicContentItemGroups);
+        }
+
+        [Fact]
         public async Task ShouldLeaveOutAGroupWithNoVisibleVersionAsync()
         {
             // given: four groups, each with one version that satisfies every §SEC14.1 term but
