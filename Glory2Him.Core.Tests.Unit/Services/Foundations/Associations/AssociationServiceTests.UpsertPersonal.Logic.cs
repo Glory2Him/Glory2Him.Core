@@ -42,6 +42,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             Association upsertRequest = CreatePersonalUpsertRequest(readerUserId);
             upsertRequest.ApprovalStatus = callersStatus;
 
+            // the like card sends two endpoints and nothing else, so a real request's Id is empty;
+            // the new row takes the Id the service mints and never the caller's (§2 rule 10)
+            upsertRequest.Id = Guid.Empty;
+            Guid mintedId = Guid.NewGuid();
+
             List<Association> storageAssociations =
                 CreateRandomAssociations()
                     .Concat(CreatePersonalKeyNearMisses(upsertRequest))
@@ -49,6 +54,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             Association expectedInsertedAssociation =
                 StampAddAudit(upsertRequest.DeepClone(), readerUserId, currentDateTime);
+
+            expectedInsertedAssociation.Id = mintedId;
 
             Association insertedAssociation = null;
             Association storedAssociation = null;
@@ -61,6 +68,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     .ReturnsAsync(readerUserId);
 
             SetupPersonalUpsertLookupOver(storageAssociations, inputCancellationToken);
+
+            this.identifierBrokerMock.Setup(broker =>
+                broker.GetIdentifierAsync())
+                    .ReturnsAsync(mintedId);
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyAddAuditValuesAsync(It.IsAny<Association>(), this.ambientSecurityContext))
@@ -83,11 +94,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     upsertRequest,
                     inputCancellationToken);
 
-            // then: the row the caller sent, at the status the caller set, stamped and inserted
+            // then: the row the caller sent, under the minted Id, at the status the caller set,
+            // stamped and inserted; the published fact and the returned row carry the same Id
             insertedAssociation.Should().BeEquivalentTo(expectedInsertedAssociation);
+            insertedAssociation.Id.Should().Be(mintedId);
             insertedAssociation.ApprovalStatus.Should().Be(callersStatus);
             actualUpsert.Outcome.Should().Be(PersonalAssociationUpsertOutcome.Created);
             actualUpsert.Association.Should().BeSameAs(storedAssociation);
+            actualUpsert.Association.Id.Should().Be(mintedId);
 
             this.eventEnvelopeBrokerMock.Verify(broker =>
                 broker.CreateAsync(upsertRequest),
@@ -98,6 +112,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     Times.Once);
 
             VerifyPersonalUpsertLookupAsked(inputCancellationToken, Times.Once());
+
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                    Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
                 broker.ApplyAddAuditValuesAsync(It.IsAny<Association>(), this.ambientSecurityContext),
@@ -117,6 +135,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     AssociationEventOperation.Added),
                 Times.Once);
 
+            this.identifierBrokerMock.VerifyNoOtherCalls();
             this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
