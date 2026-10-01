@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Configurations;
@@ -827,6 +828,14 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 message: "Content item association is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(associationId), Parameter: nameof(Association.Id)));
 
+        private static void ValidateOnRetrieveContentItemReactionCounts(
+            IReadOnlyList<Guid> contentItemGroupIds,
+            IReadOnlyList<Guid> reactionIds) =>
+            Validate(
+                message: "Content item association is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(contentItemGroupIds), Parameter: nameof(contentItemGroupIds)),
+                (Rule: IsInvalid(reactionIds), Parameter: nameof(reactionIds)));
+
         private static void ValidateStorageAssociation(
             Association maybeAssociation,
             Guid associationId)
@@ -851,6 +860,12 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         {
             Condition = id == Guid.Empty,
             Message = "Id is required"
+        };
+
+        private static dynamic IsInvalid(IReadOnlyList<Guid> ids) => new
+        {
+            Condition = ids is null || ids.Contains(Guid.Empty),
+            Message = ids is null ? "List is required" : "Every id is required"
         };
 
         private static dynamic IsInvalid(string text) => new

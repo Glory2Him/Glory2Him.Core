@@ -13,22 +13,33 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Brokers.DateTimes;
+using Glory2Him.Core.Brokers.EventEnvelopes;
+using Glory2Him.Core.Brokers.Events;
+using Glory2Him.Core.Brokers.Identifiers;
+using Glory2Him.Core.Brokers.Integrities;
+using Glory2Him.Core.Brokers.Loggings;
+using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Services.Foundations.Associations;
 using Glory2Him.Core.Tests.Integration.Brokers;
+using Moq;
 using Xunit;
 
 namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
 {
     /// <summary>
     /// Proves the association NARROW READS against a real catalogue: the exact-pair probe, the
-    /// overlap probe and the scope-change duplicate check.
+    /// overlap probe, the scope-change duplicate check and the grouped reaction count.
     ///
-    /// <para>These predicates key on <c>EntityAEffectiveId</c> and <c>EntityBEffectiveId</c>,
-    /// which are PERSISTED COMPUTED columns — the value the read matches on is produced by the
-    /// database, not by the row the test hands it. That alone is a reason these belong here: an
-    /// in-memory queryable would compare a default Guid on both sides and agree with itself.</para>
+    /// <para>The probes and the duplicate check key on <c>EntityAEffectiveId</c> and
+    /// <c>EntityBEffectiveId</c>; the grouped reaction count keys on <c>EntityAEffectiveId</c>
+    /// and <c>EntityBKeyId</c>. Each effective id is a PERSISTED COMPUTED column — the value the
+    /// read matches on is produced by the database, not by the row the test hands it. That alone
+    /// is a reason these belong here: an in-memory queryable would compare a default Guid on both
+    /// sides and agree with itself.</para>
     /// </summary>
     [Collection(NarrowReadIntegrationCollection.Name)]
     public sealed class AssociationNarrowReadTests : IDisposable
@@ -699,6 +710,129 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
             match.Should().BeNull();
         }
 
+        /// <summary>
+        /// §ARC12.2.1 rule 6: the grouped read's shaping function is authored in
+        /// <see cref="AssociationService"/>, so it is driven through the service over the real
+        /// broker. What only the catalogue can say is that the predicate, the GROUP BY on
+        /// (<c>EntityAEffectiveId</c>, <c>EntityBKeyId</c>) and the count in the projection
+        /// translate and run in SQL, over an effective id the database computes, and answer as
+        /// the unit tests' in-memory evaluation does: each host counted on its own, only the
+        /// visible rows, only what was asked for, and no entry for a pair nobody gave.
+        /// </summary>
+        [Fact]
+        public async Task ShouldCountTheReactionsGivenToEachItemInSqlAsync()
+        {
+            // given
+            var currentDateTime = new DateTimeOffset(2026, 9, 30, 12, 0, 0, TimeSpan.Zero);
+            Guid firstContentItemGroupId = Guid.NewGuid();
+            Guid secondContentItemGroupId = Guid.NewGuid();
+            Guid loveReactionId = Guid.NewGuid();
+            Guid joyReactionId = Guid.NewGuid();
+            Guid ungivenReactionId = Guid.NewGuid();
+
+            Association dueNowReaction =
+                CreateGivenReaction(firstContentItemGroupId, loveReactionId);
+
+            dueNowReaction.PublishDate = currentDateTime;
+
+            Association pastReaction =
+                CreateGivenReaction(firstContentItemGroupId, loveReactionId);
+
+            pastReaction.PublishDate = currentDateTime.AddDays(-1);
+
+            Association softDeletedReaction =
+                CreateGivenReaction(firstContentItemGroupId, loveReactionId);
+
+            softDeletedReaction.IsDeleted = true;
+
+            Association submittedReaction =
+                CreateGivenReaction(firstContentItemGroupId, loveReactionId);
+
+            submittedReaction.ApprovalStatus = ApprovalStatus.Submitted;
+
+            Association futureReaction =
+                CreateGivenReaction(firstContentItemGroupId, loveReactionId);
+
+            futureReaction.PublishDate = currentDateTime.AddDays(1);
+
+            Association reactionOnAHostThatIsNotAContentItem =
+                CreateGivenReaction(firstContentItemGroupId, loveReactionId);
+
+            reactionOnAHostThatIsNotAContentItem.EntityAType = EntityType.Comment;
+            reactionOnAHostThatIsNotAContentItem.EntityAContentType = null;
+
+            Association farEndThatIsNotAReaction =
+                CreateGivenReaction(firstContentItemGroupId, loveReactionId);
+
+            farEndThatIsNotAReaction.EntityBType = EntityType.Tag;
+
+            // pinned to another version of the first host: its group id is the one asked for, but
+            // the effective id the database computes is that version's key id
+            Association reactionOnAnotherVersionOfTheHost =
+                CreateGivenReactionOnOneVersion(Guid.NewGuid(), loveReactionId);
+
+            reactionOnAnotherVersionOfTheHost.EntityAGroupId = firstContentItemGroupId;
+
+            await SeedAsync(
+                CreateGivenReactionOnOneVersion(firstContentItemGroupId, loveReactionId),
+                dueNowReaction,
+                pastReaction,
+                CreateGivenReaction(firstContentItemGroupId, joyReactionId),
+                CreateGivenReaction(secondContentItemGroupId, loveReactionId),
+                softDeletedReaction,
+                submittedReaction,
+                futureReaction,
+                CreateGivenReaction(Guid.NewGuid(), loveReactionId),
+                reactionOnAHostThatIsNotAContentItem,
+                CreateGivenReaction(firstContentItemGroupId, Guid.NewGuid()),
+                farEndThatIsNotAReaction,
+                reactionOnAnotherVersionOfTheHost);
+
+            IAssociationService associationService =
+                CreateAssociationServiceAt(currentDateTime);
+
+            var expectedAssociationPairCounts = new List<AssociationPairCount>
+            {
+                new AssociationPairCount
+                {
+                    EntityAEffectiveId = firstContentItemGroupId,
+                    EntityBKeyId = loveReactionId,
+                    Count = 3
+                },
+                new AssociationPairCount
+                {
+                    EntityAEffectiveId = firstContentItemGroupId,
+                    EntityBKeyId = joyReactionId,
+                    Count = 1
+                },
+                new AssociationPairCount
+                {
+                    EntityAEffectiveId = secondContentItemGroupId,
+                    EntityBKeyId = loveReactionId,
+                    Count = 1
+                }
+            };
+
+            // when
+            IReadOnlyList<AssociationPairCount> actualAssociationPairCounts =
+                await associationService.RetrieveContentItemReactionCountsAsync(
+                    contentItemGroupIds: new List<Guid>
+                    {
+                        firstContentItemGroupId,
+                        secondContentItemGroupId
+                    },
+                    reactionIds: new List<Guid>
+                    {
+                        loveReactionId,
+                        joyReactionId,
+                        ungivenReactionId
+                    },
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            actualAssociationPairCounts.Should().BeEquivalentTo(expectedAssociationPairCounts);
+        }
+
         // AllVersions on both endpoints unless a test narrows one, so each EFFECTIVE id the
         // database computes is that endpoint's group id — which is what the reads above are keyed
         // on. entityBType is a parameter because the B-endpoint tests need a VERSIONED endpoint
@@ -735,6 +869,77 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
                 DeletedBy = null,
                 DeletedWhen = null,
             };
+        }
+
+        // A reader's live, Approved reaction on a content item with no publish date: a row every
+        // term of the count admits. Every id column holds its own value, so a read keyed on the
+        // wrong column misses the row. The host is AllVersions with a key id unlike its group id,
+        // so the effective id the database computes is the group id. The far end is AllVersions
+        // with a group id unlike its key id, so its effective id and group id both differ from the
+        // key id the count asks for. A far-end reaction is derived ThisVersionOnly in production;
+        // it is not here only so that the three columns differ.
+        private static Association CreateGivenReaction(Guid contentItemGroupId, Guid reactionId)
+        {
+            string readerUserId = Guid.NewGuid().ToString();
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+
+            return new Association
+            {
+                Id = Guid.NewGuid(),
+                EntityAType = EntityType.ContentItem,
+                EntityAContentType = ContentType.Testimony,
+                EntityAGroupId = contentItemGroupId,
+                EntityAKeyId = Guid.NewGuid(),
+                EntityAScope = Scope.AllVersions,
+                EntityBType = EntityType.Reaction,
+                EntityBGroupId = Guid.NewGuid(),
+                EntityBKeyId = reactionId,
+                EntityBScope = Scope.AllVersions,
+                UserId = readerUserId,
+                ApprovalStatus = ApprovalStatus.Approved,
+                PublishDate = null,
+                CreatedBy = readerUserId,
+                CreatedWhen = now,
+                UpdatedBy = readerUserId,
+                UpdatedWhen = now,
+                DeletedBy = null,
+                DeletedWhen = null,
+            };
+        }
+
+        // The same row with its host pinned to one version: ThisVersionOnly, so the effective id
+        // the database computes is the version's key id and the group id is another value.
+        private static Association CreateGivenReactionOnOneVersion(
+            Guid contentItemEffectiveId,
+            Guid reactionId)
+        {
+            Association reaction = CreateGivenReaction(Guid.NewGuid(), reactionId);
+            reaction.EntityAKeyId = contentItemEffectiveId;
+            reaction.EntityAScope = Scope.ThisVersionOnly;
+
+            return reaction;
+        }
+
+        // The real service over this fixture's real broker. Only the clock is pinned; this read
+        // mints no envelope and reaches no other broker.
+        private IAssociationService CreateAssociationServiceAt(DateTimeOffset currentDateTime)
+        {
+            var dateTimeBrokerMock = new Mock<IDateTimeBroker>();
+
+            dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(currentDateTime);
+
+            return new AssociationService(
+                storageBroker: this.broker.StorageBroker,
+                dateTimeBroker: dateTimeBrokerMock.Object,
+                identifierBroker: new Mock<IIdentifierBroker>().Object,
+                eventBroker: new Mock<IEventBroker>().Object,
+                eventEnvelopeBroker: new Mock<IEventEnvelopeBroker>().Object,
+                securityAuditBroker: new Mock<ISecurityAuditBroker>().Object,
+                accessBroker: new Mock<IAccessBroker>().Object,
+                envelopeIntegrityBroker: new Mock<IEnvelopeIntegrityBroker>().Object,
+                loggingBroker: new Mock<ILoggingBroker>().Object);
         }
 
         private async Task SeedAsync(params Association[] associations)

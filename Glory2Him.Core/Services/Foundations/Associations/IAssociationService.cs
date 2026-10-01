@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -30,6 +31,16 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
         ValueTask<Association> RetrieveAssociationByIdAsync(
             Guid associationId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// How many readers gave each asked-for reaction to each asked-for content item, counted
+        /// in SQL over the rows §SEC14.3 rules 1, 2 and 5 admit (§ARC16.8). Caller-independent:
+        /// it mints no envelope, and every caller receives the same counts.
+        /// </summary>
+        ValueTask<IReadOnlyList<AssociationPairCount>> RetrieveContentItemReactionCountsAsync(
+            IReadOnlyList<Guid> contentItemGroupIds,
+            IReadOnlyList<Guid> reactionIds,
             CancellationToken cancellationToken = default);
 
         /// <summary>
