@@ -80,4 +80,15 @@ describe('useSignInReturn', () => {
         // then
         expect(landedOn(result.current.location)).toBe('/');
     });
+
+    it('should send the reader to the home page when the return address is a full address', () => {
+        // given
+        const { result } = renderSignInReturn();
+
+        // when
+        act(() => result.current.signInReturn(`${window.location.origin}/posts`));
+
+        // then
+        expect(landedOn(result.current.location)).toBe('/');
+    });
 });
