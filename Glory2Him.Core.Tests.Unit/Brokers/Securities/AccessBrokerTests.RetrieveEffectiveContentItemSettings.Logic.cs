@@ -357,6 +357,47 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                 because: "two keys naming the same item answer that item once");
         }
 
+        [Fact]
+        public async Task ShouldAnswerAnItemFromEachTypeItIsAskedUnderAsync()
+        {
+            // given: one item asked about under two types, each of which resolves a default. The
+            // answer is the winning row per KEY (the user story, §1 rule 1), and choosing between
+            // the two types would be a decision the broker does not make (§1 rule 5).
+            Guid contentItemId = Guid.NewGuid();
+
+            ContentItemSetting testimonyDefault =
+                CreateContentItemSetting(ContentType.Testimony, contentItemId: null);
+
+            ContentItemSetting devotionalDefault =
+                CreateContentItemSetting(ContentType.Devotional, contentItemId: null);
+
+            SetupContentItemSettings(testimonyDefault, devotionalDefault);
+
+            var contentItemSettingKeys = new List<ContentItemSettingKey>
+            {
+                CreateContentItemSettingKey(ContentType.Testimony, contentItemId),
+                CreateContentItemSettingKey(ContentType.Devotional, contentItemId),
+            };
+
+            var expectedEffectiveContentItemSettings = new List<EffectiveContentItemSetting>
+            {
+                CreateEffectiveContentItemSetting(contentItemId, testimonyDefault),
+                CreateEffectiveContentItemSetting(contentItemId, devotionalDefault),
+            };
+
+            // when
+            IReadOnlyList<EffectiveContentItemSetting> actualEffectiveContentItemSettings =
+                await this.accessBroker.RetrieveEffectiveContentItemSettingsAsync(
+                    contentItemSettingKeys: contentItemSettingKeys,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            actualEffectiveContentItemSettings.Should().BeEquivalentTo(
+                expectedEffectiveContentItemSettings,
+                because: "two keys naming one item under two types are two keys, each answered "
+                    + "from its own type");
+        }
+
         // The function is the one argument matched with It.IsAny, because a function cannot be
         // matched by value. It is proven by applying it instead. The token is matched exactly,
         // so a read that dropped the caller's token answers nothing.
