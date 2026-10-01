@@ -17,6 +17,7 @@ using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.Associations.Exceptions;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
@@ -250,6 +251,98 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.securityAuditBrokerMock.Verify(broker =>
                 broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Never);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(It.IsAny<Association>()),
+                Times.Never);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldBlockRemovingAnEditorialRowWhenTheCallerIsReadOnlyOnRemovingAssociationByIdEventAndLogItAsync()
+        {
+            // given: the signed caller created the editorial row, so the owner test admits them
+            // and the veto is the only refusal. The ambient caller holds no read-only role, so
+            // only the inbound envelope's caller explains it (§6 rule 1)
+            string actorUserId = GetRandomString();
+            Association storageAssociation = CreateRandomAssociation();
+            storageAssociation.IsDeleted = false;
+            storageAssociation.UserId = null;
+            storageAssociation.CreatedBy = actorUserId;
+
+            var requestEnvelope = new EventEnvelope<Association>
+            {
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.ReadOnly),
+                Content = new Association { Id = storageAssociation.Id },
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            var unauthorizedAssociationException = new UnauthorizedAssociationException(
+                message: "The current user is blocked from contributing content item associations.");
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: unauthorizedAssociationException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectProcessedEventExistsAsync(
+                    requestEnvelope.Metadata.EventId,
+                    EventBrokerIdentifiers.AssociationOnRemovingAssociationByIdSubscriptionName,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(false);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAssociationByIdAsync(
+                    storageAssociation.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageAssociation);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(requestEnvelope.SecurityContext))
+                    .ReturnsAsync(actorUserId);
+
+            // when
+            ValueTask<EventEnvelope<Association>?> onRemovingTask =
+                this.associationService.OnRemovingAssociationByIdAsync(
+                    requestEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(
+                    onRemovingTask.AsTask);
+
+            // then
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectProcessedEventExistsAsync(
+                    requestEnvelope.Metadata.EventId,
+                    EventBrokerIdentifiers.AssociationOnRemovingAssociationByIdSubscriptionName,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAssociationByIdAsync(
+                    storageAssociation.Id,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(requestEnvelope.SecurityContext),
+                Times.Once);
 
             this.eventEnvelopeBrokerMock.Verify(broker =>
                 broker.CreateAsync(It.IsAny<Association>()),
