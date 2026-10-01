@@ -481,6 +481,10 @@ namespace Glory2Him.Core.Brokers.Securities
         /// over in memory. An item that resolves no row is absent from the answer, and what that
         /// absence means is its caller's to say.</para>
         ///
+        /// <para>One query is one statement, and SQL Server takes at most 2,100 parameters in one.
+        /// Each distinct key adds three, so a call asks fewer than 700 keys; past that the storage
+        /// call fails rather than answering. Its callers ask 25 or fewer.</para>
+        ///
         /// <para>Settings, not a verdict — the one departure from this broker's charter, declared
         /// in §ARC16.2.1. Which switch matters is the caller's question, and this decides
         /// nothing further.</para>
