@@ -97,9 +97,11 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         /// <summary>
         /// Finds the signed caller's own row for <paramref name="association"/>'s host and far-end
         /// type — live or withdrawn — through the personal key <c>UX_Associations_PersonalPair</c>
-        /// keys on (§DOM4.6 rule 2), or <c>null</c> where there is none. A lookup naming any other
-        /// <c>UserId</c> answers <c>null</c> as well, before storage is asked: a denied read
-        /// answers not found. It is a read, so it asks no read-only role. Returns a non-leaking
+        /// keys on (§DOM4.6 rule 2), or <c>null</c> where there is none. An anonymous caller, and a
+        /// lookup naming any other <c>UserId</c>, are answered <c>null</c> as well, before storage
+        /// is asked: a denied read answers not found. It is a read, so it asks no read-only role.
+        /// The host is matched on its effective id — the group under <c>AllVersions</c>, the
+        /// version under <c>ThisVersionOnly</c> — whatever the row's status. Returns a non-leaking
         /// <see cref="PersonalAssociationMatch"/> — id, reaction key id and withdrawn — and never
         /// the row (<c>Backend/Foundations/AssociationService.md §1</c>).
         /// </summary>
