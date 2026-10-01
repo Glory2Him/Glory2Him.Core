@@ -209,7 +209,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             this.eventBrokerMock.Setup(broker =>
                 broker.PublishAssociationAsync(
-                    It.IsAny<EventEnvelope<Association>>(),
+                    It.Is<EventEnvelope<Association>>(envelope =>
+                        envelope.Content == removedAssociation
+                            && envelope.SecurityContext == requestEnvelope.SecurityContext),
                     AssociationEventOperation.Removed))
                         .Callback((EventEnvelope<Association> envelope, AssociationEventOperation _) =>
                             publishedEnvelope = envelope)
@@ -271,7 +273,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             this.eventBrokerMock.Verify(broker =>
                 broker.PublishAssociationAsync(
-                    It.IsAny<EventEnvelope<Association>>(),
+                    It.Is<EventEnvelope<Association>>(envelope =>
+                        envelope.Content == removedAssociation
+                            && envelope.SecurityContext == requestEnvelope.SecurityContext),
                     AssociationEventOperation.Removed),
                 Times.Once);
 
