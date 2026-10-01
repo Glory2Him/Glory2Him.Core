@@ -35,7 +35,18 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 EventEnvelope<Association> envelope =
                     await this.eventEnvelopeBroker.CreateAsync(content: association);
 
-                ValidateUserIsAuthenticated(envelope.SecurityContext);
+                // an anonymous caller owns no row, and is answered as a reader asking for another
+                // reader's row is: a denied read answers not found
+                if (envelope.SecurityContext is null
+                    || envelope.SecurityContext.IsAuthenticated is false)
+                {
+                    await this.loggingBroker.LogWarningAsync(
+                        message: "Personal content item association lookup denied. The caller " +
+                            "is not authenticated; reported to the caller as not found.");
+
+                    return null;
+                }
+
                 ValidateOnFindPersonalAssociation(association);
 
                 string callerUserId =
