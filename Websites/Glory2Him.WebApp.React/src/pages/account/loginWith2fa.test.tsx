@@ -141,4 +141,19 @@ describe('LoginWith2fa', () => {
         // then
         expect(landedOn()).toBe('/');
     });
+
+    it('should send a reader signed in by a second factor to the home page when the return address is not local', () => {
+        for (const returnUrl of refusedReturnUrls) {
+            // given
+            answerCode(false);
+            const { unmount } = renderLoginWith2fa(loginWith2faWithReturnUrl(returnUrl));
+
+            // when
+            enterAuthenticatorCode();
+
+            // then
+            expect(landedOn()).toBe('/');
+            unmount();
+        }
+    });
 });
