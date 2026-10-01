@@ -546,6 +546,60 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldChangeNothingWhenTheReaderGivesTheReactionTheyHoldAsync()
+        {
+            // given: the reader already holds Love, and gives Love
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            Association upsertRequest = CreatePersonalUpsertRequest(readerUserId);
+
+            Association readersLiveRow =
+                CreateStoredPersonalRowOnTheSameReaction(upsertRequest, isDeleted: false);
+
+            List<Association> storageAssociations =
+                CreateRandomAssociations().Append(readersLiveRow).ToList();
+
+            Association expectedAssociation = readersLiveRow.DeepClone();
+
+            using var cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken inputCancellationToken = cancellationTokenSource.Token;
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(readerUserId);
+
+            SetupPersonalUpsertLookupOver(storageAssociations, inputCancellationToken);
+
+            // when
+            PersonalAssociationUpsert actualUpsert =
+                await this.associationService.UpsertPersonalAssociationAsync(
+                    upsertRequest,
+                    inputCancellationToken);
+
+            // then: the row as it stands, untouched, and nothing written or announced
+            actualUpsert.Outcome.Should().Be(PersonalAssociationUpsertOutcome.Unchanged);
+            actualUpsert.Association.Should().BeSameAs(readersLiveRow);
+            actualUpsert.Association.Should().BeEquivalentTo(expectedAssociation);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(upsertRequest),
+                    Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                    Times.Once);
+
+            VerifyPersonalUpsertLookupAsked(inputCancellationToken, Times.Once());
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // A reader's reaction on a Quote as the orchestration hands it over (§ARC16.8.1): the host on
         // endpoint A under AllVersions, with a group id that differs from its key id, and the
         // reaction on B, a non-versioned endpoint, so ThisVersionOnly with its group its key.
