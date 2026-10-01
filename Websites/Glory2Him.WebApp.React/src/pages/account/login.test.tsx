@@ -126,4 +126,16 @@ describe('Login', () => {
         // then
         expect(landedOn()).toBe(loginWithReturnUrl('/posts'));
     });
+
+    it('should send a reader signed in by password to the home page when there is no return address', () => {
+        // given
+        acceptSignIn(false);
+        renderLogin('/Account/Login');
+
+        // when
+        signInWithPassword();
+
+        // then
+        expect(landedOn()).toBe('/');
+    });
 });
