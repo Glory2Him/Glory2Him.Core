@@ -600,6 +600,67 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task ShouldNeverReviveARowAModeratorTookDownAsync(bool isTheSameReaction)
+        {
+            // given: the reader's row was withdrawn by somebody else — a takedown (§DOM4.10 rule 7).
+            // Giving the same reaction would be a revive, and another would be a revive and a
+            // repoint; neither is written.
+            string readerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            Association upsertRequest = CreatePersonalUpsertRequest(readerUserId);
+
+            Association takenDownRow = isTheSameReaction
+                ? CreateStoredPersonalRowOnTheSameReaction(upsertRequest, isDeleted: true)
+                : CreateStoredPersonalRow(upsertRequest, isDeleted: true);
+
+            takenDownRow.DeletedBy = $"moderator-{Guid.NewGuid()}";
+
+            List<Association> storageAssociations =
+                CreateRandomAssociations().Append(takenDownRow).ToList();
+
+            Association expectedAssociation = takenDownRow.DeepClone();
+
+            using var cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken inputCancellationToken = cancellationTokenSource.Token;
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(readerUserId);
+
+            SetupPersonalUpsertLookupOver(storageAssociations, inputCancellationToken);
+
+            // when
+            PersonalAssociationUpsert actualUpsert =
+                await this.associationService.UpsertPersonalAssociationAsync(
+                    upsertRequest,
+                    inputCancellationToken);
+
+            // then: still taken down, and nothing written or announced
+            actualUpsert.Outcome.Should().Be(PersonalAssociationUpsertOutcome.TakenDown);
+            actualUpsert.Association.Should().BeSameAs(takenDownRow);
+            actualUpsert.Association.Should().BeEquivalentTo(expectedAssociation);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(upsertRequest),
+                    Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                    Times.Once);
+
+            VerifyPersonalUpsertLookupAsked(inputCancellationToken, Times.Once());
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // A reader's reaction on a Quote as the orchestration hands it over (§ARC16.8.1): the host on
         // endpoint A under AllVersions, with a group id that differs from its key id, and the
         // reaction on B, a non-versioned endpoint, so ThisVersionOnly with its group its key.
