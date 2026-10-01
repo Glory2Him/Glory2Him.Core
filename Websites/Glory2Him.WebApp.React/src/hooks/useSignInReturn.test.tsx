@@ -114,4 +114,16 @@ describe('useSignInReturn', () => {
             unmount();
         }
     });
+
+    it('should send the reader to the home page when the return address cannot be resolved', () => {
+        // given
+        const { result } = renderSignInReturn();
+
+        // when
+        const sendOn = () => act(() => result.current.signInReturn('//['));
+
+        // then
+        expect(sendOn).not.toThrow();
+        expect(landedOn(result.current.location)).toBe('/');
+    });
 });
