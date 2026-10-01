@@ -60,30 +60,73 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                                 .Take(1),
                     cancellationToken: cancellationToken);
 
-            Association auditedAssociation =
-                await this.securityAuditBroker.ApplyAddAuditValuesAsync(
-                    entity: association,
+            Association? readersRow = readersRows.FirstOrDefault();
+
+            if (readersRow is null)
+            {
+                Association auditedAssociation =
+                    await this.securityAuditBroker.ApplyAddAuditValuesAsync(
+                        entity: association,
+                        securityContext: inboundEnvelope.SecurityContext);
+
+                Association addedAssociation =
+                    await this.storageBroker.InsertAssociationAsync(
+                        auditedAssociation,
+                        cancellationToken);
+
+                await PublishPersonalUpsertFactAsync(
+                    inboundEnvelope: inboundEnvelope,
+                    association: addedAssociation,
+                    operation: AssociationEventOperation.Added);
+
+                return new PersonalAssociationUpsert
+                {
+                    Outcome = PersonalAssociationUpsertOutcome.Created,
+                    Association = addedAssociation
+                };
+            }
+
+            readersRow.IsDeleted = false;
+            readersRow.DeletedBy = null;
+            readersRow.DeletedWhen = null;
+
+            Association auditedRow =
+                await this.securityAuditBroker.ApplyModifyAuditValuesAsync(
+                    entity: readersRow,
                     securityContext: inboundEnvelope.SecurityContext);
 
-            Association addedAssociation =
-                await this.storageBroker.InsertAssociationAsync(
-                    auditedAssociation,
+            Association updatedRow =
+                await this.storageBroker.UpdateAssociationAsync(
+                    auditedRow,
                     cancellationToken);
 
-            EventEnvelope<Association> outboundEnvelope =
-                await this.eventEnvelopeBroker.CreateNextAsync(
-                    sourceEnvelope: inboundEnvelope,
-                    content: addedAssociation);
-
-            await this.eventBroker.PublishAssociationAsync(
-                envelope: outboundEnvelope,
-                operation: AssociationEventOperation.Added);
+            await PublishPersonalUpsertFactAsync(
+                inboundEnvelope: inboundEnvelope,
+                association: updatedRow,
+                operation: AssociationEventOperation.Restored);
 
             return new PersonalAssociationUpsert
             {
-                Outcome = PersonalAssociationUpsertOutcome.Created,
-                Association = addedAssociation
+                Outcome = PersonalAssociationUpsertOutcome.Restored,
+                Association = updatedRow
             };
+        }
+
+        // the facts are published as the add publishes its own, with the written row as their
+        // content (§ARC16.2.2)
+        private async ValueTask PublishPersonalUpsertFactAsync(
+            EventEnvelope<Association> inboundEnvelope,
+            Association association,
+            AssociationEventOperation operation)
+        {
+            EventEnvelope<Association> outboundEnvelope =
+                await this.eventEnvelopeBroker.CreateNextAsync(
+                    sourceEnvelope: inboundEnvelope,
+                    content: association);
+
+            await this.eventBroker.PublishAssociationAsync(
+                envelope: outboundEnvelope,
+                operation: operation);
         }
     }
 }
