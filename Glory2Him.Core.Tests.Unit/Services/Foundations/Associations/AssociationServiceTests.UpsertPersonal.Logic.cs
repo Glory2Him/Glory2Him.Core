@@ -233,6 +233,107 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldReviveAndRepointTheReadersWithdrawnRowAsync()
+        {
+            // given: the reader withdrew Love and now gives Moved. There is no second row to insert
+            // (§DOM4.10 rule 6), so their withdrawn row comes back pointing at Moved, and that is a
+            // change, not a revive of the same pair.
+            string readerUserId = GetRandomString();
+            DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            Association upsertRequest = CreatePersonalUpsertRequest(readerUserId);
+
+            Association readersWithdrawnRow =
+                CreateStoredPersonalRow(upsertRequest, isDeleted: true);
+
+            readersWithdrawnRow.ApprovalStatus = ApprovalStatus.Approved;
+
+            List<Association> storageAssociations =
+                CreateRandomAssociations().Append(readersWithdrawnRow).ToList();
+
+            Association expectedSavedAssociation = readersWithdrawnRow.DeepClone();
+            expectedSavedAssociation.IsDeleted = false;
+            expectedSavedAssociation.DeletedBy = null;
+            expectedSavedAssociation.DeletedWhen = null;
+            expectedSavedAssociation.EntityBKeyId = upsertRequest.EntityBKeyId;
+            expectedSavedAssociation.EntityBGroupId = upsertRequest.EntityBGroupId;
+            StampModifyAudit(expectedSavedAssociation, readerUserId, currentDateTime);
+
+            Association savedAssociation = null;
+            Association updatedAssociation = null;
+
+            using var cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken inputCancellationToken = cancellationTokenSource.Token;
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext))
+                    .ReturnsAsync(readerUserId);
+
+            SetupPersonalUpsertLookupOver(storageAssociations, inputCancellationToken);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(It.IsAny<Association>(), this.ambientSecurityContext))
+                    .ReturnsAsync((Association entity, SecurityContext _) =>
+                        StampModifyAudit(entity.DeepClone(), readerUserId, currentDateTime));
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateAssociationAsync(It.IsAny<Association>(), inputCancellationToken))
+                    .ReturnsAsync((Association entity, CancellationToken _) =>
+                    {
+                        savedAssociation = entity.DeepClone();
+                        updatedAssociation = entity.DeepClone();
+
+                        return updatedAssociation;
+                    });
+
+            // when
+            PersonalAssociationUpsert actualUpsert =
+                await this.associationService.UpsertPersonalAssociationAsync(
+                    upsertRequest,
+                    inputCancellationToken);
+
+            // then: one write, live again and pointing at the reaction the reader gave
+            savedAssociation.Should().BeEquivalentTo(expectedSavedAssociation);
+            actualUpsert.Outcome.Should().Be(PersonalAssociationUpsertOutcome.Repointed);
+            actualUpsert.Association.Should().BeSameAs(updatedAssociation);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(upsertRequest),
+                    Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(this.ambientSecurityContext),
+                    Times.Once);
+
+            VerifyPersonalUpsertLookupAsked(inputCancellationToken, Times.Once());
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyModifyAuditValuesAsync(It.IsAny<Association>(), this.ambientSecurityContext),
+                    Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateAssociationAsync(It.IsAny<Association>(), inputCancellationToken),
+                    Times.Once);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateNextAsync(It.IsAny<EventEnvelope<Association>>(), updatedAssociation),
+                    Times.Once);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishAssociationAsync(
+                    It.Is(SameOutboundEnvelopeAs(updatedAssociation)),
+                    AssociationEventOperation.Repointed),
+                Times.Once);
+
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         // A reader's reaction on a Quote as the orchestration hands it over (§ARC16.8.1): the host on
         // endpoint A under AllVersions, with a group id that differs from its key id, and the
         // reaction on B, a non-versioned endpoint, so ThisVersionOnly with its group its key.
