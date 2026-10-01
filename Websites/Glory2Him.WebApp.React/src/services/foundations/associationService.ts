@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import AssociationBroker from '../../brokers/apiBroker.associations';
 import { AssociationRequest } from '../../models/foundations/associations/associationRequest';
 import { AssociationSuggestionResult } from '../../models/foundations/associations/associationSuggestionResult';
@@ -6,10 +6,15 @@ import { AssociationSuggestionResult } from '../../models/foundations/associatio
 export const associationService = {
     useUpsertAssociation: () => {
         const associationBroker = new AssociationBroker();
+        const queryClient = useQueryClient();
 
         return useMutation<AssociationSuggestionResult, unknown, AssociationRequest>({
             mutationFn: async (association: AssociationRequest) =>
-                await associationBroker.PostAssociationAsync(association)
+                await associationBroker.PostAssociationAsync(association),
+
+            onSuccess: () => {
+                queryClient.invalidateQueries({ queryKey: ['ReactionSummaries'] });
+            }
         });
     }
 };
