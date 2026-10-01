@@ -48,4 +48,18 @@ describe('useSignInReturn', () => {
             unmount();
         }
     });
+
+    it('should send the reader to the home page when there is no return address', () => {
+        for (const returnUrl of [null, undefined]) {
+            // given
+            const { result, unmount } = renderSignInReturn();
+
+            // when
+            act(() => result.current.signInReturn(returnUrl));
+
+            // then
+            expect(landedOn(result.current.location)).toBe('/');
+            unmount();
+        }
+    });
 });
