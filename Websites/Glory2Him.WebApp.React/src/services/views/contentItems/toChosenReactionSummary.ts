@@ -31,9 +31,12 @@ export const toChosenReactionSummary = (
     const rankOf = (label: string | undefined): number =>
         options.findIndex((option) => option.label === label);
 
-    const addedAt = movedSummary
-        .filter((reactionCount) => rankOf(reactionCount.label) < rankOf(chosenReactionLabel))
-        .length;
+    const isRankedBeforeChosen = (label: string): boolean =>
+        rankOf(label) >= 0 && rankOf(label) < rankOf(chosenReactionLabel);
+
+    const addedAt = movedSummary.reduce(
+        (place, reactionCount, index) => isRankedBeforeChosen(reactionCount.label) ? index + 1 : place,
+        0);
 
     return [
         ...movedSummary.slice(0, addedAt),
