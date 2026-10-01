@@ -4,6 +4,12 @@ import { AssociationRequest } from '../../models/foundations/associations/associ
 import { AssociationSuggestionResult } from '../../models/foundations/associations/associationSuggestionResult';
 
 export const associationService = {
+    // Gives or changes a reader's reaction. No suppressGlobalErrorToast: a failed reaction is
+    // announced as every failed write is.
+    //
+    // The summaries are read again ON SETTLE, not on success: a write that failed may still have
+    // landed, so the card is answered by the server either way. Matched by the ReactionSummaries
+    // PREFIX, since each summary read is keyed on the page of ids it asked for.
     useUpsertAssociation: () => {
         const associationBroker = new AssociationBroker();
         const queryClient = useQueryClient();
