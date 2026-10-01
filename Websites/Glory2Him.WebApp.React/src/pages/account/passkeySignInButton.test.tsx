@@ -72,4 +72,19 @@ describe('PasskeySignInButton', () => {
         // then
         expect(landedOn()).toBe('/posts?q=grace#comments');
     });
+
+    it('should send a reader signed in by passkey on unchanged to every local return address', () => {
+        for (const returnUrl of acceptedReturnUrls) {
+            // given
+            acceptPasskey();
+            const { unmount } = renderPasskeySignInButton(returnUrl);
+
+            // when
+            signInWithPasskey();
+
+            // then
+            expect(landedOn()).toBe(returnUrl);
+            unmount();
+        }
+    });
 });
