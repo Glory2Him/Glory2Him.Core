@@ -174,6 +174,12 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 default:
                     // Attachment has no foundation service yet, and an association endpoint
                     // pointing at another association is not a supported shape.
+                    //
+                    // THE FACET GATE HAS NO ATTACHMENT ARM because of this refusal: no pair
+                    // reaches AttachmentsAllowed while an Attachment endpoint does not resolve.
+                    // The change that first resolves one here must add that arm to
+                    // FindFacetSwitch, and its test, first, or attachments would pass the gate
+                    // unasked (§ARC16.2.1's table; AssociationOrchestrationService.md §1 rule 2).
                     throw new InvalidAssociationOrchestrationException(
                         message: $"Entity type {entityType} is not supported as an association endpoint.");
             }
