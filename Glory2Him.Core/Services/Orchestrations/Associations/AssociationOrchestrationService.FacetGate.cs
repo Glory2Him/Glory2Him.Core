@@ -239,17 +239,24 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 Message = "Value does not allow this association"
             };
 
-        // The narrowing (§ARC16.2.1): an item limited to Love admits a reaction by its Name. It
-        // narrows the reaction switch alone, so no other far end is asked it.
+        // The narrowing (§ARC16.2.1): an item limited to Love admits a reaction by its Name, trimmed
+        // and compared without case. It narrows the reaction switch alone, so no other far end is
+        // asked it.
         private static dynamic IsNotLoveOnALoveOnlyItem(
             ContentItemSetting winningSetting,
             FacetQuestion facetQuestion) => new
             {
                 Condition = facetQuestion.FacetSwitch.IsNarrowedToLove
                     && winningSetting.LimitReactionsToLoveOnly
-                    && facetQuestion.FarEndReactionName != LoveReactionName,
+                    && IsLove(facetQuestion.FarEndReactionName) is false,
 
                 Message = "Value allows only the Love reaction"
             };
+
+        private static bool IsLove(string? reactionName) =>
+            string.Equals(
+                reactionName?.Trim(),
+                LoveReactionName,
+                StringComparison.OrdinalIgnoreCase);
     }
 }
