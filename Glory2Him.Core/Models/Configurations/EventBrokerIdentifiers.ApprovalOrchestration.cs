@@ -216,5 +216,14 @@ namespace Glory2Him.Core.Models.Configurations
 
         public const string ApprovalOrchestrationOnAssociationModifiedSubscriptionName =
             "ApprovalOrchestrationService.OnAssociationModified";
+
+        // A reader's changed reaction, which goes back through approval as a modification
+        // (§ARC16.2.2). Association-Restored has no subscription, deliberately: a revive to the
+        // same reaction changes no content and keeps the status it was withdrawn at.
+        public static readonly Guid ApprovalOrchestrationOnAssociationRepointedSubscriptionId =
+            new Guid("01a0e17c-3a0f-7742-b50d-df70ca55b2fd");
+
+        public const string ApprovalOrchestrationOnAssociationRepointedSubscriptionName =
+            "ApprovalOrchestrationService.OnAssociationRepointed";
     }
 }
