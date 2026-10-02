@@ -1,3 +1,4 @@
+import { AxiosError, AxiosHeaders } from 'axios';
 import { MemoryRouter } from 'react-router-dom';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -51,5 +52,29 @@ describe('DeletePersonalData', () => {
         // then
         expect(mocks.replace).toHaveBeenCalledOnce();
         expect(mocks.replace).toHaveBeenCalledWith('/');
+    });
+
+    it('should stay on the page and show the message when the deletion fails', () => {
+        // given
+        const failure = new AxiosError('Request failed', 'ERR_BAD_REQUEST', undefined, undefined, {
+            status: 400,
+            statusText: 'Bad Request',
+            headers: {},
+            config: { headers: new AxiosHeaders() },
+            data: { message: 'Error: Incorrect password.' }
+        });
+
+        mocks.deletePersonalDataMutate.mockImplementation(
+            (_password: string, callbacks: DeletePersonalDataCallbacks) => callbacks.onError(failure));
+
+        renderDeletePersonalData();
+
+        // when
+        submitDeletion();
+
+        // then
+        expect(mocks.replace).not.toHaveBeenCalled();
+        expect(screen.getByRole('heading', { name: 'Delete Personal Data' })).toBeTruthy();
+        expect(screen.getByText('Error: Incorrect password.')).toBeTruthy();
     });
 });
