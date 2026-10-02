@@ -77,6 +77,12 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             List<FacetQuestion> facetQuestions =
                 CreateFacetQuestions(association, resolvedEntityA, resolvedEntityB);
 
+            // a pair with no ContentItem host, or whose far end maps no switch, asks nothing
+            if (facetQuestions.Count is 0)
+            {
+                return;
+            }
+
             IReadOnlyList<EffectiveContentItemSetting> effectiveSettings =
                 await this.accessBroker.RetrieveEffectiveContentItemSettingsAsync(
                     facetQuestions
