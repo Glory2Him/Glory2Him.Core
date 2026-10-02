@@ -6,6 +6,20 @@ import { CurrentUser } from '../../models/accounts/currentUser';
 const signedInReaderOf = (currentUser: CurrentUser | undefined): string | undefined =>
     currentUser?.isAuthenticated ? currentUser.userId : undefined;
 
+// Hiding the root alone lets through any element a stylesheet marks `visibility: visible`, as the
+// theme's own rules do, some with `!important`. Nothing inside the root escapes its opacity.
+const hidePage = (): void => {
+    const rootStyle = document.documentElement.style;
+    rootStyle.visibility = 'hidden';
+    rootStyle.setProperty('opacity', '0', 'important');
+};
+
+const showPage = (): void => {
+    const rootStyle = document.documentElement.style;
+    rootStyle.removeProperty('visibility');
+    rootStyle.removeProperty('opacity');
+};
+
 export const RestoredPageGuard = (): ReactElement => {
     const { data: currentUser, refetch } = accountService.useGetCurrentUser();
     const currentUserReference = useRef(currentUser);
@@ -25,7 +39,7 @@ export const RestoredPageGuard = (): ReactElement => {
                 return;
             }
 
-            document.documentElement.style.visibility = 'hidden';
+            hidePage();
 
             if (!onlineManager.isOnline()) {
                 window.location.reload();
@@ -39,7 +53,7 @@ export const RestoredPageGuard = (): ReactElement => {
             if (!freshRead.isError
                 && cachedReader !== undefined
                 && signedInReaderOf(freshRead.data) === cachedReader) {
-                document.documentElement.style.removeProperty('visibility');
+                showPage();
             } else {
                 window.location.reload();
             }
