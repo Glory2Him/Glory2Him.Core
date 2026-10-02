@@ -20,6 +20,7 @@ using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Orchestrations.Approvals.Exceptions;
 using Glory2Him.Core.Models.Securities;
 using Moq;
 
@@ -111,6 +112,147 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             actualReply.Should().BeNull();
         }
 
+        [Fact]
+        public async Task ShouldRefuseATamperedRepointedEnvelopeAsync()
+        {
+            // given: an Association-Repointed envelope whose signature does not verify. The
+            // change's time is read off the fact's content, and a caller who could put a time
+            // there would choose which reviews a changed reaction dismisses, so an unverifiable
+            // envelope is refused before any round is read (§APR9.7.4, §SEC14.6 rule 4).
+            //
+            // Everything downstream is armed as if the fact were genuine — a round decided before
+            // the change, and an old pair's review standing — so an ear that acted before
+            // verifying would return the round and dismiss the review.
+            var entityId = Guid.NewGuid();
+            var approvalId = Guid.NewGuid();
+            DateTimeOffset changedWhen = RepointedChangeTime;
+
+            Approval storageApproval = CreateFlowApproval(
+                approvalId: approvalId,
+                entityId: entityId,
+                entityType: EntityType.Association,
+                approvalStatus: ApprovalStatus.Approved);
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Approved, approvalId));
+            SetupFlowApprovalRow(storageApproval);
+            SetupConditions(CreateFlowConditions(areConditionsMet: true, shouldAutoApprove: true));
+
+            SetupRepointedReviews(
+                approvalId,
+                CreateRepointedReview(Guid.NewGuid(), createdWhen: changedWhen.AddDays(-1)));
+
+            SetupSubstrateFailingVerification();
+
+            var expectedInvalidException =
+                new InvalidApprovalOrchestrationException(
+                    message: "Approval event is invalid. Integrity verification failed.");
+
+            // when
+            ValueTask<EventEnvelope<Association>> repointedTask =
+                this.approvalOrchestrationService.OnAssociationRepointedAsync(
+                    envelope: CreateRepointedEnvelope(
+                        CreateRepointedAssociation(entityId, changedWhen)),
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            InvalidApprovalOrchestrationException actualException =
+                await Assert.ThrowsAsync<InvalidApprovalOrchestrationException>(
+                    repointedTask.AsTask);
+
+            // then: refused, after asking only whether the signature holds
+            actualException.Should().BeEquivalentTo(expectedInvalidException);
+
+            this.envelopeIntegrityBrokerMock.Verify(broker =>
+                broker.VerifyAsync(
+                    It.IsAny<EventEnvelope<It.IsAnyType>>(),
+                    "AssociationRepointed",
+                    EnvelopeDirection.Request),
+                Times.Once);
+
+            // no round was read, so nothing was returned, dismissed, evaluated or announced
+            this.approvalServiceMock.Verify(service =>
+                service.FindApprovalByEntityAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
+            this.approvalServiceMock.VerifyNoOtherCalls();
+            this.approvalReviewServiceMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldDropARepointedFactCarryingTheSystemIdentityAsync()
+        {
+            // given: a genuine Association-Repointed fact that carries the SYSTEM identity — one
+            // this service's own work caused. Every entity fact this service hears describes
+            // something a person did, and re-entering the flow on the workflow's own write is a
+            // loop rather than a reaction, so every ear drops it once it has verified it.
+            //
+            // Armed as on a reader's change — a round decided before the change, an old pair's
+            // review standing — so an ear that did not drop it would return and dismiss.
+            var entityId = Guid.NewGuid();
+            var approvalId = Guid.NewGuid();
+            DateTimeOffset changedWhen = RepointedChangeTime;
+
+            Approval storageApproval = CreateFlowApproval(
+                approvalId: approvalId,
+                entityId: entityId,
+                entityType: EntityType.Association,
+                approvalStatus: ApprovalStatus.Approved);
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Approved, approvalId));
+            SetupFlowApprovalRow(storageApproval);
+            SetupConditions(CreateFlowConditions(areConditionsMet: true, shouldAutoApprove: true));
+
+            SetupRepointedReviews(
+                approvalId,
+                CreateRepointedReview(Guid.NewGuid(), createdWhen: changedWhen.AddDays(-1)));
+
+            var systemContext = new SecurityContext
+            {
+                SubjectId = SystemIdentity.UserId,
+                IsAuthenticated = true,
+                IsSystemIdentity = true,
+            };
+
+            // when
+            EventEnvelope<Association> actualReply =
+                await this.approvalOrchestrationService.OnAssociationRepointedAsync(
+                    envelope: CreateRepointedEnvelope(
+                        CreateRepointedAssociation(entityId, changedWhen),
+                        securityContext: systemContext),
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            // then: verified first — the flag is believed only on a verified envelope — and then
+            // dropped, with nothing replied
+            actualReply.Should().BeNull();
+
+            this.envelopeIntegrityBrokerMock.Verify(broker =>
+                broker.VerifyAsync(
+                    It.IsAny<EventEnvelope<It.IsAnyType>>(),
+                    "AssociationRepointed",
+                    EnvelopeDirection.Request),
+                Times.Once);
+
+            // no round was read, so nothing was returned, dismissed, evaluated or announced
+            this.approvalServiceMock.Verify(service =>
+                service.FindApprovalByEntityAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.approvalServiceMock.VerifyNoOtherCalls();
+            this.approvalReviewServiceMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+        }
+
         // The change's own moment, pinned rather than drawn. Every review and every round in these
         // tests is placed against it, and a drawn time can land in year 0001, where subtracting
         // from it throws.
@@ -130,11 +272,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 CreatedWhen = changedWhen.AddDays(-1),
             };
 
-        private static EventEnvelope<Association> CreateRepointedEnvelope(Association content) =>
+        // The reader's own context unless a test says otherwise.
+        private static EventEnvelope<Association> CreateRepointedEnvelope(
+            Association content,
+            SecurityContext securityContext = null) =>
             new EventEnvelope<Association>
             {
                 Content = content,
-                SecurityContext = CreateRepointedReaderContext(),
+                SecurityContext = securityContext ?? CreateRepointedReaderContext(),
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() },
             };
 
