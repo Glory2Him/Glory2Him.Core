@@ -47,4 +47,14 @@ describe('UserMenuComponent logout', () => {
         expect(replace).toHaveBeenCalledOnce();
         expect(replace).toHaveBeenCalledWith('/');
     });
+
+    it("should stay on the page when the user menu's logout fails", async () => {
+        logoutThat('fails');
+        renderUnderSignedInReader();
+
+        await userEvent.click(screen.getByRole('button', { name: /logout/i }));
+
+        expect(replace).not.toHaveBeenCalled();
+        expect(screen.getByRole('button', { name: /logout/i })).toBeInTheDocument();
+    });
 });
