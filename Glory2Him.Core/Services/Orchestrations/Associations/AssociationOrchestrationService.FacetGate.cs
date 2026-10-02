@@ -38,28 +38,38 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         }
 
         // One question the gate asks of a pair, in one orientation: the ContentItem host's
-        // winning setting, keyed on the host's key id and derived content type, and the switch
-        // the far end's type names on it.
+        // winning setting, keyed on the host's key id and derived content type, the switch the
+        // far end's type names on it, and the far end's reaction name for the narrowing.
         private readonly struct FacetQuestion
         {
-            public FacetQuestion(ContentItemSettingKey settingKey, FacetSwitch facetSwitch)
+            public FacetQuestion(
+                ContentItemSettingKey settingKey,
+                FacetSwitch facetSwitch,
+                string? farEndReactionName)
             {
                 SettingKey = settingKey;
                 FacetSwitch = facetSwitch;
+                FarEndReactionName = farEndReactionName;
             }
 
             public ContentItemSettingKey SettingKey { get; }
             public FacetSwitch FacetSwitch { get; }
+            public string? FarEndReactionName { get; }
         }
+
+        private const string LoveReactionName = "Love";
 
         // THE §DOM6.10 FACET GATE (§ARC16.2.1; AssociationOrchestrationService.md §1 rule 2). In
         // each orientation the host names the settings entity and the far end names the switch
         // asked of it, and every question is answered by one read of the winning settings.
         private async ValueTask ValidateSettingsAllowTheFacetAsync(
             Association association,
+            ResolvedEndpoint resolvedEntityA,
+            ResolvedEndpoint resolvedEntityB,
             CancellationToken cancellationToken)
         {
-            List<FacetQuestion> facetQuestions = CreateFacetQuestions(association);
+            List<FacetQuestion> facetQuestions =
+                CreateFacetQuestions(association, resolvedEntityA, resolvedEntityB);
 
             IReadOnlyList<EffectiveContentItemSetting> effectiveSettings =
                 await this.accessBroker.RetrieveEffectiveContentItemSettingsAsync(
@@ -72,13 +82,16 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             {
                 ContentItemSetting winningSetting = effectiveSettings.Single().ContentItemSetting;
 
-                ValidateSettingAllowsTheFacet(winningSetting, facetQuestion.FacetSwitch);
+                ValidateSettingAllowsTheFacet(winningSetting, facetQuestion);
             }
         }
 
         // Both orientations are asked, because the flow never reorders the pair: canonical order is
         // the foundation's to restore (§DOM4.4 rule 4), so the item may be either endpoint.
-        private static List<FacetQuestion> CreateFacetQuestions(Association association)
+        private static List<FacetQuestion> CreateFacetQuestions(
+            Association association,
+            ResolvedEndpoint resolvedEntityA,
+            ResolvedEndpoint resolvedEntityB)
         {
             var facetQuestions = new List<FacetQuestion>();
 
@@ -87,14 +100,16 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 hostType: association.EntityAType,
                 hostKeyId: association.EntityAKeyId,
                 hostContentType: association.EntityAContentType,
-                farEndType: association.EntityBType);
+                farEndType: association.EntityBType,
+                farEndReactionName: resolvedEntityB.ReactionName);
 
             AddFacetQuestion(
                 facetQuestions,
                 hostType: association.EntityBType,
                 hostKeyId: association.EntityBKeyId,
                 hostContentType: association.EntityBContentType,
-                farEndType: association.EntityAType);
+                farEndType: association.EntityAType,
+                farEndReactionName: resolvedEntityA.ReactionName);
 
             return facetQuestions;
         }
@@ -108,7 +123,8 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             EntityType hostType,
             Guid hostKeyId,
             ContentType? hostContentType,
-            EntityType farEndType)
+            EntityType farEndType,
+            string? farEndReactionName)
         {
             FacetSwitch? facetSwitch = FindFacetSwitch(farEndType);
 
@@ -123,7 +139,8 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                     ContentType = hostContentType!.Value,
                     ContentItemId = hostKeyId,
                 },
-                facetSwitch: facetSwitch.Value));
+                facetSwitch: facetSwitch.Value,
+                farEndReactionName: farEndReactionName));
         }
 
         // §ARC16.2.1's table: the switch each far end's type names on a ContentItem host. There is
@@ -162,10 +179,15 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         // the name discloses a policy on a row they can see.
         private static void ValidateSettingAllowsTheFacet(
             ContentItemSetting winningSetting,
-            FacetSwitch facetSwitch) =>
+            FacetQuestion facetQuestion) =>
             Validate(
                 message: "Content item association is invalid, fix the errors and try again.",
-                (Rule: IsNotAllowedBy(winningSetting, facetSwitch), Parameter: facetSwitch.Name));
+
+                (Rule: IsNotAllowedBy(winningSetting, facetQuestion.FacetSwitch),
+                    Parameter: facetQuestion.FacetSwitch.Name),
+
+                (Rule: IsNotLoveOnALoveOnlyItem(winningSetting, facetQuestion.FarEndReactionName),
+                    Parameter: nameof(ContentItemSetting.LimitReactionsToLoveOnly)));
 
         private static dynamic IsNotAllowedBy(
             ContentItemSetting winningSetting,
@@ -173,6 +195,17 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             {
                 Condition = facetSwitch.IsAllowed(winningSetting) is false,
                 Message = "Value does not allow this association"
+            };
+
+        // The narrowing (§ARC16.2.1): an item limited to Love admits a reaction by its Name.
+        private static dynamic IsNotLoveOnALoveOnlyItem(
+            ContentItemSetting winningSetting,
+            string? reactionName) => new
+            {
+                Condition = winningSetting.LimitReactionsToLoveOnly
+                    && reactionName != LoveReactionName,
+
+                Message = "Value allows only the Love reaction"
             };
     }
 }

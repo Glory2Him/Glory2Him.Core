@@ -256,12 +256,16 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             // group id and content type onto the row, overwriting anything the caller supplied —
             // the content type is an authorization input and a caller-set scope could claim
             // AllVersions on an entity with no group (§7.4, §5). A non-existent or non-visible
-            // endpoint surfaces here as not-found.
+            // endpoint surfaces here as not-found. Each resolution is kept for the facet gate.
+            ResolvedEndpoint resolvedEntityA = default;
+            ResolvedEndpoint resolvedEntityB = default;
+
             await ResolveEndpointAsync(
                 association.EntityAType,
                 association.EntityAKeyId,
                 onResolved: resolved =>
                 {
+                    resolvedEntityA = resolved;
                     association.EntityAGroupId = resolved.GroupId;
                     association.EntityAContentType = resolved.ContentType;
                     association.EntityAScope = resolved.Scope;
@@ -275,6 +279,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 association.EntityBKeyId,
                 onResolved: resolved =>
                 {
+                    resolvedEntityB = resolved;
                     association.EntityBGroupId = resolved.GroupId;
                     association.EntityBContentType = resolved.ContentType;
                     association.EntityBScope = resolved.Scope;
@@ -301,7 +306,11 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             // THE FACET GATE (§ARC16.2.1), last in the flow: after both endpoints resolve and the
             // UserId is derived, and before the method path's pair probe and the event path's
             // claims check, so a refused pair reaches no row through either door.
-            await ValidateSettingsAllowTheFacetAsync(association, cancellationToken);
+            await ValidateSettingsAllowTheFacetAsync(
+                association,
+                resolvedEntityA,
+                resolvedEntityB,
+                cancellationToken);
         }
     }
 }

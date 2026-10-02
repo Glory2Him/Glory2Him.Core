@@ -19,6 +19,7 @@ using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.Links;
+using Glory2Him.Core.Models.Foundations.Reactions;
 using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
 using Xeptions;
 
@@ -30,19 +31,26 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
         // (only a ContentItem has one — it is the authorization input of §5), and the scope its
         // publication model implies. A versioned entity (ContentItem, Link, ...) defaults to
         // AllVersions and keys on its group; a non-versioned one keys on its own id under
-        // ThisVersionOnly.
+        // ThisVersionOnly. A Reaction also carries its Name, which only the facet gate reads: an
+        // item limited to Love admits a reaction by its name (§ARC16.2.1).
         private readonly struct ResolvedEndpoint
         {
-            public ResolvedEndpoint(Guid groupId, ContentType? contentType, Scope scope)
+            public ResolvedEndpoint(
+                Guid groupId,
+                ContentType? contentType,
+                Scope scope,
+                string? reactionName)
             {
                 GroupId = groupId;
                 ContentType = contentType;
                 Scope = scope;
+                ReactionName = reactionName;
             }
 
             public Guid GroupId { get; }
             public ContentType? ContentType { get; }
             public Scope Scope { get; }
+            public string? ReactionName { get; }
         }
 
         // The ADD's resolver: it is handed raw key ids and reads each endpoint to DERIVE the
@@ -134,12 +142,17 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                     return DeriveEndpoint(entityType, keyId, versionedEndpoint: null, contentType: null);
 
                 case EntityType.Reaction:
-                    _ = readEnvelope is null
+                    Reaction reaction = readEnvelope is null
                         ? await this.reactionService.RetrieveReactionByIdAsync(keyId, cancellationToken)
                         : await this.reactionService.RetrieveReactionByIdAsync(
                             keyId, readEnvelope, cancellationToken);
 
-                    return DeriveEndpoint(entityType, keyId, versionedEndpoint: null, contentType: null);
+                    return DeriveEndpoint(
+                        entityType,
+                        keyId,
+                        versionedEndpoint: null,
+                        contentType: null,
+                        reactionName: reaction.Name);
 
                 case EntityType.BibleReference:
                     _ = readEnvelope is null
@@ -176,14 +189,16 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             EntityType entityType,
             Guid keyId,
             IVersion? versionedEndpoint,
-            ContentType? contentType)
+            ContentType? contentType,
+            string? reactionName = null)
         {
             bool isVersioned = EntityTypeVersioning.IsVersioned(entityType);
 
             return new ResolvedEndpoint(
                 groupId: isVersioned ? versionedEndpoint!.GroupId : keyId,
                 contentType: contentType,
-                scope: EntityTypeVersioning.DefaultScopeFor(entityType));
+                scope: EntityTypeVersioning.DefaultScopeFor(entityType),
+                reactionName: reactionName);
         }
 
         // A missing/non-visible endpoint arrives as the entity's own *ValidationException (which
