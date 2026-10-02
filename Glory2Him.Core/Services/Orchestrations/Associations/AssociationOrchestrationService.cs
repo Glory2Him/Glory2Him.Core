@@ -297,6 +297,11 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             // per-user reactions, whose replace-on-react flow (thread 4) derives it from the caller
             // and does not exist yet; until then every suggestion is editorial and carries no user.
             association.UserId = null;
+
+            // THE FACET GATE (§ARC16.2.1), last in the flow: after both endpoints resolve and the
+            // UserId is derived, and before the method path's pair probe and the event path's
+            // claims check, so a refused pair reaches no row through either door.
+            await ValidateSettingsAllowTheFacetAsync(association, cancellationToken);
         }
     }
 }
